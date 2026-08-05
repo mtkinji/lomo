@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowLeft, RotateCcw } from 'lucide-react-native';
+import { ArrowLeft, RotateCcw, Volume2, VolumeX } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from '@/src/capabilities/games/navigation/gamesRouter';
@@ -9,16 +9,20 @@ import { KwiltGamesLockup } from '@/src/capabilities/games/ui/KwiltGamesLockup';
 import { KeyboardSafeScrollView } from '@/src/capabilities/games/ui/KeyboardSafeScrollView';
 import { backToGames } from '@/src/capabilities/games/navigation/backToGames';
 
-export function ConnectionGameFrame({ title, promise, children, onRestart, playing = false, compactPlayChrome = false, showHeading = true, gameHeader = false, gameMark }: { title: string; promise: string; children: ReactNode; onRestart?: () => void; playing?: boolean; compactPlayChrome?: boolean; showHeading?: boolean; gameHeader?: boolean; gameMark?: string }) {
+export function ConnectionGameFrame({ title, promise, children, onRestart, soundEnabled, onToggleSound, playing = false, compactPlayChrome = false, showHeading = true, gameHeader = false, gameMark }: { title: string; promise: string; children: ReactNode; onRestart?: () => void; soundEnabled?: boolean; onToggleSound?: () => void; playing?: boolean; compactPlayChrome?: boolean; showHeading?: boolean; gameHeader?: boolean; gameMark?: string }) {
   const { width, height } = useWindowDimensions();
   const presenting = playing && width > height;
   const compact = presenting || compactPlayChrome;
   return <GameBackdrop>
-    <SafeAreaView style={[styles.safe, compact ? styles.safePresenting : null]}>
+    <SafeAreaView accessibilityViewIsModal style={[styles.safe, compact ? styles.safePresenting : null]}>
       <View style={[styles.topbar, compact ? styles.topbarPresenting : null]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Back to games" onPress={() => backToGames(router)} style={styles.iconButton}><ArrowLeft size={22} color={gamesTheme.colors.ink} /></Pressable>
-        {compact || gameHeader ? <View accessible accessibilityRole="header" accessibilityLabel={`${title} game`} style={styles.gameTitleLockup}>{gameMark ? <Text style={styles.gameMark}>{gameMark}</Text> : null}<Text style={styles.presentingTitle}>{title}</Text></View> : <KwiltGamesLockup compact />}
-        {onRestart ? <Pressable accessibilityRole="button" accessibilityLabel={`Restart ${title}`} onPress={onRestart} style={styles.iconButton}><RotateCcw size={20} color={gamesTheme.colors.ink} /></Pressable> : <View style={styles.iconButton} />}
+        <View pointerEvents="none" style={styles.centerTitle}>{compact || gameHeader ? <View accessible accessibilityRole="header" accessibilityLabel={`${title} game`} style={styles.gameTitleLockup}>{gameMark ? <Text style={styles.gameMark}>{gameMark}</Text> : null}<Text style={styles.presentingTitle}>{title}</Text></View> : <KwiltGamesLockup compact />}</View>
+        <View style={styles.topActions}>
+          {onToggleSound && soundEnabled != null ? <Pressable accessibilityRole="button" accessibilityLabel={soundEnabled ? 'Turn sound off' : 'Turn sound on'} onPress={onToggleSound} style={styles.iconButton}>{soundEnabled ? <Volume2 size={20} color={gamesTheme.colors.ink} /> : <VolumeX size={20} color={gamesTheme.colors.ink} />}</Pressable> : null}
+          {onRestart ? <Pressable accessibilityRole="button" accessibilityLabel={`Restart ${title}`} onPress={onRestart} style={styles.iconButton}><RotateCcw size={20} color={gamesTheme.colors.ink} /></Pressable> : null}
+          {!onRestart && !onToggleSound ? <View style={styles.iconButton} /> : null}
+        </View>
       </View>
       {!compact && showHeading ? <View style={styles.heading}><Text style={styles.title}>{title}</Text><Text style={styles.promise}>{promise}</Text></View> : null}
       <KeyboardSafeScrollView style={styles.scroll} contentContainerStyle={[styles.content, compact ? styles.contentPresenting : null]}>{children}</KeyboardSafeScrollView>
@@ -52,12 +56,14 @@ export const connectionStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: 16, paddingBottom: 14 },
   safePresenting: { paddingHorizontal: 10, paddingBottom: 8 },
-  topbar: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topbar: { position: 'relative', minHeight: 54, flexDirection: 'row', alignItems: 'center' },
   topbarPresenting: { minHeight: 44 },
   presentingTitle: { fontFamily: gamesTheme.type.display, color: gamesTheme.colors.ink, fontSize: 18 },
+  centerTitle: { position: 'absolute', left: 52, right: 52, alignItems: 'center', justifyContent: 'center' },
   gameTitleLockup: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   gameMark: { fontFamily: gamesTheme.type.utility, color: gamesTheme.colors.ink, fontSize: 14 },
   iconButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  topActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center' },
   heading: { paddingHorizontal: 4, paddingTop: 8, paddingBottom: 12 },
   title: { fontFamily: gamesTheme.type.display, color: gamesTheme.colors.ink, fontSize: 30, letterSpacing: -1 },
   promise: { marginTop: 2, fontFamily: gamesTheme.type.body, color: 'rgba(32,29,24,0.56)', fontSize: 13 },

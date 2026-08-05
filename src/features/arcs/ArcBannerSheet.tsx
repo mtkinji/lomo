@@ -11,12 +11,13 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BottomDrawer } from '../../ui/BottomDrawer';
+import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Heading, Input, KeyboardAwareScrollView } from '../../ui/primitives';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
+import { Input } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
-import { colors, fonts, spacing, typography, type ScrimToken } from '../../theme';
+import { colors, floatingControl, fonts, spacing, typography, type ScrimToken } from '../../theme';
 import { ARC_HERO_LIBRARY, type ArcHeroImage } from './arcHeroLibrary';
 import {
   ARC_MOSAIC_COLS,
@@ -130,9 +131,10 @@ export function ArcBannerSheet({
   const imageSearchObjectKind = objectKind ?? 'arc';
 
   const availableSourceTabs = sourceTabs.length > 0 ? sourceTabs : DEFAULT_SOURCE_TABS;
-  const defaultTab: HeroImageSourceTab = canUseUnsplash && availableSourceTabs.includes(DEFAULT_SOURCE_TAB)
-    ? DEFAULT_SOURCE_TAB
-    : availableSourceTabs[0] ?? 'curated';
+  const defaultTab: HeroImageSourceTab =
+    canUseUnsplash && availableSourceTabs.includes(DEFAULT_SOURCE_TAB)
+      ? DEFAULT_SOURCE_TAB
+      : (availableSourceTabs[0] ?? 'curated');
   const [sourceTab, setSourceTab] = useState<HeroImageSourceTab>(defaultTab);
   const [unsplashQuery, setUnsplashQuery] = useState('');
   const [unsplashLoading, setUnsplashLoading] = useState(false);
@@ -140,7 +142,10 @@ export function ArcBannerSheet({
   const [unsplashResults, setUnsplashResults] = useState<UnsplashPhoto[]>([]);
   const [gridWidth, setGridWidth] = useState(0);
   const hasAutoSearchedRef = useRef(false);
-  const latestSearchRef = useRef<{ queryHash: string; source: 'auto' | 'manual' | 'fallback' } | null>(null);
+  const latestSearchRef = useRef<{
+    queryHash: string;
+    source: 'auto' | 'manual' | 'fallback';
+  } | null>(null);
   const { capture } = useAnalytics();
 
   const performUnsplashSearch = useCallback(
@@ -187,7 +192,7 @@ export function ArcBannerSheet({
             setUnsplashError(
               __DEV__
                 ? 'Image library search is not configured. Set `UNSPLASH_ACCESS_KEY` and ensure `extra.unsplashAccessKey` is provided in `app.config.ts`.'
-                : 'Image library search is not available right now.'
+                : 'Image library search is not available right now.',
             );
             return;
           }
@@ -195,7 +200,7 @@ export function ArcBannerSheet({
             setUnsplashError(
               __DEV__
                 ? `Image library request failed (${err.status ?? 'unknown'}). ${err.message}`
-                : 'Unable to load image library results right now.'
+                : 'Unable to load image library results right now.',
             );
             return;
           }
@@ -214,7 +219,7 @@ export function ArcBannerSheet({
         setUnsplashLoading(false);
       }
     },
-    [arcName, canUseUnsplash, capture, objectLabel, unsplashQuery]
+    [arcName, canUseUnsplash, capture, objectLabel, unsplashQuery],
   );
 
   useEffect(() => {
@@ -258,7 +263,16 @@ export function ArcBannerSheet({
         cancelled = true;
       };
     }
-  }, [arcGoalTitles, arcName, arcNarrative, canUseUnsplash, defaultTab, imageSearchObjectKind, performUnsplashSearch, visible]);
+  }, [
+    arcGoalTitles,
+    arcName,
+    arcNarrative,
+    canUseUnsplash,
+    defaultTab,
+    imageSearchObjectKind,
+    performUnsplashSearch,
+    visible,
+  ]);
 
   const masonryColumnWidth = useMemo(() => {
     if (gridWidth <= 0) return 0;
@@ -274,8 +288,7 @@ export function ArcBannerSheet({
     }
 
     const estimateHeight = (photo: UnsplashPhoto) => {
-      const ratio =
-        photo.width && photo.height && photo.width > 0 ? photo.height / photo.width : 0.66;
+      const ratio = photo.width && photo.height && photo.width > 0 ? photo.height / photo.width : 0.66;
       const raw = masonryColumnWidth * ratio;
       // Keep the grid feeling consistent; avoid extreme slivers.
       return Math.max(88, Math.min(raw, 420));
@@ -328,11 +341,14 @@ export function ArcBannerSheet({
     return { left, right };
   }, [masonryColumnWidth]);
 
-  const handleGridLayout = useCallback((width: number) => {
-    if (Number.isFinite(width) && width > 0 && width !== gridWidth) {
-      setGridWidth(width);
-    }
-  }, [gridWidth]);
+  const handleGridLayout = useCallback(
+    (width: number) => {
+      if (Number.isFinite(width) && width > 0 && width !== gridWidth) {
+        setGridWidth(width);
+      }
+    },
+    [gridWidth],
+  );
 
   const handleSearchUnsplash = useCallback(() => {
     void performUnsplashSearch(undefined, 'manual');
@@ -349,7 +365,7 @@ export function ArcBannerSheet({
       });
       onSelectUnsplash(photo);
     },
-    [capture, objectLabel, onSelectUnsplash, unsplashResults]
+    [capture, objectLabel, onSelectUnsplash, unsplashResults],
   );
 
   const handleRemove = useCallback(() => {
@@ -370,345 +386,260 @@ export function ArcBannerSheet({
       visible={visible}
       onClose={onClose}
       snapPoints={['100%']}
+      keyboardBehavior="extend"
       presentation={presentation}
       hideBackdrop={hideBackdrop}
       scrimToken={scrimToken}
     >
       <View style={styles.heroModalContainer}>
         <View style={styles.modalContent}>
-          <Heading style={[styles.modalTitle, { marginBottom: spacing.md }]}>
-            {title ?? `${objectLabel} Banner`}
-          </Heading>
-          {availableSourceTabs.length > 1 ? (
-            <SegmentedControl<HeroImageSourceTab>
-              value={sourceTab}
-              onChange={(next) => {
-                if (next === 'unsplash' && !canUseUnsplash) {
-                  onRequestUpgrade?.();
-                  setSourceTab(availableSourceTabs[0] ?? 'curated');
-                  return;
-                }
-                setSourceTab(next);
-              }}
-              options={availableSourceTabs.map((value) => ({
-                value,
-                label: value === 'curated'
-                  ? 'Curated'
-                  : value === 'unsplash'
-                    ? (canUseUnsplash ? 'Search' : 'Search · Pro')
-                    : 'Upload',
-              }))}
-              style={styles.heroModalSourceTabs}
-            />
-          ) : null}
+          <BottomDrawerHeader
+            title={title ?? `${objectLabel} Banner`}
+            titleVariant="lg"
+          />
+            {availableSourceTabs.length > 1 ? (
+              <SegmentedControl<HeroImageSourceTab>
+                value={sourceTab}
+                onChange={(next) => {
+                  if (next === 'unsplash' && !canUseUnsplash) {
+                    onRequestUpgrade?.();
+                    setSourceTab(availableSourceTabs[0] ?? 'curated');
+                    return;
+                  }
+                  setSourceTab(next);
+                }}
+                options={availableSourceTabs.map((value) => ({
+                  value,
+                  label:
+                    value === 'curated'
+                      ? 'Curated'
+                      : value === 'unsplash'
+                        ? canUseUnsplash
+                          ? 'Search'
+                          : 'Search · Pro'
+                        : 'Upload',
+                }))}
+                style={styles.heroModalSourceTabs}
+              />
+            ) : null}
 
-          <View style={styles.heroModalCard}>
-            <KeyboardAwareScrollView
-              style={styles.heroModalScroll}
-              contentContainerStyle={styles.heroModalScrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.heroModalPreviewSection}>
-                <View style={styles.heroModalPreviewColumn}>
-                  <View style={styles.heroModalPreviewFrame}>
-                    <View style={styles.heroModalPreviewInner}>
-                      {thumbnailUrl ? (
-                        <Image
-                          source={{ uri: thumbnailUrl }}
-                          style={styles.heroModalPreviewImage}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <LinearGradient
-                          colors={heroGradientColors}
-                          start={heroGradientDirection.start}
-                          end={heroGradientDirection.end}
-                          style={styles.heroModalPreviewImage}
-                        />
-                      )}
-                      {shouldShowTopography && (
-                        <View style={styles.arcHeroTopoLayer}>
-                          <View style={styles.arcHeroTopoGrid}>
-                            {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
+            <View style={styles.heroModalCard}>
+              <BottomDrawerScrollView
+                style={styles.heroModalScroll}
+                contentContainerStyle={styles.heroModalScrollContent}
+                automaticallyAdjustKeyboardInsets
+                keyboardDismissMode="interactive"
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.heroModalPreviewSection}>
+                  <View style={styles.heroModalPreviewColumn}>
+                    <View style={styles.heroModalPreviewFrame}>
+                      <View style={styles.heroModalPreviewInner}>
+                        {thumbnailUrl ? (
+                          <Image
+                            source={{ uri: thumbnailUrl }}
+                            style={styles.heroModalPreviewImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <LinearGradient
+                            colors={heroGradientColors}
+                            start={heroGradientDirection.start}
+                            end={heroGradientDirection.end}
+                            style={styles.heroModalPreviewImage}
+                          />
+                        )}
+                        {shouldShowTopography && (
+                          <View style={styles.arcHeroTopoLayer}>
+                            <View style={styles.arcHeroTopoGrid}>
+                              {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, rowIndex) => (
+                                <View
+                                  // eslint-disable-next-line react/no-array-index-key
+                                  key={`hero-modal-topo-row-${rowIndex}`}
+                                  style={styles.arcHeroTopoRow}
+                                >
+                                  {Array.from({
+                                    length: ARC_TOPO_GRID_SIZE,
+                                  }).map((_, colIndex) => {
+                                    const cellIndex = rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
+                                    const rawSize = heroTopoSizes[cellIndex] ?? 0;
+                                    const isHidden = rawSize < 0;
+                                    const dotSize = isHidden ? 0 : rawSize;
+                                    return (
+                                      // eslint-disable-next-line react/no-array-index-key
+                                      <View
+                                        key={`hero-modal-topo-cell-${rowIndex}-${colIndex}`}
+                                        style={[
+                                          styles.arcHeroTopoDot,
+                                          (dotSize === 0 || isHidden) && styles.arcHeroTopoDotSmall,
+                                          dotSize === 1 && styles.arcHeroTopoDotMedium,
+                                          dotSize === 2 && styles.arcHeroTopoDotLarge,
+                                          isHidden && styles.arcHeroTopoDotHidden,
+                                        ]}
+                                      />
+                                    );
+                                  })}
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        )}
+                        {shouldShowGeoMosaic && (
+                          <View style={styles.arcHeroMosaicLayer}>
+                            {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
                               <View
                                 // eslint-disable-next-line react/no-array-index-key
-                                key={`hero-modal-topo-row-${rowIndex}`}
-                                style={styles.arcHeroTopoRow}
+                                key={`hero-modal-mosaic-row-${rowIndex}`}
+                                style={styles.arcHeroMosaicRow}
                               >
-                                {Array.from({ length: ARC_TOPO_GRID_SIZE }).map((_, colIndex) => {
-                                  const cellIndex = rowIndex * ARC_TOPO_GRID_SIZE + colIndex;
-                                  const rawSize = heroTopoSizes[cellIndex] ?? 0;
-                                  const isHidden = rawSize < 0;
-                                  const dotSize = isHidden ? 0 : rawSize;
-                                  return (
-                                    // eslint-disable-next-line react/no-array-index-key
-                                    <View
-                                      key={`hero-modal-topo-cell-${rowIndex}-${colIndex}`}
-                                      style={[
-                                        styles.arcHeroTopoDot,
-                                        (dotSize === 0 || isHidden) && styles.arcHeroTopoDotSmall,
-                                        dotSize === 1 && styles.arcHeroTopoDotMedium,
-                                        dotSize === 2 && styles.arcHeroTopoDotLarge,
-                                        isHidden && styles.arcHeroTopoDotHidden,
-                                      ]}
-                                    />
-                                  );
-                                })}
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      )}
-                      {shouldShowGeoMosaic && (
-                        <View style={styles.arcHeroMosaicLayer}>
-                          {Array.from({ length: ARC_MOSAIC_ROWS }).map((_, rowIndex) => (
-                            <View
-                              // eslint-disable-next-line react/no-array-index-key
-                              key={`hero-modal-mosaic-row-${rowIndex}`}
-                              style={styles.arcHeroMosaicRow}
-                            >
-                              {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
-                                const cell = getArcMosaicCell(heroSeed, rowIndex, colIndex);
-                                if (cell.shape === 0) {
+                                {Array.from({ length: ARC_MOSAIC_COLS }).map((_, colIndex) => {
+                                  const cell = getArcMosaicCell(heroSeed, rowIndex, colIndex);
+                                  if (cell.shape === 0) {
+                                    return (
+                                      // eslint-disable-next-line react/no-array-index-key
+                                      <View
+                                        key={`hero-modal-mosaic-cell-${rowIndex}-${colIndex}`}
+                                        style={styles.arcHeroMosaicCell}
+                                      />
+                                    );
+                                  }
+
+                                  let shapeStyle: StyleProp<ViewStyle> = styles.arcHeroMosaicCircle;
+                                  if (cell.shape === 2) {
+                                    shapeStyle = styles.arcHeroMosaicPillVertical;
+                                  } else if (cell.shape === 3) {
+                                    shapeStyle = styles.arcHeroMosaicPillHorizontal;
+                                  }
+
                                   return (
                                     // eslint-disable-next-line react/no-array-index-key
                                     <View
                                       key={`hero-modal-mosaic-cell-${rowIndex}-${colIndex}`}
                                       style={styles.arcHeroMosaicCell}
-                                    />
+                                    >
+                                      <View
+                                        style={[
+                                          styles.arcHeroMosaicShapeBase,
+                                          shapeStyle,
+                                          { backgroundColor: cell.color },
+                                        ]}
+                                      />
+                                    </View>
                                   );
-                                }
-
-                                let shapeStyle: StyleProp<ViewStyle> = styles.arcHeroMosaicCircle;
-                                if (cell.shape === 2) {
-                                  shapeStyle = styles.arcHeroMosaicPillVertical;
-                                } else if (cell.shape === 3) {
-                                  shapeStyle = styles.arcHeroMosaicPillHorizontal;
-                                }
-
-                                return (
-                                  // eslint-disable-next-line react/no-array-index-key
-                                  <View
-                                    key={`hero-modal-mosaic-cell-${rowIndex}-${colIndex}`}
-                                    style={styles.arcHeroMosaicCell}
-                                  >
-                                    <View
-                                      style={[
-                                        styles.arcHeroMosaicShapeBase,
-                                        shapeStyle,
-                                        { backgroundColor: cell.color },
-                                      ]}
-                                    />
-                                  </View>
-                                );
-                              })}
-                            </View>
-                          ))}
-                        </View>
-                      )}
+                                })}
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                {(sourceTab === 'upload' || (availableSourceTabs.length === 1 && hasHero) || error) && (
-                  <View style={styles.heroModalControls}>
-                    {sourceTab === 'upload' && (
-                      <>
-                        <View style={styles.heroModalActionRow}>
-                          <View style={styles.heroModalAction}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled={!showRefreshAction || loading}
-                              onPress={onGenerate}
-                              style={styles.heroModalActionButton}
-                              accessibilityLabel="Generate banner image"
-                            >
-                              {loading ? (
-                                <ActivityIndicator color={colors.textPrimary} />
-                              ) : (
+                  {(sourceTab === 'upload' || (availableSourceTabs.length === 1 && hasHero) || error) && (
+                    <View style={styles.heroModalControls}>
+                      {sourceTab === 'upload' && (
+                        <>
+                          <View style={styles.heroModalActionRow}>
+                            <View style={styles.heroModalAction}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled={!showRefreshAction || loading}
+                                onPress={onGenerate}
+                                style={styles.heroModalActionButton}
+                                accessibilityLabel="Generate banner image"
+                              >
+                                {loading ? (
+                                  <ActivityIndicator color={colors.textPrimary} />
+                                ) : (
+                                  <Icon
+                                    name="refresh"
+                                    size={20}
+                                    color={showRefreshAction ? colors.textPrimary : colors.textSecondary}
+                                  />
+                                )}
+                              </Button>
+                              <Text
+                                style={[
+                                  styles.heroModalActionLabel,
+                                  !showRefreshAction && {
+                                    color: colors.textSecondary,
+                                  },
+                                ]}
+                              >
+                                Generate
+                              </Text>
+                            </View>
+                            <View style={styles.heroModalAction}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled={!hasHero || loading}
+                                onPress={handleRemove}
+                                style={styles.heroModalActionButton}
+                                accessibilityLabel="Remove image"
+                              >
                                 <Icon
-                                  name="refresh"
+                                  name="trash"
                                   size={20}
-                                  color={showRefreshAction ? colors.textPrimary : colors.textSecondary}
+                                  color={hasHero ? colors.destructive : colors.textSecondary}
+                                  style={{ opacity: hasHero ? 1 : 0.4 }}
                                 />
-                              )}
-                            </Button>
-                            <Text
-                              style={[
-                                styles.heroModalActionLabel,
-                                !showRefreshAction && { color: colors.textSecondary },
-                              ]}
-                            >
-                              Generate
-                            </Text>
-                          </View>
-                          <View style={styles.heroModalAction}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              disabled={!hasHero || loading}
-                              onPress={handleRemove}
-                              style={styles.heroModalActionButton}
-                              accessibilityLabel="Remove image"
-                            >
-                              <Icon
-                                name="trash"
-                                size={20}
-                                color={hasHero ? colors.destructive : colors.textSecondary}
-                                style={{ opacity: hasHero ? 1 : 0.4 }}
-                              />
-                            </Button>
-                            <Text
-                              style={[
-                                styles.heroModalActionLabel,
-                                !hasHero && { color: colors.textSecondary, opacity: 0.5 },
-                                hasHero && { color: colors.destructive },
-                              ]}
-                            >
-                              Remove
-                            </Text>
-                          </View>
-                        </View>
-
-                        <View style={styles.heroModalUploadContainer}>
-                          <Button
-                            variant="outline"
-                            disabled={loading}
-                            onPress={onUpload}
-                            style={styles.heroModalUpload}
-                          >
-                            <View style={styles.heroModalUploadButtonContent}>
-                              <Icon name="image" size={18} color={colors.textPrimary} />
-                              <Text style={styles.buttonTextAlt}>Upload</Text>
+                              </Button>
+                              <Text
+                                style={[
+                                  styles.heroModalActionLabel,
+                                  !hasHero && {
+                                    color: colors.textSecondary,
+                                    opacity: 0.5,
+                                  },
+                                  hasHero && { color: colors.destructive },
+                                ]}
+                              >
+                                Remove
+                              </Text>
                             </View>
-                          </Button>
-                        </View>
-                      </>
-                    )}
-                    {sourceTab !== 'upload' && hasHero ? (
-                      <View style={styles.heroModalAction}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled={loading}
-                          onPress={handleRemove}
-                          style={styles.heroModalActionButton}
-                          accessibilityLabel="Remove image"
-                        >
-                          <Icon name="trash" size={20} color={colors.destructive} />
-                        </Button>
-                        <Text style={[styles.heroModalActionLabel, { color: colors.destructive }]}>Remove</Text>
-                      </View>
-                    ) : null}
-                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                  </View>
-                )}
-              </View>
+                          </View>
 
-              {sourceTab === 'curated' && (
-                <View style={{ marginTop: spacing.lg }}>
-                  <Text style={styles.heroModalSupportText}>Curated banners</Text>
-                  <View
-                    style={styles.masonryOuter}
-                    onLayout={(event) => {
-                      handleGridLayout(event.nativeEvent.layout.width);
-                    }}
-                  >
-                    <View style={styles.masonryRow}>
-                      <View style={styles.masonryColumn}>
-                        {curatedMasonryColumns.left.map(({ image, height }) => {
-                          const isSelected = thumbnailUrl === image.uri;
-                          return (
-                            <TouchableOpacity
-                              key={image.id}
-                              testID={`e2e.arcBanner.curated.${image.id}`}
-                              style={[
-                                styles.masonryTile,
-                                { width: masonryColumnWidth, height },
-                                isSelected && styles.masonryTileSelected,
-                              ]}
-                              activeOpacity={0.88}
-                              accessibilityRole="button"
-                              accessibilityState={{ selected: isSelected }}
-                              onPress={() => {
-                                onSelectCurated(image);
-                              }}
+                          <View style={styles.heroModalUploadContainer}>
+                            <Button
+                              variant="outline"
+                              disabled={loading}
+                              onPress={onUpload}
+                              style={styles.heroModalUpload}
                             >
-                              <Image
-                                source={{ uri: image.uri }}
-                                style={styles.masonryImage}
-                                resizeMode="cover"
-                              />
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                      <View style={[styles.masonryColumn, styles.masonryColumnRight]}>
-                        {curatedMasonryColumns.right.map(({ image, height }) => {
-                          const isSelected = thumbnailUrl === image.uri;
-                          return (
-                            <TouchableOpacity
-                              key={image.id}
-                              testID={`e2e.arcBanner.curated.${image.id}`}
-                              style={[
-                                styles.masonryTile,
-                                { width: masonryColumnWidth, height },
-                                isSelected && styles.masonryTileSelected,
-                              ]}
-                              activeOpacity={0.88}
-                              accessibilityRole="button"
-                              accessibilityState={{ selected: isSelected }}
-                              onPress={() => {
-                                onSelectCurated(image);
-                              }}
-                            >
-                              <Image
-                                source={{ uri: image.uri }}
-                                style={styles.masonryImage}
-                                resizeMode="cover"
-                              />
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              )}
-
-              {sourceTab === 'unsplash' && (
-                <View style={{ marginTop: spacing.lg }}>
-                  <Text style={styles.heroModalSupportText}>Search the image library</Text>
-                  <View style={styles.heroUnsplashSearchRow}>
-                    <View style={styles.heroUnsplashInputWrapper}>
-                      <Input
-                        size="sm"
-                        elevation="elevated"
-                        placeholder={`Try "${arcName}" or "sunrise"…`}
-                        value={unsplashQuery}
-                        onChangeText={setUnsplashQuery}
-                        containerStyle={styles.heroUnsplashInputContainer}
-                        inputStyle={styles.heroUnsplashInputText}
-                      />
-                    </View>
-                    <Button
-                      variant="outline"
-                      size="small"
-                      onPress={() => {
-                        void handleSearchUnsplash();
-                      }}
-                      disabled={unsplashLoading}
-                    >
-                      {unsplashLoading ? (
-                        <ActivityIndicator color={colors.textPrimary} />
-                      ) : (
-                        <Text style={styles.heroUnsplashSearchLabel}>Search</Text>
+                              <View style={styles.heroModalUploadButtonContent}>
+                                <Icon name="image" size={18} color={colors.textPrimary} />
+                                <Text style={styles.buttonTextAlt}>Upload</Text>
+                              </View>
+                            </Button>
+                          </View>
+                        </>
                       )}
-                    </Button>
-                  </View>
-                  {unsplashError ? <Text style={styles.errorText}>{unsplashError}</Text> : null}
-                  {unsplashResults.length > 0 && (
+                      {sourceTab !== 'upload' && hasHero ? (
+                        <View style={styles.heroModalAction}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={loading}
+                            onPress={handleRemove}
+                            style={styles.heroModalActionButton}
+                            accessibilityLabel="Remove image"
+                          >
+                            <Icon name="trash" size={20} color={colors.destructive} />
+                          </Button>
+                          <Text style={[styles.heroModalActionLabel, { color: colors.destructive }]}>Remove</Text>
+                        </View>
+                      ) : null}
+                      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                    </View>
+                  )}
+                </View>
+
+                {sourceTab === 'curated' && (
+                  <View style={{ marginTop: spacing.lg }}>
+                    <Text style={styles.heroModalSupportText}>Curated banners</Text>
                     <View
                       style={styles.masonryOuter}
                       onLayout={(event) => {
@@ -717,12 +648,12 @@ export function ArcBannerSheet({
                     >
                       <View style={styles.masonryRow}>
                         <View style={styles.masonryColumn}>
-                          {unsplashMasonryColumns.left.map(({ photo, height }) => {
-                            const isSelected = thumbnailUrl === photo.urls.regular;
+                          {curatedMasonryColumns.left.map(({ image, height }) => {
+                            const isSelected = thumbnailUrl === image.uri;
                             return (
                               <TouchableOpacity
-                                key={photo.id}
-                                testID={`e2e.arcBanner.unsplash.${photo.id}`}
+                                key={image.id}
+                                testID={`e2e.arcBanner.curated.${image.id}`}
                                 style={[
                                   styles.masonryTile,
                                   { width: masonryColumnWidth, height },
@@ -732,25 +663,21 @@ export function ArcBannerSheet({
                                 accessibilityRole="button"
                                 accessibilityState={{ selected: isSelected }}
                                 onPress={() => {
-                                  handleSelectUnsplash(photo);
+                                  onSelectCurated(image);
                                 }}
                               >
-                                <Image
-                                  source={{ uri: photo.urls.small }}
-                                  style={styles.masonryImage}
-                                  resizeMode="cover"
-                                />
+                                <Image source={{ uri: image.uri }} style={styles.masonryImage} resizeMode="cover" />
                               </TouchableOpacity>
                             );
                           })}
                         </View>
                         <View style={[styles.masonryColumn, styles.masonryColumnRight]}>
-                          {unsplashMasonryColumns.right.map(({ photo, height }) => {
-                            const isSelected = thumbnailUrl === photo.urls.regular;
+                          {curatedMasonryColumns.right.map(({ image, height }) => {
+                            const isSelected = thumbnailUrl === image.uri;
                             return (
                               <TouchableOpacity
-                                key={photo.id}
-                                testID={`e2e.arcBanner.unsplash.${photo.id}`}
+                                key={image.id}
+                                testID={`e2e.arcBanner.curated.${image.id}`}
                                 style={[
                                   styles.masonryTile,
                                   { width: masonryColumnWidth, height },
@@ -760,31 +687,133 @@ export function ArcBannerSheet({
                                 accessibilityRole="button"
                                 accessibilityState={{ selected: isSelected }}
                                 onPress={() => {
-                                  handleSelectUnsplash(photo);
+                                  onSelectCurated(image);
                                 }}
                               >
-                                <Image
-                                  source={{ uri: photo.urls.small }}
-                                  style={styles.masonryImage}
-                                  resizeMode="cover"
-                                />
+                                <Image source={{ uri: image.uri }} style={styles.masonryImage} resizeMode="cover" />
                               </TouchableOpacity>
                             );
                           })}
                         </View>
                       </View>
                     </View>
-                  )}
-                </View>
-              )}
-            </KeyboardAwareScrollView>
-          </View>
+                  </View>
+                )}
 
-          <View pointerEvents="box-none" style={styles.floatingDoneContainer}>
-            <Button variant="primary" onPress={onClose} style={styles.floatingDoneButton}>
-              <Text style={styles.saveButtonLabel}>Done</Text>
-            </Button>
-          </View>
+                {sourceTab === 'unsplash' && (
+                  <View style={{ marginTop: spacing.lg }}>
+                    <Text style={styles.heroModalSupportText}>Search the image library</Text>
+                    <View style={styles.heroUnsplashSearchRow}>
+                      <View style={styles.heroUnsplashInputWrapper}>
+                        <Input
+                          size="sm"
+                          elevation="elevated"
+                          placeholder={`Try "${arcName}" or "sunrise"…`}
+                          value={unsplashQuery}
+                          onChangeText={setUnsplashQuery}
+                          onSubmitEditing={handleSearchUnsplash}
+                          returnKeyType="search"
+                          containerStyle={styles.heroUnsplashInputContainer}
+                          inputStyle={styles.heroUnsplashInputText}
+                        />
+                      </View>
+                      <Button
+                        variant="outline"
+                        size="small"
+                        onPress={() => {
+                          void handleSearchUnsplash();
+                        }}
+                        disabled={unsplashLoading}
+                      >
+                        {unsplashLoading ? (
+                          <ActivityIndicator color={colors.textPrimary} />
+                        ) : (
+                          <Text style={styles.heroUnsplashSearchLabel}>Search</Text>
+                        )}
+                      </Button>
+                    </View>
+                    {unsplashError ? <Text style={styles.errorText}>{unsplashError}</Text> : null}
+                    {unsplashResults.length > 0 && (
+                      <View
+                        style={styles.masonryOuter}
+                        onLayout={(event) => {
+                          handleGridLayout(event.nativeEvent.layout.width);
+                        }}
+                      >
+                        <View style={styles.masonryRow}>
+                          <View style={styles.masonryColumn}>
+                            {unsplashMasonryColumns.left.map(({ photo, height }) => {
+                              const isSelected = thumbnailUrl === photo.urls.regular;
+                              return (
+                                <TouchableOpacity
+                                  key={photo.id}
+                                  testID={`e2e.arcBanner.unsplash.${photo.id}`}
+                                  style={[
+                                    styles.masonryTile,
+                                    { width: masonryColumnWidth, height },
+                                    isSelected && styles.masonryTileSelected,
+                                  ]}
+                                  activeOpacity={0.88}
+                                  accessibilityRole="button"
+                                  accessibilityState={{
+                                    selected: isSelected,
+                                  }}
+                                  onPress={() => {
+                                    handleSelectUnsplash(photo);
+                                  }}
+                                >
+                                  <Image
+                                    source={{ uri: photo.urls.small }}
+                                    style={styles.masonryImage}
+                                    resizeMode="cover"
+                                  />
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                          <View style={[styles.masonryColumn, styles.masonryColumnRight]}>
+                            {unsplashMasonryColumns.right.map(({ photo, height }) => {
+                              const isSelected = thumbnailUrl === photo.urls.regular;
+                              return (
+                                <TouchableOpacity
+                                  key={photo.id}
+                                  testID={`e2e.arcBanner.unsplash.${photo.id}`}
+                                  style={[
+                                    styles.masonryTile,
+                                    { width: masonryColumnWidth, height },
+                                    isSelected && styles.masonryTileSelected,
+                                  ]}
+                                  activeOpacity={0.88}
+                                  accessibilityRole="button"
+                                  accessibilityState={{
+                                    selected: isSelected,
+                                  }}
+                                  onPress={() => {
+                                    handleSelectUnsplash(photo);
+                                  }}
+                                >
+                                  <Image
+                                    source={{ uri: photo.urls.small }}
+                                    style={styles.masonryImage}
+                                    resizeMode="cover"
+                                  />
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </BottomDrawerScrollView>
+            </View>
+
+            <View pointerEvents="box-none" style={styles.floatingDoneContainer}>
+              <Button variant="primary" onPress={onClose} style={styles.floatingDoneButton}>
+                <Text style={styles.saveButtonLabel}>Done</Text>
+              </Button>
+            </View>
         </View>
       </View>
     </BottomDrawer>
@@ -798,11 +827,6 @@ const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
     position: 'relative',
-  },
-  modalTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
   },
   heroModalSourceTabs: {
     alignSelf: 'flex-start',
@@ -931,11 +955,7 @@ const styles = StyleSheet.create({
     maxWidth: 280,
     alignSelf: 'center',
     paddingHorizontal: spacing['2xl'],
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    ...floatingControl.shadow,
   },
   saveButtonLabel: {
     ...typography.bodySm,

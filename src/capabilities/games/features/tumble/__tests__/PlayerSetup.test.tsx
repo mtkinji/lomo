@@ -55,10 +55,10 @@ describe('Farkle setup learning entry', () => {
     expect(onChange).toHaveBeenCalledWith([...seats, { key: 'new', displayName: '' }]);
   });
 
-  it('keeps the learning action out of the way until setup is valid', () => {
+  it('keeps learning available when local play uses a neutral player name', () => {
     const screen = render(<PlayerSetup {...props} seats={[seats[0], { ...seats[1], displayName: '' }]} />);
 
-    expect(screen.queryByText('New to Farkle? Learn in one turn')).toBeNull();
+    expect(screen.getByText('New to Farkle? Learn in one turn')).toBeTruthy();
   });
 
   it('does not add the Farkle tutorial to Bank setup', () => {
@@ -92,7 +92,7 @@ describe('Farkle setup learning entry', () => {
 
     expect(onStartRemote).toHaveBeenCalledTimes(1);
     fireEvent.press(screen.getByText('Start game'));
-    expect(props.onStart).not.toHaveBeenCalled();
+    expect(props.onStart).toHaveBeenCalledTimes(1);
   });
 
   it('keeps multi-phone play unavailable until the host is named', () => {

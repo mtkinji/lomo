@@ -1,5 +1,6 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ConnectionGameScreen } from '../ConnectionGameScreen';
 import { createOpenSlanguageTable } from '@/src/capabilities/games/remote/remoteSlanguageClient';
 
@@ -10,13 +11,15 @@ const mockPatternAudio = {
   beat: jest.fn(), sequence: jest.fn(), stopSequence: jest.fn(),
   success: jest.fn(), failure: jest.fn(),
 };
+let mockMotionAvailable = false;
+let mockMotionListener: ((event: { rotationRate?: { alpha?: number } }) => void) | null = null;
+const mockGameFeedback = { success: jest.fn(), failure: jest.fn(), select: jest.fn() };
 
 function launchLocalGame(screen: ReturnType<typeof render>) {
   const first = screen.getByLabelText('Player 1');
   const second = screen.getByLabelText('Player 2');
-  if (!first.props.value) fireEvent.changeText(first, 'Player 1');
-  if (!second.props.value) fireEvent.changeText(second, 'Player 2');
-  fireEvent.press(screen.getByText('Start game'));
+  const startLabel = first.props.value || second.props.value ? 'Start game' : 'Play now';
+  fireEvent.press(screen.getByText(startLabel));
 }
 
 jest.mock('@/src/capabilities/games/shell/AuthProvider', () => ({
@@ -56,9 +59,12 @@ jest.mock('react-native-safe-area-context', () => {
 jest.mock('expo-sensors/build/DeviceMotion', () => ({
   __esModule: true,
   default: {
-    isAvailableAsync: jest.fn(() => new Promise<boolean>(() => undefined)),
+    isAvailableAsync: jest.fn(() => mockMotionAvailable ? Promise.resolve(true) : new Promise<boolean>(() => undefined)),
     setUpdateInterval: jest.fn(),
-    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    addListener: jest.fn((listener) => {
+      mockMotionListener = listener;
+      return { remove: jest.fn() };
+    }),
   },
 }));
 
@@ -67,7 +73,7 @@ jest.mock('@/src/capabilities/games/audio/usePatternAudio', () => ({
 }));
 
 jest.mock('@/src/capabilities/games/audio/useGameFeedback', () => ({
-  useGameFeedback: () => ({ success: jest.fn(), failure: jest.fn(), select: jest.fn() }),
+  useGameFeedback: () => mockGameFeedback,
 }));
 
 jest.mock('@/src/capabilities/games/remote/remoteSlanguageClient', () => ({
@@ -80,6 +86,9 @@ describe('ConnectionGameScreen', () => {
     mockCreateOpenSlanguageTable.mockReset();
     mockCreateOpenSlanguageTable.mockResolvedValue({ sessionId: 'slanguage-room', userId: 'host-user' });
     Object.values(mockPatternAudio).forEach((mock) => mock.mockClear());
+    Object.values(mockGameFeedback).forEach((mock) => mock.mockClear());
+    mockMotionAvailable = false;
+    mockMotionListener = null;
   });
 
   const cases = [
@@ -89,7 +98,7 @@ describe('ConnectionGameScreen', () => {
     ['family-forecast', 'Family Forecast', /Which would Player 1 choose/],
     ['pass-pattern', 'Pass the Pattern', /Choose your rhythm/],
     ['doodle-bridge', 'Doodle Bridge', /Turn the circle into anything/],
-    ['clue-circle', 'Clue Circle', /hold the phone to your forehead/],
+    ['clue-circle', 'Clue Circle', /Phone on forehead/],
   ] as const;
 
   it('starts Show of Hands immediately with no player setup', () => {
@@ -130,7 +139,7 @@ describe('ConnectionGameScreen', () => {
     const screen = render(<ConnectionGameScreen />);
     expect(screen.getByRole('header', { name: `${title} game` })).toBeTruthy();
     expect(screen.getByText('Who’s playing?')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Start game' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Play now' })).toBeEnabled();
     launchLocalGame(screen);
     expect(screen.getByText(expected)).toBeTruthy();
     screen.unmount();
@@ -169,7 +178,6 @@ describe('ConnectionGameScreen', () => {
 
     expect(mockRemember).toHaveBeenCalledWith([
       { displayName: 'Alden', savedPlayerId: 'alden' },
-      { displayName: 'Player 2', savedPlayerId: undefined },
     ]);
     expect(screen.getByText('CHAPTER 1 · ALDEN')).toBeTruthy();
   });
@@ -182,6 +190,13 @@ describe('ConnectionGameScreen', () => {
       .find((view) => view.props.automaticallyAdjustKeyboardInsets);
 
     expect(keyboardAwareScroll).toBeTruthy();
+  });
+
+  it('contains VoiceOver focus within the active game screen', () => {
+    mockGameId = 'story-relay';
+    const screen = render(<ConnectionGameScreen />);
+
+    expect(screen.UNSAFE_getByType(SafeAreaView).props.accessibilityViewIsModal).toBe(true);
   });
 
   it('waits for the receiver before playing a Gentle pattern', () => {
@@ -282,17 +297,79 @@ describe('ConnectionGameScreen', () => {
     expect(screen.getByText('Take this wandering line somewhere.')).toBeTruthy();
   });
 
-  it('finishes Clue Circle after three targets for every finder', () => {
+  it('runs rapid timed Clue Circle turns entirely through motion', async () => {
+    jest.useFakeTimers();
+    mockMotionAvailable = true;
     mockGameId = 'clue-circle';
     const screen = render(<ConnectionGameScreen />);
     launchLocalGame(screen);
-    fireEvent.press(screen.getByText('Show the first clue'));
-    for (let index = 0; index < 3; index += 1) fireEvent.press(screen.getByText('Correct'));
-    expect(screen.getByText('Pass to Player 2')).toBeTruthy();
-    fireEvent.press(screen.getByText('Player 2 is ready'));
-    for (let index = 0; index < 3; index += 1) fireEvent.press(screen.getByText('Correct'));
+    await act(async () => Promise.resolve());
+    expect(screen.getByText('Correct')).toBeTruthy();
+    expect(screen.getByText('Pass')).toBeTruthy();
+    expect(screen.queryByText(/60 seconds/)).toBeNull();
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 100 } }));
+
+    expect(screen.getByText(/1:00/)).toBeTruthy();
+    expect(screen.queryByText('Correct')).toBeNull();
+    expect(screen.queryByText('Pass')).toBeNull();
+    expect(screen.queryByText('Change players')).toBeNull();
+    expect(screen.queryByText('Describe it without saying any part of the answer.')).toBeNull();
+    expect(screen.queryByText('Everyone else: help them guess.')).toBeNull();
+    const firstTarget = 'Pillow fight';
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 0 } }));
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 100 } }));
+    expect(screen.queryByText(firstTarget)).toBeNull();
+    expect(screen.queryByText('1 correct')).toBeNull();
+
+    const secondTarget = 'Birthday cake';
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 0 } }));
+    act(() => mockMotionListener?.({ rotationRate: { alpha: -100 } }));
+    expect(screen.queryByText(secondTarget)).toBeNull();
+    expect(screen.queryByText('1 correct')).toBeNull();
+    expect(screen.queryByText('Describe it without saying any part of the answer.')).toBeNull();
+
+    act(() => jest.advanceTimersByTime(60_000));
+    expect(screen.getByText('Player 1 found 1')).toBeTruthy();
+    fireEvent.press(screen.getByText('Pass to Player 2'));
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 0 } }));
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 100 } }));
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 0 } }));
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 100 } }));
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 0 } }));
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 100 } }));
+    act(() => jest.advanceTimersByTime(60_000));
+    fireEvent.press(screen.getByText('See our circle'));
 
     expect(screen.getByText('Everyone took a turn.')).toBeTruthy();
+    expect(screen.getByText(/Together you found 3 targets/)).toBeTruthy();
     expect(screen.getByText('Play another circle')).toBeTruthy();
+    screen.unmount();
+    jest.useRealTimers();
+  });
+
+  it('starts Clue Circle with a practice tilt and confirms it with sound', async () => {
+    mockMotionAvailable = true;
+    mockGameId = 'clue-circle';
+    const screen = render(<ConnectionGameScreen />);
+    launchLocalGame(screen);
+    await act(async () => Promise.resolve());
+
+    expect(screen.getByText('Tilt down to start.')).toBeTruthy();
+    expect(screen.queryByText('Start')).toBeNull();
+    act(() => mockMotionListener?.({ rotationRate: { alpha: 100 } }));
+
+    expect(screen.getByText('Pillow fight')).toBeTruthy();
+    expect(mockGameFeedback.success).toHaveBeenCalledWith('sparkle');
+  });
+
+  it('lets the table mute and restore Clue Circle sound from the top bar', () => {
+    mockGameId = 'clue-circle';
+    const screen = render(<ConnectionGameScreen />);
+    launchLocalGame(screen);
+
+    fireEvent.press(screen.getByLabelText('Turn sound off'));
+    expect(screen.getByLabelText('Turn sound on')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Turn sound on'));
+    expect(screen.getByLabelText('Turn sound off')).toBeTruthy();
   });
 });

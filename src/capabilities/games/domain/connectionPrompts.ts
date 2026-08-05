@@ -81,13 +81,23 @@ export const clueTargets = [
   'Family photo', 'Pancakes', 'Campfire', 'Snow day', 'Backpack', 'Hiccup',
   'Blanket fort', 'Road trip', 'Secret handshake', 'Kitchen dance', 'Missing puzzle piece', 'Water balloon',
   'Bedtime story', 'Tree swing', 'Movie night', 'Inside joke', 'Silly hat', 'Treasure map',
+  'Sock puppet', 'Bubble bath', 'Flashlight', 'Lemonade stand', 'Paper airplane', 'Jump rope',
+  'Ice cream cone', 'Laundry basket', 'Alarm clock', 'Rubber duck', 'Garden hose', 'Magic trick',
+  'Telescope', 'Seashell', 'Soccer ball', 'Cookie jar', 'Shopping cart', 'Vacuum cleaner',
+  'Doorbell', 'Sunglasses', 'Umbrella', 'Marshmallow', 'Kite', 'Hammock',
+  'Toolbox', 'Toothbrush', 'Hairbrush', 'Bicycle bell', 'Mud puddle', 'Sleeping bag',
+  'Firefly', 'Apple pie', 'Banana peel', 'Watermelon', 'Hot chocolate', 'Snowman',
+  'Roller skates', 'Birthday candle', 'Picnic basket', 'Sprinkler', 'Camp tent', 'Sandcastle',
+  'Soap bubble', 'Treasure chest', 'Toy robot', 'Jack-in-the-box', 'Wind chime', 'Rocking chair',
+  'Pizza delivery', 'Lemon squeeze', 'Popcorn machine', 'Train whistle', 'School bus', 'Traffic cone',
+  'Fire truck', 'Cowboy boots', 'Diving board', 'Canoe paddle', 'Fishing pole', 'Beach towel',
+  'Moonwalk', 'High five', 'Sneezing fit', 'Tiptoe', 'Cartwheel', 'Hide-and-seek',
+  'Tug-of-war', 'Hopscotch', 'Musical chairs', 'Group hug', 'Pillowcase ghost', 'Victory dance',
 ];
 
 export const clueModes = [
-  'Give a three-word clue.',
+  'Describe it without saying any part of the answer.',
   'Act it out without speaking.',
-  'Make one helpful sound.',
-  'Connect it to a family memory.',
-  'Describe what it would say if it could talk.',
-  'Give a clue using only comparisons.',
+  'Use sounds and gestures. No descriptive words.',
+  'Give fast comparisons: “It’s like…”',
 ];

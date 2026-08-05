@@ -10,6 +10,7 @@ import { Icon } from '../../ui/Icon';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { useSharingSettingsStore, type SharingReminderFrequency } from '../../store/useSharingSettingsStore';
 import { FriendshipSettingsSection } from '../friends/FriendshipSettingsSection';
+import { GoalSharingSettingsSection } from '../goals/GoalSharingSettingsSection';
 
 const FREQUENCY_OPTIONS: Array<{ value: SharingReminderFrequency; label: string; description: string }> = [
   { value: 'default', label: 'Default', description: 'Gentle reminders when a goal needs attention.' },
@@ -32,6 +33,8 @@ export function SharingSettingsScreen() {
         </PageHeader>
 
         <FriendshipSettingsSection />
+
+        <GoalSharingSettingsSection />
 
         <Text style={styles.sectionLabel}>Reminders</Text>
 

@@ -23,7 +23,9 @@ import {
   buildInviteOpenUrl,
   createGoalInvite,
   extractInviteCode,
+  listGoalShareRecipients,
   sendGoalInviteEmail,
+  type GoalShareRecipient,
   type InviteKind,
 } from '../../services/invites';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
@@ -33,7 +35,16 @@ import { createReferralCode } from '../../services/referrals';
 import { selectGoalInviteDestinationUrls } from './goalInviteDestinationUrl';
 import { appendGoalInviteReferralCode } from './goalInviteReferralUrl';
 
-type Step = 'offer' | 'email' | 'sent';
+type Step = 'offer' | 'recipient' | 'email' | 'sent';
+type PreparedGenericInvite = {
+  inviteCode: string;
+  referralCode: string;
+  tapUrl: string;
+  altUrl: string;
+  shareMessage: string;
+};
+
+const GOAL_SIGNALS_VISIBILITY_CONTRACT = 'goal-signals-v1';
 
 export function ShareGoalDrawer(props: {
   visible: boolean;
@@ -64,10 +75,10 @@ export function ShareGoalDrawer(props: {
   const [altUrl, setAltUrl] = useState<string>('');
   const [shareMessage, setShareMessage] = useState<string>('');
   const [recipientEmail, setRecipientEmail] = useState('');
+  const [recipients, setRecipients] = useState<GoalShareRecipient[]>([]);
+  const [recipientsLoading, setRecipientsLoading] = useState(false);
+  const [selectedRecipient, setSelectedRecipient] = useState<GoalShareRecipient | null>(null);
 
-  const inviteReady = shareMessage.length > 0;
-
-  // Pre-generate invite when drawer opens so channel taps are immediate.
   useEffect(() => {
     if (!visible) {
       setBusy(false);
@@ -79,122 +90,182 @@ export function ShareGoalDrawer(props: {
       setTapUrl('');
       setAltUrl('');
       setRecipientEmail('');
+      setRecipients([]);
+      setRecipientsLoading(false);
+      setSelectedRecipient(null);
       return;
     }
-    capture(AnalyticsEvent.ShareGoalDrawerOpened, { goalId });
-    capture(AnalyticsEvent.ShareDrawerOpened, { goalId });
-
-    let cancelled = false;
-    setPreparing(true);
-
-    (async () => {
-      try {
-        const code = await createReferralCode({ kind: 'shared_goal_invite' }).catch(() => '');
-        if (cancelled) return;
-        setReferralCode(code);
-
-        const isExpoGo = Constants.appOwnership === 'expo';
-        const { inviteUrl, inviteRedirectUrl, inviteLandingUrl } = await createGoalInvite({
-          goalId,
-          goalTitle,
-          kind: 'people',
-        });
-        if (cancelled) return;
-
-        const codeFromUrl = extractInviteCode(inviteUrl);
-        setInviteCode(codeFromUrl);
-        const open = buildInviteOpenUrl(codeFromUrl);
-        const { tapUrl: tapUrlBase } = selectGoalInviteDestinationUrls({
-          primaryOpenUrl: open.primary,
-          inviteRedirectUrl,
-          inviteLandingUrl,
-          isExpoGo,
-        });
-
-        const tapU = appendGoalInviteReferralCode(tapUrlBase, code);
-        setTapUrl(tapU);
-        setAltUrl(open.alt);
-
-        const message =
-          `I'm working on a goal in Kwilt: ` +
-          `"${goalTitle}"\n\n` +
-          `I'll share what I finish here. You can cheer me on or nudge me if I go quiet — no app install required.\n\n` +
-          `${tapU}`;
-        setShareMessage(message);
-      } catch {
-        // Leave inviteReady false; rows show a retry hint via disabled state.
-      } finally {
-        if (!cancelled) setPreparing(false);
-      }
-    })();
+    capture(AnalyticsEvent.ShareGoalDrawerOpened, {
+      visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
+    });
+    capture(AnalyticsEvent.ShareDrawerOpened, {
+      visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
+    });
 
     return () => {
-      cancelled = true;
-      capture(AnalyticsEvent.ShareGoalDrawerClosed, { goalId });
+      capture(AnalyticsEvent.ShareGoalDrawerClosed, {
+        visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
+      });
     };
-  }, [capture, goalId, goalTitle, visible]);
+  }, [capture, visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    setRecipientsLoading(true);
+    listGoalShareRecipients()
+      .then((next) => {
+        if (!cancelled) setRecipients(next);
+      })
+      .catch(() => {
+        if (!cancelled) setRecipients([]);
+      })
+      .finally(() => {
+        if (!cancelled) setRecipientsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
+  const prepareGenericInvite = useCallback(async (): Promise<PreparedGenericInvite> => {
+    if (inviteCode && tapUrl && shareMessage) {
+      return { inviteCode, referralCode, tapUrl, altUrl, shareMessage };
+    }
+
+    setPreparing(true);
+    try {
+      const [nextReferralCode, invitation] = await Promise.all([
+        createReferralCode({ kind: 'shared_goal_invite' }).catch(() => ''),
+        createGoalInvite({ goalId, goalTitle, kind: 'people' }),
+      ]);
+      const nextInviteCode = extractInviteCode(invitation.inviteUrl);
+      if (!nextInviteCode) throw new Error('Invite response missing code');
+      const open = buildInviteOpenUrl(nextInviteCode);
+      const { tapUrl: tapUrlBase } = selectGoalInviteDestinationUrls({
+        primaryOpenUrl: open.primary,
+        inviteRedirectUrl: invitation.inviteRedirectUrl,
+        inviteLandingUrl: invitation.inviteLandingUrl,
+        isExpoGo: Constants.appOwnership === 'expo',
+      });
+      const nextTapUrl = appendGoalInviteReferralCode(tapUrlBase, nextReferralCode);
+      const nextMessage =
+        `I'm working on a goal in Kwilt: ` +
+        `"${goalTitle}"\n\n` +
+        `I'll share what I finish here. You can cheer me on or nudge me if I go quiet — no app install required.\n\n` +
+        `${nextTapUrl}`;
+
+      setInviteCode(nextInviteCode);
+      setReferralCode(nextReferralCode);
+      setTapUrl(nextTapUrl);
+      setAltUrl(open.alt);
+      setShareMessage(nextMessage);
+      return {
+        inviteCode: nextInviteCode,
+        referralCode: nextReferralCode,
+        tapUrl: nextTapUrl,
+        altUrl: open.alt,
+        shareMessage: nextMessage,
+      };
+    } finally {
+      setPreparing(false);
+    }
+  }, [altUrl, goalId, goalTitle, inviteCode, referralCode, shareMessage, tapUrl]);
 
   const markSent = useCallback(
     (channel: string) => {
-      capture(AnalyticsEvent.ShareInviteSent, { goalId, channel, kind: inviteKind });
+      capture(AnalyticsEvent.ShareInviteSent, {
+        channel,
+        kind: inviteKind,
+        visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
+      });
       onInviteCreated?.();
     },
-    [capture, goalId, inviteKind, onInviteCreated],
+    [capture, inviteKind, onInviteCreated],
   );
 
   const openSms = useCallback(async () => {
-    if (!shareMessage) return;
-    capture(AnalyticsEvent.ShareInviteChannelSelected, { goalId, kind: inviteKind, channel: 'sms' });
-    const body = encodeURIComponent(shareMessage);
+    setBusy(true);
+    let prepared: PreparedGenericInvite;
+    try {
+      prepared = await prepareGenericInvite();
+    } catch {
+      Alert.alert('Couldn’t create invitation', 'Please try again.');
+      setBusy(false);
+      return;
+    }
+    capture(AnalyticsEvent.ShareInviteChannelSelected, {
+      kind: inviteKind,
+      channel: 'sms',
+      visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
+    });
+    const body = encodeURIComponent(prepared.shareMessage);
     const smsUrl = Platform.OS === 'ios' ? `sms:&body=${body}` : `sms:?body=${body}`;
     const can = await Linking.canOpenURL(smsUrl).catch(() => false);
     if (!can) {
-      const url = (tapUrl || altUrl).trim();
+      const url = (prepared.tapUrl || prepared.altUrl).trim();
       if (url) {
         await shareUrlWithPreview({
           url,
-          message: shareMessage,
+          message: prepared.shareMessage,
           subject: `Join my goal in Kwilt: “${goalTitle}”`,
           androidDialogTitle: 'Share goal invite',
           androidAppendUrl: false,
         }).catch(() => {});
       } else {
-        await Share.share({ message: shareMessage }).catch(() => {});
+        await Share.share({ message: prepared.shareMessage }).catch(() => {});
       }
       markSent('sms_fallback');
+      setBusy(false);
       return;
     }
     await Linking.openURL(smsUrl);
-    capture(AnalyticsEvent.ShareInviteSmsComposerOpened, { goalId, kind: inviteKind });
+    capture(AnalyticsEvent.ShareInviteSmsComposerOpened, {
+      kind: inviteKind,
+      visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
+    });
     markSent('sms');
     showToast({ message: 'Message ready', variant: 'success', durationMs: 2200 });
+    setBusy(false);
     onClose();
   }, [
-    altUrl,
     capture,
-    goalId,
     goalTitle,
     inviteKind,
     markSent,
     onClose,
-    shareMessage,
+    prepareGenericInvite,
     showToast,
-    tapUrl,
   ]);
 
   const copyInviteLink = useCallback(async () => {
-    const link = tapUrl || altUrl;
-    if (!link) return;
-    await Clipboard.setStringAsync(link);
-    capture(AnalyticsEvent.ShareInviteCopyLink, { goalId, kind: inviteKind });
-    markSent('copy_link');
-    showToast({ message: 'Link copied', variant: 'success', durationMs: 2000 });
-  }, [altUrl, capture, goalId, inviteKind, markSent, showToast, tapUrl]);
+    setBusy(true);
+    try {
+      const prepared = await prepareGenericInvite();
+      const link = prepared.tapUrl || prepared.altUrl;
+      if (!link) throw new Error('Invite response missing link');
+      await Clipboard.setStringAsync(link);
+      capture(AnalyticsEvent.ShareInviteCopyLink, {
+        kind: inviteKind,
+        visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
+      });
+      markSent('copy_link');
+      showToast({ message: 'Link copied', variant: 'success', durationMs: 2000 });
+    } catch {
+      Alert.alert('Couldn’t create invitation', 'Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }, [capture, inviteKind, markSent, prepareGenericInvite, showToast]);
 
   const startEmail = useCallback(() => {
-    capture(AnalyticsEvent.ShareInviteChannelSelected, { goalId, kind: inviteKind, channel: 'email' });
+    capture(AnalyticsEvent.ShareInviteChannelSelected, {
+      kind: inviteKind,
+      channel: 'email',
+      visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
+    });
     setStep('email');
-  }, [capture, goalId, inviteKind]);
+  }, [capture, inviteKind]);
 
   const sendEmail = useCallback(async () => {
     const email = recipientEmail.trim();
@@ -203,23 +274,30 @@ export function ShareGoalDrawer(props: {
       return;
     }
     setBusy(true);
-    capture(AnalyticsEvent.ShareInviteEmailSendAttempted, { goalId, kind: inviteKind });
+    capture(AnalyticsEvent.ShareInviteEmailSendAttempted, {
+      kind: inviteKind,
+      visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
+    });
     try {
+      const prepared = await prepareGenericInvite();
       await sendGoalInviteEmail({
         goalId,
         goalTitle,
         kind: inviteKind,
         recipientEmail: email,
-        inviteCode: inviteCode || null,
-        referralCode: referralCode || null,
+        inviteCode: prepared.inviteCode,
+        referralCode: prepared.referralCode || null,
       });
-      capture(AnalyticsEvent.ShareInviteEmailSendSucceeded, { goalId, kind: inviteKind });
+      capture(AnalyticsEvent.ShareInviteEmailSendSucceeded, {
+        kind: inviteKind,
+        visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
+      });
       markSent('email');
       setStep('sent');
     } catch (e: any) {
       capture(AnalyticsEvent.ShareInviteEmailSendFailed, {
-        goalId,
         kind: inviteKind,
+        visibilityContract: GOAL_SIGNALS_VISIBILITY_CONTRACT,
         status: typeof e?.status === 'number' ? e.status : undefined,
         code: typeof e?.code === 'string' ? e.code : undefined,
       });
@@ -231,12 +309,62 @@ export function ShareGoalDrawer(props: {
     capture,
     goalId,
     goalTitle,
-    inviteCode,
     inviteKind,
     markSent,
+    prepareGenericInvite,
     recipientEmail,
-    referralCode,
   ]);
+
+  const sendTargetedInvite = useCallback(async () => {
+    if (!selectedRecipient) return;
+    setBusy(true);
+    try {
+      const { inviteUrl, inviteRedirectUrl, inviteLandingUrl } = await createGoalInvite({
+        goalId,
+        goalTitle,
+        goalImageUrl: goalImageUrl ?? undefined,
+        kind: 'people',
+        recipient: {
+          kind: selectedRecipient.kind,
+          relationshipId: selectedRecipient.relationshipId,
+        },
+      });
+      const code = extractInviteCode(inviteUrl);
+      const open = buildInviteOpenUrl(code);
+      const { tapUrl: targetUrl } = selectGoalInviteDestinationUrls({
+        primaryOpenUrl: open.primary,
+        inviteRedirectUrl,
+        inviteLandingUrl,
+        isExpoGo: Constants.appOwnership === 'expo',
+      });
+      const message =
+        `I invited you to my Goal “${goalTitle}” in Kwilt. ` +
+        `Only ${selectedRecipient.displayName} can accept this invitation. ` +
+        `It shares this Goal's check-ins and cheers; to-dos and everything else in Kwilt stay private.\n\n` +
+        targetUrl;
+      await Share.share({
+        message,
+        url: Platform.OS === 'ios' ? targetUrl : undefined,
+        title: `Goal invitation for ${selectedRecipient.displayName}`,
+      });
+      markSent('known_recipient');
+      setStep('sent');
+    } catch (e: any) {
+      const code = typeof e?.code === 'string' ? e.code : '';
+      if (code === 'already_has_access') {
+        Alert.alert('Already shared', `${selectedRecipient.displayName} already has access to this Goal.`);
+      } else if (code === 'recipient_unavailable') {
+        Alert.alert('Person unavailable', 'This relationship is no longer available for sharing.');
+        setStep('offer');
+        setSelectedRecipient(null);
+        setRecipients((current) => current.filter((recipient) => recipient.relationshipId !== selectedRecipient.relationshipId));
+      } else {
+        Alert.alert('Couldn’t create invitation', 'Please try again.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, [goalId, goalImageUrl, goalTitle, markSent, selectedRecipient]);
 
   return (
     <BottomDrawer
@@ -254,8 +382,10 @@ export function ShareGoalDrawer(props: {
           title={
             step === 'email'
               ? 'Email invite'
+              : step === 'recipient'
+                ? selectedRecipient ? `Invite ${selectedRecipient.displayName}?` : 'Invite someone?'
               : step === 'sent'
-                ? 'Invite sent'
+                ? selectedRecipient ? 'Invitation ready' : 'Invite sent'
                 : 'Share this goal'
           }
           rightAction={<BottomDrawerHeaderClose onPress={onClose} />}
@@ -266,37 +396,88 @@ export function ShareGoalDrawer(props: {
 
         {step === 'offer' ? (
           <VStack space="lg">
-            <Text style={styles.sectionLabel}>Share with</Text>
+            {recipientsLoading || recipients.length > 0 ? (
+              <VStack space="sm">
+                <Text style={styles.sectionLabel}>People in Kwilt</Text>
+                <View style={styles.channelCard}>
+                  {recipientsLoading ? (
+                    <View style={styles.recipientLoadingRow}>
+                      <ActivityIndicator size="small" color={colors.muted} />
+                      <Text style={styles.recipientKind}>Finding your people…</Text>
+                    </View>
+                  ) : recipients.map((recipient, index) => (
+                    <View key={`${recipient.kind}:${recipient.relationshipId}`}>
+                      {index > 0 ? <View style={styles.divider} /> : null}
+                      <RecipientRow
+                        recipient={recipient}
+                        onPress={() => {
+                          setSelectedRecipient(recipient);
+                          setStep('recipient');
+                        }}
+                      />
+                    </View>
+                  ))}
+                </View>
+              </VStack>
+            ) : null}
+
+            <Text style={styles.sectionLabel}>{recipients.length > 0 ? 'Other ways' : 'Share with'}</Text>
 
             <View style={styles.channelCard}>
               <ChannelRow
                 icon="messageSquare"
                 label="Text message"
                 onPress={() => void openSms()}
-                disabled={!inviteReady}
-                loading={preparing && !inviteReady}
+                disabled={busy}
+                loading={preparing}
               />
               <View style={styles.divider} />
               <ChannelRow
                 icon="mail"
                 label="Email"
                 onPress={startEmail}
-                disabled={busy || !inviteReady}
-                loading={preparing && !inviteReady}
+                disabled={busy}
+                loading={preparing}
               />
               <View style={styles.divider} />
               <ChannelRow
                 icon="link"
                 label="Copy link"
                 onPress={() => void copyInviteLink()}
-                disabled={!tapUrl && !altUrl}
-                loading={preparing && !tapUrl && !altUrl}
+                disabled={busy}
+                loading={preparing}
               />
             </View>
 
             <Text style={styles.privacyLine}>
               Partners can see check-ins. Your to-dos stay private.
             </Text>
+          </VStack>
+        ) : step === 'recipient' && selectedRecipient ? (
+          <VStack space="md">
+            <View style={styles.recipientBoundaryCard}>
+              <Text style={styles.successTitle}>One Goal, one decision</Text>
+              <Text style={styles.body}>
+                {selectedRecipient.displayName} will be invited to this Goal only. They can see check-ins and cheers after accepting. Your to-dos, other Goals, chats, Money, and Activities stay private.
+              </Text>
+              <Text style={styles.body}>
+                Being {selectedRecipient.kind === 'household' ? 'in your Household' : 'Friends'} does not share anything by itself.
+              </Text>
+            </View>
+            <Button onPress={() => void sendTargetedInvite()} disabled={busy} fullWidth>
+              {busy ? <ActivityIndicator color={colors.canvas} /> : `Invite ${selectedRecipient.displayName}`}
+            </Button>
+            <Button
+              onPress={() => {
+                setSelectedRecipient(null);
+                setStep('offer');
+              }}
+              variant="ghost"
+              disabled={busy}
+              fullWidth
+            >
+              Back
+            </Button>
           </VStack>
         ) : step === 'email' ? (
           <VStack space="md">
@@ -324,15 +505,18 @@ export function ShareGoalDrawer(props: {
               <View style={styles.successIcon}>
                 <Icon name="checkCircle" size={20} color={colors.canvas} />
               </View>
-              <Text style={styles.successTitle}>Invite on its way</Text>
+              <Text style={styles.successTitle}>{selectedRecipient ? 'Invitation created' : 'Invite on its way'}</Text>
               <Text style={styles.successBody}>
-                We’ll let you know when they cheer or reply.
+                {selectedRecipient
+                  ? `${selectedRecipient.displayName} can also find it in Sharing. Only their account can accept it.`
+                  : 'We’ll let you know when they cheer or reply.'}
               </Text>
             </View>
             <Button
               onPress={() => {
                 setStep('offer');
                 setRecipientEmail('');
+                setSelectedRecipient(null);
               }}
               variant="secondary"
               fullWidth
@@ -346,6 +530,31 @@ export function ShareGoalDrawer(props: {
         )}
       </View>
     </BottomDrawer>
+  );
+}
+
+function RecipientRow(props: { recipient: GoalShareRecipient; onPress: () => void }) {
+  const { recipient, onPress } = props;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Share with ${recipient.displayName}, ${recipient.kind === 'household' ? 'Household' : 'Friend'}`}
+      style={({ pressed }) => [styles.recipientRow, pressed && styles.channelRowPressed]}
+    >
+      {recipient.avatarUrl ? (
+        <Image source={{ uri: recipient.avatarUrl }} style={styles.recipientAvatar} />
+      ) : (
+        <View style={styles.recipientAvatarFallback}>
+          <Text style={styles.recipientInitial}>{recipient.displayName.slice(0, 1).toUpperCase()}</Text>
+        </View>
+      )}
+      <View style={styles.recipientText}>
+        <Text style={styles.recipientName}>{recipient.displayName}</Text>
+        <Text style={styles.recipientKind}>{recipient.kind === 'household' ? 'Household' : 'Friend'}</Text>
+      </View>
+      <Icon name="chevronRight" size={16} color={colors.textSecondary} />
+    </Pressable>
   );
 }
 
@@ -474,6 +683,62 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
+  },
+  recipientLoadingRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  recipientRow: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  recipientAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  recipientAvatarFallback: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  recipientInitial: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  recipientText: {
+    flex: 1,
+    gap: 2,
+  },
+  recipientName: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+  },
+  recipientKind: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  recipientBoundaryCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.shell,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
   channelRow: {
     flexDirection: 'row',

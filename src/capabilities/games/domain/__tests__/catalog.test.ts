@@ -1,4 +1,4 @@
-import { basicDiceUtility, gameCatalog } from '../catalog';
+import { basicDiceUtility, catalogForRelease, gameCatalog } from '../catalog';
 
 describe('game catalog', () => {
   it('contains eleven unique shared games', () => {
@@ -28,5 +28,17 @@ describe('game catalog', () => {
     expect(gameCatalog.find((game) => game.id === 'slanguage')).toMatchObject({
       title: 'Slanguage', minPlayers: 3, maxPlayers: 8, promise: 'Remix one sentence. Funniest wins.',
     });
+  });
+
+  it('keeps the 2.0 production shelf narrower than the playtest inventory', () => {
+    const production = catalogForRelease(false);
+    const workshop = catalogForRelease(true).filter((game) => game.releaseStatus !== 'ready');
+
+    expect(production.map((game) => game.id)).toEqual([
+      'bank', 'farkle', 'same-page', 'story-relay', 'family-forecast',
+      'pass-pattern', 'doodle-bridge',
+    ]);
+    expect(workshop.map((game) => game.id)).toEqual(['common-thread', 'object-quest', 'clue-circle', 'slanguage']);
+    expect(gameCatalog.every((game) => game.durationMinutes[0] > 0 && game.energy.length > 0)).toBe(true);
   });
 });

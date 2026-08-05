@@ -41,18 +41,47 @@ export function forecastReveal(players: string[], subjectIndex: number, predicti
 
 export type ClueRoundState = {
   finderIndex: number;
-  attempts: number;
+  turnScore: number;
   scores: number[];
-  phase: 'playing' | 'handoff' | 'finished';
+  phase: 'handoff' | 'playing' | 'turn-complete' | 'finished';
 };
 
-export const CLUE_TARGETS_PER_PLAYER = 3;
+export const CLUE_TURN_SECONDS = 60;
 
-export function advanceClueRound(state: ClueRoundState, playerCount: number, correct: boolean): ClueRoundState {
-  if (state.phase !== 'playing' || playerCount <= 0) return state;
-  const scores = state.scores.map((score, index) => index === state.finderIndex && correct ? score + 1 : score);
-  const attempts = state.attempts + 1;
-  if (attempts < CLUE_TARGETS_PER_PLAYER) return { ...state, attempts, scores };
-  if (state.finderIndex >= playerCount - 1) return { ...state, attempts, scores, phase: 'finished' };
-  return { finderIndex: state.finderIndex + 1, attempts: 0, scores, phase: 'handoff' };
+export function startClueTurn(state: ClueRoundState): ClueRoundState {
+  return state.phase === 'handoff' ? { ...state, phase: 'playing' } : state;
+}
+
+export function recordClueResult(state: ClueRoundState, result: 'correct' | 'pass'): ClueRoundState {
+  if (state.phase !== 'playing' || result === 'pass') return state;
+  const scores = state.scores.map((score, index) => index === state.finderIndex ? score + 1 : score);
+  return { ...state, turnScore: state.turnScore + 1, scores };
+}
+
+export function finishClueTurn(state: ClueRoundState): ClueRoundState {
+  return state.phase === 'playing' ? { ...state, phase: 'turn-complete' } : state;
+}
+
+export function advanceClueFinder(state: ClueRoundState, playerCount: number): ClueRoundState {
+  if (state.phase !== 'turn-complete' || playerCount <= 0) return state;
+  if (state.finderIndex >= playerCount - 1) return { ...state, phase: 'finished' };
+  return { ...state, finderIndex: state.finderIndex + 1, turnScore: 0, phase: 'handoff' };
+}
+
+export function formatClueTime(seconds: number) {
+  const safeSeconds = Math.max(0, seconds);
+  return `${Math.floor(safeSeconds / 60)}:${String(safeSeconds % 60).padStart(2, '0')}`;
+}
+
+export type ClueMotionState = 'armed' | 'waiting-for-neutral';
+
+export function resolveClueMotion(rate: number, state: ClueMotionState): { state: ClueMotionState; result: 'correct' | 'pass' | null } {
+  if (state === 'waiting-for-neutral') {
+    return Math.abs(rate) < 20
+      ? { state: 'armed', result: null }
+      : { state, result: null };
+  }
+  if (rate > 95) return { state: 'waiting-for-neutral', result: 'correct' };
+  if (rate < -95) return { state: 'waiting-for-neutral', result: 'pass' };
+  return { state, result: null };
 }

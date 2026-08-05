@@ -10,6 +10,7 @@ serves:
   - jtbd-trust-this-app-with-my-life
 briefs:
   - kwilt-games-capability-integration
+  - kwilt-2-games-maturity
   - nearby-game-join
   - bank-roll-pacing
   - games-timer

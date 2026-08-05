@@ -25,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../ui/DropdownMenu';
 import { menuItemTextProps, menuStyles } from '../../../ui/menuStyles';
@@ -44,17 +45,19 @@ import { MoneyScreenFrame } from './MoneyScreenFrame';
 import { buildMoneyBudgetAnswerViewedProps, buildMoneyBudgetExplanationOpenedProps } from '../runtime/moneyPlanLimitAnalytics';
 import { refreshStaleMoneySummary } from '../runtime/moneySummaryAutoRefresh';
 import { projectMoneyPlanAudit, type MoneyPlanAudit } from '../domain/moneyPlanAudit';
+import { MoneyCategoryReorderDrawer } from '../components/MoneyCategoryReorderDrawer';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
 export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
-  const { snapshot, refresh, reconcileGovernedPlanFoundation } = useMoneyData();
+  const { snapshot, refresh, reconcileGovernedPlanFoundation, reorderCategories, savingCategoryOrder } = useMoneyData();
   const { capture } = useAnalytics();
   const { width: windowWidth } = useWindowDimensions();
   const [measuredPagerWidth, setMeasuredPagerWidth] = useState(0);
   const [currentMonthIndex, setCurrentMonthIndex] = useState(INITIAL_MONTH_INDEX);
   const [limitExplanationOpen, setLimitExplanationOpen] = useState(false);
   const [categoryPresentation, setCategoryPresentation] = useState<MoneyCategoryPresentation>('tiles');
+  const [categoryReorderOpen, setCategoryReorderOpen] = useState(false);
   const autoRefreshKeyRef = useRef<string | null>(null);
   const pagerRef = useRef<FlatList<MoneyPeriodView>>(null);
   const pagerWidth = measuredPagerWidth > 24
@@ -162,6 +165,7 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
             <View style={styles.monthActions}>
               <CategoryViewMenu
                 onPresentationChange={setCategoryPresentation}
+                onReorder={() => setCategoryReorderOpen(true)}
                 presentation={categoryPresentation}
               />
               <Pressable
@@ -254,6 +258,13 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
         </BottomDrawerScrollView>
       ) : null}
     </BottomDrawer>
+    <MoneyCategoryReorderDrawer
+      categories={snapshot?.categories ?? []}
+      onClose={() => setCategoryReorderOpen(false)}
+      onSave={reorderCategories}
+      saving={savingCategoryOrder}
+      visible={categoryReorderOpen}
+    />
     </>
   );
 }
@@ -406,8 +417,9 @@ function CategoryConceptHeader({ accessibilityLabel, explanation, label }: {
   );
 }
 
-function CategoryViewMenu({ onPresentationChange, presentation }: {
+function CategoryViewMenu({ onPresentationChange, onReorder, presentation }: {
   onPresentationChange: (value: MoneyCategoryPresentation) => void;
+  onReorder: () => void;
   presentation: MoneyCategoryPresentation;
 }) {
   return (
@@ -429,6 +441,13 @@ function CategoryViewMenu({ onPresentationChange, presentation }: {
           <CategoryViewChoice label="List · Percent used" value="list_percent" />
           <CategoryViewChoice label="List · Dollars left" value="list_dollars" />
         </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem accessibilityLabel="Reorder categories" onPress={onReorder}>
+          <View style={menuStyles.menuItemRow}>
+            <Icon name="menu" size={18} color={colors.textPrimary} />
+            <Text style={menuStyles.menuItemText} {...menuItemTextProps}>Reorder categories</Text>
+          </View>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

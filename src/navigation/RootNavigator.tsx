@@ -343,7 +343,7 @@ export type SettingsStackParamList = {
         returnToActivityId?: string;
       }
     | undefined;
-  SettingsHousehold: undefined;
+  SettingsHousehold: { inviteCode?: string } | undefined;
   SettingsFamilyScreenTime: {
     childMembershipId: string;
     childDisplayName: string;

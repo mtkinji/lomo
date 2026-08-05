@@ -48,13 +48,29 @@ export function isBottomDrawerAccessibilityModal(
   return presentation === 'modal' || !hideBackdrop;
 }
 
+export function shouldBottomDrawerLiftAboveKeyboard(args: {
+  keyboardBehavior: 'lift' | 'extend';
+  keyboardAvoidanceEnabled?: boolean;
+}): boolean {
+  return args.keyboardAvoidanceEnabled ?? args.keyboardBehavior === 'lift';
+}
+
 type BottomDrawerProps = {
   visible: boolean;
   onClose: () => void;
   children: ReactNode;
   /**
-   * When true (default), BottomDrawer lifts above the keyboard using a
-   * KeyboardAvoidingView wrapper.
+   * Controls how the sheet surface relates to the software keyboard.
+   *
+   * - `lift` (default): move the whole sheet above the keyboard.
+   * - `extend`: keep the sheet bottom-anchored so the keyboard covers its lower
+   *   continuation. Pair this with `BottomDrawerScrollView` and
+   *   `automaticallyAdjustKeyboardInsets` so focused fields remain reachable.
+   */
+  keyboardBehavior?: 'lift' | 'extend';
+
+  /**
+   * Legacy low-level override for keyboard avoidance.
    *
    * Turn this off for special-case surfaces that already implement their own
    * keyboard strategy (e.g. Agent chat / AiChatScreen) to avoid double offsets.
@@ -200,7 +216,8 @@ export function BottomDrawer({
   visible,
   onClose,
   children,
-  keyboardAvoidanceEnabled = true,
+  keyboardBehavior = 'lift',
+  keyboardAvoidanceEnabled,
   snapPoints = DEFAULT_SNAP_POINTS,
   initialSnapIndex,
   snapIndex,
@@ -224,6 +241,10 @@ export function BottomDrawer({
   const { reduceMotionEnabled } = useAccessibilityPreferences();
   const portalNameRef = useRef(`bottom-drawer-${Math.random().toString(36).slice(2)}-${Date.now()}`);
   const accessibilityModal = isBottomDrawerAccessibilityModal(presentation, hideBackdrop);
+  const shouldLiftAboveKeyboard = shouldBottomDrawerLiftAboveKeyboard({
+    keyboardBehavior,
+    keyboardAvoidanceEnabled,
+  });
   const motionDuration = useCallback(
     (durationMs: number) => getAccessibleAnimationDuration(durationMs, reduceMotionEnabled),
     [reduceMotionEnabled],
@@ -617,7 +638,7 @@ export function BottomDrawer({
   // - `docs/keyboard-input-safety-implementation.md`
   const body = (
     <BottomDrawerContext.Provider value={{ scrollY, setScrollableGesture }}>
-      {keyboardAvoidanceEnabled ? (
+      {shouldLiftAboveKeyboard ? (
         <KeyboardAvoidingView
           // Important: BottomDrawer hosts inputs inside a modal-like overlay.
           // KeyboardAvoidingView at the overlay level is the most reliable way to

@@ -60,6 +60,34 @@ describe('GamePlayerSetup', () => {
     expect(onStart).toHaveBeenCalledTimes(1);
   });
 
+  it('lets a local table start immediately with neutral player names', () => {
+    const onStart = jest.fn();
+    const screen = render(<GamePlayerSetup
+      {...common}
+      mode="connection"
+      seats={[{ key: 'one', displayName: '' }, { key: 'two', displayName: '' }]}
+      onChange={jest.fn()}
+      onStart={onStart}
+    />);
+
+    expect(screen.getByText('Names are optional for local play.')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Play now' }));
+    expect(onStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('still requires a named host before opening a remote table', () => {
+    const onUseMorePhones = jest.fn();
+    const screen = render(<GamePlayerSetup
+      {...common}
+      mode="remote-only"
+      seats={[{ key: 'host', displayName: '' }]}
+      onChange={jest.fn()}
+      onUseMorePhones={onUseMorePhones}
+    />);
+
+    expect(screen.getByRole('button', { name: 'Use more phones' })).toBeDisabled();
+  });
+
   it('uses the later Bank hierarchy for player and launch actions', () => {
     const screen = render(<GamePlayerSetup
       {...common}

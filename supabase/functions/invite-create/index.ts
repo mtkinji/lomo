@@ -39,6 +39,17 @@ function getSupabaseAdmin() {
   });
 }
 
+function getSupabaseForUser(token: string) {
+  const url = Deno.env.get('SUPABASE_URL');
+  const publishableKey =
+    (Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? '').trim();
+  if (!url || !publishableKey) return null;
+  return createClient(url, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+}
+
 function randomInviteCode(): string {
   const raw = crypto.randomUUID().replace(/-/g, '');
   return raw.slice(0, 12);
@@ -84,6 +95,14 @@ serve(async (req) => {
   const kind = rawKind === 'people' || rawKind === 'squad' || rawKind === 'buddy' ? 'people' : 'people';
   const goalTitle = typeof body?.goalTitle === 'string' ? body.goalTitle.trim() : '';
   const goalImageUrl = typeof body?.goalImageUrl === 'string' ? body.goalImageUrl.trim() : '';
+  const recipientKind =
+    body?.recipient?.kind === 'friend' || body?.recipient?.kind === 'household'
+      ? body.recipient.kind
+      : null;
+  const recipientRelationshipId =
+    typeof body?.recipient?.relationshipId === 'string'
+      ? body.recipient.relationshipId.trim()
+      : '';
 
   const safeGoalImageUrl = (() => {
     if (!goalImageUrl) return null;
@@ -98,6 +117,57 @@ serve(async (req) => {
 
   if (entityType !== 'goal' || !entityId) {
     return json(400, { error: { message: 'Invalid entityType/entityId', code: 'bad_request' } });
+  }
+
+  if (body?.recipient != null) {
+    if (!recipientKind || !recipientRelationshipId) {
+      return json(400, { error: { message: 'Invalid recipient', code: 'bad_request' } });
+    }
+
+    const supabase = getSupabaseForUser(token);
+    if (!supabase) {
+      return json(503, { error: { message: 'Invite service unavailable', code: 'provider_unavailable' } });
+    }
+    const { data, error } = await supabase.rpc('create_kwilt_targeted_goal_invite', {
+      p_entity_id: entityId,
+      p_goal_title: goalTitle,
+      p_goal_image_url: safeGoalImageUrl,
+      p_recipient_kind: recipientKind,
+      p_relationship_id: recipientRelationshipId,
+    });
+    if (error) {
+      const safe = String(error.message ?? '').toLowerCase();
+      if (safe.includes('goal_owner_required')) {
+        return json(403, { error: { message: 'Only the goal owner can invite partners', code: 'forbidden' } });
+      }
+      if (safe.includes('recipient_already_has_access')) {
+        return json(409, { error: { message: 'This person already has access', code: 'already_has_access' } });
+      }
+      if (safe.includes('invite_rate_limited')) {
+        return json(429, { error: { message: 'Too many invites today', code: 'rate_limited' } });
+      }
+      if (safe.includes('recipient_unavailable') || safe.includes('invalid_recipient_kind')) {
+        return json(404, { error: { message: 'This person is unavailable', code: 'recipient_unavailable' } });
+      }
+      return json(400, { error: { message: 'Unable to create this invitation', code: 'create_failed' } });
+    }
+
+    const result = data && typeof data === 'object' && !Array.isArray(data)
+      ? data as Record<string, JsonValue>
+      : {};
+    const inviteCode = typeof result.inviteCode === 'string' ? result.inviteCode : '';
+    if (!inviteCode) {
+      return json(503, { error: { message: 'Unable to create invite', code: 'provider_unavailable' } });
+    }
+    return json(200, {
+      inviteCode,
+      inviteUrl: `kwilt://invite?code=${encodeURIComponent(inviteCode)}`,
+      entityType: 'goal',
+      entityId,
+      payload: result.payload ?? { kind, goalTitle: goalTitle || null, goalImageUrl: safeGoalImageUrl },
+      targeted: true,
+      reused: result.reused === true,
+    });
   }
 
   const maxUses = 25;
@@ -212,5 +282,4 @@ serve(async (req) => {
     payload: { kind, goalTitle: goalTitle || null, goalImageUrl: safeGoalImageUrl, expiresAt, maxUses },
   });
 });
-
 

@@ -1,3 +1,4 @@
+import { Share } from 'react-native';
 import { fireEvent, waitFor } from '@testing-library/react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
@@ -29,6 +30,7 @@ jest.mock('./data/household', () => ({
   createHouseholdMemberInvite: (...args: unknown[]) => mockCreateHouseholdMemberInvite(...args),
   previewHouseholdInvite: (...args: unknown[]) => mockPreviewHouseholdInvite(...args),
   acceptHouseholdMemberInvite: (...args: unknown[]) => mockAcceptHouseholdMemberInvite(...args),
+  buildHouseholdInviteUrl: (code: string) => `https://go.kwilt.app/open/household/${code.trim().toUpperCase()}`,
 }));
 
 const emptySnapshot: HouseholdSnapshot = {
@@ -96,6 +98,7 @@ describe('HouseholdSettingsScreen', () => {
   });
 
   it('invites a child who already uses Kwilt without creating a profile', async () => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
     const { getByLabelText, getByText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
     await waitFor(() => expect(getByText('Start with your people')).toBeTruthy());
 
@@ -112,6 +115,32 @@ describe('HouseholdSettingsScreen', () => {
     }));
     expect(mockAddDependentChild).not.toHaveBeenCalled();
     expect(getByText('Child invitation code: CHILD12')).toBeTruthy();
+    fireEvent.press(getByText('Share invitation'));
+    expect(share).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://go.kwilt.app/open/household/CHILD12',
+      message: expect.stringContaining('not your private Goals, chats, Money, or Activities'),
+    }));
+  });
+
+  it('opens an invitation link at review without joining automatically', async () => {
+    const linkedProps = {
+      ...screenProps,
+      route: {
+        key: 'linked-household',
+        name: 'SettingsHousehold',
+        params: { inviteCode: 'child12' },
+      },
+    } as any;
+
+    const { getByText } = renderWithProviders(<HouseholdSettingsScreen {...linkedProps} />);
+
+    await waitFor(() => expect(mockPreviewHouseholdInvite).toHaveBeenCalledWith(
+      expect.anything(),
+      'CHILD12',
+    ));
+    expect(getByText('Andrew invited you')).toBeTruthy();
+    expect(getByText('Join My household as a child.')).toBeTruthy();
+    expect(mockAcceptHouseholdMemberInvite).not.toHaveBeenCalled();
   });
 
   it('reviews a child invitation before joining the Household', async () => {

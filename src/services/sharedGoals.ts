@@ -2,6 +2,7 @@ import { getSupabasePublishableKey } from '../utils/getEnv';
 import { getInstallId } from './installId';
 import { getAccessToken } from './backend/auth';
 import { getEdgeFunctionUrl } from './edgeFunctions';
+import { getSupabaseClient } from './backend/supabaseClient';
 
 async function buildEdgeHeaders(requireAuth: boolean): Promise<Headers> {
   const headers = new Headers();
@@ -33,6 +34,73 @@ export type SharedMember = {
   name?: string | null;
   avatarUrl?: string | null;
 };
+
+export type GoalSharingDirection = 'by_you' | 'with_you';
+export type GoalSharingAccessState = 'pending' | 'expired' | 'active';
+export type GoalSharingItem = {
+  direction: GoalSharingDirection;
+  goalId: string;
+  goalTitle: string;
+  accessState: GoalSharingAccessState;
+  counterpartName: string;
+  counterpartAvatarUrl: string | null;
+  inviteId: string | null;
+  inviteCode: string | null;
+  counterpartUserId: string | null;
+  changedAt: string;
+};
+
+export async function listGoalSharing(): Promise<GoalSharingItem[]> {
+  const { data, error } = await getSupabaseClient().rpc('get_kwilt_goal_sharing');
+  if (error) throw new Error(error.message || 'Unable to load Goal sharing');
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((value: unknown) => {
+    if (!value || typeof value !== 'object') return [];
+    const row = value as Record<string, unknown>;
+    const direction = row.direction;
+    const accessState = row.access_state;
+    const goalId = typeof row.goal_id === 'string' ? row.goal_id.trim() : '';
+    const goalTitle = typeof row.goal_title === 'string' ? row.goal_title.trim() : '';
+    const counterpartName = typeof row.counterpart_name === 'string' ? row.counterpart_name.trim() : '';
+    const changedAt = typeof row.changed_at === 'string' ? row.changed_at : '';
+    if (
+      (direction !== 'by_you' && direction !== 'with_you')
+      || (accessState !== 'pending' && accessState !== 'expired' && accessState !== 'active')
+      || !goalId
+      || !goalTitle
+      || !counterpartName
+      || !changedAt
+    ) return [];
+    return [{
+      direction,
+      goalId,
+      goalTitle,
+      accessState,
+      counterpartName,
+      counterpartAvatarUrl:
+        typeof row.counterpart_avatar_url === 'string' && row.counterpart_avatar_url.trim()
+          ? row.counterpart_avatar_url.trim()
+          : null,
+      inviteId: typeof row.invite_id === 'string' && row.invite_id.trim() ? row.invite_id.trim() : null,
+      inviteCode: typeof row.invite_code === 'string' && row.invite_code.trim() ? row.invite_code.trim() : null,
+      counterpartUserId:
+        typeof row.counterpart_user_id === 'string' && row.counterpart_user_id.trim()
+          ? row.counterpart_user_id.trim()
+          : null,
+      changedAt,
+    }];
+  });
+}
+
+export async function revokeTargetedGoalInvite(inviteId: string): Promise<{ ok: true }> {
+  const id = inviteId.trim();
+  if (!id) throw new Error('Missing invitation id');
+  const { error } = await getSupabaseClient().rpc('revoke_kwilt_targeted_goal_invite', {
+    p_invite_id: id,
+  });
+  if (error) throw new Error(error.message || 'Unable to revoke invitation');
+  return { ok: true };
+}
 
 export async function listGoalMembers(goalId: string): Promise<SharedMember[] | null> {
   const base = getEdgeFunctionUrl('memberships-list');
@@ -185,5 +253,4 @@ export async function removeGoalPartner(goalId: string, userId: string): Promise
 
   return { ok: true };
 }
-
 

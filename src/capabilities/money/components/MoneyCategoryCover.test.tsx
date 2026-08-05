@@ -13,7 +13,10 @@ const photo: UnsplashPhoto = {
     small: 'https://images.unsplash.com/small',
     thumb: 'https://images.unsplash.com/thumb',
   },
-  user: { name: 'A Photographer', links: { html: 'https://unsplash.com/@artist' } },
+  user: {
+    name: 'A Photographer',
+    links: { html: 'https://unsplash.com/@artist' },
+  },
   links: { html: 'https://unsplash.com/photos/photo-1' },
 };
 
@@ -33,10 +36,7 @@ describe('Money category covers', () => {
   it('keeps failure, attribution, shared search, and download-tracking behavior explicit', () => {
     const coverSource = readFileSync(path.join(__dirname, 'MoneyCategoryCover.tsx'), 'utf8');
     const drawerSource = readFileSync(path.join(__dirname, 'MoneyCategoryCoverDrawer.tsx'), 'utf8');
-    const sharedSheetSource = readFileSync(path.join(
-      process.cwd(),
-      'src/features/arcs/ArcBannerSheet.tsx',
-    ), 'utf8');
+    const sharedSheetSource = readFileSync(path.join(process.cwd(), 'src/features/arcs/ArcBannerSheet.tsx'), 'utf8');
 
     expect(coverSource).toContain('onError={() => setImageFailed(true)}');
     expect(coverSource).toContain('Cover image unavailable');
@@ -46,6 +46,16 @@ describe('Money category covers', () => {
     expect(drawerSource).toContain('title="Category cover"');
     expect(sharedSheetSource).toContain('searchUnsplashPhotos(query, { perPage: 30, page: 1 })');
     expect(sharedSheetSource).toContain('unsplashMasonryColumns');
+    expect(sharedSheetSource).toContain('keyboardBehavior="extend"');
+    expect(sharedSheetSource).toContain('<BottomDrawerScrollView');
+    expect(sharedSheetSource).toContain('automaticallyAdjustKeyboardInsets');
+    expect(sharedSheetSource).toContain('<BottomDrawerHeader');
+    expect(sharedSheetSource).not.toContain('Done editing');
+    expect(sharedSheetSource).toContain('Done');
+    expect(sharedSheetSource).toContain('returnKeyType="search"');
+    expect(sharedSheetSource).toContain('onSubmitEditing={handleSearchUnsplash}');
+    expect(sharedSheetSource).toContain('...floatingControl.shadow');
+    expect(sharedSheetSource).not.toContain('shadowOpacity: 0.18');
     expect(drawerSource).toContain('trackUnsplashDownload(photo.id)');
   });
 });

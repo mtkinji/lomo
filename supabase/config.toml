@@ -138,6 +138,32 @@ enabled = false
 max_buckets = 10
 max_indexes = 5
 
+[functions.invite-create]
+# The handler validates the caller token with Auth before creating an invite.
+verify_jwt = false
+
+[functions.invite-preview]
+# Generic invites are public previews; targeted Goal previews validate the
+# intended recipient token inside the handler before returning private data.
+verify_jwt = false
+
+[functions.invite-accept]
+# The handler validates the caller token and the RPC enforces recipient access.
+verify_jwt = false
+
+[functions.invite-redirect]
+# Invitation landing metadata must be reachable before sign-in.
+verify_jwt = false
+
+[functions.friend-invite-create]
+# The handler validates the caller token with Auth before creating an invite.
+verify_jwt = false
+
+[functions.friend-invite-preview]
+# Public invite codes are previewed before sign-in; the function enforces a
+# server-side hashed-install budget and returns only safe inviter identity.
+verify_jwt = false
+
 # Vector Buckets is available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
 

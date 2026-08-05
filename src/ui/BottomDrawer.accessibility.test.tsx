@@ -1,7 +1,11 @@
 import { fireEvent } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { renderWithProviders } from '../test/renderWithProviders';
-import { BottomDrawer, isBottomDrawerAccessibilityModal } from './BottomDrawer';
+import {
+  BottomDrawer,
+  isBottomDrawerAccessibilityModal,
+  shouldBottomDrawerLiftAboveKeyboard,
+} from './BottomDrawer';
 
 describe('BottomDrawer accessibility contract', () => {
   it('isolates modal content, hides its backdrop, and supports escape', () => {
@@ -29,4 +33,18 @@ describe('BottomDrawer accessibility contract', () => {
     expect(isBottomDrawerAccessibilityModal('inline', false)).toBe(true);
     expect(isBottomDrawerAccessibilityModal('modal', true)).toBe(true);
   });
+
+  it('keeps extend-mode drawers bottom-attached while honoring legacy overrides', () => {
+    expect(shouldBottomDrawerLiftAboveKeyboard({ keyboardBehavior: 'extend' })).toBe(false);
+    expect(shouldBottomDrawerLiftAboveKeyboard({ keyboardBehavior: 'lift' })).toBe(true);
+    expect(shouldBottomDrawerLiftAboveKeyboard({
+      keyboardBehavior: 'extend',
+      keyboardAvoidanceEnabled: true,
+    })).toBe(true);
+    expect(shouldBottomDrawerLiftAboveKeyboard({
+      keyboardBehavior: 'lift',
+      keyboardAvoidanceEnabled: false,
+    })).toBe(false);
+  });
+
 });

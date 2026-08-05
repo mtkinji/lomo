@@ -250,9 +250,9 @@ export function TumbleScreen() {
         : farkleGame.turnPoints + (selection.valid ? selection.score : 0);
 
   const rememberSeats = () => {
-    const remembered = roster.remember(seats.filter((seat) => !seat.profileUserId).map((seat) => ({ savedPlayerId: seat.savedPlayerId, displayName: seat.displayName })));
+    const remembered = roster.remember(seats.filter((seat) => !seat.profileUserId && seat.displayName.trim()).map((seat) => ({ savedPlayerId: seat.savedPlayerId, displayName: seat.displayName.trim() })));
     let rememberedIndex = 0;
-    const stableSeats = seats.map((seat) => seat.profileUserId ? seat : { ...seat, savedPlayerId: remembered[rememberedIndex++]?.savedPlayerId });
+    const stableSeats = seats.map((seat) => seat.profileUserId || !seat.displayName.trim() ? seat : { ...seat, displayName: seat.displayName.trim(), savedPlayerId: remembered[rememberedIndex++]?.savedPlayerId });
     liveSeats.current = stableSeats;
     setSeats(stableSeats);
     return stableSeats;
