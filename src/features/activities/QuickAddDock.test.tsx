@@ -268,6 +268,27 @@ describe('QuickAddDock', () => {
     });
   });
 
+  it('keeps the inline Goal dock on the same floating pill surface', () => {
+    const { getByTestId } = renderWithProviders(
+      <QuickAddDock
+        placement="inline"
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused={false}
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+      />,
+    );
+
+    expect(StyleSheet.flatten(getByTestId('quick-add-collapsed-surface').props.style)).toMatchObject({
+      backgroundColor: '#FFFFFF',
+      borderRadius: 999,
+    });
+    expect(getByTestId('quick-add-collapsed-surface.contactShadow')).toBeTruthy();
+  });
+
   it('uses a contextual placeholder for the collapsed and expanded composer', () => {
     const inputRef = React.createRef<TextInput | null>();
     const { getByLabelText, getByTestId, rerender } = renderWithProviders(

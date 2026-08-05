@@ -310,12 +310,17 @@ export function QuickAddDock({
               onReview={onReviewPlaceReceipt}
             />
           ) : null}
-          <View style={styles.collapsedInputShell}>
+          <FloatingControlSurface
+            testID="quick-add-collapsed-surface"
+            borderRadius={999}
+            isProminent={collapsedSurfaceProminent}
+            style={styles.collapsedInputShell}
+          >
             <CollapsedQuickAddTrigger
               placeholder={placeholder}
               onPress={() => setIsFocused(true)}
             />
-          </View>
+          </FloatingControlSurface>
         </View>
       )}
 
