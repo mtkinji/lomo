@@ -23,13 +23,13 @@ Gives Maya a private family boundary with explicit membership, child-by-child ca
 
 ## Surfaces in this folder
 
-- `HouseholdSettingsScreen.tsx` - parent-facing roster, dependent setup, child capability activation, and caregiver invitations.
+- `HouseholdSettingsScreen.tsx` - parent-facing roster, dependent setup, child capability activation, shareable installed-app invitations, and explicit review-before-join.
 - `screenTime/` - child-specific family agreement, delivery-state learning, and child-facing explanation.
 - `data/household.ts` - typed client boundary for server-authorized Household commands.
 - `data/householdMigration.test.ts` - authorization and privacy contract for the canonical Household schema.
 
 ## Notes
 
-Household membership shares only roster and relationship metadata. Every capability must opt into family participation explicitly; no personal capability content becomes shared through membership alone.
+Household membership shares only roster and relationship metadata. Possessing an invitation grants nothing until a signed-in person reviews and accepts it. Every capability must opt into family participation explicitly; no personal capability content becomes shared through membership alone.
 
 Family Screen Time owns caregiver and child policy meaning inside Household. Shared native enforcement and cross-domain conflict behavior follow [`docs/architecture/screen-time-control-plane.md`](../../../docs/architecture/screen-time-control-plane.md).

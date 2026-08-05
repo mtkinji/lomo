@@ -95,6 +95,11 @@ describe('linkingConfig', () => {
     });
   });
 
+  test('normalizes a universal-link handoff to the native Household route', () => {
+    expect(prepareIncomingNavigationUrl('https://go.kwilt.app/open/household/CHILD12'))
+      .toBe('kwilt://household/CHILD12');
+  });
+
   describe('Money capability deep links', () => {
     test.each([
       ['money', 'MoneySummary', ['Money', 'MoneySummary'], undefined],
@@ -194,6 +199,13 @@ describe('linkingConfig', () => {
   });
 
   describe('Pre-existing deep links still resolve (no regression from refactor)', () => {
+    test('kwilt://household/:code opens invitation review', () => {
+      const leaf = parse('household/CHILD12');
+      expect(leaf?.name).toBe('SettingsHousehold');
+      expect(leaf?.path).toEqual(['Settings', 'SettingsHousehold']);
+      expect(leaf?.params).toEqual({ inviteCode: 'CHILD12' });
+    });
+
     test('development Guided Overture link resolves to the isolated lab route', () => {
       expect(parse('__dev/guided-overture')?.name).toBe('GuidedOvertureLab');
     });

@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
@@ -19,6 +19,7 @@ import { Text } from '../../ui/primitives';
 import {
   acceptHouseholdMemberInvite,
   addDependentChild,
+  buildHouseholdInviteUrl,
   createHouseholdMemberInvite,
   getHouseholdSnapshot,
   previewHouseholdInvite,
@@ -79,18 +80,20 @@ function stateDescription(state: ChildCapabilityState | undefined): string {
   }
 }
 
-export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<SettingsStackParamList, 'SettingsHousehold'>) {
+export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreenProps<SettingsStackParamList, 'SettingsHousehold'>) {
   const authIdentity = useAppStore((state) => state.authIdentity);
+  const linkedInviteCode = route.params?.inviteCode?.trim().toUpperCase() ?? '';
   const [snapshot, setSnapshot] = useState<HouseholdSnapshot | null>(null);
   const [childName, setChildName] = useState('');
   const [childEmail, setChildEmail] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteReceipt, setInviteReceipt] = useState<HouseholdInvitation | null>(null);
-  const [joinCode, setJoinCode] = useState('');
+  const [joinCode, setJoinCode] = useState(linkedInviteCode);
   const [invitePreview, setInvitePreview] = useState<HouseholdInvitationPreview | null>(null);
-  const [entryMode, setEntryMode] = useState<EntryMode | null>(null);
+  const [entryMode, setEntryMode] = useState<EntryMode | null>(linkedInviteCode ? 'join' : null);
   const [loading, setLoading] = useState(Boolean(authIdentity));
   const [mutationKey, setMutationKey] = useState<string | null>(null);
+  const reviewedLinkedInvite = useRef<string | null>(null);
 
   const client = useMemo(() => (authIdentity ? getSupabaseClient() : null), [authIdentity]);
   const currentMember = snapshot?.members.find((member) => member.id === snapshot.currentMembershipId);
@@ -192,6 +195,31 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
     } finally {
       setMutationKey(null);
     }
+  };
+
+  useEffect(() => {
+    if (!client || !linkedInviteCode || reviewedLinkedInvite.current === linkedInviteCode) return;
+    reviewedLinkedInvite.current = linkedInviteCode;
+    setJoinCode(linkedInviteCode);
+    setEntryMode('join');
+    setMutationKey('preview-invite');
+    void previewHouseholdInvite(client, linkedInviteCode)
+      .then(setInvitePreview)
+      .catch((error) => {
+        Alert.alert('Unable to review invitation', error instanceof Error ? error.message : 'Please try again.');
+      })
+      .finally(() => setMutationKey(null));
+  }, [client, linkedInviteCode]);
+
+  const shareInvitation = async () => {
+    if (!inviteReceipt) return;
+    const url = buildHouseholdInviteUrl(inviteReceipt.code);
+    const householdName = snapshot?.household?.name ?? 'a Household';
+    const role = inviteReceipt.role === 'child' ? 'child' : 'caregiver';
+    await Share.share({
+      url,
+      message: `${authIdentity?.name || 'Someone'} invited you to join ${householdName} as a ${role} in Kwilt. Household membership shares the family roster, not your private Goals, chats, Money, or Activities.\n\nOpen in Kwilt: ${url}\nInvite code: ${inviteReceipt.code}`,
+    });
   };
 
   const joinHousehold = async () => {
@@ -419,9 +447,17 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
         <View style={styles.entrySection}>
           {entryMode ? entryForm : actionList}
           {inviteReceipt ? (
-            <Text selectable style={styles.inviteCode}>
-              {`${inviteReceipt.role === 'child' ? 'Child' : 'Caregiver'} invitation code: ${inviteReceipt.code}`}
-            </Text>
+            <View style={styles.inviteReceipt}>
+              <Text selectable style={styles.inviteCode}>
+                {`${inviteReceipt.role === 'child' ? 'Child' : 'Caregiver'} invitation code: ${inviteReceipt.code}`}
+              </Text>
+              <Text style={styles.invitePrivacy}>
+                This invitation shares Household membership only. Private Kwilt content stays private.
+              </Text>
+              <Button fullWidth onPress={() => void shareInvitation()} variant="secondary">
+                Share invitation
+              </Button>
+            </View>
           ) : null}
         </View>
       ) : null}
@@ -655,8 +691,17 @@ const styles = StyleSheet.create({
   },
   inviteCode: {
     ...typography.bodySm,
-    paddingHorizontal: spacing.md,
     color: colors.textPrimary,
+  },
+  inviteReceipt: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 14,
+    backgroundColor: colors.gray100,
+  },
+  invitePrivacy: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
   },
   pressed: {
     opacity: 0.68,

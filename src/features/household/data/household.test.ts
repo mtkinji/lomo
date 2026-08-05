@@ -3,6 +3,7 @@ import {
   acceptCaregiverInvite,
   acceptHouseholdMemberInvite,
   addDependentChild,
+  buildHouseholdInviteUrl,
   createCaregiverInvite,
   createHouseholdMemberInvite,
   getHouseholdSnapshot,
@@ -31,6 +32,10 @@ function clientReturning(data: unknown = snapshot, error: unknown = null) {
 }
 
 describe('Household data boundary', () => {
+  it('builds a normalized installed-app invitation link', () => {
+    expect(buildHouseholdInviteUrl(' child12 ')).toBe('https://go.kwilt.app/open/household/CHILD12');
+  });
+
   it('loads and parses a Household snapshot', async () => {
     const { client, rpc } = clientReturning();
     await expect(getHouseholdSnapshot(client)).resolves.toEqual(snapshot);

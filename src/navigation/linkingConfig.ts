@@ -47,7 +47,18 @@ export function prepareIncomingNavigationUrl(
   url: string,
   launchId = `${Date.now()}-${++widgetLaunchSequence}`,
 ) {
-  const normalized = normalizeKwiltGamesUrl(url);
+  let normalized = normalizeKwiltGamesUrl(url);
+  try {
+    const handoff = new URL(normalized);
+    const host = handoff.hostname.toLowerCase();
+    const path = handoff.pathname.replace(/^\/+/, '');
+    if ((host === 'go.kwilt.app' || host === 'kwilt.app') && path.startsWith('open/')) {
+      const nativePath = path.slice('open/'.length);
+      if (nativePath) normalized = `kwilt://${nativePath}${handoff.search}`;
+    }
+  } catch {
+    // Let React Navigation handle malformed or unsupported URLs as before.
+  }
   try {
     const parsed = new URL(normalized);
     if (
@@ -226,6 +237,9 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         },
         SettingsConnectedTools: {
           path: 'settings/connections',
+        },
+        SettingsHousehold: {
+          path: 'household/:inviteCode?',
         },
         SettingsMoneyPrivacy: 'settings/money-privacy',
         SettingsJoinFriend: 'friend/:inviteCode',
