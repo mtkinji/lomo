@@ -18,17 +18,49 @@ struct FocusWidgetProvider: TimelineProvider {
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<FocusWidgetEntry>) -> Void) {
-    let entry = buildEntry()
-    let fallbackRefresh = Date().addingTimeInterval(15 * 60)
-    let sessionEnd = entry.focusSession?.endAtMs.map { Date(timeIntervalSince1970: $0 / 1000.0) }
-    let refresh = sessionEnd.map { max($0, Date().addingTimeInterval(1)) } ?? fallbackRefresh
-    completion(Timeline(entries: [entry], policy: .after(refresh)))
+    let now = Date()
+    let entry = buildEntry(at: now)
+
+    if
+      let focus = entry.focusSession,
+      focus.mode == "running",
+      let endAtMs = focus.endAtMs
+    {
+      let end = Date(timeIntervalSince1970: endAtMs / 1000.0)
+      if end > now {
+        completion(Timeline(
+          entries: [entry, FocusWidgetEntry(date: end, focusSession: nil)],
+          policy: .after(end.addingTimeInterval(1))
+        ))
+        return
+      }
+    }
+
+    completion(Timeline(
+      entries: [entry],
+      policy: .after(now.addingTimeInterval(15 * 60))
+    ))
   }
 
-  private func buildEntry() -> FocusWidgetEntry {
-    FocusWidgetEntry(
-      date: Date(),
-      focusSession: readGlanceableState()?.focusSession
+  private func buildEntry(at date: Date = Date()) -> FocusWidgetEntry {
+    let focusSession = readGlanceableState()?.focusSession
+    let nowMs = date.timeIntervalSince1970 * 1000.0
+    let visibleFocusSession: GlanceableStateV1.FocusSession?
+
+    if
+      let focusSession,
+      focusSession.mode == "running",
+      let endAtMs = focusSession.endAtMs,
+      endAtMs <= nowMs
+    {
+      visibleFocusSession = nil
+    } else {
+      visibleFocusSession = focusSession
+    }
+
+    return FocusWidgetEntry(
+      date: date,
+      focusSession: visibleFocusSession
     )
   }
 }
@@ -68,10 +100,12 @@ struct FocusWidgetView: View {
             .font(KwiltWidgetTypography.value)
         }
 
-        Text(focus.activityId == standaloneFocusActivityId ? "Unlinked session" : focus.title)
-          .font(KwiltWidgetTypography.body)
-          .foregroundStyle(.white.opacity(0.68))
-          .lineLimit(1)
+        if focus.activityId != standaloneFocusActivityId {
+          Text(focus.title)
+            .font(KwiltWidgetTypography.body)
+            .foregroundStyle(.white.opacity(0.68))
+            .lineLimit(1)
+        }
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
       .padding(16)
@@ -106,10 +140,6 @@ struct FocusWidgetView: View {
               .font(KwiltWidgetTypography.title)
               .minimumScaleFactor(0.72)
               .lineLimit(2)
-            Text("Choose time and audio")
-              .font(KwiltWidgetTypography.body)
-              .foregroundStyle(.white.opacity(0.68))
-              .lineLimit(1)
 
             Spacer()
 

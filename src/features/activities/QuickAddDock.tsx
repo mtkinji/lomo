@@ -21,6 +21,7 @@ import {
   type QuickAddPlaceRecommendation,
 } from './useQuickAddDockController';
 import { FloatingControlSurface } from './FloatingControlSurface';
+import { FloatingDockActionButton } from './FloatingDockActionButton';
 import { HapticsService } from '../../services/HapticsService';
 
 const QUICK_ADD_BAR_HEIGHT = 64;
@@ -96,6 +97,8 @@ type QuickAddDockProps = {
   /** Optional contextual Chat action shown beside the embedded inline composer. */
   onInlineChatPress?: () => void;
   inlineChatAccessibilityLabel?: string;
+  /** Settled-state elevation shared by the embedded composer and contextual Chat action. */
+  inlineSurfaceProminent?: boolean;
   placeReceipt?: QuickAddPlaceRecommendation | null;
   onDismissPlaceReceipt?: () => void;
   onSetPlaceAlert?: () => void;
@@ -124,6 +127,7 @@ export function QuickAddDock({
   collapsedSurfaceProminent = true,
   onInlineChatPress,
   inlineChatAccessibilityLabel = 'Open Chat',
+  inlineSurfaceProminent = true,
   placeReceipt,
   onDismissPlaceReceipt,
   onSetPlaceAlert,
@@ -248,10 +252,6 @@ export function QuickAddDock({
     onSubmit({ aiActions: selectedAiActions });
     if (dismissAfterSubmit) onCollapse();
   }, [canSubmit, dismissAfterSubmit, onCollapse, onSubmit, selectedAiActions]);
-  const handleInlineChatPress = React.useCallback(() => {
-    void HapticsService.trigger('canvas.selection');
-    onInlineChatPress?.();
-  }, [onInlineChatPress]);
   const selectedAiActionCount = selectedAiActions.length;
   const aiActionSummary =
     selectedAiActionCount === 0 ? 'Off' : `${selectedAiActionCount} on`;
@@ -323,7 +323,8 @@ export function QuickAddDock({
             <FloatingControlSurface
               testID="quick-add-collapsed-surface"
               borderRadius={999}
-              isProminent={false}
+              isProminent={inlineSurfaceProminent}
+              variant="embedded"
               style={[
                 styles.collapsedInputShell,
                 styles.inlineCollapsedInputShell,
@@ -337,27 +338,19 @@ export function QuickAddDock({
               />
             </FloatingControlSurface>
             {onInlineChatPress ? (
-              <Pressable
-                accessibilityRole="button"
+              <FloatingDockActionButton
+                testID="quick-add-inline-chat"
                 accessibilityLabel={inlineChatAccessibilityLabel}
                 accessibilityHint="Opens Chat with this Goal as context"
-                onPress={handleInlineChatPress}
-                style={({ pressed }) => [
-                  styles.inlineChatButton,
-                  pressed ? styles.inlineChatButtonPressed : null,
-                ]}
-              >
-                <FloatingControlSurface
-                  borderRadius={RESTING_COMPOSER_HEIGHT_PX / 2}
-                  isProminent={false}
-                  style={[styles.inlineChatSurface, styles.inlineCollapsedInputShell]}
-                  surfaceStyle={[styles.inlineChatSurfaceContent, styles.inlineCollapsedSurface]}
-                >
-                  <View testID="quick-add-inline-chat-icon">
-                    <Icon name="navAiGuide" size={19} color={colors.textPrimary} />
-                  </View>
-                </FloatingControlSurface>
-              </Pressable>
+                icon="navAiGuide"
+                iconTestID="quick-add-inline-chat-icon"
+                isProminent={inlineSurfaceProminent}
+                onPress={onInlineChatPress}
+                size={RESTING_COMPOSER_HEIGHT_PX}
+                surfaceVariant="embedded"
+                style={styles.inlineChatButton}
+                surfaceStyle={styles.inlineCollapsedSurface}
+              />
             ) : null}
           </View>
         </View>
@@ -849,19 +842,6 @@ const styles = StyleSheet.create({
   inlineChatButton: {
     width: RESTING_COMPOSER_HEIGHT_PX,
     height: RESTING_COMPOSER_HEIGHT_PX,
-  },
-  inlineChatButtonPressed: {
-    opacity: 0.72,
-  },
-  inlineChatSurface: {
-    width: RESTING_COMPOSER_HEIGHT_PX,
-    height: RESTING_COMPOSER_HEIGHT_PX,
-  },
-  inlineChatSurfaceContent: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   collapsedPressable: {
     width: '100%',

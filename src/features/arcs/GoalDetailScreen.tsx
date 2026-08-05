@@ -122,6 +122,7 @@ import {
 import { ActivityDraftDetailFields, type ActivityDraft } from '../activities/ActivityDraftDetailFields';
 import { findActivityCoverImageWithAI } from '../activities/activityCoverImage';
 import { QuickAddDock } from '../activities/QuickAddDock';
+import { useFloatingControlElevation } from '../activities/useFloatingControlElevation';
 import { UnifiedChatDrawer } from '../unifiedChat/UnifiedChatDrawer';
 import type { UnifiedChatLaunchContext } from '../unifiedChat/launchContext';
 import { RepeatInfoMenu } from '../activities/RepeatInfoMenu';
@@ -308,6 +309,11 @@ export function GoalDetailScreen() {
   const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
 
   const scrollY = useRef(new Animated.Value(0)).current;
+  const {
+    isProminent: goalDockProminent,
+    markScrolling: markGoalDockScrolling,
+    markSettled: markGoalDockSettled,
+  } = useFloatingControlElevation();
   const sheetTopRef = useRef<View | null>(null);
   const [sheetTopAtRestWindowY, setSheetTopAtRestWindowY] = useState<number | null>(null);
 
@@ -2689,7 +2695,13 @@ export function GoalDetailScreen() {
               keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
-              onScrollBeginDrag={() => Keyboard.dismiss()}
+              onScrollBeginDrag={() => {
+                Keyboard.dismiss();
+                markGoalDockScrolling();
+              }}
+              onScrollEndDrag={markGoalDockSettled}
+              onMomentumScrollBegin={markGoalDockScrolling}
+              onMomentumScrollEnd={markGoalDockSettled}
               onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
                 useNativeDriver: false,
               })}
@@ -2905,6 +2917,7 @@ export function GoalDetailScreen() {
                           placement="inline"
                           onInlineChatPress={() => setGoalChatVisible(true)}
                           inlineChatAccessibilityLabel="Chat about this goal"
+                          inlineSurfaceProminent={goalDockProminent}
                           value={quickAddTitle}
                           onChangeText={setQuickAddTitle}
                           inputRef={quickAddInputRef}
@@ -2959,6 +2972,7 @@ export function GoalDetailScreen() {
                           placement="inline"
                           onInlineChatPress={() => setGoalChatVisible(true)}
                           inlineChatAccessibilityLabel="Chat about this goal"
+                          inlineSurfaceProminent={goalDockProminent}
                           value={quickAddTitle}
                           onChangeText={setQuickAddTitle}
                           inputRef={quickAddInputRef}

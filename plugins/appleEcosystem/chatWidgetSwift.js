@@ -41,7 +41,7 @@ struct ChatWidgetView: View {
 
           Spacer()
 
-          Text("Start a thought")
+          Text("Ask Kwilt")
             .font(KwiltWidgetTypography.title)
             .minimumScaleFactor(0.8)
             .lineLimit(2)

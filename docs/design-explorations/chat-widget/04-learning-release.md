@@ -25,7 +25,7 @@ Still intentionally not supported:
 
 ## User Experience
 
-The small widget uses restrained Kwilt visual language, the label `Chat`, and short supporting copy such as `Start a thought`. It contains no private or dynamic personal data.
+The small widget uses restrained Kwilt visual language, the label `Chat`, and the primary action `Ask Kwilt`. It contains no private or dynamic personal data.
 
 On tap, iOS opens `kwilt://chat?entry=fresh&source=widget`. Kwilt presents the normal Unified Chat surface in a fresh-entry state with the composer ready. The existing microphone remains an explicit secondary action. If the user closes Chat without sending, nothing durable is created. On first send, Kwilt creates the thread just in time and runs the message through the existing durable Chat pipeline. From then on, the thread behaves exactly like any other Unified Chat thread.
 

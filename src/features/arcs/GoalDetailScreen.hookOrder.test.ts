@@ -35,7 +35,18 @@ describe('GoalDetailScreen hook order', () => {
       expect(block).toContain('onLockedAiActionPress={handleLockedQuickAddAiActionPress}');
       expect(block).toContain('onInlineChatPress={() => setGoalChatVisible(true)}');
       expect(block).toContain('inlineChatAccessibilityLabel="Chat about this goal"');
+      expect(block).toContain('inlineSurfaceProminent={goalDockProminent}');
     });
+  });
+
+  it('uses the shared scroll-settle elevation lifecycle for the Goal dock', () => {
+    const source = readFileSync(path.join(__dirname, 'GoalDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('useFloatingControlElevation()');
+    expect(source).toContain('markGoalDockScrolling();');
+    expect(source).toContain('onScrollEndDrag={markGoalDockSettled}');
+    expect(source).toContain('onMomentumScrollBegin={markGoalDockScrolling}');
+    expect(source).toContain('onMomentumScrollEnd={markGoalDockSettled}');
   });
 
   it('opens Unified Chat with the exact Goal detail context', () => {

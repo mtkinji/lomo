@@ -162,8 +162,11 @@ test('generated Focus widget opens the in-app duration and audio decision moment
   assert.doesNotMatch(focusWidgetTemplate, /Surprise soundscape/);
   assert.doesNotMatch(focusWidgetTemplate, /Set your session/);
   assert.match(focusWidgetTemplate, /Text\("Start a Focus session"\)/);
-  assert.match(focusWidgetTemplate, /Text\("Choose time and audio"\)/);
+  assert.doesNotMatch(focusWidgetTemplate, /Choose time and audio/);
   assert.match(focusWidgetTemplate, /Text\(timerInterval: start\.\.\.end, countsDown: true\)/);
+  assert.match(focusWidgetTemplate, /FocusWidgetEntry\(date: end, focusSession: nil\)/);
+  assert.match(focusWidgetTemplate, /return FocusWidgetEntry\(/);
+  assert.doesNotMatch(focusWidgetTemplate, /Unlinked session/);
   assert.match(widgetGenerator, /KwiltFocusWidget\(\)/);
 });
 
@@ -197,7 +200,7 @@ test('generated Chat widget is a private static fresh-entry launcher', () => {
   assert.match(chatWidgetTemplate, /struct KwiltChatWidget: Widget/);
   assert.match(chatWidgetTemplate, /kwilt:\/\/chat\?entry=fresh&source=widget/);
   assert.match(chatWidgetTemplate, /Text\("Chat"\)/);
-  assert.match(chatWidgetTemplate, /Text\("Start a thought"\)/);
+  assert.match(chatWidgetTemplate, /Text\("Ask Kwilt"\)/);
   assert.match(chatWidgetTemplate, /Text\("Open"\)/);
   assert.match(chatWidgetTemplate, /\.supportedFamilies\(\[\.systemSmall\]\)/);
   assert.doesNotMatch(chatWidgetTemplate, /thread|message|transcript|record/i);

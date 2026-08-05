@@ -6,6 +6,7 @@ import { inventoryChromeNativeEasing } from '../../navigation/chromeMotion';
 import { HapticsService } from '../../services/HapticsService';
 import { Icon } from '../../ui/Icon';
 import { FloatingControlSurface } from './FloatingControlSurface';
+import { FloatingDockActionButton } from './FloatingDockActionButton';
 
 export const INVENTORY_DOCK_BUTTON_SIZE_PX = 48;
 export const INVENTORY_DOCK_BUTTON_GAP_PX = spacing.sm;
@@ -155,16 +156,6 @@ export function InventoryDockAffordances({
     }
   }, []);
 
-  const handleSearchPress = React.useCallback(() => {
-    void HapticsService.trigger('canvas.selection');
-    onSearchPress();
-  }, [onSearchPress]);
-
-  const handleChatPress = React.useCallback(() => {
-    void HapticsService.trigger('canvas.selection');
-    onChatPress();
-  }, [onChatPress]);
-
   const handleScrollToTopPress = React.useCallback(() => {
     if (pressExitInProgressRef.current) return;
     pressExitInProgressRef.current = true;
@@ -274,53 +265,30 @@ export function InventoryDockAffordances({
         </Animated.View>
       ) : null}
 
-      <Pressable
+      <FloatingDockActionButton
         testID="e2e.activities.search"
-        accessibilityRole="button"
         accessibilityLabel="Search To-dos"
         accessibilityHint="Opens Search scoped to To-dos"
-        onPress={handleSearchPress}
-        style={({ pressed }) => [
+        icon="search"
+        isProminent={isProminent}
+        onPress={onSearchPress}
+        size={INVENTORY_DOCK_BUTTON_SIZE_PX}
+        style={[
           styles.searchButton,
           { right: rightInsetPx + INVENTORY_DOCK_BUTTON_SIZE_PX + INVENTORY_DOCK_BUTTON_GAP_PX },
-          pressed && styles.buttonPressed,
         ]}
-      >
-        <FloatingControlSurface
-          borderRadius={INVENTORY_DOCK_BUTTON_SIZE_PX / 2}
-          isProminent={isProminent}
-          style={styles.button}
-          surfaceStyle={styles.buttonSurface}
-        >
-          <View style={styles.buttonContent}>
-            <Icon name="search" size={19} color={colors.textPrimary} />
-          </View>
-        </FloatingControlSurface>
-      </Pressable>
+      />
 
-      <Pressable
+      <FloatingDockActionButton
         testID="e2e.activities.chat"
-        accessibilityRole="button"
         accessibilityLabel="Chat about to-dos"
         accessibilityHint="Opens Chat with the current To-dos context"
-        onPress={handleChatPress}
-        style={({ pressed }) => [
-          styles.chatButton,
-          { right: rightInsetPx },
-          pressed && styles.buttonPressed,
-        ]}
-      >
-        <FloatingControlSurface
-          borderRadius={INVENTORY_DOCK_BUTTON_SIZE_PX / 2}
-          isProminent={isProminent}
-          style={styles.button}
-          surfaceStyle={styles.buttonSurface}
-        >
-          <View style={styles.buttonContent}>
-            <Icon name="navAiGuide" size={19} color={colors.textPrimary} />
-          </View>
-        </FloatingControlSurface>
-      </Pressable>
+        icon="navAiGuide"
+        isProminent={isProminent}
+        onPress={onChatPress}
+        size={INVENTORY_DOCK_BUTTON_SIZE_PX}
+        style={[styles.chatButton, { right: rightInsetPx }]}
+      />
     </View>
   );
 }
@@ -343,10 +311,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     bottom: 0,
-  },
-  button: {
-    width: INVENTORY_DOCK_BUTTON_SIZE_PX,
-    height: INVENTORY_DOCK_BUTTON_SIZE_PX,
   },
   buttonSurface: {
     height: '100%',

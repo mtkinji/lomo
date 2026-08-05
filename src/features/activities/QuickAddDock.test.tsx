@@ -296,6 +296,19 @@ describe('QuickAddDock', () => {
       borderWidth: 1,
       borderColor: '#E7E5E4',
     });
+    expect(
+      StyleSheet.flatten(getByTestId('quick-add-inline-chat.surface.contactShadow').props.style),
+    ).toMatchObject({
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 1,
+    });
+    expect(
+      StyleSheet.flatten(getByTestId('quick-add-inline-chat.surface.surface').props.style),
+    ).toMatchObject({
+      borderWidth: 1,
+      borderColor: '#E7E5E4',
+    });
 
     fireEvent.press(getByLabelText('Chat about this goal'));
 

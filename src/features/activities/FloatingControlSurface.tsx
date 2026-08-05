@@ -13,14 +13,18 @@ import { QUICK_ADD_COLLAPSED_SURFACE_ELEVATION } from './quickAddDockTokens';
 type FloatingControlSurfaceProps = React.PropsWithChildren<{
   borderRadius: number;
   isProminent: boolean;
+  variant?: FloatingControlSurfaceVariant;
   style?: StyleProp<ViewStyle>;
   surfaceStyle?: StyleProp<ViewStyle>;
   testID?: string;
 }>;
 
+export type FloatingControlSurfaceVariant = 'floating' | 'embedded';
+
 export function FloatingControlSurface({
   borderRadius,
   isProminent,
+  variant = 'floating',
   style,
   surfaceStyle,
   testID,
@@ -48,7 +52,7 @@ export function FloatingControlSurface({
     <View
       testID={testID}
       style={[
-        styles.broadShadow,
+        variant === 'floating' ? styles.broadShadow : styles.embeddedBase,
         { borderRadius },
         style,
       ]}
@@ -58,7 +62,7 @@ export function FloatingControlSurface({
         pointerEvents="none"
         style={[
           StyleSheet.absoluteFillObject,
-          styles.contactShadow,
+          variant === 'floating' ? styles.contactShadow : styles.embeddedContactShadow,
           { borderRadius, opacity: contactShadowOpacity },
         ]}
       />
@@ -84,6 +88,17 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 1 },
     elevation: 3,
+  },
+  embeddedBase: {
+    backgroundColor: colors.card,
+  },
+  embeddedContactShadow: {
+    backgroundColor: colors.card,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   surface: {
     width: '100%',
