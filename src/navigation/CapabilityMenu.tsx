@@ -25,7 +25,9 @@ type CapabilityMenuProps = {
   onCreateChat: () => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
+  onOpenHome?: () => void;
   onOpenChat: () => void;
+  sharedHomeEnabled?: boolean;
   exploreEnabled?: boolean;
   moneyLivingLimitEnabled?: boolean;
 };
@@ -51,7 +53,9 @@ export function CapabilityMenu({
   onCreateChat,
   onOpenSearch,
   onOpenSettings,
+  onOpenHome,
   onOpenChat,
+  sharedHomeEnabled = false,
   exploreEnabled = false,
   moneyLivingLimitEnabled = false,
 }: CapabilityMenuProps) {
@@ -198,15 +202,38 @@ export function CapabilityMenu({
           <Icon name="search" size={20} color={colors.gray700} />
         </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open chat"
-          onPress={onOpenChat}
-          style={({ pressed }) => [styles.chatButton, pressed && styles.chatButtonPressed]}
-        >
-          <Icon name="navAiGuide" size={17} color={colors.gray50} />
-          <Text style={styles.chatButtonLabel}>Chat</Text>
-        </Pressable>
+        {sharedHomeEnabled ? (
+          <View style={styles.footerActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open Home"
+              onPress={onOpenHome}
+              style={({ pressed }) => [styles.homeButton, pressed && styles.searchButtonPressed]}
+            >
+              <Icon name="home" size={17} color={colors.gray700} />
+              <Text style={styles.homeButtonLabel}>Home</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ask Kwilt"
+              onPress={onOpenChat}
+              style={({ pressed }) => [styles.chatButton, styles.askButtonSplit, pressed && styles.chatButtonPressed]}
+            >
+              <Icon name="navAiGuide" size={17} color={colors.gray50} />
+              <Text style={styles.chatButtonLabel}>Ask</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open chat"
+            onPress={onOpenChat}
+            style={({ pressed }) => [styles.chatButton, pressed && styles.chatButtonPressed]}
+          >
+            <Icon name="navAiGuide" size={17} color={colors.gray50} />
+            <Text style={styles.chatButtonLabel}>Chat</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -477,6 +504,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: 22,
     backgroundColor: colors.sumi900,
+  },
+  footerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: colors.gray100,
+  },
+  homeButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderTopLeftRadius: 22,
+    borderBottomLeftRadius: 22,
+  },
+  homeButtonLabel: {
+    ...typography.bodySm,
+    fontFamily: fonts.medium,
+    color: colors.gray700,
+  },
+  askButtonSplit: {
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
   },
   chatButtonPressed: {
     backgroundColor: colors.sumi800,

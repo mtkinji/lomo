@@ -81,6 +81,14 @@ describe('linkingConfig', () => {
     });
   });
 
+  test('kwilt://home opens Shared Home with an optional exact delivery', () => {
+    expect(parse('home')).toMatchObject({ name: 'SharedHome' });
+    expect(parse('home/delivery-1')).toMatchObject({
+      name: 'SharedHome',
+      params: { deliveryId: 'delivery-1' },
+    });
+  });
+
   test('gives every incoming Chat widget open a distinct launch id', () => {
     const first = prepareIncomingNavigationUrl('kwilt://chat?entry=fresh&source=widget', 'launch-1');
     const second = prepareIncomingNavigationUrl('kwilt://chat?entry=fresh&source=widget', 'launch-2');

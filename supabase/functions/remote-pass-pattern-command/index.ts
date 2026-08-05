@@ -1,6 +1,14 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.78.0';
 import { applyRemotePassPatternCommand, type ServerPassPatternAction, type ServerPassPatternGame } from '../_shared/games-pass-pattern.ts';
+import {
+  buildGameTurnDelivery,
+  insertSharedDelivery,
+  settlePendingSourceDeliveries,
+  sharedHomeRecipientEnabled,
+  shouldEmitGameTurn,
+} from '../_shared/sharedHomeDelivery.ts';
+import { sendSharedDeliveryPush } from '../_shared/expoPush.ts';
 
 type Body = {
   sessionId: string;
@@ -71,6 +79,80 @@ Deno.serve(async (request) => {
   }
 
   const result = Array.isArray(data) ? data[0] : data;
+
+  // A Pass the Pattern handoff is meaningful asynchronous participation. Other
+  // beat-level actions stay inside live play and never become Home noise.
+  if (result && result.duplicate !== true && (body.actionType === 'next_player' || body.actionType === 'restart')) {
+    try {
+      await settlePendingSourceDeliveries(
+        admin,
+        'games',
+        body.sessionId,
+        body.actionType === 'restart' ? 'game_restarted' : 'turn_advanced',
+      );
+
+      if (body.actionType === 'next_player') {
+        const { data: nextParticipant, error: nextParticipantError } = await admin
+          .from('game_participants')
+          .select('controller_user_id')
+          .eq('session_id', body.sessionId)
+          .eq('seat_index', nextState.playerIndex)
+          .maybeSingle();
+        if (nextParticipantError) throw nextParticipantError;
+
+        const recipientUserId = typeof nextParticipant?.controller_user_id === 'string'
+          ? nextParticipant.controller_user_id
+          : '';
+        const recipientResult = recipientUserId
+          ? await admin.auth.admin.getUserById(recipientUserId)
+          : null;
+        const recipientIsAnonymous = recipientResult?.data?.user?.is_anonymous !== false;
+        const committedStateVersion = Number(result.state_version);
+        const emit = Number.isInteger(committedStateVersion) && shouldEmitGameTurn({
+          duplicate: false,
+          actionType: body.actionType,
+          previousPlayerIndex: (session.state as ServerPassPatternGame).playerIndex,
+          nextPlayerIndex: nextState.playerIndex,
+          recipientIsAnonymous,
+        });
+
+        if (emit && recipientUserId && sharedHomeRecipientEnabled(recipientUserId)) {
+          const metadata = userData.user.user_metadata ?? {};
+          const actorDisplayName = typeof metadata.full_name === 'string'
+            ? metadata.full_name
+            : typeof metadata.name === 'string'
+              ? metadata.name
+              : null;
+          const delivery = buildGameTurnDelivery({
+            sessionId: body.sessionId,
+            committedStateVersion,
+            recipientUserId,
+            actorUserId: userData.user.id,
+            actorDisplayName,
+            expiresAt: session.expires_at,
+          });
+          const saved = await insertSharedDelivery(admin, delivery);
+          if (saved.created) {
+            const push = await sendSharedDeliveryPush(admin, recipientUserId, saved.id);
+            if (push.rejected > 0) {
+              console.warn('[shared-home] Game handoff push was not accepted by every device', {
+                deliveryId: saved.id,
+                attempted: push.attempted,
+                accepted: push.accepted,
+                rejected: push.rejected,
+              });
+            }
+          }
+        }
+      }
+    } catch (deliveryError) {
+      console.warn('[shared-home] Game handoff delivery unavailable', {
+        actionType: body.actionType,
+        errorClass: deliveryError instanceof Error ? deliveryError.name : 'unknown',
+      });
+    }
+  }
+
   const channel = admin.channel(`game:${body.sessionId}`, { config: { private: true } });
   await channel.send({ type: 'broadcast', event: 'state_changed', payload: { stateVersion: result.state_version } }).catch(() => undefined);
   await admin.removeChannel(channel);

@@ -39,6 +39,7 @@ import { MoneyPrivacySettingsScreen } from '../capabilities/money/screens/MoneyP
 import { MoneyHouseholdSettingsScreen } from '../capabilities/money/screens/MoneyHouseholdSettingsScreen';
 import { AiChatScreen } from '../features/ai/AiChatScreen';
 import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
+import { SharedHomeScreen } from '../features/shared-home/SharedHomeScreen';
 import type { UnifiedChatLaunchContext, UnifiedChatRouteParams } from '../features/unifiedChat/launchContext';
 import { deriveCapabilityAgentContext, resolveCapabilityAgentReturn } from '../features/ai/capabilityAgentContext';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
@@ -178,6 +179,7 @@ export type RootDrawerParamList = {
    * the compatibility `Agent` route that owns Kwilt's existing workflow chat.
    */
   UnifiedChat: UnifiedChatRouteParams | undefined;
+  SharedHome: { deliveryId?: string; source?: 'manual' | 'push' | 'link' } | undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools: {
     familyScreenTimeChild?: {
@@ -712,6 +714,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               options={{ title: 'Chat', drawerItemStyle: { display: 'none' } }}
             />
             <Drawer.Screen
+              name="SharedHome"
+              component={SharedHomeCapabilityHost}
+              options={{ title: 'Home', drawerItemStyle: { display: 'none' } }}
+            />
+            <Drawer.Screen
               name="ArcsStack"
               component={ArcsStackRedirectScreen}
               options={{ title: 'Arcs', drawerItemStyle: { display: 'none' } }}
@@ -947,6 +954,14 @@ function GamesCapabilityHost() {
   );
 }
 
+function SharedHomeCapabilityHost() {
+  return (
+    <CapabilityShellProvider>
+      <SharedHomeScreen />
+    </CapabilityShellProvider>
+  );
+}
+
 function MoreStackNavigator() {
   return (
     <MoreStack.Navigator screenOptions={{ headerShown: false }}>
@@ -1094,6 +1109,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const { coverMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
   const exploreEnabled = useFeatureFlag('explore-capability', __DEV__);
+  const sharedHomeEnabled = useFeatureFlag('shared-home-v1', false);
   const chatRepository = useMemo(() => createUnifiedChatRepository(), []);
   const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);
   const [chatsLoading, setChatsLoading] = useState(false);
@@ -1246,6 +1262,11 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         }}
         onOpenSettings={() => {
           rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' });
+          coverMenu();
+        }}
+        sharedHomeEnabled={sharedHomeEnabled}
+        onOpenHome={() => {
+          rootNavigationRef.navigate('SharedHome', { source: 'manual' });
           coverMenu();
         }}
         onOpenChat={() => {

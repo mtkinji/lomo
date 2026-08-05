@@ -42,6 +42,7 @@ const handlers = {
   onCreateChat: jest.fn(),
   onOpenSearch: jest.fn(),
   onOpenSettings: jest.fn(),
+  onOpenHome: jest.fn(),
   onOpenChat: jest.fn(),
 };
 
@@ -187,6 +188,24 @@ describe('CapabilityMenu', () => {
 
     expect(handlers.onOpenSearch).toHaveBeenCalledTimes(1);
     expect(handlers.onOpenSettings).toHaveBeenCalledTimes(1);
+    expect(handlers.onOpenChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('replaces the single Chat footer action with distinct Home and Ask actions when enabled', () => {
+    const { getByLabelText, queryByLabelText } = render(
+      <CapabilityMenu
+        activeCapabilityId="todos"
+        displayName="Andy"
+        chats={chats}
+        sharedHomeEnabled
+        {...handlers}
+      />,
+    );
+
+    expect(queryByLabelText('Open chat')).toBeNull();
+    fireEvent.press(getByLabelText('Open Home'));
+    fireEvent.press(getByLabelText('Ask Kwilt'));
+    expect(handlers.onOpenHome).toHaveBeenCalledTimes(1);
     expect(handlers.onOpenChat).toHaveBeenCalledTimes(1);
   });
 

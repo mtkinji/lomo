@@ -176,6 +176,13 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         widgetLaunchId: (value: string) => String(value),
       },
     },
+    SharedHome: {
+      path: 'home/:deliveryId?',
+      parse: {
+        deliveryId: (value: string) => String(value),
+        source: (value: string) => value === 'link' ? 'link' : undefined,
+      },
+    },
     // Development-only lab route. The matching screen is not mounted in production builds.
     GuidedOvertureLab: {
       path: '__dev/guided-overture',

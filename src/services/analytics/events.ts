@@ -46,6 +46,11 @@ export const AnalyticsEvent = {
   AgentReturnedToCapability: 'agent_returned_to_capability',
   UnifiedShellFirstSurfaceUsable: 'unified_shell_first_surface_usable',
 
+  // Shared Home recovery surface. Metadata only: event/capability/state enums and
+  // authentication state. Never attach names, titles, delivery ids, or destinations.
+  SharedHomeViewed: 'shared_home_viewed',
+  SharedHomeDeliveryOpened: 'shared_home_delivery_opened',
+
   // Money transaction truth. Safe metadata only: create/replace mode, bounded
   // allocation counts, and coarse duration buckets. Never send transaction,
   // merchant, account, category, description, amount, or timestamp values.

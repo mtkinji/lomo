@@ -9,6 +9,12 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import {
+  buildGoalInvitationDelivery,
+  insertSharedDelivery,
+  sharedHomeRecipientEnabled,
+} from '../_shared/sharedHomeDelivery.ts';
+import { sendSharedDeliveryPush } from '../_shared/expoPush.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -159,6 +165,59 @@ serve(async (req) => {
     if (!inviteCode) {
       return json(503, { error: { message: 'Unable to create invite', code: 'provider_unavailable' } });
     }
+
+    // Shared Home is a best-effort delivery projection. Invitation creation is
+    // still authoritative and must succeed even when Home or push is unavailable.
+    try {
+      const { data: inviteRow, error: inviteLookupError } = await admin
+        .from('kwilt_invites')
+        .select('id, intended_recipient_user_id, created_by, expires_at, payload')
+        .eq('code', inviteCode)
+        .maybeSingle();
+      if (inviteLookupError) throw inviteLookupError;
+
+      const recipientUserId = typeof inviteRow?.intended_recipient_user_id === 'string'
+        ? inviteRow.intended_recipient_user_id
+        : '';
+      if (inviteRow?.id && recipientUserId && sharedHomeRecipientEnabled(recipientUserId)) {
+        const metadata = userData.user.user_metadata ?? {};
+        const actorDisplayName = typeof metadata.full_name === 'string'
+          ? metadata.full_name
+          : typeof metadata.name === 'string'
+            ? metadata.name
+            : null;
+        const invitePayload = inviteRow.payload && typeof inviteRow.payload === 'object'
+          ? inviteRow.payload as Record<string, JsonValue>
+          : {};
+        const delivery = buildGoalInvitationDelivery({
+          inviteId: inviteRow.id,
+          inviteCode,
+          recipientUserId,
+          actorUserId: userId,
+          actorDisplayName,
+          goalTitle: typeof invitePayload.goalTitle === 'string' ? invitePayload.goalTitle : null,
+          expiresAt: typeof inviteRow.expires_at === 'string' ? inviteRow.expires_at : null,
+        });
+        const saved = await insertSharedDelivery(admin, delivery);
+        if (saved.created) {
+          const push = await sendSharedDeliveryPush(admin, recipientUserId, saved.id);
+          if (push.rejected > 0) {
+            console.warn('[shared-home] Goal invitation push was not accepted by every device', {
+              deliveryId: saved.id,
+              attempted: push.attempted,
+              accepted: push.accepted,
+              rejected: push.rejected,
+            });
+          }
+        }
+      }
+    } catch (deliveryError) {
+      console.warn('[shared-home] Goal invitation delivery unavailable', {
+        inviteReused: result.reused === true,
+        errorClass: deliveryError instanceof Error ? deliveryError.name : 'unknown',
+      });
+    }
+
     return json(200, {
       inviteCode,
       inviteUrl: `kwilt://invite?code=${encodeURIComponent(inviteCode)}`,
@@ -282,4 +341,3 @@ serve(async (req) => {
     payload: { kind, goalTitle: goalTitle || null, goalImageUrl: safeGoalImageUrl, expiresAt, maxUses },
   });
 });
-

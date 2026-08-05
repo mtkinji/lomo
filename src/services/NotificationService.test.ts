@@ -744,6 +744,19 @@ describe('NotificationService focus-session cleanup', () => {
       } },
     });
     expect(navigateWhenReady).toHaveBeenCalledWith('Money', { screen: 'MoneySummary' });
+    (navigateWhenReady as jest.Mock).mockClear();
+
+    listener({
+      actionIdentifier: 'expo.modules.notifications.actions.DEFAULT',
+      notification: { request: {
+        identifier: 'shared-delivery-1',
+        content: { data: { type: 'sharedDelivery', deliveryId: 'delivery-1' } },
+      } },
+    });
+    expect(navigateWhenReady).toHaveBeenCalledWith('SharedHome', {
+      deliveryId: 'delivery-1',
+      source: 'push',
+    });
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
