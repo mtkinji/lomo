@@ -51,6 +51,25 @@ describe('Shared Home presentation', () => {
     });
   });
 
+  it('parses an available Goal check-in as shared content', () => {
+    expect(parseSharedHomeRow(row({
+      event_kind: 'goal_checkin',
+      source_capability: 'goals',
+      source_entity_type: 'goal_checkin',
+      source_entity_id: 'checkin-1',
+      title: 'Plan our family camping trip',
+      body: 'Made progress on the campground shortlist.',
+      destination: { kind: 'goal', goalId: 'goal-1' },
+      state: 'available',
+      expires_at: null,
+    }), now)).toMatchObject({
+      eventKind: 'goal_checkin',
+      sourceEntityType: 'goal_checkin',
+      destination: { kind: 'goal', goalId: 'goal-1' },
+      state: 'available',
+    });
+  });
+
   it('rejects unknown event and destination kinds', () => {
     expect(parseSharedHomeRow(row({ event_kind: 'marketing' }), now)).toBeNull();
     expect(parseSharedHomeRow(row({ destination: { kind: 'arbitrary_route', name: 'Settings' } }), now)).toBeNull();
@@ -70,13 +89,23 @@ describe('Shared Home presentation', () => {
     });
   });
 
-  it('groups pending separately and sorts newest first', () => {
+  it('groups pending separately from shared content and sorts newest first', () => {
     const pendingOlder = parseSharedHomeRow(row({ id: 'pending-old', created_at: '2026-08-05T09:00:00.000Z' }), now)!;
     const pendingNewer = parseSharedHomeRow(row({ id: 'pending-new', created_at: '2026-08-05T11:00:00.000Z' }), now)!;
     const settled = parseSharedHomeRow(row({ id: 'settled', state: 'settled', created_at: '2026-08-05T08:00:00.000Z' }), now)!;
+    const available = parseSharedHomeRow(row({
+      id: 'checkin',
+      event_kind: 'goal_checkin',
+      source_entity_type: 'goal_checkin',
+      source_entity_id: 'checkin-1',
+      destination: { kind: 'goal', goalId: 'goal-1' },
+      state: 'available',
+      expires_at: null,
+      created_at: '2026-08-05T10:30:00.000Z',
+    }), now)!;
 
-    const groups = groupSharedHomeDeliveries([pendingOlder, settled, pendingNewer], now);
+    const groups = groupSharedHomeDeliveries([pendingOlder, settled, available, pendingNewer], now);
     expect(groups.needsYou.map((item) => item.id)).toEqual(['pending-new', 'pending-old']);
-    expect(groups.recent.map((item) => item.id)).toEqual(['settled']);
+    expect(groups.sharedWithYou.map((item) => item.id)).toEqual(['checkin', 'settled']);
   });
 });

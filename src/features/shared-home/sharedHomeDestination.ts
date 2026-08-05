@@ -8,6 +8,16 @@ export type SharedHomeNavigationTarget =
         params: { screen: 'JoinSharedGoal'; params: { inviteCode: string } };
       },
     ]
+  | [
+      'MainTabs',
+      {
+        screen: 'GoalsTab';
+        params: {
+          screen: 'GoalDetail';
+          params: { goalId: string; entryPoint: 'goalsTab' };
+        };
+      },
+    ]
   | ['Games', { screen: 'GamesRemote'; params: { sessionId: string } }];
 
 export function resolveSharedHomeDestination(
@@ -21,6 +31,18 @@ export function resolveSharedHomeDestination(
         params: {
           screen: 'JoinSharedGoal',
           params: { inviteCode: destination.inviteCode },
+        },
+      },
+    ];
+  }
+  if (destination.kind === 'goal') {
+    return [
+      'MainTabs',
+      {
+        screen: 'GoalsTab',
+        params: {
+          screen: 'GoalDetail',
+          params: { goalId: destination.goalId, entryPoint: 'goalsTab' },
         },
       },
     ];

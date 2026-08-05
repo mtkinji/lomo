@@ -20,7 +20,8 @@ insert into public.kwilt_shared_deliveries (
   source_entity_id,
   title,
   body,
-  destination
+  destination,
+  state
 ) values (
   '20000000-0000-0000-0000-000000000001',
   'shared-home-rls',
@@ -32,7 +33,21 @@ insert into public.kwilt_shared_deliveries (
   'invite-1',
   'Goal invitation',
   'Someone invited you to support a Goal.',
-  '{"kind":"goal_invite","inviteCode":"CODE1"}'::jsonb
+  '{"kind":"goal_invite","inviteCode":"CODE1"}'::jsonb,
+  'pending'
+), (
+  '20000000-0000-0000-0000-000000000002',
+  'goal_checkin:checkin-1:10000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000002',
+  'goal_checkin',
+  'goals',
+  'goal_checkin',
+  'checkin-1',
+  'Plan our family camping trip',
+  'Made progress on the campground shortlist.',
+  '{"kind":"goal","goalId":"goal-1"}'::jsonb,
+  'available'
 );
 
 set local role authenticated;
@@ -44,7 +59,7 @@ select set_config(
 
 do $$
 begin
-  if (select count(*) from public.kwilt_shared_deliveries) <> 1 then
+  if (select count(*) from public.kwilt_shared_deliveries) <> 2 then
     raise exception 'recipient read failed';
   end if;
 end;

@@ -3,6 +3,7 @@ import {
 } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import {
   buildGameTurnDelivery,
+  buildGoalCheckinDelivery,
   buildGoalInvitationDelivery,
   sharedHomeRecipientEnabled,
   shouldEmitGameTurn,
@@ -93,6 +94,51 @@ Deno.test('game handoff builder uses the committed state version', () => {
   });
   assertEquals(delivery.idempotency_key, 'game_turn:room-1:7:user-2');
   assertEquals(delivery.destination, { kind: 'game_room', sessionId: 'room-1' });
+});
+
+Deno.test('Goal check-in builder creates one available item per exact recipient', () => {
+  const delivery = buildGoalCheckinDelivery({
+    checkinId: 'checkin-1',
+    goalId: 'goal-1',
+    recipientUserId: 'user-2',
+    actorUserId: 'user-1',
+    actorDisplayName: 'David',
+    goalTitle: 'Plan our family camping trip',
+    preset: 'made_progress',
+    text: 'We have a campground shortlist.',
+    nowIso: '2026-08-05T00:00:00.000Z',
+  });
+
+  assertEquals(delivery.idempotency_key, 'goal_checkin:checkin-1:user-2');
+  assertEquals(delivery.state, 'available');
+  assertEquals(delivery.destination, { kind: 'goal', goalId: 'goal-1' });
+  assertEquals(delivery.title, 'Plan our family camping trip');
+  assertEquals(delivery.body, 'We have a campground shortlist.');
+  assertEquals(delivery.retain_until, '2026-09-04T00:00:00.000Z');
+});
+
+Deno.test('Goal check-in builder falls back to the authored preset without leaking unknown values', () => {
+  assertEquals(buildGoalCheckinDelivery({
+    checkinId: 'checkin-2',
+    goalId: 'goal-1',
+    recipientUserId: 'user-2',
+    actorUserId: 'user-1',
+    actorDisplayName: null,
+    goalTitle: null,
+    preset: 'need_encouragement',
+    text: null,
+  }).body, 'Could use some encouragement.');
+
+  assertEquals(buildGoalCheckinDelivery({
+    checkinId: 'checkin-3',
+    goalId: 'goal-1',
+    recipientUserId: 'user-2',
+    actorUserId: 'user-1',
+    actorDisplayName: null,
+    goalTitle: null,
+    preset: 'unknown',
+    text: ' x '.repeat(300),
+  }).body.length, 500);
 });
 
 Deno.test('push body never contains private experience presentation', () => {

@@ -17,4 +17,17 @@ describe('resolveSharedHomeDestination', () => {
       { screen: 'GamesRemote', params: { sessionId: 'room-1' } },
     ]);
   });
+
+  it('opens shared Goal content at the authoritative Goal', () => {
+    expect(resolveSharedHomeDestination({ kind: 'goal', goalId: 'goal-1' })).toEqual([
+      'MainTabs',
+      {
+        screen: 'GoalsTab',
+        params: {
+          screen: 'GoalDetail',
+          params: { goalId: 'goal-1', entryPoint: 'goalsTab' },
+        },
+      },
+    ]);
+  });
 });

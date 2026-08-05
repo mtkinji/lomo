@@ -17,12 +17,12 @@ last_reviewed: 2026-08-05
 
 # shared-home
 
-Gives Maya one calm receiving place for meaningful family participation that
-survives a dismissed push, while Goals and Games remain authoritative.
+Gives Maya one feed-first receiving place for content people intentionally
+share with her, while each capability remains authoritative.
 
 ## Planned surfaces in this folder
 
-- `SharedHomeScreen.tsx` - finite **Needs you** and **Recent** receiving surface.
+- `SharedHomeScreen.tsx` - finite **Needs you** and **Shared with you** surface.
 - `sharedHomeRepository.ts` - recipient-scoped query and realtime refresh.
 - `sharedHomeCache.ts` - same-user-only stale-while-refresh snapshot.
 - `sharedHomePresentation.ts` - deterministic grouping and safe card states.
@@ -31,5 +31,5 @@ survives a dismissed push, while Goals and Games remain authoritative.
 
 This folder does not reuse `src/features/home/TodayScreen.tsx`, which serves a
 different personal-orientation job and is not registered in active navigation.
-Shared Home projects authorized recipient deliveries; it does not own Goal or
-Game actions, relationship access, or AI Chat records.
+Shared Home projects authorized recipient items; it does not own Goal, Game, or
+future Explore content, relationship access, or AI Chat records.

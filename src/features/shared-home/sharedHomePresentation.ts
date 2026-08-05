@@ -5,10 +5,10 @@ import type {
   SharedHomeState,
 } from './sharedHomeTypes';
 
-const eventKinds = new Set(['goal_invitation', 'game_turn']);
+const eventKinds = new Set(['goal_invitation', 'game_turn', 'goal_checkin']);
 const capabilities = new Set(['goals', 'games']);
-const sourceTypes = new Set(['goal_invite', 'game_session']);
-const states = new Set(['pending', 'settled', 'expired', 'unavailable']);
+const sourceTypes = new Set(['goal_invite', 'game_session', 'goal_checkin']);
+const states = new Set(['pending', 'available', 'settled', 'expired', 'unavailable']);
 
 function nonEmpty(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -34,6 +34,10 @@ function parseDestination(value: unknown): SharedHomeDestination | null {
   if (record.kind === 'game_room') {
     const sessionId = nonEmpty(record.sessionId);
     return sessionId ? { kind: 'game_room', sessionId } : null;
+  }
+  if (record.kind === 'goal') {
+    const goalId = nonEmpty(record.goalId);
+    return goalId ? { kind: 'goal', goalId } : null;
   }
   return null;
 }
@@ -100,6 +104,12 @@ export function parseSharedHomeRow(
       || sourceEntityType !== 'game_session'
       || destination.kind !== 'game_room'
     ))
+    || (eventKind === 'goal_checkin' && (
+      sourceCapability !== 'goals'
+      || sourceEntityType !== 'goal_checkin'
+      || destination.kind !== 'goal'
+      || state !== 'available'
+    ))
   ) return null;
 
   const delivery: SharedHomeDelivery = {
@@ -143,6 +153,6 @@ export function groupSharedHomeDeliveries(
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
   return {
     needsYou: sorted.filter((delivery) => delivery.state === 'pending'),
-    recent: sorted.filter((delivery) => delivery.state !== 'pending'),
+    sharedWithYou: sorted.filter((delivery) => delivery.state !== 'pending'),
   };
 }

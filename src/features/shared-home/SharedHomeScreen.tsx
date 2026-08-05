@@ -50,7 +50,15 @@ function capabilityLabel(delivery: SharedHomeDelivery): string {
 }
 
 function actionLabel(delivery: SharedHomeDelivery): string {
-  return delivery.eventKind === 'goal_invitation' ? 'Review invitation' : 'Take your turn';
+  if (delivery.eventKind === 'goal_invitation') return 'Review invitation';
+  if (delivery.eventKind === 'goal_checkin') return 'Open Goal';
+  return 'Take your turn';
+}
+
+function actorInitials(value: string | null): string {
+  const words = value?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (words.length === 0) return 'K';
+  return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('');
 }
 
 function DeliveryCard({
@@ -64,39 +72,48 @@ function DeliveryCard({
   onOpen: () => void;
   highlighted?: boolean;
 }) {
-  const actionable = delivery.state === 'pending';
+  const actionable = delivery.state === 'pending' || delivery.state === 'available';
   return (
     <View testID={`sharedHome.item.${delivery.id}`}>
-    <Card padding="sm" marginVertical="xs" elevation="none" style={[styles.card, highlighted && styles.highlightedCard]}>
-      <VStack space="sm">
-        <HStack alignItems="center" justifyContent="space-between" space="sm">
-          <Text style={styles.source}>{capabilityLabel(delivery)}</Text>
-          <Text style={styles.time}>{relativeTime(delivery.createdAt, now)}</Text>
-        </HStack>
-        <VStack space="xs">
-          <Text style={styles.cardTitle}>{delivery.title}</Text>
-          <Text style={styles.cardBody}>{delivery.body}</Text>
+      <Card padding="sm" marginVertical="xs" elevation="none" style={[styles.card, highlighted && styles.highlightedCard]}>
+        <VStack space="sm">
+          <HStack alignItems="center" justifyContent="space-between" space="sm">
+            <HStack alignItems="center" space="sm" style={styles.actorContext}>
+              <View style={styles.avatar} accessibilityElementsHidden>
+                <Text style={styles.avatarText}>{actorInitials(delivery.actorDisplayName)}</Text>
+              </View>
+              <VStack space="xs" style={styles.actorText}>
+                <Text style={styles.actorName}>{delivery.actorDisplayName ?? 'Someone in Kwilt'}</Text>
+                <Text style={styles.sourceLine}>
+                  {capabilityLabel(delivery)} · {relativeTime(delivery.createdAt, now)}
+                </Text>
+              </VStack>
+            </HStack>
+          </HStack>
+          <VStack space="xs">
+            <Text style={styles.cardTitle}>{delivery.title}</Text>
+            <Text style={styles.cardBody}>{delivery.body}</Text>
+          </VStack>
+          {actionable ? (
+            <Button
+              size="sm"
+              variant={delivery.state === 'pending' ? 'primary' : 'outline'}
+              accessibilityLabel={`${actionLabel(delivery)} from ${delivery.actorDisplayName ?? 'your family'}`}
+              onPress={onOpen}
+            >
+              {actionLabel(delivery)}
+            </Button>
+          ) : (
+            <Text style={styles.stateLabel}>
+              {delivery.state === 'unavailable'
+                ? 'Unavailable'
+                : delivery.state === 'expired'
+                  ? 'Expired'
+                  : 'Handled'}
+            </Text>
+          )}
         </VStack>
-        {actionable ? (
-          <Button
-            size="sm"
-            variant="primary"
-            accessibilityLabel={`${actionLabel(delivery)} from ${delivery.actorDisplayName ?? 'your family'}`}
-            onPress={onOpen}
-          >
-            {actionLabel(delivery)}
-          </Button>
-        ) : (
-          <Text style={styles.stateLabel}>
-            {delivery.state === 'unavailable'
-              ? 'Unavailable'
-              : delivery.state === 'expired'
-                ? 'Expired'
-                : 'Handled'}
-          </Text>
-        )}
-      </VStack>
-    </Card>
+      </Card>
     </View>
   );
 }
@@ -115,7 +132,7 @@ export function SharedHomeContent({
 }: SharedHomeContentProps) {
   const insets = useSafeAreaInsets();
   const groups = useMemo(() => groupSharedHomeDeliveries(items, now), [items, now]);
-  const empty = groups.needsYou.length === 0 && groups.recent.length === 0;
+  const empty = groups.needsYou.length === 0 && groups.sharedWithYou.length === 0;
 
   return (
     <ScrollView
@@ -125,32 +142,41 @@ export function SharedHomeContent({
       showsVerticalScrollIndicator={false}
     >
       {loading && empty ? (
-        <View style={styles.loading}>
+        <View style={styles.centeredState}>
           <ActivityIndicator color={colors.textSecondary} />
           <Text style={styles.stateText}>Loading shared activity…</Text>
         </View>
       ) : !signedIn ? (
-        <EmptyState
-          variant="screen"
-          iconName="home"
-          title="Shared activity stays with your account"
-          instructions="Sign in to see invitations and game turns sent to you."
-        />
+        <View style={styles.centeredState}>
+          <EmptyState
+            variant="screen"
+            iconName="home"
+            title="Shared things stay with your account"
+            instructions="Sign in to see what people have shared with you."
+            style={styles.centeredEmptyState}
+          />
+        </View>
       ) : error && empty ? (
-        <EmptyState
-          variant="screen"
-          iconName="inbox"
-          title="Shared activity could not be loaded"
-          instructions="Check your connection and try again."
-          primaryAction={{ label: 'Try again', onPress: onRefresh }}
-        />
+        <View style={styles.centeredState}>
+          <EmptyState
+            variant="screen"
+            iconName="inbox"
+            title="Shared things could not be loaded"
+            instructions="Check your connection and try again."
+            primaryAction={{ label: 'Try again', onPress: onRefresh }}
+            style={styles.centeredEmptyState}
+          />
+        </View>
       ) : empty ? (
-        <EmptyState
-          variant="screen"
-          iconName="inbox"
-          title="Nothing needs you right now"
-          instructions="Invitations and game turns sent to you will appear here."
-        />
+        <View testID="sharedHome.empty" style={styles.centeredState}>
+          <EmptyState
+            variant="screen"
+            iconName="inbox"
+            title="Nothing shared with you yet"
+            instructions="Invitations, game turns, and things people send you will appear here."
+            style={styles.centeredEmptyState}
+          />
+        </View>
       ) : (
         <VStack space="lg">
           {stale ? (
@@ -172,10 +198,10 @@ export function SharedHomeContent({
               ))}
             </View>
           ) : null}
-          {groups.recent.length > 0 ? (
-            <View testID="sharedHome.recent">
-              <Text style={styles.sectionTitle}>Recent</Text>
-              {groups.recent.map((delivery) => (
+          {groups.sharedWithYou.length > 0 ? (
+            <View testID="sharedHome.sharedWithYou">
+              <Text style={styles.sectionTitle}>Shared with you</Text>
+              {groups.sharedWithYou.map((delivery) => (
                 <DeliveryCard
                   key={delivery.id}
                   delivery={delivery}
@@ -240,12 +266,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     paddingHorizontal: spacing.xs,
   },
-  loading: {
+  centeredState: {
     flex: 1,
-    minHeight: 280,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
+  },
+  centeredEmptyState: {
+    marginTop: 0,
   },
   stateText: {
     ...typography.bodySm,
@@ -276,13 +304,33 @@ const styles = StyleSheet.create({
     borderColor: colors.textPrimary,
     borderWidth: 2,
   },
-  source: {
+  actorContext: {
+    flex: 1,
+  },
+  actorText: {
+    flex: 1,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.shellAlt,
+  },
+  avatarText: {
+    ...typography.label,
+    fontFamily: fonts.semibold,
+    color: colors.textPrimary,
+  },
+  actorName: {
+    ...typography.bodySm,
+    fontFamily: fonts.semibold,
+    color: colors.textPrimary,
+  },
+  sourceLine: {
     ...typography.label,
     color: colors.textSecondary,
-  },
-  time: {
-    ...typography.caption,
-    color: colors.muted,
   },
   cardTitle: {
     ...typography.body,

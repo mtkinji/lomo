@@ -78,6 +78,14 @@ const ONE_TAP_PRESET_BY_TRIGGER: Record<CheckinTrigger, CheckinPreset> = {
   focus_complete: 'made_progress',
 };
 
+async function publishCheckinToSharedHome(checkinId: string): Promise<void> {
+  const { error } = await getSupabaseClient().functions.invoke(
+    'shared-home-publish-goal-checkin',
+    { body: { checkinId } },
+  );
+  if (error) throw error;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Submit a check-in
 // ─────────────────────────────────────────────────────────────────────────────
@@ -140,6 +148,15 @@ export async function submitCheckin(params: SubmitCheckinParams): Promise<Checki
   // Feed event insert is best-effort; don't fail the whole operation
   if (feedError) {
     console.warn('[checkins] Failed to create feed event:', feedError.message);
+  }
+
+  try {
+    await publishCheckinToSharedHome(checkin.id);
+  } catch (error) {
+    console.warn(
+      '[checkins] Failed to publish Shared Home item:',
+      error instanceof Error ? error.message : String(error),
+    );
   }
 
   return {

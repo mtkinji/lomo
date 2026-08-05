@@ -2,17 +2,18 @@ export type SharedDeliveryInsert = {
   idempotency_key: string;
   recipient_user_id: string;
   actor_user_id: string | null;
-  event_kind: 'goal_invitation' | 'game_turn';
+  event_kind: 'goal_invitation' | 'game_turn' | 'goal_checkin';
   source_capability: 'goals' | 'games';
-  source_entity_type: 'goal_invite' | 'game_session';
+  source_entity_type: 'goal_invite' | 'game_session' | 'goal_checkin';
   source_entity_id: string;
   actor_display_name: string | null;
   title: string;
   body: string;
   destination:
     | { kind: 'goal_invite'; inviteCode: string }
+    | { kind: 'goal'; goalId: string }
     | { kind: 'game_room'; sessionId: string };
-  state: 'pending';
+  state: 'pending' | 'available';
   expires_at: string | null;
   retain_until: string;
 };
@@ -35,6 +36,18 @@ type GameTurnDeliveryInput = {
   actorUserId: string;
   actorDisplayName: string | null;
   expiresAt: string | null;
+  nowIso?: string;
+};
+
+type GoalCheckinDeliveryInput = {
+  checkinId: string;
+  goalId: string;
+  recipientUserId: string;
+  actorUserId: string;
+  actorDisplayName: string | null;
+  goalTitle: string | null;
+  preset: string | null;
+  text: string | null;
   nowIso?: string;
 };
 
@@ -121,6 +134,37 @@ export function buildGameTurnDelivery(input: GameTurnDeliveryInput): SharedDeliv
     destination: { kind: 'game_room', sessionId: input.sessionId },
     state: 'pending',
     expires_at: input.expiresAt,
+    retain_until: retainUntil(input.nowIso),
+  };
+}
+
+const CHECKIN_PRESET_BODY: Record<string, string> = {
+  made_progress: 'Made progress.',
+  struggled_today: 'It was a hard day.',
+  need_encouragement: 'Could use some encouragement.',
+  just_checking_in: 'Checking in.',
+};
+
+export function buildGoalCheckinDelivery(
+  input: GoalCheckinDeliveryInput,
+): SharedDeliveryInsert {
+  const authoredText = boundedText(input.text, 500);
+  const presetBody = input.preset ? CHECKIN_PRESET_BODY[input.preset] : null;
+
+  return {
+    idempotency_key: `goal_checkin:${input.checkinId}:${input.recipientUserId}`,
+    recipient_user_id: input.recipientUserId,
+    actor_user_id: input.actorUserId,
+    event_kind: 'goal_checkin',
+    source_capability: 'goals',
+    source_entity_type: 'goal_checkin',
+    source_entity_id: input.checkinId,
+    actor_display_name: boundedText(input.actorDisplayName, 80),
+    title: boundedText(input.goalTitle, 180) ?? 'Goal check-in',
+    body: authoredText ?? presetBody ?? 'Shared a check-in.',
+    destination: { kind: 'goal', goalId: input.goalId },
+    state: 'available',
+    expires_at: null,
     retain_until: retainUntil(input.nowIso),
   };
 }

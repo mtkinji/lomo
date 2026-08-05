@@ -40,10 +40,12 @@ Maya is using Kwilt because it helps her and her family keep track of real-life 
    planning, forecast, and app-control surfaces inside the shared Kwilt shell.
    See the specialist
    [Money job flow](maya-review-budget-reality-before-spending.md).
-6. Household membership, Goal support, and private Games tables now provide
-   distinct capability-owned participation paths. Relationships do not grant
-   blanket access, and ordinary household to-do assignment remains outside this
-   release.
+6. Household membership, Goal support, and private Games tables provide
+   distinct capability-owned participation paths. Shared Home adds a
+   recipient-only receiving projection for invitations, Game turns, and
+   authored Goal check-ins, while the source capability remains authoritative.
+   Relationships do not grant blanket access, and ordinary household to-do
+   assignment remains outside this release.
 
 ## Offerings
 
@@ -65,7 +67,7 @@ Maya is using Kwilt because it helps her and her family keep track of real-life 
 | Review household money reality | 3 | Native Money now covers the core read, correction, planning, forecast, and app-control paths, but signed-device/TestFlight parity and longitudinal use remain unproven. |
 | Know next doable action | 2 | Recommendations exist in places, but organization and scheduling constraints are not yet unified. |
 | Schedule or hand off | 2 | Scheduling and sharing foundations exist, but this flow is not yet cohesive. |
-| Family participation | 3 | Household invitations, Goal support, and private Games participation now have explicit join and privacy contracts; ordinary household to-do handoff remains early. |
+| Family participation | 3 | Household invitations, Goal support, private Games, and a feed-first recipient projection now have explicit contracts; Goal-check-in Home delivery still needs two-account device proof and ordinary household to-do handoff remains early. |
 | Keep using system | 3 | The app is helpful, but too much configuration would make adoption fragile. |
 
 ## Gaps
@@ -75,8 +77,9 @@ Maya is using Kwilt because it helps her and her family keep track of real-life 
 - Views should feel like helpful defaults, not a system she has to design.
 - Household Money is native, but its same-account parity, Plaid, privacy,
   widget, and Screen Time boundaries still need signed-device/TestFlight proof.
-- Family participation is capability-owned rather than one shared destination;
-  Activities still lack a mature household responsibility/handoff loop.
+- Family participation is capability-owned while Home provides one receiving
+  layer; additional content types still need their own source-level sharing
+  authority and Activities still lack a mature household responsibility loop.
 
 ## Aspirational Design Challenge
 
