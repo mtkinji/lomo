@@ -40,11 +40,15 @@ struct FocusWidgetView: View {
   private func activeView(_ focus: GlanceableStateV1.FocusSession) -> some View {
     Link(destination: deepLinkFocusControls(focus)) {
       VStack(alignment: .leading, spacing: 0) {
-        HStack {
-          Image(systemName: focus.mode == "paused" ? "pause.fill" : "timer")
-            .font(.caption.bold())
+        HStack(spacing: 6) {
+          if let logo = kwiltLogoImage() {
+            logo
+              .resizable()
+              .scaledToFit()
+              .frame(width: 18, height: 18)
+          }
           Text(focus.mode == "paused" ? "Paused" : "Focus")
-            .font(.caption.weight(.semibold))
+            .font(KwiltWidgetTypography.label)
           Spacer()
         }
         .foregroundStyle(.white.opacity(0.82))
@@ -55,17 +59,17 @@ struct FocusWidgetView: View {
           let start = Date(timeIntervalSince1970: focus.startedAtMs / 1000.0)
           let end = Date(timeIntervalSince1970: endMs / 1000.0)
           Text(timerInterval: start...end, countsDown: true)
-            .font(.system(size: 31, weight: .black, design: .rounded))
+            .font(KwiltWidgetTypography.value)
             .monospacedDigit()
             .minimumScaleFactor(0.72)
         } else {
           let pausedMinutes = max(1, Int(ceil((focus.remainingMs ?? 0) / 60_000.0)))
           Text("\\(pausedMinutes) min")
-            .font(.system(size: 31, weight: .black, design: .rounded))
+            .font(KwiltWidgetTypography.value)
         }
 
         Text(focus.activityId == standaloneFocusActivityId ? "Unlinked session" : focus.title)
-          .font(.caption)
+          .font(KwiltWidgetTypography.body)
           .foregroundStyle(.white.opacity(0.68))
           .lineLimit(1)
       }
@@ -83,23 +87,27 @@ struct FocusWidgetView: View {
       } else {
         Link(destination: deepLinkConfigureStandaloneFocus()) {
           VStack(alignment: .leading, spacing: 0) {
-            HStack {
-              Image(systemName: "timer")
-                .font(.caption.bold())
+            HStack(spacing: 6) {
+              if let logo = kwiltLogoImage() {
+                logo
+                  .resizable()
+                  .scaledToFit()
+                  .frame(width: 18, height: 18)
+              }
               Text("Focus")
-                .font(.caption.weight(.semibold))
+                .font(KwiltWidgetTypography.label)
               Spacer()
             }
             .foregroundStyle(.white.opacity(0.82))
 
             Spacer()
 
-            Text("Set your session")
-              .font(.system(size: 27, weight: .black, design: .rounded))
-              .minimumScaleFactor(0.8)
+            Text("Start a Focus session")
+              .font(KwiltWidgetTypography.title)
+              .minimumScaleFactor(0.72)
               .lineLimit(2)
             Text("Choose time and audio")
-              .font(.caption)
+              .font(KwiltWidgetTypography.body)
               .foregroundStyle(.white.opacity(0.68))
               .lineLimit(1)
 
@@ -109,7 +117,7 @@ struct FocusWidgetView: View {
               Image(systemName: "play.fill")
                 .font(.caption2.bold())
               Text("Open")
-                .font(.caption.weight(.bold))
+                .font(KwiltWidgetTypography.action)
             }
           }
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)

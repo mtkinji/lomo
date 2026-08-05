@@ -155,6 +155,25 @@ func moneyURL(_ value: String?, fallback: String = "kwilt://money?source=widget"
   return URL(string: value ?? fallback) ?? URL(string: fallback)
 }
 
+func compactBudgetNumber(_ value: Double) -> String {
+  let roundedTenths = (value * 10).rounded() / 10
+  if roundedTenths == roundedTenths.rounded() {
+    return String(Int(roundedTenths))
+  }
+  return String(format: "%.1f", roundedTenths)
+}
+
+func compactBudgetDollarText(cents: Double) -> String {
+  let roundedDollars = abs(cents / 100.0).rounded()
+  if roundedDollars >= 999_950 {
+    return compactBudgetNumber(roundedDollars / 1_000_000.0) + "m"
+  }
+  if roundedDollars >= 1_000 {
+    return compactBudgetNumber(roundedDollars / 1_000.0) + "k"
+  }
+  return String(Int(roundedDollars))
+}
+
 struct FlexibleMoneyEntry: TimelineEntry {
   let date: Date
   let updatedAtMs: Double
@@ -228,33 +247,42 @@ struct FlexibleMoneyAnswerCard: View {
     ZStack {
       Color(red: 244/255, green: 241/255, blue: 234/255)
       VStack(alignment: .leading, spacing: 4) {
-        HStack {
+        HStack(spacing: 8) {
           Text("Flexible money")
-            .font(.custom("Inter-SemiBold", size: 12))
+            .font(KwiltWidgetTypography.label)
             .foregroundStyle(MoneyWidgetPalette.calm)
             .lineLimit(1)
+            .minimumScaleFactor(0.78)
           Spacer()
-          Image(systemName: "wallet.bifold.fill")
-            .font(.caption)
-            .foregroundStyle(MoneyWidgetPalette.calm.opacity(0.72))
+          if let logo = kwiltLogoImage() {
+            ZStack {
+              RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(MoneyWidgetPalette.calm)
+              logo
+                .resizable()
+                .scaledToFit()
+                .padding(4)
+            }
+            .frame(width: 24, height: 24)
+          }
         }
         Spacer(minLength: 4)
         if let value = value, entry.flexibleMoney?.state != "unavailable" {
           Text(value)
-            .font(.custom("Inter-Black", size: 30))
+            .font(KwiltWidgetTypography.value)
             .foregroundStyle(tone)
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.52)
           Text(meaning)
-            .font(.custom("Inter-Medium", size: 12))
+            .font(KwiltWidgetTypography.body)
             .foregroundStyle(.secondary)
             .lineLimit(1)
         } else {
           Text(entry.hasMoneySnapshot
             ? "Open Kwilt to finish your monthly plan."
             : "Open Kwilt to view Money.")
-            .font(.custom("Inter-SemiBold", size: 15))
+            .font(KwiltWidgetTypography.emphasis)
             .foregroundStyle(.primary)
             .lineLimit(3)
         }
@@ -268,7 +296,7 @@ struct FlexibleMoneyAnswerCard: View {
               .lineLimit(1)
           }
         }
-        .font(.custom("Inter-Medium", size: 10))
+        .font(KwiltWidgetTypography.meta)
         .foregroundStyle(.secondary)
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -304,46 +332,47 @@ struct KwiltFlexibleMoneyWidget: Widget {
 }
 
 @available(iOS 17.0, *)
-struct MoneyCategoryEntity: AppEntity, Identifiable {
-  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Budget category"
-  static var defaultQuery = MoneyCategoryEntityQuery()
-
-  let id: String
-  let name: String
-
-  var displayRepresentation: DisplayRepresentation {
-    DisplayRepresentation(title: LocalizedStringResource(stringLiteral: name))
-  }
-}
-
-@available(iOS 17.0, *)
-struct MoneyCategoryEntityQuery: EntityQuery {
-  func suggestedEntities() async throws -> [MoneyCategoryEntity] {
-    return readGlanceableState()?.money?.categories.map {
-      MoneyCategoryEntity(id: $0.id, name: $0.name)
-    } ?? []
-  }
-
-  func entities(for identifiers: [String]) async throws -> [MoneyCategoryEntity] {
-    let categories = readGlanceableState()?.money?.categories ?? []
-    let byId = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0.name) })
-    return identifiers.compactMap { id in
-      guard let name = byId[id] else { return nil }
-      return MoneyCategoryEntity(id: id, name: name)
+struct MoneyCategoryOptionsProvider: DynamicOptionsProvider {
+  func results() async throws -> IntentItemCollection<String> {
+    let items = (readGlanceableState()?.money?.categories ?? []).map { category in
+      IntentItem(category.id, title: LocalizedStringResource(stringLiteral: category.name))
     }
+    return IntentItemCollection(sections: [IntentItemSection(items: items)])
   }
 }
 
 @available(iOS 17.0, *)
-enum MoneyCategoryDisplay: String, AppEnum {
+enum MoneyCategoryDisplay: String {
   case dollarsLeft
   case percentUsed
+}
 
-  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Show"
-  static var caseDisplayRepresentations: [MoneyCategoryDisplay: DisplayRepresentation] = [
-    .dollarsLeft: "Dollars left",
-    .percentUsed: "Percent used",
-  ]
+@available(iOS 17.0, *)
+struct MoneyCategoryDisplayOptionsProvider: DynamicOptionsProvider {
+  func results() async throws -> IntentItemCollection<String> {
+    return IntentItemCollection(sections: [
+      IntentItemSection(items: [
+        IntentItem("Dollars left", title: "Dollars left"),
+        IntentItem("Percent used", title: "Percent used"),
+      ])
+    ])
+  }
+
+  func defaultResult() async -> String? {
+    return "Dollars left"
+  }
+}
+
+@available(iOS 17.0, *)
+func moneyCategoryDisplay(from configuredValue: String?) -> MoneyCategoryDisplay {
+  switch configuredValue {
+  case "Percent used", "percentUsed":
+    return .percentUsed
+  case "Dollars left", "dollarsLeft":
+    return .dollarsLeft
+  default:
+    return .dollarsLeft
+  }
 }
 
 @available(iOS 17.0, *)
@@ -351,11 +380,11 @@ struct MoneyCategoryWidgetConfigurationIntent: WidgetConfigurationIntent {
   static var title: LocalizedStringResource = "Budget Category"
   static var description = IntentDescription("Choose one category and how to show it.")
 
-  @Parameter(title: "Category")
-  var category: MoneyCategoryEntity?
+  @Parameter(title: "Category", optionsProvider: MoneyCategoryOptionsProvider())
+  var categoryId: String?
 
-  @Parameter(title: "Show", default: MoneyCategoryDisplay.dollarsLeft)
-  var display: MoneyCategoryDisplay
+  @Parameter(title: "Show", optionsProvider: MoneyCategoryDisplayOptionsProvider())
+  var display: String?
 }
 
 @available(iOS 17.0, *)
@@ -396,14 +425,15 @@ struct MoneyCategoryWidgetProvider: AppIntentTimelineProvider {
 
   private func entry(configuration: MoneyCategoryWidgetConfigurationIntent) -> MoneyCategoryEntry {
     let state = readGlanceableState()
-    let selectedId = configuration.category?.id
+    let selectedId = configuration.categoryId
     let selected = state?.money?.categories.first(where: { $0.id == selectedId })
+    let display = moneyCategoryDisplay(from: configuration.display)
     return MoneyCategoryEntry(
       date: Date(),
       updatedAtMs: state?.updatedAtMs ?? 0,
       hasMoneySnapshot: state?.money != nil,
       category: selected,
-      display: configuration.display
+      display: display
     )
   }
 }
@@ -417,10 +447,14 @@ struct MoneyCategoryWidgetView: View {
     return MoneyWidgetPalette.category(category.status)
   }
 
-  private var value: String {
+  private var valueText: String {
     guard let category = entry.category else { return "" }
-    if entry.display == .percentUsed { return "\\(category.percentUsed)%" }
-    return formatCurrency(cents: abs(category.remainingCents ?? 0)) ?? ""
+    return compactBudgetDollarText(cents: category.remainingCents ?? 0)
+  }
+
+  private var percentValueText: String {
+    guard let category = entry.category else { return "" }
+    return compactBudgetNumber(Double(category.percentUsed))
   }
 
   private var meaning: String {
@@ -445,50 +479,88 @@ struct MoneyCategoryWidgetView: View {
             color: tone
           )
         }
-        VStack(alignment: .center, spacing: 4) {
-          if let category = entry.category {
-            Text(category.name)
-              .font(.custom("Inter-SemiBold", size: 12))
-              .foregroundStyle(.secondary)
-              .lineLimit(2)
-              .multilineTextAlignment(.center)
-              .frame(maxWidth: .infinity)
-            Spacer(minLength: 2)
-            Text(value)
-              .font(.custom("Inter-Black", size: 30))
-              .foregroundStyle(valueTone)
-              .monospacedDigit()
-              .lineLimit(1)
-              .minimumScaleFactor(0.55)
-            Text(meaning)
-              .font(.custom("Inter-Medium", size: 12))
-              .foregroundStyle(.secondary)
-              .lineLimit(1)
-              .multilineTextAlignment(.center)
-            Spacer(minLength: 2)
+        if let category = entry.category {
+          VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            VStack(alignment: .center, spacing: 4) {
+              HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                Text(category.name)
+                  .font(KwiltWidgetTypography.label)
+                  .foregroundStyle(.secondary)
+                  .lineLimit(2)
+                  .multilineTextAlignment(.center)
+                Spacer(minLength: 0)
+              }
+              .frame(maxWidth: .infinity, alignment: .center)
+              if entry.display == .percentUsed {
+                HStack(alignment: .lastTextBaseline, spacing: 1) {
+                  Text(percentValueText)
+                    .font(KwiltWidgetTypography.categoryValue)
+                    .tracking(-0.7)
+                    .monospacedDigit()
+                  Text("%")
+                    .font(KwiltWidgetTypography.currencySymbol)
+                }
+                .foregroundStyle(valueTone)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .center)
+              } else {
+                HStack(alignment: .top, spacing: 1) {
+                  Text("$")
+                    .font(KwiltWidgetTypography.currencySymbol)
+                    .padding(.top, 2)
+                  Text(valueText)
+                    .font(KwiltWidgetTypography.categoryValue)
+                    .tracking(-0.7)
+                    .monospacedDigit()
+                }
+                .foregroundStyle(valueTone)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 6)
+              }
+              Text(meaning)
+                .font(KwiltWidgetTypography.body)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            Spacer(minLength: 0)
+          }
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .padding(14)
+
+          VStack {
+            Spacer()
             if let freshness = moneyFreshnessLabel(updatedAtMs: entry.updatedAtMs) {
               Text(freshness)
-                .font(.custom("Inter-Medium", size: 10))
+                .font(KwiltWidgetTypography.meta)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
-          } else {
+          }
+          .padding(.horizontal, 14)
+          .padding(.bottom, 12)
+        } else {
+          VStack(alignment: .center, spacing: 4) {
             Text("Budget Category")
-              .font(.custom("Inter-SemiBold", size: 12))
+              .font(KwiltWidgetTypography.label)
               .foregroundStyle(.secondary)
             Spacer()
             Text(entry.hasMoneySnapshot ? "Choose a category" : "Open Kwilt to view Money")
-              .font(.custom("Inter-SemiBold", size: 15))
+              .font(KwiltWidgetTypography.emphasis)
               .foregroundStyle(.primary)
               .lineLimit(2)
             Text(entry.hasMoneySnapshot ? "Edit this widget" : "")
-              .font(.custom("Inter-Medium", size: 12))
+              .font(KwiltWidgetTypography.body)
               .foregroundStyle(.secondary)
             Spacer()
           }
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .padding(14)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(14)
       }
       .widgetURL(moneyURL(entry.category?.deepLink))
     }
