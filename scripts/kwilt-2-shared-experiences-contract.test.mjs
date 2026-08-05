@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-const gamesMigration = read('supabase/migrations/20260805020000_preview_open_game_table.sql').toLowerCase();
+const gamesMigration = read('supabase/migrations/20260805032257_preview_open_game_table.sql').toLowerCase();
 const webReply = read('supabase/functions/share-web-reply/index.ts');
 const webCheer = read('supabase/functions/share-web-cheer/index.ts');
 const config = read('supabase/config.toml');

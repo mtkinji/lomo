@@ -1,3 +1,4 @@
+-- Preview table invitations safely and reopen completed tables with the same group.
 create or replace function public.preview_open_game_table(
   p_token text default null,
   p_short_code text default null
