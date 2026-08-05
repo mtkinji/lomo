@@ -159,8 +159,8 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
         keyboardShouldPersistTaps="handled"
       >
         <BottomDrawerHeader
-          title={token && preview ? `Join ${preview.hostDisplayName}’s ${gameName} table` : token ? 'Opening invitation…' : 'Find a table nearby'}
-          subtitle={token && preview ? `${preview.participantCount} playing · ${Math.max(0, preview.capacity - preview.participantCount)} places open` : token ? 'Checking that the table is still open.' : 'Searching while this sheet is open. Other players can’t see you.'}
+          title={token && preview ? `Join ${preview.hostDisplayName}’s ${gameName} table` : token && error ? 'Invitation unavailable' : token ? 'Opening invitation…' : 'Find a table nearby'}
+          subtitle={token && preview ? `${preview.participantCount} playing · ${Math.max(0, preview.capacity - preview.participantCount)} places open` : token && error ? 'Ask the host for a fresh link or table code.' : token ? 'Checking that the table is still open.' : 'Searching while this sheet is open. Other players can’t see you.'}
           variant="withClose"
           onClose={onClose}
           closeAccessibilityLabel="Close join table"

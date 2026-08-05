@@ -163,4 +163,13 @@ describe('JoinTableScreen', () => {
     expect(await screen.findByText(message)).toBeTruthy();
     expect(screen.queryByText('Join table')).toBeNull();
   });
+
+  it('gives an unavailable link a truthful recovery action', async () => {
+    mockPreview.mockRejectedValue(new Error('not found'));
+    const screen = render(<JoinTableDrawer visible token="bad-token" onClose={jest.fn()} />);
+
+    expect(await screen.findByText('Invitation unavailable')).toBeTruthy();
+    expect(screen.getByText('Ask the host for a fresh link or table code.')).toBeTruthy();
+    expect(screen.getByText('That table invitation is unavailable.')).toBeTruthy();
+  });
 });
