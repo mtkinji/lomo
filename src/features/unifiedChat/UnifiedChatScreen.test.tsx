@@ -3,6 +3,8 @@ import path from 'node:path';
 
 const featureDir = path.resolve(__dirname);
 const screenSource = readFileSync(path.join(featureDir, 'UnifiedChatScreen.tsx'), 'utf8');
+const drawerHeaderSource = readFileSync(path.join(featureDir, 'UnifiedChatDrawerHeader.tsx'), 'utf8');
+const screenPropsSource = readFileSync(path.join(featureDir, 'UnifiedChatScreenProps.ts'), 'utf8');
 const contextualPresentationSource = readFileSync(
   path.join(featureDir, 'contextualChatPresentation.ts'),
   'utf8',
@@ -26,17 +28,17 @@ describe('Unified Chat coexistence contract', () => {
     expect(contextualPresentationSource).toContain("title: 'Chat about to-dos'");
     expect(contextualPresentationSource).toContain("FRESH_LAUNCH_CONTEXT_ID = 'fresh-launch-context'");
     expect(screenSource).toContain("command.type === 'context.remove'");
-    expect(screenSource).toContain('<BottomDrawerHeader');
-    expect(screenSource).toContain('variant="immersive"');
-    expect(screenSource).toContain('usesCompactDrawerTitle');
-    expect(screenSource).toContain('styles.drawerTitleRailCompact');
-    expect(screenSource).toContain('styles.drawerTitleRailLong');
-    expect(screenSource).toContain('styles.drawerTitleContent');
-    expect(screenSource).toContain('...typography.bodySm');
+    expect(screenSource).toContain('<UnifiedChatDrawerHeader');
+    expect(drawerHeaderSource).toContain('<BottomDrawerHeader');
+    expect(drawerHeaderSource).toContain('variant="immersive"');
+    expect(drawerHeaderSource).toContain('usesCompactTitle');
+    expect(drawerHeaderSource).toContain('styles.titleRailCompact');
+    expect(drawerHeaderSource).toContain('styles.titleRailLong');
+    expect(drawerHeaderSource).toContain('styles.titleContent');
+    expect(drawerHeaderSource).toContain('...typography.bodySm');
     expect(screenSource).toContain("searchParams.set('presentation', 'drawer')");
-    expect(screenSource).toContain('name="messageSquare"');
+    expect(drawerHeaderSource).toContain('name="messageSquare"');
     expect(screenSource).toContain('repository.createThread(freshDrawerTitle)');
-    expect(screenSource).not.toContain('UnifiedChatDrawerHeader');
     expect(screenSource).not.toContain('How can I help with your to-dos?');
   });
 
@@ -93,7 +95,7 @@ describe('Unified Chat coexistence contract', () => {
   });
 
   test('hardens drawer collapse and renders a fresh draft without a loading flash', () => {
-    expect(screenSource).toContain('collapseRequestId?: number');
+    expect(screenPropsSource).toContain('collapseRequestId?: number');
     expect(screenSource).toContain('document.activeElement?.blur?.()');
     expect(screenSource).toContain('window.dispatchEvent(new Event("resize"))');
     expect(screenSource).toContain('useState(!freshEntry)');

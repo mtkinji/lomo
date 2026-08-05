@@ -19,7 +19,6 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { Text } from '../../ui/Typography';
 import { colors, radii, spacing, typography } from '../../theme';
 import { buildFreshWorkbenchSnapshot, buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
@@ -116,6 +115,10 @@ import { createMoneyRepository } from '../../capabilities/money/data/moneyReposi
 import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProposalDecision';
 import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
 import { buildFreshDrawerContext, getFreshDrawerCopy } from './contextualChatPresentation';
+import { UnifiedChatDrawerHeader } from './UnifiedChatDrawerHeader';
+import type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
+
+export type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
 
 const activityStoreBoundary = {
   getActivities: () => useAppStore.getState().activities,
@@ -176,15 +179,6 @@ const profileStoreBoundary = {
 const chapterStoreBoundary = {
   getChapter: (id: string) => fetchMyChapterById(id),
   updateNote: (id: string, note: string | null) => updateChapterUserNote({ chapterId: id, note }),
-};
-
-export type UnifiedChatScreenProps = {
-  presentation?: 'screen' | 'drawer';
-  routeParams?: UnifiedChatRouteParams;
-  scopeLabel?: string;
-  collapseRequestId?: number;
-  onComposerFocusChange?: (focused: boolean) => void;
-  onThreadIdChange?: (threadId: string) => void;
 };
 
 export function UnifiedChatScreen({
@@ -1398,23 +1392,11 @@ export function UnifiedChatScreen({
   }
 
   const drawerTitle = aggregate?.thread.title ?? freshDrawerTitle;
-  const usesCompactDrawerTitle = drawerTitle.length <= 22;
 
   const chatContent = (
     <>
       {isDrawer ? (
-        <BottomDrawerHeader
-          variant="immersive"
-          title={(
-            <View style={styles.drawerTitleContent}>
-              <Icon name="messageSquare" size={16} color={colors.textSecondary} />
-              <Text numberOfLines={1} style={styles.drawerTitle}>
-                {drawerTitle}
-              </Text>
-            </View>
-          )}
-          containerStyle={usesCompactDrawerTitle ? styles.drawerTitleRailCompact : styles.drawerTitleRailLong}
-        />
+        <UnifiedChatDrawerHeader title={drawerTitle} />
       ) : (
         <PageHeader
           title={!freshEntry ? aggregate?.thread.title ?? 'Chat' : 'Chat'}
@@ -1608,28 +1590,6 @@ const styles = StyleSheet.create({
   drawerRoot: {
     flex: 1,
     backgroundColor: colors.canvas,
-  },
-  drawerTitleRailCompact: {
-    minHeight: 48,
-    paddingTop: spacing.sm,
-    paddingRight: '48%',
-  },
-  drawerTitleRailLong: {
-    minHeight: 60,
-    paddingTop: spacing.xl,
-  },
-  drawerTitleContent: {
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  drawerTitle: {
-    minWidth: 0,
-    flexShrink: 1,
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontWeight: '600',
   },
   iconButton: {
     width: 42,
