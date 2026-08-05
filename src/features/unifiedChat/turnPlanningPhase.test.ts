@@ -61,6 +61,17 @@ describe('planUnifiedChatTurnPhase agent judgment', () => {
       ],
     });
     expect(result.judgmentSource).toBe('model');
+    expect(result.turnContract).toMatchObject({
+      schemaVersion: 1,
+      userJob: 'Remember to call the dentist on the requested date',
+      desiredOutcome: 'A dated call Activity exists',
+      constraints: ['Call the dentist', 'August 5'],
+      action: {
+        operationIds: ['activities.capture'], targetScope: 'selected_objects',
+        targetQuery: 'Add Call the dentist on August 5.',
+      },
+      referent: null,
+    });
   });
 
   it.each([

@@ -1,6 +1,7 @@
 import type { AgentJudgment } from './agentJudgment';
 import {
   buildAgentJudgmentGrounding,
+  buildActionTargetGrounding,
   selectAgentJudgmentTools,
 } from './turnExecutionPhase';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
@@ -44,4 +45,17 @@ test('grounds the job and exposes only judgment-selected tools', () => {
     'activities.capture',
     'plan.schedule_activity',
   ]);
+});
+
+test('grounds all-matching semantics without naming a capability-specific bulk action', () => {
+  expect(buildActionTargetGrounding({
+    operationIds: ['goals.update'],
+    targetScope: 'all_matching',
+    targetQuery: 'Update every goal.',
+  })).toContain('every resolved targetId');
+  expect(buildActionTargetGrounding({
+    operationIds: ['goals.update'],
+    targetScope: 'all_matching',
+    targetQuery: 'Update every goal.',
+  })).not.toMatch(/money|categor|goal/i);
 });

@@ -260,3 +260,40 @@ test('outcome phase persists an ordered typed referent for every staged proposal
     outcomeStep: { sequence: 3, dependsOnSequence: 2 },
   }));
 });
+
+test('outcome phase does not persist a partial all-matching proposal batch', async () => {
+  const { repository } = harness();
+  await materializeUnifiedChatOutcomePhase({
+    threadId: 'thread-1',
+    run: await repository.createRun(),
+    visibleBody: 'I could not prepare the complete target set. Nothing was changed.',
+    actionResponse: null,
+    toolProvider: {
+      proposals: () => [{
+        capabilityId: 'goals', title: 'Update one goal', body: 'Partial batch.',
+        operation: {
+          type: 'update_goal', targetId: 'goal-1',
+          payload: { title: '★ Goal', expectedUpdatedAt: '2026-08-04T00:00:00.000Z' },
+        },
+      }],
+      clientActions: () => [],
+    } as never,
+    runtimeToolEvents: [],
+    requestPolicy: {
+      requestClass: 'capability_action', participatingCapabilities: ['goals'],
+      usePrivateContext: true, policyReason: 'test', clarification: null,
+    },
+    snapshots: {
+      goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+    },
+    planConversationReferent: null,
+    actionOutcomeTruth: {
+      state: 'failed', visibleBody: null, invariantCodes: ['uncovered_action_targets'],
+      loadedRecordCount: 2, preparedChangeCount: 1, failedToolCount: 0,
+    },
+    repository: repository as never,
+    setFailureCode: jest.fn(),
+  });
+
+  expect(repository.createProposal).not.toHaveBeenCalled();
+});

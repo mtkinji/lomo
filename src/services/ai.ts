@@ -823,6 +823,7 @@ export type CoachChatOptions = {
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult>;
   runtimeMaxRounds?: number;
+  runtimeMaxToolCalls?: number;
   onRuntimeToolLoopComplete?: (result: AgentToolLoopResult) => void;
   /**
    * Optional paywall attribution used when generative credits are exhausted.
@@ -3070,6 +3071,7 @@ export async function sendCoachChat(
       initialStep: { content: firstChoice.content ?? null, toolCalls: initialToolCalls },
       signal: options?.signal,
       maxRounds: options?.runtimeMaxRounds ?? 4,
+      maxToolCalls: options?.runtimeMaxToolCalls ?? 12,
       continueModel: async (loopMessages) => {
         const runtimeResponse = await fetchWithTimeout(
           OPENAI_COMPLETIONS_URL,

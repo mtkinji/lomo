@@ -33,6 +33,13 @@ import {
   type UnifiedChatArtifactDraft,
 } from './assistantArtifact';
 import type { AgentJudgment } from './agentJudgment';
+import type { UnifiedChatTurnContract } from './turnContract';
+import {
+  collectCoveredActionTargetIds,
+  preflightActionBoundary,
+  projectActionOutcomeTruth,
+  type UnifiedChatActionOutcomeTruth,
+} from './turnOutcomeTruth';
 
 type ExecutionRepository = Pick<
   UnifiedChatRepository,
@@ -72,6 +79,18 @@ export function selectAgentJudgmentTools(
   return tools.filter((tool) => selectedToolIds.has(tool.id));
 }
 
+export function buildActionTargetGrounding(
+  action: UnifiedChatTurnContract['action'],
+): string | null {
+  if (action?.targetScope !== 'all_matching') return null;
+  return [
+    'This action uses generic all-matching target semantics.',
+    'The bounded evidence below is the complete resolved target set for this turn.',
+    'Stage the typed write for every resolved targetId, either as individual calls or in a target collection supported by the tool schema.',
+    'Do not stop after a partial sample. If any target cannot be prepared, leave the whole batch unsubmitted so Kwilt can report the boundary truthfully.',
+  ].join(' ');
+}
+
 function groundingSummary(
   requestPolicy: UnifiedChatRequestPolicy,
   agentJudgment: AgentJudgment | null,
@@ -80,11 +99,14 @@ function groundingSummary(
   snapshots: UnifiedChatCapabilitySnapshots,
   planConversationReferent?: PlanPlacementConversationReferent | null,
   pendingWorkConversationReferent?: PendingWorkConversationReferent | null,
+  turnContract?: UnifiedChatTurnContract,
 ): string {
   const { requestClass, participatingCapabilities, usePrivateContext } = requestPolicy;
   const parts = [`Launch source: unifiedChat. Request class: ${requestClass}.`];
   const judgmentGrounding = buildAgentJudgmentGrounding(agentJudgment);
   if (judgmentGrounding) parts.push(judgmentGrounding);
+  const actionTargetGrounding = buildActionTargetGrounding(turnContract?.action ?? null);
+  if (actionTargetGrounding) parts.push(actionTargetGrounding);
   if (requestClass === 'capability_action' && participatingCapabilities.includes('todos')) {
     parts.push(
       'Prepare at most one To-do operation. This request is already inside Kwilt; never ask which app or system owns the To-do. For explicit creation, identify the title and safe record fields; the native Quick Add pipeline owns steps, triggers, details, and cover-image enrichment under its existing permissions and entitlements. For an update, when exactly one selected Activity matches the user-named To-do, prepare the requested low-risk update instead of asking for details that are not required by the Activity field being changed. Copy targetId and expectedUpdatedAt exactly from that selected evidence machine reference. Ask one short clarification only when multiple selected Activities plausibly match or the requested field value is genuinely unresolved. Do not invent sharing, spending, Screen Time enforcement, or effects outside the Activity contract.',
@@ -184,6 +206,7 @@ export type ExecuteUnifiedChatTurnPhaseInput = {
   retryMessage?: UnifiedChatMessage;
   requestPolicy: UnifiedChatRequestPolicy;
   agentJudgment: AgentJudgment | null;
+  turnContract: UnifiedChatTurnContract;
   requiresWebSearch?: boolean;
   snapshots: UnifiedChatCapabilitySnapshots;
   context: BuiltRunContext;
@@ -215,6 +238,7 @@ export type ExecutedUnifiedChatTurn = {
   toolProvider: ToolProvider;
   runtimeToolEvents: readonly AgentToolLoopEvent[];
   artifactDraft: UnifiedChatArtifactDraft | null;
+  actionOutcomeTruth: UnifiedChatActionOutcomeTruth;
 };
 
 export type CompletedUnifiedChatTurn = {
@@ -260,10 +284,17 @@ export async function executeUnifiedChatTurnPhase(
     executeRelationshipTool: relationshipProvider.execute,
     now: input.now,
   });
+  const coveredTargetIds = new Set<string>();
+  const expectedTargetIds = new Set(input.context.evidence.map((item) => item.object.id));
   const executeTurnTool = (
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ): Promise<AgentToolExecutionResult> => {
+    if (tool.effect === 'write') {
+      for (const targetId of collectCoveredActionTargetIds(call.arguments, expectedTargetIds)) {
+        coveredTargetIds.add(targetId);
+      }
+    }
     const inferredTargetDate = call.toolId === 'goals.create' && call.arguments.targetDate == null
       ? inferredGoalTargetDate(input.prompt, input.now?.() ?? new Date())
       : null;
@@ -338,6 +369,7 @@ export async function executeUnifiedChatTurnPhase(
     ? runtimeTools.find((tool) => tool.id === 'activities.capture')
     : undefined;
   let directResponse: string | null = null;
+  directResponse = preflightActionBoundary(input.turnContract, input.context);
   if ((directReminder || directCompoundTitles) && !directTool) {
     throw input.error('Kwilt could not load the capability needed for that request.');
   }
@@ -392,6 +424,7 @@ export async function executeUnifiedChatTurnPhase(
           runtimeTools,
           executeRuntimeTool: executeTurnTool,
           runtimeMaxRounds: 4,
+          runtimeMaxToolCalls: Math.max(12, input.context.evidence.length + 4),
           onRuntimeToolLoopComplete: (result: { events: readonly AgentToolLoopEvent[] }) => {
             runtimeToolEvents = result.events;
           },
@@ -413,6 +446,7 @@ export async function executeUnifiedChatTurnPhase(
         input.snapshots,
         input.planConversationReferent,
         pendingWorkConversationReferent,
+        input.turnContract,
       ),
       expectsArtifactResponse
         ? 'The user requested editable output. Return the requested editable content in the artifact field with the best matching supported kind; do not leave artifact null. Keep the answer field to a brief introduction.'
@@ -534,7 +568,19 @@ export async function executeUnifiedChatTurnPhase(
         ? `I prepared “${toolProvider.clientActions()[0].title}” for native review.`
         : `I prepared ${toolProvider.clientActions().length} native actions for review.`
       : null;
-  const visibleBody = planPriorityBody ?? (groundedAnswer
+  const actionOutcomeTruth = projectActionOutcomeTruth({
+    turnContract: input.turnContract,
+    context: input.context,
+    runtimeToolEvents,
+    preparedChangeCount: toolProvider.proposals().length + toolProvider.clientActions().length,
+    preparedChangeTitles: [
+      ...toolProvider.proposals().map((proposal) => proposal.title),
+      ...toolProvider.clientActions().map((action) => action.title),
+    ],
+    coveredTargetIds: [...coveredTargetIds],
+    modelResponse: response,
+  });
+  const visibleBody = planPriorityBody ?? actionOutcomeTruth.visibleBody ?? (groundedAnswer
     ? formatGroundedAnswer(groundedAnswer)
     : sanitizeVisibleAssistantText(actionResponse?.answer ?? artifactResponse?.answer ?? response) ||
       authoritativeFallbackBody);
@@ -550,5 +596,6 @@ export async function executeUnifiedChatTurnPhase(
     toolProvider,
     runtimeToolEvents,
     artifactDraft: artifactResponse?.artifact ?? null,
+    actionOutcomeTruth,
   };
 }

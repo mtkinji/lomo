@@ -106,6 +106,36 @@ describe('resolveHybridRequestPolicy', () => {
     });
   });
 
+  it('keeps a referential correction attached to the previous Money action', () => {
+    const prompt = 'Close, but I want you to put the emoji at the beginning instead of the end.';
+    const deterministicPolicy = classifyUnifiedChatRequest({ prompt });
+
+    expect(resolveHybridRequestPolicy({
+      prompt,
+      deterministicPolicy,
+      semanticRoute: null,
+      previousTurnContract: {
+        schemaVersion: 1,
+        userJob: 'Add recognizable emojis to current Money categories',
+        desiredOutcome: 'Every selected category begins with an emoji',
+        constraints: [],
+        requestClass: 'capability_action',
+        participatingCapabilities: ['money'],
+        usePrivateContext: true,
+        action: {
+          operationIds: ['money.category.rename'], targetScope: 'all_matching',
+          targetQuery: 'Add an emoji to every category.',
+        },
+        referent: null,
+      },
+    })).toMatchObject({
+      requestClass: 'capability_action',
+      participatingCapabilities: ['money'],
+      usePrivateContext: true,
+      policyReason: 'conversation-follow-up:money',
+    });
+  });
+
   it.each([
     ['Plan a lighter day for me tomorrow', route({ participatingCapabilities: ['plan'] })],
     ['Can you put the school call somewhere after lunch?', route({ requestClass: 'capability_action', participatingCapabilities: ['todos', 'plan'] })],

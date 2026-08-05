@@ -143,4 +143,117 @@ describe('buildRunContext', () => {
     expect(result.coverage).toMatchObject({ sufficient: false, includedCount: 0 });
     expect(result.coverage.note).toMatch(/did not find relevant evidence/i);
   });
+
+  test('grounds a bulk Money category action in the complete bounded category inventory', () => {
+    const categorySources: CapabilityEvidenceSource[] = [
+      'Dress and Grooming',
+      '🎮 Entertainment',
+      'Entrepreneurship',
+      '⛽ Cars and Transportation',
+      '🥬 Groceries',
+      'Health & Activities',
+      '🏠 Housing & Utilities',
+      '🍽 Restaurants',
+      '🛒 Shopping',
+    ].map((label, index) => ({
+      capabilityId: 'money',
+      object: { type: 'money_category', id: `category-${index + 1}`, label },
+      searchableText: `money budget spending category current month ${label}`,
+      summary: 'Current authoritative category.',
+      authority: 'authoritative',
+      observedAt: '2026-08-04T22:20:00.000Z',
+    }));
+    const allMoneySources: CapabilityEvidenceSource[] = [{
+      capabilityId: 'money',
+      object: { type: 'money_plan_limit', id: 'current', label: 'Current Budget answer' },
+      searchableText: 'money budget current plan', summary: 'Current living limit answer.',
+      authority: 'authoritative', observedAt: '2026-08-04T22:20:00.000Z',
+    }, ...categorySources];
+
+    const result = buildRunContext({
+      prompt: 'Add an emoji to every budget category that does not have one.',
+      policy: {
+        requestClass: 'capability_action',
+        participatingCapabilities: ['money'],
+        usePrivateContext: true,
+        clarification: null,
+        policyReason: 'semantic-route:bulk category rename',
+      },
+      sources: allMoneySources,
+      actionContract: {
+        operationIds: ['money.category.rename'], targetScope: 'all_matching',
+        targetQuery: 'Add an emoji to every budget category that does not have one.',
+      },
+      now: new Date('2026-08-04T22:24:00.000Z'),
+    });
+
+    expect(result.evidence.map((item) => item.object.id)).toEqual(
+      categorySources.map((source) => source.object.id),
+    );
+    expect(result.coverage).toMatchObject({
+      sufficient: true,
+      consideredCount: 9,
+      includedCount: 9,
+      omittedCount: 0,
+    });
+  });
+
+  test('uses bounded participating-capability evidence for a referential action retry', () => {
+    const moneySources: CapabilityEvidenceSource[] = Array.from({ length: 10 }, (_, index) => ({
+      capabilityId: 'money',
+      object: { type: 'money_category', id: `category-${index + 1}`, label: `Category ${index + 1}` },
+      searchableText: `money budget category ${index + 1}`,
+      summary: 'Current authoritative category.',
+      authority: 'authoritative',
+      observedAt: '2026-08-04T22:20:00.000Z',
+    }));
+
+    const result = buildRunContext({
+      prompt: 'Can you try that again?',
+      policy: {
+        requestClass: 'capability_action',
+        participatingCapabilities: ['money'],
+        usePrivateContext: true,
+        clarification: null,
+        policyReason: 'conversation-follow-up:money',
+      },
+      sources: moneySources,
+      actionContract: {
+        operationIds: ['money.category.rename'], targetScope: 'all_matching',
+        targetQuery: 'Add an emoji to every budget category that does not have one.',
+      },
+      now: new Date('2026-08-04T22:24:00.000Z'),
+    });
+
+    expect(result.evidence).toHaveLength(10);
+    expect(result.omissions).toHaveLength(0);
+    expect(result.evidence.every((item) => item.includedBecause.includes('complete matching target set'))).toBe(true);
+  });
+
+  test.each([
+    { capabilityId: 'goals' as const, objectType: 'goal', prompt: 'Update every goal.' },
+    { capabilityId: 'todos' as const, objectType: 'activity', prompt: 'Delete all activities.' },
+    { capabilityId: 'chapters' as const, objectType: 'chapter', prompt: 'Add the same note to each chapter.' },
+  ])('resolves all matching $objectType records without per-action bulk registration', ({
+    capabilityId, objectType, prompt,
+  }) => {
+    const matching = Array.from({ length: 17 }, (_, index): CapabilityEvidenceSource => ({
+      capabilityId,
+      object: { type: objectType, id: `${objectType}-${index + 1}`, label: `${objectType} ${index + 1}` },
+      searchableText: `${objectType} current`, summary: 'Current authoritative record.',
+      authority: 'authoritative', observedAt: '2026-08-04T22:20:00.000Z',
+    }));
+    const result = buildRunContext({
+      prompt,
+      policy: {
+        requestClass: 'capability_action', participatingCapabilities: [capabilityId],
+        usePrivateContext: true, clarification: null, policyReason: 'test',
+      },
+      sources: matching,
+      actionContract: { operationIds: [], targetScope: 'all_matching', targetQuery: prompt },
+    });
+
+    expect(result.evidence).toHaveLength(17);
+    expect(result.omissions).toHaveLength(0);
+  });
 });

@@ -26,3 +26,18 @@ test('uses the already-fetched first model step before requesting a continuation
   expect(continueModel).toHaveBeenCalledTimes(1);
   expect(result).toMatchObject({ status: 'completed', content: 'Done.' });
 });
+
+test('accepts a target-derived tool-call budget instead of a fixed bulk-action limit', async () => {
+  const calls = Array.from({ length: 17 }, (_, index) => ({
+    id: `call-${index + 1}`, toolId: tool.id, arguments: { targetId: `activity-${index + 1}` },
+  }));
+  const result = await runCoachRuntimeToolLoop({
+    tools: [tool], initialMessages: [{ role: 'user', content: 'Inspect every Activity.' }],
+    initialStep: { content: null, toolCalls: calls },
+    continueModel: async () => ({ content: 'Done.', toolCalls: [] }),
+    executeTool: async () => ({ status: 'completed', receipt: null, output: {} }),
+    maxToolCalls: calls.length,
+  });
+
+  expect(result).toMatchObject({ status: 'completed', content: 'Done.' });
+});

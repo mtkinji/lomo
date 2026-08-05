@@ -42,6 +42,7 @@ Nina wants AI and desktop tools to help operate her life system, but only if the
 6. Threads, runs, evidence, decisions, receipts, feedback, and text-document attachments are durable and owner-scoped in production.
 7. The credential-free hosted workbench projects those records and emits versioned commands; Kwilt retains auth, data access, capability policy, mutation, and navigation.
 8. Giraffed remains the interaction donor and compatibility consumer, not a shared product shell.
+9. Capability actions now persist a versioned Turn Contract in the existing run ledger. It carries job, desired outcome, constraints, capability scope, operation identity, target resolution, and correction or retry referents into evidence selection and deterministic outcome truth without adding a user-managed surface.
 
 ## Offerings
 
@@ -74,7 +75,7 @@ Nina wants AI and desktop tools to help operate her life system, but only if the
 ## Gaps
 
 - The earlier name-only signed-in simulator matrix did not exercise date preservation or the new judgment path. Step 2 is therefore scored 3 until the live Luna corpus and signed date/multi-tool matrix contradict the dogfood failure; the other scores retain their existing evidence boundaries rather than borrowing this implementation as runtime proof.
-- Stop, steer, correction editing, background/foreground, microphone interaction, and physical-device behavior remain explicit runtime checks.
+- Stop, steer, correction editing, retry, background/foreground, microphone interaction, and physical-device behavior remain explicit runtime checks. The Turn Contract and Money incident replay are source-tested only and do not replace those gates.
 - Goals and Chapters remain read-only in this slice; To-dos prove the reviewed mutation contract.
 - Binary and image attachments remain unsupported until Chat can inspect their contents truthfully.
 - Existing legacy workflow chats are not automatically migrated into standalone Unified Chat.

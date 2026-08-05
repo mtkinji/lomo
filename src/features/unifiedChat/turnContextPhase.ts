@@ -12,6 +12,7 @@ import { buildPlanRecommendations, resolvePlanTargetDate } from './planRecommend
 import { loadPlanAgentContext } from '../../services/plan/loadPlanAgentContext';
 import { getKwiltCalendarBlocksForDay } from '../../services/plan/kwiltCalendarBlocks';
 import type { MoneySnapshot } from '../../capabilities/money/data/moneySnapshot';
+import type { UnifiedChatTurnContract } from './turnContract';
 
 type ContextRepository = Pick<
   UnifiedChatRepository,
@@ -157,6 +158,7 @@ export type AuthorizeUnifiedChatContextPhaseInput = {
   requestPolicy: UnifiedChatRequestPolicy;
   activeContext: UnifiedChatContextRef[];
   turnAttachments: UnifiedChatTextAttachment[];
+  turnContract: UnifiedChatTurnContract;
   repository: ContextRepository;
   loadCapabilitySnapshots: (
     capabilities: readonly UnifiedChatCapabilityId[],
@@ -189,6 +191,7 @@ export async function authorizeUnifiedChatContextPhase(
     policy: input.requestPolicy,
     sources,
     explicitContextObjectIds: input.activeContext.map((item) => item.objectId),
+    actionContract: input.turnContract.action,
   });
 
   await input.repository.appendRunEvents({
@@ -203,6 +206,7 @@ export async function authorizeUnifiedChatContextPhase(
         label: input.requestPolicy.usePrivateContext
           ? `Scoped to ${input.requestPolicy.participatingCapabilities.length} Kwilt ${input.requestPolicy.participatingCapabilities.length === 1 ? 'capability' : 'capabilities'}`
           : 'Answering without private Kwilt context',
+        payload: { turnContract: input.turnContract },
       },
       {
         sequence: 2,
