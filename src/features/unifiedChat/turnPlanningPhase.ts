@@ -25,6 +25,11 @@ import type {
 } from './requestAgentJudgment';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 import { resolveConversationReferent } from './conversationReferent';
+import {
+  buildUnifiedChatTurnContract,
+  resolveLatestTurnContract,
+  type UnifiedChatTurnContract,
+} from './turnContract';
 
 export type PlanUnifiedChatTurnPhaseInput = {
   prompt: string;
@@ -48,6 +53,7 @@ export type PlannedUnifiedChatTurn = {
   requiresWebSearch: boolean;
   planConversationReferent: PlanPlacementConversationReferent | null;
   activityClarification: string | null;
+  turnContract: UnifiedChatTurnContract;
 };
 
 function pendingWorkSummary(aggregate: UnifiedChatThreadAggregate): string | null {
@@ -119,6 +125,7 @@ export async function planUnifiedChatTurnPhase(
       })
     : null;
   const previousRun = input.aggregate.runs.at(-1);
+  const previousTurnContract = resolveLatestTurnContract(input.aggregate);
   const requestPolicy = resolveHybridRequestPolicy({
     prompt: input.prompt,
     deterministicPolicy,
@@ -134,6 +141,7 @@ export async function planUnifiedChatTurnPhase(
     previousAssistantMessage: [...input.aggregate.messages]
       .reverse()
       .find((message) => message.role === 'assistant')?.body,
+    previousTurnContract: previousTurnContract?.contract,
   });
   const judgmentSource = agentJudgment
     ? 'model'
@@ -145,6 +153,12 @@ export async function planUnifiedChatTurnPhase(
     : requestPolicy.participatingCapabilities.includes('todos')
       ? recurringReminderClarification(input.prompt)
       : null;
+  const turnContract = buildUnifiedChatTurnContract({
+    prompt: input.prompt,
+    requestPolicy,
+    agentJudgment,
+    previous: previousTurnContract,
+  });
 
   return {
     requestPolicy,
@@ -156,5 +170,6 @@ export async function planUnifiedChatTurnPhase(
       ? resolvePlanPlacementReferent(input.aggregate)
       : null,
     activityClarification,
+    turnContract,
   };
 }

@@ -18,6 +18,7 @@ related_briefs:
   - brief-external-ai-connector
   - brief-kwilt-phone-agent
   - brief-background-agents-weekly-planning
+  - brief-unified-chat-operational-control-plane
 owner: andrew
 last_updated: 2026-08-01
 ---

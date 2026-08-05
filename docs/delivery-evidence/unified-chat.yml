@@ -32,7 +32,7 @@ steps:
   - id: 2
     name: Express intent in ordinary language
     score: 3
-    gap: A bounded Luna judgment layer now preserves job, outcome, constraints, tool choice, and plan shape in source tests, including the explicit dentist-date regression. Dogfood still records an ignored date and unreliable generation; live Luna, deployed proxy, signed simulator, and physical-device date and multi-tool proof remain open.
+    gap: A bounded Luna judgment layer now preserves job, outcome, constraints, tool choice, and plan shape in source tests. A durable Turn Contract additionally preserves capability, generic target scope and query, constraints, and correction or retry referents. Cross-capability tests prove all-matching composition without bulk-action registration. Dogfood still records an ignored date and unreliable generation; live Luna, deployed proxy, signed simulator, and physical-device date, correction, retry, and multi-tool proof remain open.
     code:
       - src/features/unifiedChat/runUnifiedChatTurn.ts
       - src/features/unifiedChat/agentJudgment.ts
@@ -43,6 +43,7 @@ steps:
       - src/features/unifiedChat/requestPolicy.ts
       - src/features/unifiedChat/hybridRequestPolicy.ts
       - src/features/unifiedChat/typedTurnControl.ts
+      - src/features/unifiedChat/turnContract.ts
       - src/features/unifiedChat/threadRepository.ts
       - supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql
       - src/features/unifiedChat/unifiedChatVoice.ts
@@ -60,6 +61,8 @@ steps:
       - src/features/unifiedChat/requestPolicy.test.ts
       - src/features/unifiedChat/requestRoutingEvalCases.test.ts
       - src/features/unifiedChat/typedTurnControl.test.ts
+      - src/features/unifiedChat/turnContract.test.ts
+      - src/features/unifiedChat/operationalIncidentEvalCases.test.ts
       - src/features/unifiedChat/threadRepository.test.ts
       - scripts/unified-chat-migration-contract.test.mjs
       - src/features/unifiedChat/UnifiedChatScreen.test.tsx
@@ -75,19 +78,22 @@ steps:
   - id: 3
     name: Establish bounded request scope
     score: 4
-    gap: Visible removable and user-addable Kwilt context plus explicitly attached untrusted text documents and deterministic least-privilege routing drive bounded participation while general questions remain detached; signed physical-device proof remains.
+    gap: Visible removable and user-addable Kwilt context plus explicitly attached untrusted text documents and deterministic least-privilege routing drive bounded participation. Capability actions now persist a typed scope contract, and correction or retry turns inherit it without broadening ordinary questions; signed physical-device proof remains.
     code:
       - src/features/unifiedChat/runUnifiedChatTurn.ts
       - src/features/unifiedChat/requestPolicy.ts
       - src/features/unifiedChat/capabilityAdapters.ts
       - src/features/unifiedChat/launchContext.ts
       - src/features/unifiedChat/unifiedChatAttachmentPolicy.ts
+      - src/features/unifiedChat/turnContract.ts
     tests:
       - src/features/unifiedChat/runUnifiedChatTurn.test.ts
       - src/features/unifiedChat/requestPolicy.test.ts
       - src/features/unifiedChat/capabilityAdapters.test.ts
       - src/features/unifiedChat/launchContext.test.ts
       - src/features/unifiedChat/unifiedChatAttachmentPolicy.test.ts
+      - src/features/unifiedChat/turnContract.test.ts
+      - src/features/unifiedChat/hybridRequestPolicy.test.ts
     runtime_evidence:
       - docs/delivery-evidence/unified-chat/2026-07-22-production-platform.md
       - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
@@ -96,9 +102,11 @@ steps:
   - id: 4
     name: Retrieve inspectable evidence
     score: 4
-    gap: Goals To-dos Chapters the bounded Profile projection and owner-scoped relationship records feed owned evidence into Chat; signed physical-device and deployed Phone proof remain.
+    gap: Goals To-dos Chapters the bounded Profile projection and owner-scoped relationship records feed owned evidence into Chat. The canonical capability manifest now declares action target resolution, and complete-inventory Money category actions select all matching category records without including unrelated Money object types. Signed physical-device and deployed Phone proof remain.
     code:
       - src/features/unifiedChat/buildRunContext.ts
+      - src/features/unifiedChat/turnContract.ts
+      - packages/kwilt-agent-runtime/src/capabilityManifest.ts
       - src/features/unifiedChat/capabilityContracts.ts
       - src/features/unifiedChat/capabilityAdapters.ts
       - src/features/unifiedChat/runUnifiedChatTurn.ts
@@ -114,6 +122,8 @@ steps:
       - src/services/relationshipMemoryToolProvider.ts
     tests:
       - src/features/unifiedChat/buildRunContext.test.ts
+      - src/features/unifiedChat/operationalIncidentEvalCases.test.ts
+      - packages/kwilt-agent-runtime/src/capabilityManifest.test.ts
       - src/features/unifiedChat/capabilityAdapters.test.ts
       - src/features/unifiedChat/runUnifiedChatTurn.test.ts
       - src/features/unifiedChat/threadRepository.test.ts
@@ -130,17 +140,20 @@ steps:
   - id: 5
     name: Understand result and limits
     score: 4
-    gap: Grounded answers structurally separate stored facts inference and uncertainty while evidence authority freshness and coverage limits render; signed physical-device proof remains.
+    gap: Grounded answers structurally separate stored facts inference and uncertainty while evidence authority freshness and coverage limits render. Capability-action status is now projected from evidence, tool failures, proposals, and invariant codes so loaded records cannot be described as inaccessible and unapplied work cannot be described as complete. Signed physical-device proof remains.
     code:
       - src/features/unifiedChat/runUnifiedChatTurn.ts
       - src/features/unifiedChat/buildWorkbenchSnapshot.ts
       - src/features/unifiedChat/groundedAnswer.ts
       - src/features/unifiedChat/visibleAssistantText.ts
+      - src/features/unifiedChat/turnOutcomeTruth.ts
     tests:
       - src/features/unifiedChat/runUnifiedChatTurn.test.ts
       - src/features/unifiedChat/buildWorkbenchSnapshot.test.ts
       - src/features/unifiedChat/groundedAnswer.test.ts
       - src/features/unifiedChat/visibleAssistantText.test.ts
+      - src/features/unifiedChat/turnOutcomeTruth.test.ts
+      - src/features/unifiedChat/unifiedChatTelemetry.test.ts
     runtime_evidence:
       - docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
     proof:

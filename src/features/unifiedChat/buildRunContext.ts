@@ -6,6 +6,7 @@ import type {
   EvidenceRefDraft,
 } from './capabilityContracts';
 import type { UnifiedChatRequestPolicy } from './requestPolicy';
+import type { UnifiedChatTurnActionContract } from './turnContract';
 
 const STOP_WORDS = new Set([
   'and',
@@ -69,14 +70,16 @@ export function buildRunContext({
   policy,
   sources,
   explicitContextObjectIds = [],
-  maxEvidence = 6,
-  maxPerCapability = 3,
+  actionContract,
+  maxEvidence,
+  maxPerCapability,
   now = new Date(),
 }: {
   prompt: string;
   policy: UnifiedChatRequestPolicy;
   sources: readonly CapabilityEvidenceSource[];
   explicitContextObjectIds?: readonly string[];
+  actionContract?: UnifiedChatTurnActionContract | null;
   maxEvidence?: number;
   maxPerCapability?: number;
   now?: Date;
@@ -98,7 +101,34 @@ export function buildRunContext({
   const participating = new Set(policy.participatingCapabilities);
   const explicit = new Set(explicitContextObjectIds);
   const promptTokens = tokens(prompt);
-  const considered = sources.filter((source) => participating.has(source.capabilityId));
+  const isAllMatching =
+    policy.requestClass === 'capability_action' &&
+    actionContract?.targetScope === 'all_matching';
+  const participatingSources = sources.filter((source) => participating.has(source.capabilityId));
+  const targetQueryTokens = tokens(actionContract?.targetQuery ?? prompt);
+  const typeOverlap = new Map<string, number>();
+  for (const source of participatingSources) {
+    const objectTypeTokens = tokens(source.object.type);
+    let overlap = 0;
+    for (const token of targetQueryTokens) if (objectTypeTokens.has(token)) overlap += 1;
+    typeOverlap.set(source.object.type, Math.max(typeOverlap.get(source.object.type) ?? 0, overlap));
+  }
+  const strongestTypeOverlap = Math.max(0, ...typeOverlap.values());
+  const matchingTypes = new Set(
+    [...typeOverlap.entries()]
+      .filter(([, overlap]) => strongestTypeOverlap > 0 && overlap === strongestTypeOverlap)
+      .map(([objectType]) => objectType),
+  );
+  const contentMatches = participatingSources.filter((source) => overlapCount(targetQueryTokens, source) > 0);
+  const considered = !isAllMatching
+    ? participatingSources
+    : matchingTypes.size > 0
+      ? participatingSources.filter((source) => matchingTypes.has(source.object.type))
+      : contentMatches.length > 0
+        ? contentMatches
+        : participatingSources;
+  const evidenceBudget = maxEvidence ?? (isAllMatching ? considered.length : 6);
+  const perCapabilityBudget = maxPerCapability ?? (isAllMatching ? considered.length : 3);
   const ranked = considered.map((source) => {
     const isExplicit = explicit.has(source.object.id);
     const overlap = overlapCount(promptTokens, source);
@@ -125,7 +155,7 @@ export function buildRunContext({
   for (const candidate of ranked) {
     const { source } = candidate;
     const capabilityCount = perCapability.get(source.capabilityId) ?? 0;
-    if (!candidate.isExplicit && candidate.overlap === 0) {
+    if (!candidate.isExplicit && candidate.overlap === 0 && !isAllMatching) {
       omissions.push({
         capabilityId: source.capabilityId,
         objectType: source.object.type,
@@ -138,7 +168,7 @@ export function buildRunContext({
       });
       continue;
     }
-    if (evidence.length >= Math.max(0, maxEvidence)) {
+    if (evidence.length >= Math.max(0, evidenceBudget)) {
       omissions.push({
         capabilityId: source.capabilityId,
         objectType: source.object.type,
@@ -151,7 +181,7 @@ export function buildRunContext({
       });
       continue;
     }
-    if (!candidate.isExplicit && capabilityCount >= Math.max(1, maxPerCapability)) {
+    if (!candidate.isExplicit && capabilityCount >= Math.max(1, perCapabilityBudget)) {
       omissions.push({
         capabilityId: source.capabilityId,
         objectType: source.object.type,
@@ -176,6 +206,8 @@ export function buildRunContext({
       observedAt: source.observedAt ?? null,
       includedBecause: candidate.isExplicit
         ? 'Visible context explicitly attached to this request.'
+        : isAllMatching
+          ? 'Included in the complete matching target set.'
         : `Matched ${candidate.overlap} material request ${candidate.overlap === 1 ? 'term' : 'terms'}.`,
       sufficient: true,
     });

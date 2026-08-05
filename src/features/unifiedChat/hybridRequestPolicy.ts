@@ -3,6 +3,7 @@ import {
   type UnifiedChatRequestPolicy,
 } from './requestPolicy';
 import type { SemanticRequestRoute } from './semanticRequestRouter';
+import { classifyTurnReference, type UnifiedChatTurnContract } from './turnContract';
 
 export const MIN_SEMANTIC_ROUTE_CONFIDENCE = 0.75;
 
@@ -36,33 +37,55 @@ const PLAN_PLACEMENT_CLARIFICATION_PATTERN =
   /\b(open windows?|time windows?|block length|placement|start time|schedule|place it)\b/i;
 const PLAN_SCHEDULING_PARAMETER_PATTERN =
   /(?:\b\d+(?:\.\d+)?\s*(?:hours?|hrs?|minutes?|mins?)\b|\b(?:morning|afternoon|evening|noon|midday|after|before)\b|\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b)/i;
+const REFERENTIAL_ACTION_CORRECTION_PATTERN =
+  /(?:\bclose,?\s+but\b|\btry\s+(?:that|it)\s+again\b|\binstead\s+of\b|\b(?:move|put)\b[^.!?]{0,80}\b(?:front|beginning|end)\b)/i;
 
 function conversationFollowUpPolicy({
   prompt,
   deterministicPolicy,
   previousPolicy,
   previousAssistantMessage,
+  previousTurnContract,
 }: {
   prompt: string;
   deterministicPolicy: UnifiedChatRequestPolicy;
   previousPolicy?: PreviousConversationPolicy;
   previousAssistantMessage?: string;
+  previousTurnContract?: UnifiedChatTurnContract;
 }): UnifiedChatRequestPolicy | null {
+  const typedReference = classifyTurnReference(prompt);
+  if (
+    typedReference &&
+    previousTurnContract?.requestClass === 'capability_action' &&
+    previousTurnContract.action &&
+    previousTurnContract.participatingCapabilities.length > 0
+  ) {
+    return {
+      requestClass: 'capability_action',
+      participatingCapabilities: [...previousTurnContract.participatingCapabilities],
+      usePrivateContext: previousTurnContract.usePrivateContext,
+      clarification: null,
+      policyReason: `conversation-follow-up:${previousTurnContract.participatingCapabilities.join(',')}`,
+    };
+  }
   const capabilities = previousPolicy
     ? [...new Set(previousPolicy.participatingCapabilities)]
     : [];
+  const correctsPreviousAction =
+    previousPolicy?.requestClass === 'capability_action' &&
+    REFERENTIAL_ACTION_CORRECTION_PATTERN.test(prompt);
   const suppliesPlanSchedulingParameters =
     capabilities.includes('plan') && PLAN_SCHEDULING_PARAMETER_PATTERN.test(prompt);
   if (
-    deterministicPolicy.requestClass !== 'general' ||
+    (deterministicPolicy.requestClass !== 'general' && !correctsPreviousAction) ||
     !previousPolicy?.usePrivateContext ||
     capabilities.length === 0 ||
-    (!suppliesPlanSchedulingParameters && (
+    (!correctsPreviousAction && !suppliesPlanSchedulingParameters && (
       !previousAssistantMessage || !CLARIFICATION_PROMPT_PATTERN.test(previousAssistantMessage)
     ))
   ) return null;
   const wordCount = prompt.trim().split(/\s+/).filter(Boolean).length;
-  if (wordCount === 0 || wordCount > 12) return null;
+  if (wordCount === 0 || wordCount > (correctsPreviousAction ? 30 : 12)) return null;
   const completesPromisedMutation =
     suppliesPlanSchedulingParameters ||
     PROMISED_MUTATION_PATTERN.test(previousAssistantMessage ?? '') ||
@@ -121,6 +144,7 @@ export function resolveHybridRequestPolicy({
   allowAdditionalCapabilities = false,
   previousPolicy,
   previousAssistantMessage,
+  previousTurnContract,
 }: {
   prompt: string;
   deterministicPolicy: UnifiedChatRequestPolicy;
@@ -128,6 +152,7 @@ export function resolveHybridRequestPolicy({
   allowAdditionalCapabilities?: boolean;
   previousPolicy?: PreviousConversationPolicy;
   previousAssistantMessage?: string;
+  previousTurnContract?: UnifiedChatTurnContract;
 }): UnifiedChatRequestPolicy {
   if (!shouldAttemptSemanticRouting({ prompt, deterministicPolicy })) return deterministicPolicy;
   const followUpPolicy = conversationFollowUpPolicy({
@@ -135,6 +160,7 @@ export function resolveHybridRequestPolicy({
     deterministicPolicy,
     previousPolicy,
     previousAssistantMessage,
+    previousTurnContract,
   });
   if (followUpPolicy) return followUpPolicy;
   if (!semanticRoute || semanticRoute.confidence < MIN_SEMANTIC_ROUTE_CONFIDENCE) {

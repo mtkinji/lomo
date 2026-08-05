@@ -16,6 +16,7 @@ export async function runCoachRuntimeToolLoop(input: {
   executeTool: (call: AgentToolCall, tool: AgentToolDefinition) => Promise<AgentToolExecutionResult>;
   signal?: AbortSignal;
   maxRounds?: number;
+  maxToolCalls?: number;
 }): Promise<AgentToolLoopResult> {
   let first = true;
   return runBoundedAgentToolLoop({
@@ -23,6 +24,7 @@ export async function runCoachRuntimeToolLoop(input: {
     initialMessages: input.initialMessages,
     signal: input.signal,
     maxRounds: input.maxRounds ?? 4,
+    maxToolCalls: input.maxToolCalls ?? 12,
     modelStep: async ({ messages }) => {
       if (first) {
         first = false;

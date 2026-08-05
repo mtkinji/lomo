@@ -7,6 +7,7 @@ import {
   buildUnifiedChatAgentJudgmentTelemetry,
   buildUnifiedChatAgentPlanOutcomeTelemetry,
   buildUnifiedChatFreshEntryTelemetry,
+  buildUnifiedChatOperationalTelemetry,
 } from './unifiedChatTelemetry';
 
 test('fresh-entry telemetry contains only bounded source and outcome metadata', () => {
@@ -156,4 +157,36 @@ test('agent judgment fallback telemetry omits all user and model content', () =>
     constraint_kinds: '',
     confidence_bucket: null,
   });
+});
+
+test('operational telemetry contains contract and outcome enums and counts without life data', () => {
+  const record = buildUnifiedChatOperationalTelemetry({
+    turnContract: {
+      schemaVersion: 1, userJob: 'private job', desiredOutcome: 'private outcome',
+      constraints: ['private constraint'], requestClass: 'capability_action',
+      participatingCapabilities: ['money'], usePrivateContext: true,
+      action: {
+        operationIds: ['money.category.rename'], targetScope: 'all_matching',
+        targetQuery: 'private target query',
+      },
+      referent: { runId: 'private-run-id', kind: 'correction' },
+    },
+    context: {
+      evidence: [], omissions: [], coverage: {
+        sufficient: true, consideredCount: 9, includedCount: 9, omittedCount: 0, note: 'private note',
+      },
+    },
+    actionOutcomeTruth: {
+      state: 'prepared', visibleBody: 'private response', invariantCodes: [],
+      loadedRecordCount: 9, preparedChangeCount: 9, failedToolCount: 0,
+    },
+  });
+
+  expect(record).toEqual({
+    turn_contract_version: 1, request_class: 'capability_action', capability_ids: 'money',
+    target_scope: 'all_matching', referent_kind: 'correction', considered_count: 9,
+    included_count: 9, omitted_count: 0, prepared_change_count: 9, failed_tool_count: 0,
+    invariant_codes: '', outcome_state: 'prepared',
+  });
+  expect(JSON.stringify(record)).not.toMatch(/private|run-id|constraint|response|note/i);
 });

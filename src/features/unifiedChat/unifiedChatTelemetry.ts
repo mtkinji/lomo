@@ -4,6 +4,9 @@ import type { UnifiedChatThreadAggregate } from './types';
 import type { UnifiedChatProposal } from './types';
 import type { AgentJudgment } from './agentJudgment';
 import type { UnifiedChatCapabilityId, UnifiedChatRequestClass } from './requestPolicy';
+import type { BuiltRunContext } from './capabilityContracts';
+import type { UnifiedChatTurnContract } from './turnContract';
+import type { UnifiedChatActionOutcomeTruth } from './turnOutcomeTruth';
 
 export type UnifiedChatTelemetryProperties = Record<
   string,
@@ -102,6 +105,31 @@ export function buildUnifiedChatToolTelemetry(
       round: event.round,
     }];
   });
+}
+
+export function buildUnifiedChatOperationalTelemetry({
+  turnContract,
+  context,
+  actionOutcomeTruth,
+}: {
+  turnContract: UnifiedChatTurnContract;
+  context: BuiltRunContext;
+  actionOutcomeTruth: UnifiedChatActionOutcomeTruth;
+}): UnifiedChatTelemetryProperties {
+  return {
+    turn_contract_version: turnContract.schemaVersion,
+    request_class: turnContract.requestClass,
+    capability_ids: turnContract.participatingCapabilities.join(','),
+    target_scope: turnContract.action?.targetScope ?? null,
+    referent_kind: turnContract.referent?.kind ?? null,
+    considered_count: context.coverage.consideredCount,
+    included_count: context.coverage.includedCount,
+    omitted_count: context.coverage.omittedCount,
+    prepared_change_count: actionOutcomeTruth.preparedChangeCount,
+    failed_tool_count: actionOutcomeTruth.failedToolCount,
+    invariant_codes: actionOutcomeTruth.invariantCodes.join(','),
+    outcome_state: actionOutcomeTruth.state,
+  };
 }
 
 export function buildUnifiedChatReconciliationTelemetry(

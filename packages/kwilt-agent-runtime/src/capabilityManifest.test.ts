@@ -7,6 +7,7 @@ import {
   type CapabilityManifestEntry,
   type RuntimeToolImplementation,
 } from './capabilityManifest';
+import { KWILT_CAPABILITY_MANIFEST } from './kwiltCapabilityManifest';
 
 const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: false } as const;
 
@@ -86,6 +87,15 @@ describe('canonical capability manifest', () => {
       returnBehavior: 'answer',
       channels: inspectOperation().channels,
     }]);
+  });
+
+  test('does not require a separate bulk-action registry', () => {
+    const rename = KWILT_CAPABILITY_MANIFEST.find((operation) => operation.id === 'money.category.rename');
+
+    expect(rename).not.toHaveProperty('actionResolution');
+    expect(projectOperationCoverage(KWILT_CAPABILITY_MANIFEST)
+      .find((operation) => operation.id === 'money.category.rename'))
+      .not.toHaveProperty('actionResolution');
   });
 
   test('projects every tool needed by a multi-tool operation without a second operation entry', () => {

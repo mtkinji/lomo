@@ -12,6 +12,8 @@ import type { ExecutedUnifiedChatTurn } from './turnExecutionPhase';
 import type { UnifiedChatMessage, UnifiedChatRun } from './types';
 import type { AgentJudgment } from './agentJudgment';
 import { toLocalDateKey } from '../../services/plan/planDates';
+import type { UnifiedChatTurnContract } from './turnContract';
+import type { UnifiedChatActionOutcomeTruth } from './turnOutcomeTruth';
 
 type OutcomeRepository = Pick<
   UnifiedChatRepository,
@@ -60,6 +62,8 @@ export type MaterializeUnifiedChatOutcomePhaseInput = {
   requestPolicy: UnifiedChatRequestPolicy;
   snapshots: UnifiedChatCapabilitySnapshots;
   planConversationReferent: PlanPlacementConversationReferent | null;
+  turnContract?: UnifiedChatTurnContract;
+  actionOutcomeTruth?: UnifiedChatActionOutcomeTruth;
   repository: OutcomeRepository;
   setFailureCode: (code: string) => void;
 };
@@ -72,9 +76,10 @@ export type MaterializedUnifiedChatOutcome = {
 export async function materializeUnifiedChatOutcomePhase(
   input: MaterializeUnifiedChatOutcomePhaseInput,
 ): Promise<MaterializedUnifiedChatOutcome> {
-  const stagedToolProposals = input.toolProvider.proposals();
-  const stagedClientActions = input.toolProvider.clientActions();
-  const hasAuthoritativeNextStep = Boolean(input.actionResponse?.proposal) ||
+  const acceptsStagedWork = input.actionOutcomeTruth?.state !== 'failed';
+  const stagedToolProposals = acceptsStagedWork ? input.toolProvider.proposals() : [];
+  const stagedClientActions = acceptsStagedWork ? input.toolProvider.clientActions() : [];
+  const hasAuthoritativeNextStep = Boolean(acceptsStagedWork && input.actionResponse?.proposal) ||
     stagedToolProposals.length > 0 || stagedClientActions.length > 0;
   const claimsCompletedEffect = /\b(?:done|completed|created|updated|deleted|applied|scheduled|changed|saved|sent)\b/i
     .test(input.visibleBody);
@@ -82,6 +87,7 @@ export async function materializeUnifiedChatOutcomePhase(
     (input.requestPolicy.requestClass === 'capability_action' ||
       input.requestPolicy.requestClass === 'native_control') &&
     !hasAuthoritativeNextStep &&
+    (input.actionOutcomeTruth?.state ?? 'model_response') === 'model_response' &&
     claimsCompletedEffect
   ) {
     input.setFailureCode('action_outcome_missing');
@@ -159,7 +165,7 @@ export async function materializeUnifiedChatOutcomePhase(
     return created;
   };
 
-  if (input.actionResponse?.proposal) {
+  if (acceptsStagedWork && input.actionResponse?.proposal) {
     input.setFailureCode('proposal_persistence_failed');
     const operation = input.actionResponse.proposal.operation;
     await persistProposal({
@@ -346,7 +352,7 @@ export async function materializeUnifiedChatOutcomePhase(
   const planSnapshot = input.requestPolicy.participatingCapabilities.includes('plan')
     ? input.snapshots.plan
     : undefined;
-  if (input.requestPolicy.policyReason === 'day-plan-recommendation' && planSnapshot?.writeCalendarRef) {
+  if (acceptsStagedWork && input.requestPolicy.policyReason === 'day-plan-recommendation' && planSnapshot?.writeCalendarRef) {
     for (const recommendation of planSnapshot.recommendations) {
       if (recommendation.placement.status !== 'placed' || !recommendation.expectedUpdatedAt) continue;
       const start = new Date(recommendation.placement.startDate);
@@ -400,6 +406,39 @@ export async function materializeUnifiedChatOutcomePhase(
           : `${pendingWorkReferentItems.length} changes awaiting review`,
         detail: null,
         payload: buildPendingWorkConversationReferent(pendingWorkReferentItems),
+      }],
+    });
+  }
+
+  if (
+    input.turnContract?.requestClass === 'capability_action' &&
+    input.actionOutcomeTruth
+  ) {
+    const persistedToolEventCount = input.runtimeToolEvents
+      .filter((event) => event.type !== 'model_step').length;
+    await input.repository.appendRunEvents({
+      threadId: input.threadId,
+      runId: input.run.id,
+      events: [{
+        sequence: 4 + persistedToolEventCount +
+          (persistedPlanReferent ? 1 : 0) +
+          (pendingWorkReferentItems.length > 0 ? 1 : 0),
+        type: 'operational_truth',
+        status: input.actionOutcomeTruth.state === 'failed' ||
+          input.actionOutcomeTruth.invariantCodes.length > 0 ? 'warning' : 'complete',
+        visibility: 'internal',
+        label: 'Recorded turn outcome truth',
+        detail: null,
+        payload: {
+          turnContractVersion: input.turnContract.schemaVersion,
+          targetScope: input.turnContract.action?.targetScope ?? null,
+          referentKind: input.turnContract.referent?.kind ?? null,
+          loadedRecordCount: input.actionOutcomeTruth.loadedRecordCount,
+          preparedChangeCount: input.actionOutcomeTruth.preparedChangeCount,
+          failedToolCount: input.actionOutcomeTruth.failedToolCount,
+          invariantCodes: input.actionOutcomeTruth.invariantCodes,
+          outcomeState: input.actionOutcomeTruth.state,
+        },
       }],
     });
   }

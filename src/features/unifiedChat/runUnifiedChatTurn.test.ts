@@ -1184,7 +1184,7 @@ describe('runUnifiedChatTurn', () => {
       'relationships.read', 'relationships.remember',
     ]);
     expect(repository.createProposal).not.toHaveBeenCalled();
-    expect(repository.appendRunEvents).toHaveBeenLastCalledWith(expect.objectContaining({
+    expect(repository.appendRunEvents).toHaveBeenCalledWith(expect.objectContaining({
       events: expect.arrayContaining([
         expect.objectContaining({ label: 'Used relationships.remember' }),
       ]),

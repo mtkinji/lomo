@@ -28,6 +28,7 @@ import {
   buildUnifiedChatAgentJudgmentTelemetry,
   buildUnifiedChatAgentPlanOutcomeTelemetry,
   buildUnifiedChatRouteTelemetry,
+  buildUnifiedChatOperationalTelemetry,
   type UnifiedChatTelemetryProperties,
 } from './unifiedChatTelemetry';
 import { AnalyticsEvent, type AnalyticsEventName } from '../../services/analytics/events';
@@ -283,7 +284,9 @@ export async function runUnifiedChatTurn(
       publicErrorMessage: 'Kwilt could not plan that response.',
     });
   }
-  const { requestPolicy, requiresWebSearch, planConversationReferent, activityClarification } = plannedTurn;
+  const {
+    requestPolicy, requiresWebSearch, planConversationReferent, activityClarification, turnContract,
+  } = plannedTurn;
   captureTelemetry(
     plannedTurn.agentJudgment
       ? AnalyticsEvent.UnifiedChatAgentJudgmentSelected
@@ -338,6 +341,7 @@ export async function runUnifiedChatTurn(
       requestPolicy,
       activeContext,
       turnAttachments,
+      turnContract,
       repository,
       loadCapabilitySnapshots,
     });
@@ -383,6 +387,7 @@ export async function runUnifiedChatTurn(
       retryMessage,
       requestPolicy,
       agentJudgment: plannedTurn.agentJudgment,
+      turnContract,
       requiresWebSearch,
       snapshots,
       context,
@@ -403,7 +408,13 @@ export async function runUnifiedChatTurn(
       error: (message) => new UnifiedChatTurnError(message),
     });
     if (executionResult.kind === 'completed_early') return executionResult.aggregate;
-    const { visibleBody, actionResponse, toolProvider, runtimeToolEvents, artifactDraft } = executionResult;
+    const {
+      visibleBody, actionResponse, toolProvider, runtimeToolEvents, artifactDraft, actionOutcomeTruth,
+    } = executionResult;
+    captureTelemetry(
+      AnalyticsEvent.UnifiedChatOperationalOutcome,
+      buildUnifiedChatOperationalTelemetry({ turnContract, context, actionOutcomeTruth }),
+    );
     const { assistantMessage, appControlOutcome } = await materializeUnifiedChatOutcomePhase({
       threadId: aggregate.thread.id,
       run,
@@ -416,6 +427,8 @@ export async function runUnifiedChatTurn(
       requestPolicy,
       snapshots,
       planConversationReferent,
+      turnContract,
+      actionOutcomeTruth,
       repository,
       setFailureCode: (code) => {
         failureCode = code;
