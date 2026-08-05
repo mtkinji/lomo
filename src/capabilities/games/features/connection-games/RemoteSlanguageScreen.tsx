@@ -18,6 +18,8 @@ import { KwiltGamesLockup } from '@/src/capabilities/games/ui/KwiltGamesLockup';
 import { OpenSlanguageTableLobby } from './OpenSlanguageTableLobby';
 import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';
 import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
+import { restartOpenGameTable } from '@/src/capabilities/games/remote/remoteBankClient';
+import { remoteRematchPresentation } from '@/src/capabilities/games/remote/remoteGameLifecycle';
 
 function useClock(active: boolean) {
   const [now, setNow] = useState(Date.now());
@@ -60,7 +62,7 @@ export function RemoteSlanguageScreen() {
       {room.state.phase === 'reveal' ? <RevealRound room={room} sending={sending} next={() => command({ type: 'advance_reveal' })} /> : null}
       {room.state.phase === 'vote' ? <VoteRound room={room} sending={sending} vote={(submissionParticipantId) => command({ type: 'submit_vote', submissionParticipantId })} /> : null}
       {room.state.phase === 'result' ? <ResultRound room={room} sending={sending} next={() => command({ type: 'next_round' })} /> : null}
-      {room.state.phase === 'finished' ? <FinishedRound room={room} /> : null}
+      {room.state.phase === 'finished' ? <FinishedRound room={room} userId={userId} reload={reload} /> : null}
     </View>
   </SafeAreaView></GameBackdrop>;
 }
@@ -187,9 +189,17 @@ function ResultRound({ room, sending, next }: { room: Room; sending: boolean; ne
   </View>;
 }
 
-function FinishedRound({ room }: { room: Room }) {
+function FinishedRound({ room, userId, reload }: { room: Room; userId: string; reload: () => Promise<void> }) {
+  const [restarting, setRestarting] = useState(false);
   const winners = room.state.winnerIds.map((id) => room.participants.find((participant) => participant.id === id)?.displayName).filter(Boolean);
-  return <View style={styles.center}><View style={styles.crownMark}><Crown size={42} color={gamesTheme.colors.ink} /></View><Text style={styles.phaseLabel}>SLANGUAGE CHAMPION</Text><Text style={styles.heroTitle}>{winners.join(' & ') || 'The room'}</Text><Text style={styles.supporting}>Most Crowns after five translations.</Text><GameButton onPress={() => router.replace('/play/slanguage')}>Play again</GameButton><GameButton tone="ghost" onPress={() => router.replace('/')}>Back to games</GameButton></View>;
+  const rematch = remoteRematchPresentation(userId === room.hostUserId);
+  const restart = async () => {
+    if (!rematch.canRestart || restarting) return;
+    setRestarting(true);
+    try { await restartOpenGameTable(room.id); await reload(); }
+    finally { setRestarting(false); }
+  };
+  return <View style={styles.center}><View style={styles.crownMark}><Crown size={42} color={gamesTheme.colors.ink} /></View><Text style={styles.phaseLabel}>SLANGUAGE CHAMPION</Text><Text style={styles.heroTitle}>{winners.join(' & ') || 'The room'}</Text><Text style={styles.supporting}>Most Crowns after five translations.</Text>{rematch.canRestart ? <GameButton disabled={restarting} onPress={() => void restart()}>{restarting ? 'Opening table…' : rematch.primaryCopy}</GameButton> : <Text style={styles.supporting}>{rematch.primaryCopy}</Text>}<GameButton tone="ghost" onPress={() => router.replace('/')}>Back to games</GameButton></View>;
 }
 
 const styles = StyleSheet.create({

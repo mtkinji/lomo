@@ -24,6 +24,8 @@ import {
   createRemoteBankTableInvite,
   removeRemoteBankTableParticipant,
   startRemoteBankTable,
+  previewOpenGameTableInvite,
+  restartOpenGameTable,
 } from '../remoteBankClient';
 
 describe('open Bank table client', () => {
@@ -76,5 +78,30 @@ describe('open Bank table client', () => {
 
     expect(mockRpc).toHaveBeenNthCalledWith(1, 'start_open_bank_table', { p_session_id: 'room-1' });
     expect(mockRpc).toHaveBeenNthCalledWith(2, 'remove_open_game_table_participant', { p_session_id: 'room-1', p_participant_id: 'seat-3' });
+  });
+
+  it('previews a table invitation before claiming a seat', async () => {
+    mockRpc.mockResolvedValueOnce({ data: [{
+      game_key: 'bank', host_display_name: 'Andrew', participant_count: 3, capacity: 6,
+      invite_state: 'available', can_join: true, already_joined: false,
+      session_id: 'room-1', table_code: 'W7K4JP',
+    }], error: null });
+
+    await expect(previewOpenGameTableInvite({ token: 'private-token' })).resolves.toEqual({
+      gameKey: 'bank', hostDisplayName: 'Andrew', participantCount: 3, capacity: 6,
+      inviteState: 'available', canJoin: true, alreadyJoined: false,
+      sessionId: 'room-1', tableCode: 'W7K4JP',
+    });
+    expect(mockRpc).toHaveBeenCalledWith('preview_open_game_table', {
+      p_token: 'private-token', p_short_code: null,
+    });
+  });
+
+  it('reopens the same table for a host rematch', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: null });
+
+    await restartOpenGameTable('room-1');
+
+    expect(mockRpc).toHaveBeenCalledWith('restart_open_game_table', { p_session_id: 'room-1' });
   });
 });

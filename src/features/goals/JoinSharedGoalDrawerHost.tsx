@@ -9,6 +9,7 @@ import { acceptGoalInvite, previewGoalInvite } from '../../services/invites';
 import { useJoinSharedGoalDrawerStore } from '../../store/useJoinSharedGoalDrawerStore';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { buildGoalSupportDestinationParams } from '../../navigation/goalSupportDestination';
 import { useToastStore } from '../../store/useToastStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
@@ -110,7 +111,7 @@ export function JoinSharedGoalDrawerHost() {
       screen: 'GoalsTab',
       params: {
         screen: 'GoalDetail',
-        params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+        params: buildGoalSupportDestinationParams(goalId),
       },
     } as any);
   }, [alreadyHasGoal, close, preview?.goalId, visible]);
@@ -159,7 +160,7 @@ export function JoinSharedGoalDrawerHost() {
         screen: 'GoalsTab',
         params: {
           screen: 'GoalDetail',
-          params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+          params: buildGoalSupportDestinationParams(goalId),
         },
       } as any);
       capture(AnalyticsEvent.JoinGoalSucceeded, { visibilityContract: 'goal-signals-v1' });

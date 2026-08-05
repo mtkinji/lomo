@@ -3,7 +3,7 @@ import { router } from '@/src/capabilities/games/navigation/gamesRouter';
 import { JoinTableDrawer } from '../JoinTableDrawer';
 import { browseNearbyTables } from '@/src/capabilities/games/nearby/nearbyTables';
 import { tableMarkForCode } from '@/src/capabilities/games/remote/remoteBank';
-import { claimRemoteBankTableInvite } from '@/src/capabilities/games/remote/remoteBankClient';
+import { claimRemoteBankTableInvite, previewOpenGameTableInvite } from '@/src/capabilities/games/remote/remoteBankClient';
 
 let mockBottomDrawerProps: Record<string, unknown> | null = null;
 
@@ -20,13 +20,17 @@ jest.mock('@/src/ui/BottomDrawer', () => {
     BottomDrawerScrollView: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
   };
 });
-jest.mock('@/src/capabilities/games/remote/remoteBankClient', () => ({ claimRemoteBankTableInvite: jest.fn() }));
+jest.mock('@/src/capabilities/games/remote/remoteBankClient', () => ({
+  claimRemoteBankTableInvite: jest.fn(),
+  previewOpenGameTableInvite: jest.fn(),
+}));
 jest.mock('@/src/capabilities/games/nearby/nearbyTables', () => ({
   nearbyTablesAvailable: () => true,
   browseNearbyTables: jest.fn(),
 }));
 
 const mockClaim = claimRemoteBankTableInvite as jest.Mock;
+const mockPreview = previewOpenGameTableInvite as jest.Mock;
 const mockBrowse = browseNearbyTables as jest.Mock;
 const mockReplace = router.replace as jest.Mock;
 let mockProfile: { displayName: string } | null = { displayName: 'Olive' };
@@ -49,6 +53,17 @@ describe('JoinTableScreen', () => {
       return jest.fn();
     });
     mockClaim.mockResolvedValue({ sessionId: 'room-1', participantId: 'seat-2', tableCode: 'W7K4JP' });
+    mockPreview.mockResolvedValue({
+      gameKey: 'bank',
+      hostDisplayName: 'Andrew',
+      participantCount: 3,
+      capacity: 6,
+      inviteState: 'available',
+      canJoin: true,
+      alreadyJoined: false,
+      sessionId: 'room-1',
+      tableCode: 'W7K4JP',
+    });
   });
 
   it('names a discovered Slanguage table correctly', async () => {
@@ -109,10 +124,43 @@ describe('JoinTableScreen', () => {
 
   it('uses the same name-first flow for a scanned table link', async () => {
     const screen = render(<JoinTableDrawer visible token="private-token" onClose={jest.fn()} />);
+    expect(await screen.findByText("Join Andrew’s Bank table")).toBeTruthy();
+    expect(screen.getByText('3 playing · 3 places open')).toBeTruthy();
     fireEvent.changeText(screen.getByLabelText('Your player name'), 'Grant');
     fireEvent.press(screen.getByText('Join table'));
 
     await waitFor(() => expect(mockClaim).toHaveBeenCalledWith({ token: 'private-token', displayName: 'Grant' }));
     expect(mockBrowse).not.toHaveBeenCalled();
+  });
+
+  it('returns an existing participant to the same table without claiming again', async () => {
+    mockPreview.mockResolvedValue({
+      gameKey: 'slanguage', hostDisplayName: 'Ruth', participantCount: 4, capacity: 8,
+      inviteState: 'already_joined', canJoin: false, alreadyJoined: true,
+      sessionId: 'room-2', tableCode: 'ABC123',
+    });
+    const screen = render(<JoinTableDrawer visible token="private-token" onClose={jest.fn()} />);
+
+    fireEvent.press(await screen.findByText('Return to table'));
+
+    expect(mockClaim).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({
+      params: expect.objectContaining({ sessionId: 'room-2', tableCode: 'ABC123' }),
+    }));
+  });
+
+  it.each([
+    ['full', 'That Bank table is full.'],
+    ['closed', 'That Bank table has closed.'],
+    ['expired', 'That Bank invitation has expired.'],
+  ])('explains a %s invitation before asking the person to join', async (inviteState, message) => {
+    mockPreview.mockResolvedValue({
+      gameKey: 'bank', hostDisplayName: 'Andrew', participantCount: 6, capacity: 6,
+      inviteState, canJoin: false, alreadyJoined: false, sessionId: 'room-1', tableCode: 'W7K4JP',
+    });
+    const screen = render(<JoinTableDrawer visible token="private-token" onClose={jest.fn()} />);
+
+    expect(await screen.findByText(message)).toBeTruthy();
+    expect(screen.queryByText('Join table')).toBeNull();
   });
 });

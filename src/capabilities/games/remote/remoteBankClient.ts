@@ -96,6 +96,53 @@ export async function createRemoteBankTableInvite(sessionId: string): Promise<Re
   return { token: row.token, code: row.short_code, expiresAt: row.expires_at };
 }
 
+export type OpenGameTablePreview = {
+  gameKey: 'bank' | 'slanguage';
+  hostDisplayName: string;
+  participantCount: number;
+  capacity: number;
+  inviteState: 'available' | 'already_joined' | 'full' | 'closed' | 'expired';
+  canJoin: boolean;
+  alreadyJoined: boolean;
+  sessionId: string;
+  tableCode: string;
+};
+
+export async function previewOpenGameTableInvite(input: {
+  token?: string;
+  shortCode?: string;
+}): Promise<OpenGameTablePreview> {
+  await ensureGamesIdentity();
+  const { data, error } = await getGamesSupabaseClient().rpc('preview_open_game_table', {
+    p_token: input.token ?? null,
+    p_short_code: input.shortCode ?? null,
+  });
+  if (error) throw error;
+  const row = (data as Array<{
+    game_key: OpenGameTablePreview['gameKey'];
+    host_display_name: string;
+    participant_count: number;
+    capacity: number;
+    invite_state: OpenGameTablePreview['inviteState'];
+    can_join: boolean;
+    already_joined: boolean;
+    session_id: string;
+    table_code: string;
+  }>)[0];
+  if (!row) throw new Error('That table invitation is unavailable.');
+  return {
+    gameKey: row.game_key,
+    hostDisplayName: row.host_display_name,
+    participantCount: row.participant_count,
+    capacity: row.capacity,
+    inviteState: row.invite_state,
+    canJoin: row.can_join,
+    alreadyJoined: row.already_joined,
+    sessionId: row.session_id,
+    tableCode: row.table_code,
+  };
+}
+
 export async function claimRemoteBankInvite(token?: string, shortCode?: string) {
   const client = getGamesSupabaseClient();
   const { data: current } = await client.auth.getSession();
@@ -129,6 +176,14 @@ async function broadcastRoomChanged(sessionId: string, reason: string) {
   } finally {
     await client.removeChannel(channel);
   }
+}
+
+export async function restartOpenGameTable(sessionId: string) {
+  const { error } = await getGamesSupabaseClient().rpc('restart_open_game_table', {
+    p_session_id: sessionId,
+  });
+  if (error) throw error;
+  await broadcastRoomChanged(sessionId, 'table_restarted');
 }
 
 export async function claimRemoteBankTableInvite(input: { token?: string; shortCode?: string; displayName: string }) {

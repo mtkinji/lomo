@@ -6,6 +6,7 @@ import { getEnvVar } from '../utils/getEnv';
 import { getInstallId } from './installId';
 import { ensureSignedInWithPrompt, getAccessToken } from './backend/auth';
 import { navigateWhenReady } from '../navigation/rootNavigationRef';
+import { buildGoalSupportDestinationParams } from '../navigation/goalSupportDestination';
 import { useToastStore } from '../store/useToastStore';
 import { useAppStore } from '../store/useAppStore';
 import { useJoinSharedGoalDrawerStore } from '../store/useJoinSharedGoalDrawerStore';
@@ -500,7 +501,7 @@ export async function handleIncomingInviteUrl(url: string): Promise<boolean> {
             screen: 'GoalsTab',
             params: {
               screen: 'GoalDetail',
-              params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+              params: buildGoalSupportDestinationParams(goalId),
             },
           } as any);
           return true;
@@ -517,7 +518,7 @@ export async function handleIncomingInviteUrl(url: string): Promise<boolean> {
                 screen: 'GoalsTab',
                 params: {
                   screen: 'GoalDetail',
-                  params: { goalId: acceptedGoalId, entryPoint: 'goalsTab', initialTab: 'details' },
+                  params: buildGoalSupportDestinationParams(acceptedGoalId),
                 },
               } as any);
               return true;

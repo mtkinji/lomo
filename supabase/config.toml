@@ -378,6 +378,12 @@ deno_version = 2
 [functions.mcp]
 verify_jwt = false
 
+[functions.share-web-cheer]
+verify_jwt = false
+
+[functions.share-web-reply]
+verify_jwt = false
+
 [functions.agent-channel-tick]
 verify_jwt = false
 

@@ -152,7 +152,7 @@ export function ShareGoalDrawer(props: {
       const nextMessage =
         `I'm working on a goal in Kwilt: ` +
         `"${goalTitle}"\n\n` +
-        `I'll share what I finish here. You can cheer me on or nudge me if I go quiet — no app install required.\n\n` +
+        `I'll share the progress I choose here. You can send encouragement or reply to a check-in — no app install required.\n\n` +
         `${nextTapUrl}`;
 
       setInviteCode(nextInviteCode);
@@ -383,10 +383,10 @@ export function ShareGoalDrawer(props: {
             step === 'email'
               ? 'Email invite'
               : step === 'recipient'
-                ? selectedRecipient ? `Invite ${selectedRecipient.displayName}?` : 'Invite someone?'
+                ? selectedRecipient ? `Invite ${selectedRecipient.displayName} to support you?` : 'Invite someone to support you?'
               : step === 'sent'
                 ? selectedRecipient ? 'Invitation ready' : 'Invite sent'
-                : 'Share this goal'
+                : 'Invite support'
           }
           rightAction={<BottomDrawerHeaderClose onPress={onClose} />}
           titleStyle={styles.headerTitle}
@@ -450,7 +450,7 @@ export function ShareGoalDrawer(props: {
             </View>
 
             <Text style={styles.privacyLine}>
-              Partners can see check-ins. Your to-dos stay private.
+              Supporters can see check-ins. Your to-dos stay private.
             </Text>
           </VStack>
         ) : step === 'recipient' && selectedRecipient ? (

@@ -96,6 +96,9 @@ describe('ShareGoalDrawer known recipients', () => {
     expect(screen.getByText('Ruth')).toBeTruthy();
     expect(screen.getByText('Friend')).toBeTruthy();
     expect(screen.getByText('Text message')).toBeTruthy();
+    expect(screen.getByText('Invite support')).toBeTruthy();
+    expect(screen.getByText('Supporters can see check-ins. Your to-dos stay private.')).toBeTruthy();
+    expect(screen.queryByText(/nudge me if I go quiet/i)).toBeNull();
   });
 
   it('does not create a generic invitation merely because the drawer opened', async () => {
@@ -149,7 +152,7 @@ describe('ShareGoalDrawer known recipients', () => {
     await waitFor(() => expect(screen.getByText('Blaire')).toBeTruthy());
     fireEvent.press(screen.getByText('Blaire'));
 
-    expect(screen.getByText('Invite Blaire?')).toBeTruthy();
+    expect(screen.getByText('Invite Blaire to support you?')).toBeTruthy();
     expect(screen.getByText(/invited to this Goal only/)).toBeTruthy();
     expect(service.createGoalInvite.mock.calls.filter(([input]) => input.recipient != null)).toHaveLength(0);
 
