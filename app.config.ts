@@ -296,6 +296,7 @@ const config = {
           'Kwilt does not write Apple Health data.',
       },
     ],
+    './plugins/withAttachmentQuickLook',
     './plugins/withAppleEcosystemIntegrations',
   ],
   extra: {

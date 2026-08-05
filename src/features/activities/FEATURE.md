@@ -34,12 +34,13 @@ briefs:
   - tag-vocabulary-system
   - todo-schedule-sessions
   - todo-action-contexts
+  - todo-attachment-previews
   - todo-completion-undo-toast
   - todo-dependencies
   - todo-list-grouping-config
   - todo-organization-triage
 status: shipped
-last_reviewed: 2026-07-20
+last_reviewed: 2026-08-05
 ---
 
 # activities

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Alert, Animated, Image, Linking, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Alert, Animated, Image, Linking, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../../theme';
 import { Button, IconButton } from '../../ui/Button';
@@ -32,7 +32,6 @@ import { useToastStore } from '../../store/useToastStore';
 import { KwiltAiQuotaExceededError } from '../../services/ai';
 import {
   addPhotoOrVideoToActivity,
-  openAttachment,
 } from '../../services/attachments/activityAttachments';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import { isDateToday } from '../../utils/activityListMeta';
@@ -43,6 +42,7 @@ import { getActivityAreaIcon, getActivityAreaIconById } from './activityAreaIcon
 import { ActivityDetailTagPicker } from './ActivityDetailTagPicker';
 import { REMINDER_SOURCE_DUE_DATE_DEFAULT } from './dueDateReminderPolicy';
 import { InlineClearButton } from '../../ui/InlineClearButton';
+import { ActivityAttachmentCard } from './ActivityAttachmentCard';
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -115,6 +115,7 @@ export function ActivityDetailRefresh(props: any) {
     openAgentForActivity,
     setActiveSheet,
     openAttachmentDetails,
+    previewAttachment,
     scrollRef,
     KEYBOARD_CLEARANCE,
     styles,
@@ -1735,12 +1736,11 @@ export function ActivityDetailRefresh(props: any) {
               </View>
 
               <View style={{ marginTop: spacing.lg }}>
-                <Text style={styles.inputLabel}>ATTACHMENTS</Text>
                 {(() => {
                   const canUseAttachments = Boolean(isPro || isProToolsTrial);
                   const attachments = (((activity as any)?.attachments ?? []) as any[]).filter(Boolean);
                   const count = attachments.length;
-                  const label = count > 0 ? `Attachments · ${count}` : 'Add attachments';
+                  const label = 'Add attachments';
 
                   // NOTE: When attachments are unlocked, this field is wrapped in a DropdownMenuTrigger.
                   // Avoid defining an `onPress` on the child Pressable or it can hijack taps and the menu
@@ -1790,129 +1790,104 @@ export function ActivityDetailRefresh(props: any) {
                     </Pressable>
                   );
 
-                  if (!canUseAttachments) return Field;
+                  if (!canUseAttachments) {
+                    return (
+                      <>
+                        <Text style={styles.inputLabel}>ATTACHMENTS</Text>
+                        {Field}
+                      </>
+                    );
+                  }
+
+                  const AddMenu = ({ compact = false }: { compact?: boolean }) => (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        {compact ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Add attachment"
+                            style={({ pressed }) => [
+                              styles.attachmentAddButton,
+                              pressed ? { opacity: 0.82 } : null,
+                            ]}
+                          >
+                            <Icon name="plus" size={18} color={colors.textSecondary} />
+                          </Pressable>
+                        ) : Field}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem
+                          onPress={() => {
+                            void addPhotoOrVideoToActivity(activity).catch((e: any) => {
+                              const msg = typeof e?.message === 'string' ? e.message : 'Unknown error';
+                              useToastStore.getState().showToast({
+                                message: `Photo picker failed: ${msg}`,
+                                variant: 'danger',
+                                durationMs: 3500,
+                                behaviorDuringSuppression: 'show',
+                              });
+                            });
+                          }}
+                        >
+                          <HStack space="sm" alignItems="center">
+                            <Icon name="image" size={16} color={colors.textSecondary} />
+                            <Text style={styles.menuItemText} {...menuItemTextProps}>
+                              Photo / Video
+                            </Text>
+                          </HStack>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onPress={() => {
+                            setActiveSheet?.('recordAudio');
+                          }}
+                        >
+                          <HStack space="sm" alignItems="center">
+                            <Icon name="mic" size={16} color={colors.textSecondary} />
+                            <Text style={styles.menuItemText} {...menuItemTextProps}>
+                              Record audio
+                            </Text>
+                          </HStack>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  );
 
                   return (
                     <>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>{Field}</DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem
-                            onPress={() => {
-                              void addPhotoOrVideoToActivity(activity).catch((e: any) => {
-                                const msg = typeof e?.message === 'string' ? e.message : 'Unknown error';
-                                useToastStore.getState().showToast({
-                                  message: `Photo picker failed: ${msg}`,
-                                  variant: 'danger',
-                                  durationMs: 3500,
-                                  behaviorDuringSuppression: 'show',
-                                });
-                              });
-                            }}
-                          >
-                            <HStack space="sm" alignItems="center">
-                              <Icon name="image" size={16} color={colors.textSecondary} />
-                              <Text style={styles.menuItemText} {...menuItemTextProps}>
-                                Photo / Video
-                              </Text>
-                            </HStack>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onPress={() => {
-                              setActiveSheet?.('recordAudio');
-                            }}
-                          >
-                            <HStack space="sm" alignItems="center">
-                              <Icon name="mic" size={16} color={colors.textSecondary} />
-                              <Text style={styles.menuItemText} {...menuItemTextProps}>
-                                Record audio
-                              </Text>
-                            </HStack>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-
-                      {attachments.length === 0 ? null : (
-                        <View style={{ marginTop: spacing.xs }}>
-                          <View style={styles.rowsCard}>
-                            {attachments.map((att: any, idx: number) => {
-                              const kind = (att?.kind ?? '').toString();
-                              const leadingIcon =
-                                kind === 'photo' || kind === 'video'
-                                  ? 'image'
-                                  : kind === 'document'
-                                    ? 'fileText'
-                                    : kind === 'audio'
-                                      ? 'mic'
-                                      : 'paperclip';
-                              const status = (att?.uploadStatus ?? 'uploaded').toString();
-                              const isOpenable = status === 'uploaded';
-
-                              const rawName = typeof att?.fileName === 'string' ? att.fileName : '';
-                              const name = rawName.trim() ? rawName.trim() : 'Attachment';
-
-                              const kindLabel =
-                                kind === 'photo'
-                                  ? 'Photo'
-                                  : kind === 'video'
-                                    ? 'Video'
-                                    : kind === 'audio'
-                                      ? 'Audio'
-                                      : kind === 'document'
-                                        ? 'Document'
-                                        : 'Attachment';
-                              // kindLabel intentionally not shown in the 1-line row (shown in drawer)
-
-                              return (
-                                <React.Fragment key={String(att.id)}>
-                                  <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Attachment details ${name}`}
-                                    onPress={() => {
-                                      if (typeof openAttachmentDetails === 'function') {
-                                        openAttachmentDetails(att);
-                                        return;
-                                      }
-                                      // Fallback: open directly if the details sheet isn't wired (older screens).
-                                      if (isOpenable) {
-                                        void openAttachment(String(att.id)).catch(() => undefined);
-                                      }
-                                    }}
-                                    style={({ pressed }) => [
-                                      styles.attachmentRow,
-                                      pressed && isOpenable ? styles.attachmentRowPressed : null,
-                                    ]}
-                                  >
-                                    <View style={styles.attachmentIconBubble}>
-                                      <Icon name={leadingIcon} size={18} color={colors.textPrimary} />
-                                    </View>
-
-                                    <Text style={styles.attachmentTitle} numberOfLines={1}>
-                                      {name}
-                                    </Text>
-
-                                    <View style={styles.attachmentRight}>
-                                      {status === 'uploading' ? (
-                                        <ActivityIndicator size="small" color={colors.textSecondary} />
-                                      ) : status === 'failed' ? (
-                                        <Text style={[styles.attachmentStatusText, styles.attachmentStatusTextFailed]}>
-                                          Failed
-                                        </Text>
-                                      ) : null}
-
-                                      {activity.goalId && att.sharedWithGoalMembers ? (
-                                        <Icon name="share" size={16} color={colors.accent} />
-                                      ) : null}
-
-                                      <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-                                    </View>
-                                  </Pressable>
-                                  {idx === attachments.length - 1 ? null : <View style={styles.cardSectionDivider} />}
-                                </React.Fragment>
-                              );
-                            })}
+                      {count === 0 ? (
+                        <>
+                          <Text style={styles.inputLabel}>ATTACHMENTS</Text>
+                          <AddMenu />
+                        </>
+                      ) : (
+                        <>
+                          <View style={styles.attachmentSectionHeader}>
+                            <Text style={styles.attachmentSectionTitle}>ATTACHMENTS</Text>
+                            <AddMenu compact />
                           </View>
-                        </View>
+                          <View style={styles.attachmentList}>
+                            {attachments.map((att: any) => (
+                              <ActivityAttachmentCard
+                                key={String(att.id)}
+                                attachment={att}
+                                onPreview={(attachment) => {
+                                  if (typeof previewAttachment !== 'function') {
+                                    openAttachmentDetails?.(attachment);
+                                    return;
+                                  }
+                                  void previewAttachment(attachment).catch(() => {
+                                    useToastStore.getState().showToast({
+                                      message: 'Unable to preview attachment',
+                                      variant: 'danger',
+                                      durationMs: 2600,
+                                    });
+                                  });
+                                }}
+                                onOpenDetails={(attachment) => openAttachmentDetails?.(attachment)}
+                              />
+                            ))}
+                          </View>
+                        </>
                       )}
                     </>
                   );

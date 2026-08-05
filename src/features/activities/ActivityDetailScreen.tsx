@@ -2470,6 +2470,7 @@ export function ActivityDetailScreen() {
               openAgentForActivity={openAgentForActivity}
               setActiveSheet={setActiveSheet}
               openAttachmentDetails={attachmentsController.openDetails}
+              previewAttachment={attachmentsController.preview}
               scrollRef={scrollRef}
               KEYBOARD_CLEARANCE={KEYBOARD_CLEARANCE}
               detailGuideHost={detailGuideHost}
