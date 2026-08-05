@@ -116,6 +116,38 @@ describe('planUnifiedChatTurnPhase agent judgment', () => {
     expect(routeRequest).not.toHaveBeenCalled();
   });
 
+  it('rejects an action judgment whose plan contains no write tool', async () => {
+    const readOnlyActionJudgment: AgentJudgment = {
+      ...dentistJudgment,
+      userJob: 'Plan tomorrow',
+      desiredOutcome: 'A useful plan for tomorrow',
+      participatingCapabilities: ['plan'],
+      usePrivateContext: true,
+      constraints: [{ kind: 'date', sourceText: 'tomorrow', normalizedValue: '2026-08-02' }],
+      steps: [{
+        sequence: 1,
+        objective: 'Recommend a realistic day',
+        toolId: 'plan.recommend_day',
+        dependsOn: null,
+      }],
+    };
+    const routeRequest = jest.fn(async () => null);
+
+    const result = await plan({
+      prompt: 'Plan tomorrow',
+      requestJudgment: async () => readOnlyActionJudgment,
+      routeRequest,
+    });
+
+    expect(result.agentJudgment).toBeNull();
+    expect(result.judgmentSource).toBe('deterministic_fallback');
+    expect(result.requestPolicy).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['plan'],
+    });
+    expect(routeRequest).toHaveBeenCalledTimes(1);
+  });
+
   it('grounds a short correction in pending reviewed work', async () => {
     const aggregate = {
       ...emptyAggregate,

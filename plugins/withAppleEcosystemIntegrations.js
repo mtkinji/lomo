@@ -15,7 +15,7 @@ const { mergeContents } = require('@expo/config-plugins/build/utils/generateCode
 
 const fs = require('fs');
 const path = require('path');
-const { addMoneyWidgetFontResources, copyMoneyWidgetFontResources } = require('./appleEcosystem/moneyWidgetResources');
+const { addWidgetFontResources, copyWidgetFontResources } = require('./appleEcosystem/moneyWidgetResources');
 const { getMoneyWidgetSwift } = require('./appleEcosystem/moneyWidgetSwift');
 const { getFocusWidgetSwift } = require('./appleEcosystem/focusWidgetSwift');
 const { getChatWidgetSwift } = require('./appleEcosystem/chatWidgetSwift');
@@ -1663,7 +1663,7 @@ if userActivity.activityType == CSSearchableItemActionType,
     } catch {
       // best-effort
     }
-    const moneyWidgetFontResources = copyMoneyWidgetFontResources({ fs, path, projectRoot: config.modRequest.projectRoot, iosRoot, targetSubfolder });
+    const widgetFontResources = copyWidgetFontResources({ fs, path, projectRoot: config.modRequest.projectRoot, iosRoot, targetSubfolder });
 
     fs.writeFileSync(
       widgetSwiftAbs,
@@ -1809,8 +1809,8 @@ func deepLinkActivities(viewId: String?) -> URL? {
 
 let standaloneFocusActivityId = "kwilt-standalone-focus"
 
-func deepLinkStartStandaloneFocus(minutes: Int, audio: String) -> URL {
-  return URL(string: "kwilt://today?autoStartStandaloneFocus=1&focusMinutes=\\(minutes)&focusAudio=\\(audio)&source=widget")!
+func deepLinkConfigureStandaloneFocus() -> URL {
+  return URL(string: "kwilt://focus?source=widget")!
 }
 
 func deepLinkFocusControls(_ focus: GlanceableStateV1.FocusSession) -> URL {
@@ -1823,6 +1823,23 @@ func deepLinkFocusControls(_ focus: GlanceableStateV1.FocusSession) -> URL {
 struct KwiltPalette {
   static let pine: Color = Color(red: 49/255, green: 85/255, blue: 69/255)
   static let pineSoft: Color = Color(red: 49/255, green: 85/255, blue: 69/255, opacity: 0.12)
+}
+
+enum KwiltWidgetTypography {
+  static let label = Font.custom("Inter-SemiBold", size: 12, relativeTo: .caption)
+  static let title = Font.custom("Inter-Black", size: 27, relativeTo: .title2)
+  static let value = Font.custom("Inter-Black", size: 30, relativeTo: .title)
+  static let categoryValue = Font.custom("Inter-Black", size: 27, relativeTo: .title2)
+  static let currencySymbol = Font.custom("Inter-SemiBold", size: 17, relativeTo: .headline)
+  static let body = Font.custom("Inter-Medium", size: 12, relativeTo: .caption)
+  static let meta = Font.custom("Inter-Medium", size: 10, relativeTo: .caption2)
+  static let action = Font.custom("Inter-SemiBold", size: 12, relativeTo: .caption)
+  static let sectionTitle = Font.custom("Inter-SemiBold", size: 17, relativeTo: .headline)
+  static let emphasis = Font.custom("Inter-SemiBold", size: 15, relativeTo: .subheadline)
+  static let rowTitle = Font.custom("Inter-Medium", size: 15, relativeTo: .subheadline)
+  static let compactValue = Font.custom("Inter-Black", size: 20, relativeTo: .title3)
+  static let timer = Font.custom("Inter-SemiBold", size: 20, relativeTo: .title3)
+  static let compactTimer = Font.custom("Inter-SemiBold", fixedSize: 14)
 }
 
 struct WidgetFormatters {
@@ -2000,11 +2017,11 @@ struct ActivitiesWidgetView: View {
 #endif
           VStack(alignment: .leading, spacing: 1) {
             Text("Activities")
-              .font(.headline)
+              .font(KwiltWidgetTypography.sectionTitle)
               .foregroundStyle(.white)
               .lineLimit(1)
             Text(entry.viewName)
-              .font(.caption)
+              .font(KwiltWidgetTypography.body)
               .foregroundStyle(.white.opacity(0.85))
               .lineLimit(1)
           }
@@ -2019,7 +2036,7 @@ struct ActivitiesWidgetView: View {
         if rows.isEmpty {
           Spacer()
           Text("Open Kwilt to sync this widget.")
-            .font(.caption)
+            .font(KwiltWidgetTypography.body)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.leading)
           Spacer()
@@ -2033,25 +2050,25 @@ struct ActivitiesWidgetView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                   Text(row.title)
-                    .font(.subheadline)
+                    .font(KwiltWidgetTypography.rowTitle)
                     .foregroundStyle(.primary)
                     .lineLimit(2)
 
                   HStack(alignment: .firstTextBaseline, spacing: 6) {
                     if let meta = row.meta, !meta.isEmpty {
                       Text(meta)
-                        .font(.caption2)
+                        .font(KwiltWidgetTypography.meta)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     }
                     if let ms = row.scheduledAtMs, let label = formatTimeLabel(ms: ms) {
                       if let meta = row.meta, !meta.isEmpty {
                         Text("•")
-                          .font(.caption2)
+                          .font(KwiltWidgetTypography.meta)
                           .foregroundStyle(.secondary)
                       }
                       Text(label)
-                        .font(.caption2)
+                        .font(KwiltWidgetTypography.meta)
                         .foregroundStyle(.secondary)
           .monospacedDigit()
                         .lineLimit(1)
@@ -2064,7 +2081,7 @@ struct ActivitiesWidgetView: View {
           Spacer()
           if remaining > 0 {
             Text("\\(remaining) more")
-              .font(.caption)
+              .font(KwiltWidgetTypography.body)
               .foregroundStyle(.secondary)
               .lineLimit(1)
           }
@@ -2142,7 +2159,7 @@ struct LockScreenCircularView: View {
   var body: some View {
     Gauge(value: Double(min(entry.streak, 30)), in: 0...30) {
       Text("\\(entry.streak)")
-        .font(.title3.bold())
+        .font(KwiltWidgetTypography.compactValue)
     }
     .gaugeStyle(.accessoryCircularCapacity)
     .tint(KwiltPalette.pine)
@@ -2160,17 +2177,17 @@ struct LockScreenRectangularView: View {
         Image(systemName: "flame.fill")
           .foregroundStyle(KwiltPalette.pine)
         Text("\\(entry.streak)-day streak")
-          .font(.headline)
+          .font(KwiltWidgetTypography.sectionTitle)
           .lineLimit(1)
       }
       if let next = entry.nextUpTitle {
         Text("Next: \\(next)")
-          .font(.caption)
+          .font(KwiltWidgetTypography.body)
           .foregroundStyle(.secondary)
           .lineLimit(1)
       } else {
         Text("\\(entry.completedToday) done today")
-          .font(.caption)
+          .font(KwiltWidgetTypography.body)
           .foregroundStyle(.secondary)
           .lineLimit(1)
       }
@@ -2184,13 +2201,16 @@ struct LockScreenInlineView: View {
   let entry: LockScreenEntry
 
   var body: some View {
-    if entry.streak > 0 {
-      Text("\\(Image(systemName: "flame.fill")) \\(entry.streak)-day streak")
-    } else if let next = entry.nextUpTitle {
-      Text("\\(Image(systemName: "arrow.right")) \\(next)")
-    } else {
-      Text("\\(Image(systemName: "checkmark")) \\(entry.completedToday) done today")
+    Group {
+      if entry.streak > 0 {
+        Text("\\(Image(systemName: "flame.fill")) \\(entry.streak)-day streak")
+      } else if let next = entry.nextUpTitle {
+        Text("\\(Image(systemName: "arrow.right")) \\(next)")
+      } else {
+        Text("\\(Image(systemName: "checkmark")) \\(entry.completedToday) done today")
+      }
     }
+    .font(KwiltWidgetTypography.body)
   }
 }
 
@@ -2287,7 +2307,7 @@ struct SmallHomeWidgetView: View {
           }
 #endif
           Text("Kwilt")
-            .font(.caption.bold())
+            .font(KwiltWidgetTypography.label)
             .foregroundStyle(.white)
         }
         .padding(.horizontal, 12)
@@ -2303,22 +2323,22 @@ struct SmallHomeWidgetView: View {
               .foregroundStyle(entry.streak > 0 ? .orange : .secondary)
               .font(.title2)
             Text("\\(entry.streak)")
-              .font(.title.bold())
+              .font(KwiltWidgetTypography.value)
           }
           Text(entry.streak == 1 ? "day streak" : "day streak")
-            .font(.caption)
+            .font(KwiltWidgetTypography.body)
             .foregroundStyle(.secondary)
 
           Spacer()
 
           if let next = entry.nextUpTitle {
             Text(next)
-              .font(.caption2)
+              .font(KwiltWidgetTypography.meta)
               .foregroundStyle(.secondary)
               .lineLimit(2)
           } else {
             Text("\\(entry.completedToday) done today")
-              .font(.caption2)
+              .font(KwiltWidgetTypography.meta)
               .foregroundStyle(.secondary)
           }
         }
@@ -2406,18 +2426,18 @@ struct KwiltFocusTimerLabel: View {
         Image(systemName: "pause.fill")
           .font(.caption2.weight(.semibold))
         Text(remainingMinutesText)
-          .font(.system(.headline, design: .rounded, weight: .semibold))
+          .font(KwiltWidgetTypography.sectionTitle)
           .monospacedDigit()
       }
       .foregroundStyle(palette.primary)
     } else if let end = endAt {
       Text(timerInterval: startedAt...end, countsDown: true)
-        .font(.system(.title3, design: .rounded, weight: .semibold))
+        .font(KwiltWidgetTypography.timer)
         .monospacedDigit()
         .foregroundStyle(palette.primary)
     } else {
       Text(startedAt, style: .timer)
-        .font(.title2.monospacedDigit().weight(.semibold))
+        .font(KwiltWidgetTypography.timer)
         .foregroundStyle(palette.primary)
     }
   }
@@ -2446,7 +2466,7 @@ struct KwiltFocusLiveActivityView: View {
         }
 
         Text(context.state.title)
-          .font(.headline)
+          .font(KwiltWidgetTypography.sectionTitle)
           .foregroundStyle(palette.primary)
           .lineLimit(2)
 
@@ -2483,7 +2503,7 @@ struct KwiltFocusDynamicIslandExpandedView: View {
 
   var body: some View {
     Text(context.state.title)
-      .font(.headline)
+      .font(KwiltWidgetTypography.sectionTitle)
       .foregroundStyle(palette.primary)
       .lineLimit(2)
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -2508,15 +2528,15 @@ struct KwiltFocusCompactTrailingView: View {
     Group {
       if isPaused {
         Image(systemName: "pause.fill")
-          .font(.system(size: 14, weight: .semibold, design: .rounded))
+          .font(.system(size: 14, weight: .semibold))
       } else if let end = endAt {
         Text(timerInterval: startedAt...end, countsDown: true)
           .monospacedDigit()
-          .font(.system(size: 14, weight: .semibold, design: .rounded))
+          .font(KwiltWidgetTypography.compactTimer)
       } else {
         Text(Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0), style: .timer)
           .monospacedDigit()
-          .font(.system(size: 14, weight: .semibold, design: .rounded))
+          .font(KwiltWidgetTypography.compactTimer)
       }
     }
     .foregroundStyle(KwiltFocusPalette.forKey(context.state.colorKey).primary)
@@ -2712,7 +2732,7 @@ struct ${targetName}Bundle: WidgetBundle {
         targetUuid,
       });
     }
-    project = addMoneyWidgetFontResources({ addResourceFileToGroup, resources: moneyWidgetFontResources, project, targetSubfolder, targetUuid });
+    project = addWidgetFontResources({ addResourceFileToGroup, resources: widgetFontResources, project, targetSubfolder, targetUuid });
     // Extra defensive cleanup: certain Xcodeproj mutation paths can still attach the widget
     // source file to the main app target. Ensure it is NOT compiled there.
     if (appTargetUuid) {

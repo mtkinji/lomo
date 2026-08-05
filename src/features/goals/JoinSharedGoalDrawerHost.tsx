@@ -9,9 +9,15 @@ import { acceptGoalInvite, previewGoalInvite } from '../../services/invites';
 import { useJoinSharedGoalDrawerStore } from '../../store/useJoinSharedGoalDrawerStore';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { buildGoalSupportDestinationParams } from '../../navigation/goalSupportDestination';
 import { useToastStore } from '../../store/useToastStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { ensureSignedInWithPrompt } from '../../services/backend/auth';
+import {
+  getGoalInvitePreviewFailure,
+  type GoalInvitePreviewFailure,
+} from './goalInvitePreviewFailure';
 
 export function JoinSharedGoalDrawerHost() {
   const { capture } = useAnalytics();
@@ -32,6 +38,8 @@ export function JoinSharedGoalDrawerHost() {
     inviteState?: 'active' | 'expired' | 'consumed';
     progressPreview?: { checkinCount: number; lastPreset: string | null; memberCount: number } | null;
   } | null>(null);
+  const [previewFailure, setPreviewFailure] = useState<GoalInvitePreviewFailure | null>(null);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
 
   const effectiveInviteCode = (inviteCode ?? '').trim();
 
@@ -45,15 +53,21 @@ export function JoinSharedGoalDrawerHost() {
     let cancelled = false;
     if (!visible) return;
     if (!effectiveInviteCode) return;
+    setPreview(null);
+    setPreviewFailure(null);
     setPreviewBusy(true);
     previewGoalInvite(effectiveInviteCode)
       .then((p) => {
         if (cancelled) return;
         setPreview(p);
       })
-      .catch(() => {
+      .catch((error: any) => {
         if (cancelled) return;
         setPreview(null);
+        setPreviewFailure(getGoalInvitePreviewFailure({
+          status: typeof error?.status === 'number' ? error.status : undefined,
+          code: typeof error?.code === 'string' ? error.code : undefined,
+        }));
       })
       .finally(() => {
         if (cancelled) return;
@@ -62,7 +76,7 @@ export function JoinSharedGoalDrawerHost() {
     return () => {
       cancelled = true;
     };
-  }, [effectiveInviteCode, visible]);
+  }, [effectiveInviteCode, previewAttempt, visible]);
 
   const previewTitle = useMemo(() => {
     const title = (preview?.goalTitle ?? '').trim();
@@ -86,7 +100,7 @@ export function JoinSharedGoalDrawerHost() {
     if (!alreadyHasGoal) return;
     const goalId = (preview?.goalId ?? '').trim();
     if (!goalId) return;
-    capture(AnalyticsEvent.JoinGoalAlreadyMember, { goalId });
+    capture(AnalyticsEvent.JoinGoalAlreadyMember, { visibilityContract: 'goal-signals-v1' });
     useToastStore.getState().showToast({
       message: 'You’re already a member',
       variant: 'success',
@@ -97,7 +111,7 @@ export function JoinSharedGoalDrawerHost() {
       screen: 'GoalsTab',
       params: {
         screen: 'GoalDetail',
-        params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+        params: buildGoalSupportDestinationParams(goalId),
       },
     } as any);
   }, [alreadyHasGoal, close, preview?.goalId, visible]);
@@ -121,7 +135,7 @@ export function JoinSharedGoalDrawerHost() {
     }
     try {
       setBusy(true);
-      capture(AnalyticsEvent.JoinGoalAttempted, { goalId: preview?.goalId ?? undefined });
+      capture(AnalyticsEvent.JoinGoalAttempted, { visibilityContract: 'goal-signals-v1' });
       const { goalId, goalTitle } = await acceptGoalInvite(effectiveInviteCode);
 
       const already = goals.some((g) => g.id === goalId);
@@ -146,10 +160,10 @@ export function JoinSharedGoalDrawerHost() {
         screen: 'GoalsTab',
         params: {
           screen: 'GoalDetail',
-          params: { goalId, entryPoint: 'goalsTab', initialTab: 'details' },
+          params: buildGoalSupportDestinationParams(goalId),
         },
       } as any);
-      capture(AnalyticsEvent.JoinGoalSucceeded, { goalId });
+      capture(AnalyticsEvent.JoinGoalSucceeded, { visibilityContract: 'goal-signals-v1' });
       useToastStore.getState().showToast({
         message: 'Joined shared goal',
         variant: 'success',
@@ -217,12 +231,19 @@ export function JoinSharedGoalDrawerHost() {
             )}
             <Text style={styles.bold}>“{previewTitle}”</Text>.
           </Text>
+        ) : previewFailure ? (
+          <View style={styles.previewCard}>
+            <Text style={styles.previewTitle}>{previewFailure.title}</Text>
+            <Text style={styles.subtle}>{previewFailure.message}</Text>
+          </View>
         ) : null}
 
-        <Text style={styles.body}>
-          By default you share <Text style={styles.bold}>signals only</Text> (check-ins + cheers). To-do titles stay
-          private unless you choose to share them.
-        </Text>
+        {preview ? (
+          <Text style={styles.body}>
+            By default you share <Text style={styles.bold}>signals only</Text> (check-ins + cheers). To-do titles stay
+            private unless you choose to share them.
+          </Text>
+        ) : null}
 
         {preview?.progressPreview ? (
           <View style={styles.previewCard}>
@@ -240,19 +261,33 @@ export function JoinSharedGoalDrawerHost() {
           </View>
         ) : null}
 
-        <Text style={styles.subtle}>Invite code: {effectiveInviteCode || '—'}</Text>
+        {preview ? <Text style={styles.subtle}>Invite code: {effectiveInviteCode || '—'}</Text> : null}
 
         <View style={styles.ctaRow}>
-          <Button onPress={handleJoin} disabled={busy || previewBusy || alreadyHasGoal}>
-            {busy ? (
-              <View style={styles.busyRow}>
-                <ActivityIndicator color={colors.canvas} />
-                <Text style={styles.busyLabel}>Joining…</Text>
-              </View>
-            ) : (
-              'Join'
-            )}
-          </Button>
+          {previewFailure?.kind === 'sign_in' ? (
+            <Button
+              onPress={() => {
+                void ensureSignedInWithPrompt('join_goal').then((session) => {
+                  if (session) setPreviewAttempt((value) => value + 1);
+                });
+              }}
+            >
+              Sign in to review
+            </Button>
+          ) : previewFailure?.kind === 'retry' ? (
+            <Button onPress={() => setPreviewAttempt((value) => value + 1)}>Try again</Button>
+          ) : preview ? (
+            <Button onPress={handleJoin} disabled={busy || previewBusy || alreadyHasGoal || preview.canJoin === false}>
+              {busy ? (
+                <View style={styles.busyRow}>
+                  <ActivityIndicator color={colors.canvas} />
+                  <Text style={styles.busyLabel}>Joining…</Text>
+                </View>
+              ) : (
+                'Join'
+              )}
+            </Button>
+          ) : null}
         </View>
       </View>
     </BottomDrawer>
@@ -316,5 +351,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-

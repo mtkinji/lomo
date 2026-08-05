@@ -20,6 +20,17 @@ type KwiltLiveActivityNativeModule = {
 
 const native: KwiltLiveActivityNativeModule | undefined = (NativeModules as any)?.KwiltLiveActivity;
 
+let mutationQueue: Promise<void> = Promise.resolve();
+
+function enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
+  const pending = mutationQueue.catch(() => undefined).then(operation);
+  mutationQueue = pending.then(
+    () => undefined,
+    () => undefined,
+  );
+  return pending;
+}
+
 export type LiveActivityMode = 'running' | 'paused' | 'ended';
 
 export type SyncLiveActivityResult = {
@@ -74,7 +85,7 @@ function normalizeResult(
   };
 }
 
-export async function syncLiveActivity(params: {
+export function syncLiveActivity(params: {
   mode: LiveActivityMode;
   activityId: string;
   title: string;
@@ -85,8 +96,17 @@ export async function syncLiveActivity(params: {
   sessionId?: string;
 }): Promise<SyncLiveActivityResult> {
   const sessionId = params.sessionId ?? `${params.activityId}-${params.startedAtMs}`;
-  if (Platform.OS !== 'ios') return buildUnsupportedResult(sessionId);
-  if (!native) return buildUnsupportedResult(sessionId);
+  if (Platform.OS !== 'ios') return Promise.resolve(buildUnsupportedResult(sessionId));
+  const nativeModule = native;
+  if (!nativeModule) return Promise.resolve(buildUnsupportedResult(sessionId));
+  return enqueueMutation(() => performSyncLiveActivity(nativeModule, params, sessionId));
+}
+
+async function performSyncLiveActivity(
+  nativeModule: KwiltLiveActivityNativeModule,
+  params: Parameters<typeof syncLiveActivity>[0],
+  sessionId: string,
+): Promise<SyncLiveActivityResult> {
   const context = {
     activityId: params.activityId,
     sessionId,
@@ -97,9 +117,9 @@ export async function syncLiveActivity(params: {
     colorKey: params.colorKey ?? 'pine',
   };
   try {
-    if (native.sync) {
+    if (nativeModule.sync) {
       await recordLiveActivityBreadcrumb('sync', 'before', context);
-      const raw = await native.sync(
+      const raw = await nativeModule.sync(
         params.activityId,
         params.title,
         sessionId,
@@ -121,7 +141,7 @@ export async function syncLiveActivity(params: {
 
     if (params.mode !== 'running') {
       await recordLiveActivityBreadcrumb('legacy.end', 'before', context);
-      await native.end();
+      await nativeModule.end();
       await recordLiveActivityBreadcrumb('legacy.end', 'after', context);
       return {
         action: 'legacy-ended',
@@ -134,11 +154,11 @@ export async function syncLiveActivity(params: {
     const endAtMs = params.endAtMs ?? 0;
     // Best-effort: update first; if no activity exists, start.
     await recordLiveActivityBreadcrumb('legacy.update', 'before', context);
-    const ok = await native.update(params.activityId, params.title, params.startedAtMs, endAtMs);
+    const ok = await nativeModule.update(params.activityId, params.title, params.startedAtMs, endAtMs);
     await recordLiveActivityBreadcrumb('legacy.update', 'after', { ...context, updated: ok });
     if (!ok) {
       await recordLiveActivityBreadcrumb('legacy.start', 'before', context);
-      await native.start(params.activityId, params.title, params.startedAtMs, endAtMs);
+      await nativeModule.start(params.activityId, params.title, params.startedAtMs, endAtMs);
       await recordLiveActivityBreadcrumb('legacy.start', 'after', context);
       return {
         action: 'legacy-started',
@@ -165,17 +185,20 @@ export async function syncLiveActivity(params: {
   }
 }
 
-export async function endLiveActivity(): Promise<void> {
-  if (Platform.OS !== 'ios') return;
-  if (!native) return;
-  try {
-    await recordLiveActivityBreadcrumb('end', 'before');
-    await native.end();
-    await recordLiveActivityBreadcrumb('end', 'after');
-  } catch (error) {
-    await recordLiveActivityBreadcrumb('end', 'error', undefined, error);
-    // best-effort
-  }
+export function endLiveActivity(): Promise<void> {
+  if (Platform.OS !== 'ios') return Promise.resolve();
+  const nativeModule = native;
+  if (!nativeModule) return Promise.resolve();
+  return enqueueMutation(async () => {
+    try {
+      await recordLiveActivityBreadcrumb('end', 'before');
+      await nativeModule.end();
+      await recordLiveActivityBreadcrumb('end', 'after');
+    } catch (error) {
+      await recordLiveActivityBreadcrumb('end', 'error', undefined, error);
+      // best-effort
+    }
+  });
 }
 
 export async function getActiveFocusLiveActivities(): Promise<ActiveFocusLiveActivity[]> {

@@ -10,7 +10,7 @@ export type UnifiedChatTurnInvariantCode =
   | 'success_without_authoritative_work';
 
 export type UnifiedChatActionOutcomeTruth = {
-  state: 'not_action' | 'prepared' | 'failed' | 'model_response';
+  state: 'not_action' | 'prepared' | 'clarification' | 'failed' | 'model_response';
   visibleBody: string | null;
   invariantCodes: UnifiedChatTurnInvariantCode[];
   loadedRecordCount: number;
@@ -22,6 +22,21 @@ const ACCESS_DENIAL_PATTERN =
   /(?:\b(?:can(?:not|'t)|unable to)\s+(?:access|see|read|view)\b|\bno visibility\b|\bdon't have (?:access|visibility)\b)/i;
 const COMPLETED_ACTION_PATTERN =
   /\b(?:i|kwilt)\s+(?:have\s+|successfully\s+)?(?:renamed|updated|created|changed|applied|scheduled|completed|deleted|removed)\b/i;
+
+const CAPABILITY_LABELS: Record<string, string> = {
+  account: 'Account', arcs: 'Arc', chapters: 'Chapter', goals: 'Goal', money: 'Money',
+  notifications: 'Notification', plan: 'Plan', profile: 'Profile', relationships: 'Relationship',
+  screenTime: 'Screen Time', todos: 'To-do',
+};
+
+export function buildActionClarification(turnContract: UnifiedChatTurnContract): string {
+  const capability = turnContract.participatingCapabilities.length === 1
+    ? CAPABILITY_LABELS[turnContract.participatingCapabilities[0]!]
+    : null;
+  return capability
+    ? `What exact ${capability} change would you like me to prepare? Nothing was changed.`
+    : 'What exact change would you like me to prepare? Nothing was changed.';
+}
 
 export function collectCoveredActionTargetIds(
   value: unknown,
@@ -88,6 +103,7 @@ export function projectActionOutcomeTruth({
   preparedChangeTitles = [],
   coveredTargetIds = [],
   modelResponse,
+  clarification = null,
 }: {
   turnContract: UnifiedChatTurnContract;
   context: BuiltRunContext;
@@ -96,6 +112,7 @@ export function projectActionOutcomeTruth({
   preparedChangeTitles?: readonly string[];
   coveredTargetIds?: readonly string[];
   modelResponse: string;
+  clarification?: string | null;
 }): UnifiedChatActionOutcomeTruth {
   const failedToolCount = runtimeToolEvents.filter((event) =>
     event.type === 'tool_completed' &&
@@ -149,10 +166,16 @@ export function projectActionOutcomeTruth({
       loadedRecordCount: context.evidence.length, preparedChangeCount, failedToolCount,
     };
   }
+  if (clarification?.trim()) {
+    return {
+      state: 'clarification', visibleBody: clarification.trim(), invariantCodes,
+      loadedRecordCount: context.evidence.length, preparedChangeCount, failedToolCount,
+    };
+  }
   if (invariantCodes.includes('success_without_authoritative_work')) {
     return {
-      state: 'failed',
-      visibleBody: 'I couldn\'t verify or prepare those changes. Nothing was changed.',
+      state: 'clarification',
+      visibleBody: buildActionClarification(turnContract),
       invariantCodes,
       loadedRecordCount: context.evidence.length, preparedChangeCount, failedToolCount,
     };
@@ -168,7 +191,7 @@ export function projectActionOutcomeTruth({
     };
   }
   return {
-    state: 'model_response', visibleBody: null, invariantCodes,
+    state: 'clarification', visibleBody: buildActionClarification(turnContract), invariantCodes,
     loadedRecordCount: context.evidence.length, preparedChangeCount, failedToolCount,
   };
 }

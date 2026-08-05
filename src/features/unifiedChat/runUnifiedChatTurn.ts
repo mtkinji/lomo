@@ -94,6 +94,7 @@ export type RunUnifiedChatTurnInput = {
   retryRunId?: string;
   attachments?: UnifiedChatTextAttachment[];
   onRunStarted?: (aggregate: UnifiedChatThreadAggregate) => void;
+  onRunProgress?: (aggregate: UnifiedChatThreadAggregate) => void;
   onThreadTitleUpdated?: (thread: UnifiedChatThreadAggregate['thread']) => void;
 };
 
@@ -161,6 +162,9 @@ export async function runUnifiedChatTurn(
     throw new UnifiedChatTurnError('Kwilt could not save that message.');
   }
   const { prompt, aggregate, retryMessage, userMessage, turnAttachments } = persistedTurn;
+  const attemptNumber = aggregate.runs.filter(
+    (candidate) => candidate.userMessageId === userMessage.id,
+  ).length + 1;
   const activeContext = (aggregate.contextRefs ?? []).filter((context) => context.active);
   const typedControl = resolveTypedTurnControl(prompt);
   if (typedControl?.type === 'cancel_pending') {
@@ -276,6 +280,17 @@ export async function runUnifiedChatTurn(
       messages: retryMessage ? aggregate.messages : [...aggregate.messages, userMessage],
       runs: [...aggregate.runs, failedPlanningRun],
     });
+    captureTelemetry(
+      AnalyticsEvent.UnifiedChatAgentPlanOutcome,
+      buildUnifiedChatAgentPlanOutcomeTelemetry(
+        null,
+        'deterministic_fallback',
+        'terminal_failure',
+        'planning_failed',
+        { requestClass: 'general', participatingCapabilities: [] },
+        { attemptNumber, recoveryAttempted: false, terminalFailure: true },
+      ),
+    );
     return finalizeUnifiedChatTurnFailurePhase({
       run: failedPlanningRun,
       repository,
@@ -333,6 +348,7 @@ export async function runUnifiedChatTurn(
     ...(retryMessage ? [] : [{ role: 'user' as const, content: userMessage.body }]),
   ];
   let failureCode = 'context_selection_failed';
+  let recoveryAttempted = false;
 
   try {
     const { snapshots, context } = await authorizeUnifiedChatContextPhase({
@@ -345,6 +361,13 @@ export async function runUnifiedChatTurn(
       repository,
       loadCapabilitySnapshots,
     });
+    if (input.onRunProgress) {
+      try {
+        input.onRunProgress(await repository.loadThread(aggregate.thread.id));
+      } catch {
+        // Progress publication is best-effort and must never interrupt the response.
+      }
+    }
     if (activityClarification) {
       const assistantMessage = await repository.insertMessage({
         threadId: aggregate.thread.id,
@@ -375,6 +398,7 @@ export async function runUnifiedChatTurn(
             requestClass: requestPolicy.requestClass,
             participatingCapabilities: requestPolicy.participatingCapabilities,
           },
+          { attemptNumber, recoveryAttempted: false, terminalFailure: false },
         ),
       );
       return repository.loadThread(aggregate.thread.id);
@@ -401,16 +425,37 @@ export async function runUnifiedChatTurn(
       executeRelationshipTool: dependencies?.executeRelationshipTool,
       captureTelemetry,
       onThreadTitleUpdated: input.onThreadTitleUpdated,
+      onRecoveryAttempted: () => {
+        recoveryAttempted = true;
+      },
       now: dependencies?.now,
       setFailureCode: (code) => {
         failureCode = code;
       },
       error: (message) => new UnifiedChatTurnError(message),
     });
-    if (executionResult.kind === 'completed_early') return executionResult.aggregate;
+    if (executionResult.kind === 'completed_early') {
+      captureTelemetry(
+        AnalyticsEvent.UnifiedChatAgentPlanOutcome,
+        buildUnifiedChatAgentPlanOutcomeTelemetry(
+          plannedTurn.agentJudgment,
+          plannedTurn.judgmentSource,
+          'clarification',
+          null,
+          {
+            requestClass: requestPolicy.requestClass,
+            participatingCapabilities: requestPolicy.participatingCapabilities,
+          },
+          { attemptNumber, recoveryAttempted: false, terminalFailure: false },
+        ),
+      );
+      return executionResult.aggregate;
+    }
     const {
       visibleBody, actionResponse, toolProvider, runtimeToolEvents, artifactDraft, actionOutcomeTruth,
+      recoveryAttempted: executionRecoveryAttempted,
     } = executionResult;
+    recoveryAttempted = recoveryAttempted || executionRecoveryAttempted;
     captureTelemetry(
       AnalyticsEvent.UnifiedChatOperationalOutcome,
       buildUnifiedChatOperationalTelemetry({ turnContract, context, actionOutcomeTruth }),
@@ -434,6 +479,13 @@ export async function runUnifiedChatTurn(
         failureCode = code;
       },
     });
+    failureCode = 'run_completion_failed';
+    await finalizeUnifiedChatTurnPhase({
+      run,
+      assistantMessageId: assistantMessage.id,
+      outcome: appControlOutcome,
+      repository,
+    });
     captureTelemetry(
       AnalyticsEvent.UnifiedChatAgentPlanOutcome,
       buildUnifiedChatAgentPlanOutcomeTelemetry(
@@ -445,17 +497,27 @@ export async function runUnifiedChatTurn(
           requestClass: requestPolicy.requestClass,
           participatingCapabilities: requestPolicy.participatingCapabilities,
         },
+        { attemptNumber, recoveryAttempted, terminalFailure: false },
       ),
     );
-    failureCode = 'run_completion_failed';
-    await finalizeUnifiedChatTurnPhase({
-      run,
-      assistantMessageId: assistantMessage.id,
-      outcome: appControlOutcome,
-      repository,
-    });
     return repository.loadThread(aggregate.thread.id);
   } catch {
+    if (!input.signal?.aborted) {
+      captureTelemetry(
+        AnalyticsEvent.UnifiedChatAgentPlanOutcome,
+        buildUnifiedChatAgentPlanOutcomeTelemetry(
+          plannedTurn.agentJudgment,
+          plannedTurn.judgmentSource,
+          'terminal_failure',
+          failureCode,
+          {
+            requestClass: requestPolicy.requestClass,
+            participatingCapabilities: requestPolicy.participatingCapabilities,
+          },
+          { attemptNumber, recoveryAttempted, terminalFailure: true },
+        ),
+      );
+    }
     return finalizeUnifiedChatTurnFailurePhase({
       run,
       repository,

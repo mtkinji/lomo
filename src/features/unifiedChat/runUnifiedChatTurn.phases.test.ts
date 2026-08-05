@@ -153,11 +153,11 @@ describe('runUnifiedChatTurn phase failure contracts', () => {
   });
 });
 
-test('outcome phase blocks completion-looking action prose without an authoritative artifact', async () => {
+test('outcome phase converts completion-looking action prose into a durable clarification', async () => {
   const { repository } = harness();
   const setFailureCode = jest.fn();
 
-  await expect(materializeUnifiedChatOutcomePhase({
+  const result = await materializeUnifiedChatOutcomePhase({
     threadId: 'thread-1',
     run: await repository.createRun(),
     visibleBody: 'Done. I updated it.',
@@ -180,10 +180,17 @@ test('outcome phase blocks completion-looking action prose without an authoritat
     planConversationReferent: null,
     repository: repository as never,
     setFailureCode,
-  })).rejects.toThrow('Action-looking prose did not have an authoritative outcome.');
+  });
 
-  expect(setFailureCode).toHaveBeenCalledWith('action_outcome_missing');
-  expect(repository.insertMessage).not.toHaveBeenCalled();
+  expect(setFailureCode).not.toHaveBeenCalledWith('action_outcome_missing');
+  expect(repository.insertMessage).toHaveBeenCalledWith(expect.objectContaining({
+    role: 'assistant',
+    body: expect.stringMatching(/nothing was changed/i),
+  }));
+  expect(result.appControlOutcome).toMatchObject({
+    type: 'clarification',
+    question: expect.stringMatching(/nothing was changed/i),
+  });
 });
 
 test('outcome phase persists an ordered typed referent for every staged proposal', async () => {

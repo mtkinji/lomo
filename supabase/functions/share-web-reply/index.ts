@@ -10,6 +10,10 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import {
+  buildWebGoalSupportPayload,
+  webGoalSupportInviteIsEligible,
+} from '../_shared/goalSupport.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -69,7 +73,7 @@ serve(async (req) => {
 
   const { data: invite } = await admin
     .from('kwilt_invites')
-    .select('entity_type, entity_id, expires_at, max_uses, uses')
+    .select('entity_type, entity_id, expires_at, max_uses, uses, intended_recipient_user_id')
     .eq('code', inviteCode)
     .maybeSingle();
 
@@ -82,9 +86,15 @@ serve(async (req) => {
   const expiresAt = (invite as any).expires_at as string | null;
   const maxUses = (invite as any).max_uses as number;
   const uses = (invite as any).uses as number;
+  const intendedRecipientUserId = (invite as any).intended_recipient_user_id as string | null;
 
   if (entityType !== 'goal' || !entityId) {
     return json(500, { error: { message: 'Invite misconfigured', code: 'server_error' } });
+  }
+  if (!webGoalSupportInviteIsEligible({ intendedRecipientUserId })) {
+    return json(403, {
+      error: { message: 'Sign in to respond to this invitation', code: 'sign_in_required' },
+    });
   }
   if (expiresAt && Date.parse(expiresAt) < Date.now()) {
     return json(410, { error: { message: 'Invite expired', code: 'invite_expired' } });
@@ -107,10 +117,6 @@ serve(async (req) => {
       ? latestEvents[0].id
       : null;
 
-  if (!targetEventId) {
-    return json(409, { error: { message: 'No check-in to reply to yet', code: 'no_checkin' } });
-  }
-
   const { data: inserted, error: insertError } = await admin
     .from('kwilt_feed_events')
     .insert({
@@ -118,12 +124,7 @@ serve(async (req) => {
       entity_id: entityId,
       actor_id: null,
       type: 'checkin_reply',
-      payload: {
-        targetEventId,
-        text,
-        webReply: true,
-        senderName: senderName || null,
-      },
+      payload: buildWebGoalSupportPayload({ targetEventId, text, senderName }),
     })
     .select('id')
     .single();

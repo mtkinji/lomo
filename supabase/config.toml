@@ -138,6 +138,11 @@ enabled = false
 max_buckets = 10
 max_indexes = 5
 
+[functions.friend-invite-preview]
+# Public invite codes are previewed before sign-in; the function enforces a
+# server-side hashed-install budget and returns only safe inviter identity.
+verify_jwt = false
+
 # Vector Buckets is available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
 
@@ -371,6 +376,12 @@ deno_version = 2
 # secret_key = "env(SECRET_VALUE)"
 
 [functions.mcp]
+verify_jwt = false
+
+[functions.share-web-cheer]
+verify_jwt = false
+
+[functions.share-web-reply]
 verify_jwt = false
 
 [functions.agent-channel-tick]

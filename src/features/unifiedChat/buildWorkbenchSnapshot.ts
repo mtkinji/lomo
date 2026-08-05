@@ -1,5 +1,6 @@
 import type { UnifiedChatMutationReceipt, UnifiedChatRun, UnifiedChatRunEvent, UnifiedChatThreadAggregate } from './types';
 import type {
+  AgentWorkbenchContextRef,
   AgentWorkbenchRun,
   AgentWorkbenchSnapshot,
   AgentWorkbenchTimelineItem,
@@ -9,17 +10,24 @@ import { sanitizeVisibleAssistantText } from './visibleAssistantText';
 import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import type { Activity } from '../../domain/types';
+import { getUnifiedChatProgressCopy } from './chatProgress';
+import { getUnifiedChatFailureCopy } from './chatFailure';
 
 type WorkbenchPresentation = {
   voice?: AgentWorkbenchSnapshot['composer']['voice'];
   attachments?: UnifiedChatTextAttachment[];
 };
 
-function buildKwiltWorkbenchProduct(): AgentWorkbenchSnapshot['product'] {
+type FreshWorkbenchPresentation = WorkbenchPresentation & {
+  context?: AgentWorkbenchContextRef[];
+  placeholder?: string;
+};
+
+function buildKwiltWorkbenchProduct(placeholder = 'Ask, search or chat…'): AgentWorkbenchSnapshot['product'] {
   return {
     id: 'kwilt',
     assistantName: 'Kwilt',
-    placeholder: 'Ask, search or chat…',
+    placeholder,
     features: {
       attachments: true,
       mentions: false,
@@ -55,11 +63,11 @@ function buildWorkbenchComposer(
 
 export function buildFreshWorkbenchSnapshot(
   prompt = '',
-  presentation?: WorkbenchPresentation,
+  presentation?: FreshWorkbenchPresentation,
 ): AgentWorkbenchSnapshot {
   return {
-    product: buildKwiltWorkbenchProduct(),
-    context: [],
+    product: buildKwiltWorkbenchProduct(presentation?.placeholder),
+    context: presentation?.context ?? [],
     evidence: [],
     messages: [],
     runs: [],
@@ -122,6 +130,10 @@ function projectRun(
 ): AgentWorkbenchRun {
   const isActive = run.status === 'queued' || run.status === 'active';
   const isFailed = run.status === 'failed';
+  const failureCopy = getUnifiedChatFailureCopy({
+    failureCode: run.errorCode,
+    participatingCapabilities: run.participatingCapabilities,
+  });
   const fallbackEvents: AgentWorkbenchRun['events'] = isActive
     ? [
         {
@@ -129,7 +141,10 @@ function projectRun(
           sequence: 1,
           type: 'progress',
           status: 'active',
-          label: 'Preparing a response',
+          label: getUnifiedChatProgressCopy({
+            phase: 'checking',
+            participatingCapabilities: run.participatingCapabilities,
+          }),
         },
       ]
     : isFailed
@@ -139,19 +154,30 @@ function projectRun(
             sequence: 1,
             type: 'error',
             status: 'failed',
-            label: 'Response interrupted',
-            detail: 'Try sending your message again.',
+            label: failureCopy.label,
+            detail: failureCopy.detail,
           },
         ]
       : [];
   const events = persistedEvents.length > 0
     ? persistedEvents
         .filter((event) => event.visibility === 'user' && event.label)
-        .map((event) => ({
-          id: event.id, sequence: event.sequence, type: event.type, status: event.status,
-          label: event.label ?? 'Chat progress',
-          ...(event.detail ? { detail: event.detail } : {}),
-        }))
+        .map((event) => {
+          const isTerminalFailureEvent = isFailed && (
+            event.status === 'failed' &&
+            (event.type === 'response' || event.label === 'Response interrupted')
+          );
+          return {
+            id: event.id,
+            sequence: event.sequence,
+            type: event.type,
+            status: isFailed && event.status === 'active' ? 'pending' as const : event.status,
+            label: isTerminalFailureEvent ? failureCopy.label : event.label ?? 'Chat progress',
+            ...(isTerminalFailureEvent
+              ? { detail: failureCopy.detail }
+              : event.detail ? { detail: event.detail } : {}),
+          };
+        })
     : fallbackEvents;
   const sourceEvent = run.initiator === 'system'
     ? {
@@ -409,6 +435,18 @@ export function buildWorkbenchSnapshot(
       ? [[`${proposal.runId}:${proposal.operation.outcomeStep.sequence}`, proposal.id] as const]
       : []),
   );
+  const latestRunIdByUserMessageId = new Map<string, string>();
+  for (const run of [...aggregate.runs].sort(
+    (left, right) => left.createdAt.localeCompare(right.createdAt),
+  )) {
+    if (run.userMessageId) latestRunIdByUserMessageId.set(run.userMessageId, run.id);
+  }
+  const runById = new Map(aggregate.runs.map((run) => [run.id, run]));
+  const visibleEvidence = (aggregate.evidence ?? []).filter((evidence) => {
+    const run = runById.get(evidence.runId);
+    if (!run?.userMessageId) return true;
+    return latestRunIdByUserMessageId.get(run.userMessageId) === run.id;
+  });
   const snapshot: AgentWorkbenchSnapshot = {
     product: buildKwiltWorkbenchProduct(),
     thread: {
@@ -431,7 +469,7 @@ export function buildWorkbenchSnapshot(
         removable: true,
         version: context.version,
       })),
-    evidence: (aggregate.evidence ?? []).map((evidence) => ({
+    evidence: visibleEvidence.map((evidence) => ({
       id: evidence.id,
       runId: evidence.runId,
       capabilityId: evidence.capabilityId,

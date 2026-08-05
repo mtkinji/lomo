@@ -1,11 +1,11 @@
-const MONEY_WIDGET_FONTS = [
+const WIDGET_INTER_FONTS = [
   ['500Medium', 'Inter_500Medium.ttf'],
   ['600SemiBold', 'Inter_600SemiBold.ttf'],
   ['900Black', 'Inter_900Black.ttf'],
 ];
 
-function copyMoneyWidgetFontResources({ fs, path, projectRoot, iosRoot, targetSubfolder }) {
-  return MONEY_WIDGET_FONTS.flatMap(([weightDirectory, filename]) => {
+function copyWidgetFontResources({ fs, path, projectRoot, iosRoot, targetSubfolder }) {
+  return WIDGET_INTER_FONTS.flatMap(([weightDirectory, filename]) => {
     const source = path.join(
       projectRoot,
       'node_modules',
@@ -27,7 +27,7 @@ function copyMoneyWidgetFontResources({ fs, path, projectRoot, iosRoot, targetSu
   });
 }
 
-function addMoneyWidgetFontResources({ addResourceFileToGroup, resources, project, targetSubfolder, targetUuid }) {
+function addWidgetFontResources({ addResourceFileToGroup, resources, project, targetSubfolder, targetUuid }) {
   return resources.reduce((currentProject, filepath) => addResourceFileToGroup({
     filepath,
     groupName: targetSubfolder,
@@ -37,4 +37,4 @@ function addMoneyWidgetFontResources({ addResourceFileToGroup, resources, projec
   }), project);
 }
 
-module.exports = { addMoneyWidgetFontResources, copyMoneyWidgetFontResources };
+module.exports = { addWidgetFontResources, copyWidgetFontResources };

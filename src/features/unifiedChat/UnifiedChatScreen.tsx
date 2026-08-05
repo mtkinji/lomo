@@ -32,10 +32,7 @@ import type {
   UnifiedChatThreadAggregate,
 } from './types';
 import { getUnifiedChatConfig } from './unifiedChatConfig';
-import {
-  makeAgentWorkbenchHostMessage,
-  parseAgentWorkbenchSurfaceMessage,
-} from './workbenchProtocol';
+import { makeAgentWorkbenchHostMessage, parseAgentWorkbenchSurfaceMessage } from './workbenchProtocol';
 import {
   useCapabilityMenuActions,
   useCapabilityMenuOpen,
@@ -61,6 +58,7 @@ import {
   loadUnifiedChatLaunchAttachment,
   loadUnifiedChatAttachableContexts,
   type UnifiedChatAttachableContext,
+  type UnifiedChatLaunchContext,
   type UnifiedChatRouteParams,
 } from './launchContext';
 import { recoverActivityMutations } from './recoverActivityMutations';
@@ -116,6 +114,11 @@ import { buildUnifiedChatTranscript } from './chatTranscript';
 import { createMoneyRepository } from '../../capabilities/money/data/moneyRepository';
 import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProposalDecision';
 import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
+import { buildFreshDrawerContext, getFreshDrawerCopy } from './contextualChatPresentation';
+import { UnifiedChatDrawerHeader } from './UnifiedChatDrawerHeader';
+import type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
+
+export type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
 
 const activityStoreBoundary = {
   getActivities: () => useAppStore.getState().activities,
@@ -178,14 +181,29 @@ const chapterStoreBoundary = {
   updateNote: (id: string, note: string | null) => updateChapterUserNote({ chapterId: id, note }),
 };
 
-export function UnifiedChatScreen() {
+export function UnifiedChatScreen({
+  presentation = 'screen',
+  routeParams: routeParamsOverride,
+  scopeLabel,
+  collapseRequestId,
+  onComposerFocusChange,
+  onThreadIdChange,
+}: UnifiedChatScreenProps = {}) {
   const route = useRoute<RouteProp<{ UnifiedChat: UnifiedChatRouteParams | undefined }, 'UnifiedChat'>>();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
-  const launchContext = route.params?.launchContext;
-  const requestedThreadId = route.params?.threadId;
-  const freshEntry = route.params?.entry === 'fresh' && !requestedThreadId;
-  const freshEntrySource = route.params?.source;
-  const widgetLaunchId = route.params?.widgetLaunchId;
+  const routeParams = routeParamsOverride ?? route.params;
+  const isDrawer = presentation === 'drawer';
+  const requestedThreadId = routeParams?.threadId;
+  const freshEntry = routeParams?.entry === 'fresh' && !requestedThreadId;
+  const freshEntrySource = routeParams?.source;
+  const widgetLaunchId = routeParams?.widgetLaunchId;
+  const [freshLaunchContext, setFreshLaunchContext] = useState<UnifiedChatLaunchContext | null>(
+    freshEntry ? routeParams?.launchContext ?? null : null,
+  );
+  const launchContext = freshEntry && isDrawer ? freshLaunchContext : routeParams?.launchContext;
+  const freshDrawerTitle = isDrawer
+    ? getFreshDrawerCopy(launchContext)?.title ?? 'Chat'
+    : 'New chat';
   const insets = useSafeAreaInsets();
   const { openMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
@@ -214,7 +232,7 @@ export function UnifiedChatScreen() {
   const [surfaceReady, setSurfaceReady] = useState(false);
   const [contextPickerVisible, setContextPickerVisible] = useState(false);
   const [contextCandidates, setContextCandidates] = useState<UnifiedChatAttachableContext[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!freshEntry);
   const [error, setError] = useState<string | null>(null);
   const [surfaceLoadFailed, setSurfaceLoadFailed] = useState(false);
   const [clientActionInFlight, setClientActionInFlight] = useState(false);
@@ -242,6 +260,13 @@ export function UnifiedChatScreen() {
     Keyboard.dismiss();
     webViewRef.current?.injectJavaScript('document.activeElement?.blur(); true;');
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!isDrawer || !collapseRequestId) return;
+    webViewRef.current?.injectJavaScript(
+      'document.activeElement?.blur?.(); window.dispatchEvent(new Event("resize")); true;',
+    );
+  }, [collapseRequestId, isDrawer]);
 
   const loadThreadWithRecovery = useCallback(async (threadId: string) => {
     const loaded = await repository.loadThread(threadId);
@@ -287,21 +312,57 @@ export function UnifiedChatScreen() {
     [attachments, prompt, voice],
   );
 
+  const freshWorkbenchContext = useMemo(
+    () => (isDrawer ? buildFreshDrawerContext(launchContext, scopeLabel) : []),
+    [isDrawer, launchContext, scopeLabel],
+  );
+
   const postFreshSnapshot = useCallback(
     (type: 'host.initialize' | 'host.snapshot') => {
       const message = makeAgentWorkbenchHostMessage(
         type,
-        buildFreshWorkbenchSnapshot(prompt, { voice, attachments }),
+        buildFreshWorkbenchSnapshot(prompt, {
+          voice,
+          attachments,
+          ...(isDrawer ? {
+            placeholder: getFreshDrawerCopy(launchContext)?.placeholder ?? 'Ask, search or chat…',
+            context: freshWorkbenchContext,
+          } : {}),
+        }),
       );
       webViewRef.current?.postMessage(JSON.stringify(message));
     },
-    [attachments, prompt, voice],
+    [attachments, freshWorkbenchContext, isDrawer, launchContext, prompt, voice],
   );
 
-  if (!freshThreadGateRef.current) {
+  const publishThreadId = useCallback((threadId: string) => {
+    if (isDrawer) {
+      onThreadIdChange?.(threadId);
+      return;
+    }
+    navigation.setParams({ threadId });
+  }, [isDrawer, navigation, onThreadIdChange]);
+
+  const freshLaunchKey = launchContext ? JSON.stringify(launchContext) : 'no-launch-context';
+  const freshThreadGateKeyRef = useRef<string | null>(null);
+  if (!freshThreadGateRef.current || freshThreadGateKeyRef.current !== freshLaunchKey) {
+    freshThreadGateKeyRef.current = freshLaunchKey;
     freshThreadGateRef.current = createFreshEntryThreadGate({
-      create: () => repository.createThread(),
+      create: () => repository.createThread(freshDrawerTitle),
       load: (thread) => loadThreadWithRecovery(thread.id),
+      cleanup: (thread) => repository.deleteThread(thread.id),
+      prepare: async (createdAggregate) => {
+        if (!launchContext) return createdAggregate;
+        const attachment = await loadUnifiedChatLaunchAttachment(launchContext);
+        if (!attachment) throw new Error('That Kwilt context is no longer available.');
+        await repository.attachContext({
+          ...attachment,
+          threadId: createdAggregate.thread.id,
+          source: 'launch',
+        });
+        consumedLaunchContext.current = freshLaunchKey;
+        return loadThreadWithRecovery(createdAggregate.thread.id);
+      },
     });
   }
 
@@ -313,17 +374,17 @@ export function UnifiedChatScreen() {
         setAggregate(next);
         setPrompt('');
         setAttachments([]);
-        navigation.setParams({ threadId });
+        publishThreadId(threadId);
         if (surfaceReady) postSnapshot(next, 'host.initialize');
       } catch {
         setError('Kwilt could not open that chat.');
       }
     },
-    [loadThreadWithRecovery, navigation, postSnapshot, surfaceReady],
+    [loadThreadWithRecovery, postSnapshot, publishThreadId, surfaceReady],
   );
 
   const refreshThreads = useCallback(async () => {
-    setLoading(true);
+    if (!freshEntry) setLoading(true);
     setError(null);
     try {
       const next = await repository.listThreads();
@@ -342,7 +403,7 @@ export function UnifiedChatScreen() {
     } catch {
       setError('Sign in and try opening Chat again.');
     } finally {
-      setLoading(false);
+      if (!freshEntry) setLoading(false);
     }
   }, [aggregate, freshEntry, launchContext, openThread, repository, requestedThreadId]);
 
@@ -459,12 +520,12 @@ export function UnifiedChatScreen() {
       setAggregate(next);
       setPrompt('');
       setAttachments([]);
-      navigation.setParams({ threadId: thread.id });
+      publishThreadId(thread.id);
       if (surfaceReady) postSnapshot(next, 'host.initialize');
     } catch {
       setError('Kwilt could not create a new chat.');
     }
-  }, [loadThreadWithRecovery, navigation, postSnapshot, repository, surfaceReady]);
+  }, [loadThreadWithRecovery, postSnapshot, publishThreadId, repository, surfaceReady]);
 
   const archiveThread = useCallback(
     async (thread: UnifiedChatThread) => {
@@ -587,6 +648,7 @@ export function UnifiedChatScreen() {
       }
       const command = message.command;
       if (command.type === 'composer.focus.change') {
+        onComposerFocusChange?.(command.focused);
         if (!menuOpen || command.focused) {
           void HapticsService.trigger(
             command.focused ? 'canvas.toggle.on' : 'canvas.toggle.off',
@@ -690,6 +752,12 @@ export function UnifiedChatScreen() {
             message: voiceError instanceof Error ? voiceError.message : 'Voice input failed.',
           });
         }
+        return;
+      }
+      if (freshEntry && command.type === 'context.remove') {
+        const context = freshWorkbenchContext[0];
+        if (!context || command.contextId !== context.id || command.expectedVersion !== context.version) return;
+        setFreshLaunchContext(null);
         return;
       }
       if (freshEntry && command.type !== 'run.send') return;
@@ -1122,11 +1190,14 @@ export function UnifiedChatScreen() {
             AnalyticsEvent.UnifiedChatFreshEntryOutcome,
             buildUnifiedChatFreshEntryTelemetry(freshEntrySource, 'first_send'),
           );
-          navigation.setParams({
-            threadId: created.thread.id,
-            entry: undefined,
-            source: undefined,
-          });
+          if (isDrawer) onThreadIdChange?.(created.thread.id);
+          else {
+            navigation.setParams({
+              threadId: created.thread.id,
+              entry: undefined,
+              source: undefined,
+            });
+          }
         } catch (creationError) {
           freshFirstSendRequestIdRef.current = null;
           track(
@@ -1188,6 +1259,9 @@ export function UnifiedChatScreen() {
               turnState.runId = started.runs.at(-1)?.id ?? null;
               setAggregate(started);
               if (!retryRunId) setAttachments([]);
+            },
+            onRunProgress: (progressAggregate) => {
+              setAggregate(progressAggregate);
             },
             onThreadTitleUpdated: (updatedThread) => {
               setAggregate((current) => current?.thread.id === updatedThread.id
@@ -1266,7 +1340,7 @@ export function UnifiedChatScreen() {
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, postFreshSnapshot, postSnapshot, repository, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, voice.state],
   );
 
   const pendingClientAction = useMemo(
@@ -1284,6 +1358,13 @@ export function UnifiedChatScreen() {
       return null;
     }
   }, [config.workbenchUrl]);
+  const workbenchSurfaceUrl = useMemo(() => {
+    if (!config.workbenchUrl) return '';
+    if (!isDrawer) return config.workbenchUrl;
+    const surfaceUrl = new URL(config.workbenchUrl);
+    surfaceUrl.searchParams.set('presentation', 'drawer');
+    return surfaceUrl.toString();
+  }, [config.workbenchUrl, isDrawer]);
 
   const canNavigate = useCallback(
     ({ url }: { url: string }) => {
@@ -1299,39 +1380,46 @@ export function UnifiedChatScreen() {
   );
 
   if (!config.enabled || !config.workbenchUrl) {
-    return (
-      <AppShell>
-        <CenteredState
-          title="Chat isn’t enabled in this build"
-          body="The existing Kwilt coach experiences are still available."
-        />
-      </AppShell>
+    const unavailableContent = (
+      <CenteredState
+        title="Chat isn’t enabled in this build"
+        body="The existing Kwilt coach experiences are still available."
+      />
     );
+    return isDrawer
+      ? <View style={styles.drawerRoot}>{unavailableContent}</View>
+      : <AppShell>{unavailableContent}</AppShell>;
   }
 
-  return (
-    <AppShell fullBleedCanvas>
-      <PageHeader
-        title={!freshEntry ? aggregate?.thread.title ?? 'Chat' : 'Chat'}
-        variant="conversation"
-        onPressMenu={openMenu}
-        menuOpen={menuOpen}
-        containerStyle={{
-          paddingTop: insets.top + spacing.xs,
-          paddingRight: spacing.sm,
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: colors.border,
-        }}
-        moreMenu={aggregate && !freshEntry ? (
-          <IconButton
-            accessibilityLabel="Chat options"
-            variant="ghost"
-            onPress={() => showThreadActions(aggregate)}
-          >
-            <Icon name="more" size={18} color={colors.textPrimary} />
-          </IconButton>
-        ) : undefined}
-      />
+  const drawerTitle = aggregate?.thread.title ?? freshDrawerTitle;
+
+  const chatContent = (
+    <>
+      {isDrawer ? (
+        <UnifiedChatDrawerHeader title={drawerTitle} />
+      ) : (
+        <PageHeader
+          title={!freshEntry ? aggregate?.thread.title ?? 'Chat' : 'Chat'}
+          variant="conversation"
+          onPressMenu={openMenu}
+          menuOpen={menuOpen}
+          containerStyle={{
+            paddingTop: insets.top + spacing.xs,
+            paddingRight: spacing.sm,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: colors.border,
+          }}
+          moreMenu={aggregate && !freshEntry ? (
+            <IconButton
+              accessibilityLabel="Chat options"
+              variant="ghost"
+              onPress={() => showThreadActions(aggregate)}
+            >
+              <Icon name="more" size={18} color={colors.textPrimary} />
+            </IconButton>
+          ) : undefined}
+        />
+      )}
 
       {error ? (
         <Pressable
@@ -1348,7 +1436,7 @@ export function UnifiedChatScreen() {
       ) : (aggregate && !freshEntry) || freshEntry ? (
         <WebView
           ref={webViewRef}
-          source={{ uri: config.workbenchUrl }}
+          source={{ uri: workbenchSurfaceUrl }}
           originWhitelist={allowedOrigin ? [allowedOrigin] : []}
           onShouldStartLoadWithRequest={canNavigate}
           onMessage={(event) => void handleSurfaceMessage(event)}
@@ -1466,8 +1554,12 @@ export function UnifiedChatScreen() {
           </View>
         </View>
       </Modal>
-    </AppShell>
+    </>
   );
+
+  return isDrawer
+    ? <View style={styles.drawerRoot}>{chatContent}</View>
+    : <AppShell fullBleedCanvas>{chatContent}</AppShell>;
 }
 
 function CenteredState({
@@ -1495,6 +1587,10 @@ function CenteredState({
 }
 
 const styles = StyleSheet.create({
+  drawerRoot: {
+    flex: 1,
+    backgroundColor: colors.canvas,
+  },
   iconButton: {
     width: 42,
     height: 42,

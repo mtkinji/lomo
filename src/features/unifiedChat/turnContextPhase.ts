@@ -13,6 +13,7 @@ import { loadPlanAgentContext } from '../../services/plan/loadPlanAgentContext';
 import { getKwiltCalendarBlocksForDay } from '../../services/plan/kwiltCalendarBlocks';
 import type { MoneySnapshot } from '../../capabilities/money/data/moneySnapshot';
 import type { UnifiedChatTurnContract } from './turnContract';
+import { getUnifiedChatProgressCopy } from './chatProgress';
 
 type ContextRepository = Pick<
   UnifiedChatRepository,
@@ -234,7 +235,10 @@ export async function authorizeUnifiedChatContextPhase(
         type: 'response',
         status: 'active',
         visibility: 'user',
-        label: 'Preparing a response',
+        label: getUnifiedChatProgressCopy({
+          phase: 'drafting',
+          participatingCapabilities: input.requestPolicy.participatingCapabilities,
+        }),
       },
     ],
   });

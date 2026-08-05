@@ -443,6 +443,56 @@ describe('createUnifiedChatToolProvider', () => {
     expect(activity.title).toBe('Call the school');
   });
 
+  it('stages due-date and reminder removal for every overdue Activity selected by the turn', async () => {
+    const secondActivity: Activity = {
+      ...activity,
+      id: 'activity-2',
+      title: 'Replace the furnace filter',
+      scheduledDate: '2026-07-20',
+      reminderAt: '2026-07-20T15:00:00.000Z',
+      updatedAt: '2026-07-22T11:00:00.000Z',
+    };
+    const firstActivity: Activity = {
+      ...activity,
+      scheduledDate: '2026-07-19',
+      reminderAt: '2026-07-19T15:00:00.000Z',
+    };
+    const provider = createUnifiedChatToolProvider({
+      snapshots: {
+        ...snapshots,
+        todos: { ...snapshots.todos, activities: [firstActivity, secondActivity] },
+      },
+    });
+
+    for (const item of [firstActivity, secondActivity]) {
+      await expect(provider.execute({
+        id: `clear-${item.id}`,
+        toolId: 'activities.update',
+        arguments: {
+          activityId: item.id,
+          fields: { scheduledDate: null, reminderAt: null },
+        },
+      }, tool('activities.update'))).resolves.toEqual(expect.objectContaining({ status: 'proposed' }));
+    }
+
+    expect(provider.proposals()).toEqual([
+      expect.objectContaining({
+        operation: {
+          type: 'update_activity', targetId: firstActivity.id,
+          expectedUpdatedAt: firstActivity.updatedAt,
+          payload: { scheduledDate: null, reminderAt: null },
+        },
+      }),
+      expect.objectContaining({
+        operation: {
+          type: 'update_activity', targetId: secondActivity.id,
+          expectedUpdatedAt: secondActivity.updatedAt,
+          payload: { scheduledDate: null, reminderAt: null },
+        },
+      }),
+    ]);
+  });
+
   it('stages Focus today as the existing reversible scheduled-date update', async () => {
     const provider = createUnifiedChatToolProvider({ snapshots });
     await expect(provider.execute(

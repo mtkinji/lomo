@@ -1,5 +1,5 @@
 import { buildFreshWorkbenchSnapshot, buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
-import type { UnifiedChatThreadAggregate } from './types';
+import type { UnifiedChatRun, UnifiedChatThreadAggregate } from './types';
 
 const aggregate: UnifiedChatThreadAggregate = {
   thread: {
@@ -42,6 +42,29 @@ describe('buildWorkbenchSnapshot', () => {
     expect(snapshot.context).toEqual([]);
     expect(snapshot.composer).toMatchObject({ prompt: 'draft thought', state: 'ready' });
     expect(snapshot.product.features.voice).toBe(true);
+  });
+
+  test('can present removable contextual scope without inventing a durable thread or message', () => {
+    const snapshot = buildFreshWorkbenchSnapshot('', {
+      placeholder: 'Ask about these to-dos',
+      context: [{
+        id: 'fresh-launch-context',
+        capabilityId: 'todos',
+        object: { id: 'todos', type: 'capability', label: 'All to-dos' },
+        source: 'launch',
+        removable: true,
+        version: 1,
+      }],
+    });
+
+    expect(snapshot.thread).toBeUndefined();
+    expect(snapshot.messages).toEqual([]);
+    expect(snapshot.product.placeholder).toBe('Ask about these to-dos');
+    expect(snapshot.context).toEqual([expect.objectContaining({
+      id: 'fresh-launch-context',
+      object: expect.objectContaining({ label: 'All to-dos' }),
+      removable: true,
+    })]);
   });
 
   test('projects a calm Kwilt configuration with an ordered transcript', () => {
@@ -113,7 +136,7 @@ describe('buildWorkbenchSnapshot', () => {
     ]);
   });
 
-  test('projects one restrained visible event for an active run', () => {
+  test('projects one restrained current-step event for an active run', () => {
     const snapshot = buildWorkbenchSnapshot({
       ...aggregate,
       runs: [
@@ -140,7 +163,7 @@ describe('buildWorkbenchSnapshot', () => {
 
     expect(snapshot.composer.state).toBe('working');
     expect(snapshot.runs[0]?.events).toEqual([
-      expect.objectContaining({ status: 'active', label: 'Preparing a response' }),
+      expect.objectContaining({ status: 'active', label: 'Checking what matters' }),
     ]);
   });
 
@@ -197,6 +220,44 @@ describe('buildWorkbenchSnapshot', () => {
     });
     expect(snapshot.runs[0]?.canRetry).toBe(true);
     expect(JSON.stringify(snapshot)).not.toContain('socket stack');
+  });
+
+  test('closes an unfinished step and explains the failed action boundary', () => {
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      events: [
+        {
+          id: 'event-drafting', threadId: 'thread-1', runId: 'run-1', sequence: 1,
+          type: 'draft', status: 'active', visibility: 'user',
+          label: 'Drafting your response', detail: null,
+        },
+        {
+          id: 'event-failed', threadId: 'thread-1', runId: 'run-1', sequence: 2,
+          type: 'response', status: 'failed', visibility: 'user',
+          label: 'Response interrupted', detail: null,
+        },
+      ],
+      runs: [{
+        id: 'run-1', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,
+        status: 'failed', errorCode: 'action_outcome_missing', errorMessage: 'private detail',
+        requestClass: 'capability_action', participatingCapabilities: ['plan'],
+        contextPolicy: { usePrivateContext: true, reason: 'plan-action', clarification: null },
+        version: 2, stopRequestedAt: null, steerCount: 0,
+        createdAt: '2026-07-21T11:00:01.000Z', updatedAt: '2026-07-21T11:00:02.000Z',
+        completedAt: '2026-07-21T11:00:02.000Z',
+      }],
+    });
+
+    expect(snapshot.runs[0]?.events).toEqual([
+      expect.objectContaining({ id: 'event-drafting', status: 'pending' }),
+      expect.objectContaining({
+        id: 'event-failed',
+        status: 'failed',
+        label: 'Plan change not ready',
+        detail: "Kwilt didn't receive a reviewable Plan change, so nothing was changed.",
+      }),
+    ]);
+    expect(snapshot.runs[0]?.events.some((event) => event.status === 'active')).toBe(false);
   });
 
   test('projects durable evidence, proposal fields, receipts, and user-visible events', () => {
@@ -475,7 +536,7 @@ describe('buildWorkbenchSnapshot', () => {
   });
 
   test('replaces a failed retry state inside the original prompt turn', () => {
-    const failedRun = {
+    const failedRun: UnifiedChatRun = {
       id: 'run-failed', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,
       status: 'failed' as const, errorCode: 'timeout', errorMessage: 'private detail', requestClass: 'general' as const,
       participatingCapabilities: [], contextPolicy: { usePrivateContext: false, reason: 'general-answer-without-private-context', clarification: null },
@@ -506,6 +567,49 @@ describe('buildWorkbenchSnapshot', () => {
       items: [
         { kind: 'message', id: 'message-1' },
         { kind: 'run', id: 'run-retry' },
+      ],
+    }]);
+  });
+
+  test('replaces prior-attempt evidence when retrying the same prompt', () => {
+    const failedRun: UnifiedChatRun = {
+      id: 'run-failed', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,
+      status: 'failed' as const, errorCode: 'action_outcome_missing', errorMessage: 'private detail',
+      requestClass: 'capability_action' as const, participatingCapabilities: ['plan'],
+      contextPolicy: { usePrivateContext: true, reason: 'plan-action', clarification: null },
+      version: 2, stopRequestedAt: null, steerCount: 0,
+      createdAt: '2026-07-21T11:00:01.000Z', updatedAt: '2026-07-21T11:00:02.000Z',
+      completedAt: '2026-07-21T11:00:02.000Z',
+    };
+    const retryRun = {
+      ...failedRun,
+      id: 'run-retry',
+      createdAt: '2026-07-21T11:01:00.000Z',
+      updatedAt: '2026-07-21T11:01:02.000Z',
+      completedAt: '2026-07-21T11:01:02.000Z',
+    };
+    const evidence = (id: string, runId: string) => ({
+      id, threadId: 'thread-1', runId, sequence: 1, capabilityId: 'plan' as const,
+      objectType: 'activity', objectId: 'activity-1', label: 'Use three Kwilt records',
+      selectionStatus: 'included' as const, authority: 'authoritative' as const,
+      freshness: 'current' as const, selectionReason: 'Relevant to the request.',
+      sufficient: true, coverageNote: 'Selected 3 records.',
+    });
+
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      runs: [failedRun, retryRun],
+      evidence: [evidence('evidence-first', failedRun.id), evidence('evidence-retry', retryRun.id)],
+    });
+
+    expect(snapshot.evidence.map((item) => item.id)).toEqual(['evidence-retry']);
+    expect(snapshot.timeline).toEqual([{
+      id: 'run:run-failed',
+      sequence: 1,
+      items: [
+        { kind: 'message', id: 'message-1' },
+        { kind: 'run', id: 'run-retry' },
+        { kind: 'evidence', ids: ['evidence-retry'] },
       ],
     }]);
   });

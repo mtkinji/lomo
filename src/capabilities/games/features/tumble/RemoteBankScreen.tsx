@@ -17,12 +17,15 @@ import { OpenBankTableLobby } from './OpenBankTableLobby';
 import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';
 import { bankMusicForState } from '@/src/capabilities/games/gameMusicState';
 import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
+import { restartOpenGameTable } from '@/src/capabilities/games/remote/remoteBankClient';
+import { remoteRematchPresentation } from '@/src/capabilities/games/remote/remoteGameLifecycle';
 
 export function RemoteBankScreen() {
   const { sessionId, tableCode, hostUserId } = useLocalSearchParams<{ sessionId: string; tableCode?: string; hostUserId?: string }>();
   const { session } = useAuth();
   const { room, loading, sending, error, reload, command } = useRemoteBankRoom(sessionId ?? null);
   const [phonesOpen, setPhonesOpen] = useState(false);
+  const [restarting, setRestarting] = useState(false);
 
   const userId = session?.user.id ?? hostUserId ?? '';
   const controlled = useMemo(() => room?.participants.filter((participant) => canControlSeat(participant, userId, room.hostUserId)) ?? [], [room, userId]);
@@ -34,6 +37,13 @@ export function RemoteBankScreen() {
   const bankers = game?.bankingRule === 'anyone'
     ? controlled.filter((participant) => !game.players[participant.seatIndex]?.banked)
     : activeParticipant && controlled.some((participant) => participant.id === activeParticipant.id) ? [activeParticipant] : [];
+  const rematch = remoteRematchPresentation(!!room && userId === room.hostUserId);
+  const restart = async () => {
+    if (!room || !rematch.canRestart || restarting) return;
+    setRestarting(true);
+    try { await restartOpenGameTable(room.id); await reload(); }
+    finally { setRestarting(false); }
+  };
 
   if (loading || !room || !game) return <GameBackdrop><SafeAreaView style={styles.loading}><ActivityIndicator color={gamesTheme.colors.coral} /><Text style={styles.loadingText}>{error ?? 'Joining the table…'}</Text></SafeAreaView></GameBackdrop>;
 
@@ -57,7 +67,12 @@ export function RemoteBankScreen() {
         </LinearGradient>
       </View>
 
-      {game.status === 'finished' ? <GameButton onPress={() => router.replace('/')}>Back to games</GameButton> : (
+      {game.status === 'finished' ? <View style={styles.finishedActions}>
+        {rematch.canRestart
+          ? <GameButton disabled={restarting} onPress={() => void restart()}>{restarting ? 'Opening table…' : rematch.primaryCopy}</GameButton>
+          : <Text style={styles.rematchWaiting}>{rematch.primaryCopy}</Text>}
+        <GameButton tone="ghost" onPress={() => router.replace('/')}>Back to games</GameButton>
+      </View> : (
         <View style={styles.controls}>
           {bankers.length === 1 ? <GameButton tone="turmeric" disabled={sending || game.rollInRound === 0} onPress={() => void command(bankers[0].id, 'bank')} style={styles.secondary} icon={<Landmark size={18} color={gamesTheme.colors.ink} />}>Bank {game.pot}</GameButton> : null}
           {bankers.length > 1 ? <GameButton tone="turmeric" disabled={sending || game.rollInRound === 0} onPress={() => setPhonesOpen(true)} style={styles.secondary} icon={<Landmark size={18} color={gamesTheme.colors.ink} />}>Choose banker</GameButton> : null}
@@ -106,6 +121,8 @@ const styles = StyleSheet.create({
   resultLabel: { fontFamily: gamesTheme.type.utility, fontSize: 9, color: 'rgba(255,255,255,0.64)', letterSpacing: 1.6 },
   resultValue: { fontFamily: gamesTheme.type.display, fontSize: 29, color: gamesTheme.colors.white },
   controls: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 12 },
+  finishedActions: { gap: 8, paddingTop: 12 },
+  rematchWaiting: { textAlign: 'center', fontFamily: gamesTheme.type.body, fontSize: 13, color: 'rgba(32,29,24,0.58)', paddingVertical: 10 },
   primary: { flex: 1.2 },
   secondary: { flex: 0.8 },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(20,17,13,0.62)' },

@@ -7,7 +7,7 @@ import { Heading, Text, HStack, VStack } from '../primitives';
 import { IconButton } from '../Button';
 import { Icon } from '../Icon';
 
-type BottomDrawerHeaderVariant = 'default' | 'withClose' | 'navbar' | 'minimal';
+type BottomDrawerHeaderVariant = 'default' | 'withClose' | 'navbar' | 'minimal' | 'immersive';
 
 type BottomDrawerHeaderProps = {
   title: ReactNode;
@@ -87,7 +87,14 @@ export function BottomDrawerHeader({
   };
 
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View
+      testID="bottom-drawer.header"
+      style={[
+        styles.container,
+        variant === 'immersive' ? styles.immersiveContainer : null,
+        containerStyle,
+      ]}
+    >
       <HStack alignItems="center" justifyContent="space-between">
         {effectiveLeftAction ? <View style={styles.actionSlot}>{effectiveLeftAction}</View> : null}
         <VStack space="xs" style={styles.titleStack} alignItems={stackAlign}>
@@ -141,5 +148,13 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
   },
+  immersiveContainer: {
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: 0,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
 });
-

@@ -2,6 +2,8 @@ import type { AgentJudgment } from './agentJudgment';
 import {
   buildAgentJudgmentGrounding,
   buildActionTargetGrounding,
+  buildTodoActionGrounding,
+  buildCreateCalendarContinuation,
   selectAgentJudgmentTools,
 } from './turnExecutionPhase';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
@@ -58,4 +60,25 @@ test('grounds all-matching semantics without naming a capability-specific bulk a
     targetScope: 'all_matching',
     targetQuery: 'Update every goal.',
   })).not.toMatch(/money|categor|goal/i);
+});
+
+test('does not contradict all-matching To-do work with the single-operation limit', () => {
+  const bulkGrounding = buildTodoActionGrounding(true).join(' ');
+  expect(bulkGrounding).toContain('every resolved matching Activity');
+  expect(bulkGrounding).not.toContain('at most one To-do operation');
+
+  expect(buildTodoActionGrounding(false).join(' ')).toContain('at most one To-do operation');
+});
+
+test('keeps create-plus-calendar intent as an explicit post-create continuation', () => {
+  expect(buildCreateCalendarContinuation({
+    prompt: 'Remind me to replace the furnace filter in 10 months and put it on my calendar.',
+    stagedCreate: true,
+    stagedPlanPlacement: false,
+  })).toContain('After it’s created');
+  expect(buildCreateCalendarContinuation({
+    prompt: 'Put the existing school call on my calendar.',
+    stagedCreate: false,
+    stagedPlanPlacement: true,
+  })).toBeNull();
 });

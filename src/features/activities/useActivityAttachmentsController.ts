@@ -8,6 +8,7 @@ import {
   startAudioRecording,
   stopAudioRecordingAndAttachToActivity,
 } from '../../services/attachments/activityAttachments';
+import { previewRemoteAttachment } from '../../services/attachments/nativeAttachmentPreview';
 import {
   buildActivityAttachmentPresentation,
   type ActivityAttachmentPresentation,
@@ -28,6 +29,7 @@ export type ActivityAttachmentsController = {
   photoAspectRatio: number;
   isLoadingDownloadUrl: boolean;
   isRecording: boolean;
+  preview: (attachment: ActivityAttachment) => Promise<void>;
   openDetails: (attachment: ActivityAttachment) => void;
   closeDetails: () => void;
   shareSelected: () => Promise<void>;
@@ -109,6 +111,11 @@ export function useActivityAttachmentsController({
     photoAspectRatio,
     isLoadingDownloadUrl,
     isRecording,
+    preview: async (attachment) => {
+      if (attachment.uploadStatus !== 'uploaded') return;
+      const url = await getAttachmentDownloadUrl(attachment.id);
+      await previewRemoteAttachment({ url, fileName: attachment.fileName });
+    },
     openDetails: (attachment) => {
       setSelected(attachment);
       onOpenDetails();

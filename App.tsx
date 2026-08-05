@@ -63,6 +63,7 @@ import { ConfigErrorScreen } from './src/features/onboarding/ConfigErrorScreen';
 import { SignInInterstitial, type SignInResult } from './src/features/onboarding/SignInInterstitial';
 import { ReturningUserPermissionsFlow } from './src/features/onboarding/ReturningUserPermissionsFlow';
 import { FocusSessionRuntimeHost } from './src/features/activities/FocusSessionRuntimeHost';
+import { MoneyWidgetStateRuntimeHost } from './src/capabilities/money/runtime/MoneyWidgetStateRuntimeHost';
 import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceableStateSync';
 import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlightSync';
 import { checkUserHasSyncedData, startDomainSync } from './src/services/sync/domainSync';
@@ -628,6 +629,7 @@ export default function App() {
           <Logo size={1} style={styles.logoPreload} />
           {content}
           <FocusSessionRuntimeHost />
+          <MoneyWidgetStateRuntimeHost userId={authIdentity?.userId ?? null} />
           {authIdentity ? <ExploreAlwaysOnRuntimeHost /> : null}
           {authIdentity ? <ExploreSyncRuntimeHost userId={authIdentity.userId} /> : null}
           <PortalHost />

@@ -3,7 +3,7 @@ id: job-flow-david-invite-the-right-people-in
 audience: audience-private-accountability-seekers
 persona: David
 hero_jtbd: jtbd-invite-the-right-people-in
-last_updated: 2026-05-08
+last_updated: 2026-08-04
 ---
 
 # David: Invite The Right People In
@@ -31,11 +31,11 @@ David wants accountability and encouragement from the right people, but he does 
 
 ## Current Kwilt Flow
 
-1. Share goal surfaces exist.
-2. Sharing settings control accountability reminders and shared goals.
-3. Check-ins provide signals-only progress.
-4. Auth and shared-goal feature briefs define account and invitation posture.
-5. Privacy-first JTBD and context primer reject feeds and default-public sharing.
+1. A Goal-owned **Invite support** flow explains the signals-only boundary before sending.
+2. Known Friends and Household members can be selected without either relationship granting access by itself; generic link, text, and email channels remain available.
+3. Recipient-bound invitations preview only to the intended signed-in person, while generic links remain compatible.
+4. A recipient can encourage the Goal before the first check-in, then follow authored check-ins, cheers, and replies inside the Goal support context.
+5. Sharing settings expose review, decline, revoke, remove, and leave actions without introducing a feed or blanket Household visibility.
 
 ## Offerings
 
@@ -50,19 +50,29 @@ David wants accountability and encouragement from the right people, but he does 
 
 | Step | Score | Rationale |
 | --- | --- | --- |
-| Pick supported goal | 3 | Goal sharing exists, but selection could better explain why this goal is shareable. |
-| Choose person | 3 | Invite flow supports this; relationship framing can improve. |
-| Decide visibility | 3 | Privacy posture is strong; controls need to remain explicit. |
-| Send invitation | 3 | Core sharing flow exists. |
-| Follow along | 2 | Recipient-side experience is still growing. |
+| Pick supported goal | 4 | Support starts from one Goal and the drawer names the supported signals rather than implying shared ownership. |
+| Choose person | 4 | Known Friends and Household members are reusable choices, while generic channels remain available; relationship membership grants no access. |
+| Decide visibility | 4 | The sender sees the Goal-only check-in/cheer/reply boundary and the recipient sees the same boundary before accepting. |
+| Send invitation | 4 | Targeted and generic invitations share one capability-owned handoff with explicit pending, unavailable, and retry states. |
+| Follow along | 3 | Recipients can respond before the first check-in and accepted links open the Goal support context; separate-account native runtime proof remains open. |
 | Share signals | 4 | Check-ins are well aligned with signals-only accountability. |
-| Adjust or end sharing | 2 | Revocation and lifecycle need to be highly visible and calm. |
+| Adjust or end sharing | 3 | Review, decline, revoke, remove, and leave controls are visible in Sharing; their full two-account runtime matrix remains unproven. |
 
 ## Gaps
 
-- David needs absolute clarity on what is visible before sharing.
-- Recipient experience should support encouragement without becoming a feed.
-- Ending or changing sharing must feel easy and non-awkward.
+- Prove targeted and generic invitation acceptance, first encouragement,
+  follow-along, leave, revoke, blocked-recipient, and expiry behavior across two
+  separate signed accounts.
+- Keep shared ownership and private Goal to-dos out of support until edit
+  authority and conflict behavior have their own explicit contract.
+
+## Evidence
+
+- Focused client, service, migration-contract, and Deno tests cover targeted and
+  generic invitations, no-check-in support, privacy boundaries, and lifecycle actions.
+- A deployed preview web handoff proved the no-check-in support copy against a
+  temporary real invitation; the exact proof row was removed afterward.
+- No two-account native or TestFlight result has yet proven the complete lifecycle.
 
 ## Aspirational Design Challenge
 

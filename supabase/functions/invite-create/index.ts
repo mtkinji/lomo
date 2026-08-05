@@ -9,6 +9,12 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import {
+  buildGoalInvitationDelivery,
+  insertSharedDelivery,
+  sharedHomeRecipientEnabled,
+} from '../_shared/sharedHomeDelivery.ts';
+import { sendSharedDeliveryPush } from '../_shared/expoPush.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -36,6 +42,17 @@ function getSupabaseAdmin() {
   if (!url || !serviceRole) return null;
   return createClient(url, serviceRole, {
     auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+function getSupabaseForUser(token: string) {
+  const url = Deno.env.get('SUPABASE_URL');
+  const publishableKey =
+    (Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? '').trim();
+  if (!url || !publishableKey) return null;
+  return createClient(url, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
   });
 }
 
@@ -84,6 +101,14 @@ serve(async (req) => {
   const kind = rawKind === 'people' || rawKind === 'squad' || rawKind === 'buddy' ? 'people' : 'people';
   const goalTitle = typeof body?.goalTitle === 'string' ? body.goalTitle.trim() : '';
   const goalImageUrl = typeof body?.goalImageUrl === 'string' ? body.goalImageUrl.trim() : '';
+  const recipientKind =
+    body?.recipient?.kind === 'friend' || body?.recipient?.kind === 'household'
+      ? body.recipient.kind
+      : null;
+  const recipientRelationshipId =
+    typeof body?.recipient?.relationshipId === 'string'
+      ? body.recipient.relationshipId.trim()
+      : '';
 
   const safeGoalImageUrl = (() => {
     if (!goalImageUrl) return null;
@@ -98,6 +123,110 @@ serve(async (req) => {
 
   if (entityType !== 'goal' || !entityId) {
     return json(400, { error: { message: 'Invalid entityType/entityId', code: 'bad_request' } });
+  }
+
+  if (body?.recipient != null) {
+    if (!recipientKind || !recipientRelationshipId) {
+      return json(400, { error: { message: 'Invalid recipient', code: 'bad_request' } });
+    }
+
+    const supabase = getSupabaseForUser(token);
+    if (!supabase) {
+      return json(503, { error: { message: 'Invite service unavailable', code: 'provider_unavailable' } });
+    }
+    const { data, error } = await supabase.rpc('create_kwilt_targeted_goal_invite', {
+      p_entity_id: entityId,
+      p_goal_title: goalTitle,
+      p_goal_image_url: safeGoalImageUrl,
+      p_recipient_kind: recipientKind,
+      p_relationship_id: recipientRelationshipId,
+    });
+    if (error) {
+      const safe = String(error.message ?? '').toLowerCase();
+      if (safe.includes('goal_owner_required')) {
+        return json(403, { error: { message: 'Only the goal owner can invite partners', code: 'forbidden' } });
+      }
+      if (safe.includes('recipient_already_has_access')) {
+        return json(409, { error: { message: 'This person already has access', code: 'already_has_access' } });
+      }
+      if (safe.includes('invite_rate_limited')) {
+        return json(429, { error: { message: 'Too many invites today', code: 'rate_limited' } });
+      }
+      if (safe.includes('recipient_unavailable') || safe.includes('invalid_recipient_kind')) {
+        return json(404, { error: { message: 'This person is unavailable', code: 'recipient_unavailable' } });
+      }
+      return json(400, { error: { message: 'Unable to create this invitation', code: 'create_failed' } });
+    }
+
+    const result = data && typeof data === 'object' && !Array.isArray(data)
+      ? data as Record<string, JsonValue>
+      : {};
+    const inviteCode = typeof result.inviteCode === 'string' ? result.inviteCode : '';
+    if (!inviteCode) {
+      return json(503, { error: { message: 'Unable to create invite', code: 'provider_unavailable' } });
+    }
+
+    // Shared Home is a best-effort delivery projection. Invitation creation is
+    // still authoritative and must succeed even when Home or push is unavailable.
+    try {
+      const { data: inviteRow, error: inviteLookupError } = await admin
+        .from('kwilt_invites')
+        .select('id, intended_recipient_user_id, created_by, expires_at, payload')
+        .eq('code', inviteCode)
+        .maybeSingle();
+      if (inviteLookupError) throw inviteLookupError;
+
+      const recipientUserId = typeof inviteRow?.intended_recipient_user_id === 'string'
+        ? inviteRow.intended_recipient_user_id
+        : '';
+      if (inviteRow?.id && recipientUserId && sharedHomeRecipientEnabled(recipientUserId)) {
+        const metadata = userData.user.user_metadata ?? {};
+        const actorDisplayName = typeof metadata.full_name === 'string'
+          ? metadata.full_name
+          : typeof metadata.name === 'string'
+            ? metadata.name
+            : null;
+        const invitePayload = inviteRow.payload && typeof inviteRow.payload === 'object'
+          ? inviteRow.payload as Record<string, JsonValue>
+          : {};
+        const delivery = buildGoalInvitationDelivery({
+          inviteId: inviteRow.id,
+          inviteCode,
+          recipientUserId,
+          actorUserId: userId,
+          actorDisplayName,
+          goalTitle: typeof invitePayload.goalTitle === 'string' ? invitePayload.goalTitle : null,
+          expiresAt: typeof inviteRow.expires_at === 'string' ? inviteRow.expires_at : null,
+        });
+        const saved = await insertSharedDelivery(admin, delivery);
+        if (saved.created) {
+          const push = await sendSharedDeliveryPush(admin, recipientUserId, saved.id);
+          if (push.rejected > 0) {
+            console.warn('[shared-home] Goal invitation push was not accepted by every device', {
+              deliveryId: saved.id,
+              attempted: push.attempted,
+              accepted: push.accepted,
+              rejected: push.rejected,
+            });
+          }
+        }
+      }
+    } catch (deliveryError) {
+      console.warn('[shared-home] Goal invitation delivery unavailable', {
+        inviteReused: result.reused === true,
+        errorClass: deliveryError instanceof Error ? deliveryError.name : 'unknown',
+      });
+    }
+
+    return json(200, {
+      inviteCode,
+      inviteUrl: `kwilt://invite?code=${encodeURIComponent(inviteCode)}`,
+      entityType: 'goal',
+      entityId,
+      payload: result.payload ?? { kind, goalTitle: goalTitle || null, goalImageUrl: safeGoalImageUrl },
+      targeted: true,
+      reused: result.reused === true,
+    });
   }
 
   const maxUses = 25;
@@ -212,5 +341,3 @@ serve(async (req) => {
     payload: { kind, goalTitle: goalTitle || null, goalImageUrl: safeGoalImageUrl, expiresAt, maxUses },
   });
 });
-
-

@@ -225,6 +225,29 @@ describe('Unified Chat capability adapters', () => {
     expect(todosChatAdapter.receipt.reloadAuthoritativeObject).toBe(true);
   });
 
+  test('marks only incomplete Activities before today as past-due evidence', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-08-05T18:00:00.000Z'));
+    try {
+      const sources = todosChatAdapter.evidence.list({
+        activities: [
+          activity({ id: 'overdue', scheduledDate: '2026-08-04' }),
+          activity({ id: 'today', scheduledDate: '2026-08-05' }),
+          activity({ id: 'completed', scheduledDate: '2026-08-04', status: 'done' }),
+        ],
+        goals: [goal()],
+      });
+
+      expect(sources.find((item) => item.object.id === 'overdue')?.searchableText)
+        .toContain('past-due past due overdue');
+      expect(sources.find((item) => item.object.id === 'today')?.searchableText)
+        .not.toContain('past-due');
+      expect(sources.find((item) => item.object.id === 'completed')?.searchableText)
+        .not.toContain('past-due');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test('Chapters supplies derived retrospective evidence and owns only note updates', () => {
     const sources = chaptersChatAdapter.evidence.list({ chapters: [chapter()] });
 

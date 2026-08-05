@@ -59,6 +59,24 @@ describe('resolveHybridRequestPolicy', () => {
     })).toEqual(deterministicPolicy);
   });
 
+  it('does not let an ambiguous short Plan request become an unauthorized mutation', () => {
+    const prompt = 'Plan tomorrow';
+    const deterministicPolicy = classifyUnifiedChatRequest({ prompt });
+
+    expect(deterministicPolicy).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['plan'],
+    });
+    expect(resolveHybridRequestPolicy({
+      prompt,
+      deterministicPolicy,
+      semanticRoute: route({
+        requestClass: 'capability_action',
+        participatingCapabilities: ['plan'],
+      }),
+    })).toEqual(deterministicPolicy);
+  });
+
   it('inherits Plan action scope for a short answer to a scheduling clarification', () => {
     const prompt = 'Two hours early afternoon';
     const deterministicPolicy = classifyUnifiedChatRequest({ prompt });

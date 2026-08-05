@@ -91,15 +91,60 @@ describe('turn outcome truth', () => {
     });
   });
 
-  test('blocks a model-authored success claim without authoritative work', () => {
+  test('turns a model-authored success claim without authoritative work into clarification', () => {
     expect(projectActionOutcomeTruth({
       turnContract: contract, context: context(), preparedChangeCount: 0,
       runtimeToolEvents: [], modelResponse: 'I renamed all of the categories.',
     })).toMatchObject({
-      state: 'failed',
-      visibleBody: 'I couldn\'t verify or prepare those changes. Nothing was changed.',
+      state: 'clarification',
+      visibleBody: expect.stringMatching(/nothing was changed/i),
       invariantCodes: ['success_without_authoritative_work'],
     });
+  });
+
+  test('preserves the precise clarification requested by a typed tool', () => {
+    expect(projectActionOutcomeTruth({
+      turnContract: contract,
+      context: context(),
+      preparedChangeCount: 0,
+      runtimeToolEvents: [],
+      modelResponse: '',
+      clarification: 'Which Money category should I rename?',
+    })).toMatchObject({
+      state: 'clarification',
+      visibleBody: 'Which Money category should I rename?',
+      invariantCodes: [],
+    });
+  });
+
+  test('closes 10,000 recoverable action shapes without a terminal or prose-only outcome', () => {
+    let deadEnds = 0;
+    for (let index = 0; index < 10_000; index += 1) {
+      const result = projectActionOutcomeTruth({
+        turnContract: {
+          ...contract,
+          participatingCapabilities: index % 2 === 0 ? ['plan'] : ['money'],
+          action: {
+            ...contract.action!,
+            targetScope: 'selected_objects',
+            operationIds: index % 2 === 0 ? ['plan.schedule_activity'] : ['money.category.rename'],
+          },
+        },
+        context: context(),
+        preparedChangeCount: 0,
+        runtimeToolEvents: [],
+        modelResponse: index % 3 === 0
+          ? 'I scheduled that for you.'
+          : index % 3 === 1
+            ? 'Here is how I would handle it.'
+            : '',
+      });
+      if (result.state === 'failed' || result.state === 'model_response' || !result.visibleBody) {
+        deadEnds += 1;
+      }
+    }
+
+    expect(deadEnds).toBe(0);
   });
 
   test('rejects an incomplete complete-inventory scope before execution', () => {

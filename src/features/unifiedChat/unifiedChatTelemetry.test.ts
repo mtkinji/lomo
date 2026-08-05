@@ -135,10 +135,17 @@ test('agent judgment telemetry contains only bounded classifications', () => {
   ]));
   expect(JSON.stringify(selected)).not.toMatch(/private|2026-08-05|August 5|reason|argument/i);
 
-  expect(buildUnifiedChatAgentPlanOutcomeTelemetry(judgment, 'model', 'review', null)).toEqual({
+  expect(buildUnifiedChatAgentPlanOutcomeTelemetry(judgment, 'model', 'review', null, undefined, {
+    attemptNumber: 2,
+    recoveryAttempted: true,
+    terminalFailure: false,
+  })).toEqual({
     ...selected,
     outcome: 'review',
     failure_code: null,
+    attempt_number: 2,
+    recovery_attempted: true,
+    terminal_failure: false,
   });
 });
 

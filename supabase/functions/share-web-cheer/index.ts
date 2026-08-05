@@ -9,6 +9,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { webGoalSupportInviteIsEligible } from '../_shared/goalSupport.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -61,7 +62,7 @@ serve(async (req) => {
 
   const { data: invite } = await admin
     .from('kwilt_invites')
-    .select('entity_type, entity_id, expires_at, max_uses, uses')
+    .select('entity_type, entity_id, expires_at, max_uses, uses, intended_recipient_user_id')
     .eq('code', inviteCode)
     .maybeSingle();
 
@@ -74,9 +75,15 @@ serve(async (req) => {
   const expiresAt = (invite as any).expires_at as string | null;
   const maxUses = (invite as any).max_uses as number;
   const uses = (invite as any).uses as number;
+  const intendedRecipientUserId = (invite as any).intended_recipient_user_id as string | null;
 
   if (entityType !== 'goal' || !entityId) {
     return json(500, { error: { message: 'Invite misconfigured', code: 'server_error' } });
+  }
+  if (!webGoalSupportInviteIsEligible({ intendedRecipientUserId })) {
+    return json(403, {
+      error: { message: 'Sign in to respond to this invitation', code: 'sign_in_required' },
+    });
   }
   if (expiresAt && Date.parse(expiresAt) < Date.now()) {
     return json(410, { error: { message: 'Invite expired', code: 'invite_expired' } });

@@ -81,6 +81,14 @@ describe('linkingConfig', () => {
     });
   });
 
+  test('kwilt://home opens Shared Home with an optional exact delivery', () => {
+    expect(parse('home')).toMatchObject({ name: 'SharedHome' });
+    expect(parse('home/delivery-1')).toMatchObject({
+      name: 'SharedHome',
+      params: { deliveryId: 'delivery-1' },
+    });
+  });
+
   test('gives every incoming Chat widget open a distinct launch id', () => {
     const first = prepareIncomingNavigationUrl('kwilt://chat?entry=fresh&source=widget', 'launch-1');
     const second = prepareIncomingNavigationUrl('kwilt://chat?entry=fresh&source=widget', 'launch-2');
@@ -93,6 +101,11 @@ describe('linkingConfig', () => {
       source: 'widget',
       widgetLaunchId: 'launch-1',
     });
+  });
+
+  test('normalizes a universal-link handoff to the native Household route', () => {
+    expect(prepareIncomingNavigationUrl('https://go.kwilt.app/open/household/CHILD12'))
+      .toBe('kwilt://household/CHILD12');
   });
 
   describe('Money capability deep links', () => {
@@ -194,6 +207,13 @@ describe('linkingConfig', () => {
   });
 
   describe('Pre-existing deep links still resolve (no regression from refactor)', () => {
+    test('kwilt://household/:code opens invitation review', () => {
+      const leaf = parse('household/CHILD12');
+      expect(leaf?.name).toBe('SettingsHousehold');
+      expect(leaf?.path).toEqual(['Settings', 'SettingsHousehold']);
+      expect(leaf?.params).toEqual({ inviteCode: 'CHILD12' });
+    });
+
     test('development Guided Overture link resolves to the isolated lab route', () => {
       expect(parse('__dev/guided-overture')?.name).toBe('GuidedOvertureLab');
     });
@@ -206,12 +226,11 @@ describe('linkingConfig', () => {
       expect(parse('today')?.name).toBe('ActivitiesList');
     });
 
-    test('kwilt://today parses the standalone Focus widget request', () => {
-      const leaf = parse('today?autoStartStandaloneFocus=1&focusMinutes=25&source=widget');
-      expect(leaf?.name).toBe('ActivitiesList');
+    test('kwilt://focus opens the standalone full-page Focus interstitial', () => {
+      const leaf = parse('focus?source=widget');
+      expect(leaf?.name).toBe('StandaloneFocus');
+      expect(leaf?.path).toEqual(['StandaloneFocus']);
       expect(leaf?.params).toMatchObject({
-        autoStartStandaloneFocus: true,
-        focusMinutes: 25,
         source: 'widget',
       });
     });

@@ -16,7 +16,7 @@ import type {
   ViewProps,
   ViewStyle,
 } from 'react-native';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
@@ -40,6 +40,24 @@ import {
 export type BottomDrawerSnapPoint = number | `${number}%`;
 
 type Presentation = 'modal' | 'inline';
+type BottomDrawerChrome = 'standard' | 'immersive';
+
+export type BottomDrawerSnapChange = {
+  previousIndex: number | null;
+  direction: 'initial' | 'up' | 'down' | 'same';
+};
+
+export function shouldDismissKeyboardOnSnapChange({
+  previousIndex,
+  nextIndex,
+  enabled,
+}: {
+  previousIndex: number | null;
+  nextIndex: number;
+  enabled: boolean;
+}) {
+  return enabled && previousIndex !== null && nextIndex < previousIndex;
+}
 
 export function isBottomDrawerAccessibilityModal(
   presentation: Presentation,
@@ -81,7 +99,10 @@ type BottomDrawerProps = {
    * whenever `visible` is true.
    */
   snapIndex?: number;
-  onSnapIndexChange?: (index: number) => void;
+  onSnapIndexChange?: (index: number, change: BottomDrawerSnapChange) => void;
+
+  /** Dismiss the keyboard after a settled downward snap or drawer close. Defaults to true. */
+  dismissKeyboardOnSnapDown?: boolean;
 
   /**
    * Whether the drawer can be dismissed by dragging down, tapping backdrop, or back button.
@@ -112,12 +133,19 @@ type BottomDrawerProps = {
    */
   presentation?: Presentation;
 
+  /** Opt-in full-width chrome for conversation-like drawers. */
+  chrome?: BottomDrawerChrome;
+
   /**
    * Visual overrides for the drawer surface and handle region.
    */
   sheetStyle?: StyleProp<ViewStyle>;
   handleContainerStyle?: StyleProp<ViewStyle>;
   handleStyle?: StyleProp<ViewStyle>;
+
+  /** Optional fixed bottom region that owns the drawer's bottom safe-area inset. */
+  bottomAccessory?: ReactNode;
+  bottomAccessoryStyle?: StyleProp<ViewStyle>;
 
   /**
    * When true, the sheet surface extends through the bottom safe-area instead of
@@ -205,6 +233,7 @@ export function BottomDrawer({
   initialSnapIndex,
   snapIndex,
   onSnapIndexChange,
+  dismissKeyboardOnSnapDown = true,
   dismissable = true,
   dismissOnBackdropPress = true,
   dismissDragThresholdRatio = 0.35,
@@ -212,9 +241,12 @@ export function BottomDrawer({
   backdropMaxOpacity,
   scrimToken = 'default',
   presentation = 'modal',
+  chrome = 'standard',
   sheetStyle,
   handleContainerStyle,
   handleStyle,
+  bottomAccessory,
+  bottomAccessoryStyle,
   contentExtendsIntoBottomSafeArea = false,
   enableContentPanningGesture = false,
   dynamicSizing = false,
@@ -284,6 +316,33 @@ export function BottomDrawer({
   const hasRunOpenAnimationRef = useRef(false);
   const webDragStartYRef = useRef<number | null>(null);
   const [webDragOffset, setWebDragOffset] = useState(0);
+  const settledSnapIndexRef = useRef<number | null>(null);
+
+  const closeIfAllowed = useCallback(() => {
+    if (!dismissable) return;
+    if (dismissKeyboardOnSnapDown) Keyboard.dismiss();
+    onClose();
+  }, [dismissable, dismissKeyboardOnSnapDown, onClose]);
+
+  const notifySnapIndexChange = useCallback((nextIndex: number) => {
+    const previousIndex = settledSnapIndexRef.current;
+    const direction: BottomDrawerSnapChange['direction'] = previousIndex === null
+      ? 'initial'
+      : nextIndex < previousIndex
+        ? 'down'
+        : nextIndex > previousIndex
+          ? 'up'
+          : 'same';
+    if (shouldDismissKeyboardOnSnapChange({
+      previousIndex,
+      nextIndex,
+      enabled: dismissKeyboardOnSnapDown,
+    })) {
+      Keyboard.dismiss();
+    }
+    settledSnapIndexRef.current = nextIndex;
+    onSnapIndexChange?.(nextIndex, { previousIndex, direction });
+  }, [dismissKeyboardOnSnapDown, onSnapIndexChange]);
 
   const requestCloseAnimated = useCallback(() => {
     if (!dismissable) return;
@@ -296,7 +355,7 @@ export function BottomDrawer({
     translateY.value = withTiming(closedOffset, { duration: motionDuration(260) }, (finished) => {
       isAnimating.value = false;
       if (finished) {
-        runOnJS(onClose)();
+        runOnJS(closeIfAllowed)();
       }
     });
   }, [
@@ -305,7 +364,7 @@ export function BottomDrawer({
     isAnimating,
     mounted,
     motionDuration,
-    onClose,
+    closeIfAllowed,
     translateY,
     visible,
   ]);
@@ -341,6 +400,7 @@ export function BottomDrawer({
   useEffect(() => {
     if (!visible) {
       hasRunOpenAnimationRef.current = false;
+      settledSnapIndexRef.current = null;
     }
 
     if (visible) {
@@ -391,7 +451,7 @@ export function BottomDrawer({
       sheetHeight.value = targetHeight;
       translateY.value = withTiming(0, { duration: motionDuration(320) }, (finished) => {
         isAnimating.value = false;
-        if (finished && onSnapIndexChange) runOnJS(onSnapIndexChange)(openToIndex);
+        if (finished) runOnJS(notifySnapIndexChange)(openToIndex);
       });
       return;
     }
@@ -400,7 +460,7 @@ export function BottomDrawer({
     // the entrance animation here makes under-keyboard composers appear to close
     // and reopen whenever their content grows by a line.
     sheetHeight.value = withTiming(targetHeight, { duration: motionDuration(180) }, (finished) => {
-      if (finished && onSnapIndexChange) runOnJS(onSnapIndexChange)(openToIndex);
+      if (finished) runOnJS(notifySnapIndexChange)(openToIndex);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, visible, openToIndex, maxSnapHeight, motionDuration, snapHeights.join('|')]);
@@ -411,9 +471,7 @@ export function BottomDrawer({
     if (dynamicTargetHeight === null) return;
     // Once content has laid out, animate down to the measured compact height.
     sheetHeight.value = withTiming(clamp(dynamicTargetHeight, 0, maxSnapHeight), { duration: motionDuration(260) }, (finished) => {
-      if (finished && onSnapIndexChange) {
-        runOnJS(onSnapIndexChange)(0);
-      }
+      if (finished) runOnJS(notifySnapIndexChange)(0);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dynamicSizing, dynamicTargetHeight, mounted, visible, maxSnapHeight, motionDuration]);
@@ -446,11 +504,6 @@ export function BottomDrawer({
       transform: [{ translateY: webDragOffset }],
     };
   }, [maxSnapHeight, openToIndex, snapHeights, webDragOffset]);
-
-  const closeIfAllowed = useCallback(() => {
-    if (!dismissable) return;
-    onClose();
-  }, [dismissable, onClose]);
 
   const panStartY = useSharedValue(0);
   const panStartHeight = useSharedValue(0);
@@ -522,9 +575,7 @@ export function BottomDrawer({
         isAnimating.value = true;
         sheetHeight.value = withTiming(snapHeights[idx] ?? maxSnapHeight, { duration: motionDuration(260) }, (finished) => {
           isAnimating.value = false;
-          if (finished && onSnapIndexChange) {
-            runOnJS(onSnapIndexChange)(idx);
-          }
+          if (finished) runOnJS(notifySnapIndexChange)(idx);
         });
       });
 
@@ -543,7 +594,7 @@ export function BottomDrawer({
     maxSnapHeight,
     minSnapHeight,
     motionDuration,
-    onSnapIndexChange,
+    notifySnapIndexChange,
     scrollableGesture,
     scrollY,
     snapHeights,
@@ -613,6 +664,35 @@ export function BottomDrawer({
 
   if (!mounted) return null;
 
+  const renderedChildren = bottomAccessory ? (
+    <View style={dynamicSizing ? undefined : styles.accessoryLayout}>
+      <View style={dynamicSizing ? undefined : styles.accessoryContent}>{children}</View>
+      <View
+        testID="bottom-drawer.bottom-accessory"
+        style={[
+          styles.bottomAccessory,
+          { paddingBottom: Math.max(insets.bottom, spacing.md) },
+          bottomAccessoryStyle,
+        ]}
+      >
+        {bottomAccessory}
+      </View>
+    </View>
+  ) : children;
+
+  const sheetChildren = dynamicSizing ? (
+    <View
+      onLayout={(event) => {
+        const { y, height } = event.nativeEvent.layout;
+        const safeAreaHeight = bottomAccessory || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom;
+        const next = clamp(y + height + safeAreaHeight, 0, maxAllowedHeight);
+        setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
+      }}
+    >
+      {renderedChildren}
+    </View>
+  ) : renderedChildren;
+
   // Keyboard behavior guidance:
   // - `docs/keyboard-input-safety-implementation.md`
   const body = (
@@ -658,39 +738,39 @@ export function BottomDrawer({
               style={[
                 styles.sheet,
                 {
-                  paddingBottom: contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
+                  paddingBottom: bottomAccessory || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
                   // Max height is the safe-area-aware available height.
                   maxHeight: availableHeight,
                 },
                 sheetAnimatedStyle,
                 webSheetStaticStyle,
+                chrome === 'immersive' ? styles.immersiveSheet : null,
                 sheetStyle,
               ]}
             >
               <GestureDetector gesture={handlePanGesture}>
                 <View
                   {...webHandleResponderProps}
+                  testID="bottom-drawer.handle-region"
                   accessible={false}
                   importantForAccessibility="no"
-                  style={[styles.handleGrabRegion, handleContainerStyle]}
+                  style={[
+                    styles.handleGrabRegion,
+                    chrome === 'immersive' ? styles.immersiveHandleGrabRegion : null,
+                    handleContainerStyle,
+                  ]}
                 >
-                  <View style={[styles.handle, handleStyle]} />
+                  <View
+                    testID="bottom-drawer.handle"
+                    style={[
+                      styles.handle,
+                      chrome === 'immersive' ? styles.immersiveHandle : null,
+                      handleStyle,
+                    ]}
+                  />
                 </View>
               </GestureDetector>
-              {dynamicSizing ? (
-                <View
-                  onLayout={(event) => {
-                    const { y, height } = event.nativeEvent.layout;
-                    const safeAreaHeight = contentExtendsIntoBottomSafeArea ? 0 : insets.bottom;
-                    const next = clamp(y + height + safeAreaHeight, 0, maxAllowedHeight);
-                    setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
-                  }}
-                >
-                  {children}
-                </View>
-              ) : (
-                children
-              )}
+              {sheetChildren}
             </Animated.View>
           </GestureDetector>
         </KeyboardAvoidingView>
@@ -729,38 +809,38 @@ export function BottomDrawer({
               style={[
                 styles.sheet,
                 {
-                  paddingBottom: contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
+                  paddingBottom: bottomAccessory || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
                   maxHeight: availableHeight,
                 },
                 sheetAnimatedStyle,
                 webSheetStaticStyle,
+                chrome === 'immersive' ? styles.immersiveSheet : null,
                 sheetStyle,
               ]}
             >
               <GestureDetector gesture={handlePanGesture}>
                 <View
                   {...webHandleResponderProps}
+                  testID="bottom-drawer.handle-region"
                   accessible={false}
                   importantForAccessibility="no"
-                  style={[styles.handleGrabRegion, handleContainerStyle]}
+                  style={[
+                    styles.handleGrabRegion,
+                    chrome === 'immersive' ? styles.immersiveHandleGrabRegion : null,
+                    handleContainerStyle,
+                  ]}
                 >
-                  <View style={[styles.handle, handleStyle]} />
+                  <View
+                    testID="bottom-drawer.handle"
+                    style={[
+                      styles.handle,
+                      chrome === 'immersive' ? styles.immersiveHandle : null,
+                      handleStyle,
+                    ]}
+                  />
                 </View>
               </GestureDetector>
-              {dynamicSizing ? (
-                <View
-                  onLayout={(event) => {
-                    const { y, height } = event.nativeEvent.layout;
-                    const safeAreaHeight = contentExtendsIntoBottomSafeArea ? 0 : insets.bottom;
-                    const next = clamp(y + height + safeAreaHeight, 0, maxAllowedHeight);
-                    setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
-                  }}
-                >
-                  {children}
-                </View>
-              ) : (
-                children
-              )}
+              {sheetChildren}
             </Animated.View>
           </GestureDetector>
         </View>
@@ -896,5 +976,33 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 999,
     alignSelf: 'center',
+  },
+  immersiveSheet: {
+    paddingHorizontal: 0,
+    paddingBottom: spacing.lg,
+  },
+  immersiveHandleGrabRegion: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  immersiveHandle: {
+    width: 64,
+    height: 4,
+  },
+  accessoryLayout: {
+    flex: 1,
+    minHeight: 0,
+  },
+  accessoryContent: {
+    flex: 1,
+    minHeight: 0,
+  },
+  bottomAccessory: {
+    flexShrink: 0,
   },
 });

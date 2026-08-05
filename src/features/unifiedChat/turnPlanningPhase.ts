@@ -78,6 +78,26 @@ function routeFromJudgment(judgment: AgentJudgment): SemanticRequestRoute {
   };
 }
 
+function hasCoherentExecutionPlan(judgment: AgentJudgment): boolean {
+  const toolsById = new Map(UNIFIED_CHAT_TOOL_CATALOG.map((tool) => [tool.id, tool]));
+  const selectedTools = judgment.steps.flatMap((step) => {
+    if (!step.toolId) return [];
+    const tool = toolsById.get(step.toolId);
+    return tool ? [tool] : [];
+  });
+  if (selectedTools.length !== judgment.steps.filter((step) => step.toolId).length) return false;
+  if (selectedTools.some((tool) => !judgment.participatingCapabilities.includes(
+    tool.capabilityId as UnifiedChatRequestPolicy['participatingCapabilities'][number],
+  ))) return false;
+  if (judgment.requestClass === 'capability_action') {
+    return selectedTools.some((tool) => tool.effect === 'write');
+  }
+  if (judgment.requestClass === 'capability_question') {
+    return selectedTools.every((tool) => tool.effect === 'read');
+  }
+  return true;
+}
+
 export async function planUnifiedChatTurnPhase(
   input: PlanUnifiedChatTurnPhaseInput,
 ): Promise<PlannedUnifiedChatTurn> {
@@ -99,7 +119,7 @@ export async function planUnifiedChatTurnPhase(
     role: message.role,
     content: message.body,
   }));
-  const agentJudgment = shouldAttemptAgentJudgment(deterministicPolicy)
+  const requestedAgentJudgment = shouldAttemptAgentJudgment(deterministicPolicy)
     ? await input.requestJudgment({
         prompt: buildAgentJudgmentPrompt({
           prompt: input.prompt,
@@ -113,6 +133,9 @@ export async function planUnifiedChatTurnPhase(
         allowedToolIds: new Set(UNIFIED_CHAT_TOOL_CATALOG.map((tool) => tool.id)),
         signal: input.signal,
       })
+    : null;
+  const agentJudgment = requestedAgentJudgment && hasCoherentExecutionPlan(requestedAgentJudgment)
+    ? requestedAgentJudgment
     : null;
   const semanticRoute = !agentJudgment && shouldAttemptSemanticRouting({
     prompt: input.prompt,

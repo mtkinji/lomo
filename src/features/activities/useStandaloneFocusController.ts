@@ -15,6 +15,7 @@ import { useFocusSessionStore } from './focusSessionStore';
 
 export type StandaloneFocusController = {
   session: ActiveFocusSession | null;
+  maxMinutes: number;
   remainingMs: number;
   start: (minutes: number, audio?: SoundscapeId | 'none') => Promise<boolean>;
   pauseOrResume: () => Promise<void>;
@@ -101,6 +102,7 @@ export function useStandaloneFocusController(params: {
 
   return {
     session,
+    maxMinutes: params.maxMinutes,
     remainingMs: getRemainingFocusMs(session, tickMs),
     start,
     pauseOrResume,

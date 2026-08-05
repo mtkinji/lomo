@@ -1,10 +1,11 @@
-// Invite preview endpoint (public)
+// Invite preview endpoint (public for generic links; authenticated for targeted links)
 //
 // Route:
 // - POST /invite-preview  -> { ok, entityType, entityId, payload, inviter }
 //
 // Notes:
-// - No auth required: the invite code is the secret.
+// - Generic links use the invite code as the secret.
+// - Recipient-bound links require the intended authenticated account.
 // - Uses service role to read kwilt_invites + inviter identity (auth.users metadata).
 // - Does NOT create memberships or increment uses.
 
@@ -38,6 +39,12 @@ function getSupabaseAdmin() {
   return createClient(url, serviceRole, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+function requireBearerToken(req: Request): string | null {
+  const auth = (req.headers.get('authorization') ?? '').trim();
+  const m = /^bearer\s+(.+)$/i.exec(auth);
+  return m?.[1]?.trim() ?? null;
 }
 
 function deriveDisplayName(user: { email?: string | null; user_metadata?: Record<string, unknown> } | null): string | null {
@@ -88,7 +95,7 @@ serve(async (req) => {
 
   const { data: invite, error: inviteErr } = await admin
     .from('kwilt_invites')
-    .select('entity_type, entity_id, expires_at, max_uses, uses, payload, created_by')
+    .select('entity_type, entity_id, expires_at, max_uses, uses, payload, created_by, intended_recipient_user_id, recipient_state')
     .eq('code', inviteCode)
     .maybeSingle();
 
@@ -103,16 +110,35 @@ serve(async (req) => {
   const uses = (invite as any).uses as number;
   const payload = ((invite as any).payload ?? {}) as JsonValue;
   const createdBy = (invite as any).created_by as string | null;
+  const intendedRecipientUserId = (invite as any).intended_recipient_user_id as string | null;
+  const recipientState = (invite as any).recipient_state as string | null;
 
   if (entityType !== 'goal' || !entityId) {
     return json(500, { error: { message: 'Invite misconfigured', code: 'server_error' } });
+  }
+
+  if (intendedRecipientUserId) {
+    const token = requireBearerToken(req);
+    if (!token) {
+      return json(401, { error: { message: 'Sign in to view this invitation', code: 'unauthorized' } });
+    }
+    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    if (userErr || !userData?.user) {
+      return json(401, { error: { message: 'Sign in to view this invitation', code: 'unauthorized' } });
+    }
+    if (userData.user.id !== intendedRecipientUserId) {
+      return json(403, { error: { message: 'This invitation is unavailable', code: 'invite_unavailable' } });
+    }
   }
 
   // Preview is informational: even if the invite is expired/consumed, we still
   // return goal + inviter metadata so the client can explain what happened and
   // let the user ask for a fresh invite.
   const isExpired = Boolean(expiresAt && Date.parse(expiresAt) < Date.now());
-  const isConsumed = Boolean(typeof uses === 'number' && typeof maxUses === 'number' && uses >= maxUses);
+  const isConsumed = Boolean(
+    (typeof uses === 'number' && typeof maxUses === 'number' && uses >= maxUses)
+      || (intendedRecipientUserId && recipientState !== 'pending'),
+  );
   const inviteState = isExpired ? 'expired' : isConsumed ? 'consumed' : 'active';
   const canJoin = inviteState === 'active';
 
@@ -189,5 +215,3 @@ serve(async (req) => {
 
   return json(200, { ok: true, entityType, entityId, payload, inviter, inviteState, canJoin, progressPreview });
 });
-
-

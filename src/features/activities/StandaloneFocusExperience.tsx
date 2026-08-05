@@ -37,68 +37,68 @@ export function StandaloneFocusExperience(props: {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={() => props.controller.end().catch(() => undefined)}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Focus color"
-        accessibilityHint="Double tap to shift focus background color"
-        onPress={() => setColorIndex((normalizedColorIndex + 1) % FOCUS_OVERLAY_COLOR_KEYS.length)}
-        style={{ flex: 1 }}
-      >
-        <View
-          style={[
-            styles.focusOverlay,
-            {
-              backgroundColor: palette[normalizedColorIndex],
-              paddingTop: props.topInset + spacing.lg,
-              paddingBottom: props.bottomInset + spacing.lg,
-            },
-          ]}
-        >
-          <View style={styles.focusTopBar}>
-            <BrandLockup logoSize={28} wordmarkSize="sm" logoVariant="parchment" color={colors.parchment} />
-          </View>
-          <View style={styles.focusCenter}>
-            <Text
-              adjustsFontSizeToFit
-              maxFontSizeMultiplier={1.4}
-              minimumFontScale={0.6}
-              numberOfLines={1}
-              style={styles.focusTimer}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Focus color"
+            accessibilityHint="Double tap to shift focus background color"
+            onPress={() => setColorIndex((normalizedColorIndex + 1) % FOCUS_OVERLAY_COLOR_KEYS.length)}
+            style={{ flex: 1 }}
+          >
+            <View
+              style={[
+                styles.focusOverlay,
+                {
+                  backgroundColor: palette[normalizedColorIndex],
+                  paddingTop: props.topInset + spacing.lg,
+                  paddingBottom: props.bottomInset + spacing.lg,
+                },
+              ]}
             >
-              {formatFocusTimer(props.controller.remainingMs)}
-            </Text>
-            <Text maxFontSizeMultiplier={1.6} numberOfLines={1} style={styles.focusActivityTitle}>
-              Focus
-            </Text>
-          </View>
-          <HStack space="sm" style={styles.focusBottomBar}>
-            <HeaderActionPill
-              size={56}
-              accessibilityLabel="End focus session"
-              style={styles.focusActionIconButton}
-              onPress={() => props.controller.end().catch(() => undefined)}
-            >
-              <Icon name="stop" size={22} color={colors.parchment} />
-            </HeaderActionPill>
-            <HeaderActionPill
-              size={56}
-              accessibilityLabel={session.mode === 'paused' ? 'Resume focus session' : 'Pause focus session'}
-              style={styles.focusActionIconButton}
-              onPress={() => props.controller.pauseOrResume().catch(() => undefined)}
-            >
-              <Icon name={session.mode === 'paused' ? 'play' : 'pause'} size={22} color={colors.parchment} />
-            </HeaderActionPill>
-            <HeaderActionPill
-              size={56}
-              accessibilityLabel={soundscapeEnabled ? 'Turn Focus soundscape off' : 'Turn Focus soundscape on'}
-              style={styles.focusActionIconButton}
-              onPress={() => setSoundscapeEnabled(!soundscapeEnabled)}
-            >
-              <Icon name={soundscapeEnabled ? 'sound' : 'soundOff'} size={22} color={colors.parchment} />
-            </HeaderActionPill>
-          </HStack>
-        </View>
-      </Pressable>
+              <View style={styles.focusTopBar}>
+                <BrandLockup logoSize={28} wordmarkSize="sm" logoVariant="parchment" color={colors.parchment} />
+              </View>
+              <View style={styles.focusCenter}>
+                <Text
+                  adjustsFontSizeToFit
+                  maxFontSizeMultiplier={1.4}
+                  minimumFontScale={0.6}
+                  numberOfLines={1}
+                  style={styles.focusTimer}
+                >
+                  {formatFocusTimer(props.controller.remainingMs)}
+                </Text>
+                <Text maxFontSizeMultiplier={1.6} numberOfLines={1} style={styles.focusActivityTitle}>
+                  Focus
+                </Text>
+              </View>
+              <HStack space="sm" style={styles.focusBottomBar}>
+                <HeaderActionPill
+                  size={56}
+                  accessibilityLabel="End focus session"
+                  style={styles.focusActionIconButton}
+                  onPress={() => props.controller.end().catch(() => undefined)}
+                >
+                  <Icon name="stop" size={22} color={colors.parchment} />
+                </HeaderActionPill>
+                <HeaderActionPill
+                  size={56}
+                  accessibilityLabel={session.mode === 'paused' ? 'Resume focus session' : 'Pause focus session'}
+                  style={styles.focusActionIconButton}
+                  onPress={() => props.controller.pauseOrResume().catch(() => undefined)}
+                >
+                  <Icon name={session.mode === 'paused' ? 'play' : 'pause'} size={22} color={colors.parchment} />
+                </HeaderActionPill>
+                <HeaderActionPill
+                  size={56}
+                  accessibilityLabel={soundscapeEnabled ? 'Turn Focus soundscape off' : 'Turn Focus soundscape on'}
+                  style={styles.focusActionIconButton}
+                  onPress={() => setSoundscapeEnabled(!soundscapeEnabled)}
+                >
+                  <Icon name={soundscapeEnabled ? 'sound' : 'soundOff'} size={22} color={colors.parchment} />
+                </HeaderActionPill>
+              </HStack>
+            </View>
+          </Pressable>
     </Modal>
   );
 }

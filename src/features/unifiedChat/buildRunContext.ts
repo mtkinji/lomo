@@ -120,8 +120,18 @@ export function buildRunContext({
       .map(([objectType]) => objectType),
   );
   const contentMatches = participatingSources.filter((source) => overlapCount(targetQueryTokens, source) > 0);
+  const requiresPastDueActivities = /\b(?:past[- ]due|overdue)\b/i.test(actionContract?.targetQuery ?? prompt) &&
+    participating.has('todos');
+  const pastDueActivityMatches = requiresPastDueActivities
+    ? participatingSources.filter((source) =>
+        source.capabilityId === 'todos' &&
+        source.object.type === 'activity' &&
+        /\bpast-due\b/i.test(source.searchableText))
+    : [];
   const considered = !isAllMatching
     ? participatingSources
+    : requiresPastDueActivities
+      ? pastDueActivityMatches
     : matchingTypes.size > 0
       ? participatingSources.filter((source) => matchingTypes.has(source.object.type))
       : contentMatches.length > 0

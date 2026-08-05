@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { router, type Href } from '@/src/capabilities/games/navigation/gamesRouter';
 import { Radio, UsersRound } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { claimRemoteBankTableInvite } from '@/src/capabilities/games/remote/remoteBankClient';
+import {
+  claimRemoteBankTableInvite,
+  previewOpenGameTableInvite,
+  type OpenGameTablePreview,
+} from '@/src/capabilities/games/remote/remoteBankClient';
 import { normalizeJoinCode, tableMarkForCode } from '@/src/capabilities/games/remote/remoteBank';
 import { browseNearbyTables, nearbyTablesAvailable, type NearbyTable } from '@/src/capabilities/games/nearby/nearbyTables';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
@@ -34,11 +38,29 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nameHelp, setNameHelp] = useState<string | null>(null);
+  const [preview, setPreview] = useState<OpenGameTablePreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const nameInputRef = useRef<TextInput>(null);
   const didPrefillName = useRef(false);
   const cleanName = displayName.trim();
   const cleanCode = normalizeJoinCode(code);
   const nearbyAvailable = nearbyTablesAvailable();
+
+  useEffect(() => {
+    if (!visible || !token) {
+      setPreview(null);
+      setPreviewing(false);
+      return;
+    }
+    let active = true;
+    setPreviewing(true);
+    setError(null);
+    void previewOpenGameTableInvite({ token })
+      .then((next) => { if (active) setPreview(next); })
+      .catch(() => { if (active) setError('That table invitation is unavailable.'); })
+      .finally(() => { if (active) setPreviewing(false); });
+    return () => { active = false; };
+  }, [token, visible]);
 
   useEffect(() => {
     if (!visible) {
@@ -73,13 +95,21 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
     };
   }, [nearbyAvailable, token, visible]);
 
-  const canJoinToken = !!token && cleanName.length > 0 && !joining;
+  const canJoinToken = !!token && preview?.canJoin !== false && cleanName.length > 0 && !joining && !previewing;
   const canJoinCode = cleanCode.length === 6 && cleanName.length > 0 && !joining;
   const join = async (input: { token?: string; shortCode?: string }) => {
     if (!cleanName || joining) return;
     setJoining(true);
     setError(null);
     try {
+      const nextPreview = input.token && preview
+        ? preview
+        : await previewOpenGameTableInvite(input);
+      if (nextPreview.alreadyJoined) {
+        router.replace({ pathname: '/room/[sessionId]', params: { sessionId: nextPreview.sessionId, tableCode: nextPreview.tableCode } } as Href);
+        return;
+      }
+      if (!nextPreview.canJoin) throw new Error(nextPreview.inviteState);
       const result = await claimRemoteBankTableInvite({ ...input, displayName: cleanName });
       router.replace({ pathname: '/room/[sessionId]', params: { sessionId: result.sessionId, tableCode: result.tableCode } } as Href);
     } catch (next) {
@@ -104,6 +134,19 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
     void join({ shortCode: table.code });
   };
 
+  const gameName = preview?.gameKey === 'slanguage' ? 'Slanguage' : 'Bank';
+  const unavailableCopy = preview?.inviteState === 'full'
+    ? `That ${gameName} table is full.`
+    : preview?.inviteState === 'closed'
+      ? `That ${gameName} table has closed.`
+      : preview?.inviteState === 'expired'
+        ? `That ${gameName} invitation has expired.`
+        : null;
+  const returnToTable = () => {
+    if (!preview) return;
+    router.replace({ pathname: '/room/[sessionId]', params: { sessionId: preview.sessionId, tableCode: preview.tableCode } } as Href);
+  };
+
   return (
     <BottomDrawer
       visible={visible}
@@ -124,8 +167,8 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
         keyboardShouldPersistTaps="handled"
       >
         <BottomDrawerHeader
-          title={token ? 'Take your place' : 'Find a table nearby'}
-          subtitle={token ? 'Add the name everyone at the table will see.' : 'Searching while this sheet is open. Other players can’t see you.'}
+          title={token && preview ? `Join ${preview.hostDisplayName}’s ${gameName} table` : token && error ? 'Invitation unavailable' : token ? 'Opening invitation…' : 'Find a table nearby'}
+          subtitle={token && preview ? `${preview.participantCount} playing · ${Math.max(0, preview.capacity - preview.participantCount)} places open` : token && error ? 'Ask the host for a fresh link or table code.' : token ? 'Checking that the table is still open.' : 'Searching while this sheet is open. Other players can’t see you.'}
           variant="withClose"
           onClose={onClose}
           closeAccessibilityLabel="Close join table"
@@ -157,7 +200,9 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
           </View>}
         </View> : null}
 
-        <View style={styles.nameBlock}>
+        {unavailableCopy ? <Text accessibilityRole="alert" style={styles.error}>{unavailableCopy}</Text> : null}
+
+        {(!token || preview?.canJoin) ? <View style={styles.nameBlock}>
           <Text style={styles.label}>YOUR NAME</Text>
           <TextInput
             ref={nameInputRef}
@@ -177,9 +222,10 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
             style={styles.input}
           />
           {nameHelp ? <Text accessibilityRole="alert" style={styles.nameHelp}>{nameHelp}</Text> : null}
-        </View>
+        </View> : null}
 
-        {token ? <GameButton disabled={!canJoinToken} onPress={() => void join({ token })}>{joining ? 'Joining…' : 'Join table'}</GameButton> : null}
+        {token && preview?.alreadyJoined ? <GameButton onPress={returnToTable}>Return to table</GameButton> : null}
+        {token && preview?.canJoin ? <GameButton disabled={!canJoinToken} onPress={() => void join({ token })}>{joining ? 'Joining…' : 'Join table'}</GameButton> : null}
 
         {!token ? <View style={styles.section}>
           <Text style={styles.sectionTitle}>HAVE A CODE?</Text>

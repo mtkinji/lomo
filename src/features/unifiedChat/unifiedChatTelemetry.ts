@@ -67,11 +67,23 @@ export function buildUnifiedChatAgentPlanOutcomeTelemetry(
     requestClass: UnifiedChatRequestClass;
     participatingCapabilities: readonly UnifiedChatCapabilityId[];
   },
+  reliability?: {
+    attemptNumber: number;
+    recoveryAttempted: boolean;
+    terminalFailure: boolean;
+  },
 ): UnifiedChatTelemetryProperties {
   return {
     ...buildUnifiedChatAgentJudgmentTelemetry(judgment, source, fallback),
     outcome,
     failure_code: failureCode,
+    ...(reliability
+      ? {
+          attempt_number: reliability.attemptNumber,
+          recovery_attempted: reliability.recoveryAttempted,
+          terminal_failure: reliability.terminalFailure,
+        }
+      : {}),
   };
 }
 

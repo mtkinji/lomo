@@ -70,6 +70,10 @@ const isInvitationRole = (value: unknown): value is HouseholdInvitationRole => (
   value === 'caregiver' || value === 'child'
 );
 
+export function buildHouseholdInviteUrl(code: string): string {
+  return `https://go.kwilt.app/open/household/${encodeURIComponent(code.trim().toUpperCase())}`;
+}
+
 function parseSnapshot(value: unknown): HouseholdSnapshot {
   if (!value || typeof value !== 'object') throw new Error('Invalid Household snapshot');
   const candidate = value as Partial<HouseholdSnapshot>;

@@ -21,6 +21,7 @@ import {
   type QuickAddPlaceRecommendation,
 } from './useQuickAddDockController';
 import { FloatingControlSurface } from './FloatingControlSurface';
+import { FloatingDockActionButton } from './FloatingDockActionButton';
 import { HapticsService } from '../../services/HapticsService';
 
 const QUICK_ADD_BAR_HEIGHT = 64;
@@ -93,6 +94,11 @@ type QuickAddDockProps = {
   floatingRightInsetPx?: number;
   /** Adds the tighter settled-state contact shadow to the collapsed floating surface. */
   collapsedSurfaceProminent?: boolean;
+  /** Optional contextual Chat action shown beside the embedded inline composer. */
+  onInlineChatPress?: () => void;
+  inlineChatAccessibilityLabel?: string;
+  /** Settled-state elevation shared by the embedded composer and contextual Chat action. */
+  inlineSurfaceProminent?: boolean;
   placeReceipt?: QuickAddPlaceRecommendation | null;
   onDismissPlaceReceipt?: () => void;
   onSetPlaceAlert?: () => void;
@@ -119,6 +125,9 @@ export function QuickAddDock({
   floatingHorizontalInsetPx = RESTING_COMPOSER_HORIZONTAL_INSET_PX,
   floatingRightInsetPx,
   collapsedSurfaceProminent = true,
+  onInlineChatPress,
+  inlineChatAccessibilityLabel = 'Open Chat',
+  inlineSurfaceProminent = true,
   placeReceipt,
   onDismissPlaceReceipt,
   onSetPlaceAlert,
@@ -310,11 +319,39 @@ export function QuickAddDock({
               onReview={onReviewPlaceReceipt}
             />
           ) : null}
-          <View style={styles.collapsedInputShell}>
-            <CollapsedQuickAddTrigger
-              placeholder={placeholder}
-              onPress={() => setIsFocused(true)}
-            />
+          <View style={onInlineChatPress ? styles.inlineDockRow : null}>
+            <FloatingControlSurface
+              testID="quick-add-collapsed-surface"
+              borderRadius={999}
+              isProminent={inlineSurfaceProminent}
+              variant="embedded"
+              style={[
+                styles.collapsedInputShell,
+                styles.inlineCollapsedInputShell,
+                onInlineChatPress ? styles.inlineCollapsedInputShellWithAction : null,
+              ]}
+              surfaceStyle={styles.inlineCollapsedSurface}
+            >
+              <CollapsedQuickAddTrigger
+                placeholder={placeholder}
+                onPress={() => setIsFocused(true)}
+              />
+            </FloatingControlSurface>
+            {onInlineChatPress ? (
+              <FloatingDockActionButton
+                testID="quick-add-inline-chat"
+                accessibilityLabel={inlineChatAccessibilityLabel}
+                accessibilityHint="Opens Chat with this Goal as context"
+                icon="navAiGuide"
+                iconTestID="quick-add-inline-chat-icon"
+                isProminent={inlineSurfaceProminent}
+                onPress={onInlineChatPress}
+                size={RESTING_COMPOSER_HEIGHT_PX}
+                surfaceVariant="embedded"
+                style={styles.inlineChatButton}
+                surfaceStyle={styles.inlineCollapsedSurface}
+              />
+            ) : null}
           </View>
         </View>
       )}
@@ -781,6 +818,30 @@ const styles = StyleSheet.create({
   },
   collapsedInputShell: {
     width: '100%',
+  },
+  inlineCollapsedInputShell: {
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+  },
+  inlineCollapsedSurface: {
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  inlineDockRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+  },
+  inlineCollapsedInputShellWithAction: {
+    flex: 1,
+    width: 'auto',
+  },
+  inlineChatButton: {
+    width: RESTING_COMPOSER_HEIGHT_PX,
+    height: RESTING_COMPOSER_HEIGHT_PX,
   },
   collapsedPressable: {
     width: '100%',

@@ -100,8 +100,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import { MasonryTwoColumn } from '../../ui/layout/MasonryTwoColumn';
 import { estimateGoalMasonryTileHeight, GoalMasonryTile } from '../../ui/GoalMasonryTile';
+import { RESTING_COMPOSER_HORIZONTAL_INSET_PX } from '../../ui/layout/restingComposerMetrics';
 import { GoalsInventorySearchBar } from './GoalsInventorySearchBar';
 import { useGoalsInventorySearchAndSort } from './useGoalsInventorySearchAndSort';
+import { FloatingControlSurface } from '../activities/FloatingControlSurface';
+import { UnifiedChatDrawer } from '../unifiedChat/UnifiedChatDrawer';
+import type { UnifiedChatLaunchContext } from '../unifiedChat/launchContext';
+
+const GOALS_CHAT_BUTTON_SIZE_PX = 48;
 
 type GoalDraftEntry = {
   arcId: string;
@@ -183,6 +189,8 @@ export function GoalsScreen() {
   );
   const hasGoals = visibleGoals.length > 0;
   const [goalCoachVisible, setGoalCoachVisible] = React.useState(false);
+  const [goalChatVisible, setGoalChatVisible] = React.useState(false);
+  const [goalChatThreadId, setGoalChatThreadId] = React.useState<string | null>(null);
   const [goalCoachPrefill, setGoalCoachPrefill] = React.useState<{
     title?: string;
     description?: string;
@@ -414,6 +422,20 @@ export function GoalsScreen() {
   const handlePressNewGoal = React.useCallback(() => {
     setGoalCoachPrefill({});
     setGoalCoachVisible(true);
+  }, []);
+
+  const goalsChatLaunchContext = React.useMemo<UnifiedChatLaunchContext>(() => ({
+    capabilityId: 'goals',
+    surface: 'inventory',
+    returnTarget: {
+      name: 'MainTabs',
+      params: { screen: 'GoalsTab', params: { screen: 'GoalsList' } },
+    },
+  }), []);
+
+  const handleOpenGoalsChat = React.useCallback(() => {
+    void HapticsService.trigger('canvas.selection');
+    setGoalChatVisible(true);
   }, []);
 
   React.useEffect(() => {
@@ -657,6 +679,35 @@ export function GoalsScreen() {
           />
         )}
       </CanvasScrollView>
+      <Pressable
+        testID="e2e.goals.chat"
+        accessibilityRole="button"
+        accessibilityLabel="Chat about goals"
+        accessibilityHint="Opens Chat with the current Goals context"
+        onPress={handleOpenGoalsChat}
+        style={({ pressed }) => [
+          styles.goalChatButton,
+          pressed ? styles.goalChatButtonPressed : null,
+        ]}
+      >
+        <FloatingControlSurface
+          borderRadius={GOALS_CHAT_BUTTON_SIZE_PX / 2}
+          isProminent
+          style={styles.goalChatSurface}
+          surfaceStyle={styles.goalChatSurfaceContent}
+        >
+          <Icon name="navAiGuide" size={19} color={colors.textPrimary} />
+        </FloatingControlSurface>
+      </Pressable>
+      <UnifiedChatDrawer
+        visible={goalChatVisible}
+        onClose={() => setGoalChatVisible(false)}
+        launchContext={goalsChatLaunchContext}
+        scopeLabel="All goals"
+        source="goals_inventory_contextual_drawer"
+        threadId={goalChatThreadId}
+        onThreadIdChange={setGoalChatThreadId}
+      />
       <GoalCoachDrawer
         visible={goalCoachVisible}
         onClose={() => setGoalCoachVisible(false)}
@@ -1675,6 +1726,28 @@ const styles = StyleSheet.create({
   },
   searchRevealSlot: {
     marginBottom: spacing.md,
+  },
+  goalChatButton: {
+    position: 'absolute',
+    right: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+    bottom: spacing.xl + spacing.sm,
+    width: GOALS_CHAT_BUTTON_SIZE_PX,
+    height: GOALS_CHAT_BUTTON_SIZE_PX,
+    zIndex: 60,
+    elevation: 60,
+  },
+  goalChatButtonPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.97 }],
+  },
+  goalChatSurface: {
+    width: GOALS_CHAT_BUTTON_SIZE_PX,
+    height: GOALS_CHAT_BUTTON_SIZE_PX,
+  },
+  goalChatSurfaceContent: {
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   menuItem: {
     flexDirection: 'row',

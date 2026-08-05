@@ -1,7 +1,11 @@
 module.exports = {
   preset: 'jest-expo',
   testMatch: ['**/?(*.)+(test).[tj]s?(x)'],
-  testPathIgnorePatterns: ['<rootDir>/.worktrees/'],
+  testPathIgnorePatterns: [
+    '<rootDir>/.worktrees/',
+    // Pixel Pets is a separate prototype whose suites use Node's test runner.
+    '<rootDir>/prototypes/pixel-pets/',
+  ],
   modulePathIgnorePatterns: ['<rootDir>/.worktrees/'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   // We use TS path aliases like @/...
@@ -69,4 +73,3 @@ module.exports = {
     },
   },
 };
-

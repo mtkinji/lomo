@@ -2,6 +2,7 @@ import type { AppControlOutcome } from '@kwilt/agent-runtime';
 import type { UnifiedChatRepository } from './threadRepository';
 import { transitionRun } from './runStateMachine';
 import type { UnifiedChatRun } from './types';
+import { getUnifiedChatFailureCopy } from './chatFailure';
 
 type FinalizationRepository = Pick<UnifiedChatRepository, 'transitionRunStatus'>;
 
@@ -34,6 +35,8 @@ export async function finalizeUnifiedChatTurnPhase({
       visibility: 'user',
       label: outcome.type === 'answer'
         ? 'Response ready'
+        : outcome.type === 'clarification'
+          ? 'Clarification needed'
         : outcome.type === 'applied'
           ? 'Change applied'
           : outcome.type === 'native_handoff'
@@ -108,6 +111,10 @@ export async function finalizeUnifiedChatTurnFailurePhase({
     throw error('Response stopped.');
   }
 
+  const failureCopy = getUnifiedChatFailureCopy({
+    failureCode,
+    participatingCapabilities: run.participatingCapabilities,
+  });
   transitionRun(run, 'failed', run.version);
   await repository.transitionRunStatus({
     runId: run.id,
@@ -121,7 +128,8 @@ export async function finalizeUnifiedChatTurnFailurePhase({
       type: 'response',
       status: 'failed',
       visibility: 'user',
-      label: 'Response interrupted',
+      label: failureCopy.label,
+      detail: failureCopy.detail,
     },
   });
   throw error(publicErrorMessage);

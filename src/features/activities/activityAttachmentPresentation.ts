@@ -4,6 +4,9 @@ export type ActivityAttachmentPresentation = {
   kind: ActivityAttachment['kind'];
   kindLabel: string;
   name: string;
+  descriptionLabel: string;
+  mediaIcon: 'image' | 'play' | 'mic' | 'fileText';
+  showsPhotoThumbnail: boolean;
   statusLabel: 'Uploading' | 'Failed' | 'Uploaded';
   isOpenable: boolean;
   isFailed: boolean;
@@ -12,6 +15,11 @@ export type ActivityAttachmentPresentation = {
   createdAtLabel: string | null;
   uploadError: string | null;
 };
+
+function compactFileType(fileName: string, kindLabel: string): string {
+  const extension = /\.([a-z0-9]{1,5})$/i.exec(fileName.trim())?.[1];
+  return extension ? extension.toUpperCase() : kindLabel;
+}
 
 function formatBytes(bytes: number | null): string | null {
   if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return null;
@@ -28,7 +36,7 @@ function formatDuration(seconds: number | null): string | null {
   const rounded = Math.round(seconds);
   const minutes = Math.floor(rounded / 60);
   const remainder = rounded % 60;
-  return minutes > 0 ? `${minutes}:${String(remainder).padStart(2, '0')}` : `${remainder}s`;
+  return `${minutes}:${String(remainder).padStart(2, '0')}`;
 }
 
 export function buildActivityAttachmentPresentation(
@@ -44,17 +52,39 @@ export function buildActivityAttachmentPresentation(
         ? 'Audio'
         : 'Document';
   const createdAt = new Date(attachment.createdAt);
+  const name = attachment.fileName.trim() || 'Attachment';
+  const sizeLabel = formatBytes(attachment.sizeBytes);
+  const durationLabel = formatDuration(attachment.durationSeconds);
+  const uploadError = attachment.uploadError?.trim() || null;
+  const fileTypeLabel = compactFileType(name, kindLabel);
+  const preferredDetail = attachment.kind === 'audio' || attachment.kind === 'video'
+    ? durationLabel ?? sizeLabel
+    : sizeLabel;
+  const descriptionLabel = status === 'uploading'
+    ? 'Uploading'
+    : status === 'failed'
+      ? uploadError ? `Failed · ${uploadError}` : 'Upload failed'
+      : [fileTypeLabel, preferredDetail].filter(Boolean).join(' · ');
 
   return {
     kind: attachment.kind,
     kindLabel,
-    name: attachment.fileName.trim() || 'Attachment',
+    name,
+    descriptionLabel,
+    mediaIcon: attachment.kind === 'photo'
+      ? 'image'
+      : attachment.kind === 'video'
+        ? 'play'
+        : attachment.kind === 'audio'
+          ? 'mic'
+          : 'fileText',
+    showsPhotoThumbnail: attachment.kind === 'photo' && status === 'uploaded',
     statusLabel: status === 'uploading' ? 'Uploading' : status === 'failed' ? 'Failed' : 'Uploaded',
     isOpenable: status === 'uploaded',
     isFailed: status === 'failed',
-    sizeLabel: formatBytes(attachment.sizeBytes),
-    durationLabel: formatDuration(attachment.durationSeconds),
+    sizeLabel,
+    durationLabel,
     createdAtLabel: Number.isNaN(createdAt.getTime()) ? null : createdAt.toLocaleString(locale),
-    uploadError: attachment.uploadError?.trim() || null,
+    uploadError,
   };
 }

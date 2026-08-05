@@ -85,6 +85,14 @@ function formatDate(dateValue: string | null | undefined): string | null {
   }).format(date);
 }
 
+function localDateKey(date: Date): string {
+  return [
+    String(date.getFullYear()).padStart(4, '0'),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 function formatDateRange(startValue: string, endValue: string): string {
   const start = new Date(`${startValue}T12:00:00.000Z`);
   const end = new Date(`${endValue}T12:00:00.000Z`);
@@ -229,6 +237,19 @@ export const arcsChatAdapter: CapabilityChatAdapter<ArcsChatSnapshot> = {
 function activityEvidence(activity: Activity, goalById: ReadonlyMap<string, Goal>): CapabilityEvidenceSource {
   const status = sentenceCase(activity.status);
   const scheduled = formatDate(activity.scheduledDate ?? activity.scheduledAt);
+  const scheduledKey = activity.scheduledDate ?? (
+    activity.scheduledAt && !Number.isNaN(Date.parse(activity.scheduledAt))
+      ? localDateKey(new Date(activity.scheduledAt))
+      : null
+  );
+  const todayKey = localDateKey(new Date());
+  const isPastDue = Boolean(
+    scheduledKey &&
+    scheduledKey < todayKey &&
+    activity.status !== 'done' &&
+    activity.status !== 'skipped' &&
+    activity.status !== 'cancelled'
+  );
   const goalTitle = activity.goalId ? goalById.get(activity.goalId)?.title : null;
   return {
     capabilityId: 'todos',
@@ -245,6 +266,7 @@ function activityEvidence(activity: Activity, goalById: ReadonlyMap<string, Goal
       goalTitle,
       status,
       scheduled,
+      isPastDue ? 'past-due past due overdue' : null,
       activity.steps?.map((step) => step.title).join(' '),
     ]),
     summary: compact([

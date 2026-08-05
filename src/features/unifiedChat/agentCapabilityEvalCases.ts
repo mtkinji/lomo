@@ -20,6 +20,8 @@ export type AppControlEvalCase = {
   id: string;
   scenarioId:
     | 'create-recurring-reminded-activity'
+    | 'create-reminded-calendar-activity'
+    | 'bulk-clean-past-due-activities'
     | 'read-tomorrow-plan'
     | 'create-walking-goal-and-routine'
     | 'future-screen-time-control';
@@ -32,6 +34,42 @@ const standingCases = <const Cases extends readonly AppControlEvalCase[]>(cases:
 
 /** The small, user-facing command matrix that defines the conversational-control MVP. */
 export const APP_CONTROL_EVAL_CASES = standingCases([
+  {
+    id: 'furnace-filter-calendar-primary', scenarioId: 'create-reminded-calendar-activity',
+    prompt: 'Remind me to replace the furnace air filter in 10 months, and put it on my calendar.',
+    expectedOperations: ['activities.capture'],
+    expectedOutcome: 'proposal_or_receipt',
+  },
+  {
+    id: 'furnace-filter-calendar-paraphrase', scenarioId: 'create-reminded-calendar-activity',
+    prompt: 'In ten months, remind me to change the furnace filter and add it to my calendar.',
+    expectedOperations: ['activities.capture'],
+    expectedOutcome: 'proposal_or_receipt',
+  },
+  {
+    id: 'air-filter-calendar-paraphrase', scenarioId: 'create-reminded-calendar-activity',
+    prompt: 'Make a to-do to replace the air filter ten months from now, with a reminder and calendar placement.',
+    expectedOperations: ['activities.capture'],
+    expectedOutcome: 'proposal_or_receipt',
+  },
+  {
+    id: 'past-due-cleanup-primary', scenarioId: 'bulk-clean-past-due-activities',
+    prompt: 'Look through all my past-due to-dos and remove their due dates and reminders.',
+    expectedOperations: ['activities.update'],
+    expectedOutcome: 'proposal_or_receipt',
+  },
+  {
+    id: 'past-due-cleanup-paraphrase', scenarioId: 'bulk-clean-past-due-activities',
+    prompt: 'Clear the dates and reminders from every overdue to-do.',
+    expectedOperations: ['activities.update'],
+    expectedOutcome: 'proposal_or_receipt',
+  },
+  {
+    id: 'overdue-cleanup-paraphrase', scenarioId: 'bulk-clean-past-due-activities',
+    prompt: 'For all overdue tasks, remove both their due date and any reminder.',
+    expectedOperations: ['activities.update'],
+    expectedOutcome: 'proposal_or_receipt',
+  },
   {
     id: 'trash-reminder-primary', scenarioId: 'create-recurring-reminded-activity',
     prompt: 'Create a to-do called Take out the trash and remind me every Tuesday at 8 PM.',

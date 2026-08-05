@@ -122,6 +122,9 @@ import {
 import { ActivityDraftDetailFields, type ActivityDraft } from '../activities/ActivityDraftDetailFields';
 import { findActivityCoverImageWithAI } from '../activities/activityCoverImage';
 import { QuickAddDock } from '../activities/QuickAddDock';
+import { useFloatingControlElevation } from '../activities/useFloatingControlElevation';
+import { UnifiedChatDrawer } from '../unifiedChat/UnifiedChatDrawer';
+import type { UnifiedChatLaunchContext } from '../unifiedChat/launchContext';
 import { RepeatInfoMenu } from '../activities/RepeatInfoMenu';
 import {
   resolveInitialDueDateForPicker,
@@ -293,6 +296,8 @@ export function GoalDetailScreen() {
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
   const [activityCoachVisible, setActivityCoachVisible] = useState(false);
+  const [goalChatVisible, setGoalChatVisible] = useState(false);
+  const [goalChatThreadId, setGoalChatThreadId] = useState<string | null>(null);
   // Share UX: header share opens the Kwilt accountability drawer.
 
   // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
@@ -304,6 +309,11 @@ export function GoalDetailScreen() {
   const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
 
   const scrollY = useRef(new Animated.Value(0)).current;
+  const {
+    isProminent: goalDockProminent,
+    markScrolling: markGoalDockScrolling,
+    markSettled: markGoalDockSettled,
+  } = useFloatingControlElevation();
   const sheetTopRef = useRef<View | null>(null);
   const [sheetTopAtRestWindowY, setSheetTopAtRestWindowY] = useState<number | null>(null);
 
@@ -385,6 +395,18 @@ export function GoalDetailScreen() {
   const quickAddBottomPadding = Math.max(insets.bottom, spacing.sm);
   const quickAddInitialReservedHeightPx = 0;
   const quickAddToastBottomOffsetPx = quickAddBottomPadding + spacing.lg;
+  const goalChatLaunchContext = useMemo<UnifiedChatLaunchContext>(() => ({
+    capabilityId: 'goals',
+    surface: 'detail',
+    object: { type: 'goal', id: goalId },
+    returnTarget: {
+      name: 'MainTabs',
+      params: {
+        screen: 'GoalsTab',
+        params: { screen: 'GoalDetail', params: { goalId } },
+      },
+    },
+  }), [goalId]);
   const [quickAddReminderSheetVisible, setQuickAddReminderSheetVisible] = useState(false);
   const [quickAddDueDateSheetVisible, setQuickAddDueDateSheetVisible] = useState(false);
   const [quickAddRepeatSheetVisible, setQuickAddRepeatSheetVisible] = useState(false);
@@ -2215,6 +2237,15 @@ export function GoalDetailScreen() {
           setActivePartnerPromptTrigger(null);
         }}
       />
+      <UnifiedChatDrawer
+        visible={goalChatVisible}
+        onClose={() => setGoalChatVisible(false)}
+        launchContext={goalChatLaunchContext}
+        scopeLabel={goal.title}
+        source="goal_contextual_drawer"
+        threadId={goalChatThreadId}
+        onThreadIdChange={setGoalChatThreadId}
+      />
       <CheckinApprovalSheet
         visible={checkinApprovalSheetVisible}
         draft={pendingDraft}
@@ -2664,7 +2695,13 @@ export function GoalDetailScreen() {
               keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
-              onScrollBeginDrag={() => Keyboard.dismiss()}
+              onScrollBeginDrag={() => {
+                Keyboard.dismiss();
+                markGoalDockScrolling();
+              }}
+              onScrollEndDrag={markGoalDockSettled}
+              onMomentumScrollBegin={markGoalDockScrolling}
+              onMomentumScrollEnd={markGoalDockSettled}
               onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
                 useNativeDriver: false,
               })}
@@ -2878,6 +2915,9 @@ export function GoalDetailScreen() {
                       <View style={{ marginTop: spacing.md }}>
                         <QuickAddDock
                           placement="inline"
+                          onInlineChatPress={() => setGoalChatVisible(true)}
+                          inlineChatAccessibilityLabel="Chat about this goal"
+                          inlineSurfaceProminent={goalDockProminent}
                           value={quickAddTitle}
                           onChangeText={setQuickAddTitle}
                           inputRef={quickAddInputRef}
@@ -2930,6 +2970,9 @@ export function GoalDetailScreen() {
                       <View style={{ marginTop: spacing.md }}>
                         <QuickAddDock
                           placement="inline"
+                          onInlineChatPress={() => setGoalChatVisible(true)}
+                          inlineChatAccessibilityLabel="Chat about this goal"
+                          inlineSurfaceProminent={goalDockProminent}
                           value={quickAddTitle}
                           onChangeText={setQuickAddTitle}
                           inputRef={quickAddInputRef}

@@ -1,5 +1,9 @@
 import { discoverAgentTools, type AgentToolCall, type AgentToolDefinition, type AgentToolExecutionResult, type AgentToolLoopEvent } from '@kwilt/agent-runtime';
-import { sendCoachChat as defaultSendCoachChat, type CoachChatTurn } from '../../services/ai';
+import {
+  KwiltAiQuotaExceededError,
+  sendCoachChat as defaultSendCoachChat,
+  type CoachChatTurn,
+} from '../../services/ai';
 import { AnalyticsEvent, type AnalyticsEventName } from '../../services/analytics/events';
 import type { UnifiedChatTelemetryProperties } from './unifiedChatTelemetry';
 import { buildUnifiedChatToolTelemetry } from './unifiedChatTelemetry';
@@ -50,6 +54,19 @@ type SendCoachChat = typeof defaultSendCoachChat;
 type ToolProvider = ReturnType<typeof createUnifiedChatToolProvider>;
 type ActionResponse = ReturnType<typeof parseActivityActionResponse>;
 
+function isRecoverableModelFailure(error: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return false;
+  if (error instanceof KwiltAiQuotaExceededError) return false;
+  if (typeof error !== 'object' || error === null) return true;
+  const candidate = error as { name?: unknown; code?: unknown; message?: unknown };
+  if (candidate.name === 'AbortError' || candidate.code === 'quota_exceeded') return false;
+  const message = typeof candidate.message === 'string' ? candidate.message.toLowerCase() : '';
+  return !message.includes('quota exceeded') &&
+    !message.includes('credits exhausted') &&
+    !message.includes('unauthorized') &&
+    !message.includes('forbidden');
+}
+
 export function buildAgentJudgmentGrounding(agentJudgment: AgentJudgment | null): string | null {
   if (!agentJudgment) return null;
   const constraints = agentJudgment.constraints.map((constraint) => constraint.sourceText).join('; ') || 'none';
@@ -79,6 +96,13 @@ export function selectAgentJudgmentTools(
   return tools.filter((tool) => selectedToolIds.has(tool.id));
 }
 
+function selectAgentJudgmentWriteTools(
+  tools: readonly AgentToolDefinition[],
+  agentJudgment: AgentJudgment | null,
+): AgentToolDefinition[] {
+  return selectAgentJudgmentTools(tools, agentJudgment).filter((tool) => tool.effect === 'write');
+}
+
 export function buildActionTargetGrounding(
   action: UnifiedChatTurnContract['action'],
 ): string | null {
@@ -89,6 +113,29 @@ export function buildActionTargetGrounding(
     'Stage the typed write for every resolved targetId, either as individual calls or in a target collection supported by the tool schema.',
     'Do not stop after a partial sample. If any target cannot be prepared, leave the whole batch unsubmitted so Kwilt can report the boundary truthfully.',
   ].join(' ');
+}
+
+export function buildTodoActionGrounding(isAllMatching: boolean): string[] {
+  return [
+    isAllMatching
+      ? 'Prepare one To-do operation for every resolved matching Activity. Do not stop after one item or silently narrow the target set.'
+      : 'Prepare at most one To-do operation. This request is already inside Kwilt; never ask which app or system owns the To-do.',
+    'For explicit creation, identify the title and safe record fields; the native Quick Add pipeline owns steps, triggers, details, and cover-image enrichment under its existing permissions and entitlements. For an update, copy targetId and expectedUpdatedAt exactly from the selected evidence machine reference. Ask one short clarification only when the requested target or field value is genuinely unresolved. Do not invent sharing, spending, Screen Time enforcement, or effects outside the Activity contract.',
+    'For a new recurring reminder, call activities.capture once with the title, reminderLocalTime in 24-hour HH:mm form, and repeatWeekdays using Sunday=0 through Saturday=6. The Activity capability converts that local intent into its durable reminderAt and recurrence fields. Never split a new recurring reminder into update calls that require an Activity id, and never infer a clock time from morning, afternoon, evening, or night.',
+  ];
+}
+
+export function buildCreateCalendarContinuation({
+  prompt,
+  stagedCreate,
+  stagedPlanPlacement,
+}: {
+  prompt: string;
+  stagedCreate: boolean;
+  stagedPlanPlacement: boolean;
+}): string | null {
+  if (!stagedCreate || stagedPlanPlacement || !/\bcalendar\b/i.test(prompt)) return null;
+  return 'After it’s created, tell me the time and duration you want. I’ll use the new To-do’s authoritative record to prepare its reminder and calendar placement in Plan.';
 }
 
 function groundingSummary(
@@ -108,10 +155,7 @@ function groundingSummary(
   const actionTargetGrounding = buildActionTargetGrounding(turnContract?.action ?? null);
   if (actionTargetGrounding) parts.push(actionTargetGrounding);
   if (requestClass === 'capability_action' && participatingCapabilities.includes('todos')) {
-    parts.push(
-      'Prepare at most one To-do operation. This request is already inside Kwilt; never ask which app or system owns the To-do. For explicit creation, identify the title and safe record fields; the native Quick Add pipeline owns steps, triggers, details, and cover-image enrichment under its existing permissions and entitlements. For an update, when exactly one selected Activity matches the user-named To-do, prepare the requested low-risk update instead of asking for details that are not required by the Activity field being changed. Copy targetId and expectedUpdatedAt exactly from that selected evidence machine reference. Ask one short clarification only when multiple selected Activities plausibly match or the requested field value is genuinely unresolved. Do not invent sharing, spending, Screen Time enforcement, or effects outside the Activity contract.',
-      'For a new recurring reminder, call activities.capture once with the title, reminderLocalTime in 24-hour HH:mm form, and repeatWeekdays using Sunday=0 through Saturday=6. The Activity capability converts that local intent into its durable reminderAt and recurrence fields. Never split a new recurring reminder into update calls that require an Activity id, and never infer a clock time from morning, afternoon, evening, or night.',
-    );
+    parts.push(...buildTodoActionGrounding(turnContract?.action?.targetScope === 'all_matching'));
   }
   if (
     (requestClass === 'capability_action' || requestClass === 'native_control') &&
@@ -125,6 +169,11 @@ function groundingSummary(
     if (participatingCapabilities.includes('goals')) {
       parts.push(
         'When the user asks for a new Goal and also describes a daily follow-through habit, call goals.create once with the bounded Goal targetDate and a followUpActivity containing only its title and daily repeat rule. Do not invent an Arc or call activities.capture before the reviewed Goal exists. After approval, Kwilt will offer the Activity using the authoritative created Goal id.',
+      );
+    }
+    if (participatingCapabilities.includes('plan')) {
+      parts.push(
+        'plan.schedule_activity may target only an existing authoritative Activity id from bounded evidence. If this same request is creating a new To-do, stage the To-do creation first and do not invent its future id, calendar time, or duration. After the native create receipt exists, offer calendar placement as the next Plan-owned action.',
       );
     }
     if (participatingCapabilities.includes('screenTime')) {
@@ -226,6 +275,7 @@ export type ExecuteUnifiedChatTurnPhaseInput = {
     properties?: UnifiedChatTelemetryProperties,
   ) => void;
   onThreadTitleUpdated?: (thread: UnifiedChatThreadAggregate['thread']) => void;
+  onRecoveryAttempted?: () => void;
   now?: () => Date;
   setFailureCode: (code: string) => void;
   error: (message: string) => Error;
@@ -239,6 +289,7 @@ export type ExecutedUnifiedChatTurn = {
   runtimeToolEvents: readonly AgentToolLoopEvent[];
   artifactDraft: UnifiedChatArtifactDraft | null;
   actionOutcomeTruth: UnifiedChatActionOutcomeTruth;
+  recoveryAttempted: boolean;
 };
 
 export type CompletedUnifiedChatTurn = {
@@ -286,7 +337,8 @@ export async function executeUnifiedChatTurnPhase(
   });
   const coveredTargetIds = new Set<string>();
   const expectedTargetIds = new Set(input.context.evidence.map((item) => item.object.id));
-  const executeTurnTool = (
+  let latestNeedsInputPrompt: string | null = null;
+  const executeTurnTool = async (
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ): Promise<AgentToolExecutionResult> => {
@@ -298,14 +350,17 @@ export async function executeUnifiedChatTurnPhase(
     const inferredTargetDate = call.toolId === 'goals.create' && call.arguments.targetDate == null
       ? inferredGoalTargetDate(input.prompt, input.now?.() ?? new Date())
       : null;
-    return toolProvider.execute(
+    const result = await toolProvider.execute(
       inferredTargetDate
         ? { ...call, arguments: { ...call.arguments, targetDate: inferredTargetDate } }
         : call,
       tool,
     );
+    if (result.status === 'needs_input') latestNeedsInputPrompt = result.prompt;
+    return result;
   };
   let runtimeToolEvents: readonly AgentToolLoopEvent[] = [];
+  let recoveryAttempted = false;
   const runtimeTools = usesRuntimeToolLoop
     ? selectAgentJudgmentTools(discoverAgentTools(UNIFIED_CHAT_TOOL_CATALOG, {
         capabilityIds: input.requestPolicy.participatingCapabilities,
@@ -313,6 +368,7 @@ export async function executeUnifiedChatTurnPhase(
         providerAvailability: { server: true, device: true, connector: true, channel: false },
       }).map((entry) => entry.tool), input.agentJudgment)
     : [];
+  const plannedWriteTools = selectAgentJudgmentWriteTools(runtimeTools, input.agentJudgment);
   const supportsTypedAction = input.requestPolicy.requestClass !== 'capability_action' ||
     input.requestPolicy.participatingCapabilities.includes('todos') || usesRuntimeToolLoop;
   if (input.requestPolicy.clarification || !supportsTypedAction) {
@@ -422,11 +478,14 @@ export async function executeUnifiedChatTurnPhase(
     ...(usesRuntimeToolLoop
       ? {
           runtimeTools,
+          ...(input.requestPolicy.requestClass === 'capability_action' && plannedWriteTools.length > 0
+            ? { runtimeToolChoice: 'required' as const }
+            : {}),
           executeRuntimeTool: executeTurnTool,
           runtimeMaxRounds: 4,
           runtimeMaxToolCalls: Math.max(12, input.context.evidence.length + 4),
           onRuntimeToolLoopComplete: (result: { events: readonly AgentToolLoopEvent[] }) => {
-            runtimeToolEvents = result.events;
+            runtimeToolEvents = [...runtimeToolEvents, ...result.events];
           },
         }
       : {}),
@@ -485,8 +544,52 @@ export async function executeUnifiedChatTurnPhase(
       response = clientActions.length === 1
         ? `I prepared “${clientActions[0].title}” for native review.`
         : `I prepared ${clientActions.length} native actions for review.`;
+    } else if (isRecoverableModelFailure(error, input.signal)) {
+      recoveryAttempted = true;
+      input.onRecoveryAttempted?.();
+      response = await input.sendCoachChat(input.history, {
+        ...modelOptions,
+        aiJob: 'lightweight_helper',
+        creditPolicy: 'internal_helper',
+        conversationTitlePolicy: undefined,
+        launchContextSummary: [
+          modelOptions.launchContextSummary,
+          'Recovery contract: the first generation attempt failed before producing a usable response. ' +
+          'Complete the same user request now. Preserve all evidence, tool, and structured-output boundaries.',
+        ].filter(Boolean).join('\n\n'),
+      });
     } else {
       throw error;
+    }
+  }
+  if (
+    input.requestPolicy.requestClass === 'capability_action' &&
+    plannedWriteTools.length > 0 &&
+    toolProvider.proposals().length === 0 &&
+    toolProvider.clientActions().length === 0 &&
+    !latestNeedsInputPrompt
+  ) {
+    recoveryAttempted = true;
+    input.onRecoveryAttempted?.();
+    input.setFailureCode('action_recovery_failed');
+    try {
+      response = await input.sendCoachChat(input.history, {
+        ...modelOptions,
+        aiJob: 'lightweight_helper',
+        creditPolicy: 'internal_helper',
+        runtimeTools: plannedWriteTools,
+        runtimeToolChoice: 'required',
+        conversationTitlePolicy: undefined,
+        launchContextSummary: [
+          modelOptions.launchContextSummary,
+          'Recovery contract: the first attempt did not stage the promised typed change. ' +
+          'Call one of the supplied write tools now with only authorized evidence and exact constraints. ' +
+          'If required input is missing, let the tool return needs_input. Never claim completion in prose.',
+        ].filter(Boolean).join('\n\n'),
+      });
+    } catch {
+      // The truthful outcome projector below converts an exhausted recovery
+      // into a useful clarification without claiming that work was staged.
     }
   }
   for (const record of buildUnifiedChatToolTelemetry(runtimeToolEvents)) {
@@ -507,9 +610,68 @@ export async function executeUnifiedChatTurnPhase(
     }
   }
 
-  const parsedActionResponse = expectsActivityProposal
+  let parsedActionResponse = expectsActivityProposal
     ? parseActivityActionResponse(response)
     : null;
+  let groundedAnswer = expectsGroundedAnswer ? parseGroundedAnswer(response) : null;
+  let artifactResponse = expectsArtifactResponse ? parseAssistantArtifactResponse(response) : null;
+  const malformedStructuredResponse =
+    (expectsActivityProposal && !parsedActionResponse) ||
+    (expectsGroundedAnswer && !groundedAnswer) ||
+    (expectsArtifactResponse && !artifactResponse);
+  if (malformedStructuredResponse && !input.signal?.aborted) {
+    recoveryAttempted = true;
+    input.onRecoveryAttempted?.();
+    input.setFailureCode(
+      expectsActivityProposal
+        ? 'action_response_invalid'
+        : expectsGroundedAnswer
+          ? 'grounded_response_invalid'
+          : 'artifact_response_invalid',
+    );
+    try {
+      response = await input.sendCoachChat(input.history, {
+        ...modelOptions,
+        aiJob: 'lightweight_helper',
+        creditPolicy: 'internal_helper',
+        conversationTitlePolicy: undefined,
+        launchContextSummary: [
+          modelOptions.launchContextSummary,
+          'Recovery contract: the first response did not satisfy the required structured-output schema. ' +
+          'Return the complete response in that exact schema now. Preserve the same evidence and safety boundaries.',
+        ].filter(Boolean).join('\n\n'),
+      });
+    } catch {
+      // The validation below preserves the typed-output boundary when repair is exhausted.
+    }
+    parsedActionResponse = expectsActivityProposal ? parseActivityActionResponse(response) : null;
+    groundedAnswer = expectsGroundedAnswer ? parseGroundedAnswer(response) : null;
+    artifactResponse = expectsArtifactResponse ? parseAssistantArtifactResponse(response) : null;
+  }
+  if (
+    !expectsActivityProposal && !expectsGroundedAnswer && !expectsArtifactResponse &&
+    input.requestPolicy.requestClass !== 'capability_action' &&
+    !sanitizeVisibleAssistantText(response) && !input.signal?.aborted
+  ) {
+    recoveryAttempted = true;
+    input.onRecoveryAttempted?.();
+    input.setFailureCode('visible_response_invalid');
+    try {
+      response = await input.sendCoachChat(input.history, {
+        ...modelOptions,
+        aiJob: 'lightweight_helper',
+        creditPolicy: 'internal_helper',
+        conversationTitlePolicy: undefined,
+        launchContextSummary: [
+          modelOptions.launchContextSummary,
+          'Recovery contract: the first response had no user-visible answer. ' +
+          'Answer the same request now with concise, useful visible text.',
+        ].filter(Boolean).join('\n\n'),
+      });
+    } catch {
+      // The visible-answer boundary below remains authoritative after one repair attempt.
+    }
+  }
   const actionResponse = parsedActionResponse && !parsedActionResponse.proposal && directCreateTitle
     ? {
         ...parsedActionResponse,
@@ -536,8 +698,6 @@ export async function executeUnifiedChatTurnPhase(
         },
       }
     : parsedActionResponse;
-  const groundedAnswer = expectsGroundedAnswer ? parseGroundedAnswer(response) : null;
-  const artifactResponse = expectsArtifactResponse ? parseAssistantArtifactResponse(response) : null;
   if (expectsActivityProposal && !actionResponse) {
     input.setFailureCode('action_response_invalid');
     throw input.error('Kwilt could not prepare a safe To-do proposal.');
@@ -559,10 +719,11 @@ export async function executeUnifiedChatTurnPhase(
           input.snapshots.plan.scheduledItems ?? [],
         )
       : null;
-  const authoritativeFallbackBody = toolProvider.proposals().length > 0
-    ? toolProvider.proposals().length === 1
-      ? `I prepared “${toolProvider.proposals()[0].title}” for review.`
-      : `I prepared ${toolProvider.proposals().length} changes for review.`
+  const stagedProposals = toolProvider.proposals();
+  const authoritativeFallbackBody = stagedProposals.length > 0
+    ? stagedProposals.length === 1
+      ? `I prepared “${stagedProposals[0].title}” for review.`
+      : `I prepared ${stagedProposals.length} changes for review.`
     : toolProvider.clientActions().length > 0
       ? toolProvider.clientActions().length === 1
         ? `I prepared “${toolProvider.clientActions()[0].title}” for native review.`
@@ -579,8 +740,17 @@ export async function executeUnifiedChatTurnPhase(
     ],
     coveredTargetIds: [...coveredTargetIds],
     modelResponse: response,
+    clarification: latestNeedsInputPrompt,
   });
-  const visibleBody = planPriorityBody ?? actionOutcomeTruth.visibleBody ?? (groundedAnswer
+  const createCalendarContinuation = buildCreateCalendarContinuation({
+    prompt: input.prompt,
+    stagedCreate: stagedProposals.some((proposal) => proposal.operation.type === 'create_activity'),
+    stagedPlanPlacement: stagedProposals.some((proposal) => proposal.operation.type === 'schedule_activity'),
+  });
+  const truthfulActionBody = actionOutcomeTruth.visibleBody && createCalendarContinuation
+    ? `${actionOutcomeTruth.visibleBody}\n\n${createCalendarContinuation}`
+    : actionOutcomeTruth.visibleBody;
+  const visibleBody = planPriorityBody ?? truthfulActionBody ?? (groundedAnswer
     ? formatGroundedAnswer(groundedAnswer)
     : sanitizeVisibleAssistantText(actionResponse?.answer ?? artifactResponse?.answer ?? response) ||
       authoritativeFallbackBody);
@@ -597,5 +767,6 @@ export async function executeUnifiedChatTurnPhase(
     runtimeToolEvents,
     artifactDraft: artifactResponse?.artifact ?? null,
     actionOutcomeTruth,
+    recoveryAttempted,
   };
 }

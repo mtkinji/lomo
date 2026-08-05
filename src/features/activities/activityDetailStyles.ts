@@ -496,45 +496,25 @@ export const styles = StyleSheet.create({
   planListRowPressed: {
     backgroundColor: colors.shellAlt,
   },
-  // Attachments (single-line row; details in drawer)
-  attachmentRow: {
+  attachmentSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    columnGap: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.xs,
-    borderRadius: 12,
-    minHeight: 40,
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingLeft: spacing.sm,
   },
-  attachmentRowPressed: {
-    backgroundColor: colors.shellAlt,
+  attachmentSectionTitle: {
+    ...typography.label,
+    color: colors.formLabel,
   },
-  attachmentIconBubble: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
-    backgroundColor: colors.fieldFillPressed,
+  attachmentAddButton: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  attachmentTitle: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  attachmentRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.xs,
-    flexShrink: 0,
-  },
-  attachmentStatusText: {
-    ...typography.bodySm,
-    fontFamily: fonts.semibold,
-    color: colors.textSecondary,
-  },
-  attachmentStatusTextFailed: {
-    color: colors.destructive,
+  attachmentList: {
+    rowGap: spacing.xs,
   },
   attachmentPreviewFrame: {
     borderRadius: 16,

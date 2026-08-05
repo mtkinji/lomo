@@ -3,6 +3,9 @@ import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from './nativeCr
 import { audioGainForCategory } from '../capabilities/games/audio/audioGainPolicy';
 import { resolveAudioAsset } from './audioAssetDelivery';
 import type { RemoteAudioAssetId } from './audioAssetCatalog';
+import { SOUND_SCAPES, type SoundscapeId } from './soundscapeCatalog';
+
+export { SOUND_SCAPES, isSoundscapeId, type SoundscapeId } from './soundscapeCatalog';
 
 type SoundscapeStatus = 'idle' | 'loading' | 'ready' | 'playing' | 'stopped' | 'error';
 
@@ -21,15 +24,6 @@ let resumeAttempts = 0;
 let lastResumeAttemptMs = 0;
 let playbackListenerAttached = false;
 
-export type SoundscapeId =
-  | 'default'
-  | 'focusFlowState'
-  | 'midnightStudySession'
-  | 'copacabanaFocus'
-  | 'openRoadFocus'
-  | 'cedarWorkshop'
-  | 'rainlitLibrary';
-
 const DEFAULT_SOUNDSCAPE_SOURCE = require('../../assets/audio/soundscapes/Sleep Music No. 1 - Chris Haugen.mp3');
 const REMOTE_SOUNDSCAPE_IDS: Partial<Record<SoundscapeId, RemoteAudioAssetId>> = {
   copacabanaFocus: 'focus.copacabana',
@@ -39,20 +33,6 @@ const REMOTE_SOUNDSCAPE_IDS: Partial<Record<SoundscapeId, RemoteAudioAssetId>> =
   cedarWorkshop: 'focus.cedar-workshop',
   rainlitLibrary: 'focus.rainlit-library',
 };
-
-export const SOUND_SCAPES: Array<{ id: SoundscapeId; title: string }> = [
-  { id: 'default', title: 'Deep Work Drift' },
-  { id: 'copacabanaFocus', title: 'Copacabana' },
-  { id: 'focusFlowState', title: 'Focus Tunnel' },
-  { id: 'midnightStudySession', title: 'Midnight Study' },
-  { id: 'openRoadFocus', title: 'Open Road' },
-  { id: 'cedarWorkshop', title: 'Cedar Workshop' },
-  { id: 'rainlitLibrary', title: 'Rainlit Library' },
-];
-
-export function isSoundscapeId(value: unknown): value is SoundscapeId {
-  return typeof value === 'string' && SOUND_SCAPES.some((item) => item.id === value);
-}
 
 let currentSoundscapeId: SoundscapeId = 'default';
 

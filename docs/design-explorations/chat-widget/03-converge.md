@@ -73,7 +73,7 @@ After: Nina taps a calm Kwilt Chat widget and lands in a clean composer. Nothing
 
 - One widget family in the first release: small Home Screen.
 - One tap target and one outcome.
-- One label: `Chat`; supporting copy can say `Start a thought` without giving the AI a persona or emotional voice.
+- One label: `Chat`; the primary action says `Ask Kwilt`, framing the widget as a broad conversational doorway without giving the AI an emotional persona.
 - No settings, recent-thread list, badges, unread state, prompt suggestions, rotating content, animation, or notification.
 - No new Chat data model, memory boundary, entitlement, or capability policy.
 - The widget enhances Unified Chat; it does not create a new feature destination.

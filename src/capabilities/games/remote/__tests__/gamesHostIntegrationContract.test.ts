@@ -14,6 +14,16 @@ describe('Games host integration contract', () => {
     expect(migration).toContain("realtime.messages.extension in ('broadcast', 'presence')");
   });
 
+  it('publishes authoritative game room changes to Realtime', () => {
+    const migration = fs.readFileSync(
+      workspacePath('supabase', 'migrations', '20260805040433_enable_games_postgres_realtime.sql'),
+      'utf8',
+    );
+
+    expect(migration).toContain('alter publication supabase_realtime add table public.game_sessions');
+    expect(migration).toContain('alter publication supabase_realtime add table public.game_participants');
+  });
+
   it('ships the Apple implementation declared by the nearby Expo module', () => {
     const modulePath = workspacePath('modules', 'kwilt-nearby-table', 'ios');
     const swift = fs.readFileSync(path.join(modulePath, 'KwiltNearbyTableModule.swift'), 'utf8');

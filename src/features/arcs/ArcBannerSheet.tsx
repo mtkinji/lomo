@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
   StyleProp,
   StyleSheet,
   Text,
@@ -11,12 +12,13 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BottomDrawer } from '../../ui/BottomDrawer';
+import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Heading, Input, KeyboardAwareScrollView } from '../../ui/primitives';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
+import { Input } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
-import { colors, fonts, spacing, typography, type ScrimToken } from '../../theme';
+import { colors, floatingControl, fonts, spacing, typography, type ScrimToken } from '../../theme';
 import { ARC_HERO_LIBRARY, type ArcHeroImage } from './arcHeroLibrary';
 import {
   ARC_MOSAIC_COLS,
@@ -60,6 +62,10 @@ export type ArcBannerSheetProps = {
   onRemove: () => void;
   onSelectCurated: (image: ArcHeroImage) => void;
   onSelectUnsplash: (photo: UnsplashPhoto) => void;
+  /** Optional explicit commit action for callers that stage image changes. */
+  onConfirm?: () => void | Promise<void>;
+  confirmLabel?: string;
+  confirmDisabled?: boolean;
   /**
    * Optional BottomDrawer overrides for nested surfaces (e.g. Goal creation drawer).
    */
@@ -117,6 +123,9 @@ export function ArcBannerSheet({
   onRemove,
   onSelectCurated,
   onSelectUnsplash,
+  onConfirm,
+  confirmLabel = 'Save',
+  confirmDisabled = false,
   presentation,
   hideBackdrop,
   scrimToken,
@@ -347,6 +356,7 @@ export function ArcBannerSheet({
         queryHash: latestSearchRef.current?.queryHash ?? 'unknown',
         resultIndex: index >= 0 ? index : null,
       });
+      Keyboard.dismiss();
       onSelectUnsplash(photo);
     },
     [capture, objectLabel, onSelectUnsplash, unsplashResults]
@@ -354,6 +364,10 @@ export function ArcBannerSheet({
 
   const handleRemove = useCallback(() => {
     if (!hasHero || loading) return;
+    if (onConfirm) {
+      onRemove();
+      return;
+    }
     const objectLower = objectLabel.toLowerCase();
     Alert.alert(`Remove ${imageLabel}?`, `This will remove the current image for this ${objectLower}.`, [
       { text: 'Cancel', style: 'cancel' },
@@ -363,22 +377,26 @@ export function ArcBannerSheet({
         onPress: onRemove,
       },
     ]);
-  }, [hasHero, imageLabel, loading, objectLabel, onRemove]);
+  }, [hasHero, imageLabel, loading, objectLabel, onConfirm, onRemove]);
 
   return (
     <BottomDrawer
       visible={visible}
       onClose={onClose}
       snapPoints={['100%']}
+      keyboardAvoidanceEnabled={false}
       presentation={presentation}
       hideBackdrop={hideBackdrop}
       scrimToken={scrimToken}
     >
       <View style={styles.heroModalContainer}>
         <View style={styles.modalContent}>
-          <Heading style={[styles.modalTitle, { marginBottom: spacing.md }]}>
-            {title ?? `${objectLabel} Banner`}
-          </Heading>
+          <BottomDrawerHeader
+            closeAccessibilityLabel={`Close ${title ?? `${objectLabel} banner`}`}
+            onClose={onClose}
+            title={title ?? `${objectLabel} Banner`}
+            variant="withClose"
+          />
           {availableSourceTabs.length > 1 ? (
             <SegmentedControl<HeroImageSourceTab>
               value={sourceTab}
@@ -403,9 +421,12 @@ export function ArcBannerSheet({
           ) : null}
 
           <View style={styles.heroModalCard}>
-            <KeyboardAwareScrollView
+            <BottomDrawerScrollView
               style={styles.heroModalScroll}
               contentContainerStyle={styles.heroModalScrollContent}
+              automaticallyAdjustKeyboardInsets
+              keyboardDismissMode="interactive"
+              keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.heroModalPreviewSection}>
@@ -632,6 +653,7 @@ export function ArcBannerSheet({
                               accessibilityRole="button"
                               accessibilityState={{ selected: isSelected }}
                               onPress={() => {
+                                Keyboard.dismiss();
                                 onSelectCurated(image);
                               }}
                             >
@@ -660,6 +682,7 @@ export function ArcBannerSheet({
                               accessibilityRole="button"
                               accessibilityState={{ selected: isSelected }}
                               onPress={() => {
+                                Keyboard.dismiss();
                                 onSelectCurated(image);
                               }}
                             >
@@ -688,6 +711,8 @@ export function ArcBannerSheet({
                         placeholder={`Try "${arcName}" or "sunrise"…`}
                         value={unsplashQuery}
                         onChangeText={setUnsplashQuery}
+                        onSubmitEditing={handleSearchUnsplash}
+                        returnKeyType="search"
                         containerStyle={styles.heroUnsplashInputContainer}
                         inputStyle={styles.heroUnsplashInputText}
                       />
@@ -777,14 +802,22 @@ export function ArcBannerSheet({
                   )}
                 </View>
               )}
-            </KeyboardAwareScrollView>
+            </BottomDrawerScrollView>
           </View>
 
-          <View pointerEvents="box-none" style={styles.floatingDoneContainer}>
-            <Button variant="primary" onPress={onClose} style={styles.floatingDoneButton}>
-              <Text style={styles.saveButtonLabel}>Done</Text>
-            </Button>
-          </View>
+          {onConfirm ? (
+            <View pointerEvents="box-none" style={styles.floatingDoneContainer}>
+              <Button
+                accessibilityLabel={confirmLabel}
+                disabled={confirmDisabled}
+                onPress={() => void onConfirm()}
+                style={styles.floatingDoneButton}
+                variant="primary"
+              >
+                <Text style={styles.saveButtonLabel}>{confirmLabel}</Text>
+              </Button>
+            </View>
+          ) : null}
         </View>
       </View>
     </BottomDrawer>
@@ -798,11 +831,6 @@ const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
     position: 'relative',
-  },
-  modalTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
   },
   heroModalSourceTabs: {
     alignSelf: 'flex-start',
@@ -931,11 +959,7 @@ const styles = StyleSheet.create({
     maxWidth: 280,
     alignSelf: 'center',
     paddingHorizontal: spacing['2xl'],
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    ...floatingControl.shadow,
   },
   saveButtonLabel: {
     ...typography.bodySm,

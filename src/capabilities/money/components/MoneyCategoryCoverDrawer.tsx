@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { trackUnsplashDownload, withUnsplashReferral, type UnsplashPhoto } from '../../../services/unsplash';
 import { colors } from '../../../theme';
 import { ArcBannerSheet } from '../../../features/arcs/ArcBannerSheet';
@@ -34,54 +34,80 @@ export function MoneyCategoryCoverDrawer({
   visible,
 }: Props) {
   const [error, setError] = useState('');
+  const [draftCover, setDraftCover] = useState<MoneyCategoryCover | null>(currentCover ?? null);
+  const [committing, setCommitting] = useState(false);
+  const busy = saving || committing;
+  const hasDraftChange = (currentCover?.photoId ?? null) !== (draftCover?.photoId ?? null);
 
-  const choosePhoto = async (photo: UnsplashPhoto) => {
-    if (saving) return;
+  useEffect(() => {
+    if (visible) return;
+    setDraftCover(currentCover ?? null);
+    setError('');
+    setCommitting(false);
+  }, [currentCover, visible]);
+
+  const choosePhoto = (photo: UnsplashPhoto) => {
+    if (busy) return;
+    setError('');
+    setDraftCover(buildMoneyCategoryCoverFromUnsplashPhoto(photo));
+  };
+
+  const removeCover = () => {
+    if (busy) return;
+    setError('');
+    setDraftCover(null);
+  };
+
+  const saveCover = async () => {
+    if (busy || !hasDraftChange) return;
+    setCommitting(true);
     setError('');
     try {
-      await onSave(buildMoneyCategoryCoverFromUnsplashPhoto(photo));
-      void trackUnsplashDownload(photo.id).catch(() => undefined);
+      await onSave(draftCover);
+      if (draftCover) {
+        void trackUnsplashDownload(draftCover.photoId).catch(() => undefined);
+      }
+      onClose();
     } catch {
       setError('The cover could not be saved. Try again.');
+    } finally {
+      setCommitting(false);
     }
   };
 
-  const removeCover = async () => {
-    if (saving) return;
+  const closeWithoutSaving = () => {
+    if (busy) return;
     setError('');
-    try {
-      await onSave(null);
-    } catch {
-      setError('The cover could not be removed. Try again.');
-    }
+    setDraftCover(currentCover ?? null);
+    onClose();
   };
 
   return (
     <ArcBannerSheet
       arcName={categoryName}
       canUseUnsplash
+      confirmDisabled={!hasDraftChange || busy}
+      confirmLabel={busy ? 'Saving…' : 'Save cover'}
       error={error}
-      hasHero={Boolean(currentCover)}
-      heroGradientColors={[currentCover?.color ?? colors.pine50, colors.pine200, colors.pine700]}
+      hasHero={Boolean(draftCover)}
+      heroGradientColors={[draftCover?.color ?? colors.pine50, colors.pine200, colors.pine700]}
       heroGradientDirection={{ start: { x: 0.5, y: 0 }, end: { x: 0.5, y: 1 } }}
       heroSeed={categoryName}
       heroTopoSizes={[]}
       imageLabel="cover"
-      loading={saving}
+      loading={busy}
       objectLabel="Category"
-      onClose={() => {
-        setError('');
-        onClose();
-      }}
+      onClose={closeWithoutSaving}
+      onConfirm={saveCover}
       onGenerate={() => undefined}
-      onRemove={() => void removeCover()}
+      onRemove={removeCover}
       onSelectCurated={() => undefined}
-      onSelectUnsplash={(photo) => void choosePhoto(photo)}
+      onSelectUnsplash={choosePhoto}
       onUpload={() => undefined}
       showGeoMosaic={false}
       showTopography={false}
       sourceTabs={['unsplash']}
-      thumbnailUrl={currentCover?.imageUrl}
+      thumbnailUrl={draftCover?.imageUrl}
       title="Category cover"
       visible={visible}
     />

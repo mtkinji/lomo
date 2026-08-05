@@ -19,6 +19,8 @@ jest.mock('../utils/getEnv', () => ({
 }));
 
 import { getSupabaseClient } from './backend/supabaseClient';
+import { getAccessToken } from './backend/auth';
+import { getEdgeFunctionUrl } from './edgeFunctions';
 import {
   acceptFriendRequest,
   blockFriendship,
@@ -26,10 +28,14 @@ import {
   endFriendship,
   getPendingFriendRequests,
   listFriends,
+  previewFriendInvite,
   type FriendshipStatus,
 } from './friendships';
 
 const getClient = getSupabaseClient as jest.MockedFunction<typeof getSupabaseClient>;
+const accessToken = getAccessToken as jest.MockedFunction<typeof getAccessToken>;
+const edgeUrl = getEdgeFunctionUrl as jest.MockedFunction<typeof getEdgeFunctionUrl>;
+const originalFetch = global.fetch;
 
 function clientWithRpc(data: unknown = { friendshipId: 'friendship-1', status: 'active' }) {
   const rpc = jest.fn().mockResolvedValue({ data, error: null });
@@ -43,6 +49,34 @@ function clientWithRpc(data: unknown = { friendshipId: 'friendship-1', status: '
 describe('friendship server command boundary', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    accessToken.mockResolvedValue(null);
+    edgeUrl.mockImplementation((name) => `https://example.test/${name}`);
+  });
+
+  afterAll(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('previews only safe inviter identity and state without requiring sign-in', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        inviter: { name: 'Blaire', avatarUrl: 'https://example.test/blaire.jpg' },
+        inviteState: 'active',
+        canAccept: true,
+        createdBy: 'must-not-be-returned',
+      }),
+    })) as never;
+
+    await expect(previewFriendInvite('friend-code')).resolves.toEqual({
+      inviterName: 'Blaire',
+      inviterAvatarUrl: 'https://example.test/blaire.jpg',
+      inviteState: 'active',
+      canAccept: true,
+    });
+    expect(edgeUrl).toHaveBeenCalledWith('friend-invite-preview');
+    expect(accessToken).not.toHaveBeenCalled();
   });
 
   it.each([

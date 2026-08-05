@@ -3,6 +3,12 @@ import path from 'node:path';
 
 const featureDir = path.resolve(__dirname);
 const screenSource = readFileSync(path.join(featureDir, 'UnifiedChatScreen.tsx'), 'utf8');
+const drawerHeaderSource = readFileSync(path.join(featureDir, 'UnifiedChatDrawerHeader.tsx'), 'utf8');
+const screenPropsSource = readFileSync(path.join(featureDir, 'UnifiedChatScreenProps.ts'), 'utf8');
+const contextualPresentationSource = readFileSync(
+  path.join(featureDir, 'contextualChatPresentation.ts'),
+  'utf8',
+);
 const navigatorSource = readFileSync(
   path.resolve(featureDir, '../../navigation/RootNavigator.tsx'),
   'utf8',
@@ -10,7 +16,7 @@ const navigatorSource = readFileSync(
 
 describe('Unified Chat coexistence contract', () => {
   test('opens a widget entry as an unsaved composer and creates a thread only for first send', () => {
-    expect(screenSource).toContain("route.params?.entry === 'fresh'");
+    expect(screenSource).toContain("routeParams?.entry === 'fresh'");
     expect(screenSource).toContain('buildFreshWorkbenchSnapshot');
     expect(screenSource).toContain('freshThreadGateRef.current!.ensure()');
     expect(screenSource).toContain('(aggregate && !freshEntry) || freshEntry');
@@ -18,8 +24,26 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).not.toContain('startUnifiedChatVoiceRecording(); // widget');
   });
 
+  test('gives a contextual drawer a compact durable-chat title without restoring modal chrome', () => {
+    expect(contextualPresentationSource).toContain("title: 'Chat about to-dos'");
+    expect(contextualPresentationSource).toContain("FRESH_LAUNCH_CONTEXT_ID = 'fresh-launch-context'");
+    expect(screenSource).toContain("command.type === 'context.remove'");
+    expect(screenSource).toContain('<UnifiedChatDrawerHeader');
+    expect(drawerHeaderSource).toContain('<BottomDrawerHeader');
+    expect(drawerHeaderSource).toContain('variant="immersive"');
+    expect(drawerHeaderSource).toContain('usesCompactTitle');
+    expect(drawerHeaderSource).toContain('styles.titleRailCompact');
+    expect(drawerHeaderSource).toContain('styles.titleRailLong');
+    expect(drawerHeaderSource).toContain('styles.titleContent');
+    expect(drawerHeaderSource).toContain('...typography.bodySm');
+    expect(screenSource).toContain("searchParams.set('presentation', 'drawer')");
+    expect(drawerHeaderSource).toContain('name="messageSquare"');
+    expect(screenSource).toContain('repository.createThread(freshDrawerTitle)');
+    expect(screenSource).not.toContain('How can I help with your to-dos?');
+  });
+
   test('resets the fresh composer for each repeated widget launch', () => {
-    expect(screenSource).toContain('route.params?.widgetLaunchId');
+    expect(screenSource).toContain('routeParams?.widgetLaunchId');
     expect(screenSource).toContain('widgetLaunchId]);');
     expect(navigatorSource).toContain('prepareIncomingNavigationUrl');
   });
@@ -68,6 +92,15 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('Keyboard.dismiss()');
     expect(screenSource).toContain('webViewRef.current?.injectJavaScript');
     expect(screenSource).toContain('document.activeElement?.blur()');
+  });
+
+  test('hardens drawer collapse and renders a fresh draft without a loading flash', () => {
+    expect(screenPropsSource).toContain('collapseRequestId?: number');
+    expect(screenSource).toContain('document.activeElement?.blur?.()');
+    expect(screenSource).toContain('window.dispatchEvent(new Event("resize"))');
+    expect(screenSource).toContain('useState(!freshEntry)');
+    expect(screenSource).toContain('if (!freshEntry) setLoading(true)');
+    expect(screenSource).toContain('if (!freshEntry) setLoading(false)');
   });
 
   test('deduplicates commands and only opens capability objects evidenced in the active thread', () => {
@@ -219,6 +252,11 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('onThreadTitleUpdated: (updatedThread) =>');
     expect(screenSource).toContain('{ ...current, thread: updatedThread }');
     expect(screenSource).toContain('thread.id === updatedThread.id ? updatedThread : thread');
+  });
+
+  test('publishes durable mid-turn progress to the embedded timeline', () => {
+    expect(screenSource).toContain('onRunProgress: (progressAggregate) =>');
+    expect(screenSource).toContain('setAggregate(progressAggregate)');
   });
 
   test('uses the quiet conversation header and leaves chat creation and selection to the capability menu', () => {

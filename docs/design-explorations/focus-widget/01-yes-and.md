@@ -10,3 +10,10 @@ The smallest useful release is a one-tap timer. It also opens several coherent a
 - A later reflection may invite the user to connect focused time to an Activity, but only by explicit choice.
 
 The job elevation is not “more timers.” It is making the moment of readiness easy to honor.
+
+## 2026-08-05 refinement
+
+Adjacency expansion is intentionally skipped. The duration-and-audio moment is a
+bounded correction to the widget entry flow. The job elevation is not maximal
+speed; it is making two consequential choices feel calm and intentional without
+turning them into persistent widget maintenance.

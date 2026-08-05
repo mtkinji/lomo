@@ -30,7 +30,7 @@
     "test:audio-tooling": "node --test scripts/audio/audio-audit-lib.test.mjs",
     "agent:map": "node scripts/generate-agent-code-map.mjs",
     "lint:supabase-functions": "find supabase/functions -path 'supabase/functions/node_modules' -prune -o -name '*.ts' ! -path '*/__tests__/*' -print0 | xargs -0 deno check --no-lock --config supabase/functions/tsconfig.json",
-    "test:supabase-functions": "deno test --no-lock --config supabase/functions/tsconfig.json supabase/functions/chapters-generate/__tests__/*_deno_test.ts supabase/functions/create-plaid-link-token/__tests__/*_deno_test.ts supabase/functions/heart-report/__tests__/heartReport_deno_test.ts supabase/functions/_shared/__tests__/unifiedChatTranscription_deno_test.ts supabase/functions/_shared/__tests__/moneyTransactionClassifier_deno_test.ts supabase/functions/classify-money-transactions/__tests__/classificationPolicy_deno_test.ts",
+    "test:supabase-functions": "deno test --no-lock --config supabase/functions/tsconfig.json supabase/functions/chapters-generate/__tests__/*_deno_test.ts supabase/functions/create-plaid-link-token/__tests__/*_deno_test.ts supabase/functions/heart-report/__tests__/heartReport_deno_test.ts supabase/functions/_shared/__tests__/goalSupport_deno_test.ts supabase/functions/_shared/__tests__/sharedHomeDelivery_deno_test.ts supabase/functions/shared-home-publish-goal-checkin/publishGoalCheckin_deno_test.ts supabase/functions/_shared/__tests__/unifiedChatTranscription_deno_test.ts supabase/functions/_shared/__tests__/moneyTransactionClassifier_deno_test.ts supabase/functions/classify-money-transactions/__tests__/classificationPolicy_deno_test.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage",

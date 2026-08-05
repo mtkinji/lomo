@@ -47,7 +47,18 @@ export function prepareIncomingNavigationUrl(
   url: string,
   launchId = `${Date.now()}-${++widgetLaunchSequence}`,
 ) {
-  const normalized = normalizeKwiltGamesUrl(url);
+  let normalized = normalizeKwiltGamesUrl(url);
+  try {
+    const handoff = new URL(normalized);
+    const host = handoff.hostname.toLowerCase();
+    const path = handoff.pathname.replace(/^\/+/, '');
+    if ((host === 'go.kwilt.app' || host === 'kwilt.app') && path.startsWith('open/')) {
+      const nativePath = path.slice('open/'.length);
+      if (nativePath) normalized = `kwilt://${nativePath}${handoff.search}`;
+    }
+  } catch {
+    // Let React Navigation handle malformed or unsupported URLs as before.
+  }
   try {
     const parsed = new URL(normalized);
     if (
@@ -67,6 +78,12 @@ export function prepareIncomingNavigationUrl(
 
 export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
   screens: {
+    StandaloneFocus: {
+      path: 'focus',
+      parse: {
+        source: (value: string) => String(value),
+      },
+    },
     MainTabs: {
       screens: {
         GoalsTab: {
@@ -165,6 +182,13 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         widgetLaunchId: (value: string) => String(value),
       },
     },
+    SharedHome: {
+      path: 'home/:deliveryId?',
+      parse: {
+        deliveryId: (value: string) => String(value),
+        source: (value: string) => value === 'link' ? 'link' : undefined,
+      },
+    },
     // Development-only lab route. The matching screen is not mounted in production builds.
     GuidedOvertureLab: {
       path: '__dev/guided-overture',
@@ -226,6 +250,9 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         },
         SettingsConnectedTools: {
           path: 'settings/connections',
+        },
+        SettingsHousehold: {
+          path: 'household/:inviteCode?',
         },
         SettingsMoneyPrivacy: 'settings/money-privacy',
         SettingsJoinFriend: 'friend/:inviteCode',

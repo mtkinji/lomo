@@ -134,10 +134,10 @@ export function ActivityAttachmentSheets({
                     variant="primary"
                     fullWidth
                     disabled={!presentation.isOpenable || !controller.downloadUrl}
-                    accessibilityLabel="Download attachment"
+                    accessibilityLabel="Share or save attachment"
                     onPress={() => controller.shareSelected().catch(() => undefined)}
                   >
-                    <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>Download</Text>
+                    <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>Share or save</Text>
                   </Button>
                   <Button
                     variant="outline"

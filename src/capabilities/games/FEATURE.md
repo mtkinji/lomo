@@ -30,4 +30,4 @@ Gives family and friends an easy reason to spend time together without turning p
 
 ## Proof boundary
 
-The integrated source surface matches committed Kwilt Games `7b3e209`: the full catalog and utility, local setup/play, player persistence, audio/orientation, and committed remote/join/nearby foundations. See `docs/integration/kwilt-games-source-manifest.md` for host adaptations and the still-pending backend, Simulator, and signed-device proof.
+The integrated source surface matches committed Kwilt Games `7b3e209`: the full catalog and utility, local setup/play, player persistence, audio/orientation, and remote/join/nearby foundations. The required Supabase migrations and functions are deployed. A current native build and two isolated simulator accounts prove Bank discovery, join, active-table reconnect, start, and live moves in both directions. Full finish/rematch, nearby radio behavior, background continuity, and expiry still require signed physical-device proof. See `docs/integration/kwilt-games-source-manifest.md` for the detailed host adaptations and evidence boundary.

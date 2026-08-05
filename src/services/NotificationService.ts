@@ -59,7 +59,8 @@ type NotificationData =
   | { type: 'focusSession'; activityId: string; sessionId?: string }
   | { type: 'streak' }
   | { type: 'reactivation' }
-  | { type: 'moneyCheck'; savedCheckId: string };
+  | { type: 'moneyCheck'; savedCheckId: string }
+  | { type: 'sharedDelivery'; deliveryId: string };
 
 // Local in-memory map of scheduled notification ids, hydrated on init.
 const activityNotificationIds = new Map<string, string>();
@@ -1991,6 +1992,12 @@ function attachNotificationResponseListener() {
         navigateWhenReady('Money', { screen: 'MoneySummary' });
         break;
       }
+      case 'sharedDelivery': {
+        const deliveryId = (data as { deliveryId?: string }).deliveryId?.trim();
+        if (!deliveryId) return;
+        navigateWhenReady('SharedHome', { deliveryId, source: 'push' });
+        break;
+      }
       default:
         break;
     }
@@ -2082,6 +2089,10 @@ async function captureLastNotificationOpenIfAny() {
     if (data.type === 'moneyCheck' && (data as { savedCheckId?: string }).savedCheckId === 'money-limit') {
       void recordMoneyCheckOpened(new Date().toISOString());
       navigateWhenReady('Money', { screen: 'MoneySummary' });
+    }
+    if (data.type === 'sharedDelivery') {
+      const deliveryId = (data as { deliveryId?: string }).deliveryId?.trim();
+      if (deliveryId) navigateWhenReady('SharedHome', { deliveryId, source: 'push' });
     }
   } catch (error) {
     if (__DEV__) {

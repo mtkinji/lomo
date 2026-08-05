@@ -417,6 +417,7 @@ function ReplyCard({ item, timeAgo }: { item: FeedItem; timeAgo: string }) {
   const payload = item.payload as {
     text?: string | null;
     webReply?: boolean;
+    goalSupport?: boolean;
     senderName?: string | null;
   };
   const isWeb = Boolean(payload.webReply);
@@ -437,7 +438,9 @@ function ReplyCard({ item, timeAgo }: { item: FeedItem; timeAgo: string }) {
           <HStack space="xs" alignItems="center">
             <Text style={styles.checkinActorName}>{displayName}</Text>
             <View style={styles.replyBadge}>
-              <Text style={styles.replyBadgeText}>{isWeb ? 'Reply • Web' : 'Reply'}</Text>
+              <Text style={styles.replyBadgeText}>
+                {payload.goalSupport ? 'Support • Web' : isWeb ? 'Reply • Web' : 'Reply'}
+              </Text>
             </View>
             <Text style={styles.checkinTime}>{timeAgo}</Text>
           </HStack>

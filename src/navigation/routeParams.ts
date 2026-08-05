@@ -86,7 +86,7 @@ export type ActivitiesListRouteParams = {
   autoStartStandaloneFocus?: boolean;
   /** Requested duration for `autoStartStandaloneFocus`, in minutes. */
   focusMinutes?: number;
-  /** Widget-configured soundscape id, or `none` for a silent session. */
+  /** Requested soundscape id, or `none` for silence. */
   focusAudio?: string;
   /** Open the active standalone Focus controls without starting a new session. */
   openStandaloneFocus?: boolean;

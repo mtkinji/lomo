@@ -7,14 +7,16 @@ import { CHAT_CAPABILITY_COVERAGE } from './chatCapabilityCoverage';
 import { KWILT_OPERATION_REGISTRY } from '../../capabilities/operations';
 
 describe('AGENT_CAPABILITY_EVAL_CASES', () => {
-  it('defines the standing app-control jobs with two natural paraphrases each', () => {
+  it('defines the standing app-control jobs with three natural utterances each', () => {
     const byScenario = new Map<string, typeof APP_CONTROL_EVAL_CASES[number][]>();
     for (const item of APP_CONTROL_EVAL_CASES) {
       byScenario.set(item.scenarioId, [...(byScenario.get(item.scenarioId) ?? []), item]);
     }
 
     expect([...byScenario.keys()].sort()).toEqual([
+      'bulk-clean-past-due-activities',
       'create-recurring-reminded-activity',
+      'create-reminded-calendar-activity',
       'create-walking-goal-and-routine',
       'future-screen-time-control',
       'read-tomorrow-plan',
@@ -23,6 +25,14 @@ describe('AGENT_CAPABILITY_EVAL_CASES', () => {
 
     expect(byScenario.get('create-recurring-reminded-activity')?.[0]).toEqual(expect.objectContaining({
       expectedOperations: ['activities.capture'],
+      expectedOutcome: 'proposal_or_receipt',
+    }));
+    expect(byScenario.get('create-reminded-calendar-activity')?.[0]).toEqual(expect.objectContaining({
+      expectedOperations: ['activities.capture'],
+      expectedOutcome: 'proposal_or_receipt',
+    }));
+    expect(byScenario.get('bulk-clean-past-due-activities')?.[0]).toEqual(expect.objectContaining({
+      expectedOperations: ['activities.update'],
       expectedOutcome: 'proposal_or_receipt',
     }));
     expect(byScenario.get('read-tomorrow-plan')?.[0]).toEqual(expect.objectContaining({
