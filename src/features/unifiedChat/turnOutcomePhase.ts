@@ -14,6 +14,7 @@ import type { AgentJudgment } from './agentJudgment';
 import { toLocalDateKey } from '../../services/plan/planDates';
 import type { UnifiedChatTurnContract } from './turnContract';
 import type { UnifiedChatActionOutcomeTruth } from './turnOutcomeTruth';
+import { buildActionClarification } from './turnOutcomeTruth';
 
 type OutcomeRepository = Pick<
   UnifiedChatRepository,
@@ -28,17 +29,20 @@ export function buildAppControlOutcome({
   proposalIds,
   receiptIds,
   clientActionIds,
+  clarification,
 }: {
   text: string;
   proposalIds: string[];
   receiptIds: string[];
   clientActionIds: string[];
+  clarification?: string | null;
 }): AppControlOutcome {
   if (receiptIds.length > 0) return { type: 'applied', receiptIds };
   if (proposalIds.length > 0) return { type: 'review', proposalIds };
   if (clientActionIds.length > 0) {
     return { type: 'native_handoff', actionId: clientActionIds[0]! };
   }
+  if (clarification) return { type: 'clarification', question: clarification };
   return { type: 'answer', text };
 }
 
@@ -83,22 +87,24 @@ export async function materializeUnifiedChatOutcomePhase(
     stagedToolProposals.length > 0 || stagedClientActions.length > 0;
   const claimsCompletedEffect = /\b(?:done|completed|created|updated|deleted|applied|scheduled|changed|saved|sent)\b/i
     .test(input.visibleBody);
-  if (
+  const needsActionClarification = Boolean(
     (input.requestPolicy.requestClass === 'capability_action' ||
       input.requestPolicy.requestClass === 'native_control') &&
     !hasAuthoritativeNextStep &&
     (input.actionOutcomeTruth?.state ?? 'model_response') === 'model_response' &&
     claimsCompletedEffect
-  ) {
-    input.setFailureCode('action_outcome_missing');
-    throw new Error('Action-looking prose did not have an authoritative outcome.');
-  }
+  );
+  const visibleBody = needsActionClarification
+    ? input.turnContract
+      ? buildActionClarification(input.turnContract)
+      : 'What exact change would you like me to prepare? Nothing was changed.'
+    : input.visibleBody;
 
   input.setFailureCode('assistant_persistence_failed');
   const assistantMessage = await input.repository.insertMessage({
     threadId: input.threadId,
     role: 'assistant',
-    body: input.visibleBody,
+    body: visibleBody,
   });
   if (input.artifactDraft) {
     input.setFailureCode('artifact_persistence_failed');
@@ -446,10 +452,13 @@ export async function materializeUnifiedChatOutcomePhase(
   return {
     assistantMessage,
     appControlOutcome: buildAppControlOutcome({
-      text: input.visibleBody,
+      text: visibleBody,
       proposalIds,
       receiptIds,
       clientActionIds,
+      clarification: needsActionClarification || input.actionOutcomeTruth?.state === 'clarification'
+        ? visibleBody
+        : null,
     }),
   };
 }

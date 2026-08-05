@@ -252,6 +252,11 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('thread.id === updatedThread.id ? updatedThread : thread');
   });
 
+  test('publishes durable mid-turn progress to the embedded timeline', () => {
+    expect(screenSource).toContain('onRunProgress: (progressAggregate) =>');
+    expect(screenSource).toContain('setAggregate(progressAggregate)');
+  });
+
   test('uses the quiet conversation header and leaves chat creation and selection to the capability menu', () => {
     expect(screenSource).toContain('<PageHeader');
     expect(screenSource).toContain('variant="conversation"');

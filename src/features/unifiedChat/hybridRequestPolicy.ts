@@ -172,6 +172,15 @@ export function resolveHybridRequestPolicy({
   ) {
     return deterministicPolicy;
   }
+  if (
+    deterministicPolicy.requestClass === 'capability_question' &&
+    semanticRoute.requestClass === 'capability_action' &&
+    (DETERMINISTIC_LOCK_REASONS.has(deterministicPolicy.policyReason) ||
+      (deterministicPolicy.participatingCapabilities.length === 1 &&
+        deterministicPolicy.participatingCapabilities[0] === 'plan'))
+  ) {
+    return deterministicPolicy;
+  }
   if (!hasCoherentShape(semanticRoute)) return deterministicPolicy;
   if (deterministicPolicy.requestClass === 'general' && semanticRoute.requestClass === 'better_served_elsewhere') {
     return deterministicPolicy;

@@ -1266,6 +1266,9 @@ export function UnifiedChatScreen({
               setAggregate(started);
               if (!retryRunId) setAttachments([]);
             },
+            onRunProgress: (progressAggregate) => {
+              setAggregate(progressAggregate);
+            },
             onThreadTitleUpdated: (updatedThread) => {
               setAggregate((current) => current?.thread.id === updatedThread.id
                 ? { ...current, thread: updatedThread }

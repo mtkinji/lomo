@@ -10,6 +10,12 @@ type RawModelToolCall = {
   function?: { name?: unknown; arguments?: unknown };
 };
 
+export type RuntimeToolChoice = 'auto' | 'required';
+
+export function resolveRuntimeToolChoice(choice: RuntimeToolChoice | undefined): RuntimeToolChoice {
+  return choice ?? 'auto';
+}
+
 export function toModelToolName(toolId: string): string {
   return toolId.replace(/\./g, '__');
 }

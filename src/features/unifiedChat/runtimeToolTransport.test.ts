@@ -5,6 +5,7 @@ import {
   toModelToolName,
   toOpenAiLoopMessages,
   toOpenAiRuntimeTools,
+  resolveRuntimeToolChoice,
 } from '../../services/aiRuntimeToolTransport';
 
 const tools: AgentToolDefinition[] = [
@@ -46,6 +47,11 @@ describe('runtimeToolTransport', () => {
         function: expect.objectContaining({ name: 'activities__steps__update' }),
       }),
     ]);
+  });
+
+  it('can require a tool call for a contractually planned action', () => {
+    expect(resolveRuntimeToolChoice('required')).toBe('required');
+    expect(resolveRuntimeToolChoice(undefined)).toBe('auto');
   });
 
   it('strictly parses tool calls and preserves unknown names for coordinator rejection', () => {

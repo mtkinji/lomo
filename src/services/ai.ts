@@ -57,6 +57,8 @@ import {
 import {
   parseOpenAiRuntimeStepResponse,
   parseRuntimeToolCalls,
+  resolveRuntimeToolChoice,
+  type RuntimeToolChoice,
   toOpenAiLoopMessages,
   toOpenAiRuntimeTools,
 } from './aiRuntimeToolTransport';
@@ -818,6 +820,8 @@ export type CoachChatOptions = {
    */
   creditPolicy?: 'user_turn' | 'internal_helper';
   runtimeTools?: readonly AgentToolDefinition[];
+  /** Require the first model step to use one of the supplied runtime tools. */
+  runtimeToolChoice?: RuntimeToolChoice;
   executeRuntimeTool?: (
     call: AgentToolCall,
     tool: AgentToolDefinition,
@@ -2859,7 +2863,7 @@ export async function sendCoachChat(
 
   if (tools && tools.length > 0) {
     body.tools = tools;
-    body.tool_choice = 'auto';
+    body.tool_choice = resolveRuntimeToolChoice(options?.runtimeToolChoice);
   }
 
   devLog('coachChat:request:prepared', {

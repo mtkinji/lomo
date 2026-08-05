@@ -255,6 +255,31 @@ describe('agent judgment execution', () => {
 });
 
 describe('runUnifiedChatTurn', () => {
+  test('publishes persisted progress before waiting for the model response', async () => {
+    const { order, repository, send } = dependencies();
+    repository.loadThread.mockImplementation(async () => {
+      order.push('progress:load');
+      return { ...startingAggregate, messages: [], runs: [] };
+    });
+    const onRunProgress = jest.fn(() => {
+      order.push('progress:publish');
+    });
+
+    await runUnifiedChatTurn(
+      {
+        aggregate: startingAggregate,
+        prompt: 'Help me think this through.',
+        onRunProgress,
+      },
+      { repository: repository as never, sendCoachChat: send as never },
+    );
+
+    expect(onRunProgress).toHaveBeenCalledTimes(1);
+    expect(order.indexOf('events:append')).toBeLessThan(order.indexOf('progress:load'));
+    expect(order.indexOf('progress:load')).toBeLessThan(order.indexOf('progress:publish'));
+    expect(order.indexOf('progress:publish')).toBeLessThan(order.indexOf('send'));
+  });
+
   test('persists a confident semantic route before loading bounded evidence', async () => {
     const { repository, send } = dependencies(jest.fn(async () => structuredGroundedAnswer));
     const routeRequest = jest.fn(async () => ({
@@ -1741,6 +1766,7 @@ describe('runUnifiedChatTurn', () => {
       'run:active',
       'events:append',
       'evidence:persist',
+      'send',
       'send',
       'run:failed',
     ]);
