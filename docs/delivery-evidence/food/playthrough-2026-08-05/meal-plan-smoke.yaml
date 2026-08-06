@@ -1,0 +1,20 @@
+appId: com.andrewwatanabe.kwilt
+---
+- openLink: "kwilt://food/plan"
+- extendedWaitUntil:
+    visible: "Start next meals"
+    timeout: 15000
+- tapOn: "Start next meals"
+- assertVisible: "Plan next meals"
+- takeScreenshot: "food-plan-editor-empty"
+- tapOn: "Leftovers, eat out, undecided…"
+- inputText: "Weeknight turkey tacos"
+- hideKeyboard
+- tapOn: "Add"
+- assertVisible: ".*Weeknight turkey tacos.*Remove.*"
+- takeScreenshot: "food-plan-editor-one-meal"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Meal plan did not save"
+    timeout: 15000
+- takeScreenshot: "food-plan-save-backend-blocker"

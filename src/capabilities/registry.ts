@@ -13,6 +13,7 @@ import { gamesCapabilityDefinition } from './games/definition';
 export const CAPABILITY_GROUPS = [
   { id: 'goals-plans', label: 'Goals & Plans' },
   { id: 'money', label: 'Money' },
+  { id: 'food', label: 'Food' },
   { id: 'fun', label: 'Fun' },
 ] as const satisfies readonly CapabilityGroupDefinition[];
 
@@ -80,6 +81,18 @@ export const CAPABILITY_REGISTRY = [
   moneyCapabilityDefinition,
   exploreCapabilityDefinition,
   gamesCapabilityDefinition,
+  {
+    id: 'recipes', label: 'Recipes', group: 'food', icon: 'chapters', availability: 'active',
+    rootRoute: { root: 'Food', screen: 'RecipeLibrary' }, deepLinks: [], agent: currentKwiltAgentContract, lifecycle: {},
+  },
+  {
+    id: 'meal-planning', label: 'Next meals', group: 'food', icon: 'plan', availability: 'active',
+    rootRoute: { root: 'Food', screen: 'NextMeals' }, deepLinks: [], agent: currentKwiltAgentContract, lifecycle: {},
+  },
+  {
+    id: 'groceries', label: 'Groceries', group: 'food', icon: 'cart', availability: 'active',
+    rootRoute: { root: 'Food', screen: 'GroceryList' }, deepLinks: [], agent: currentKwiltAgentContract, lifecycle: {},
+  },
 ] as const satisfies readonly CapabilityDefinition[];
 
 function currentCapabilityMenuDestination(
@@ -98,7 +111,7 @@ function currentCapabilityMenuDestination(
 }
 
 export const CAPABILITY_MENU_REGISTRY = [
-  ...(['goals', 'todos', 'plan', 'arcs', 'chapters', 'explore', 'games'] as const).map(
+  ...(['goals', 'todos', 'plan', 'arcs', 'chapters', 'recipes', 'meal-planning', 'groceries', 'explore', 'games'] as const).map(
     currentCapabilityMenuDestination,
   ),
   {

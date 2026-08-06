@@ -100,7 +100,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import { MasonryTwoColumn } from '../../ui/layout/MasonryTwoColumn';
 import { estimateGoalMasonryTileHeight, GoalMasonryTile } from '../../ui/GoalMasonryTile';
-import { RESTING_COMPOSER_HORIZONTAL_INSET_PX } from '../../ui/layout/restingComposerMetrics';
+import {
+  RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+  RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+} from '../../ui/layout/restingComposerMetrics';
 import { GoalsInventorySearchBar } from './GoalsInventorySearchBar';
 import { useGoalsInventorySearchAndSort } from './useGoalsInventorySearchAndSort';
 import { FloatingControlSurface } from '../activities/FloatingControlSurface';
@@ -1730,7 +1733,7 @@ const styles = StyleSheet.create({
   goalChatButton: {
     position: 'absolute',
     right: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
-    bottom: spacing.xl + spacing.sm,
+    bottom: RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
     width: GOALS_CHAT_BUTTON_SIZE_PX,
     height: GOALS_CHAT_BUTTON_SIZE_PX,
     zIndex: 60,

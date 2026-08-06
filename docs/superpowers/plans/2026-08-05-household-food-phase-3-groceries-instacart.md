@@ -1,5 +1,14 @@
 # Household Food Phase 3: Groceries and Instacart Implementation Plan
 
+## Implementation checkpoint — August 5, 2026
+
+Source and automated tests are complete for conservative compilation,
+provenance, correction, Already have, offline list use, plain export, Activity
+projection, and the remotely disableable Instacart list-link adapter. The
+adapter excludes non-needed items and distinguishes link creation, opening, and
+user-reported checkout. Supabase Local and live development-key list-link proof
+remain required; no checkout or order state is claimed.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement this plan task-by-task. Do not use subagents or create another worktree unless Andrew explicitly approves parallel execution. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Compile a finalized MealPlan into a durable, correctable GroceryList with Recipe provenance, an ephemeral Already have review, a useful shopping Activity, and an honest Instacart or plain-list handoff.

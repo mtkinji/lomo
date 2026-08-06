@@ -5,9 +5,9 @@ status: accepted
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
-job_flow: job-flow-maya-move-family-life-forward
+job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-carry-intentions-into-action, jtbd-capture-and-find-meaning, jtbd-invite-the-right-people-in, jtbd-review-budget-reality-before-spending, jtbd-trust-this-app-with-my-life]
-related_briefs: [brief-food-ai-operating-layer, brief-activity-context-action-platform]
+related_briefs: [brief-food-ai-operating-layer, brief-activity-context-action-platform, brief-kwilt-money-capability-integration, brief-governed-household-money-plan]
 owner: andrew
 last_updated: 2026-08-05
 ---
@@ -18,10 +18,11 @@ last_updated: 2026-08-05
 
 Feeding a household is one recurring job composed of several disconnected
 burdens: preserving recipes, deciding what sounds good, gathering family input,
-combining ingredients, remembering what is already at home, matching products,
-finding worthwhile savings, and rebuilding a retailer cart. Kwilt can remove
-meaningful household work only if the transitions become easier while Recipes,
-Meal Planning, and Groceries retain truthful ownership.
+understanding what the household can spend, using food already at home,
+combining ingredients, responding to worthwhile store opportunities, matching
+products, finding meaningful savings, and rebuilding a retailer cart. Kwilt can
+remove meaningful household work only if the transitions become easier while
+Money, Recipes, Meal Planning, and Groceries retain truthful ownership.
 
 ## Target audience
 
@@ -39,10 +40,11 @@ wants children with their own devices to have a bounded, meaningful voice.
 
 ## Aspirational design challenge
 
-How might Kwilt help Maya and her family choose the meals they want for whatever
-horizon fits their next shop, then move the finalized plan to reviewed groceries
-ready for pickup or delivery, while preserving private ownership, child voice,
-organizer authority, retailer truth, and a calm household experience?
+How might Kwilt help Maya and her family begin with the truth they have—meals
+they want, money left, food on hand, or a worthwhile sale—then keep the plan,
+grocery list, and budget coherent through cooking, while preserving private
+ownership, child voice, organizer authority, financial and retailer truth, and
+a calm household experience?
 
 ## Hero JTBD
 
@@ -52,19 +54,22 @@ follow-through from “what should we eat?” to a reviewed checkout destination
 
 ## Job flow step
 
-`job-flow-maya-move-family-life-forward` currently has weak seams at knowing
-the next doable family action and scheduling or handing it off. Household
-participation exists as a foundation, but Meals has no capability-owned
-invitation, private response, or finalization contract. The loop should improve
-those steps without adding recurring administration.
+`job-flow-maya-feed-household-with-less-work` maps the complete cycle from
+capturing food knowledge through planning, family participation, groceries,
+retailer handoff, guided cooking, and next-cycle learning. The current worktree
+has useful contracts and early screens, but no step yet exceeds delivery score
+2 because the Food backend, two-account participation, provider handoffs, and
+stateful Cook Mode have not been proven end to end. The loop must improve the
+whole transition while preserving complete organizer-only, plain-list, and
+touch-cooking fallbacks.
 
 ## JTBD framing
 
-When feeding my household becomes another coordination burden, help us reuse
-food we already love, decide together on our real cadence, make one trustworthy
-list, and reach a retailer with the least re-entry possible. Help me improve
-the economic outcome without requiring me to become good at couponing or trust
-discount claims that cannot be proven.
+When feeding my household becomes another coordination and spending burden,
+help us begin with what is true: food we love, food already here, what we can
+reasonably spend, and prices worth acting on. Help us decide together, make the
+smallest useful list, adapt when the store changes the facts, and reach checkout
+without becoming pantry clerks, budget administrators, or coupon experts.
 
 ## Design
 
@@ -75,8 +80,13 @@ discount claims that cannot be proven.
 - **Meal Planning** owns horizons, candidates, family choice rounds, responses,
   constraints, servings, day placement, and finalization.
 - **Groceries** owns compiled lists, Already have state, household additions,
-  product mappings, price and offer evidence, savings plans, retailer handoffs,
-  and receipt reconciliation.
+  confidence-aware stock observations, trip targets, store opportunities,
+  product mappings, price and offer evidence, basket scenarios, savings plans,
+  retailer handoffs, and receipt reconciliation.
+- **Money** owns the durable category plan, actual spending, remaining category
+  amount, forecast/freshness, plan adjustments, and the boundary between monthly
+  plan room and cash safe until payday. Food receives only an authorized,
+  purpose-limited projection and never copies or silently changes budget truth.
 - **Activities** optionally carry recurring prompts, scheduled cooking, and
   shopping execution. They never become canonical Recipes or Meal Plans.
 
@@ -86,15 +96,48 @@ discount claims that cannot be proven.
    twenty real private Recipes; review uncertain fields against their evidence.
 2. Cook from the clean saved version without returning to the source.
 3. Start **Next meals** using next-shop, meal-count, date-range, or open horizon.
-4. Let AI prepare an explained candidate set from authorized context, then add
-   or remove Recipes, leftovers, eat out, undecided, or plain meal notes.
-5. Optionally invite selected activated household members to pick up to three,
+4. Optionally bring in current Food-category reality from Money, choose a
+   distinct trip target, and confirm only the pantry/fridge/freezer observations
+   that materially affect this cycle.
+5. Let AI prepare an explained candidate set from authorized Recipes, household
+   preferences, time, budget target, stock, and price evidence, then add or
+   remove Recipes, leftovers, eat out, undecided, or plain meal notes.
+6. Optionally invite selected activated household members to pick up to three,
    pass, or suggest one idea.
-6. Close the round and show a calm aggregate; the organizer finalizes.
-7. Compile ingredients deterministically with provenance and uncertainty.
-8. Review **Already have**, corrections, staples, and quantities.
-9. Create an Instacart shopping-list page and state truthfully that retailer
+7. Close the round and show a calm aggregate; the organizer finalizes.
+8. Compile ingredients deterministically with provenance and uncertainty.
+9. Review **Already have**, corrections, staples, and quantities; preserve
+   confirmed/likely/check-first evidence without requiring exact inventory.
+10. Compare at most a few plan-and-basket scenarios such as **Use more of what
+    we have**, **Stay near $65**, and **Keep everyone’s top choices**.
+11. Capture a real store opportunity by provider evidence, barcode, photo, URL,
+    or voice and review the smallest meal/list diff before accepting it.
+12. Create an Instacart shopping-list page and state truthfully that retailer
    product review and checkout remain.
+13. Move from a visually rich Recipe Home through a short readiness check into
+    a resumable Cook Session that presents one cue at a time.
+14. Let foreground voice advance, repeat, go back, answer recipe-grounded
+    questions, and operate timers while always retaining visible touch controls.
+15. Offer one optional post-cook learning, then let a reviewed receipt separately
+    inform Money actuals, purchased-stock observations, price history, and
+    receipt-proven savings for the next cycle.
+
+### Adaptive thrift layer
+
+Meal-first, budget-first, pantry-first, and sale-first are entry conditions, not
+permanent modes. One plan carries explicit constraint and evidence snapshots.
+When an accepted fact changes, Kwilt prepares a deterministic scenario comparing
+the current plan/basket with the smallest useful alternative. The organizer
+reviews the meal and grocery diffs before capability-owned operations apply them.
+
+Stock remains observation-based: **Confirmed today**, **Likely on hand**, **Check
+first**, or **Depleted**, with source, time, quantity range, and confidence.
+Kwilt never claims a perfect pantry or food safety from age alone. A Grocery
+trip target is distinct from the Money category remainder. Basket estimates
+always show range, price coverage, store, and freshness.
+
+The complete marketing-to-object workback lives in
+[`07-thrift-budget-pantry-workback.md`](../design-explorations/meals-recipes-groceries/07-thrift-budget-pantry-workback.md).
 
 ### AI operating layer
 
@@ -106,10 +149,12 @@ receipt.
 
 Photo and URL import are base release criteria. Extraction creates a temporary
 evidence-backed draft with field confidence and warnings. The user approves the
-canonical Recipe. AI can propose meals, point out ingredient ambiguity, prepare
-product matches, explain savings evidence, reconcile receipt lines, and prepare
-public metadata. It cannot silently invite, finalize, publish, select a
-consequential product, apply an unsupported coupon, checkout, or attest rights.
+canonical Recipe. AI can propose meals from a budget/stock constraint, point out
+ingredient ambiguity, prepare product matches and scenario diffs, capture a
+store opportunity, explain savings evidence, reconcile receipt lines, and
+prepare public metadata. It cannot silently change a Money budget, assert
+physical stock, invite, finalize, rewrite a meal plan, select a consequential
+product, apply an unsupported coupon, checkout, publish, or attest rights.
 
 The complete authority matrix lives in
 [`food-ai-operating-layer`](../design-explorations/food-ai-operating-layer/03-converge.md).
@@ -125,11 +170,15 @@ child-safety policy before launch.
 
 ### Savings Autopilot
 
-Savings is a Groceries behavior, not a fourth top-level capability. After
-product matching is trustworthy, **Find savings** presents at most three
-worthwhile changes ranked by net household outcome. Public promotion prices,
-member prices, coupons requiring activation, rebates, fees, and receipt-proven
-savings remain distinct evidence states.
+Savings is a Groceries behavior, not a fourth top-level capability. It begins
+before final shopping when budget and stock shape candidate meals, and remains
+available during shopping when a store opportunity may justify a reviewed plan
+change. **Find savings** presents at most three worthwhile scenarios ranked by
+net household outcome: likely use, food already owned, total basket impact,
+storage/waste, extra stops or activation work, and family constraints—not coupon
+count. Public promotion prices, member prices, coupons requiring activation,
+rebates, fees, estimates, paid totals, and receipt-proven savings remain distinct
+evidence states.
 
 Kroger regular and promotional price evidence is the first planned Basket
 Truth provider. Automatic coupon activation is excluded until a provider grants
@@ -153,10 +202,28 @@ Every import keeps source and rights provenance and remains reviewable.
 ## Success signal
 
 One household completes at least three real cycles across its natural cadence,
-reuses saved recipes, willingly participates from separate devices, accepts
-most list compilation, reaches retailer checkout, and reports that Kwilt
-removed meaningful work. Savings expands only when itemized evidence shows a
-better outcome without extra deal-management burden.
+including at least one budget-first or pantry-first start and one reviewed store
+opportunity. It reuses saved recipes, willingly participates from separate
+devices, avoids at least one duplicate purchase or unlocks one meal from food on
+hand, reaches retailer checkout, and reports that Kwilt removed meaningful work.
+Savings expands only when itemized evidence shows a better outcome without extra
+inventory or deal-management burden.
+
+The intended screen-by-screen experience and visual acceptance contract live in
+[`06-hero-experience.md`](../design-explorations/meals-recipes-groceries/06-hero-experience.md).
+
+### Recipe Library learning catalog
+
+The learning release includes a bundled, image-led catalog of exactly 100
+Kwilt-authored household recipes so browsing, filtering, Recipe Home, planning,
+and Cook Mode can be evaluated before the household has imported content. User
+and family recipes remain distinct and appear first. The catalog uses original
+bundled imagery, carries Kwilt provenance, and cannot masquerade as editable
+private content. The inventory follows the direct-object grammar of Arcs,
+Goals, and To-dos while adding one featured recipe and lightweight category or
+cuisine filters. Ratings, social feeds, popularity, and a second cookbook
+hierarchy remain excluded. See
+[`08-recipe-library-inventory.md`](../design-explorations/meals-recipes-groceries/08-recipe-library-inventory.md).
 
 ## Open questions
 
@@ -171,6 +238,18 @@ better outcome without extra deal-management burden.
 - Model/provider choice, private import-media retention, and the exact set of
   reversible Chat actions that can complete without a second tap require
   preflight evaluation.
+- Foreground command-first cooking voice, conversational question fallback,
+  interruption behavior, and timer reliability require a signed-device spike
+  before the transport or provider is locked. A custom background wake word is
+  not an initial-release promise.
+- The learning release must determine whether progressive stock observations
+  remove enough duplicate buying and planning work to justify any persistence
+  beyond ephemeral Already-have review.
+- Grocery-category mapping may span Food, Groceries, dining, or user-specific
+  categories. Money must authorize the exact projection; Food cannot infer a
+  universal category id or treat category room as cash safe until payday.
+- Circular/photo ingestion and barcode/unit-price evidence need a representative
+  store corpus and rights/privacy review before they support marketing claims.
 
 ## References
 
@@ -179,3 +258,7 @@ better outcome without extra deal-management burden.
 - [`docs/design-explorations/meals-recipes-groceries/object-models.md`](../design-explorations/meals-recipes-groceries/object-models.md)
 - [`docs/design-explorations/food-ai-operating-layer/`](../design-explorations/food-ai-operating-layer/)
 - [`docs/design-explorations/meals-recipes-groceries/04-learning-release.md`](../design-explorations/meals-recipes-groceries/04-learning-release.md)
+- [`docs/design-explorations/meals-recipes-groceries/06-hero-experience.md`](../design-explorations/meals-recipes-groceries/06-hero-experience.md)
+- [`docs/design-explorations/meals-recipes-groceries/07-thrift-budget-pantry-workback.md`](../design-explorations/meals-recipes-groceries/07-thrift-budget-pantry-workback.md)
+- [`docs/design-explorations/meals-recipes-groceries/08-recipe-library-inventory.md`](../design-explorations/meals-recipes-groceries/08-recipe-library-inventory.md)
+- [`docs/job-flows/maya-feed-household-with-less-work.md`](../job-flows/maya-feed-household-with-less-work.md)

@@ -1,5 +1,19 @@
 # Household Food Program Implementation Plan
 
+## Implementation checkpoint — August 5, 2026
+
+The first testable spine is implemented on `codex/household-food-ai-exploration`:
+private Recipe capture/import/review/cooking, organizer and family Meal Planning,
+deterministic Grocery compilation/review/export, and an honest Instacart list-link
+handoff. The feature remains pre-deployment until the three new migrations and
+Edge Functions pass Supabase Local, then signed Simulator/device QA.
+
+Savings/Kroger and public discovery remain intentionally gated. They are not
+stubbed as working features: Kroger requires disposable-account OAuth, product,
+price, and cart proof after real grocery cycles; coupon activation remains
+`not_authorized` without a provider acknowledgement API; public discovery waits
+for private reuse plus moderation and rights operations.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement the linked phase plans task-by-task. Do not use subagents or create another worktree unless Andrew explicitly approves parallel execution. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a polished, AI-native, private, ad-free household food loop that turns photos, URLs, spoken knowledge, and natural-language requests into reviewable Recipes, flexible household meal choices, trustworthy groceries, evidence-backed savings, and a reviewed retailer handoff without claiming authority Kwilt does not have.

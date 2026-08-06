@@ -3,8 +3,9 @@ feature: household-food
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
-job_flow: job-flow-maya-move-family-life-forward
+job_flow: job-flow-maya-feed-household-with-less-work
 job_flows:
+  - job-flow-maya-feed-household-with-less-work
   - job-flow-maya-move-family-life-forward
 serves:
   - jtbd-carry-intentions-into-action

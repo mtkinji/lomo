@@ -1,0 +1,11 @@
+appId: com.andrewwatanabe.kwilt
+---
+- tapOn: "Instruction 1 What happens next?"
+- inputText: "Brown the turkey and warm the tortillas."
+- hideKeyboard
+- takeScreenshot: "food-recipe-ready-to-save"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: ".*save_kwilt_recipe.*|.*schema cache.*|.*Recipe could not be saved.*"
+    timeout: 15000
+- takeScreenshot: "food-recipe-save-backend-blocker"

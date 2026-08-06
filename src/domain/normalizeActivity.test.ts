@@ -149,6 +149,31 @@ describe('normalizeActivity', () => {
     expect(result.updatedAt).toBe(a.updatedAt);
   });
 
+  it('returns the same legacy activity instance when context fields are absent', () => {
+    const a = activity({ steps: [] });
+    expect(normalizeActivity({ activity: a, nowIso: FIXED_NOW })).toBe(a);
+    expect(a).not.toHaveProperty('sourceReferences');
+    expect(a).not.toHaveProperty('actionCardBinding');
+  });
+
+  it('normalizes bounded context and bumps updatedAt when unsafe data is stripped', () => {
+    const a = activity({
+      sourceReferences: Array.from({ length: 4 }, (_, index) => ({
+        id: `source-${index}`, providerId: 'groceries', resourceKind: 'list', resourceRef: `list-${index}`,
+        capturedAt: FIXED_NOW, snapshot: { providerLabel: 'Groceries', reason: 'y'.repeat(300) },
+      })),
+      actionCardBinding: {
+        providerId: 'groceries', projectionKind: 'list_review', resourceRef: 'list-1', sourceVersion: '2',
+        action: { arbitrary: true },
+      } as Activity['actionCardBinding'],
+    });
+    const result = normalizeActivity({ activity: a, nowIso: FIXED_NOW });
+    expect(result.sourceReferences).toHaveLength(3);
+    expect(result.sourceReferences?.[0].snapshot.reason).toHaveLength(240);
+    expect(result.actionCardBinding).not.toHaveProperty('action');
+    expect(result.updatedAt).toBe(FIXED_NOW);
+  });
+
   it('returns a new activity with bumped updatedAt when steps change', () => {
     const a = activity({
       steps: [

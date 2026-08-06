@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.78.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 export class AuthenticationError extends Error {
   constructor(message: string) {

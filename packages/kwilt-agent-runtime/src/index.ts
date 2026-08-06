@@ -3,6 +3,11 @@ export { evaluateToolPolicy } from './policy';
 export { KWILT_CAPABILITY_MANIFEST } from './kwiltCapabilityManifest';
 export { KWILT_TOOL_CONTRACTS } from './kwiltToolContracts';
 export {
+  FOOD_OPERATION_CONTRACTS,
+  FOOD_OPERATION_IDS,
+  FOOD_TOOL_CONTRACTS,
+} from './foodOperationContracts';
+export {
   defineCapabilityManifest,
   projectAgentToolCatalog,
   projectOperationCoverage,
@@ -31,6 +36,12 @@ export type {
   KwiltCapabilityOperationId,
   KwiltOperationOwner,
 } from './kwiltCapabilityManifest';
+export type {
+  FoodOperationAuthority,
+  FoodOperationContract,
+  FoodOperationId,
+  FoodOperationOwner,
+} from './foodOperationContracts';
 export type {
   CapabilityChannelCoverage,
   CapabilityConfirmation,

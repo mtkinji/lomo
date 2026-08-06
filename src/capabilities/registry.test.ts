@@ -17,7 +17,26 @@ describe('capability registry', () => {
       'money',
       'explore',
       'games',
+      'recipes',
+      'meal-planning',
+      'groceries',
     ]);
+  });
+
+  it('exposes each Food capability as its own direct menu destination', () => {
+    expect(CAPABILITY_REGISTRY.filter(({ id }) => ['recipes', 'meal-planning', 'groceries'].includes(id))).toEqual([
+      expect.objectContaining({ id: 'recipes', label: 'Recipes', availability: 'active' }),
+      expect.objectContaining({ id: 'meal-planning', label: 'Next meals', availability: 'active' }),
+      expect.objectContaining({ id: 'groceries', label: 'Groceries', availability: 'active' }),
+    ]);
+    expect(CAPABILITY_MENU_REGISTRY.filter(({ group }) => group === 'food').map(
+      ({ id, label, ownerId, rootRoute }) => ({ id, label, ownerId, rootRoute }),
+    )).toEqual([
+      { id: 'recipes', label: 'Recipes', ownerId: 'recipes', rootRoute: { root: 'Food', screen: 'RecipeLibrary' } },
+      { id: 'meal-planning', label: 'Next meals', ownerId: 'meal-planning', rootRoute: { root: 'Food', screen: 'NextMeals' } },
+      { id: 'groceries', label: 'Groceries', ownerId: 'groceries', rootRoute: { root: 'Food', screen: 'GroceryList' } },
+    ]);
+    expect(CAPABILITY_MENU_REGISTRY.some(({ id }) => id === ('food' as never))).toBe(false);
   });
 
   it('uses unique capability IDs', () => {
@@ -114,6 +133,9 @@ describe('capability registry', () => {
       ['money', { root: 'Money', screen: 'MoneySummary' }],
       ['explore', { root: 'Explore', screen: 'ExploreMap' }],
       ['games', { root: 'Games', screen: 'GamesShelf' }],
+      ['recipes', { root: 'Food', screen: 'RecipeLibrary' }],
+      ['meal-planning', { root: 'Food', screen: 'NextMeals' }],
+      ['groceries', { root: 'Food', screen: 'GroceryList' }],
     ]);
   });
 });

@@ -28,6 +28,18 @@ function focusedRouteNames(state: NavigationStateLike | undefined): string[] {
   return [route.name, ...focusedRouteNames(route.state)];
 }
 
+function foodCapabilityForSurface(surface: string | undefined): Extract<CapabilityId, 'recipes' | 'meal-planning' | 'groceries'> {
+  if (surface === 'NextMeals' || surface?.startsWith('Meal')) return 'meal-planning';
+  if (
+    surface === 'GroceryList'
+    || surface === 'AlreadyHaveReview'
+    || surface?.startsWith('Grocery')
+    || surface?.startsWith('FoodStock')
+    || surface?.startsWith('FoodScenario')
+  ) return 'groceries';
+  return 'recipes';
+}
+
 export function deriveActiveCapabilityId(
   state: NavigationStateLike | undefined,
 ): CapabilityId | null {
@@ -35,6 +47,7 @@ export function deriveActiveCapabilityId(
   if (names[0] === 'Money') return 'money';
   if (names[0] === 'Explore') return 'explore';
   if (names[0] === 'Games') return 'games';
+  if (names[0] === 'Food') return foodCapabilityForSurface(names[1]);
   if (names[0] === 'ArcsStack') return 'arcs';
   if (names[0] !== 'MainTabs') return null;
 
@@ -64,6 +77,7 @@ export function deriveActiveCapabilityDestinationId(
   }
   if (names[0] === 'Explore') return 'explore';
   if (names[0] === 'Games') return 'games';
+  if (names[0] === 'Food') return foodCapabilityForSurface(names[1]);
 
   return deriveActiveCapabilityId(state) as CapabilityMenuDestinationId | null;
 }

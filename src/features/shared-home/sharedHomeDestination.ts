@@ -18,7 +18,8 @@ export type SharedHomeNavigationTarget =
         };
       },
     ]
-  | ['Games', { screen: 'GamesRemote'; params: { sessionId: string } }];
+  | ['Games', { screen: 'GamesRemote'; params: { sessionId: string } }]
+  | ['Food', { screen: 'MealChoiceResponse'; params: { roundId: string } }];
 
 export function resolveSharedHomeDestination(
   destination: SharedHomeDestination,
@@ -46,6 +47,12 @@ export function resolveSharedHomeDestination(
         },
       },
     ];
+  }
+  if (destination.kind === 'meal_choice') {
+    return ['Food', {
+      screen: 'MealChoiceResponse',
+      params: { roundId: destination.roundId },
+    }];
   }
   return ['Games', {
     screen: 'GamesRemote',

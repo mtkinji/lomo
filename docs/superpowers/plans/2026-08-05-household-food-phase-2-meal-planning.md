@@ -1,5 +1,14 @@
 # Household Food Phase 2: Meal Planning and Family Choice Implementation Plan
 
+## Implementation checkpoint — August 5, 2026
+
+Source and automated tests are complete for flexible planning horizons,
+organizer finalization, explicit participant choice rounds, private responses,
+Shared Home delivery, offline cache, and Activity projections. Supabase Local
+execution and two-account signed-device authorization/notification proof remain
+required. Child participation stays unavailable by default until that proof is
+earned.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement this plan task-by-task. Do not use subagents or create another worktree unless Andrew explicitly approves parallel execution. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let an organizer create a flexible Next meals cycle, optionally gather private bounded input from selected household members on separate devices, and finalize a versioned plan without making Activities or majority vote authoritative.

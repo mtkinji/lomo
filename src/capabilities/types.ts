@@ -1,6 +1,6 @@
 import type { IconName } from '../ui/Icon';
 
-export type CapabilityId = 'goals' | 'todos' | 'plan' | 'arcs' | 'chapters' | 'money' | 'explore' | 'games';
+export type CapabilityId = 'goals' | 'todos' | 'plan' | 'arcs' | 'chapters' | 'money' | 'explore' | 'games' | 'recipes' | 'meal-planning' | 'groceries';
 
 export type CapabilityMenuDestinationId =
   | Exclude<CapabilityId, 'money'>
@@ -10,7 +10,7 @@ export type CapabilityMenuDestinationId =
 
 export type CapabilityNavigationId = CapabilityId | CapabilityMenuDestinationId;
 
-export type CapabilityGroupId = 'goals-plans' | 'money' | 'fun';
+export type CapabilityGroupId = 'goals-plans' | 'money' | 'food' | 'fun';
 
 export type CapabilityAvailability = 'active' | 'preview' | 'hidden';
 
@@ -21,7 +21,8 @@ export type CapabilityRouteTarget =
   | { root: 'MainTabs'; tab: 'MoreTab'; screen: 'MoreArcs' | 'MoreChapters' }
   | { root: 'Money'; screen: 'MoneySummary' | 'MoneyTransactions' | 'MoneyAccounts' }
   | { root: 'Explore'; screen: 'ExploreMap' }
-  | { root: 'Games'; screen: 'GamesShelf' };
+  | { root: 'Games'; screen: 'GamesShelf' }
+  | { root: 'Food'; screen: 'FoodHome' | 'RecipeLibrary' | 'NextMeals' | 'GroceryList' };
 
 export type CapabilitySettingsDestination = {
   id: string;
@@ -71,6 +72,7 @@ export type CapabilityGroupDefinition = {
 export type CapabilityMenuDestinationDefinition = {
   id: CapabilityMenuDestinationId;
   ownerId: CapabilityId;
+  ownerIds?: readonly CapabilityId[];
   label: string;
   group: CapabilityGroupId | null;
   icon: IconName;

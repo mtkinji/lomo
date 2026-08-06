@@ -1,0 +1,4 @@
+import { render } from '@testing-library/react-native';
+import { GroceryItemProvenanceSheet } from './GroceryItemProvenanceSheet';
+jest.mock('../../../ui/BottomDrawer',()=>({BottomDrawer:({visible,children}:any)=>visible?children:null}));
+describe('Grocery provenance',()=>{it('shows every exact source line without exposing hidden fields',()=>{const screen=render(<GroceryItemProvenanceSheet visible onClose={jest.fn()} item={{id:'i',concept:'tomatoes',quantityMin:2,quantityMax:null,unit:'count',aisle:'produce',originalDisplayTexts:['1 can tomatoes','1 can tomatoes'],reviewReason:null,state:'needed',note:null,sources:[{id:'s1',sourceSnapshot:{originalText:'1 can tomatoes'}},{id:'s2',sourceSnapshot:{originalText:'1 can tomatoes'}}]}}/>);expect(screen.getByText(/2 recipe lines/)).toBeTruthy();expect(screen.getAllByText('1 can tomatoes')).toHaveLength(2);expect(screen.queryByText('secret')).toBeNull();});});

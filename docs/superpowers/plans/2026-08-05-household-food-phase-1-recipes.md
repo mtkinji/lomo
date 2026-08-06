@@ -1,5 +1,13 @@
 # Household Food Phase 1: Private Recipe Box Implementation Plan
 
+## Implementation checkpoint — August 5, 2026
+
+Source and automated tests are complete for private versioned Recipes, manual
+capture, URL/paste/dictation/photo import drafts, evidence review, clean cooking,
+scaling, export, offline cache, and Share intake. Supabase Local migration/RLS
+execution and signed native import/camera/cooking QA remain required before this
+phase can be called runtime-proven.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement this plan task-by-task. Do not use subagents or create another worktree unless Andrew explicitly approves parallel execution. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let a signed-in user move from a photograph, URL, dictation, pasted text, or manual entry to a corrected, durable, ad-free private Recipe with evidence, provenance, credits, immutable version history, clean cooking, export, and complete deletion.

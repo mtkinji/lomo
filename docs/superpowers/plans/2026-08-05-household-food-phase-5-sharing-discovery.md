@@ -1,5 +1,13 @@
 # Household Food Phase 5: Recipe Sharing and Discovery Implementation Plan
 
+## Current gate — contract only
+
+The private Recipe schema includes explicit grants and the preflight includes
+copy/collaboration/publication contracts, but user-facing sharing, collections,
+publication, discovery, and moderation are not enabled. This is deliberate:
+the entry gate requires demonstrated private reuse and the public path requires
+rights, reporting, takedown, appeal, and audit proof before launch.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement this plan task-by-task. Do not use subagents or create another worktree unless Andrew explicitly approves parallel execution. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Grow the private Recipe Box into consent-first recipe continuity across family members and a public-ready ad-free discovery layer where a person may deliberately publish their own or authorized Recipe version with chosen attribution, while Kwilt catalog content remains Kwilt-authored, licensed, public-domain, or otherwise verified for distribution.

@@ -55,9 +55,18 @@ Helps users like Marcus and Maya turn the few commitments that matter into concr
 - `activityScheduleSlots.ts` - pure manual schedule-slot validation for the Activity detail schedule sheet.
 - `KanbanBoard.tsx`, `InlineViewCreator.tsx`, and view templates - alternate ways to organize activity without changing the underlying job.
 - `activitySearchAlgorithm.ts` - local findability for captured work.
+- `actionCards/` - a feature-gated, finite host for one capability-owned action
+  projection plus at most three passive source references. Activities retain
+  opaque identifiers only; providers resolve current state and return bounded,
+  idempotent receipts without receiving navigation or analytics objects.
 
 ## Notes
 
 Activities are the bridge between intention and evidence. Views, boards, and priority surfaces should help users decide and capture, not create a second productivity system to maintain.
+
+The `activity-context-action-v1` renderer is additive in Activity detail. It
+does not change list rows, completion, recurrence, notifications, editable
+steps, or the next-action dock. Unknown, stale, disconnected, unauthorized, and
+failed providers degrade to finite non-destructive states.
 
 The To-dos list uses auto-hiding chrome while users scroll a populated list: the page header and global bottom nav hide together on confirmed downward scroll intent, then reveal after upward scroll intent or at the top of the list. Drag start is direction-neutral, top pull-down overscroll keeps chrome visible, bottom bounce is clamped so it does not cause reveal jitter, and momentum settle only confirms a top reveal after the scroll stream has already reached the top. The view toolbar and Quick Add dock stay available as local working controls. Matching top and bottom fades protect those controls while still letting softened list content pass underneath them. Keep the behavior aligned with `docs/todos-inventory-scroll-header-spec.md` and the pure contract tests in `inventoryChrome.test.ts`.

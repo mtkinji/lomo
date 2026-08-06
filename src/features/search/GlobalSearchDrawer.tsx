@@ -41,6 +41,15 @@ import {
   getRecommendedActivities,
   searchActivities,
 } from '../activities/activitySearchAlgorithm';
+import { RecipeArtwork } from '../../capabilities/recipes/components/RecipeArtwork';
+import type { RecipeProjection } from '../../capabilities/recipes/data/recipeCache';
+import {
+  DEFAULT_RECIPE_INVENTORY_FILTERS,
+  buildRecipeLibraryInventory,
+  filterRecipeInventory,
+  getStarterRecipeMetadata,
+} from '../../capabilities/recipes/data/starterRecipeCatalog';
+import { useRecipeStore } from '../../capabilities/recipes/runtime/useRecipeStore';
 
 type ScopeChipDef = {
   scope: GlobalSearchScope;
@@ -53,6 +62,7 @@ const SCOPE_CHIPS: ScopeChipDef[] = [
   { scope: 'goals', label: 'Goals', icon: 'goals' },
   { scope: 'arcs', label: 'Arcs', icon: 'arcs' },
   { scope: 'chapters', label: 'Chapters', icon: 'chapters' },
+  { scope: 'recipes', label: 'Recipes', icon: 'chapters' },
 ];
 
 const PER_KIND_LIMIT_IN_ALL = 5;
@@ -64,7 +74,8 @@ type UnifiedResultRow =
   | { kind: 'activity'; activity: Activity; goalTitle?: string }
   | { kind: 'goal'; goal: Goal; arcName?: string }
   | { kind: 'arc'; arc: Arc }
-  | { kind: 'chapter'; chapter: ChapterRow };
+  | { kind: 'chapter'; chapter: ChapterRow }
+  | { kind: 'recipe'; recipe: RecipeProjection };
 
 export function GlobalSearchDrawer() {
   const open = useAppStore((s) => s.globalSearchOpen);
@@ -80,6 +91,7 @@ export function GlobalSearchDrawer() {
   const activities = useAppStore((s) => s.activities);
   const goals = useAppStore((s) => s.goals);
   const arcs = useAppStore((s) => s.arcs);
+  const personalRecipes = useRecipeStore((s) => s.recipes);
 
   const [query, setQuery] = React.useState('');
   const [chapters, setChapters] = React.useState<ChapterRow[]>([]);
@@ -213,6 +225,20 @@ export function GlobalSearchDrawer() {
     return searchChapters({ chapters, query: trimmedQuery }).slice(0, perKindLimit);
   }, [chapters, scopes.chapters, perKindLimit, showingRecents, trimmedQuery]);
 
+  const recipeInventory = React.useMemo(
+    () => buildRecipeLibraryInventory(personalRecipes),
+    [personalRecipes],
+  );
+  const recipeResults = React.useMemo<RecipeProjection[]>(() => {
+    if (!scopes.recipes) return [];
+    if (showingRecents) return recipeInventory.slice(0, perKindLimit);
+    return filterRecipeInventory(recipeInventory, {
+      query: trimmedQuery,
+      filters: DEFAULT_RECIPE_INVENTORY_FILTERS,
+      sort: 'featured',
+    }).slice(0, perKindLimit);
+  }, [perKindLimit, recipeInventory, scopes.recipes, showingRecents, trimmedQuery]);
+
   type Section = { title: string; scope: GlobalSearchScope; rows: UnifiedResultRow[] };
   const sections = React.useMemo<Section[]>(() => {
     const all: Section[] = [];
@@ -252,6 +278,13 @@ export function GlobalSearchDrawer() {
         rows: chapterResults.map((chapter) => ({ kind: 'chapter' as const, chapter })),
       });
     }
+    if (scopes.recipes && recipeResults.length > 0) {
+      all.push({
+        title: 'Recipes',
+        scope: 'recipes',
+        rows: recipeResults.map((recipe) => ({ kind: 'recipe' as const, recipe })),
+      });
+    }
     return all;
   }, [
     activityResults,
@@ -262,8 +295,10 @@ export function GlobalSearchDrawer() {
     scopes.arcs,
     scopes.chapters,
     scopes.goals,
+    scopes.recipes,
     goalResults,
     goalTitleById,
+    recipeResults,
   ]);
 
   const flatData = React.useMemo<
@@ -381,6 +416,13 @@ export function GlobalSearchDrawer() {
           } as any);
           return;
         }
+        case 'recipe': {
+          rootNavigationRef.navigate('Food', {
+            screen: 'RecipeHome',
+            params: { recipeId: row.recipe.recipe.id },
+          });
+          return;
+        }
       }
     },
     [close],
@@ -408,7 +450,7 @@ export function GlobalSearchDrawer() {
         title: soloScope ? `Search ${scopeLabel(soloScope)}` : 'Search Kwilt',
         instructions: soloScope
           ? `Start typing to search your ${scopeLabel(soloScope).toLowerCase()}.`
-          : 'Start typing to search across Arcs, Goals, To-dos, and Chapters.',
+          : 'Start typing to search across Arcs, Goals, To-dos, Chapters, and Recipes.',
       };
     }
     return {
@@ -452,7 +494,7 @@ export function GlobalSearchDrawer() {
                 returnKeyType="search"
               />
             </View>
-            <DropdownMenu>
+            {soloScope === 'recipes' ? null : <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Pressable
                   accessibilityLabel="Search options"
@@ -501,7 +543,7 @@ export function GlobalSearchDrawer() {
                   </View>
                 </Pressable>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu>}
           </HStack>
         </View>
         <View style={styles.chipRow}>
@@ -609,6 +651,8 @@ function scopeLabel(scope: GlobalSearchScope): string {
       return 'Arcs';
     case 'chapters':
       return 'Chapters';
+    case 'recipes':
+      return 'Recipes';
   }
 }
 
@@ -622,6 +666,8 @@ function rowKey(row: UnifiedResultRow): string {
       return row.arc.id;
     case 'chapter':
       return row.chapter.id;
+    case 'recipe':
+      return row.recipe.recipe.id;
   }
 }
 
@@ -642,6 +688,10 @@ function getRecommendationDateMs(row: UnifiedResultRow): number {
       // Chapters are periodic snapshots; `period_start` better matches user
       // mental model ("most recent week") than insertion timestamp.
       return parseMs(row.chapter.period_start);
+    case 'recipe':
+      return getStarterRecipeMetadata(row.recipe.recipe.id)
+        ? 0
+        : parseMs(row.recipe.recipe.updatedAt ?? row.recipe.recipe.createdAt);
   }
 }
 
@@ -676,9 +726,17 @@ function SearchRow({ row, soloScope, showMeta, goalTitleById, arcNameById, onPre
       accessibilityLabel={title}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
-      <View style={styles.rowIcon}>
-        <Icon name={icon} size={16} color={colors.textSecondary} />
-      </View>
+      {row.kind === 'recipe' ? (
+        <RecipeArtwork
+          storageRef={row.recipe.recipe.mediaAssets.find((asset) => asset.lifecycle === 'active')?.storageRef}
+          accessibilityLabel=""
+          style={styles.recipeArtwork}
+        />
+      ) : (
+        <View style={styles.rowIcon}>
+          <Icon name={icon} size={16} color={colors.textSecondary} />
+        </View>
+      )}
       <View style={styles.rowBody}>
         <Text
           style={[
@@ -691,7 +749,7 @@ function SearchRow({ row, soloScope, showMeta, goalTitleById, arcNameById, onPre
         >
           {title}
         </Text>
-        {showMeta && meta ? (
+        {(showMeta || row.kind === 'recipe') && meta ? (
           <Text style={styles.rowMeta} numberOfLines={1}>
             {meta}
           </Text>
@@ -753,6 +811,20 @@ function describeRow(
         icon: 'chapters',
         title,
         meta: periodLabel,
+      };
+    }
+    case 'recipe': {
+      const metadata = getStarterRecipeMetadata(row.recipe.recipe.id);
+      const minutes = (row.recipe.currentVersion.prepMinutes ?? 0)
+        + (row.recipe.currentVersion.cookMinutes ?? 0);
+      const parts = [
+        metadata ? `${metadata.cuisine} · ${metadata.category}` : 'Your recipe',
+        minutes > 0 ? `${minutes} min` : null,
+      ].filter(Boolean);
+      return {
+        icon: 'chapters',
+        title: row.recipe.currentVersion.title || 'Untitled recipe',
+        meta: parts.join(' · '),
       };
     }
   }
@@ -858,6 +930,12 @@ const styles = StyleSheet.create({
     width: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  recipeArtwork: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    marginRight: spacing.sm,
   },
   rowBody: {
     flex: 1,

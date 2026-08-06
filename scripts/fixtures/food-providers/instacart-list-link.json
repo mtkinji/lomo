@@ -1,0 +1,1 @@
+{"status":"proceed","counts":{"returned":1,"accepted":1},"latencyMs":420,"capabilityFlags":{"authenticated":true},"errorClass":"none","secret":"must_not_escape","url":"https://example.invalid/?token=hidden"}

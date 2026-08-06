@@ -39,6 +39,7 @@ Use a 1-5 delivery score per job step:
 
 - [Marcus: move the few things that matter](marcus-move-the-few-things-that-matter.md)
 - [Maya: move family life forward](maya-move-family-life-forward.md)
+- [Maya: feed the household with less work](maya-feed-household-with-less-work.md)
 - [Maya: review budget reality before spending](maya-review-budget-reality-before-spending.md)
 - [Maya: start playing together](maya-start-playing-together.md)
 - [Sarah: see who I'm becoming](sarah-see-who-im-becoming.md)

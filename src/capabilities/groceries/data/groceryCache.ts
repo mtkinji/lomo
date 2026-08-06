@@ -1,0 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { GroceryProjection } from './groceryRepository';
+type Storage=Pick<typeof AsyncStorage,'getItem'|'setItem'|'removeItem'>;export const groceryCacheKey=(userId:string)=>`kwilt.groceries.v1.${userId}`;
+export function createGroceryCache(storage:Storage){return{async read(userId:string):Promise<GroceryProjection[]>{try{const raw=await storage.getItem(groceryCacheKey(userId));if(!raw)return[];const parsed=JSON.parse(raw);if(!Array.isArray(parsed?.lists))throw new Error('invalid');return parsed.lists;}catch{await storage.removeItem(groceryCacheKey(userId)).catch(()=>undefined);return[];}},write:(userId:string,lists:GroceryProjection[])=>storage.setItem(groceryCacheKey(userId),JSON.stringify({lists})),clear:(userId:string)=>storage.removeItem(groceryCacheKey(userId))};}export const groceryCache=createGroceryCache(AsyncStorage);

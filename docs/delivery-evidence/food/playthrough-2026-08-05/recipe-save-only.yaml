@@ -1,0 +1,11 @@
+appId: com.andrewwatanabe.kwilt
+---
+- scrollUntilVisible:
+    element:
+      text: "Title"
+    direction: UP
+- assertVisible: "Weeknight turkey tacos"
+- takeScreenshot: "food-recipe-ready-to-save"
+- tapOn: "Save"
+- waitForAnimationToEnd
+- takeScreenshot: "food-recipe-save-result"

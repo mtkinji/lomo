@@ -18,6 +18,8 @@
       "@kwilt/agent-runtime/*": ["./packages/kwilt-agent-runtime/src/*"],
       "@kwilt/plan-core": ["./packages/kwilt-plan-core/src/index.ts"],
       "@kwilt/plan-core/*": ["./packages/kwilt-plan-core/src/*"]
+      ,"@kwilt/food-core": ["./packages/food-core/src/index.ts"]
+      ,"@kwilt/food-core/*": ["./packages/food-core/src/*"]
     },
     "types": [
       "node",

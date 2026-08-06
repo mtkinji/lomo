@@ -30,4 +30,10 @@ describe('resolveSharedHomeDestination', () => {
       },
     ]);
   });
+
+  it('opens a meal choice invitation at an authoritative participant refetch', () => {
+    expect(resolveSharedHomeDestination({ kind: 'meal_choice', roundId: 'round-1' })).toEqual([
+      'Food', { screen: 'MealChoiceResponse', params: { roundId: 'round-1' } },
+    ]);
+  });
 });

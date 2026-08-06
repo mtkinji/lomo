@@ -1,0 +1,100 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from '../../../services/backend/supabaseClient';
+import { validateMealChoiceResponse } from '../domain/mealChoiceAggregate';
+import { validateMealPlanHorizon } from '../domain/mealPlanLifecycle';
+import type { MealPlanHorizon } from '../domain/mealPlanContracts';
+import { aggregateMealChoices } from '../domain/mealChoiceAggregate';
+import { stableContentHash } from '@kwilt/food-core';
+
+export type MealPlanCandidateDraft = {
+  id: string;
+  kind: 'recipe' | 'meal_note';
+  title: string;
+  recipeSnapshot: Record<string, unknown> | null;
+};
+
+export type MealPlanProjection = {
+  id: string;
+  householdId: string;
+  version: number;
+  state: 'draft' | 'collecting_choices' | 'ready_to_finalize' | 'finalized' | 'archived';
+  horizon: MealPlanHorizon;
+  candidates: MealPlanCandidateDraft[];
+  entries: Array<{ id: string; candidateId: string; title: string; servings: number | null; placementDate: string | null }>;
+  activeRound: { id: string; version: number; state: 'open' | 'closed' | 'cancelled'; closesAt: string | null } | null;
+  updatedAt: string;
+};
+
+async function rpc(client: SupabaseClient, name: string, args: Record<string, unknown>): Promise<unknown> {
+  const { data, error } = await client.rpc(name, args);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+function mapPlan(row: any): MealPlanProjection {
+  if (!row || typeof row.id !== 'string' || !Number.isInteger(row.version)) throw new Error('Invalid Meal Plan projection.');
+  const candidates = Array.isArray(row.candidates) ? [...row.candidates].sort((a, b) => Number(a.position) - Number(b.position)) : [];
+  const entries = Array.isArray(row.entries) ? [...row.entries].sort((a, b) => Number(a.position) - Number(b.position)) : [];
+  const rounds = Array.isArray(row.rounds) ? [...row.rounds].sort((a, b) => String(b.opened_at).localeCompare(String(a.opened_at))) : [];
+  return {
+    id: row.id, householdId: row.household_id, version: row.version, state: row.state,
+    horizon: validateMealPlanHorizon(row.horizon),
+    candidates: candidates.map((candidate: any) => ({ id: candidate.id, kind: candidate.kind, title: candidate.title, recipeSnapshot: candidate.recipe_snapshot ?? null })),
+    entries: entries.map((entry: any) => ({ id: entry.id, candidateId: entry.candidate_id, title: entry.title, servings: entry.servings === null ? null : Number(entry.servings), placementDate: entry.placement_date ?? null })),
+    activeRound: rounds[0] ? { id: rounds[0].id, version: rounds[0].version, state: rounds[0].state, closesAt: rounds[0].closes_at ?? null } : null,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function createMealPlanningRepository(client: SupabaseClient = getSupabaseClient()) {
+  return {
+    async list(): Promise<MealPlanProjection[]> {
+      const { data, error } = await client.from('kwilt_meal_plans').select('*,candidates:kwilt_meal_plan_candidates(*),entries:kwilt_meal_plan_entries(*),rounds:kwilt_meal_choice_rounds(*)').order('updated_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data ?? []).map(mapPlan);
+    },
+    create(input: { householdId: string; horizon: MealPlanHorizon; candidates: MealPlanCandidateDraft[] }) {
+      return rpc(client, 'create_kwilt_meal_plan', { p_household_id: input.householdId, p_horizon: validateMealPlanHorizon(input.horizon), p_candidate_snapshots: input.candidates });
+    },
+    update(input: { planId: string; expectedVersion: number; horizon?: MealPlanHorizon; candidates?: MealPlanCandidateDraft[] }) {
+      return rpc(client, 'update_kwilt_meal_plan', { p_plan_id: input.planId, p_expected_version: input.expectedVersion, p_patch: { ...(input.horizon ? { horizon: validateMealPlanHorizon(input.horizon) } : {}), ...(input.candidates ? { candidates: input.candidates } : {}) } });
+    },
+    openRound(input: { planId: string; expectedVersion: number; participantMembershipIds: string[]; closesAt: string | null }) {
+      return rpc(client, 'open_kwilt_meal_choice_round', { p_plan_id: input.planId, p_expected_version: input.expectedVersion, p_participant_membership_ids: input.participantMembershipIds, p_closes_at: input.closesAt });
+    },
+    projection(roundId: string) { return rpc(client, 'get_kwilt_meal_choice_projection', { p_round_id: roundId }); },
+    submitResponse(input: { roundId: string; expectedRoundVersion: number; selectedCandidateIds: string[]; pass: boolean; suggestion: string | null; availableCandidateIds?: string[]; selectionLimit?: number }) {
+      const response = validateMealChoiceResponse(input, { candidateIds: input.availableCandidateIds ?? input.selectedCandidateIds, limit: input.selectionLimit ?? 3 });
+      return rpc(client, 'submit_kwilt_meal_choice_response', { p_round_id: input.roundId, p_expected_round_version: input.expectedRoundVersion, p_selected_candidate_ids: response.selectedCandidateIds, p_pass: response.pass, p_suggestion: response.suggestion });
+    },
+    withdraw(roundId: string, expectedRoundVersion: number) { return rpc(client, 'withdraw_kwilt_meal_choice_response', { p_round_id: roundId, p_expected_round_version: expectedRoundVersion }); },
+    closeRound(roundId: string, expectedVersion: number) { return rpc(client, 'close_kwilt_meal_choice_round', { p_round_id: roundId, p_expected_version: expectedVersion }); },
+    async aggregate(roundId: string): Promise<Array<{ candidateId: string; pickCount: number }>> {
+      const [{ data: candidates, error: candidateError }, { data: responses, error: responseError }] = await Promise.all([
+        client.from('kwilt_meal_choice_candidates').select('candidate_id,position').eq('round_id', roundId).order('position'),
+        client.from('kwilt_meal_choice_responses').select('selected_candidate_ids,passed').eq('round_id', roundId).eq('state', 'submitted'),
+      ]);
+      if (candidateError || responseError) throw new Error(candidateError?.message ?? responseError?.message);
+      return aggregateMealChoices({ candidateIds: (candidates ?? []).map((row) => row.candidate_id), responses: (responses ?? []).map((row) => ({ selectedCandidateIds: row.selected_candidate_ids, pass: row.passed })) });
+    },
+    finalize(input: { planId: string; expectedVersion: number; selected: Array<{ candidateId: string; servings: number | null; placementDate: string | null }>; organizerNote: string | null }) {
+      const idempotencyKey = `finalize:${input.planId}:v${input.expectedVersion}`;
+      const contentHash = stableContentHash({ selected: input.selected, organizerNote: input.organizerNote });
+      return rpc(client, 'finalize_kwilt_meal_plan', {
+        p_plan_id: input.planId,
+        p_expected_version: input.expectedVersion,
+        p_selected_candidates: input.selected,
+        p_organizer_note: input.organizerNote,
+        p_idempotency_key: idempotencyKey,
+        p_content_hash: contentHash,
+      });
+    },
+    revise(planId: string, expectedVersion: number) { return rpc(client, 'revise_kwilt_meal_plan', { p_plan_id: planId, p_expected_version: expectedVersion }); },
+    subscribe(onInvalidate: () => void): () => void {
+      const channel = client.channel('meal-planning-invalidation').on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plans' }, onInvalidate).subscribe();
+      return () => { void client.removeChannel(channel); };
+    },
+  };
+}
+
+export type MealPlanningRepository = ReturnType<typeof createMealPlanningRepository>;

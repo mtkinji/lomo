@@ -564,6 +564,33 @@ export interface ActivityPlaceLink {
   savedPlaceId?: string;
 }
 
+export type ActivityActionCardProviderId =
+  | 'screen_time'
+  | 'meal_planning'
+  | 'groceries'
+  | 'gmail';
+
+export type ActivitySourceReference = {
+  id: string;
+  providerId: ActivityActionCardProviderId;
+  resourceKind: string;
+  resourceRef: string;
+  capturedAt: string;
+  snapshot: {
+    providerLabel: string;
+    sourceLabel?: string | null;
+    reason: string;
+    occurredAt?: string | null;
+  };
+};
+
+export type ActivityActionCardBinding = {
+  providerId: ActivityActionCardProviderId;
+  projectionKind: string;
+  resourceRef: string;
+  sourceVersion: string | null;
+};
+
 export interface Activity {
   id: string;
   goalId: string | null;
@@ -616,6 +643,10 @@ export interface Activity {
    */
   tags: string[];
   notes?: string;
+  /** Passive, bounded evidence explaining where this Activity came from. */
+  sourceReferences?: ActivitySourceReference[];
+  /** One opaque projection owned and resolved by a registered capability. */
+  actionCardBinding?: ActivityActionCardBinding | null;
   /**
    * Small, ordered checklist that keeps a single activity concrete and
    * executable in one sitting.
