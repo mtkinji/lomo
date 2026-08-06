@@ -172,6 +172,7 @@ import {
   canRemoveGoalPartnerMember,
 } from './goalPartnerAccessPresentation';
 import { buildGoalCheckinPartnerPresentation } from './goalCheckinPartnerPresentation';
+import { selectGoalRouteCheckinApprovalAction } from './goalRouteCheckinApprovalDecision';
 import { selectGoalPartnerPromptTrigger } from './goalPartnerPromptDecision';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
 import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
@@ -928,11 +929,17 @@ export function GoalDetailScreen() {
   );
 
   useEffect(() => {
-    if (!openCheckinApprovalSheet) {
+    const action = selectGoalRouteCheckinApprovalAction({
+      openRequested: openCheckinApprovalSheet === true,
+      isFocused,
+      hasPendingDraft: pendingDraft !== null,
+      hasOpenedRequest: hasOpenedRouteCheckinApprovalRef.current,
+    });
+    if (action === 'reset') {
       hasOpenedRouteCheckinApprovalRef.current = false;
       return;
     }
-    if (!isFocused || !pendingDraft || hasOpenedRouteCheckinApprovalRef.current) return;
+    if (action === 'wait') return;
     const timer = setTimeout(() => {
       hasOpenedRouteCheckinApprovalRef.current = true;
       setCheckinApprovalSheetVisible(true);
