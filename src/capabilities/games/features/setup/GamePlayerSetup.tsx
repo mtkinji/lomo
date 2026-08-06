@@ -41,6 +41,8 @@ type Props = {
   onEditSelf?: () => void;
   onUseAsMyPlayer?: (name: string, identity: PlayerIdentity) => void;
   personalBestFor?: (player: SavedPlayer | GamePlayerProfile) => number | null;
+  minPlayers?: number;
+  maxPlayers?: number;
 };
 
 export function GamePlayerSetup({
@@ -68,14 +70,18 @@ export function GamePlayerSetup({
   onEditSelf,
   onUseAsMyPlayer,
   personalBestFor,
+  minPlayers: requestedMinPlayers,
+  maxPlayers: requestedMaxPlayers,
 }: Props) {
   const [editing, setEditing] = useState<SavedPlayer | null>(null);
   const [remoteGuidance, setRemoteGuidance] = useState<string | null>(null);
-  const minPlayers = mode === 'remote-only' ? 1 : 2;
-  const maxPlayers = mode === 'remote-only' ? 1 : 6;
+  const minPlayers = mode === 'remote-only' ? 1 : requestedMinPlayers ?? 2;
+  const maxPlayers = mode === 'remote-only' ? 1 : requestedMaxPlayers ?? 6;
   const limits = { minSeats: minPlayers, maxSeats: maxPlayers };
-  const valid = !loading && seats.length >= minPlayers && seats.every((seat) => seat.displayName.trim());
+  const localPlay = mode !== 'remote-only';
+  const valid = !loading && seats.length >= minPlayers && (localPlay || seats.every((seat) => seat.displayName.trim()));
   const namedSeats = seats.filter((seat) => seat.displayName.trim());
+  const resolvedStartLabel = startLabel === 'Start game' && namedSeats.length === 0 ? 'Play now' : startLabel;
   const remoteValid = !loading && namedSeats.length >= 1 && namedSeats.length < remoteCapacity;
   const selectedIds = new Set(seats.flatMap((seat) => seat.savedPlayerId ? [seat.savedPlayerId] : []));
 
@@ -169,7 +175,8 @@ export function GamePlayerSetup({
       />
     </View> : null}
 
-    {mode !== 'remote-only' && onStart ? <GameButton style={styles.startAction} disabled={!valid} onPress={onStart} icon={<Play size={18} fill={gamesTheme.colors.ink} color={gamesTheme.colors.ink} />}>{startLabel}</GameButton> : null}
+    {localPlay ? <Text style={styles.optionalNames}>Names are optional for local play.</Text> : null}
+    {mode !== 'remote-only' && onStart ? <GameButton style={styles.startAction} disabled={!valid} onPress={onStart} icon={<Play size={18} fill={gamesTheme.colors.ink} color={gamesTheme.colors.ink} />}>{resolvedStartLabel}</GameButton> : null}
     {mode === 'farkle' && onLearn && valid ? <GameButton tone="ghost" onPress={onLearn}>New to Farkle? Learn in one turn</GameButton> : null}
     <SavedPlayerEditor player={editing} onClose={() => setEditing(null)} onSave={savePlayer} onArchive={archivePlayer} onPreviewSuccess={onPreviewSuccess} onPreviewFailure={onPreviewFailure} onUseAsMyPlayer={onUseAsMyPlayer} />
   </View>;
@@ -200,4 +207,5 @@ const styles = StyleSheet.create({
   houseRuleHint: { fontFamily: gamesTheme.type.body, fontSize: 11, color: 'rgba(32,29,24,0.52)' },
   startAction: { width: '100%' },
   remoteError: { width: '100%', paddingHorizontal: 8, fontFamily: gamesTheme.type.body, fontSize: 11, lineHeight: 15, color: gamesTheme.colors.danger },
+  optionalNames: { textAlign: 'center', fontFamily: gamesTheme.type.body, fontSize: 11, color: 'rgba(32,29,24,0.52)' },
 });

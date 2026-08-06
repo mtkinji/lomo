@@ -1,71 +1,127 @@
 import {
-  advanceOnePlan,
-  beginOnePlanReveal,
-  createOnePlanGame,
+  advanceOddballGame,
+  beginOddballReveal,
+  createOddballGame,
   onePlanScenarios,
-  reportOnePlanConsensus,
-  reportOnePlanSplit,
+  scoreOddballRound,
+  startOddballRound,
 } from '../onePlan';
 
-describe('Show of Hands rules', () => {
-  it('turns a first-reveal consensus into one Bridge and a consequence', () => {
-    const choosing = createOnePlanGame();
-    const reveal = beginOnePlanReveal(choosing);
-    const result = reportOnePlanConsensus(reveal, 1);
+const players = ['Maya', 'Leo', 'Nana', 'Ari'];
 
+function recordingGame() {
+  return beginOddballReveal(startOddballRound(createOddballGame(players)));
+}
+
+describe('Oddball rules', () => {
+  it('awards one point to the single largest group and gives the sole unique player the Oddball', () => {
+    const result = scoreOddballRound(recordingGame(), {
+      winningOptionIndex: 1,
+      scorerIds: ['player-1', 'player-2', 'player-3'],
+      oddballPlayerId: 'player-4',
+    });
+
+    expect(result.players.map((player) => player.score)).toEqual([1, 1, 1, 0]);
     expect(result).toMatchObject({
-      phase: 'consequence', bridges: 1, chaos: 0,
-      outcome: { kind: 'bridge', optionIndex: 1, vote: 'first' },
+      phase: 'result',
+      oddballPlayerId: 'player-4',
+      winnerId: null,
+      outcome: {
+        kind: 'scored',
+        winningOptionIndex: 1,
+        scorerIds: ['player-1', 'player-2', 'player-3'],
+        oddballPlayerId: 'player-4',
+        markerChanged: true,
+      },
     });
   });
 
-  it('gives a split group one pitch before the final reveal', () => {
-    const firstReveal = beginOnePlanReveal(createOnePlanGame());
-    const pitch = reportOnePlanSplit(firstReveal);
-
-    expect(pitch).toMatchObject({ phase: 'pitch', bridges: 0, chaos: 0, outcome: null });
-
-    const finalReveal = beginOnePlanReveal(pitch);
-    const result = reportOnePlanConsensus(finalReveal, 2);
-    expect(result).toMatchObject({
-      phase: 'consequence', bridges: 1, chaos: 0,
-      outcome: { kind: 'bridge', optionIndex: 2, vote: 'final' },
+  it('keeps the existing Oddball and awards no points when the largest groups tie', () => {
+    const marked = { ...recordingGame(), oddballPlayerId: 'player-2' };
+    const result = scoreOddballRound(marked, {
+      winningOptionIndex: null,
+      scorerIds: [],
+      oddballPlayerId: null,
     });
+
+    expect(result.players.map((player) => player.score)).toEqual([0, 0, 0, 0]);
+    expect(result.oddballPlayerId).toBe('player-2');
+    expect(result.outcome).toEqual({ kind: 'tie' });
   });
 
-  it('adds Chaos only when the final reveal is still split', () => {
-    const firstReveal = beginOnePlanReveal(createOnePlanGame());
-    const pitch = reportOnePlanSplit(firstReveal);
-    const finalReveal = beginOnePlanReveal(pitch);
-    const result = reportOnePlanSplit(finalReveal);
-
-    expect(result).toMatchObject({
-      phase: 'consequence', bridges: 0, chaos: 1,
-      outcome: { kind: 'chaos' },
+  it('transfers the Oddball only when a later round identifies one sole unique player', () => {
+    const first = scoreOddballRound(recordingGame(), {
+      winningOptionIndex: 0,
+      scorerIds: ['player-1', 'player-2', 'player-3'],
+      oddballPlayerId: 'player-4',
     });
+    const next = beginOddballReveal(startOddballRound(advanceOddballGame(first)));
+    const result = scoreOddballRound(next, {
+      winningOptionIndex: 2,
+      scorerIds: ['player-2', 'player-3', 'player-4'],
+      oddballPlayerId: 'player-1',
+    });
+
+    expect(result.oddballPlayerId).toBe('player-1');
+    expect(result.outcome).toMatchObject({ oddballPlayerId: 'player-1', markerChanged: true });
   });
 
-  it('ends after the third Bridge and ignores duplicate reveal reports', () => {
-    let game = createOnePlanGame();
-    for (let round = 0; round < 3; round += 1) {
-      const reveal = beginOnePlanReveal(game);
-      const consequence = reportOnePlanConsensus(reveal, round % 3);
-      expect(reportOnePlanConsensus(consequence, 0)).toEqual(consequence);
-      game = advanceOnePlan(consequence);
-    }
+  it('does not let the Oddball holder win even when they reach eight', () => {
+    const game = recordingGame();
+    const nearWin = {
+      ...game,
+      oddballPlayerId: 'player-1',
+      players: game.players.map((player, index) => ({ ...player, score: index === 0 ? 7 : index === 1 ? 6 : 0 })),
+    };
+    const result = scoreOddballRound(nearWin, {
+      winningOptionIndex: 0,
+      scorerIds: ['player-1', 'player-2'],
+      oddballPlayerId: null,
+    });
 
-    expect(game).toMatchObject({ phase: 'finished', bridges: 3, chaos: 0, winner: 'bridges' });
+    expect(result.players.map((player) => player.score)).toEqual([8, 7, 0, 0]);
+    expect(result.winnerId).toBeNull();
   });
 
-  it('ends after the third Chaos result', () => {
-    let game = createOnePlanGame();
-    for (let round = 0; round < 3; round += 1) {
-      game = reportOnePlanSplit(beginOnePlanReveal(game));
-      game = reportOnePlanSplit(beginOnePlanReveal(game));
-      game = advanceOnePlan(game);
-    }
+  it('finishes for one unmarked leader at eight but extends a tied race', () => {
+    const game = recordingGame();
+    const oneLeader = {
+      ...game,
+      players: game.players.map((player, index) => ({ ...player, score: index === 0 ? 7 : index === 1 ? 6 : 0 })),
+    };
+    const won = scoreOddballRound(oneLeader, {
+      winningOptionIndex: 2,
+      scorerIds: ['player-1', 'player-3'],
+      oddballPlayerId: null,
+    });
+    expect(won.winnerId).toBe('player-1');
+    expect(advanceOddballGame(won).phase).toBe('finished');
 
-    expect(game).toMatchObject({ phase: 'finished', bridges: 0, chaos: 3, winner: 'chaos' });
+    const tied = scoreOddballRound({
+      ...game,
+      players: game.players.map((player, index) => ({ ...player, score: index < 2 ? 7 : 0 })),
+    }, {
+      winningOptionIndex: 1,
+      scorerIds: ['player-1', 'player-2'],
+      oddballPlayerId: null,
+    });
+    expect(tied.winnerId).toBeNull();
+    expect(advanceOddballGame(tied).phase).toBe('choosing');
+  });
+
+  it('ignores malformed result reports instead of corrupting the shared score', () => {
+    const game = recordingGame();
+
+    expect(scoreOddballRound(game, {
+      winningOptionIndex: 3,
+      scorerIds: ['player-1'],
+      oddballPlayerId: 'player-1',
+    })).toEqual(game);
+    expect(scoreOddballRound(game, {
+      winningOptionIndex: 0,
+      scorerIds: ['player-1'],
+      oddballPlayerId: null,
+    })).toEqual(game);
   });
 
   it('ships enough complete authored problems for repeat sessions', () => {

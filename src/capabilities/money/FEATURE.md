@@ -47,7 +47,7 @@ briefs:
   - transaction-rule-truth
   - transaction-truth-to-five
 status: shipping
-last_reviewed: 2026-07-31
+last_reviewed: 2026-08-04
 ---
 
 # Money

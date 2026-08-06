@@ -29,6 +29,7 @@ export type MoneyDataAction =
   | { type: 'confirmed_transaction_plan_role_patch'; patch: ConfirmedTransactionPlanRolePatch }
   | { type: 'confirmed_merchant_rule_patch'; patch: ConfirmedMerchantRulePatch }
   | { type: 'confirmed_category_patch'; patch: ConfirmedCategoryPatch }
+  | { type: 'confirmed_category_order'; categorySourceIds: string[] }
   | { type: 'authoritative_plan_projection'; snapshot: MoneySnapshot; versionId: string; receiptId: string | null }
   | { type: 'background_failure'; message: string };
 
@@ -72,6 +73,21 @@ export function moneyDataReducer(state: MoneyDataState, action: MoneyDataAction)
       return state.snapshot
         ? { ...state, status: 'ready', snapshot: applyConfirmedCategoryPatch(state.snapshot, action.patch), error: null, refreshing: false, stale: true }
         : state;
+    case 'confirmed_category_order':
+      if (!state.snapshot) return state;
+      return {
+        ...state,
+        status: 'ready',
+        snapshot: {
+          ...state.snapshot,
+          categories: [...state.snapshot.categories].sort((left, right) => (
+            action.categorySourceIds.indexOf(left.sourceId) - action.categorySourceIds.indexOf(right.sourceId)
+          )),
+        },
+        error: null,
+        refreshing: false,
+        stale: true,
+      };
     case 'authoritative_plan_projection':
       return {
         ...state,

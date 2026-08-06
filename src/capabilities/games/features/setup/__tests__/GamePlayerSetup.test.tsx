@@ -60,6 +60,57 @@ describe('GamePlayerSetup', () => {
     expect(onStart).toHaveBeenCalledTimes(1);
   });
 
+  it('lets a local table start immediately with neutral player names', () => {
+    const onStart = jest.fn();
+    const screen = render(<GamePlayerSetup
+      {...common}
+      mode="connection"
+      seats={[{ key: 'one', displayName: '' }, { key: 'two', displayName: '' }]}
+      onChange={jest.fn()}
+      onStart={onStart}
+    />);
+
+    expect(screen.getByText('Names are optional for local play.')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Play now' }));
+    expect(onStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('honors a game-specific three-to-eight-player table', () => {
+    const onChange = jest.fn();
+    const screen = render(<GamePlayerSetup
+      {...common}
+      mode="connection"
+      seats={[
+        { key: 'one', displayName: '' },
+        { key: 'two', displayName: '' },
+        { key: 'three', displayName: '' },
+      ]}
+      minPlayers={3}
+      maxPlayers={8}
+      onChange={onChange}
+      onStart={jest.fn()}
+    />);
+
+    expect(screen.queryByRole('button', { name: 'Remove player 3' })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Add player' }));
+    expect(onChange).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ key: 'new' }),
+    ]));
+  });
+
+  it('still requires a named host before opening a remote table', () => {
+    const onUseMorePhones = jest.fn();
+    const screen = render(<GamePlayerSetup
+      {...common}
+      mode="remote-only"
+      seats={[{ key: 'host', displayName: '' }]}
+      onChange={jest.fn()}
+      onUseMorePhones={onUseMorePhones}
+    />);
+
+    expect(screen.getByRole('button', { name: 'Use more phones' })).toBeDisabled();
+  });
+
   it('uses the later Bank hierarchy for player and launch actions', () => {
     const screen = render(<GamePlayerSetup
       {...common}

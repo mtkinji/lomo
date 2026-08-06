@@ -9,7 +9,7 @@ job_flow: job-flow-maya-review-budget-reality-before-spending
 serves: [jtbd-review-budget-reality-before-spending, jtbd-trust-this-app-with-my-life]
 related_briefs: [governed-household-money-plan, category-budget-planning]
 owner: andrew
-last_updated: 2026-07-27
+last_updated: 2026-08-04
 ---
 
 # Money Category Ordering
@@ -44,7 +44,7 @@ When Maya reviews household Money, she wants the categories that matter most to 
 
 ## Design
 
-Add `Reorder categories` to Summary options. It opens a single-header bottom drawer containing a full-width draggable list. The drawer uses existing drag infrastructure and provides VoiceOver Move up/Move down actions. Done sends the complete active-category ID sequence to an owner-scoped atomic RPC. The drawer may show the optimistic sequence immediately, but success is announced only after the RPC confirms the exact set. On failure it restores the prior sequence and keeps the drawer open with a readable recovery message.
+Add `Reorder categories` to Summary's existing View menu. It opens a single-header bottom drawer containing a full-width draggable list. The drawer uses existing drag infrastructure and provides VoiceOver Move up/Move down actions. Done sends the complete active-category ID sequence to an owner-scoped atomic RPC. The drawer may show the optimistic sequence immediately, but success is announced only after the RPC confirms the exact set. On failure it preserves the local sequence and keeps the drawer open with a readable recovery message.
 
 The saved order is the one sequence used by Summary, transaction category pickers, split allocation, and future category inventories. New categories append after the highest active `sort_order`. This release does not add groups, pins, per-month order, hidden categories, or AI ranking.
 

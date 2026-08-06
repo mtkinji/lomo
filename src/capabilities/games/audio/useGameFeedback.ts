@@ -136,7 +136,15 @@ export function useGameFeedback(soundOn: boolean) {
       // Sound is delight, never a gate to play.
     }
   }, [failureBonk, failureCartoonSplat, failureTrombone, failureWobble, replay]);
+  const skip = useCallback(async () => {
+    void HapticsService.trigger('canvas.primary.confirm');
+    try {
+      await replay(failureWobble);
+    } catch {
+      // Sound is delight, never a gate to play.
+    }
+  }, [failureWobble, replay]);
   const select = useCallback(() => void HapticsService.trigger('canvas.selection'), []);
 
-  return useMemo(() => ({ roll, success, failure, bank, doubles, select }), [bank, doubles, failure, roll, select, success]);
+  return useMemo(() => ({ roll, success, failure, bank, doubles, skip, select }), [bank, doubles, failure, roll, select, skip, success]);
 }

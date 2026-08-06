@@ -1,4 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import type { MoneySnapshot } from '../data/moneySnapshot';
 import { MoneySummaryScreen } from './MoneySummaryScreen';
 
@@ -31,12 +33,15 @@ let mockSnapshot = initialSnapshot;
 const mockRefresh = jest.fn(async () => undefined);
 const mockReconcileGovernedPlanFoundation = jest.fn(async () => undefined);
 const mockRefreshStaleMoneySummary = jest.fn(async (_input: unknown) => undefined);
+const mockReorderCategories = jest.fn(async (_categoryIds: string[]) => undefined);
 
 jest.mock('../data/MoneyDataContext', () => ({
   useMoneyData: () => ({
     snapshot: mockSnapshot,
     refresh: mockRefresh,
     reconcileGovernedPlanFoundation: mockReconcileGovernedPlanFoundation,
+    reorderCategories: mockReorderCategories,
+    savingCategoryOrder: false,
   }),
 }));
 jest.mock('../runtime/moneySummaryAutoRefresh', () => ({
@@ -72,6 +77,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     mockRefresh.mockClear();
     mockReconcileGovernedPlanFoundation.mockClear();
     mockRefreshStaleMoneySummary.mockClear();
+    mockReorderCategories.mockClear();
   });
 
   beforeAll(() => {
@@ -141,6 +147,13 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(committedInfo.props.accessibilityHint).toBe('Bills and money already set aside before your flexible spending is calculated.');
     fireEvent.press(committedInfo);
     expect(committedInfo.props.accessibilityState).toMatchObject({ expanded: true });
+  });
+
+  it('opens category reordering from the View menu', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneySummaryScreen.tsx'), 'utf8');
+    expect(source).toContain('<DropdownMenuSeparator />');
+    expect(source).toContain('accessibilityLabel="Reorder categories" onPress={onReorder}');
+    expect(source).toContain('<MoneyCategoryReorderDrawer');
   });
 
   it('opens the exact transactions behind flexible spending', () => {

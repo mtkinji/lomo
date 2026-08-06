@@ -80,6 +80,47 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; 
 }
 
 describe('createMoneyRepository transaction review', () => {
+  it('persists the complete category order through the owner-scoped RPC', async () => {
+    const { client, rpcCalls } = createClient({
+      rpcResult: {
+        category_ids: ['category-2', 'category-1'],
+        updated_at: '2026-08-05T01:00:00.000Z',
+      },
+    });
+
+    await expect(createMoneyRepository(client).reorderCategories(['category-2', 'category-1']))
+      .resolves.toEqual({
+        categoryIds: ['category-2', 'category-1'],
+        confirmedAt: '2026-08-05T01:00:00.000Z',
+      });
+    expect(rpcCalls).toEqual([{
+      name: 'reorder_budget_categories',
+      args: { p_category_ids: ['category-2', 'category-1'] },
+    }]);
+  });
+
+  it('rejects an incomplete or malformed category order before writing', async () => {
+    const { client, rpcCalls } = createClient();
+    const repository = createMoneyRepository(client);
+
+    await expect(repository.reorderCategories([])).rejects.toThrow('category order');
+    await expect(repository.reorderCategories(['category-1', 'category-1'])).rejects.toThrow('exactly once');
+    await expect(repository.reorderCategories(['category-1', '  '])).rejects.toThrow('exactly once');
+    expect(rpcCalls).toEqual([]);
+  });
+
+  it('does not confirm a category order when the RPC receipt differs', async () => {
+    const { client } = createClient({
+      rpcResult: {
+        category_ids: ['category-1', 'category-2'],
+        updated_at: '2026-08-05T01:00:00.000Z',
+      },
+    });
+
+    await expect(createMoneyRepository(client).reorderCategories(['category-2', 'category-1']))
+      .rejects.toThrow('confirm the category order');
+  });
+
   it('loads forecast settings and paginates the complete transaction history', async () => {
     const { client, calls, rpcCalls } = createClient();
 

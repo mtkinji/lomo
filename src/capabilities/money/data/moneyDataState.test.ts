@@ -105,4 +105,23 @@ describe('moneyDataReducer', () => {
     expect(result.planVersionId).toBe('version-2');
     expect(result.planReceiptId).toBe('receipt-2');
   });
+
+  it('applies a server-confirmed category order without changing category data', () => {
+    const categorySnapshot = {
+      ...snapshot,
+      categories: [
+        { id: 'health', sourceId: 'category-1', name: 'Health' },
+        { id: 'shopping', sourceId: 'category-2', name: 'Shopping' },
+      ],
+    } as typeof snapshot;
+    const ready = moneyDataReducer(initialMoneyDataState, { type: 'success', snapshot: categorySnapshot });
+    const result = moneyDataReducer(ready, {
+      type: 'confirmed_category_order',
+      categorySourceIds: ['category-2', 'category-1'],
+    });
+
+    expect(result.snapshot?.categories.map((category) => category.name)).toEqual(['Shopping', 'Health']);
+    expect(result.snapshot?.categories[0]).toBe(categorySnapshot.categories[1]);
+    expect(result.stale).toBe(true);
+  });
 });

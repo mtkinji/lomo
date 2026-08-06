@@ -43,26 +43,6 @@ export const objectQuestPrompts = [
   'Find something you would rescue first from a blanket fort.',
 ];
 
-export const storyRelayPrompts = [
-  'A mysterious package appeared at breakfast.',
-  'The family pet knew a secret route through town.',
-  'Every light went out—except one under the couch.',
-  'The smallest person in the room woke up ten feet tall.',
-  'A note inside an old book addressed everyone by name.',
-  'The refrigerator began giving surprisingly good advice.',
-  'A tiny door appeared in the most ordinary wall.',
-  'Someone’s shadow waved before they did.',
-];
-
-export const storyTurnPrompts = [
-  'Introduce something unexpected.',
-  'Make the problem a little stranger.',
-  'Bring back an earlier detail.',
-  'Give someone a brave decision.',
-  'Move the story somewhere new.',
-  'End with one delightful surprise.',
-];
-
 export const forecastPrompts = [
   { question: 'Which would {{name}} choose for a free afternoon?', options: ['Make something', 'Go somewhere'] },
   { question: 'Which treat would {{name}} save for last?', options: ['Something crunchy', 'Something gooey'] },
@@ -81,13 +61,23 @@ export const clueTargets = [
   'Family photo', 'Pancakes', 'Campfire', 'Snow day', 'Backpack', 'Hiccup',
   'Blanket fort', 'Road trip', 'Secret handshake', 'Kitchen dance', 'Missing puzzle piece', 'Water balloon',
   'Bedtime story', 'Tree swing', 'Movie night', 'Inside joke', 'Silly hat', 'Treasure map',
+  'Sock puppet', 'Bubble bath', 'Flashlight', 'Lemonade stand', 'Paper airplane', 'Jump rope',
+  'Ice cream cone', 'Laundry basket', 'Alarm clock', 'Rubber duck', 'Garden hose', 'Magic trick',
+  'Telescope', 'Seashell', 'Soccer ball', 'Cookie jar', 'Shopping cart', 'Vacuum cleaner',
+  'Doorbell', 'Sunglasses', 'Umbrella', 'Marshmallow', 'Kite', 'Hammock',
+  'Toolbox', 'Toothbrush', 'Hairbrush', 'Bicycle bell', 'Mud puddle', 'Sleeping bag',
+  'Firefly', 'Apple pie', 'Banana peel', 'Watermelon', 'Hot chocolate', 'Snowman',
+  'Roller skates', 'Birthday candle', 'Picnic basket', 'Sprinkler', 'Camp tent', 'Sandcastle',
+  'Soap bubble', 'Treasure chest', 'Toy robot', 'Jack-in-the-box', 'Wind chime', 'Rocking chair',
+  'Pizza delivery', 'Lemon squeeze', 'Popcorn machine', 'Train whistle', 'School bus', 'Traffic cone',
+  'Fire truck', 'Cowboy boots', 'Diving board', 'Canoe paddle', 'Fishing pole', 'Beach towel',
+  'Moonwalk', 'High five', 'Sneezing fit', 'Tiptoe', 'Cartwheel', 'Hide-and-seek',
+  'Tug-of-war', 'Hopscotch', 'Musical chairs', 'Group hug', 'Pillowcase ghost', 'Victory dance',
 ];
 
 export const clueModes = [
-  'Give a three-word clue.',
+  'Describe it without saying any part of the answer.',
   'Act it out without speaking.',
-  'Make one helpful sound.',
-  'Connect it to a family memory.',
-  'Describe what it would say if it could talk.',
-  'Give a clue using only comparisons.',
+  'Use sounds and gestures. No descriptive words.',
+  'Give fast comparisons: “It’s like…”',
 ];
