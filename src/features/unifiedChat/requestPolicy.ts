@@ -37,7 +37,7 @@ const HIGH_STAKES_PATTERN =
 const UNSUPPORTED_CONSEQUENTIAL_EFFECT_PATTERN =
   /\b(transfer|wire|send)\b[^.!?]*\b(?:\$|money|funds?|checking|savings|bank)|\bfile\b[^.!?]*\btaxes\b|\badd\b[^.!?]*\b(?:bank account|credit card)\b/i;
 const NATIVE_CONTROL_PATTERN =
-  /\b(screen time|app limit|block games?|block apps?|allow games?|unlock games?|shield apps?)\b/i;
+  /\b(screen time|app limit|block games?|block apps?|allow games?|unlock games?|shield apps?)\b|\bunlock\b[^.!?\n]{0,60}\b(?:apps?|games?)\b/i;
 const ACTION_PATTERN =
   /\b(move|put|rename|reschedule|schedule|mark|complete|create|add|make|remember|update|change|delete|remove|remind me|call me|turn|enable|disable|open|manage)\b/i;
 const AMBIGUOUS_ACTION_TARGET_PATTERN =

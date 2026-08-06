@@ -17,6 +17,28 @@ const proposal: Extract<UnifiedChatProposal, { capabilityId: 'screenTime' }> = {
   },
 };
 
+const prerequisiteProposal: Extract<UnifiedChatProposal, { capabilityId: 'screenTime' }> = {
+  id: 'proposal-prerequisite', threadId: 'thread-1', runId: 'run-1', messageId: 'message-2',
+  capabilityId: 'screenTime', title: 'Use Gospel Library before Games',
+  body: 'Charlie uses Gospel Library for 5 minutes before Games become available each day.',
+  status: 'pending', version: 1, createdAt: 'created', updatedAt: 'updated',
+  operation: {
+    id: 'operation-prerequisite', proposalId: 'proposal-prerequisite', capabilityId: 'screenTime',
+    type: 'create_family_screen_time_prerequisite_agreement', targetId: null,
+    summary: 'Use Gospel Library before Games', idempotencyKey: 'chat:run-1:2', sequence: 1,
+    payload: {
+      childMembershipId: 'charlie', targetSelectionId: 'selection-games', expectedPolicyVersion: 7,
+      rule: {
+        weekdays: [0, 1, 2, 3, 4, 5, 6], startMinute: 0, endMinute: 1440,
+        dailyLimitMinutes: null,
+        prerequisiteActivity: {
+          selectionId: 'selection-gospel-library', thresholdMinutes: 5, reset: 'daily',
+        },
+      },
+    },
+  },
+};
+
 describe('executeScreenTimeProposalDecision', () => {
   it('reserves, saves the exact confirmed policy, and reports device delivery separately', async () => {
     const rpc = jest.fn()
@@ -65,5 +87,51 @@ describe('executeScreenTimeProposalDecision', () => {
     await executeScreenTimeProposalDecision({ proposal, action: 'reject', repository, client });
     expect(client.rpc).not.toHaveBeenCalled();
     expect(repository.persistMutationReceipt).not.toHaveBeenCalled();
+  });
+
+  it('creates the confirmed prerequisite agreement atomically and keeps device delivery distinct', async () => {
+    const rpc = jest.fn()
+      .mockResolvedValueOnce({ data: {
+        agreementId: 'agreement-1', childMembershipId: 'charlie',
+        targetSelectionId: 'selection-games', prerequisiteSelectionId: 'selection-gospel-library',
+        rule: prerequisiteProposal.operation.type === 'create_family_screen_time_prerequisite_agreement'
+          ? prerequisiteProposal.operation.payload.rule
+          : null,
+        active: true, version: 1, desiredPolicyVersion: 8, operationId: 'chat:run-1:2',
+      }, error: null })
+      .mockResolvedValueOnce({ data: {
+        childMembershipId: 'charlie', subjectId: 'subject-charlie', desiredPolicyVersion: 8,
+        selections: [], agreements: [], activeOverrides: [], pendingRequests: [], devices: [],
+        latestDeviceReceipt: null,
+      }, error: null });
+    const client = { rpc } as unknown as SupabaseClient;
+    const repository = {
+      decideProposal: jest.fn().mockResolvedValue({ id: 'proposal-prerequisite', status: 'approved', version: 2 }),
+      transitionProposalStatus: jest.fn()
+        .mockResolvedValueOnce({ status: 'applying', version: 3 })
+        .mockResolvedValueOnce({ status: 'applied', version: 4 }),
+      persistMutationReceipt: jest.fn().mockResolvedValue({ id: 'receipt-prerequisite' } as UnifiedChatMutationReceipt),
+      finalizeMutationReceipt: jest.fn().mockImplementation(async (_id, input) => ({ id: 'receipt-prerequisite', ...input })),
+    };
+
+    await executeScreenTimeProposalDecision({
+      proposal: prerequisiteProposal, action: 'approve', repository, client,
+      now: () => new Date('2026-08-05T12:00:00.000Z'),
+    });
+
+    expect(rpc).toHaveBeenNthCalledWith(1, 'create_kwilt_family_screen_time_prerequisite_agreement', {
+      p_child_membership_id: 'charlie', p_target_selection_id: 'selection-games',
+      p_prerequisite_selection_id: 'selection-gospel-library', p_expected_policy_version: 7,
+      p_rule: prerequisiteProposal.operation.type === 'create_family_screen_time_prerequisite_agreement'
+        ? prerequisiteProposal.operation.payload.rule
+        : null,
+      p_operation_id: 'chat:run-1:2',
+    });
+    expect(repository.finalizeMutationReceipt).toHaveBeenCalledWith('receipt-prerequisite', expect.objectContaining({
+      resultingObjectType: 'family_screen_time_agreement', resultingObjectId: 'agreement-1',
+      resultState: expect.objectContaining({
+        policyState: 'saved', deviceState: 'device_required', thresholdMinutes: 5, reset: 'daily',
+      }),
+    }));
   });
 });

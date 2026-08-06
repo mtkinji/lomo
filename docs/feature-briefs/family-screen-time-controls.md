@@ -1,7 +1,7 @@
 ---
 id: brief-family-screen-time-controls
 title: Family Screen Time Controls
-status: draft
+status: accepted
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-foundation, brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-screen-time-controls-contextual-setup, brief-screen-time-controls]
 owner: andrew
-last_updated: 2026-07-29
+last_updated: 2026-08-05
 ---
 
 # Family Screen Time Controls
@@ -89,6 +89,14 @@ Rule criteria combine deterministically with AND semantics:
 - zero or more required Activity occurrence states; and
 - optional daily foreground-usage cap.
 
+An agreement may also include one privacy-preserving prerequisite activity:
+
+- `selectionId`: the saved child-scoped app/category selection that must be used;
+- `thresholdMinutes`: foreground minutes required within the agreement's reset window; and
+- `reset`: `daily` for the first release.
+
+The prerequisite selection is evidence of foreground app use only. Kwilt never claims that five minutes in Gospel Library proves scripture was read, understood, or taken seriously. The prerequisite remains available while the target selection is shielded.
+
 The child sees only the current reason and next action. Caregivers see the readable agreement, exceptions, and actionable device truth rather than a surveillance dashboard.
 
 ### Offline and reconciliation
@@ -135,6 +143,26 @@ Apple does not expose a readable installed-app inventory to Kwilt. The first req
 
 See [Family Screen Time Direct Controls](../design-explorations/family-screen-time-direct-controls/03-converge.md).
 
+### Chat-created prerequisite rules
+
+A caregiver may state the complete agreement in Chat:
+
+> Create a rule that Charlie has to read scripture for at least five minutes before he can unlock games.
+
+Chat resolves the authorized child plus two saved selections: the prerequisite (for example **Gospel Library**) and the target (for example **Games**). It never guesses an app from a bundle identifier or an installed-app inventory. If either selection is absent or ambiguous, Chat stages the exact native picker handoff and does not create a partial agreement.
+
+With both selections resolved, Chat stages one consequential proposal:
+
+> **Use Gospel Library before Games**
+>
+> Charlie uses Gospel Library for 5 minutes before Games become available each day.
+
+Caregiver approval saves an active, versioned agreement. The receipt distinguishes **Saved**, **Applying**, **Applied**, **Needs device setup**, and **Failed**. Approval never implies the child device applied the rule.
+
+On the child device, Managed Settings shields only the target selection. Device Activity monitors foreground usage of the prerequisite selection and calls the monitor extension at the threshold. The extension clears only this agreement's target store, records a local threshold receipt, and leaves unrelated Kwilt or Apple restrictions intact. The next daily interval restores the target shield before starting a fresh threshold.
+
+Detailed exploration: [Family Screen Time Prerequisite Activity](../design-explorations/family-screen-time-prerequisite-activity/03-converge.md).
+
 ## Success signal
 
 The child can predict when access changes, ordinary transitions happen without asking for an unlock, either caregiver can handle a real exception, and the family can distinguish a policy decision from device delivery.
@@ -174,3 +202,23 @@ The pre-TestFlight slice must prove:
 - Reloading the local build preserves the learning state for the same caregiver and child without leaking it to another child.
 
 Signed physical-device and TestFlight proof remains required before the capability can claim authorization, app selection, scheduled enforcement, usage measurement, background behavior, offline behavior, or cleanup.
+
+## Spec refinement: prerequisite foreground activity
+
+Resolved implementation decisions:
+
+- The customer-facing concept remains a Family Access Rule, not a generic rules engine.
+- The first rule supports one child, one prerequisite saved selection, one target saved selection, a 1–1440 minute threshold, and a daily reset.
+- Requests that say “read scripture” may resolve to **Gospel Library** only when that label is already saved for the child; otherwise Apple selection is required.
+- Chat proposals require explicit caregiver approval and optimistic concurrency against the child's desired policy version.
+- Agreement creation is atomic. A missing prerequisite or target selection cannot produce a partially active rule.
+- General state and analytics receive semantic labels and coarse event metadata only; Apple tokens and usage history remain native.
+- Source/tests can prove parsing, persistence contracts, generated native extension source, and receipt truth. Signed physical-device proof remains required for authorization, foreground counting, background callback, reset, shielding, and release.
+
+Acceptance criteria:
+
+- The example Chat request can invoke a typed `screen_time.agreement.create` tool call containing the authorized child, both saved selections, five minutes, and daily reset.
+- Chat stages the exact readable proposal and never auto-applies it.
+- Approval writes one active agreement, increments desired policy version, and produces a delivery-aware receipt.
+- The native generated project contains a Device Activity monitor extension that shields the target at interval start and clears only its named store at threshold.
+- Existing temporary block/allow proposals continue to parse and apply unchanged.

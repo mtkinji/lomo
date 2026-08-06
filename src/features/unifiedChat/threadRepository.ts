@@ -314,7 +314,8 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
   if (
     row.capability_id === 'screenTime' && row.target_id == null &&
     (row.operation_type === 'block_family_screen_time_selection' ||
-      row.operation_type === 'allow_family_screen_time_selection')
+      row.operation_type === 'allow_family_screen_time_selection' ||
+      row.operation_type === 'create_family_screen_time_prerequisite_agreement')
   ) {
     const operation = parseStoredScreenTimeProposalOperation({
       type: row.operation_type,
@@ -997,7 +998,10 @@ export function createUnifiedChatRepository(
           proposal_id: proposalId,
           capability_id: input.capabilityId,
           operation_type: input.operation.type,
-          target_type: input.capabilityId === 'screenTime' ? 'family_screen_time_override'
+          target_type: input.capabilityId === 'screenTime'
+            ? input.operation.type === 'create_family_screen_time_prerequisite_agreement'
+              ? 'family_screen_time_agreement'
+              : 'family_screen_time_override'
             : input.capabilityId === 'money' ? 'money_category'
             : input.capabilityId === 'arcs' ? 'arc'
             : input.capabilityId === 'goals' ? 'goal'
@@ -1030,10 +1034,9 @@ export function createUnifiedChatRepository(
         capability_id: input.capabilityId,
         operation_type: input.operation.type,
         target_id: input.operation.targetId,
-        payload: {
-          ...input.operation.payload,
-          expectedUpdatedAt,
-        },
+        payload: input.capabilityId === 'screenTime'
+          ? input.operation.payload
+          : { ...input.operation.payload, expectedUpdatedAt },
       });
       if (!mappedOperation) {
         throw new UnifiedChatRepositoryError('Proposal operation was invalid after save.');

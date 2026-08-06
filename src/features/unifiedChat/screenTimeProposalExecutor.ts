@@ -1,10 +1,29 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { applyTemporaryFamilyScreenTimeAccess } from '../household/screenTime/familyScreenTimeCommands';
+import {
+  applyTemporaryFamilyScreenTimeAccess,
+  createFamilyScreenTimePrerequisiteAgreement,
+} from '../household/screenTime/familyScreenTimeCommands';
 import type { UnifiedChatProposal } from './types';
 
 type ScreenTimeProposal = Extract<UnifiedChatProposal, { capabilityId: 'screenTime' }>;
 
 export function prepareApprovedScreenTimeProposal(proposal: ScreenTimeProposal) {
+  if (proposal.operation.type === 'create_family_screen_time_prerequisite_agreement') {
+    return {
+      resultingObjectType: 'family_screen_time_agreement',
+      resultingObjectId: proposal.operation.idempotencyKey,
+      resultState: {
+        policyState: 'pending',
+        deviceState: 'not_checked',
+        childMembershipId: proposal.operation.payload.childMembershipId,
+        targetSelectionId: proposal.operation.payload.targetSelectionId,
+        thresholdMinutes: proposal.operation.payload.rule.prerequisiteActivity.thresholdMinutes,
+        reset: proposal.operation.payload.rule.prerequisiteActivity.reset,
+      },
+      returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
+      undoOperation: null,
+    };
+  }
   const action = proposal.operation.type === 'block_family_screen_time_selection' ? 'block' : 'allow';
   return {
     resultingObjectType: 'family_screen_time_override_batch',
@@ -29,6 +48,31 @@ export async function applyApprovedScreenTimeProposal(input: {
 }) {
   const { proposal, client } = input;
   const now = input.now ?? new Date();
+  if (proposal.operation.type === 'create_family_screen_time_prerequisite_agreement') {
+    const result = await createFamilyScreenTimePrerequisiteAgreement(client, {
+      childMembershipId: proposal.operation.payload.childMembershipId,
+      targetSelectionId: proposal.operation.payload.targetSelectionId,
+      expectedPolicyVersion: proposal.operation.payload.expectedPolicyVersion,
+      rule: proposal.operation.payload.rule,
+      operationId: proposal.operation.idempotencyKey,
+    });
+    return {
+      resultingObjectType: 'family_screen_time_agreement',
+      resultingObjectId: result.agreementId,
+      resultState: {
+        policyState: 'saved',
+        deviceState: result.deliveryState,
+        childMembershipId: result.childMembershipId,
+        desiredPolicyVersion: result.desiredPolicyVersion,
+        agreementVersion: result.version,
+        targetSelectionId: result.targetSelectionId,
+        thresholdMinutes: result.rule.prerequisiteActivity.thresholdMinutes,
+        reset: result.rule.prerequisiteActivity.reset,
+      },
+      returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
+      undoOperation: null,
+    };
+  }
   const action = proposal.operation.type === 'block_family_screen_time_selection' ? 'block' : 'allow';
   const result = await applyTemporaryFamilyScreenTimeAccess(client, {
     action,

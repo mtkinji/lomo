@@ -5,6 +5,18 @@ export type FamilyScreenTimeBasis = 'wall_clock' | 'foreground_usage';
 export type FamilyScreenTimeDeliveryOutcome = 'received' | 'applied' | 'failed' | 'expired' | 'released';
 export type FamilyScreenTimeRule = Record<string, unknown>;
 
+export type FamilyScreenTimePrerequisiteRule = {
+  weekdays: number[];
+  startMinute: number;
+  endMinute: number;
+  dailyLimitMinutes: number | null;
+  prerequisiteActivity: {
+    selectionId: string;
+    thresholdMinutes: number;
+    reset: 'daily';
+  };
+};
+
 export type FamilyScreenTimeSelection = {
   id: string;
   label: string;
@@ -180,6 +192,24 @@ export function setFamilyScreenTimeAgreementRpc(client: SupabaseClient, input: {
     p_child_membership_id: input.childMembershipId, p_agreement_id: input.agreementId,
     p_selection_id: input.selectionId, p_expected_version: input.expectedVersion,
     p_rule: input.rule, p_active: input.active, p_operation_id: input.operationId,
+  });
+}
+
+export function createFamilyScreenTimePrerequisiteAgreementRpc(client: SupabaseClient, input: {
+  childMembershipId: string;
+  targetSelectionId: string;
+  prerequisiteSelectionId: string;
+  expectedPolicyVersion: number;
+  rule: FamilyScreenTimePrerequisiteRule;
+  operationId: string;
+}) {
+  return callRpc(client, 'create_kwilt_family_screen_time_prerequisite_agreement', {
+    p_child_membership_id: input.childMembershipId,
+    p_target_selection_id: input.targetSelectionId,
+    p_prerequisite_selection_id: input.prerequisiteSelectionId,
+    p_expected_policy_version: input.expectedPolicyVersion,
+    p_rule: input.rule,
+    p_operation_id: input.operationId,
   });
 }
 

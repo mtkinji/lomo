@@ -12,6 +12,13 @@ type ScreenTimeSelectionResult = {
   selectedCategories?: ScreenTimeToken[];
 };
 
+export type ScreenTimePrerequisiteRuleEvent = {
+  kind: 'interval_started' | 'threshold_reached' | 'interval_ended';
+  agreementId: string;
+  policyVersion: number;
+  occurredAtMs: number;
+};
+
 type KwiltScreenTimeProtectionNativeModule = {
   getAuthorizationStatus?: () => Promise<ScreenTimeAuthorizationStatus | string>;
   requestAuthorization?: () => Promise<ScreenTimeAuthorizationStatus | string>;
@@ -20,6 +27,9 @@ type KwiltScreenTimeProtectionNativeModule = {
   clearRestrictions?: () => Promise<boolean>;
   clearRestrictionsForSelection?: (json: string) => Promise<boolean>;
   consumePendingReviewRequest?: () => Promise<number | null | undefined>;
+  applyPrerequisiteRule?: (json: string) => Promise<boolean>;
+  clearPrerequisiteRule?: (json: string) => Promise<boolean>;
+  consumePrerequisiteRuleEvent?: () => Promise<unknown>;
 };
 
 const native: KwiltScreenTimeProtectionNativeModule | undefined = (NativeModules as any)?.KwiltScreenTimeProtection;
@@ -128,5 +138,65 @@ export async function clearScreenTimeRestrictions(): Promise<boolean> {
     return Boolean(await native.clearRestrictions());
   } catch {
     return false;
+  }
+}
+
+export async function applyScreenTimePrerequisiteRule(params: {
+  agreementId: string;
+  policyVersion: number;
+  targetSelectionId: string;
+  prerequisiteSelectionId: string;
+  prerequisiteLabel: string;
+  targetLabel: string;
+  thresholdMinutes: number;
+}): Promise<boolean> {
+  if (Platform.OS !== 'ios' || !native?.applyPrerequisiteRule) return false;
+  if (!params.agreementId.trim() || !params.targetSelectionId.trim()
+    || !params.prerequisiteSelectionId.trim()
+    || params.targetSelectionId === params.prerequisiteSelectionId
+    || !Number.isInteger(params.policyVersion) || params.policyVersion < 1
+    || !Number.isInteger(params.thresholdMinutes)
+    || params.thresholdMinutes < 1 || params.thresholdMinutes > 1440) return false;
+  try {
+    return Boolean(await native.applyPrerequisiteRule(JSON.stringify({
+      ...params,
+      agreementId: params.agreementId.trim(),
+      targetSelectionId: params.targetSelectionId.trim(),
+      prerequisiteSelectionId: params.prerequisiteSelectionId.trim(),
+      prerequisiteLabel: params.prerequisiteLabel.trim().slice(0, 80),
+      targetLabel: params.targetLabel.trim().slice(0, 80),
+    })));
+  } catch {
+    return false;
+  }
+}
+
+export async function clearScreenTimePrerequisiteRule(agreementId: string): Promise<boolean> {
+  if (Platform.OS !== 'ios' || !native?.clearPrerequisiteRule || !agreementId.trim()) return false;
+  try {
+    return Boolean(await native.clearPrerequisiteRule(JSON.stringify({ agreementId: agreementId.trim() })));
+  } catch {
+    return false;
+  }
+}
+
+export async function consumeScreenTimePrerequisiteRuleEvent(): Promise<ScreenTimePrerequisiteRuleEvent | null> {
+  if (Platform.OS !== 'ios' || !native?.consumePrerequisiteRuleEvent) return null;
+  try {
+    const value = await native.consumePrerequisiteRuleEvent();
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const event = value as Record<string, unknown>;
+    if (!['interval_started', 'threshold_reached', 'interval_ended'].includes(String(event.kind))
+      || typeof event.agreementId !== 'string' || !event.agreementId
+      || !Number.isInteger(event.policyVersion) || Number(event.policyVersion) < 1
+      || typeof event.occurredAtMs !== 'number' || !Number.isFinite(event.occurredAtMs)) return null;
+    return {
+      kind: event.kind as ScreenTimePrerequisiteRuleEvent['kind'],
+      agreementId: event.agreementId,
+      policyVersion: Number(event.policyVersion),
+      occurredAtMs: event.occurredAtMs,
+    };
+  } catch {
+    return null;
   }
 }

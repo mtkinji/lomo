@@ -95,6 +95,35 @@ test('family Screen Time decision telemetry excludes child, app, expiry, and mes
   expect(JSON.stringify(record)).not.toMatch(/charlie|brawl|opaque|expires|message/i);
 });
 
+test('prerequisite decision telemetry records only a bounded threshold bucket', () => {
+  const record = buildFamilyScreenTimeDecisionTelemetry({
+    ...({
+      id: 'proposal-2', threadId: 'thread-1', runId: 'run-1', messageId: null,
+      capabilityId: 'screenTime', title: 'Use Gospel Library before Games', body: 'Private labels',
+      status: 'pending', version: 1, createdAt: 'created', updatedAt: 'updated',
+      operation: {
+        id: 'operation-2', proposalId: 'proposal-2', capabilityId: 'screenTime',
+        type: 'create_family_screen_time_prerequisite_agreement', targetId: null,
+        summary: 'Private labels', idempotencyKey: 'two', sequence: 1,
+        payload: {
+          childMembershipId: 'charlie', targetSelectionId: 'games', expectedPolicyVersion: 2,
+          rule: {
+            weekdays: [0, 1, 2, 3, 4, 5, 6], startMinute: 0, endMinute: 1440,
+            dailyLimitMinutes: null,
+            prerequisiteActivity: { selectionId: 'gospel-library', thresholdMinutes: 5, reset: 'daily' },
+          },
+        },
+      },
+    } as const),
+  }, 'approve', 'saved');
+  expect(record).toEqual({
+    capability_id: 'screenTime', operation_type: 'create_family_screen_time_prerequisite_agreement',
+    decision: 'approve', target_count: 1, time_basis: 'foreground_usage_prerequisite',
+    threshold_minutes_bucket: '1_5', outcome: 'saved',
+  });
+  expect(JSON.stringify(record)).not.toMatch(/charlie|gospel|games|selection/i);
+});
+
 test('agent judgment telemetry contains only bounded classifications', () => {
   const judgment = {
     schemaVersion: 1 as const,

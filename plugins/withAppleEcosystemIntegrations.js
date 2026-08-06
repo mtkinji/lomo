@@ -20,6 +20,13 @@ const { getMoneyWidgetSwift } = require('./appleEcosystem/moneyWidgetSwift');
 const { getFocusWidgetSwift } = require('./appleEcosystem/focusWidgetSwift');
 const { getChatWidgetSwift } = require('./appleEcosystem/chatWidgetSwift');
 const { withScreenTimeShieldExtensions } = require('./appleEcosystem/screenTimeShieldExtensions');
+const {
+  PREREQUISITE_CONFIGURATION_SWIFT,
+  PREREQUISITE_EXTERN,
+  PREREQUISITE_HELPERS_SWIFT,
+  PREREQUISITE_METHODS_SWIFT,
+  PREREQUISITE_PROPERTIES_SWIFT,
+} = require('./appleEcosystem/screenTimePrerequisiteBridge');
 
 const KWILT_APP_GROUP_FALLBACK = 'group.com.andrewwatanabe.kwilt';
 
@@ -244,6 +251,7 @@ const KWILT_SCREEN_TIME_PROTECTION_SWIFT = `import Foundation
 import React
 
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
+import DeviceActivity
 import FamilyControls
 import ManagedSettings
 import SwiftUI
@@ -252,6 +260,8 @@ import SwiftUI
 #if canImport(UIKit)
 import UIKit
 #endif
+
+${PREREQUISITE_CONFIGURATION_SWIFT}
 
 @objc(KwiltScreenTimeProtection)
 class KwiltScreenTimeProtection: NSObject {
@@ -265,6 +275,7 @@ class KwiltScreenTimeProtection: NSObject {
   private let shieldReasonKey = "kwilt_screen_time_shield_reason_v1"
   private let shieldUpdatedAtKey = "kwilt_screen_time_shield_updated_at_v1"
   private let reviewRequestedAtKey = "kwilt_screen_time_review_requested_at_v1"
+${PREREQUISITE_PROPERTIES_SWIFT}
 
   @available(iOS 16.0, *)
   private func selectionId(from json: String) -> String {
@@ -381,6 +392,8 @@ class KwiltScreenTimeProtection: NSObject {
       ? nil
       : .specific(selection.categoryTokens, except: Set<ApplicationToken>())
   }
+
+${PREREQUISITE_HELPERS_SWIFT}
 #endif
 
   @objc(getAuthorizationStatus:rejecter:)
@@ -531,6 +544,8 @@ class KwiltScreenTimeProtection: NSObject {
 #endif
     resolve(false)
   }
+
+${PREREQUISITE_METHODS_SWIFT}
 }
 
 #if canImport(FamilyControls) && canImport(SwiftUI)
@@ -642,6 +657,8 @@ RCT_EXTERN_METHOD(
   resolver:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
 )
+
+${PREREQUISITE_EXTERN}
 
 @end
 `;

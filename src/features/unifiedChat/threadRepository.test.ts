@@ -976,6 +976,57 @@ describe('Unified Chat repository', () => {
     });
   });
 
+  test('persists and maps a family Screen Time prerequisite as an agreement', async () => {
+    const proposalRow = {
+      id: 'proposal-prerequisite', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-3',
+      capability_id: 'screenTime', title: 'Use Gospel Library before Games',
+      body: 'Charlie uses Gospel Library for 5 minutes before Games become available each day.',
+      status: 'pending', version: 1, created_at: '2026-08-05T12:00:00.000Z',
+      updated_at: '2026-08-05T12:00:00.000Z',
+    };
+    const payload = {
+      childMembershipId: 'charlie', targetSelectionId: 'selection-games', expectedPolicyVersion: 7,
+      rule: {
+        weekdays: [0, 1, 2, 3, 4, 5, 6], startMinute: 0, endMinute: 1440,
+        dailyLimitMinutes: null,
+        prerequisiteActivity: {
+          selectionId: 'selection-gospel-library', thresholdMinutes: 5, reset: 'daily' as const,
+        },
+      },
+    };
+    const operationRow = {
+      id: 'operation-prerequisite', proposal_id: 'proposal-prerequisite', capability_id: 'screenTime',
+      operation_type: 'create_family_screen_time_prerequisite_agreement',
+      target_type: 'family_screen_time_agreement', target_id: null,
+      summary: 'Use Gospel Library before Games', payload,
+      idempotency_key: 'unified-chat:run-1:screen-time:2', sequence: 1,
+    };
+    const { client, calls } = createClient([
+      { data: proposalRow, error: null }, { data: operationRow, error: null },
+    ]);
+    const repository = createUnifiedChatRepository(client as never);
+
+    await expect(repository.createProposal({
+      threadId: 'thread-1', runId: 'run-1', messageId: 'message-3', capabilityId: 'screenTime',
+      title: proposalRow.title, body: proposalRow.body, permissionPolicy: { requiresExplicitApproval: true },
+      operation: {
+        type: 'create_family_screen_time_prerequisite_agreement', targetId: null, payload,
+        summary: operationRow.summary, idempotencyKey: operationRow.idempotency_key,
+      },
+    })).resolves.toMatchObject({
+      capabilityId: 'screenTime',
+      operation: { type: 'create_family_screen_time_prerequisite_agreement', payload },
+    });
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_proposal_operations', method: 'insert',
+      args: [expect.objectContaining({
+        capability_id: 'screenTime',
+        operation_type: 'create_family_screen_time_prerequisite_agreement',
+        target_type: 'family_screen_time_agreement', target_id: null, payload,
+      })],
+    });
+  });
+
   test('persists and optimistically advances a pending device action', async () => {
     const pendingRow = {
       id: 'client-action-1', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',

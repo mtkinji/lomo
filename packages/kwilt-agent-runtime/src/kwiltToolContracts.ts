@@ -190,6 +190,24 @@ const SCREEN_TIME_AGREEMENT_RULE_SCHEMA = {
   required: ['weekdays', 'startMinute', 'endMinute', 'dailyLimitMinutes'],
   additionalProperties: false,
 } as const;
+const SCREEN_TIME_PREREQUISITE_AGREEMENT_RULE_SCHEMA = {
+  type: 'object',
+  properties: {
+    ...SCREEN_TIME_AGREEMENT_RULE_SCHEMA.properties,
+    prerequisiteActivity: {
+      type: 'object',
+      properties: {
+        selectionId: { type: 'string', minLength: 1 },
+        thresholdMinutes: { type: 'integer', minimum: 1, maximum: 1440 },
+        reset: { type: 'string', enum: ['daily'] },
+      },
+      required: ['selectionId', 'thresholdMinutes', 'reset'],
+      additionalProperties: false,
+    },
+  },
+  required: ['weekdays', 'startMinute', 'endMinute', 'dailyLimitMinutes', 'prerequisiteActivity'],
+  additionalProperties: false,
+} as const;
 const SCREEN_TIME_OVERRIDE_PROPERTIES = {
   targets: { type: 'array', minItems: 1, maxItems: 20, items: SCREEN_TIME_TARGET_SCHEMA },
   expiresAt: { type: 'string', format: 'date-time' },
@@ -264,16 +282,16 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   },
   {
     id: 'screen_time.agreement.create', version: 1, capabilityId: 'screenTime',
-    purpose: 'Stage a new standing Screen Time agreement for one authorized child and saved native selection.',
+    purpose: 'Stage a reviewed standing agreement that requires foreground use of one saved child app selection before another saved selection becomes available.',
     providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
         childMembershipId: { type: 'string', minLength: 1 },
-        selectionId: { type: 'string', minLength: 1 },
-        expectedVersion: { type: 'integer', enum: [0] },
-        rule: SCREEN_TIME_AGREEMENT_RULE_SCHEMA,
-      }, required: ['childMembershipId', 'selectionId', 'expectedVersion', 'rule'], additionalProperties: false,
+        targetSelectionId: { type: 'string', minLength: 1 },
+        expectedPolicyVersion: { type: 'integer', minimum: 0 },
+        rule: SCREEN_TIME_PREREQUISITE_AGREEMENT_RULE_SCHEMA,
+      }, required: ['childMembershipId', 'targetSelectionId', 'expectedPolicyVersion', 'rule'], additionalProperties: false,
     }, outputSchema: OBJECT_SCHEMA,
   },
   {
