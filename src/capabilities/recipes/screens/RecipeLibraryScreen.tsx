@@ -168,6 +168,29 @@ function RecipeShelfRow({ section, onOpen, onSeeAll }: {
   );
 }
 
+function PlanWithKwiltOffer({ onPress }: { onPress(): void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Plan with Kwilt"
+      accessibilityHint="Opens an editable Next meals draft"
+      onPress={onPress}
+      style={({ pressed }) => [styles.planOffer, pressed && styles.pressed]}
+    >
+      <View style={styles.planOfferIcon}>
+        <Icon name="navAiGuide" size={20} color={colors.pine700} />
+      </View>
+      <View style={styles.planOfferCopy}>
+        <Text variant="label" style={styles.eyebrow}>NEXT MEALS</Text>
+        <Heading variant="sm">Plan with Kwilt</Heading>
+        <Text tone="secondary">Turn a few ideas into your next meals.</Text>
+        <Text variant="label" style={styles.planOfferAction}>Choose a horizon and review a starting point</Text>
+      </View>
+      <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+    </Pressable>
+  );
+}
+
 function InventoryControlButton({
   icon,
   label,
@@ -475,6 +498,7 @@ export function RecipeLibraryView({
   onReset,
   browseMode,
   onSeeAll,
+  onPlanWithKwilt,
   totalCount,
 }: {
   recipes: RecipeProjection[];
@@ -490,6 +514,7 @@ export function RecipeLibraryView({
   onReset(): void;
   browseMode: 'shelves' | 'results';
   onSeeAll(filters: RecipeInventoryFilters): void;
+  onPlanWithKwilt(): void;
   totalCount: number;
 }) {
   const hasFilters = countActiveRecipeInventoryFilters(filters) > 0;
@@ -545,6 +570,7 @@ export function RecipeLibraryView({
         {controls}
         {cached ? <Text tone="secondary">Your saved recipes are here while Kwilt refreshes.</Text> : null}
         {featuredCard}
+        <PlanWithKwiltOffer onPress={onPlanWithKwilt} />
         {shelves.map((section) => (
           <RecipeShelfRow key={section.id} section={section} onOpen={onOpen} onSeeAll={onSeeAll} />
         ))}
@@ -631,6 +657,7 @@ export function RecipeLibraryScreen({ navigation }: Props) {
         onReset={resetInventory}
         browseMode={browseMode}
         onSeeAll={(next) => { setFilters(next); setSort('featured'); setBrowseMode('results'); }}
+        onPlanWithKwilt={() => navigation.navigate('MealPlanEditor', { source: 'recipe_library' })}
         totalCount={inventory.length}
       />
       <RecipeInventoryDock
@@ -677,6 +704,10 @@ const styles = StyleSheet.create({
   featuredArtwork: { width: '100%', aspectRatio: 1.78, borderRadius: 24 },
   featuredBody: { paddingHorizontal: spacing.xs, gap: spacing.xs },
   eyebrow: { color: colors.pine700, letterSpacing: 1.1 },
+  planOffer: { minHeight: 132, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 22, backgroundColor: colors.secondary },
+  planOfferIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas },
+  planOfferCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
+  planOfferAction: { color: colors.pine700 },
   gridRow: { gap: spacing.sm },
   card: { flex: 1, minWidth: 0, marginBottom: spacing.md },
   shelfCard: { flex: 0, width: 164, marginBottom: 0 },

@@ -35,7 +35,7 @@ export type FoodStackParamList = {
   RecipeCookComplete: { sessionId: string; recipeId: string };
   RecipeImportReview: undefined;
   NextMeals: undefined;
-  MealPlanEditor: { planId?: string };
+  MealPlanEditor: { planId?: string; source?: 'recipe_library' };
   MealChoiceInvite: { planId: string };
   MealPlanFinalize: { planId: string };
   MealChoiceResponse: { roundId: string; intent?: 'pass' };

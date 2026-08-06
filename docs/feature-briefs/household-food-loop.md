@@ -9,7 +9,7 @@ job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-carry-intentions-into-action, jtbd-capture-and-find-meaning, jtbd-invite-the-right-people-in, jtbd-review-budget-reality-before-spending, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-food-ai-operating-layer, brief-activity-context-action-platform, brief-kwilt-money-capability-integration, brief-governed-household-money-plan]
 owner: andrew
-last_updated: 2026-08-05
+last_updated: 2026-08-06
 ---
 
 # Household Food Loop
@@ -92,33 +92,40 @@ without becoming pantry clerks, budget administrators, or coupon experts.
 
 ### Learning-release loop
 
-1. Photograph, scan, share a URL, dictate, paste, or manually enter ten to
-   twenty real private Recipes; review uncertain fields against their evidence.
-2. Cook from the clean saved version without returning to the source.
-3. Start **Next meals** using next-shop, meal-count, date-range, or open horizon.
-4. Optionally bring in current Food-category reality from Money, choose a
+1. Begin with the bundled Kwilt catalog or photograph, scan, share a URL,
+   dictate, paste, or manually enter a private Recipe; review uncertain imported
+   fields against their evidence. A household does not need to import content
+   before planning can be evaluated.
+2. Browse or search Recipes, then use **Plan with Kwilt** to hand off into a
+   Meal Planning-owned review surface without creating a plan in the background.
+3. Choose a next-shop, meal-count, date-range, or open horizon and a planning
+   emphasis; let Kwilt prepare a short, explained starting set, edit it, then
+   explicitly save the draft.
+4. Cook from a clean saved or Kwilt-authored Recipe without returning to a
+   source page.
+5. Optionally bring in current Food-category reality from Money, choose a
    distinct trip target, and confirm only the pantry/fridge/freezer observations
    that materially affect this cycle.
-5. Let AI prepare an explained candidate set from authorized Recipes, household
+6. Let AI refine an explained candidate set from authorized Recipes, household
    preferences, time, budget target, stock, and price evidence, then add or
    remove Recipes, leftovers, eat out, undecided, or plain meal notes.
-6. Optionally invite selected activated household members to pick up to three,
+7. Optionally invite selected activated household members to pick up to three,
    pass, or suggest one idea.
-7. Close the round and show a calm aggregate; the organizer finalizes.
-8. Compile ingredients deterministically with provenance and uncertainty.
-9. Review **Already have**, corrections, staples, and quantities; preserve
+8. Close the round and show a calm aggregate; the organizer finalizes.
+9. Compile ingredients deterministically with provenance and uncertainty.
+10. Review **Already have**, corrections, staples, and quantities; preserve
    confirmed/likely/check-first evidence without requiring exact inventory.
-10. Compare at most a few plan-and-basket scenarios such as **Use more of what
+11. Compare at most a few plan-and-basket scenarios such as **Use more of what
     we have**, **Stay near $65**, and **Keep everyone’s top choices**.
-11. Capture a real store opportunity by provider evidence, barcode, photo, URL,
+12. Capture a real store opportunity by provider evidence, barcode, photo, URL,
     or voice and review the smallest meal/list diff before accepting it.
-12. Create an Instacart shopping-list page and state truthfully that retailer
+13. Create an Instacart shopping-list page and state truthfully that retailer
    product review and checkout remain.
-13. Move from a visually rich Recipe Home through a short readiness check into
+14. Move from a visually rich Recipe Home through a short readiness check into
     a resumable Cook Session that presents one cue at a time.
-14. Let foreground voice advance, repeat, go back, answer recipe-grounded
+15. Let foreground voice advance, repeat, go back, answer recipe-grounded
     questions, and operate timers while always retaining visible touch controls.
-15. Offer one optional post-cook learning, then let a reviewed receipt separately
+16. Offer one optional post-cook learning, then let a reviewed receipt separately
     inform Money actuals, purchased-stock observations, price history, and
     receipt-proven savings for the next cycle.
 
@@ -224,6 +231,22 @@ Goals, and To-dos while adding one featured recipe and lightweight category or
 cuisine filters. Ratings, social feeds, popularity, and a second cookbook
 hierarchy remain excluded. See
 [`08-recipe-library-inventory.md`](../design-explorations/meals-recipes-groceries/08-recipe-library-inventory.md).
+
+### Plan with Kwilt handoff
+
+The Recipe Library includes one quiet, full-width **Plan with Kwilt** offer among
+its browsing shelves. It opens **Next meals** with exact Recipe Library context;
+it does not open generic Chat and does not claim a plan already exists. The user
+chooses the horizon and planning emphasis before Kwilt prepares a bounded
+starting set from authorized Recipe and current Food evidence. Every suggestion
+is explained, remains editable, and stays unsaved until the user explicitly
+taps **Save**.
+
+Acceptance requires the offer to appear only in the broad browsing state, hand
+off to the Meal Planning-owned editor, prepare no more than seven candidates,
+preserve plain meal notes, allow every Recipe candidate to be added or removed,
+and make the unsaved boundary explicit. Opening or preparing the offer must not
+create, finalize, invite, compile groceries, or mutate Money.
 
 ## Open questions
 

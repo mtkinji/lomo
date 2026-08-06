@@ -22,6 +22,7 @@ const viewProps = {
   onReset: jest.fn(),
   browseMode: 'shelves' as const,
   onSeeAll: jest.fn(),
+  onPlanWithKwilt: jest.fn(),
   totalCount: 100,
 };
 
@@ -71,6 +72,18 @@ describe('Recipe library', () => {
     expect(screen.queryByTestId('recipe-results-grid')).toBeNull();
     fireEvent.press(screen.getByLabelText('See all Mexican night'));
     expect(onSeeAll).toHaveBeenCalledWith({ ...DEFAULT_RECIPE_INVENTORY_FILTERS, cuisine: 'Mexican' });
+  });
+
+  it('hands browsing into a reviewable Meal Planning draft without claiming one exists', () => {
+    const onPlanWithKwilt = jest.fn();
+    const recipes = buildRecipeLibraryInventory([]);
+    const screen = render(
+      <RecipeLibraryView {...viewProps} recipes={recipes} onPlanWithKwilt={onPlanWithKwilt} />,
+    );
+
+    expect(screen.getByText('Turn a few ideas into your next meals.')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Plan with Kwilt' }));
+    expect(onPlanWithKwilt).toHaveBeenCalledTimes(1);
   });
 
   it('keeps narrowed results in the two-column grid', () => {
