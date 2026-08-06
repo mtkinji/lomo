@@ -43,26 +43,6 @@ export const objectQuestPrompts = [
   'Find something you would rescue first from a blanket fort.',
 ];
 
-export const storyRelayPrompts = [
-  'A mysterious package appeared at breakfast.',
-  'The family pet knew a secret route through town.',
-  'Every light went out—except one under the couch.',
-  'The smallest person in the room woke up ten feet tall.',
-  'A note inside an old book addressed everyone by name.',
-  'The refrigerator began giving surprisingly good advice.',
-  'A tiny door appeared in the most ordinary wall.',
-  'Someone’s shadow waved before they did.',
-];
-
-export const storyTurnPrompts = [
-  'Introduce something unexpected.',
-  'Make the problem a little stranger.',
-  'Bring back an earlier detail.',
-  'Give someone a brave decision.',
-  'Move the story somewhere new.',
-  'End with one delightful surprise.',
-];
-
 export const forecastPrompts = [
   { question: 'Which would {{name}} choose for a free afternoon?', options: ['Make something', 'Go somewhere'] },
   { question: 'Which treat would {{name}} save for last?', options: ['Something crunchy', 'Something gooey'] },

@@ -47,13 +47,14 @@ describe('GameShelfScreen', () => {
     expect(screen.getByText('Ready for the table')).toBeTruthy();
     expect(screen.getByText('Workshop')).toBeTruthy();
     expect(screen.getAllByText('5–10 min · lively').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Play Show of Hands now' })).toBeTruthy();
+    expect(screen.getByText('Oddball')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Play Oddball' })).toBeTruthy();
   });
 
-  it('starts Show of Hands directly from the quick recommendation', () => {
+  it('opens Oddball from the featured recommendation', () => {
     const screen = render(<GameShelfScreen />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Play Show of Hands now' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Play Oddball' }));
 
     expect(router.push).toHaveBeenCalledWith('/play/same-page');
   });

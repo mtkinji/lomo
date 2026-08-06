@@ -14,6 +14,7 @@ briefs:
   - nearby-game-join
   - bank-roll-pacing
   - games-timer
+  - deeper-story-relay
 status: shipping
 last_reviewed: 2026-08-03
 ---

@@ -41,6 +41,8 @@ type Props = {
   onEditSelf?: () => void;
   onUseAsMyPlayer?: (name: string, identity: PlayerIdentity) => void;
   personalBestFor?: (player: SavedPlayer | GamePlayerProfile) => number | null;
+  minPlayers?: number;
+  maxPlayers?: number;
 };
 
 export function GamePlayerSetup({
@@ -68,11 +70,13 @@ export function GamePlayerSetup({
   onEditSelf,
   onUseAsMyPlayer,
   personalBestFor,
+  minPlayers: requestedMinPlayers,
+  maxPlayers: requestedMaxPlayers,
 }: Props) {
   const [editing, setEditing] = useState<SavedPlayer | null>(null);
   const [remoteGuidance, setRemoteGuidance] = useState<string | null>(null);
-  const minPlayers = mode === 'remote-only' ? 1 : 2;
-  const maxPlayers = mode === 'remote-only' ? 1 : 6;
+  const minPlayers = mode === 'remote-only' ? 1 : requestedMinPlayers ?? 2;
+  const maxPlayers = mode === 'remote-only' ? 1 : requestedMaxPlayers ?? 6;
   const limits = { minSeats: minPlayers, maxSeats: maxPlayers };
   const localPlay = mode !== 'remote-only';
   const valid = !loading && seats.length >= minPlayers && (localPlay || seats.every((seat) => seat.displayName.trim()));

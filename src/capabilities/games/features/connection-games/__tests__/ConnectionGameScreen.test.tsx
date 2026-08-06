@@ -13,13 +13,19 @@ const mockPatternAudio = {
 };
 let mockMotionAvailable = false;
 let mockMotionListener: ((event: { rotationRate?: { alpha?: number } }) => void) | null = null;
-const mockGameFeedback = { success: jest.fn(), failure: jest.fn(), select: jest.fn() };
+const mockGameFeedback = { success: jest.fn(), failure: jest.fn(), select: jest.fn(), skip: jest.fn() };
 
 function launchLocalGame(screen: ReturnType<typeof render>) {
   const first = screen.getByLabelText('Player 1');
   const second = screen.getByLabelText('Player 2');
   const startLabel = first.props.value || second.props.value ? 'Start game' : 'Play now';
   fireEvent.press(screen.getByText(startLabel));
+}
+
+function finishStoryCountdown() {
+  for (let beat = 0; beat < 3; beat += 1) {
+    act(() => { jest.advanceTimersByTime(700); });
+  }
 }
 
 jest.mock('@/src/capabilities/games/shell/AuthProvider', () => ({
@@ -94,20 +100,23 @@ describe('ConnectionGameScreen', () => {
   const cases = [
     ['common-thread', 'Common Thread', /Pancakes.*Moonlight/],
     ['object-quest', 'Object Quest', /Find something older than you/],
-    ['story-relay', 'Story Relay', /Open the scene/],
+    ['story-relay', 'Story Relay', /Choose a story/],
     ['family-forecast', 'Family Forecast', /Which would Player 1 choose/],
     ['pass-pattern', 'Pass the Pattern', /Choose your rhythm/],
     ['doodle-bridge', 'Doodle Bridge', /Turn the circle into anything/],
     ['clue-circle', 'Clue Circle', /Phone on forehead/],
   ] as const;
 
-  it('starts Show of Hands immediately with no player setup', () => {
+  it('opens Oddball with three seats because scores and the public marker belong to players', () => {
     mockGameId = 'same-page';
     const screen = render(<ConnectionGameScreen />);
 
-    expect(screen.getByText('A dragon moved into your house. Where does it sleep?')).toBeTruthy();
-    expect(screen.queryByText('Start together')).toBeNull();
-    expect(screen.queryByText('Change players')).toBeNull();
+    expect(screen.getByText('Who’s playing?')).toBeTruthy();
+    expect(screen.getByLabelText('Player 3')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start Oddball' })).toBeEnabled();
+    fireEvent.press(screen.getByRole('button', { name: 'Start Oddball' }));
+    expect(screen.getByText('Pick what most people will pick.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Turn sound off' })).toBeTruthy();
   });
 
   it('opens Slanguage through the canonical player setup as a joined-phone table', () => {
@@ -145,28 +154,57 @@ describe('ConnectionGameScreen', () => {
     screen.unmount();
   });
 
-  it('builds, reveals, and continues a Story Relay chapter', () => {
+  it('plays a complete cooperative Story Relay adventure without waiting for AI', () => {
+    jest.useFakeTimers();
     mockGameId = 'story-relay';
     const screen = render(<ConnectionGameScreen />);
     launchLocalGame(screen);
 
-    fireEvent.changeText(screen.getByPlaceholderText('Add your part…'), 'The package began to hum.');
-    fireEvent.press(screen.getByText('Add to our story'));
-    fireEvent.press(screen.getByText('I’m ready'));
+    expect(screen.getByText('Choose a story')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Wonder' }));
+    expect(screen.getByText('The Lost Star')).toBeTruthy();
+    expect(screen.getByText(/Bring the lost star home/)).toBeTruthy();
+    expect(screen.getByLabelText('Player 1, Pathfinder')).toBeTruthy();
+    expect(screen.getByLabelText('Player 2, Keeper')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Begin adventure' }));
 
-    expect(screen.getByText('Land the surprise.')).toBeTruthy();
-    fireEvent.press(screen.getByText('a suspicious pancake'));
-    fireEvent.changeText(screen.getByPlaceholderText('Add your part…'), 'Inside was a suspicious pancake with a map.');
-    fireEvent.press(screen.getByText('Add to our story'));
+    expect(screen.getByText('Find a way')).toBeTruthy();
+    expect(screen.getByText('Player 1, say what you try.')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Reveal together' }));
+    expect(screen.getByText('3')).toBeTruthy();
+    finishStoryCountdown();
+    expect(screen.getByText('What did Player 1 choose?')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Use Player 1’s Discover Power' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Record Scout for Player 1' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Record Build for Player 2' }));
+    expect(screen.getByText('Every angle covered.')).toBeTruthy();
+    expect(screen.getByText('Trouble +0')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Next scene' }));
 
-    expect(screen.getByText('READ IT ALOUD')).toBeTruthy();
-    expect(screen.getByLabelText('Player 1: The package began to hum.')).toBeTruthy();
-    expect(screen.getByLabelText('Player 2: Inside was a suspicious pancake with a map.')).toBeTruthy();
+    expect(screen.getByText('Hold together')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Reveal together' }));
+    finishStoryCountdown();
+    fireEvent.press(screen.getByRole('button', { name: 'Record Follow the star for Player 1' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Record Follow the star for Player 2' }));
+    expect(screen.getByText('Trouble +2')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Player 1 gives up a tiny compass' }));
+    expect(screen.getByText('Trouble +1')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Final scene' }));
 
-    fireEvent.press(screen.getByText('One more chapter'));
-    expect(screen.getByText('CHAPTER 2 · PLAYER 2')).toBeTruthy();
-    expect(screen.getByText(/The package began to hum.*Inside was a suspicious pancake/s)).toBeTruthy();
+    expect(screen.getByText('Bring it home')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Reveal together' }));
+    finishStoryCountdown();
+    fireEvent.press(screen.getByRole('button', { name: 'Record Distract for Player 1' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Use Player 2’s Protect Power' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Record Carry for Player 2' }));
+    expect(screen.getByText('Every angle covered.')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'See our ending' }));
+
+    expect(screen.getByText('Bright victory')).toBeTruthy();
+    expect(screen.getByText(/star rises over the village/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New adventure' })).toBeTruthy();
     screen.unmount();
+    jest.useRealTimers();
   });
 
   it('selects and remembers familiar players for Story Relay', () => {
@@ -179,7 +217,15 @@ describe('ConnectionGameScreen', () => {
     expect(mockRemember).toHaveBeenCalledWith([
       { displayName: 'Alden', savedPlayerId: 'alden' },
     ]);
-    expect(screen.getByText('CHAPTER 1 · ALDEN')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Wonder' }));
+    expect(screen.getByLabelText('Alden, Pathfinder')).toBeTruthy();
+  });
+
+  it('exposes the Story Relay sound control during play', () => {
+    mockGameId = 'story-relay';
+    const screen = render(<ConnectionGameScreen />);
+    launchLocalGame(screen);
+    expect(screen.getByRole('button', { name: 'Turn sound off' })).toBeTruthy();
   });
 
   it('lets iOS keep a focused lower player field above the keyboard', () => {
@@ -237,14 +283,15 @@ describe('ConnectionGameScreen', () => {
     }
   });
 
-  it('runs Show of Hands through a shared reveal without capturing players', () => {
+  it('passes neutral setup names into the Oddball teaching table', () => {
     mockGameId = 'same-page';
     const screen = render(<ConnectionGameScreen />);
-    fireEvent.press(screen.getByText('Reveal together'));
-    fireEvent.press(screen.getByText('Everyone picked 1'));
+    fireEvent.press(screen.getByRole('button', { name: 'Start Oddball' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Start Oddball' }));
 
-    expect(screen.getByText('HIGH FIVE!')).toBeTruthy();
-    expect(screen.getByLabelText('1 High Five, 0 Chaos')).toBeTruthy();
+    expect(screen.getByLabelText('Player 1, 0 points')).toBeTruthy();
+    expect(screen.getByLabelText('Player 2, 0 points')).toBeTruthy();
+    expect(screen.getByLabelText('Player 3, 0 points')).toBeTruthy();
   });
 
   it('lets every Object Quest player check in before the reveal', () => {
@@ -320,12 +367,14 @@ describe('ConnectionGameScreen', () => {
     act(() => mockMotionListener?.({ rotationRate: { alpha: 100 } }));
     expect(screen.queryByText(firstTarget)).toBeNull();
     expect(screen.queryByText('1 correct')).toBeNull();
+    expect(mockGameFeedback.success).toHaveBeenCalledTimes(2);
 
     const secondTarget = 'Birthday cake';
     act(() => mockMotionListener?.({ rotationRate: { alpha: 0 } }));
     act(() => mockMotionListener?.({ rotationRate: { alpha: -100 } }));
     expect(screen.queryByText(secondTarget)).toBeNull();
     expect(screen.queryByText('1 correct')).toBeNull();
+    expect(mockGameFeedback.skip).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('Describe it without saying any part of the answer.')).toBeNull();
 
     act(() => jest.advanceTimersByTime(60_000));

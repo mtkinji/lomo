@@ -8,10 +8,10 @@ import type { ConnectionGameId } from '@/src/capabilities/games/domain/catalog';
 import { connectionStyles as shared, PlayCard } from './ConnectionGameFrame';
 import { StoryRelayGame } from './StoryRelayGame';
 
-export function PromptConnectionGame({ gameId, players }: { gameId: ConnectionGameId; players: string[] }) {
+export function PromptConnectionGame({ gameId, players, soundEnabled = true }: { gameId: ConnectionGameId; players: string[]; soundEnabled?: boolean }) {
   if (gameId === 'common-thread') return <CommonThreadGame players={players} />;
   if (gameId === 'object-quest') return <ObjectQuestGame players={players} />;
-  if (gameId === 'story-relay') return <StoryRelayGame players={players} />;
+  if (gameId === 'story-relay') return <StoryRelayGame players={players} soundEnabled={soundEnabled} />;
   if (gameId === 'family-forecast') return <FamilyForecastGame players={players} />;
   return null;
 }

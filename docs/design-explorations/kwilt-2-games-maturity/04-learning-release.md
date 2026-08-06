@@ -2,7 +2,9 @@
 
 ## Concept To Build
 
-An earned Games shelf that starts immediately and only gives production billing to tables with a complete shared loop.
+An earned Games shelf that starts quickly and only gives production billing to tables with a complete shared loop.
+
+Oddball's learning slice is a public local/cast table: 3–8 named or neutral players predict the room, reveal together after 15 seconds, score the single largest group, and visibly transfer one Oddball marker to the sole unique player. The marker holder can keep scoring but cannot win.
 
 Clue Circle's learning slice is a short rapid-guessing circle: each finder holds the phone outward, the group helps them guess, and forward/correct or backward/pass both reveal the next target until time expires.
 
@@ -14,7 +16,7 @@ Today, the user cannot:
 - use shelf cues to choose by time and energy.
 
 After this release, the user can:
-- tap Play now into Show of Hands with no setup;
+- open the featured Oddball table, seat tonight's players quickly, and keep points and the public marker understandable from across the room;
 - start any other local game with neutral Player names;
 - choose using concise duration and energy cues;
 - access lower-confidence games in a development Workshop without exposing them as 2.0 promises.
@@ -36,7 +38,9 @@ This enhances the existing shelf, typed catalog, and shared setup. It does not a
 Must be real:
 - typed maturity and choice metadata;
 - production filtering and development Workshop grouping;
-- direct no-setup launch for Show of Hands;
+- canonical 3–8-player setup for Oddball;
+- deterministic Oddball scoring, tie, marker-transfer, blocked-winner, and replay rules;
+- a 15-second shared choice clock, simultaneous reveal cue, compact public score rail, and reduced host result entry;
 - optional local player names with neutral fallbacks;
 - tests for catalog filtering and setup behavior.
 - a deterministic Clue Circle turn state machine with timed turns, immediate correct/pass advancement, per-finder results, and one cooperative total;
@@ -47,8 +51,8 @@ Can be thin or temporary:
 - manual playtest notes outside the app.
 
 Intentionally excluded:
-- new game mechanics and analytics infrastructure.
-- deck commerce, custom content, teams, video recording, remote Clue Circle, and automatic claims that the revised loop is fun.
+- analytics infrastructure.
+- deck commerce, custom content, teams, video recording, remote Clue Circle, remote Oddball voting, and automatic claims that either revised loop is fun.
 
 ## Release Channel
 
@@ -58,7 +62,8 @@ Local build first, then TestFlight only after changed-file verification and manu
 
 - Workshop never appears in production by default.
 - Labels describe the experience, not unsupported quality claims.
-- Local names are optional; remote identity remains explicit where required.
+- Local names remain optional, but Oddball always resolves neutral seat names so its public score and marker never become anonymous.
+- The marker is temporary game state, never a judgment about a player.
 
 ## Reversibility
 

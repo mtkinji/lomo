@@ -37,12 +37,14 @@ export function ConnectionGameScreen() {
   const game = findConnectionGame(gameId);
   const suggestedName = session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name ?? '';
   const remoteOnly = game?.id === 'slanguage';
-  const nextSeatId = useRef(remoteOnly ? 2 : 3);
+  const oddball = game?.id === 'same-page';
+  const nextSeatId = useRef(remoteOnly ? 2 : oddball ? 4 : 3);
   const [seats, setSeats] = useState<PlayerSeat[]>(remoteOnly
     ? [{ key: 'seat-1', displayName: suggestedName }]
-    : [{ key: 'seat-1', displayName: '' }, { key: 'seat-2', displayName: '' }]);
-  const isInstantGame = game?.id === 'same-page';
-  const [started, setStarted] = useState(isInstantGame);
+    : oddball
+      ? [{ key: 'seat-1', displayName: '' }, { key: 'seat-2', displayName: '' }, { key: 'seat-3', displayName: '' }]
+      : [{ key: 'seat-1', displayName: '' }, { key: 'seat-2', displayName: '' }]);
+  const [started, setStarted] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
   useActiveGameOrientation(started);
 
@@ -81,13 +83,13 @@ export function ConnectionGameScreen() {
     title={game.title}
     promise={game.promise}
     playing={started}
-    compactPlayChrome={isInstantGame}
+    compactPlayChrome={started && oddball}
     gameHeader
     gameMark={game.mark}
     showHeading={false}
     onRestart={started ? () => setSessionKey((value) => value + 1) : undefined}
-    soundEnabled={started && game.id === 'clue-circle' ? soundOn : undefined}
-    onToggleSound={started && game.id === 'clue-circle' ? () => setSoundOverride(!soundOn) : undefined}
+    soundEnabled={started && (game.id === 'clue-circle' || game.id === 'story-relay' || oddball) ? soundOn : undefined}
+    onToggleSound={started && (game.id === 'clue-circle' || game.id === 'story-relay' || oddball) ? () => setSoundOverride(!soundOn) : undefined}
   >
     {!started ? <GamePlayerSetup
       mode="connection"
@@ -101,6 +103,9 @@ export function ConnectionGameScreen() {
       onArchive={roster.archive}
       onPreviewSuccess={(soundId) => { void feedback.success(soundId); }}
       onPreviewFailure={(soundId) => { void feedback.failure(soundId); }}
+      minPlayers={oddball ? 3 : undefined}
+      maxPlayers={oddball ? 8 : undefined}
+      startLabel={oddball ? 'Start Oddball' : undefined}
       selfProfile={playerProfile.profile}
       onEditSelf={() => router.push('/auth')}
       onUseAsMyPlayer={(displayName, identity) => {
@@ -120,16 +125,16 @@ export function ConnectionGameScreen() {
         players={cleanPlayers}
         soundEnabled={soundOn}
         onClueCorrect={() => { void feedback.success('sparkle'); }}
-        onCluePass={feedback.select}
+        onCluePass={() => { void feedback.skip(); }}
       />}
-    {started && !isInstantGame && game.id !== 'clue-circle' ? <GameButton tone="ghost" onPress={() => setStarted(false)}>Change players</GameButton> : null}
+    {started && !oddball && game.id !== 'clue-circle' ? <GameButton tone="ghost" onPress={() => setStarted(false)}>Change players</GameButton> : null}
   </ConnectionGameFrame>;
 }
 
 function GameBody({ gameId, players, soundEnabled, onClueCorrect, onCluePass }: { gameId: NonNullable<ReturnType<typeof findConnectionGame>>['id']; players: string[]; soundEnabled: boolean; onClueCorrect: () => void; onCluePass: () => void }) {
-  if (gameId === 'same-page') return <ShowOfHandsGame />;
+  if (gameId === 'same-page') return <ShowOfHandsGame players={players} soundEnabled={soundEnabled} />;
   if (gameId === 'pass-pattern') return <PassPatternGame players={players} />;
   if (gameId === 'doodle-bridge') return <DoodleBridgeGame players={players} />;
   if (gameId === 'clue-circle') return <ClueCircleGame players={players} soundEnabled={soundEnabled} onCorrectFeedback={onClueCorrect} onPassFeedback={onCluePass} />;
-  return <PromptConnectionGame gameId={gameId} players={players} />;
+  return <PromptConnectionGame gameId={gameId} players={players} soundEnabled={soundEnabled} />;
 }

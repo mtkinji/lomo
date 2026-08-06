@@ -1,5 +1,5 @@
 import { advanceClueFinder, choiceReveal, finishClueTurn, formatClueTime, forecastReveal, matchSummary, matchesPattern, recordClueResult, resolveClueMotion, startClueTurn, nextPlayerIndex, nextPromptIndex, type ClueRoundState } from '../connectionGames';
-import { clueModes, clueTargets, commonThreadPrompts, forecastPrompts, objectQuestPrompts, samePagePrompts, storyRelayPrompts } from '../connectionPrompts';
+import { clueModes, clueTargets, commonThreadPrompts, forecastPrompts, objectQuestPrompts, samePagePrompts } from '../connectionPrompts';
 
 describe('connection game rules', () => {
   it('summarizes unanimous, majority, and split Same Page choices', () => {
@@ -87,7 +87,6 @@ describe('connection game rules', () => {
     expect(samePagePrompts.length).toBeGreaterThanOrEqual(12);
     expect(commonThreadPrompts.length).toBeGreaterThanOrEqual(12);
     expect(objectQuestPrompts.length).toBeGreaterThanOrEqual(12);
-    expect(storyRelayPrompts.length).toBeGreaterThanOrEqual(8);
     expect(forecastPrompts.length).toBeGreaterThanOrEqual(10);
     expect(clueTargets.length).toBeGreaterThanOrEqual(72);
     expect(clueModes.length).toBeGreaterThanOrEqual(4);

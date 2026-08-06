@@ -75,6 +75,29 @@ describe('GamePlayerSetup', () => {
     expect(onStart).toHaveBeenCalledTimes(1);
   });
 
+  it('honors a game-specific three-to-eight-player table', () => {
+    const onChange = jest.fn();
+    const screen = render(<GamePlayerSetup
+      {...common}
+      mode="connection"
+      seats={[
+        { key: 'one', displayName: '' },
+        { key: 'two', displayName: '' },
+        { key: 'three', displayName: '' },
+      ]}
+      minPlayers={3}
+      maxPlayers={8}
+      onChange={onChange}
+      onStart={jest.fn()}
+    />);
+
+    expect(screen.queryByRole('button', { name: 'Remove player 3' })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Add player' }));
+    expect(onChange).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ key: 'new' }),
+    ]));
+  });
+
   it('still requires a named host before opening a remote table', () => {
     const onUseMorePhones = jest.fn();
     const screen = render(<GamePlayerSetup

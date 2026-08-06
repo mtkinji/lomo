@@ -15,8 +15,12 @@ jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(),
   selectionAsync: jest.fn(),
 }));
+jest.mock('../../../../services/HapticsService', () => ({
+  HapticsService: { trigger: jest.fn() },
+}));
 
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { HapticsService } from '../../../../services/HapticsService';
 import { shouldPlayFailureCue, useGameFeedback } from '../useGameFeedback';
 
 describe('game failure cue policy', () => {
@@ -34,6 +38,7 @@ describe('useGameFeedback', () => {
       player.play.mockClear();
     });
     mockSetAudioModeAsync.mockClear();
+    (HapticsService.trigger as jest.Mock).mockClear();
   });
 
   test('configures game sounds to play when the device is in silent mode', async () => {
@@ -87,6 +92,17 @@ describe('useGameFeedback', () => {
 
     expect(mockPlayers[4].play).toHaveBeenCalledTimes(1);
     expect(mockPlayers[8].play).toHaveBeenCalledTimes(1);
+    expect(HapticsService.trigger).toHaveBeenCalledWith('outcome.success');
+  });
+
+  test('confirms a skipped clue with a distinct sound and medium haptic', async () => {
+    const { result } = renderHook(() => useGameFeedback(true));
+
+    await act(async () => { await result.current.skip(); });
+
+    expect(mockPlayers[9].seekTo).toHaveBeenCalledWith(0);
+    expect(mockPlayers[9].play).toHaveBeenCalledTimes(1);
+    expect(HapticsService.trigger).toHaveBeenCalledWith('canvas.primary.confirm');
   });
 
   test('plays the majestic hawk cry selected as an eagle win sound', async () => {

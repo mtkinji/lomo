@@ -2,17 +2,21 @@
 
 Job: When a small opening appears, Maya needs to choose and start a shared game quickly, so the group begins before the moment disappears.
 
-Primary action: Play Show of Hands now.
+Primary action: Start Oddball with tonight's players.
 
-Must show: the Games identity, join action, one instant recommendation, release catalog, expected duration/energy, player range, utilities, and development-only Workshop boundary.
+Must show: the Games identity, join action, one featured recommendation, release catalog, expected duration/energy, player range, utilities, and development-only Workshop boundary.
+
+Oddball play contract: 3–8 players use the canonical saved-player setup because the public board must attach points and the Oddball marker to names. During choice, the shared/cast board shows one problem, three numbered answers, a 15-second clock, and the compact score rail. When time ends it calls the simultaneous hand reveal. Result entry asks for the single largest group, preselects every player as scoring, lets the host remove players outside that group, then optionally names the only player on a unique answer. Ties score nothing. The result celebrates the authored consequence and any marker transfer before the next problem.
+
+Oddball teaching contract: “Pick what most people will pick. Match the biggest group to score. Stand alone and you get the Oddball. You can’t win while you have it.” Do not add a rules modal, carousel, practice mode, or persistent helper paragraphs.
 
 Reveal later: player naming, remembered-player editing, rules, remote-table details, and playtest promotion criteria.
 
-Clue Circle play contract: one spare handoff state names the finder, says “Phone on forehead” and “Tilt down to start,” then confirms the practice tilt with sound; tilt up maps to Pass; a compact Start fallback appears only without motion; active play uses the phone canvas itself with only a centered target and nearby timer; there are no active-round buttons because the phone is out of reach; turn results create the handoff boundary.
+Clue Circle play contract: one spare handoff state names the finder, says “Phone on forehead” and “Tilt down to start,” then confirms the practice tilt with a positive haptic and sound; during play, tilt down repeats that positive confirmation for Correct, while tilt up uses a distinct medium confirmation haptic and audible wobble for Pass; a compact Start fallback appears only without motion; active play uses the phone canvas itself with only a centered target and nearby timer; there are no active-round buttons because the phone is out of reach; turn results create the handoff boundary.
 
 Clue Circle sound contract: one icon in the persistent game top bar reflects sound on/off and changes it for the current table. The saved Games sound preference remains the starting state for the next table. Do not add sound copy, a modal, or controls inside the clue canvas.
 
-Must not add: onboarding, a quality dashboard, streaks, public rankings, per-game settings, duplicate Show of Hands card, or production Workshop exposure.
+Must not add: onboarding, a quality dashboard, streaks, public rankings, per-game settings, a duplicate Oddball card, remote Oddball voting, or production Workshop exposure.
 
 Reuse map:
 - capability navigation → `PageHeader`
@@ -21,14 +25,18 @@ Reuse map:
 - local launch → `GamePlayerSetup`
 
 Behavior sources:
-- instant guest play → `jtbd-help-us-enjoy-being-together` and the accepted brief
+- fast guest play → `jtbd-help-us-enjoy-being-together` and the accepted brief
+- Oddball points and marker → the user-approved, simulation-tested majority/sole-unique rules
+- Oddball result entry → local/cast shared-screen topology and the canonical player model
 - production curation → accepted brief and user-set high quality bar
 - Workshop visibility → existing Slanguage learning-release pattern
 - optional local names → existing neutral-name launch behavior; remote host naming remains explicit
 
 Unresolved decisions: which human playtest groups provide the final promotion evidence.
 
-Required states: production shelf without Workshop; development shelf with Workshop; blank local seats; named/saved local seats; unnamed remote host; scroll through utilities; quick-start navigation.
+Required states: production shelf without Workshop; development shelf with Workshop; blank local seats; named/saved local seats; unnamed remote host; scroll through utilities; featured-game navigation.
+
+Oddball required states: terse teach; timed choice; reveal; largest-group selection; scoring-player correction; optional sole-unique selection; tied round; marker transfer; marked leader blocked from winning; single eligible winner; replay.
 
 Clue Circle required states: first handoff, active timed target, correct advance, pass advance, turn result, next-finder handoff, circle result, and replay.
 
@@ -38,11 +46,11 @@ Clue Circle active-round hierarchy:
 - The clock is the only HUD element during play. Finder and score return at the turn boundary.
 - Active play contains no touch controls. Motion availability is resolved at handoff, before the timed round begins.
 
-Proof path: current branch → Kwilt app → Fun → Games on the current iPhone Simulator/runtime; open the shelf, use Play now, return, open a setup-based game, start with blank seats, and inspect the Workshop development state.
+Proof path: current branch → Kwilt app → Fun → Games on the current iPhone Simulator/runtime; open Oddball from the featured recommendation, seat three players, complete unanimous, split, tie, marker-transfer, and winning rounds, then replay and inspect the Workshop development state.
 
 ## Reduction pass
 
-- Show of Hands appears once as the dominant quick-start action, not again in the grid.
+- Oddball appears once as the dominant featured action, not again in the grid.
 - Duration and energy share one compact metadata line; no filters or settings are added.
 - Workshop explanation is one sentence and only appears when Workshop tables exist.
 - “Names are optional” is retained because it explains why blank fields and an enabled action are intentional.
