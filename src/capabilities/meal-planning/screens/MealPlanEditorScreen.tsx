@@ -132,7 +132,7 @@ export function MealPlanEditorScreen({ navigation, route }: Props) {
   };
   return (
     <AppShell>
-      <PageHeader title="Plan next meals" onPressBack={() => navigation.goBack()} rightElement={<Button size="sm" disabled={saving || !selected.length} onPress={() => { void save(); }}>{saving ? 'Saving…' : 'Save'}</Button>} />
+      <PageHeader title="Meal Planning" onPressBack={() => navigation.goBack()} rightElement={<Button size="sm" disabled={saving || !selected.length} onPress={() => { void save(); }}>{saving ? 'Saving…' : 'Save'}</Button>} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {route.params?.source === 'recipe_library' && !existing ? <View style={styles.intro}><Text variant="label" style={styles.eyebrow}>PLAN WITH KWILT</Text><Heading variant="md">Start with a short, editable draft.</Heading><Text tone="secondary">Kwilt will use your recipes and current Food observations. Nothing is created until you Save.</Text></View> : null}
         <Heading variant="sm">How far are you planning?</Heading>

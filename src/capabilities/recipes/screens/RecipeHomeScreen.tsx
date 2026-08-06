@@ -36,7 +36,7 @@ export function RecipeHomeView({ projection, servings, checked, priorLearning = 
     <RecipeHero media={media} familyLabel={familyLabel} />
     <View style={styles.heading}><Heading variant="lg">{version.title}</Heading>{version.description ? <Text tone="secondary">{version.description}</Text> : null}</View>
     <RecipeSummaryBar prepMinutes={version.prepMinutes} cookMinutes={version.cookMinutes} yieldQuantity={version.yieldQuantity} yieldUnit={version.yieldUnit} />
-    <View style={styles.primaryActions}><Button testID="recipe-add-to-plan" fullWidth variant="primary" onPress={onAdd}>Add to Next meals</Button><Button fullWidth variant="outline" onPress={onCook}>Start cooking</Button></View>
+    <View style={styles.primaryActions}><Button testID="recipe-add-to-plan" fullWidth variant="primary" onPress={onAdd}>Add to Meal Planning</Button><Button fullWidth variant="outline" onPress={onCook}>Start cooking</Button></View>
     {version.yieldQuantity ? <View style={styles.servings}><Text variant="label">Scale recipe</Text><Button size="sm" variant="outline" disabled={servings <= 1} onPress={() => onServingsChange(Math.max(1, servings - 1))}>−</Button><Text>{servings} servings</Text><Button size="sm" variant="outline" onPress={() => onServingsChange(servings + 1)}>+</Button></View> : null}
     <RecipeIngredientList lines={version.ingredients} fromYield={version.yieldQuantity} toYield={servings} checked={checked} onToggle={onToggleIngredient} />
     <RecipeMethodPreview steps={version.instructions} />
@@ -72,7 +72,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
       const repository = createMealPlanningRepository(); const plan = (await repository.list()).find((item) => item.id === added.planId);
       if (!plan || plan.state !== 'draft') throw new Error('The plan changed. Review it before removing this meal.');
       await repository.update({ planId: plan.id, expectedVersion: plan.version, candidates: plan.candidates.filter((candidate) => candidate.id !== added.candidateId) }); setAdded(null);
-    } catch (error) { Alert.alert('Could not undo', error instanceof Error ? error.message : 'Open Next meals to review the plan.'); }
+    } catch (error) { Alert.alert('Could not undo', error instanceof Error ? error.message : 'Open Meal Planning to review the plan.'); }
   };
   const confirmDelete = () => Alert.alert('Delete recipe?', 'This removes it from your recipe box. Shared copies are not affected.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => { void deleteRecipe(projection.recipe.id, projection.currentVersion.version).then(() => navigation.goBack()); } }]);
   return <AppShell><PageHeader title="Recipe" onPressBack={() => navigation.goBack()} />

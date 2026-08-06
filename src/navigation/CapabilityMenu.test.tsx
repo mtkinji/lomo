@@ -147,7 +147,7 @@ describe('CapabilityMenu', () => {
       <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
     );
     expect(hidden.queryByLabelText('Recipes')).toBeNull();
-    expect(hidden.queryByLabelText('Next meals')).toBeNull();
+    expect(hidden.queryByLabelText('Meal Planning')).toBeNull();
     expect(hidden.queryByLabelText('Groceries')).toBeNull();
     hidden.unmount();
 
@@ -155,7 +155,7 @@ describe('CapabilityMenu', () => {
       <CapabilityMenu activeCapabilityId="meal-planning" displayName="Andy" chats={chats} foodEnabled {...handlers} />,
     );
     expect(enabled.getByLabelText('Recipes')).toBeTruthy();
-    expect(enabled.getByLabelText('Next meals').props.accessibilityState).toEqual({ selected: true });
+    expect(enabled.getByLabelText('Meal Planning').props.accessibilityState).toEqual({ selected: true });
     expect(enabled.getByLabelText('Groceries')).toBeTruthy();
     fireEvent.press(enabled.getByLabelText('Groceries'));
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('groceries');

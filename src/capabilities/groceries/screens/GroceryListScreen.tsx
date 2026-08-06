@@ -196,7 +196,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
               Finalize a meal plan to make its grocery list.
             </Heading>
             <Button onPress={() => navigation.navigate("NextMeals")}>
-              Open next meals
+              Open Meal Planning
             </Button>
           </View>
         ) : null}

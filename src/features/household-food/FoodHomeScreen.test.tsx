@@ -12,9 +12,9 @@ describe('Food home', () => {
   it('leads with continuation and preserves capability-owned escape routes', async () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const screen = render(<SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } }}><FoodHomeScreen navigation={navigation as never} route={{} as never} /></SafeAreaProvider>);
-    await waitFor(()=>expect(screen.getByText('Plan next meals')).toBeTruthy());
+    await waitFor(()=>expect(screen.getByText('Start planning')).toBeTruthy());
     fireEvent.press(screen.getByText('Add a recipe'));
-    fireEvent.press(screen.getByText('Next meals'));
+    fireEvent.press(screen.getByText('Meal Planning'));
     fireEvent.press(screen.getByText('Groceries'));
     expect(navigation.navigate.mock.calls).toEqual([['RecipeLibrary'], ['NextMeals'], ['GroceryList']]);
   });

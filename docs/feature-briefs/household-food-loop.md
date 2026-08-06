@@ -235,7 +235,7 @@ hierarchy remain excluded. See
 ### Plan with Kwilt handoff
 
 The Recipe Library includes one quiet, full-width **Plan with Kwilt** offer among
-its browsing shelves. It opens **Next meals** with exact Recipe Library context;
+its browsing shelves. It opens **Meal Planning** with exact Recipe Library context;
 it does not open generic Chat and does not claim a plan already exists. The user
 chooses the horizon and planning emphasis before Kwilt prepares a bounded
 starting set from authorized Recipe and current Food evidence. Every suggestion

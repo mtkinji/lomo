@@ -45,19 +45,19 @@ export function AddToMealPlanSheet({ visible, recipe, onClose, onAdded }: {
       if (active?.state === 'draft') {
         const result = addRecipeCandidateToDraft(active as MealPlanProjection & { state: 'draft' }, candidate as MealPlanCandidateDraft & { kind: 'recipe'; recipeSnapshot: { recipeId: string; recipeVersionId: string } });
         if (result.outcome === 'added') await repository.update({ planId: active.id, expectedVersion: active.version, candidates: result.candidates });
-        onAdded(`Added to ${active.horizon.kind === 'meal_count' ? `Next ${active.horizon.count} meals` : 'Next meals'}`, { planId: active.id, candidateId: result.effectiveCandidateId }); return;
+        onAdded(active.horizon.kind === 'meal_count' ? `Added to your next ${active.horizon.count} meals` : 'Added to Meal Planning', { planId: active.id, candidateId: result.effectiveCandidateId }); return;
       }
       const household = await getHouseholdSnapshot(getSupabaseClient());
       if (!household.household) throw new Error('Set up your Household before starting a shared meal plan.');
       const selectedHorizon=active&&recovery==='add_to_draft_copy'?active.horizon:horizon;const selectedCandidates=active&&recovery==='add_to_draft_copy'?[...active.candidates,candidate]:[candidate];
       const receipt = await repository.create({ householdId: household.household.id, horizon:selectedHorizon, candidates:selectedCandidates }) as { planId?: string };
       if(!receipt.planId)throw new Error('The new plan did not return a durable reference.');
-      onAdded(selectedHorizon.kind === 'meal_count' ? `Added to Next ${selectedHorizon.count} meals` : 'Added to Next meals', { planId: receipt.planId, candidateId: candidate.id });
+      onAdded(selectedHorizon.kind === 'meal_count' ? `Added to your next ${selectedHorizon.count} meals` : 'Added to Meal Planning', { planId: receipt.planId, candidateId: candidate.id });
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'This recipe could not be added.'); }
     finally { setBusy(false); }
   };
   return <BottomDrawer visible={visible} onClose={onClose} snapPoints={['72%']}><View style={styles.content}>
-    <Heading variant="md">Add to Next meals</Heading>
+    <Heading variant="md">Add to Meal Planning</Heading>
     <Text tone="secondary">{active?.state === 'draft' ? 'Add this exact recipe version to your current draft.' : active ? 'Your current plan is already underway. Start a fresh draft without changing it.' : 'Choose how far ahead you want to collect meals.'}</Text>
     <View style={styles.servings}><Text variant="label">Servings</Text><Button size="sm" variant="outline" disabled={servings <= 1} onPress={() => setServings((value) => Math.max(1, value - 1))}>−</Button><Text>{servings}</Text><Button size="sm" variant="outline" onPress={() => setServings((value) => value + 1)}>+</Button></View>
     {!active || active.state !== 'draft' ? <View style={styles.choices}>

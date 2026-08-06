@@ -173,7 +173,7 @@ function PlanWithKwiltOffer({ onPress }: { onPress(): void }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Plan with Kwilt"
-      accessibilityHint="Opens an editable Next meals draft"
+      accessibilityHint="Opens an editable draft in Meal Planning"
       onPress={onPress}
       style={({ pressed }) => [styles.planOffer, pressed && styles.pressed]}
     >
@@ -181,7 +181,7 @@ function PlanWithKwiltOffer({ onPress }: { onPress(): void }) {
         <Icon name="navAiGuide" size={20} color={colors.pine700} />
       </View>
       <View style={styles.planOfferCopy}>
-        <Text variant="label" style={styles.eyebrow}>NEXT MEALS</Text>
+        <Text variant="label" style={styles.eyebrow}>MEAL PLANNING</Text>
         <Heading variant="sm">Plan with Kwilt</Heading>
         <Text tone="secondary">Turn a few ideas into your next meals.</Text>
         <Text variant="label" style={styles.planOfferAction}>Choose a horizon and review a starting point</Text>

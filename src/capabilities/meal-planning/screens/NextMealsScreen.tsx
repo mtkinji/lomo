@@ -49,13 +49,13 @@ export function NextMealsScreen({ navigation }: Props) {
   const plan = plans.find((item) => item.state !== 'archived') ?? plans[0];
   return (
     <AppShell>
-      <PageHeader title="Next meals" onPressBack={() => navigation.goBack()} rightElement={<Button size="sm" onPress={() => navigation.navigate('MealPlanEditor', {})}>{plan ? 'New cycle' : 'Start'}</Button>} />
+      <PageHeader title="Meal Planning" onPressBack={() => navigation.goBack()} rightElement={<Button size="sm" onPress={() => navigation.navigate('MealPlanEditor', {})}>{plan ? 'New cycle' : 'Start'}</Button>} />
       <ScrollView contentContainerStyle={styles.content}>
         <FoodRealityStrip budget={null} tripTargetCents={tripTargetCents} relevantStockCount={stockCount} priceEvidence={null} onBudget={() => setShowTripTarget(true)} onStock={() => navigation.navigate('FoodStockReview')} onPrices={() => Alert.alert('No current prices', 'Planning and your plain grocery list remain complete without retailer pricing.')} />
         {offline ? <Text tone="secondary">Showing the saved plan. Reconnect to respond or finalize.</Text> : null}
-        {loading && !plan ? <Text tone="secondary">Loading your next meals…</Text> : null}
+        {loading && !plan ? <Text tone="secondary">Loading your meal plan…</Text> : null}
         {!loading && !plan ? (
-          <View style={styles.empty}><Heading variant="md">Plan for the next shop—not somebody else’s calendar.</Heading><Text tone="secondary">Choose a cadence that fits, add a few possibilities, and invite the family only when it helps.</Text><Button onPress={() => navigation.navigate('MealPlanEditor', {})}>Start next meals</Button></View>
+          <View style={styles.empty}><Heading variant="md">Plan for the next shop—not somebody else’s calendar.</Heading><Text tone="secondary">Choose a cadence that fits, add a few possibilities, and invite the family only when it helps.</Text><Button onPress={() => navigation.navigate('MealPlanEditor', {})}>Start planning</Button></View>
         ) : null}
         {plan ? (
           <View style={styles.planCard}>

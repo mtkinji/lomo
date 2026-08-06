@@ -12,7 +12,7 @@ describe('Recipe Home', () => {
       servings={4} checked={new Set()} onServingsChange={jest.fn()} onToggleIngredient={onToggle}
       onAdd={onAdd} onCook={onCook} onMore={jest.fn()}
     />);
-    fireEvent.press(screen.getByText('Add to Next meals')); fireEvent.press(screen.getByText('Start cooking'));
+    fireEvent.press(screen.getByText('Add to Meal Planning')); fireEvent.press(screen.getByText('Start cooking'));
     expect(onAdd).toHaveBeenCalled(); expect(onCook).toHaveBeenCalled();
     expect(StyleSheet.flatten(screen.getByTestId('recipe-add-to-plan').props.style).backgroundColor).toBe(colors.primary);
     expect(screen.getByText('¾ cup flour, sifted')).toBeTruthy();
