@@ -32,6 +32,7 @@ import {
   buildRecipeDiscoverySections,
   buildRecipeShelves,
 } from './RecipeLibraryScreen';
+import { RecipeCaptureDrawer } from './RecipeLibraryDrawers';
 
 const editorialPlacements = getMealEditorialEdition(new Date('2026-08-06T12:00:00.000Z')).placements;
 
@@ -249,6 +250,30 @@ describe('Recipe library', () => {
     expect(onAdd).toHaveBeenCalled();
     expect(onSearch).toHaveBeenCalled();
     expect(onAsk).toHaveBeenCalled();
+  });
+
+  it('starts recipe capture from intent instead of import mechanics', () => {
+    const onFamily = jest.fn();
+    const onWeb = jest.fn();
+    const onManual = jest.fn();
+    const screen = render(
+      <RecipeCaptureDrawer
+        visible
+        onClose={jest.fn()}
+        onFamily={onFamily}
+        onWeb={onWeb}
+        onManual={onManual}
+      />,
+    );
+
+    expect(screen.queryByText('Photo or scan')).toBeNull();
+    expect(screen.queryByText('Link, text, or voice')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Family recipe' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Recipe from the web' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Start blank' }));
+    expect(onFamily).toHaveBeenCalledTimes(1);
+    expect(onWeb).toHaveBeenCalledTimes(1);
+    expect(onManual).toHaveBeenCalledTimes(1);
   });
 
   it('puts a direct Meal Plan toggle on every meal card', () => {

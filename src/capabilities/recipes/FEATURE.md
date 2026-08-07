@@ -16,6 +16,7 @@ serves:
   - jtbd-trust-this-app-with-my-life
 briefs:
   - household-food-loop
+  - family-recipe-capture
   - personal-meal-favorites
 status: draft
 last_reviewed: 2026-08-05

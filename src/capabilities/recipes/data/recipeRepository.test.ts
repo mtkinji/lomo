@@ -24,6 +24,27 @@ describe('Recipe repository', () => {
     await expect(createRecipeRepository({ from: () => query } as never).list()).rejects.toThrow('Invalid Recipe projection');
   });
 
+  it('disambiguates the owned-version lineage relationship in the PostgREST projection', async () => {
+    let selection = '';
+    type QueryDouble = {
+      select(value: string): QueryDouble;
+      order: jest.Mock;
+    };
+    const query: QueryDouble = {
+      select(value: string): QueryDouble {
+        selection = value;
+        return query;
+      },
+      order: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
+
+    await createRecipeRepository({ from: () => query } as never).list();
+
+    expect(selection).toContain(
+      'lineage:kwilt_recipe_lineage!kwilt_recipe_lineage_recipe_version_id_fkey(*)',
+    );
+  });
+
   it('accepts already-normalized projections from a typed boundary', async () => {
     const projection = { recipe: recipeContractFixture(), currentVersion: recipeVersionContractFixture() };
     const repository = createRecipeRepository({} as never, { loadRows: async () => [projection] });

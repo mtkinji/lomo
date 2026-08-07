@@ -128,7 +128,7 @@ export function createRecipeRepository(client: SupabaseClient = getSupabaseClien
               instructions:kwilt_recipe_instructions(*),
               provenance:kwilt_recipe_provenance(*),
               credits:kwilt_recipe_credits(*),
-              lineage:kwilt_recipe_lineage(*)
+              lineage:kwilt_recipe_lineage!kwilt_recipe_lineage_recipe_version_id_fkey(*)
             ),
             access_grants:kwilt_recipe_access_grants(*),
             media_assets:kwilt_recipe_media_assets(*)

@@ -175,7 +175,7 @@ export function RecipeEditScreen({ navigation, route }: Props) {
     };
     try {
       await saveRecipe({ recipeId: projection?.recipe.id ?? null, expectedVersion, idempotencyKey: `recipe-save:${Crypto.randomUUID()}`, reviewedData }, optimistic);
-      navigation.goBack();
+      navigation.replace('RecipeHome', { recipeId: resolvedRecipeId });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Recipe could not be saved.');
     } finally { setSaving(false); }
