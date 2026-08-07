@@ -159,6 +159,7 @@ import { CheckinApprovalSheet } from '../goals/CheckinApprovalSheet';
 import {
   buildPartnerCircleKey,
   makeDraftItem,
+  shouldUpdatePartnerCircle,
   shouldShowImmediatePrompt as canShowImmediateApprovalPrompt,
 } from '../../services/checkinDrafts';
 import {
@@ -941,8 +942,7 @@ export function GoalDetailScreen() {
   // Keep the draft's partner circle key in sync with the live membership list so
   // partner changes mid-draft trigger the re-approval state.
   useEffect(() => {
-    if (!pendingDraft) return;
-    if (pendingDraft.partnerCircleKey === partnerCircleKey) return;
+    if (!shouldUpdatePartnerCircle(pendingDraft, partnerCircleKey)) return;
     useCheckinDraftStore.getState().updatePartnerCircle({
       goalId,
       partnerCircleKey,

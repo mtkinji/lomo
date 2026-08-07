@@ -17,6 +17,7 @@ import {
   shouldConfirmSkip,
   shouldIncludeInEndOfDayReview,
   shouldShowImmediatePrompt,
+  shouldUpdatePartnerCircle,
   toggleItemInclusion,
 } from './checkinDrafts';
 
@@ -257,6 +258,18 @@ describe('prompt cooldowns', () => {
 });
 
 describe('partner circle changes', () => {
+  test('only requests persistence when an existing draft has a changed circle', () => {
+    const draft = createDraft({
+      goalId: 'g',
+      partnerCircleKey: 'u1|u2',
+      now: ANCHOR,
+    });
+
+    expect(shouldUpdatePartnerCircle(null, 'u1|u3')).toBe(false);
+    expect(shouldUpdatePartnerCircle(draft, 'u1|u2')).toBe(false);
+    expect(shouldUpdatePartnerCircle(draft, 'u1|u3')).toBe(true);
+  });
+
   test('partner circle change triggers re-approval', () => {
     const item = makeDraftItem(
       { sourceType: 'activity', sourceId: 'act_1', title: 'A', completedAt: ANCHOR.toISOString() },

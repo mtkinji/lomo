@@ -132,8 +132,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: route intent, screen focus, pending-draft presence, and the once-per-request guard form one opening rule embedded in an effect.
   - Result: `goalRouteCheckinApprovalDecision.ts` now owns reset, wait, and schedule-open outcomes, with focused tests for every suppression gate and the eligible state.
 
-- [ ] Extract Goal check-in partner-circle sync decision
+- [x] Extract Goal check-in partner-circle sync decision
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: draft existence and live partner-circle equality gate a persistence mutation inside the screen effect.
-  - Ideal test: pin missing draft, unchanged circle, and changed-circle synchronization states.
+  - Result: `shouldUpdatePartnerCircle` now owns the missing-draft and unchanged-circle no-op contract beside the draft mutation logic, with focused coverage for all three states.
+
+- [ ] Extract Goal pending check-in send preparation
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: text normalization, empty-send suppression, and analytics item count are embedded in the async screen handler.
+  - Ideal test: pin blank, whitespace-only, trimmed-text, missing-draft, and populated-draft inputs.
   - Risk: low
