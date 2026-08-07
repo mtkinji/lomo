@@ -6,7 +6,8 @@ function result(normalizedTranscript: string, intent: ParsedCookVoiceCommand['in
 function ordinal(text: string): number | null { const match = /\b(first|second|third|fourth|fifth|\d+)(?:st|nd|rd|th)?\b/.exec(text); return match ? ordinals[match[1]] ?? Number(match[1]) : null; }
 
 export function parseCookVoiceCommand(transcript: string): ParsedCookVoiceCommand {
-  const text = transcript.toLowerCase().trim().replace(/[^a-z0-9?'\s-]/g, ' ').replace(/\s+/g, ' ');
+  const normalized = transcript.toLowerCase().trim().replace(/[^a-z0-9?'\s-]/g, ' ').replace(/\s+/g, ' ');
+  const text = normalized.replace(/^(?:hey\s+)?(?:kwilt|quilt)\s+/, '');
   if (/\b(don't|do not|not)\b/.test(text)) return result(text, { kind: 'out_of_scope', reason: 'negated' }, 'low');
   if (/ignore (?:all |the )?(?:previous|system)|system prompt|developer message|jailbreak/.test(text)) return result(text, { kind: 'out_of_scope', reason: 'unsafe' }, 'low');
   if (/^(?:what(?:'s| is) next|next(?: step)?|continue|go on)[?]?$/.test(text)) return result(text, { kind: 'advance' });
@@ -19,6 +20,7 @@ export function parseCookVoiceCommand(transcript: string): ParsedCookVoiceComman
   const ingredient = /^(?:how much|read)\s+(.+?)[?]?$/.exec(text); if (ingredient) return result(text, { kind: 'read_ingredient', ingredientQuery: ingredient[1].trim() });
   const timer = /^(?:start|set) (?:a )?(\d+(?:\.\d+)?|[a-z]+)[ -]?(second|minute|hour)s? timer$/.exec(text);
   if (timer) { const amount = numbers[timer[1].replace('-', '')] ?? Number(timer[1]); if (Number.isFinite(amount) && amount > 0) return result(text, { kind: 'start_timer', durationSeconds: Math.round(amount * (timer[2] === 'hour' ? 3600 : timer[2] === 'minute' ? 60 : 1)), label: 'Timer' }); }
+  if (/^(?:start|set) (?:a )?timer (?:for|from) (?:this|this step|the current step)$/.test(text)) return result(text, { kind: 'start_suggested_timer' });
   const timerAction = /^(pause|resume|cancel)(?: the)?(?: (first|second|third|fourth|fifth|\d+(?:st|nd|rd|th)?))? timer$/.exec(text);
   if (timerAction) return result(text, { kind: `${timerAction[1]}_timer` as 'pause_timer'|'resume_timer'|'cancel_timer', timerOrdinal: ordinal(timerAction[2] ?? '') });
   if (/^(?:how|what|can|should|is|are|why)\b/.test(text)) return result(text, { kind: 'answer_recipe_question', question: transcript.trim() }, 'medium');

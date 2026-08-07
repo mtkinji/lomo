@@ -1,7 +1,6 @@
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Check } from 'lucide-react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { colors, spacing } from '../../../theme';
+import { spacing } from '../../../theme';
 import { Heading, Text } from '../../../ui/Typography';
 import type { RecipeIngredientLine } from '../domain/recipeContracts';
 import { formatKitchenQuantity, scaleRecipeQuantity } from '../domain/recipeScaling';
@@ -15,24 +14,18 @@ export function scaledIngredientDisplay(line: RecipeIngredientLine, fromYield: n
   return `${amount} ${line.ingredientConcept}${preparation}${line.optional ? ' (optional)' : ''}`;
 }
 
-export function RecipeIngredientList({ lines, fromYield, toYield, checked, onToggle }: {
-  lines: RecipeIngredientLine[]; fromYield: number | null; toYield: number; checked: Set<string>; onToggle(id: string): void;
+export function RecipeIngredientList({ lines, fromYield, toYield }: {
+  lines: RecipeIngredientLine[]; fromYield: number | null; toYield: number;
 }) {
   return <View style={styles.section}><Heading variant="md">Ingredients</Heading>{lines.length ? lines.map((line, index) => {
-    const active = checked.has(line.id);
     const showGroup = Boolean(line.groupLabel) && line.groupLabel !== lines[index - 1]?.groupLabel;
     return <View key={line.id} style={styles.groupedLine}>
       {showGroup ? <Text variant="label" tone="secondary" style={styles.groupLabel}>{line.groupLabel}</Text> : null}
-      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: active }} onPress={() => onToggle(line.id)} style={styles.line}>
-        <View style={[styles.check, active && styles.checkActive]}>{active ? <Check size={14} color={colors.primaryForeground} /> : null}</View>
-        <Text style={active ? styles.done : undefined}>{scaledIngredientDisplay(line, fromYield, toYield)}</Text>
-      </Pressable>
+      <Text style={styles.line}>{scaledIngredientDisplay(line, fromYield, toYield)}</Text>
     </View>;
   }) : <Text tone="secondary">No ingredients added yet.</Text>}</View>;
 }
 
 const styles = StyleSheet.create({
-  section: { gap: spacing.sm }, groupedLine: { gap: spacing.xs }, groupLabel: { marginTop: spacing.sm }, line: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.xs },
-  check: { width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  checkActive: { backgroundColor: colors.pine700, borderColor: colors.pine700 }, done: { textDecorationLine: 'line-through', color: colors.textSecondary },
+  section: { gap: spacing.sm }, groupedLine: { gap: spacing.xs }, groupLabel: { marginTop: spacing.sm }, line: { paddingVertical: spacing.xs },
 });

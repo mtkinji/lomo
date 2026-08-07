@@ -14,4 +14,15 @@ describe('Cook voice controller', () => {
     expect(controller.handle('next', { hasActiveSession: false })).toMatchObject({ state: 'no_session' });
     expect(controller.handle('can I substitute yogurt?', { hasActiveSession: true })).toMatchObject({ state: 'needs_grounded_answer' });
   });
+
+  it('routes a cue-grounded timer request without inventing a duration', () => {
+    const execute = jest.fn();
+    const controller = createCookVoiceController({ execute, now: () => 1000 });
+
+    expect(controller.handle('start a timer for this', { hasActiveSession: true })).toMatchObject({
+      state: 'handled',
+      acknowledgement: null,
+    });
+    expect(execute).toHaveBeenCalledWith({ type: 'start_suggested_timer' });
+  });
 });

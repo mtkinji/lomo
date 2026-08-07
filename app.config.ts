@@ -248,6 +248,7 @@ const config = {
     'expo-asset',
     'expo-background-task',
     'expo-web-browser',
+    'expo-video',
     'expo-font',
     [
       'expo-audio',

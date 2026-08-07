@@ -15,7 +15,10 @@ import type { CookCue, RecipeCookSession } from '../domain/recipeCookContracts';
 const KEEP_AWAKE_TAG = 'kwilt-recipe-cook';
 export function useRecipeCookSession(recipe: RecipeProjection, servings: number) {
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
-  const cues = useMemo(() => buildRecipeCookCues(recipe.currentVersion, { servings }), [recipe, servings]);
+  const cues = useMemo(() => buildRecipeCookCues(recipe.currentVersion, {
+    servings,
+    mediaAssets: recipe.recipe.mediaAssets,
+  }), [recipe, servings]);
   const [session, setSession] = useState<RecipeCookSession | null>(null);
   const [restoring, setRestoring] = useState(true);
   const repository = useMemo(() => createRecipeCookRepository(), []);

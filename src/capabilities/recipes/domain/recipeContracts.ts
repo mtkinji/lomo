@@ -94,6 +94,7 @@ export type RecipeInstructionStep = {
   position: number;
   sectionLabel: string | null;
   text: string;
+  mediaAssetIds?: string[];
 };
 
 export type RecipeVersion = {
@@ -213,6 +214,18 @@ function finiteNumber(value: unknown, path: string, options: { min?: number; max
 
 function nullableNumber(value: unknown, path: string, options: { min?: number; max?: number; integer?: boolean } = {}): number | null {
   return value === null ? null : finiteNumber(value, path, options);
+}
+
+function optionalStringArray(value: unknown, path: string, limit: number): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > limit) {
+    throw new RecipeContractError('recipe.field.invalid', `${path} must contain at most ${limit} values.`, path);
+  }
+  const result = value.map((item, index) => requiredString(item, `${path}[${index}]`, 128));
+  if (new Set(result).size !== result.length) {
+    throw new RecipeContractError('recipe.field.invalid', `${path} cannot contain duplicates.`, path);
+  }
+  return result;
 }
 
 function orderedPositions(values: readonly { position: number }[], code: RecipeContractErrorCode, path: string): void {
@@ -359,13 +372,16 @@ function parseIngredient(value: unknown, index: number): RecipeIngredientLine {
 function parseInstruction(value: unknown, index: number): RecipeInstructionStep {
   const path = `recipeVersion.instructions[${index}]`;
   const object = asRecord(value, path);
-  assertExactKeys(object, ['id', 'recipeVersionId', 'position', 'sectionLabel', 'text'], path);
+  assertExactKeys(object, ['id', 'recipeVersionId', 'position', 'sectionLabel', 'text', 'mediaAssetIds'], path);
   return {
     id: requiredString(object.id, `${path}.id`, 128),
     recipeVersionId: requiredString(object.recipeVersionId, `${path}.recipeVersionId`, 128),
     position: finiteNumber(object.position, `${path}.position`, { min: 0, integer: true }),
     sectionLabel: nullableString(object.sectionLabel, `${path}.sectionLabel`, 160),
     text: requiredString(object.text, `${path}.text`, 8_000),
+    ...(object.mediaAssetIds === undefined
+      ? {}
+      : { mediaAssetIds: optionalStringArray(object.mediaAssetIds, `${path}.mediaAssetIds`, 10) }),
   };
 }
 

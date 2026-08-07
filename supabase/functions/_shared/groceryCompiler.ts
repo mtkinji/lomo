@@ -10,6 +10,17 @@ export type GroceryAuthorityInput = {
 
 type IngredientAuthority = { id: string; original_text: string; optional: boolean };
 
+export type RecipeGrocerySource = {
+  recipeId: string;
+  recipeVersionId: string;
+  recipeVersion: number;
+  contentHash: string;
+  sourceType: string;
+  title: string;
+  yieldQuantity: number | null;
+  ingredients: Array<{ id: string; originalText: string; optional: boolean }>;
+};
+
 function catalogIngredients(snapshot: Record<string, unknown>, recipeVersionId: string): IngredientAuthority[] | null {
   if (snapshot.sourceType !== 'catalog'
     || !/^kwilt-recipe-[a-z0-9-]+-v\d+$/.test(recipeVersionId)
@@ -55,4 +66,49 @@ export function compileGroceryAuthority(input: GroceryAuthorityInput) {
     kind: catalogVersionIds.has(source.recipeVersionId) ? 'catalog_recipe_ingredient' : 'recipe_ingredient',
     originalText: originalBySource.get(`${source.recipeVersionId}:${source.ingredientLineId}:${source.planEntryId}`) ?? null,
   })) })) };
+}
+
+export function compileRecipeGroceryAuthority(input: {
+  source: RecipeGrocerySource;
+  servings: number;
+  authoritativeIngredients: IngredientAuthority[] | null;
+}) {
+  if (!input.source.recipeId.trim()
+    || !input.source.recipeVersionId.trim()
+    || !Number.isInteger(input.source.recipeVersion)
+    || input.source.recipeVersion < 1
+    || !input.source.contentHash.trim()
+    || !input.source.title.trim()
+    || !Number.isFinite(input.servings)
+    || input.servings <= 0) throw new Error('invalid_recipe_grocery_source');
+
+  const ingredients = input.authoritativeIngredients
+    ?? catalogIngredients(input.source as unknown as Record<string, unknown>, input.source.recipeVersionId);
+  if (!ingredients) throw new Error('missing_recipe_version');
+
+  const sourceRef = `recipe:${input.source.recipeVersionId}`;
+  const lines: GroceryCompilerLine[] = ingredients.map((ingredient) => ({
+    originalText: ingredient.original_text,
+    recipeVersionId: input.source.recipeVersionId,
+    ingredientLineId: ingredient.id,
+    planEntryId: sourceRef,
+    fromYield: input.source.yieldQuantity,
+    toYield: input.servings,
+    optional: ingredient.optional,
+  }));
+  const compiled = buildGroceryCompilation(lines);
+  const originalByIngredientId = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient.original_text]));
+  const kind = input.source.sourceType === 'catalog' ? 'catalog_recipe_ingredient' : 'recipe_ingredient';
+
+  return {
+    items: compiled.items.map((item) => ({
+      ...item,
+      sources: item.sources.map((source) => ({
+        ...source,
+        kind,
+        scope: 'recipe_version' as const,
+        originalText: originalByIngredientId.get(source.ingredientLineId) ?? null,
+      })),
+    })),
+  };
 }

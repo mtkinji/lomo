@@ -162,6 +162,30 @@ Opening an alternative pushes another Recipe Home route. Back restores the
 prior Recipe and its scroll position. Merely viewing or opening an alternative
 never adds, removes, replaces, or finalizes a Meal Plan item.
 
+### Recipe Home next-action dock
+
+Recipe Home reuses the complete To-do Detail dock geometry and split-action
+grammar rather than only sharing the outer `ActionDock` shell. Before a Cook
+Session exists, the dock treats ingredient readiness as the dominant next job:
+
+- a Meal outside the Meal Plan defaults to **Get ingredients** for this Meal;
+- a Meal in a finalized Meal Plan defaults to **Get ingredients** for the whole
+  reviewed plan, with this-Meal-only scope available in the menu;
+- a Meal in an unfinished plan keeps this-Meal ingredient review available and
+  offers the Meal Plan as a separate review path rather than compiling an
+  unfinalized plan;
+- **Start cooking**, **Continue cooking**, and explicit Meal Plan membership
+  remain available according to current state, but a plus/check icon is never
+  the only explanation of plan membership;
+- a one-Meal Grocery list references the immutable Recipe version directly and
+  never creates or mutates a Meal Plan as a side effect.
+
+Choosing an ingredient scope opens the Groceries-owned **What do you already
+have?** batch review. The user checks everything already at home and creates one
+reviewed list of what remains. Recipe Home ingredient rows are plain recipe
+information; stock confirmation belongs to Groceries and cooking progress
+belongs to Cook Mode.
+
 ### UI contract
 
 - **Job:** When a Meal is under consideration, Maya needs to understand what it
@@ -172,8 +196,9 @@ never adds, removes, replaces, or finalizes a Meal Plan item.
   Airbnb reference for hierarchy and spacing only.
 - **Three-second read:** Meal image or intentional artwork, title and
   description, then the effort it requires.
-- **Primary action:** **Start cooking** or **Continue cooking** in the existing
-  `ActionDock`.
+- **Primary action:** the state-derived next action in the shared split
+  `ActionDock`: normally **Get ingredients** before cooking and **Continue
+  cooking** during an active Cook Session.
 - **Primary information:** title, description, time/yield facts, Ingredients,
   and Instructions.
 - **Secondary information:** private Cook learning, notes, provenance, Reviews,
@@ -186,7 +211,8 @@ never adds, removes, replaces, or finalizes a Meal Plan item.
   requirement, social lanes, Review engagement, recommendation settings, or
   implicit planning effects.
 - **Reuse map:** header → `ObjectPageHeader` / `HeaderActionPill`; persistent
-  actions → `ActionDock`; media paging → `RecipeArtworkGallery`; semantic
+  actions → `ActionDock` plus the shared split-action content extracted from
+  To-do Detail; media paging → `RecipeArtworkGallery`; semantic
   controls → canonical `Button` and existing Recipe action sheet; layout and
   motion → new shared `ObjectDetailMediaShell` composed from tokenized views.
 - **Nearest precedent:** Arc detail for immersive overlap and threshold fade;
@@ -234,6 +260,13 @@ without visibility or relationship leakage.
   variants, threshold fade, parallax, sheet overlap/radii, and Reduce Motion.
 - Recipe, Arc, Goal, and To-do consume the shared structural shell; no new
   screen-specific parallax formula remains.
+- Recipe Home uses the same `ActionDock` horizontal and bottom placement as
+  To-do Detail and the same split primary/menu anatomy.
+- Before cooking, Recipe Home offers a one-Meal ingredient review without
+  silently adding the Meal to the Meal Plan; a finalized active plan also
+  offers all-plan ingredient review.
+- The batch Already-have review produces a Grocery list containing only the
+  remaining needed items and preserves Recipe or Meal Plan provenance.
 - Recipe Home displays zero, one, and all active media states; a single image
   has no counter and many images have paging plus gallery access.
 - The no-photo Recipe hero never uses missing/empty language or depicts a
