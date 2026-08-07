@@ -146,6 +146,16 @@ without becoming pantry clerks, budget administrators, or coupon experts.
     inform Money actuals, purchased-stock observations, price history, and
     receipt-proven savings for the next cycle.
 
+### End-to-end continuity
+
+The active Meal Plan is the continuous spine across Meals, meal detail, Meal
+Planning, and Groceries. Each state exposes one honest primary continuation;
+family participation remains an optional secondary path. The product does not
+add a Food dashboard or permanent progress stepper. The Grocery list presents
+items before savings and store tools, and Shop is available only after list
+review. The acceptance bar and repeated reference-backed decisions live in
+[`meals-end-to-end-continuity`](../design-explorations/meals-end-to-end-continuity/00-frame.md).
+
 ### Adaptive thrift layer
 
 Meal-first, budget-first, pantry-first, and sale-first are entry conditions, not

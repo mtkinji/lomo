@@ -19,6 +19,8 @@ import Svg, { Path } from 'react-native-svg';
 
 type PageHeaderProps = {
   title: string;
+  /** Keeps navigation titles useful at accessibility sizes while page content continues to scale fully. */
+  titleMaxFontSizeMultiplier?: number;
   /**
    * Visual style for the header content.
    * - default: standard canvas header styling.
@@ -119,6 +121,7 @@ export function getPageHeaderTitleLineCount(fontScale: number): 1 | 2 {
 
 export function PageHeader({
   title,
+  titleMaxFontSizeMultiplier = 1.6,
   variant = 'default',
   iconName,
   iconTone = 'default',
@@ -190,6 +193,7 @@ export function PageHeader({
           <View style={styles.conversationTitleSlot}>
             <Text
               accessibilityRole="header"
+              maxFontSizeMultiplier={titleMaxFontSizeMultiplier}
               numberOfLines={titleLineCount}
               ellipsizeMode="tail"
               style={[styles.conversationTitle, { color: titleColor }]}
@@ -225,6 +229,7 @@ export function PageHeader({
                   <Icon name={iconName} size={20} color={badgeColors.iconColor} />
                   <Text
                     accessibilityRole="header"
+                    maxFontSizeMultiplier={titleMaxFontSizeMultiplier}
                     numberOfLines={titleLineCount}
                     ellipsizeMode="tail"
                     style={[styles.title, styles.titleInBadge, { color: badgeColors.iconColor }]}
@@ -244,6 +249,7 @@ export function PageHeader({
                   ) : null}
                   <Text
                     accessibilityRole="header"
+                    maxFontSizeMultiplier={titleMaxFontSizeMultiplier}
                     numberOfLines={titleLineCount}
                     ellipsizeMode="tail"
                     style={[styles.title, { color: titleColor }]}

@@ -41,3 +41,30 @@ Deno.test('compiles every dish once while keeping dish entry provenance private'
   if (sources.filter((source) => source.planEntryId === 'alternate-dish').length !== 1) throw new Error('alternate dish duplicated');
   if (JSON.stringify(result).match(/diner|allerg|food.need/i)) throw new Error('private meal-fit context leaked');
 });
+
+Deno.test('compiles an immutable bundled-catalog ingredient snapshot without private Recipe rows', () => {
+  const result = compileGroceryAuthority({
+    ...input,
+    entries: [{
+      id: 'catalog-entry',
+      plan_version: 3,
+      servings: 8,
+      recipe_snapshot: {
+        recipeVersionId: 'kwilt-recipe-br001-v1',
+        yieldQuantity: 4,
+        sourceType: 'catalog',
+        contentHash: 'kwilt:BR001:v1',
+        ingredients: [{
+          id: 'kwilt-recipe-br001-v1-ingredient-1',
+          originalText: '2 cups flour',
+          optional: false,
+        }],
+      },
+    }],
+    ingredientsByVersionId: {},
+  });
+
+  if (result.items[0]?.quantityMin !== 4) throw new Error('catalog serving scale failed');
+  if (result.items[0]?.sources[0]?.ingredientLineId !== 'kwilt-recipe-br001-v1-ingredient-1') throw new Error('catalog provenance lost');
+  if (result.items[0]?.sources[0]?.kind !== 'catalog_recipe_ingredient') throw new Error('catalog authority was not distinguished');
+});

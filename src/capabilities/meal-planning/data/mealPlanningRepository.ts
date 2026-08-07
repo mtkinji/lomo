@@ -20,16 +20,23 @@ export type MealPlanProjection = {
   state: 'draft' | 'collecting_choices' | 'ready_to_finalize' | 'finalized' | 'archived';
   horizon: MealPlanHorizon;
   candidates: MealPlanCandidateDraft[];
-  entries: Array<{ id: string; candidateId: string; title: string; servings: number | null; placementDate: string | null; occasionId: string | null; dinerPersonIds: string[] }>;
+  entries: Array<{ id: string; candidateId: string; title: string; servings: number | null; placementDate: string | null; occasionId: string | null; dinerPersonIds: string[]; recipeSnapshot?: Record<string, unknown> | null }>;
   occasions: Array<{
     id: string;
     title: string | null;
     placementDate: string | null;
     notEatingPersonIds: string[];
-    dishes: Array<{ id: string; candidateId: string; title: string; servings: number | null; dinerPersonIds: string[] }>;
+    dishes: Array<{ id: string; candidateId: string; title: string; servings: number | null; dinerPersonIds: string[]; recipeSnapshot?: Record<string, unknown> | null }>;
   }>;
   activeRound: { id: string; version: number; state: 'open' | 'closed' | 'cancelled'; closesAt: string | null } | null;
   updatedAt: string;
+};
+
+type VersionedMealPlanRow = {
+  plan_version?: unknown;
+  position?: unknown;
+  occasion_id?: unknown;
+  [key: string]: unknown;
 };
 
 async function rpc(client: SupabaseClient, name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -38,35 +45,42 @@ async function rpc(client: SupabaseClient, name: string, args: Record<string, un
   return data;
 }
 
-function mapPlan(row: any): MealPlanProjection {
+export function mapMealPlanRow(row: any): MealPlanProjection {
   if (!row || typeof row.id !== 'string' || !Number.isInteger(row.version)) throw new Error('Invalid Meal Plan projection.');
   const candidates = Array.isArray(row.candidates) ? [...row.candidates].sort((a, b) => Number(a.position) - Number(b.position)) : [];
-  const entries = Array.isArray(row.entries) ? [...row.entries].sort((a, b) => Number(a.position) - Number(b.position)) : [];
-  const occasions = Array.isArray(row.occasions) ? [...row.occasions].sort((a, b) => Number(a.position) - Number(b.position)) : [];
+  const allEntries: VersionedMealPlanRow[] = Array.isArray(row.entries) ? row.entries : [];
+  const allOccasions: VersionedMealPlanRow[] = Array.isArray(row.occasions) ? row.occasions : [];
+  const snapshotVersions = [...allEntries, ...allOccasions]
+    .map((item) => Number(item.plan_version))
+    .filter(Number.isInteger);
+  const snapshotVersion = snapshotVersions.length ? Math.max(...snapshotVersions) : null;
+  const entries = allEntries.filter((entry) => snapshotVersion === null || Number(entry.plan_version) === snapshotVersion).sort((a, b) => Number(a.position) - Number(b.position));
+  const occasions = allOccasions.filter((occasion) => snapshotVersion === null || Number(occasion.plan_version) === snapshotVersion).sort((a, b) => Number(a.position) - Number(b.position));
   const rounds = Array.isArray(row.rounds) ? [...row.rounds].sort((a, b) => String(b.opened_at).localeCompare(String(a.opened_at))) : [];
   return {
     id: row.id, householdId: row.household_id, version: row.version, state: row.state,
     horizon: validateMealPlanHorizon(row.horizon),
     candidates: candidates.map((candidate: any) => ({ id: candidate.id, kind: candidate.kind, title: candidate.title, recipeSnapshot: candidate.recipe_snapshot ?? null })),
-    entries: entries.map((entry: any) => ({ id: entry.id, candidateId: entry.candidate_id, title: entry.title, servings: entry.servings === null ? null : Number(entry.servings), placementDate: entry.placement_date ?? null, occasionId: entry.occasion_id ?? null, dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids : [] })),
-    occasions: occasions.length ? occasions.map((occasion: any) => ({
-      id: occasion.id,
-      title: occasion.title ?? null,
-      placementDate: occasion.placement_date ?? null,
-      notEatingPersonIds: Array.isArray(occasion.not_eating_person_ids) ? occasion.not_eating_person_ids : [],
-      dishes: entries.filter((entry: any) => entry.occasion_id === occasion.id).map((entry: any) => ({
-        id: entry.id,
-        candidateId: entry.candidate_id,
-        title: entry.title,
+    entries: entries.map((entry) => ({ id: String(entry.id), candidateId: String(entry.candidate_id), title: String(entry.title), servings: entry.servings === null ? null : Number(entry.servings), placementDate: typeof entry.placement_date === 'string' ? entry.placement_date : null, occasionId: typeof entry.occasion_id === 'string' ? entry.occasion_id : null, dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids.filter((id): id is string => typeof id === 'string') : [], recipeSnapshot: entry.recipe_snapshot && typeof entry.recipe_snapshot === 'object' ? entry.recipe_snapshot as Record<string, unknown> : null })),
+    occasions: occasions.length ? occasions.map((occasion) => ({
+      id: String(occasion.id),
+      title: typeof occasion.title === 'string' ? occasion.title : null,
+      placementDate: typeof occasion.placement_date === 'string' ? occasion.placement_date : null,
+      notEatingPersonIds: Array.isArray(occasion.not_eating_person_ids) ? occasion.not_eating_person_ids.filter((id): id is string => typeof id === 'string') : [],
+      dishes: entries.filter((entry) => entry.occasion_id === occasion.id).map((entry) => ({
+        id: String(entry.id),
+        candidateId: String(entry.candidate_id),
+        title: String(entry.title),
         servings: entry.servings === null ? null : Number(entry.servings),
-        dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids : [],
+        dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids.filter((id): id is string => typeof id === 'string') : [],
+        recipeSnapshot: entry.recipe_snapshot && typeof entry.recipe_snapshot === 'object' ? entry.recipe_snapshot as Record<string, unknown> : null,
       })),
-    })) : entries.map((entry: any) => ({
+    })) : entries.map((entry) => ({
       id: `legacy:${entry.id}`,
       title: null,
-      placementDate: entry.placement_date ?? null,
+      placementDate: typeof entry.placement_date === 'string' ? entry.placement_date : null,
       notEatingPersonIds: [],
-      dishes: [{ id: entry.id, candidateId: entry.candidate_id, title: entry.title, servings: entry.servings === null ? null : Number(entry.servings), dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids : [] }],
+      dishes: [{ id: String(entry.id), candidateId: String(entry.candidate_id), title: String(entry.title), servings: entry.servings === null ? null : Number(entry.servings), dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids.filter((id): id is string => typeof id === 'string') : [], recipeSnapshot: entry.recipe_snapshot && typeof entry.recipe_snapshot === 'object' ? entry.recipe_snapshot as Record<string, unknown> : null }],
     })),
     activeRound: rounds[0] ? { id: rounds[0].id, version: rounds[0].version, state: rounds[0].state, closesAt: rounds[0].closes_at ?? null } : null,
     updatedAt: row.updated_at,
@@ -78,7 +92,7 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
     async list(): Promise<MealPlanProjection[]> {
       const { data, error } = await client.from('kwilt_meal_plans').select('*,candidates:kwilt_meal_plan_candidates(*),entries:kwilt_meal_plan_entries(*),occasions:kwilt_meal_plan_occasions(*),rounds:kwilt_meal_choice_rounds(*)').order('updated_at', { ascending: false });
       if (error) throw new Error(error.message);
-      return (data ?? []).map(mapPlan);
+      return (data ?? []).map(mapMealPlanRow);
     },
     create(input: { householdId: string; horizon: MealPlanHorizon; candidates: MealPlanCandidateDraft[] }) {
       return rpc(client, 'create_kwilt_meal_plan', { p_household_id: input.householdId, p_horizon: validateMealPlanHorizon(input.horizon), p_candidate_snapshots: input.candidates });

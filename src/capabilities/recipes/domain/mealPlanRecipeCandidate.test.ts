@@ -24,6 +24,12 @@ describe('meal plan recipe candidates', () => {
         recipeId: projection.recipe.id,
         recipeVersionId: projection.currentVersion.id,
         recipeVersion: projection.currentVersion.version,
+        contentHash: projection.currentVersion.contentHash,
+        ingredients: projection.currentVersion.ingredients.map((line) => ({
+          id: line.id,
+          originalText: line.originalText,
+          optional: line.optional,
+        })),
         selectedServings: 6,
       },
     });

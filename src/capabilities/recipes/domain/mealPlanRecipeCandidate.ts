@@ -23,6 +23,12 @@ export function buildMealPlanRecipeCandidate(
       recipeId: projection.recipe.id,
       recipeVersionId: projection.currentVersion.id,
       recipeVersion: projection.currentVersion.version,
+      contentHash: projection.currentVersion.contentHash,
+      ingredients: projection.currentVersion.ingredients.map((line) => ({
+        id: line.id,
+        originalText: line.originalText,
+        optional: line.optional,
+      })),
       title: projection.currentVersion.title,
       yieldQuantity: projection.currentVersion.yieldQuantity,
       yieldUnit: projection.currentVersion.yieldUnit,

@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react-native';
-import { Heading, Text } from './Typography';
+import { getAccessibleLineHeight, Heading, Text } from './Typography';
 
 describe('Typography accessibility contract', () => {
   it('exposes Heading as a navigable header by default', () => {
@@ -12,5 +12,10 @@ describe('Typography accessibility contract', () => {
     const { queryByRole } = render(<Text>One clear next step.</Text>);
 
     expect(queryByRole('header')).toBeNull();
+  });
+
+  it('releases fixed line heights at accessibility text sizes so glyphs are not clipped', () => {
+    expect(getAccessibleLineHeight(24, 1)).toBe(24);
+    expect(getAccessibleLineHeight(24, 1.35)).toBeUndefined();
   });
 });

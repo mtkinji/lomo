@@ -50,8 +50,15 @@ export function buildDefaultMealOccasions(
   if (plan.occasions.length) {
     return plan.occasions.map((occasion) => ({
       ...occasion,
+      id: makeId(),
       notEatingPersonIds: [...occasion.notEatingPersonIds],
-      dishes: occasion.dishes.map((dish) => ({ ...dish, servings: dish.servings ?? Math.max(1, dish.dinerPersonIds.length || numericFallback), dinerPersonIds: [...dish.dinerPersonIds] })),
+      dishes: occasion.dishes.map((dish) => {
+        const recipeVersionId = dish.recipeSnapshot?.recipeVersionId;
+        const currentCandidate = plan.candidates.find((candidate) => candidate.id === dish.candidateId)
+          ?? plan.candidates.find((candidate) => recipeVersionId && candidate.recipeSnapshot?.recipeVersionId === recipeVersionId)
+          ?? plan.candidates.find((candidate) => candidate.title === dish.title);
+        return { ...dish, id: makeId(), candidateId: currentCandidate?.id ?? dish.candidateId, servings: dish.servings ?? Math.max(1, dish.dinerPersonIds.length || numericFallback), dinerPersonIds: [...dish.dinerPersonIds] };
+      }),
     }));
   }
   return plan.candidates.map((candidate) => {
