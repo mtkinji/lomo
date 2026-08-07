@@ -147,6 +147,7 @@ import type { GamesStackParamList } from '../capabilities/games/navigation/types
 import { FoodNavigator, type FoodStackParamList } from '../features/household-food/FoodNavigator';
 import { ExploreSettingsScreen } from '../capabilities/explore/screens/ExploreSettingsScreen';
 import { useFeatureFlag } from '../services/analytics/useFeatureFlag';
+import { applyNavigationOrientation } from './navigationOrientation';
 
 export type RootDrawerParamList = {
   StandaloneFocus: { source?: string } | undefined;
@@ -636,8 +637,12 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       linking={linking}
       onReady={() => {
         markRootNavigationReady(Boolean(initialState));
-        setCurrentNavigationState(rootNavigationRef.getRootState());
+        const rootState = rootNavigationRef.getRootState();
+        setCurrentNavigationState(rootState);
         const currentRoute = rootNavigationRef.getCurrentRoute();
+        void applyNavigationOrientation(
+          getActiveRoute(rootState)?.name ?? currentRoute?.name,
+        );
         if (currentRoute?.name) {
           lastTrackedRouteNameRef.current = currentRoute.name;
           trackScreen?.(currentRoute.name, currentRoute.params as any);
@@ -652,6 +657,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
 
         const activeRoute = getActiveRoute(state);
         const routeName = activeRoute?.name;
+        void applyNavigationOrientation(routeName);
         if (routeName && routeName !== lastTrackedRouteNameRef.current) {
           lastTrackedRouteNameRef.current = routeName;
           trackScreen?.(routeName, activeRoute?.params as any);

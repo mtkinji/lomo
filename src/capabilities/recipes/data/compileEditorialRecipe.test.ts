@@ -32,6 +32,11 @@ describe("compile editorial recipe", () => {
     expect(
       projection.currentVersion.instructions.map((step) => step.text),
     ).toEqual(editorial.instructions);
+    expect(projection.currentVersion.instructions[1].cues).toEqual([
+      expect.objectContaining({ position: 0, text: 'Whisk flour, sugar, baking powder, baking soda, and salt in a large bowl.' }),
+      expect.objectContaining({ position: 1, text: 'Whisk buttermilk, eggs, and melted butter in a second bowl.' }),
+    ]);
+    expect(projection.currentVersion.instructions[0].sectionLabel).toBeNull();
     expect(projection.currentVersion.contentHash).toBe("kwilt:BR001:v1");
   });
 

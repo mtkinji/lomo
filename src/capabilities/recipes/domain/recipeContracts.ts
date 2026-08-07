@@ -88,6 +88,13 @@ export type RecipeIngredientLine = {
   parseConfidence: number | null;
 };
 
+export type RecipeInstructionCue = {
+  id: string;
+  position: number;
+  text: string;
+  mediaAssetIds?: string[];
+};
+
 export type RecipeInstructionStep = {
   id: string;
   recipeVersionId: string;
@@ -95,6 +102,7 @@ export type RecipeInstructionStep = {
   sectionLabel: string | null;
   text: string;
   mediaAssetIds?: string[];
+  cues?: RecipeInstructionCue[];
 };
 
 export type RecipeVersion = {
@@ -372,7 +380,26 @@ function parseIngredient(value: unknown, index: number): RecipeIngredientLine {
 function parseInstruction(value: unknown, index: number): RecipeInstructionStep {
   const path = `recipeVersion.instructions[${index}]`;
   const object = asRecord(value, path);
-  assertExactKeys(object, ['id', 'recipeVersionId', 'position', 'sectionLabel', 'text', 'mediaAssetIds'], path);
+  assertExactKeys(object, ['id', 'recipeVersionId', 'position', 'sectionLabel', 'text', 'mediaAssetIds', 'cues'], path);
+  if (object.cues !== undefined && (!Array.isArray(object.cues) || object.cues.length > 100)) {
+    throw new RecipeContractError('recipe.instructions.invalid', `${path}.cues must contain at most 100 cues.`, `${path}.cues`);
+  }
+  const cues = object.cues === undefined
+    ? undefined
+    : (object.cues as unknown[]).map((value, cueIndex) => {
+      const cuePath = `${path}.cues[${cueIndex}]`;
+      const cue = asRecord(value, cuePath);
+      assertExactKeys(cue, ['id', 'position', 'text', 'mediaAssetIds'], cuePath);
+      return {
+        id: requiredString(cue.id, `${cuePath}.id`, 128),
+        position: finiteNumber(cue.position, `${cuePath}.position`, { min: 0, integer: true }),
+        text: requiredString(cue.text, `${cuePath}.text`, 8_000),
+        ...(cue.mediaAssetIds === undefined
+          ? {}
+          : { mediaAssetIds: optionalStringArray(cue.mediaAssetIds, `${cuePath}.mediaAssetIds`, 10) }),
+      };
+    });
+  if (cues) orderedPositions(cues, 'recipe.instructions.position_invalid', `${path}.cues`);
   return {
     id: requiredString(object.id, `${path}.id`, 128),
     recipeVersionId: requiredString(object.recipeVersionId, `${path}.recipeVersionId`, 128),
@@ -382,6 +409,7 @@ function parseInstruction(value: unknown, index: number): RecipeInstructionStep 
     ...(object.mediaAssetIds === undefined
       ? {}
       : { mediaAssetIds: optionalStringArray(object.mediaAssetIds, `${path}.mediaAssetIds`, 10) }),
+    ...(cues === undefined ? {} : { cues }),
   };
 }
 

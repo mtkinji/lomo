@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { colors, spacing } from '../../../theme';
+import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
 import { Heading, Text } from '../../../ui/Typography';
 
@@ -23,13 +24,15 @@ export function RecipeSummaryBar({
   cookMinutes,
   inactiveMinutes = 0,
   yieldQuantity,
-  yieldUnit,
+  servings,
+  onServingsChange,
 }: {
   prepMinutes: number | null;
   cookMinutes: number | null;
   inactiveMinutes?: number;
   yieldQuantity: number | null;
-  yieldUnit: string | null;
+  servings: number;
+  onServingsChange(value: number): void;
 }) {
   const totalMinutes =
     prepMinutes === null && cookMinutes === null
@@ -49,29 +52,69 @@ export function RecipeSummaryBar({
   if (inactiveMinutes > 0) {
     items.push({ label: 'Waiting', value: duration(inactiveMinutes), icon: 'clock' });
   }
-  if (yieldQuantity !== null) {
-    items.push({
-      label: 'Makes',
-      value: `${yieldQuantity} ${yieldUnit ?? 'servings'}`,
-      icon: 'meal',
-    });
-  }
-
-  if (!items.length) return null;
+  if (!items.length && yieldQuantity === null) return null;
 
   return (
     <View accessibilityLabel="What this recipe takes" style={styles.section}>
       <Heading variant="sm">What this recipe takes</Heading>
       <View style={styles.list}>
-        {items.map((item) => (
-          <View key={item.label} style={styles.row}>
-            <View style={styles.icon}>
-              <Icon name={item.icon} size={20} color={colors.textSecondary} />
-            </View>
-            <Text style={styles.label}>{item.label}</Text>
-            <Text style={styles.value}>{item.value}</Text>
+        {items.length ? (
+          <View style={styles.facts}>
+            {items.map((item) => (
+              <View key={item.label} style={styles.row}>
+                <View style={styles.icon}>
+                  <Icon name={item.icon} size={20} color={colors.textSecondary} />
+                </View>
+                <Text style={styles.label}>{item.label}</Text>
+                <Text style={styles.value}>{item.value}</Text>
+              </View>
+            ))}
           </View>
-        ))}
+        ) : null}
+        {yieldQuantity !== null ? (
+          <View style={items.length ? styles.servingsSeparated : undefined}>
+            {items.length ? <View style={styles.divider} /> : null}
+            <View style={styles.row}>
+              <View style={styles.icon}>
+                <Icon name="users" size={20} color={colors.textSecondary} />
+              </View>
+              <Text style={styles.label}>Servings</Text>
+              <View style={styles.servingsControl}>
+                <View style={styles.servingsButtons}>
+                  <Button
+                    accessibilityLabel="Decrease servings"
+                    accessibilityState={{ disabled: servings <= 1 }}
+                    disabled={servings <= 1}
+                    hitSlop={8}
+                    size="sm"
+                    variant="outline"
+                    style={styles.servingsButton}
+                    onPress={() => onServingsChange(Math.max(1, servings - 1))}
+                  >
+                    −
+                  </Button>
+                  <Button
+                    accessibilityLabel="Increase servings"
+                    hitSlop={8}
+                    size="sm"
+                    variant="outline"
+                    style={styles.servingsButton}
+                    onPress={() => onServingsChange(servings + 1)}
+                  >
+                    +
+                  </Button>
+                </View>
+                <Text
+                  accessibilityLabel={`${servings} servings`}
+                  accessibilityLiveRegion="polite"
+                  style={styles.servingsCount}
+                >
+                  {servings}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -82,6 +125,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   list: {
+    gap: spacing.md,
+  },
+  facts: {
     gap: spacing.lg,
   },
   row: {
@@ -98,6 +144,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   value: {
+    color: colors.textSecondary,
+    textAlign: 'right',
+  },
+  servingsSeparated: {
+    gap: spacing.md,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+  },
+  servingsControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  servingsButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  servingsButton: {
+    width: 28,
+    height: 28,
+    minHeight: 28,
+    borderRadius: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  servingsCount: {
+    minWidth: 24,
     color: colors.textSecondary,
     textAlign: 'right',
   },

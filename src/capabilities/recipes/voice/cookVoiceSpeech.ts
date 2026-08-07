@@ -1,6 +1,9 @@
 import * as Speech from 'expo-speech';
 
-export const cookVoiceSpeech = {
+import { cookVoiceNaturalSpeech } from './cookVoiceNaturalSpeech';
+import { createCookVoiceSpeechPolicy } from './cookVoiceSpeechPolicy';
+
+const cookVoiceSystemSpeech = {
   async speak(text: string, onStart?: () => void): Promise<void> {
     await Speech.stop();
     await new Promise<void>((resolve, reject) => {
@@ -16,3 +19,8 @@ export const cookVoiceSpeech = {
   },
   stop: Speech.stop,
 };
+
+export const cookVoiceSpeech = createCookVoiceSpeechPolicy({
+  natural: cookVoiceNaturalSpeech,
+  fallback: cookVoiceSystemSpeech,
+});

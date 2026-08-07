@@ -28,6 +28,9 @@ import type { EditorialMealPlanSeed } from '../../capabilities/meal-planning/dom
 import { EditorialMealCollectionScreen } from '../../capabilities/recipes/screens/EditorialMealCollectionScreen';
 import { useHiddenRecipeStore } from '../../capabilities/recipes/runtime/useHiddenRecipeStore';
 import { useHouseholdMealPreferencesStore } from './runtime/useHouseholdMealPreferencesStore';
+import {
+  getFoodScreenOptions,
+} from './foodNavigationOptions';
 
 export type FoodStackParamList = {
   FoodHome: undefined;
@@ -69,7 +72,9 @@ export function FoodNavigator() {
     void setHouseholdMealPreferencesIdentity(userId);
   }, [setHiddenRecipeIdentity, setHouseholdMealPreferencesIdentity, setRecipeFavoriteIdentity, setRecipeIdentity, userId]);
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      screenOptions={({ route }) => getFoodScreenOptions(route.name)}
+    >
       <Stack.Screen name="FoodHome" component={FoodHomeScreen} />
       <Stack.Screen name="RecipeLibrary" component={RecipeLibraryScreen} />
       <Stack.Screen name="EditorialMealCollection" component={EditorialMealCollectionScreen} />
@@ -77,7 +82,10 @@ export function FoodNavigator() {
       <Stack.Screen name="RecipeHome" component={RecipeHomeScreen} />
       <Stack.Screen name="RecipeCooking" component={RecipeCookingScreen} />
       <Stack.Screen name="RecipeReadiness" component={RecipeReadinessScreen} />
-      <Stack.Screen name="RecipeCookMode" component={RecipeCookModeScreen} />
+      <Stack.Screen
+        name="RecipeCookMode"
+        component={RecipeCookModeScreen}
+      />
       <Stack.Screen name="RecipeCookComplete" component={RecipeCookCompleteScreen} />
       <Stack.Screen name="RecipeImportReview" component={RecipeImportReviewScreen} />
       <Stack.Screen name="NextMeals" component={NextMealsScreen} />

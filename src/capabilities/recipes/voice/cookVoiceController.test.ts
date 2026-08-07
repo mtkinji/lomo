@@ -3,7 +3,7 @@ import { createCookVoiceController } from './cookVoiceController';
 describe('Cook voice controller', () => {
   it('maps deterministic intents to session commands and ignores duplicate transcripts', () => {
     const execute = jest.fn(); const controller = createCookVoiceController({ execute, now: () => 1000 });
-    expect(controller.handle('next', { hasActiveSession: true })).toMatchObject({ state: 'handled', acknowledgement: 'Next step.' });
+    expect(controller.handle('next', { hasActiveSession: true })).toMatchObject({ state: 'handled', acknowledgement: 'Next action.' });
     expect(execute).toHaveBeenCalledWith({ type: 'next' });
     expect(controller.handle('next', { hasActiveSession: true })).toMatchObject({ state: 'duplicate' });
     expect(execute).toHaveBeenCalledTimes(1);

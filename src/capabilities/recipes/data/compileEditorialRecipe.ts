@@ -1,6 +1,7 @@
 import type { EditorialRecipe } from "./editorialRecipeCatalog";
 import type { RecipeProjection } from "./recipeCache";
 import { getStarterRecipeDisplayTitle } from "./starterRecipePresentation";
+import { segmentEditorialInstructionCues } from "../domain/recipeInstructionPhases";
 
 const CATALOG_OWNER_ID = "kwilt-catalog";
 const CATALOG_CREATED_AT = "2026-08-06T12:00:00.000Z";
@@ -88,8 +89,13 @@ export function compileEditorialRecipeProjection(
         id: `${versionId}-step-${position + 1}`,
         recipeVersionId: versionId,
         position,
-        sectionLabel: position === 0 ? "Cook" : null,
+        sectionLabel: null,
         text,
+        cues: segmentEditorialInstructionCues(text).map((cueText, cuePosition) => ({
+          id: `${versionId}-step-${position + 1}-cue-${cuePosition + 1}`,
+          position: cuePosition,
+          text: cueText,
+        })),
       })),
       createdByPersonId: CATALOG_OWNER_ID,
       createdAt: CATALOG_CREATED_AT,

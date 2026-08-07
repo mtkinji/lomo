@@ -30,6 +30,9 @@ describe('Recipe contracts', () => {
       instructions: familyRecipeFixture.version.instructions.map((step, index) => ({
         ...step,
         mediaAssetIds: index === 0 ? ['media-card-front'] : [],
+        cues: index === 0 ? [
+          { id: 'cue-1', position: 0, text: 'Bake until the center springs back.', mediaAssetIds: ['media-card-front'] },
+        ] : [],
       })),
     });
 
@@ -46,6 +49,23 @@ describe('Recipe contracts', () => {
       ['media-card-front'],
       [],
     ]);
+    expect(version.instructions[0].cues).toEqual([
+      { id: 'cue-1', position: 0, text: 'Bake until the center springs back.', mediaAssetIds: ['media-card-front'] },
+    ]);
+  });
+
+  test('rejects instruction cue positions that are not contiguous', () => {
+    const invalidCues = {
+      ...familyRecipeFixture.version,
+      instructions: [{
+        ...familyRecipeFixture.version.instructions[0],
+        cues: [{ id: 'cue-2', position: 1, text: 'Bake until done.' }],
+      }],
+    };
+
+    expect(() => parseRecipeVersion(invalidCues)).toThrow(
+      expect.objectContaining<Partial<RecipeContractError>>({ code: 'recipe.instructions.position_invalid' }),
+    );
   });
 
   test('keeps provenance, credit, and lineage as distinct records', () => {

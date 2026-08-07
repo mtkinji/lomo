@@ -1,5 +1,8 @@
 import { recipeContractFixture, recipeVersionContractFixture } from './recipeContractFixtures';
 import { buildRecipeCookCues } from './recipeCookCueBuilder';
+import { compileEditorialRecipeProjection } from '../data/compileEditorialRecipe';
+import { STARTER_RECIPE_BATCH_001 } from '../data/starterRecipeBatch001';
+import { STARTER_RECIPE_BATCH_017 } from '../data/starterRecipeBatch017';
 
 describe('Recipe Cook cue builder', () => {
   it('derives ordered cues and omits low-confidence ingredient quantities', () => {
@@ -13,6 +16,78 @@ describe('Recipe Cook cue builder', () => {
     expect(cues[0]).toMatchObject({ instructionId: 'step-1', timerSuggestions: [{ durationSeconds: 1200, label: 'Bake' }] });
     expect(cues[0].ingredientReferences[0]).toMatchObject({ ingredientLineId: 'ingredient-1', displayAmount: '¾ cup' });
     expect(cues[1].ingredientReferences[0]).toMatchObject({ ingredientLineId: 'ingredient-3', displayAmount: null });
+  });
+
+  it('flattens shared phases into atomic Cook cues with phase context', () => {
+    const recipe = compileEditorialRecipeProjection(
+      STARTER_RECIPE_BATCH_001[0],
+    ).currentVersion;
+
+    const cues = buildRecipeCookCues(recipe, { servings: 6 });
+    const dryMixingCue = cues[1];
+    const wetMixingCue = cues[2];
+
+    expect(dryMixingCue).toMatchObject({
+      instructionId: recipe.instructions[1].id,
+      phasePosition: 1,
+      phaseCount: 5,
+      cuePositionInPhase: 0,
+      cueCountInPhase: 2,
+      displayText: 'Whisk flour, sugar, baking powder, baking soda, and salt in a large bowl.',
+    });
+    expect(wetMixingCue).toMatchObject({
+      instructionId: recipe.instructions[1].id,
+      phasePosition: 1,
+      phaseCount: 5,
+      cuePositionInPhase: 1,
+      cueCountInPhase: 2,
+      displayText: 'Whisk buttermilk, eggs, and melted butter in a second bowl.',
+    });
+    expect(dryMixingCue.ingredientReferences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ concept: 'all-purpose flour', displayAmount: '3 cups' }),
+        expect.objectContaining({ concept: 'granulated sugar', displayAmount: '3 tablespoons' }),
+        expect.objectContaining({ concept: 'baking powder', displayAmount: '1 ½ teaspoons' }),
+        expect.objectContaining({ concept: 'baking soda', displayAmount: '1 ½ teaspoons' }),
+        expect.objectContaining({ concept: 'Diamond Crystal kosher salt', displayAmount: '1 ½ teaspoons' }),
+      ]),
+    );
+    expect(wetMixingCue.ingredientReferences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ concept: 'well-shaken buttermilk', displayAmount: '3 cups' }),
+        expect.objectContaining({ concept: 'large eggs', displayAmount: '3' }),
+        expect.objectContaining({ concept: 'unsalted butter', displayAmount: '6 tablespoons' }),
+      ]),
+    );
+    expect(dryMixingCue.accessibilityLabel).toContain(
+      'Phase 2 of 5. Action 1 of 2.',
+    );
+    expect(dryMixingCue.accessibilityLabel).toContain('For this action. 3 cups all-purpose flour.');
+  });
+
+  it('does not confuse a specifically named ingredient with a later ingredient that shares its last word', () => {
+    const paneerWrap = STARTER_RECIPE_BATCH_017.find(
+      (recipe) => recipe.title === 'Paneer tikka wrap',
+    )!;
+    const firstPhaseCues = buildRecipeCookCues(
+      compileEditorialRecipeProjection(paneerWrap).currentVersion,
+      { servings: paneerWrap.yieldQuantity },
+    ).filter((cue) => cue.phasePosition === 0);
+    const concepts = firstPhaseCues.flatMap((cue) =>
+      cue.ingredientReferences.map((item) => item.concept),
+    );
+
+    expect(concepts).toEqual(expect.arrayContaining([
+      'chickpea flour',
+      'Kashmiri chile powder',
+      'medium yellow onion',
+    ]));
+    expect(concepts).not.toEqual(expect.arrayContaining([
+      'atta or whole-wheat flour',
+      'packed cup cilantro leaves and tender stems',
+      'small green chile',
+      'small red onion',
+    ]));
   });
 
   it('separates an observable readiness cue from the action', () => {
