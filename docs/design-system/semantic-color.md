@@ -22,6 +22,15 @@ meaning.
 
 ## Application rules
 
+- **Kwilt green is reserved for brand moments.** `pine*`, the green `accent`
+  roles, and green `success` must not be used for ordinary selection,
+  completion, confirmation, status, navigation, or action priority. Those
+  states should default to Sumi/neutral roles plus shape, iconography, or copy.
+- A new intentional brand-green use must document its reason on the same source
+  line with `@kwilt-brand-moment: <reason>`. Architecture lint compares product
+  and UI code with `origin/main` and rejects any increase in unmarked green
+  usage. Existing unmarked uses are legacy debt: they may stay flat or decrease,
+  but they must not spread.
 - Name the role before choosing the hue. “This screen needs an accent” is not a
   role.
 - Use a semantic token or a documented local mapping. A raw palette token does

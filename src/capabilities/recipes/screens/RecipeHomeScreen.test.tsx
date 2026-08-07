@@ -99,7 +99,7 @@ describe("Recipe Home", () => {
     expect(onShare).toHaveBeenCalledTimes(1);
   });
 
-  it("makes ingredient preparation the next action and keeps recipe ingredients informational", () => {
+  it("makes ingredient preparation the next action and keeps recipe ingredients checkable", () => {
     const onDockAction = jest.fn();
     const actions = deriveRecipeNextActions({ activeCook: false, isInPlan: false, planState: null });
     const screen = render(
@@ -135,7 +135,9 @@ describe("Recipe Home", () => {
     expect(screen.getByLabelText("Recipe actions")).toBeTruthy();
     expect(screen.queryByText("More recipe actions")).toBeNull();
     expect(screen.queryByText("1 1/2 cups flour, sifted")).toBeNull();
-    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(
+      recipeVersionContractFixture().ingredients.length,
+    );
   });
 
   it("offers contextual Meals at the bottom without inventing ratings", () => {
@@ -211,9 +213,34 @@ describe("Recipe Home", () => {
     expect(screen.queryByText("Total")).toBeNull();
     expect(screen.queryByText("Prep")).toBeNull();
     expect(screen.queryByText("Cook")).toBeNull();
-    expect(screen.getByText("Makes")).toBeTruthy();
+    expect(screen.getByText("Servings")).toBeTruthy();
+    expect(screen.getByLabelText("8 servings")).toBeTruthy();
+    expect(screen.queryByText("Makes")).toBeNull();
+    expect(screen.queryByText("Scale recipe")).toBeNull();
     expect(screen.getByText("Private to you")).toBeTruthy();
     expect(screen.getByText(/Grandma Ruth's card/)).toBeTruthy();
+  });
+
+  it("adjusts servings from the integrated summary control", () => {
+    const onServingsChange = jest.fn();
+    const screen = render(
+      <RecipeHomeView
+        projection={{
+          recipe: recipeContractFixture(),
+          currentVersion: recipeVersionContractFixture(),
+        }}
+        servings={4}
+        {...defaultRecipeHomeDockProps}
+        onServingsChange={onServingsChange}
+        onMore={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText("Decrease servings"));
+    fireEvent.press(screen.getByLabelText("Increase servings"));
+
+    expect(onServingsChange).toHaveBeenNthCalledWith(1, 3);
+    expect(onServingsChange).toHaveBeenNthCalledWith(2, 5);
   });
 
   it("presents Kwilt editorial context as a meal story while preserving personal notes", () => {

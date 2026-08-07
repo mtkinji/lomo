@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
 import { colors, spacing } from "../../../theme";
-import { Button } from "../../../ui/Button";
 import { SplitActionDock } from "../../../ui/SplitActionDock";
 import { Icon } from "../../../ui/Icon";
 import { AppShell } from "../../../ui/layout/AppShell";
@@ -173,6 +172,7 @@ export function RecipeHeaderActions({
 export function RecipeHomeView({
   projection,
   servings,
+  checkedIngredients = new Set<string>(),
   priorLearning = null,
   syncPending = false,
   recommendedAction,
@@ -181,12 +181,14 @@ export function RecipeHomeView({
   showMoreActions = true,
   recommendations = [],
   onServingsChange,
+  onToggleIngredient = () => undefined,
   onDockAction,
   onMore,
   onOpenRecipe = () => undefined,
 }: {
   projection: RecipeProjection;
   servings: number;
+  checkedIngredients?: Set<string>;
   priorLearning?: RecipeCookRecordProjection | null;
   syncPending?: boolean;
   recommendedAction: RecipeNextAction;
@@ -195,6 +197,7 @@ export function RecipeHomeView({
   showMoreActions?: boolean;
   recommendations?: RecipeRecommendation[];
   onServingsChange(value: number): void;
+  onToggleIngredient?(id: string): void;
   onDockAction(actionId: RecipeNextActionId, source: "primary" | "menu"): void;
   onMore(): void;
   onOpenRecipe?(recipeId: string): void;
@@ -273,7 +276,8 @@ export function RecipeHomeView({
             cookMinutes={version.cookMinutes}
             inactiveMinutes={starterMetadata?.inactiveMinutes}
             yieldQuantity={version.yieldQuantity}
-            yieldUnit={version.yieldUnit}
+            servings={servings}
+            onServingsChange={onServingsChange}
           />
           {priorLearning &&
           (priorLearning.privateNote ||
@@ -296,31 +300,12 @@ export function RecipeHomeView({
               </Text>
             </View>
           ) : null}
-          {version.yieldQuantity ? (
-            <View style={styles.servings}>
-              <Text variant="label">Scale recipe</Text>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={servings <= 1}
-                onPress={() => onServingsChange(Math.max(1, servings - 1))}
-              >
-                −
-              </Button>
-              <Text>{servings} servings</Text>
-              <Button
-                size="sm"
-                variant="outline"
-                onPress={() => onServingsChange(servings + 1)}
-              >
-                +
-              </Button>
-            </View>
-          ) : null}
           <RecipeIngredientList
             lines={version.ingredients}
             fromYield={version.yieldQuantity}
             toYield={servings}
+            checked={checkedIngredients}
+            onToggle={onToggleIngredient}
           />
           <RecipeMethodPreview steps={version.instructions} />
           {version.notes ? (
@@ -397,6 +382,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     ),
   );
   const [servings, setServings] = useState(defaultServings);
+  const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
   const [showMore, setShowMore] = useState(false);
   const [activePlan, setActivePlan] = useState<MealPlanProjection | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -671,6 +657,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
       <RecipeHomeView
         projection={projection}
         servings={servings}
+        checkedIngredients={checkedIngredients}
         priorLearning={priorLearning}
         syncPending={pendingRecipeIds.includes(projection.recipe.id)}
         recommendedAction={nextActions.recommendedAction}
@@ -679,6 +666,14 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         showMoreActions={!starterRecipe}
         recommendations={recommendations}
         onServingsChange={setServings}
+        onToggleIngredient={(id) =>
+          setCheckedIngredients((current) => {
+            const next = new Set(current);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+          })
+        }
         onDockAction={handleDockAction}
         onMore={() => setShowMore(true)}
         onOpenRecipe={(recipeId) =>
@@ -732,7 +727,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   recipeActionsPressed: { backgroundColor: colors.cardMuted },
-  servings: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   note: {
     padding: spacing.md,
     gap: spacing.xs,

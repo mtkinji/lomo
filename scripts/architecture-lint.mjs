@@ -2,6 +2,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+
+import { findBrandGreenUsageIncrease } from './architecture-lint-lib.mjs';
 
 const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const errors = [];
@@ -65,11 +68,55 @@ const rawTextImport = /import\s+\{[^}]*\bText\b[^}]*\}\s+from\s+['"]react-native
 const rawTextAliasImport = /import\s+\{[^}]*\bText\s+as\s+\w+[^}]*\}\s+from\s+['"]react-native['"]/;
 const rawTextWarningsByFeature = new Map();
 
+function resolveBrandGreenBaselineRef() {
+  const preferred = process.env.ARCHITECTURE_LINT_BASE ?? 'origin/main';
+  try {
+    execFileSync('git', ['rev-parse', '--verify', preferred], { cwd: repoRoot, stdio: 'ignore' });
+    return preferred;
+  } catch {
+    return 'HEAD';
+  }
+}
+
+function readFileAtRef(ref, relativeFile) {
+  try {
+    return execFileSync('git', ['show', `${ref}:${relativeFile}`], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    return '';
+  }
+}
+
+function isProductUiImplementation(relativeFile) {
+  const inProductUi = [
+    'src/ui/',
+    'src/features/',
+    'src/capabilities/',
+  ].some((prefix) => relativeFile.startsWith(prefix));
+  return inProductUi
+    && !relativeFile.includes('/__tests__/')
+    && !/\.(?:test|spec)\.(?:ts|tsx)$/.test(relativeFile);
+}
+
+const brandGreenBaselineRef = resolveBrandGreenBaselineRef();
+
 for (const file of sourceFiles) {
   const text = fs.readFileSync(file, 'utf8');
   const relativeFile = rel(file);
   if (directReusableImport.test(text)) {
     pushImportFinding(errors, file, 'feature/app code must import through src/ui adapters, not components/ui directly');
+  }
+
+  if (isProductUiImplementation(relativeFile)) {
+    const finding = findBrandGreenUsageIncrease(
+      relativeFile,
+      text,
+      readFileAtRef(brandGreenBaselineRef, relativeFile),
+    );
+    if (finding) errors.push(finding);
   }
 
   if (relativeFile.startsWith('src/features/') && (rawTextImport.test(text) || rawTextAliasImport.test(text))) {

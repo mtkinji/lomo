@@ -1,6 +1,79 @@
+import { parseIngredientLine } from '@kwilt/food-core';
+
 import type { RecipeMediaAsset, RecipeVersion } from './recipeContracts';
+import { buildRecipeInstructionPhases } from './recipeInstructionPhases';
 import { formatKitchenQuantity, scaleRecipeQuantity } from './recipeScaling';
 import type { CookCue } from './recipeCookContracts';
+
+const leadingQuantity = /^(?:(?:one|two|three|four|five|six|seven|eight|nine|ten)|\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?|[⅛¼⅓⅜½⅝⅔¾⅞])\s*/i;
+const leadingUnit = /^(?:cups?|tablespoons?|tbsp|teaspoons?|tsp|ounces?|oz|pounds?|lbs?|lb|grams?|kilograms?|kg|bunches?|cloves?)\b\s*/i;
+
+function originalIngredientConcept(originalText: string, parsedUnit: string | null): string {
+  let concept = originalText.trim().replace(leadingQuantity, '');
+  if (parsedUnit && parsedUnit !== 'count') concept = concept.replace(leadingUnit, '');
+  return concept
+    .replace(/^\([^)]*\)\s*/, '')
+    .split(',')[0]
+    .trim();
+}
+
+function normalizedTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => {
+      if (token.endsWith('ies') && token.length > 4) return `${token.slice(0, -3)}y`;
+      if (token.endsWith('es') && token.length > 4) return token.slice(0, -2);
+      if (token.endsWith('s') && !token.endsWith('ss') && token.length > 3) return token.slice(0, -1);
+      return token;
+    });
+}
+
+function includesTokens(haystack: readonly string[], needle: readonly string[]): boolean {
+  if (!needle.length || needle.length > haystack.length) return false;
+  return haystack.some((_, index) => needle.every((token, offset) => haystack[index + offset] === token));
+}
+
+const weakIngredientWords = new Set([
+  'all', 'and', 'cold', 'finely', 'for', 'fresh', 'from', 'ground', 'hot', 'in',
+  'into', 'large', 'medium', 'of', 'or', 'packed', 'plain', 'plus', 'small', 'the',
+  'thick', 'to', 'warm', 'well',
+]);
+const ingredientFormWords = new Set([
+  'berry', 'breast', 'clove', 'drumstick', 'leaf', 'piece', 'slice', 'sprig',
+  'stem', 'thigh',
+]);
+
+function ingredientMention(concept: string, instruction: string): { specificity: number; tokens: string[] } | null {
+  const matchConcept = concept.split(/\s+for\s+/i)[0];
+  const conceptTokens = normalizedTokens(matchConcept);
+  const instructionTokens = normalizedTokens(instruction);
+  for (let length = conceptTokens.length; length > 0; length -= 1) {
+    for (let start = 0; start <= conceptTokens.length - length; start += 1) {
+      const candidate = conceptTokens.slice(start, start + length);
+      if (length === 1) {
+        const token = candidate[0];
+        const isHead = start === conceptTokens.length - 1;
+        const namesIngredientForm = ingredientFormWords.has(conceptTokens[start + 1]);
+        if (weakIngredientWords.has(token) || (!isHead && !namesIngredientForm)) continue;
+      }
+      if (includesTokens(instructionTokens, candidate)) return { specificity: length, tokens: candidate };
+    }
+  }
+  return null;
+}
+
+function unitForDisplay(unit: string | null, quantity: number, quantityMax: number | null): string {
+  if (!unit || unit === 'count') return '';
+  const plural = (quantityMax ?? quantity) > 1;
+  if (!plural) return unit;
+  if (unit.endsWith('s')) return unit;
+  if (unit.endsWith('ch')) return `${unit}es`;
+  return `${unit}s`;
+}
 
 function sentence(text: string): string {
   const trimmed = text.trim();
@@ -39,22 +112,69 @@ function timers(text: string): CookCue['timerSuggestions'] {
 }
 
 export function buildRecipeCookCues(recipe: RecipeVersion, input: { servings: number; mediaAssets?: readonly RecipeMediaAsset[] }): CookCue[] {
-  return recipe.instructions.map((step) => {
-    const presentation = splitCookInstruction(step.text);
-    const lower = step.text.toLowerCase();
-    const ingredientReferences = recipe.ingredients.flatMap((line) => {
-      const concept = line.ingredientConcept?.trim(); if (!concept || !lower.includes(concept.toLowerCase())) return [];
+  const phases = buildRecipeInstructionPhases(recipe.instructions);
+  const result: CookCue[] = [];
+  for (const phase of phases) {
+    const step = recipe.instructions.find((candidate) => candidate.id === phase.id)!;
+    for (const instructionCue of phase.cues) {
+    const cueText = instructionCue.text;
+    const presentation = splitCookInstruction(cueText);
+    const ingredientCandidates = recipe.ingredients.flatMap((line) => {
+      const parsed = line.ingredientConcept ? null : parseIngredientLine(line.originalText);
+      const concept = line.ingredientConcept?.trim()
+        || originalIngredientConcept(line.originalText, parsed?.unit ?? null)
+        || parsed?.concept.trim();
+      const mention = concept ? ingredientMention(concept, cueText) : null;
+      if (!concept || !mention) return [];
       let displayAmount: string | null = null;
-      if (recipe.yieldQuantity && line.quantityMin !== null && (line.parseConfidence ?? 0) >= 0.8) {
-        const scaled = scaleRecipeQuantity({ quantity: line.quantityMin, quantityMax: line.quantityMax, fromYield: recipe.yieldQuantity, toYield: input.servings });
-        if (scaled.quantity !== null) displayAmount = `${formatKitchenQuantity(scaled.quantity)}${scaled.quantityMax === null ? '' : `–${formatKitchenQuantity(scaled.quantityMax)}`}${line.unit ? ` ${line.unit}` : ''}`;
+      const quantityMin = line.quantityMin ?? parsed?.quantityMin ?? null;
+      const quantityMax = line.quantityMax ?? parsed?.quantityMax ?? null;
+      const unit = line.unit ?? parsed?.unit ?? null;
+      const quantityIsReliable = line.ingredientConcept
+        ? (line.parseConfidence ?? 0) >= 0.8
+        : parsed?.quantityMin !== null;
+      if (recipe.yieldQuantity && quantityMin !== null && quantityIsReliable) {
+        const scaled = scaleRecipeQuantity({ quantity: quantityMin, quantityMax, fromYield: recipe.yieldQuantity, toYield: input.servings });
+        if (scaled.quantity !== null) {
+          const displayUnit = unitForDisplay(unit, scaled.quantity, scaled.quantityMax);
+          displayAmount = `${formatKitchenQuantity(scaled.quantity)}${scaled.quantityMax === null ? '' : `–${formatKitchenQuantity(scaled.quantityMax)}`}${displayUnit ? ` ${displayUnit}` : ''}`;
+        }
       }
-      return [{ ingredientLineId: line.id, concept, displayAmount }];
+      return [{
+        reference: { ingredientLineId: line.id, concept, displayAmount },
+        head: normalizedTokens(concept.split(/\s+for\s+/i)[0]).at(-1) ?? '',
+        ...mention,
+      }];
     });
-    const accessibilityLabel = presentation.supportingCue
-      ? `Step ${step.position + 1} of ${recipe.instructions.length}. ${presentation.actionText} Ready when. ${presentation.supportingCue.text}`
-      : `Step ${step.position + 1} of ${recipe.instructions.length}. ${presentation.actionText}`;
-    const linkedMedia = (step.mediaAssetIds ?? [])
+    const ingredientReferences = ingredientCandidates
+      .filter((candidate) => {
+        const sameHead = ingredientCandidates.filter((other) => other.head === candidate.head);
+        const strongestSameHead = Math.max(...sameHead.map((other) => other.specificity));
+        if (candidate.specificity < strongestSameHead) return false;
+        if (candidate.specificity > 1) return true;
+        if (sameHead.length > 1) return false;
+        return !ingredientCandidates.some((other) =>
+          other !== candidate
+          && other.specificity > 1
+          && other.tokens.includes(candidate.tokens[0]));
+      })
+      .map((candidate) => candidate.reference);
+    const phaseContext = phase.cues.length > 1
+      ? `Phase ${phase.position + 1} of ${phases.length}. Action ${instructionCue.position + 1} of ${phase.cues.length}.`
+      : `Phase ${phase.position + 1} of ${phases.length}.`;
+    const stepAccessibilityLabel = presentation.supportingCue
+      ? `${phaseContext} ${presentation.actionText} Ready when. ${presentation.supportingCue.text}`
+      : `${phaseContext} ${presentation.actionText}`;
+    const ingredientAccessibilityLabel = ingredientReferences.length
+      ? ` For this action. ${ingredientReferences
+        .map((item) => sentence(`${item.displayAmount ? `${item.displayAmount} ` : ''}${item.concept}`))
+        .join(' ')}`
+      : '';
+    const accessibilityLabel = `${stepAccessibilityLabel}${ingredientAccessibilityLabel}`;
+    const mediaAssetIds = instructionCue.mediaAssetIds
+      ?? (instructionCue.position === 0 ? step.mediaAssetIds : undefined)
+      ?? [];
+    const linkedMedia = mediaAssetIds
       .map((assetId) => input.mediaAssets?.find((asset) => asset.id === assetId))
       .find((asset) => {
         if (asset?.lifecycle !== 'active') return false;
@@ -68,6 +188,25 @@ export function buildRecipeCookCues(recipe: RecipeVersion, input: { servings: nu
       mediaType: linkedMedia.mediaType,
       altText: linkedMedia.altText,
     } : null;
-    return { id: `cue:${step.id}`, instructionId: step.id, position: step.position, section: step.sectionLabel, displayText: step.text, ...presentation, accessibilityLabel, media, ingredientReferences, timerSuggestions: timers(step.text) };
-  });
+    result.push({
+      id: instructionCue.position === 0
+        ? `cue:${phase.id}`
+        : `cue:${phase.id}:${instructionCue.position + 1}`,
+      instructionId: phase.id,
+      position: result.length,
+      section: phase.title,
+      phasePosition: phase.position,
+      phaseCount: phases.length,
+      cuePositionInPhase: instructionCue.position,
+      cueCountInPhase: phase.cues.length,
+      displayText: cueText,
+      ...presentation,
+      accessibilityLabel,
+      media,
+      ingredientReferences,
+      timerSuggestions: timers(cueText),
+    });
+    }
+  }
+  return result;
 }

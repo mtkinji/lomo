@@ -1,0 +1,11 @@
+{
+  "name": "kwilt-cook-voice-processing",
+  "version": "0.1.0",
+  "description": "Foreground iOS voice processing for interruptible Cook Mode speech",
+  "main": "index.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

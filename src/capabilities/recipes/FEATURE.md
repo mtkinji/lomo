@@ -20,6 +20,7 @@ briefs:
   - personal-meal-favorites
   - global-recipe-catalog
   - object-detail-media-shell
+  - compound-recipe-instructions
 status: draft
 last_reviewed: 2026-08-07
 ---

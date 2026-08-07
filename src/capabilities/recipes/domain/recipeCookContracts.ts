@@ -12,6 +12,7 @@ export type RecipeCookSession = {
 };
 export type CookCue = {
   id: string; instructionId: string; position: number; section: string | null; displayText: string; actionText: string;
+  phasePosition: number; phaseCount: number; cuePositionInPhase: number; cueCountInPhase: number;
   supportingCue: { kind: 'ready_when'; text: string } | null; accessibilityLabel: string;
   media: { assetId: string; storageRef: string; mediaType: string; altText: string | null } | null;
   ingredientReferences: Array<{ ingredientLineId: string; concept: string; displayAmount: string | null }>;

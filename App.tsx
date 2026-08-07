@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { LogBox, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import * as ScreenOrientation from 'expo-screen-orientation';
+import * as Device from 'expo-device';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -79,7 +79,13 @@ import { startEntitlementsAuthSync } from './src/services/entitlementsAuthSync';
 import { resetUserSpecificState } from './src/store/useAppStore';
 import { Text } from './src/ui/primitives';
 import { getAuthRuntimeDiagnostics } from './src/utils/getEnv';
+import { developmentNotificationLogFilters } from './src/services/notifications/developmentNotificationLogFilters';
 import { markAppStarted } from './src/services/performance/startupTelemetry';
+
+LogBox.ignoreLogs(developmentNotificationLogFilters({
+  isDev: __DEV__,
+  isDevice: Device.isDevice,
+}));
 
 markAppStarted();
 
@@ -98,10 +104,6 @@ export default function App() {
     Urbanist_800ExtraBold,
     Urbanist_900Black,
   });
-
-  useEffect(() => {
-    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => undefined);
-  }, []);
 
   const arcsCount = useAppStore((state) => state.arcs.length);
   const goalsCount = useAppStore((state) => state.goals.length);

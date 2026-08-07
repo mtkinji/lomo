@@ -33,7 +33,7 @@ export function createCookVoiceController(input: { execute(action: CookVoiceCont
       default: return { state: 'not_handled' as const, parsed, acknowledgement: null };
     }
     input.execute(action);
-    const acknowledgement = action.type === 'next' ? 'Next step.' : action.type === 'back' ? 'Previous step.' : action.type === 'start_timer' ? 'Timer started.' : null;
+    const acknowledgement = action.type === 'next' ? 'Next action.' : action.type === 'back' ? 'Previous action.' : action.type === 'start_timer' ? 'Timer started.' : null;
     return { state: 'handled' as const, parsed, acknowledgement };
   } };
 }
