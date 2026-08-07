@@ -7,6 +7,10 @@ const migrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20260806010000_private_recipes.sql',
 );
+const digestRepairMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20260807043600_fix_private_recipe_digest_schema.sql',
+);
 
 describe('private Recipe persistence contract', () => {
   it('rejects unknown reviewed fields instead of silently persisting model output', () => {
@@ -77,5 +81,15 @@ describe('private Recipe persistence contract', () => {
     expect(sql).toContain('household membership never grants recipe access');
     expect(sql).toContain('revoke insert, update, delete');
     expect(sql).not.toMatch(/\bvisibility\b/);
+  });
+
+  it('schema-qualifies the pgcrypto digest used by the security-definer save RPC', () => {
+    const sql = readFileSync(migrationPath, 'utf8').toLowerCase();
+    const repairSql = readFileSync(digestRepairMigrationPath, 'utf8').toLowerCase();
+
+    expect(sql).toContain("extensions.digest(p_reviewed_data::text, 'sha256')");
+    expect(sql).not.toContain("encode(digest(p_reviewed_data::text, 'sha256'), 'hex')");
+    expect(repairSql).toContain('alter function public.save_kwilt_recipe(uuid, integer, text, jsonb)');
+    expect(repairSql).toContain('set search_path = pg_catalog, extensions');
   });
 });

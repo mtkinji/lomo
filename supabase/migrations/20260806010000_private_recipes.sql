@@ -322,7 +322,7 @@ begin
     v_recipe.id, v_next_version, btrim(p_reviewed_data->>'title'), p_reviewed_data->>'description',
     nullif(p_reviewed_data->>'yieldQuantity','')::numeric, p_reviewed_data->>'yieldUnit',
     nullif(p_reviewed_data->>'prepMinutes','')::integer, nullif(p_reviewed_data->>'cookMinutes','')::integer,
-    p_reviewed_data->>'notes', encode(digest(p_reviewed_data::text, 'sha256'), 'hex'),
+    p_reviewed_data->>'notes', encode(extensions.digest(p_reviewed_data::text, 'sha256'), 'hex'),
     v_person_id, btrim(p_idempotency_key)
   ) returning * into v_version;
 

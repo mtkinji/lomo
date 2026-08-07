@@ -248,12 +248,14 @@ export function RecipeSortDrawer({
 export function RecipeCaptureDrawer({
   visible,
   onClose,
-  onImport,
+  onFamily,
+  onWeb,
   onManual,
 }: {
   visible: boolean;
   onClose(): void;
-  onImport(): void;
+  onFamily(): void;
+  onWeb(): void;
   onManual(): void;
 }) {
   const options: Array<{
@@ -263,21 +265,21 @@ export function RecipeCaptureDrawer({
     onPress(): void;
   }> = [
     {
-      icon: "camera",
-      label: "Photo or scan",
-      detail: "Capture a cookbook page or recipe card",
-      onPress: onImport,
+      icon: "heart",
+      label: "Family recipe",
+      detail: "Photograph, paste, dictate, or type it",
+      onPress: onFamily,
     },
     {
       icon: "link",
-      label: "Link, text, or voice",
-      detail: "Bring in a recipe from wherever it lives",
-      onPress: onImport,
+      label: "Recipe from the web",
+      detail: "Bring it in from a link",
+      onPress: onWeb,
     },
     {
       icon: "edit",
-      label: "Write it yourself",
-      detail: "Start with a blank family recipe",
+      label: "Start blank",
+      detail: "Write it one line at a time",
       onPress: onManual,
     },
   ];
@@ -286,7 +288,7 @@ export function RecipeCaptureDrawer({
       <View style={styles.drawerContent}>
         <BottomDrawerHeader
           title="Add a recipe"
-          subtitle="Start with what you already have."
+          subtitle="Where does this recipe live now?"
           variant="withClose"
           onClose={onClose}
         />

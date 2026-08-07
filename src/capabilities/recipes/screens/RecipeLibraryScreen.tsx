@@ -577,7 +577,8 @@ export function RecipeLibraryScreen({ navigation }: Props) {
       <RecipeCaptureDrawer
         visible={captureDrawerVisible}
         onClose={() => setCaptureDrawerVisible(false)}
-        onImport={() => navigation.navigate("RecipeImportReview")}
+        onFamily={() => navigation.navigate("RecipeImportReview", { intent: "family" })}
+        onWeb={() => navigation.navigate("RecipeImportReview", { intent: "web" })}
         onManual={() => navigation.navigate("RecipeEdit", {})}
       />
       <UnifiedChatDrawer

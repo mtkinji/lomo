@@ -39,7 +39,7 @@ export type FoodStackParamList = {
   RecipeReadiness: { recipeId: string; servings: number };
   RecipeCookMode: { recipeId: string; servings: number };
   RecipeCookComplete: { sessionId: string; recipeId: string };
-  RecipeImportReview: undefined;
+  RecipeImportReview: { intent?: 'family' | 'web' } | undefined;
   NextMeals: undefined;
   MealPlanEditor: { planId?: string; source?: 'recipe_library' | 'editorial_collection'; editorialSeed?: EditorialMealPlanSeed };
   MealChoiceInvite: { planId: string };

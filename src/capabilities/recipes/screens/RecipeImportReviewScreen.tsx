@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { colors, spacing, typography } from '../../../theme';
@@ -19,9 +19,9 @@ import { recipeSourceFromSharePayload, useShareIntentStore } from '../../../stor
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { ImportEvidenceViewer } from '../components/ImportEvidenceViewer';
+import { getRecipeImportEntryPresentation, type RecipeImportIntent } from './recipeImportEntry';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'RecipeImportReview'>;
-type Mode = 'url' | 'text';
 
 function draftToEditor(draft: RecipeImportProjection): RecipeEditorDraft {
   const data = draft.extractedData;
@@ -39,11 +39,14 @@ function draftToEditor(draft: RecipeImportProjection): RecipeEditorDraft {
   };
 }
 
-export function RecipeImportReviewScreen({ navigation }: Props) {
+export function RecipeImportReviewScreen({ navigation, route }: Props) {
   const sharePayload = useShareIntentStore((state) => state.payload);
   const clearShare = useShareIntentStore((state) => state.clear);
   const sharedSource = useMemo(() => recipeSourceFromSharePayload(sharePayload), [sharePayload]);
-  const [mode, setMode] = useState<Mode>(sharedSource?.mode ?? 'url');
+  const intent: RecipeImportIntent = sharedSource
+    ? sharedSource.mode === 'url' ? 'web' : 'family'
+    : route.params?.intent ?? 'family';
+  const presentation = getRecipeImportEntryPresentation(intent);
   const [source, setSource] = useState(sharedSource?.value ?? '');
   const [draft, setDraft] = useState<RecipeImportProjection | null>(null);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
@@ -78,15 +81,16 @@ export function RecipeImportReviewScreen({ navigation }: Props) {
   };
 
   if (draft) {
+    const canSave = !presentation.requiresPrivateCopyConfirmation || privateCopyConfirmed;
     return <RecipeEditView
       initial={draftToEditor(draft)} saving={busy} error={error ?? (draft.warnings.length ? draft.warnings.join(' ') : null)}
-      canSave={privateCopyConfirmed}
-      beforeFields={<><ImportEvidenceViewer evidence={draft.evidence} warnings={draft.warnings} expiresAt={draft.expiresAt} onRetry={()=>{setDraft(null);setPrivateCopyConfirmed(false);}}/><Pressable accessibilityRole="checkbox" accessibilityState={{checked:privateCopyConfirmed}} onPress={()=>setPrivateCopyConfirmed((value)=>!value)} style={[styles.rights,privateCopyConfirmed&&styles.rightsActive]}><Text>{privateCopyConfirmed?'✓ ':''}Save as a private household copy</Text><Text tone="secondary">I will keep the source attribution below and review this draft before saving.</Text></Pressable></>}
+      canSave={canSave}
+      beforeFields={<><ImportEvidenceViewer evidence={draft.evidence} warnings={draft.warnings} expiresAt={draft.expiresAt} onRetry={()=>{setDraft(null);setPrivateCopyConfirmed(false);}}/>{presentation.requiresPrivateCopyConfirmation?<Pressable accessibilityRole="checkbox" accessibilityState={{checked:privateCopyConfirmed}} onPress={()=>setPrivateCopyConfirmed((value)=>!value)} style={[styles.rights,privateCopyConfirmed&&styles.rightsActive]}><Text>{privateCopyConfirmed?'✓ ':''}Save as a private copy</Text><Text tone="secondary">I will keep the source attribution below and review this draft before saving.</Text></Pressable>:<View style={styles.privateNote}><Text variant="label">Private to you</Text><Text tone="secondary">Review the draft below. Nothing is saved until you choose Save.</Text></View>}</>}
       onBack={(dirty) => { if (dirty) Alert.alert('Discard changes?', 'Your reviewed import has unsaved changes.', [{ text: 'Keep editing', style: 'cancel' }, { text: 'Discard', style: 'destructive', onPress: () => setDraft(null) }]); else setDraft(null); }}
       onSave={async (editorDraft) => {
         setBusy(true); setError(null);
         try {
-          if(!privateCopyConfirmed)throw new Error('Choose how this source may be saved.');const reviewedData = reviewedDataFromEditorDraft(editorDraft, { method: draft.method, sourceUrl });
+          if(!canSave)throw new Error('Choose how this source may be saved.');const reviewedData = reviewedDataFromEditorDraft(editorDraft, { method: draft.method, sourceUrl });
           const receipt = await createRecipeImportProposalExecutor().approve({ draftId: draft.id, idempotencyKey: `recipe-import-approval:${Crypto.randomUUID()}`, reviewedData });
           await refresh();
           capture(AnalyticsEvent.RecipeImportApproved, { method: draft.method });
@@ -99,37 +103,36 @@ export function RecipeImportReviewScreen({ navigation }: Props) {
 
   return (
     <AppShell>
-      <PageHeader title="Import recipe" onPressBack={() => navigation.goBack()} />
-      <View style={styles.content}>
-        <Heading variant="md">Bring the recipe. Kwilt will make a draft.</Heading>
-        <Text tone="secondary">Nothing becomes a recipe until you review and save it.</Text>
-        <View style={styles.actions}>
-          <Button variant={mode === 'url' ? 'primary' : 'outline'} size="sm" onPress={() => setMode('url')}>From a link</Button>
-          <Button variant={mode === 'text' ? 'primary' : 'outline'} size="sm" onPress={() => setMode('text')}>Paste or dictate</Button>
-        </View>
-        <TextInput
-          accessibilityLabel={mode === 'url' ? 'Recipe URL' : 'Recipe text'}
-          value={source}
-          onChangeText={setSource}
-          autoCapitalize="none"
-          autoCorrect={mode !== 'url'}
-          multiline={mode === 'text'}
-          placeholder={mode === 'url' ? 'https://…' : 'Paste the recipe, or use the keyboard microphone'}
-          placeholderTextColor={colors.textSecondary}
-          style={[styles.input, mode === 'text' && styles.textArea]}
-        />
-        {error ? <Text tone="destructive">{error}</Text> : null}
-        <Button variant="primary" disabled={busy || !source.trim()} onPress={() => { void extract(mode === 'url' ? { method: 'url', sourceUrl: source.trim() } : { method: 'text', sourceText: source.trim() }); }}>{busy ? 'Making draft…' : 'Make a review draft'}</Button>
-        <View style={styles.divider}><View style={styles.rule} /><Text tone="secondary">or use a photo</Text><View style={styles.rule} /></View>
-        <View style={styles.actions}><Button variant="outline" onPress={() => { void pickPhoto(true); }}>Take a photo</Button><Button variant="outline" onPress={() => { void pickPhoto(false); }}>Choose photos</Button></View>
-      </View>
+      <PageHeader title={presentation.pageTitle} titleMaxFontSizeMultiplier={1.6} onPressBack={() => navigation.goBack()} />
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+          <Heading variant="md" maxFontSizeMultiplier={1.8}>{presentation.heading}</Heading>
+          <Text tone="secondary">{presentation.detail}</Text>
+          {presentation.showPhotos ? <><View style={styles.actions}><Button variant="outline" onPress={() => { void pickPhoto(true); }}>Take a photo</Button><Button variant="outline" onPress={() => { void pickPhoto(false); }}>Choose photos</Button></View><View style={styles.divider}><View style={styles.rule} /><Text tone="secondary">or paste or dictate</Text><View style={styles.rule} /></View></> : null}
+          <TextInput
+            accessibilityLabel={presentation.inputLabel}
+            value={source}
+            onChangeText={setSource}
+            autoCapitalize={presentation.inputKind === 'url' ? 'none' : 'sentences'}
+            autoCorrect={presentation.inputKind !== 'url'}
+            keyboardType={presentation.inputKind === 'url' ? 'url' : 'default'}
+            multiline={presentation.inputKind === 'text'}
+            placeholder={presentation.placeholder}
+            placeholderTextColor={colors.textSecondary}
+            style={[styles.input, presentation.inputKind === 'text' && styles.textArea]}
+          />
+          {error ? <Text tone="destructive" accessibilityLiveRegion="polite">{error}</Text> : null}
+          <Button variant="primary" disabled={busy || !source.trim()} onPress={() => { void extract(presentation.inputKind === 'url' ? { method: 'url', sourceUrl: source.trim() } : { method: 'text', sourceText: source.trim() }); }}>{busy ? 'Making draft…' : presentation.primaryLabel}</Button>
+          {presentation.showManual ? <Button variant="ghost" onPress={() => navigation.replace('RecipeEdit', {})}>Start with a blank recipe</Button> : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { flex: 1, paddingHorizontal: spacing.md, gap: spacing.md }, actions: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  flex: { flex: 1 }, content: { flexGrow: 1, paddingHorizontal: spacing.md, paddingBottom: spacing.xl, gap: spacing.md }, actions: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   input: { minHeight: 50, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.fieldFill, color: colors.textPrimary, padding: spacing.md, ...typography.body },
   textArea: { minHeight: 180, textAlignVertical: 'top' }, divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-  rights:{padding:spacing.md,gap:spacing.xs,borderWidth:1,borderColor:colors.border,borderRadius:14},rightsActive:{borderColor:colors.pine700,backgroundColor:colors.pine50},
+  rights:{padding:spacing.md,gap:spacing.xs,borderWidth:1,borderColor:colors.border,borderRadius:14},rightsActive:{borderColor:colors.pine700,backgroundColor:colors.pine50},privateNote:{padding:spacing.md,gap:spacing.xs,borderRadius:14,backgroundColor:colors.fieldFill},
 });
