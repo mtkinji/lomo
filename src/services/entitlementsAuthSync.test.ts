@@ -29,13 +29,34 @@ describe('entitlements auth sync', () => {
       appUserID: 'user-a',
       isStale: false,
     }));
-    useEntitlementsStore.setState({ identifyAndRefresh } as any);
+    useEntitlementsStore.setState({ identifyAndRefresh });
 
     startEntitlementsAuthSync();
     useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' });
     await flushPromises();
 
     expect(identifyAndRefresh).toHaveBeenCalledWith('user-a');
+  });
+
+  it('does not re-identify RevenueCat when the same signed-in user refreshes their session', async () => {
+    useAppStore.getState().clearAuthIdentity();
+    const identifyAndRefresh = jest.fn(async () => ({
+      isPro: true,
+      isProToolsTrial: false,
+      checkedAt: '2026-06-05T12:00:00.000Z',
+      source: 'revenuecat' as const,
+      appUserID: 'user-a',
+      isStale: false,
+    }));
+    useEntitlementsStore.setState({ identifyAndRefresh } as any);
+
+    startEntitlementsAuthSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' });
+    await flushPromises();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'updated@example.com' });
+    await flushPromises();
+
+    expect(identifyAndRefresh).toHaveBeenCalledTimes(1);
   });
 
   it('clears prior visible Pro state when switching users', async () => {

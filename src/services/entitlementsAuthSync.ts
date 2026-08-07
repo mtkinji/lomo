@@ -46,9 +46,10 @@ export function startEntitlementsAuthSync(): void {
   started = true;
 
   stopAuthSub = useAppStore.subscribe(
-    (s) => s.authIdentity,
-    (identity) => {
-      const userId = identity?.userId?.trim() ?? '';
+    // Token refreshes replace the identity object but do not change the account.
+    // Subscription/entitlement identity only needs to change when the user id changes.
+    (s) => s.authIdentity?.userId?.trim() ?? '',
+    (userId) => {
       activeGeneration += 1;
       const generation = activeGeneration;
 
