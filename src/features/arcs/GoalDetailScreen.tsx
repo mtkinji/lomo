@@ -20,6 +20,11 @@ import {
 } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
+import {
+  ObjectDetailMediaHero,
+  ObjectDetailMediaSheet,
+  resolveObjectDetailMediaGeometry,
+} from '../../ui/layout/ObjectDetailMediaShell';
 import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { menuItemTextProps, menuStyles } from '../../ui/menuStyles';
@@ -340,11 +345,10 @@ export function GoalDetailScreen() {
   // `measureInWindow` can occasionally report a too-small Y for views inside scroll containers,
   // which collapses our interpolation ranges and makes the hero fade immediately.
   // Provide a layout-based fallback that matches this screen's fixed hero/sheet geometry.
-  const ESTIMATED_GOAL_HERO_HEIGHT_PX = 240; // keep in sync with `styles.goalHeroSection.height`
-  const ESTIMATED_GOAL_SHEET_MARGIN_TOP_PX = -20; // keep in sync with `styles.goalSheet.marginTop`
+  const goalMediaGeometry = resolveObjectDetailMediaGeometry('standard');
   const estimatedHeaderTransitionStartScrollY = Math.max(
     0,
-    ESTIMATED_GOAL_HERO_HEIGHT_PX + ESTIMATED_GOAL_SHEET_MARGIN_TOP_PX - HEADER_BOTTOM_Y,
+    goalMediaGeometry.heroHeight - goalMediaGeometry.overlap - HEADER_BOTTOM_Y,
   );
 
   const measuredHeaderTransitionStartScrollY =
@@ -366,29 +370,6 @@ export function GoalDetailScreen() {
     hysteresisPx: 12,
     platform: 'ios',
   });
-
-  // Fade the hero out so it reaches 0 opacity exactly when the sheet top touches the
-  // bottom of the fixed header (the start of the header transition).
-  const HERO_FADE_LEAD_PX = 160;
-  const HERO_FADE_HOLD_PX = 50;
-
-  // Ensure monotonic input ranges for interpolation (Animated can behave oddly when
-  // input ranges collapse or invert).
-  const heroFadeEndScrollY = Math.max(1, headerTransitionStartScrollY);
-  const heroFadeStartScrollY = Math.min(
-    Math.max(HERO_FADE_HOLD_PX, heroFadeEndScrollY - HERO_FADE_LEAD_PX),
-    heroFadeEndScrollY - 1,
-  );
-
-  const heroOpacity = scrollY.interpolate({
-    inputRange: [0, heroFadeStartScrollY, heroFadeEndScrollY],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
-  });
-
-  // The hero is inside the scroll content, so it already moves at 1x scroll speed.
-  // Translate it down by +0.5x scroll to net out to ~0.5x upward movement (Airbnb-like parallax).
-  const heroParallaxTranslateY = Animated.multiply(scrollY, 0.5);
 
   // Goal:Plan quick add dock (reuse the Activities quick-add pattern).
   // Goal detail renders the collapsed trigger inline in the Activities section (vs an absolute bottom dock),
@@ -2715,13 +2696,11 @@ export function GoalDetailScreen() {
               scrollEventThrottle={16}
             >
               <View ref={pageContentRef} collapsable={false} style={styles.pageContent}>
-                <View style={styles.goalHeroSection}>
-                  <Animated.View
-                    style={{
-                      opacity: heroOpacity,
-                      transform: [{ translateY: heroParallaxTranslateY }],
-                    }}
-                  >
+                <ObjectDetailMediaHero
+                  variant="standard"
+                  scrollY={scrollY}
+                  headerBoundary={HEADER_BOTTOM_Y}
+                >
                     <View style={styles.heroFullBleedWrapper}>
                       <TouchableOpacity
                         style={StyleSheet.absoluteFillObject}
@@ -2782,14 +2761,12 @@ export function GoalDetailScreen() {
                         </View>
                       ) : null}
                     </View>
-                  </Animated.View>
-                </View>
+                </ObjectDetailMediaHero>
 
-                <View
-                  ref={sheetTopRef}
-                  collapsable={false}
+                <ObjectDetailMediaSheet
+                  variant="standard"
+                  sheetRef={sheetTopRef}
                   onLayout={measureSheetTopAtRest}
-                  style={styles.goalSheet}
                 >
                   <View style={styles.goalSheetInner}>
                     <VStack space="lg">
@@ -3300,7 +3277,7 @@ export function GoalDetailScreen() {
                 </VStack>
           </VStack>
         </View>
-                </View>
+                </ObjectDetailMediaSheet>
               </View>
             </KeyboardAwareScrollView>
           </View>

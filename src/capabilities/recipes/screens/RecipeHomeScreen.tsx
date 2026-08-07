@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Crypto from "expo-crypto";
 import {
   Alert,
+  Animated,
   Pressable,
-  ScrollView,
   Share,
   StyleSheet,
   View,
@@ -23,6 +23,7 @@ import {
   ObjectPageHeader,
 } from "../../../ui/layout/ObjectPageHeader";
 import { PageHeader } from "../../../ui/layout/PageHeader";
+import { ObjectDetailMediaShell } from "../../../ui/layout/ObjectDetailMediaShell";
 import { Heading, Text } from "../../../ui/Typography";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
 import { AnalyticsEvent } from "../../../services/analytics/events";
@@ -31,9 +32,11 @@ import type { MealPlanProjection } from "../../meal-planning/data/mealPlanningRe
 import { mealPlanningCache } from "../../meal-planning/data/mealPlanningCache";
 import { getActiveMealPlan } from "../../meal-planning/domain/mealPlanPresentation";
 import { RecipeActionsMenu } from "../components/RecipeActionsMenu";
+import { RecipeArtworkGallery } from "../components/RecipeArtworkGallery";
 import { RecipeHero } from "../components/RecipeHero";
 import { RecipeIngredientList } from "../components/RecipeIngredientList";
 import { RecipeMethodPreview } from "../components/RecipeMethodPreview";
+import { RecipeRecommendationsSection } from "../components/RecipeRecommendationsSection";
 import { RecipeSummaryBar } from "../components/RecipeSummaryBar";
 import type { RecipeProjection } from "../data/recipeCache";
 import { exportRecipeMarkdown } from "../recipeExport";
@@ -48,9 +51,14 @@ import {
 } from "../data/recipeCookRepository";
 import {
   getStarterRecipeMetadata,
+  buildRecipeLibraryInventory,
   isStarterRecipe,
   STARTER_RECIPE_PROJECTIONS,
 } from "../data/starterRecipeCatalog";
+import {
+  buildContextualRecipeRecommendations,
+  type RecipeRecommendation,
+} from "../domain/recipeRecommendations";
 import { resolveDefaultMealServings } from "../domain/mealPreferences";
 import { canHideRecipe } from "../domain/hiddenRecipes";
 import { useHiddenRecipeStore } from "../runtime/useHiddenRecipeStore";
@@ -161,29 +169,35 @@ export function RecipeHomeView({
   servings,
   checked,
   priorLearning = null,
+  syncPending = false,
   isInPlan,
   planBusy,
   cookActionLabel,
   showMoreActions = true,
+  recommendations = [],
   onServingsChange,
   onToggleIngredient,
   onTogglePlan,
   onCook,
   onMore,
+  onOpenRecipe = () => undefined,
 }: {
   projection: RecipeProjection;
   servings: number;
   checked: Set<string>;
   priorLearning?: RecipeCookRecordProjection | null;
+  syncPending?: boolean;
   isInPlan: boolean;
   planBusy: boolean;
   cookActionLabel: "Start cooking" | "Continue cooking";
   showMoreActions?: boolean;
+  recommendations?: RecipeRecommendation[];
   onServingsChange(value: number): void;
   onToggleIngredient(id: string): void;
   onTogglePlan(): void;
   onCook(): void;
   onMore(): void;
+  onOpenRecipe?(recipeId: string): void;
 }) {
   const { recipe, currentVersion: version } = projection;
   const starterMetadata = getStarterRecipeMetadata(recipe.id);
@@ -194,30 +208,64 @@ export function RecipeHomeView({
     recipe.provenance.rightsBasis === "kwilt_authored"
       ? "About this meal"
       : "Notes";
-  const media =
-    recipe.mediaAssets.find((asset) => asset.lifecycle === "active") ?? null;
   const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
   return (
     <View style={styles.container}>
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: 116 + insets.bottom },
         ]}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
+        scrollEventThrottle={16}
       >
-        <View style={styles.heroSection}>
-          <RecipeHero
-            media={media}
-            familyLabel={familyLabel}
-            style={styles.heroFullBleed}
-          />
-        </View>
-        <View style={styles.recipeSheet}>
-          <View style={styles.heading}>
-            <Heading variant="lg">{version.title}</Heading>
-            {version.description ? (
-              <Text tone="secondary">{version.description}</Text>
+        <ObjectDetailMediaShell
+          variant="immersive"
+          scrollY={scrollY}
+          headerBoundary={insets.top + 64}
+          hero={
+            <RecipeArtworkGallery
+              mediaAssets={recipe.mediaAssets}
+              recipeTitle={version.title}
+              exposeArtworkToAccessibility
+              fallback={
+                <RecipeHero
+                  media={null}
+                  familyLabel={familyLabel}
+                  style={styles.heroFullBleed}
+                />
+              }
+              testID="recipe-home-gallery"
+              style={styles.heroFullBleed}
+            />
+          }
+          sheetInnerStyle={styles.recipeSheetInner}
+        >
+          <View style={styles.headingRow}>
+            <View style={styles.heading}>
+              <Heading variant="lg">{version.title}</Heading>
+              {version.description ? (
+                <Text tone="secondary">{version.description}</Text>
+              ) : null}
+            </View>
+            {showMoreActions ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Recipe actions"
+                hitSlop={8}
+                onPress={onMore}
+                style={({ pressed }) => [
+                  styles.recipeActionsButton,
+                  pressed ? styles.recipeActionsPressed : null,
+                ]}
+              >
+                <Icon name="more" size={22} color={colors.textSecondary} />
+              </Pressable>
             ) : null}
           </View>
           <RecipeSummaryBar
@@ -284,6 +332,9 @@ export function RecipeHomeView({
             </View>
           ) : null}
           <View style={styles.provenance}>
+            {syncPending ? (
+              <Text tone="secondary">Saved on this device · Will sync when connected</Text>
+            ) : null}
             <Text variant="label">Source</Text>
             <Text tone="secondary">
               {recipe.provenance.sourceTitle ??
@@ -302,13 +353,12 @@ export function RecipeHomeView({
                   : "Private to you"}
             </Text>
           </View>
-          {showMoreActions ? (
-            <Button variant="ghost" onPress={onMore}>
-              More recipe actions
-            </Button>
-          ) : null}
-        </View>
-      </ScrollView>
+          <RecipeRecommendationsSection
+            recommendations={recommendations}
+            onOpenRecipe={onOpenRecipe}
+          />
+        </ObjectDetailMediaShell>
+      </Animated.ScrollView>
       <ActionDock
         insetX={spacing.md}
         insetBottom={spacing.sm}
@@ -352,7 +402,9 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   );
   const starterRecipe = isStarterRecipe(route.params.recipeId);
   const deleteRecipe = useRecipeStore((state) => state.delete);
+  const pendingRecipeIds = useRecipeStore((state) => state.pendingRecipeIds);
   const setRecipeHidden = useHiddenRecipeStore((state) => state.setHidden);
+  const hiddenRecipeIds = useHiddenRecipeStore((state) => state.recipeIds);
   const favoriteRecipeIds = useRecipeFavoriteStore((state) => state.recipeIds);
   const togglingFavoriteRecipeIds = useRecipeFavoriteStore(
     (state) => state.togglingRecipeIds,
@@ -373,6 +425,17 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     useState<RecipeCookRecordProjection | null>(null);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const { capture } = useAnalytics();
+  const recommendations = useMemo(
+    () =>
+      projection
+        ? buildContextualRecipeRecommendations({
+            current: projection,
+            recipes: buildRecipeLibraryInventory(personalRecipes),
+            hiddenRecipeIds,
+          })
+        : [],
+    [hiddenRecipeIds, personalRecipes, projection],
+  );
   const reloadActivePlan = useCallback(async () => {
     if (!userId) return null;
     const latest = await createMealPlanningRepository().list();
@@ -552,6 +615,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         servings={servings}
         checked={checked}
         priorLearning={priorLearning}
+        syncPending={pendingRecipeIds.includes(projection.recipe.id)}
         isInPlan={
           activePlan
             ? mealPlanContainsSelectedRecipeVersion(activePlan, projection)
@@ -560,6 +624,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         planBusy={planBusy}
         cookActionLabel={activeCook ? "Continue cooking" : "Start cooking"}
         showMoreActions={!starterRecipe}
+        recommendations={recommendations}
         onServingsChange={setServings}
         onToggleIngredient={(id) =>
           setChecked((current) => {
@@ -584,6 +649,9 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
               })
         }
         onMore={() => setShowMore(true)}
+        onOpenRecipe={(recipeId) =>
+          navigation.push("RecipeHome", { recipeId })
+        }
       />
       <RecipeActionsMenu
         visible={showMore}
@@ -604,26 +672,34 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.canvas },
   scrollContent: { backgroundColor: colors.canvas },
-  heroSection: { height: 260, backgroundColor: colors.shellAlt },
   heroFullBleed: {
     width: "100%",
     height: "100%",
     aspectRatio: undefined,
     borderRadius: 0,
   },
-  recipeSheet: {
-    marginTop: -20,
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.md,
-    gap: spacing.lg,
-    backgroundColor: colors.canvas,
-    borderTopWidth: 1,
-    borderColor: colors.border,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  recipeSheetInner: {
+    paddingTop: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    gap: spacing["2xl"],
   },
   missing: { flex: 1, alignItems: "center", justifyContent: "center" },
-  heading: { gap: spacing.xs },
+  headingRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  heading: { flex: 1, gap: spacing.xs },
+  recipeActionsButton: {
+    width: 44,
+    height: 44,
+    marginTop: -spacing.sm,
+    marginRight: -spacing.sm,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recipeActionsPressed: { backgroundColor: colors.cardMuted },
   servings: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   cookDockAction: {
     minHeight: 56,

@@ -1,6 +1,8 @@
 # LOMO UX Style Guide
 
-Source reference: the “Timezy” mockups provided on 2025‑11‑17 (three-screen set, pastel green palette). Use the details below as the single source of truth for producing consistent UI updates across the app shell, feature screens, and marketing flows.
+> **Historical reference only. Superseded for Kwilt product UI.** This document records the 2025 LOMO/Timezy exploration and is not a source of truth for current implementation. Do not use its Takado naming, Poppins typography, raw colors, fixed radii, dashboard recipes, or other literal visual prescriptions in new Kwilt work. Current authority is [Kwilt UI Constitution](design-system/ui-constitution.md), followed by the [Pattern Atlas](design-system/pattern-atlas.md), semantic tokens, canonical components, and Storybook evidence.
+
+Source reference: the “Timezy” mockups provided on 2025‑11‑17 (three-screen set, pastel green palette). The material below is preserved only for design provenance.
 
 ---
 
@@ -133,4 +135,4 @@ Icons are line-based with rounded ends, single-color strokes using `#567658`. Wh
 
 ---
 
-Use this document whenever introducing new components or adjusting existing screens to ensure LOMO retains a cohesive, pastel-forward, gentle productivity aesthetic. Update the guide if the palette or typography choices evolve. 
+Do not use this historical document to direct new Kwilt UI. If a useful principle is still valid, restate and review it through the current UI constitution and pattern atlas before implementation.

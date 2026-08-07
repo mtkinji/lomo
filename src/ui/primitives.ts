@@ -1,7 +1,7 @@
-// ShadCN-style primitive exports for kwilt.
-// These are the canonical UI building blocks (inspired by React Native Reusables)
-// that screens should depend on. Higher-level, app-specific components can compose
-// these primitives while preserving the app shell vs canvas layering.
+// Curated ShadCN-aligned exports for Kwilt UI.
+// This barrel includes canonical primitives plus documented candidate/local
+// compositions for migration compatibility. Import presence alone does not grant
+// canonical status; docs/design-system/component-inventory.md is authoritative.
 
 export { Button, IconButton } from './Button';
 export { Card } from './Card';
@@ -31,4 +31,3 @@ export { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 
 // Aliases for clarity in forms: Textarea is just Input with multiline enabled.
 export { Input as Textarea } from './Input';
-

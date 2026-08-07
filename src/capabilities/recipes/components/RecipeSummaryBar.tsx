@@ -1,15 +1,22 @@
-import { StyleSheet, View } from "react-native";
+import type { ComponentProps } from 'react';
+import { StyleSheet, View } from 'react-native';
 
-import { colors, spacing } from "../../../theme";
-import { Text } from "../../../ui/Typography";
+import { colors, spacing } from '../../../theme';
+import { Icon } from '../../../ui/Icon';
+import { Heading, Text } from '../../../ui/Typography';
 
-function duration(minutes: number | null): string {
-  return minutes === null
-    ? "—"
-    : minutes < 60
-      ? `${minutes} min`
-      : `${Math.floor(minutes / 60)}h ${minutes % 60 || ""}`.trim();
+function duration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
 }
+
+type Fact = {
+  label: string;
+  value: string;
+  icon: ComponentProps<typeof Icon>['name'];
+};
 
 export function RecipeSummaryBar({
   prepMinutes,
@@ -28,43 +35,70 @@ export function RecipeSummaryBar({
     prepMinutes === null && cookMinutes === null
       ? null
       : (prepMinutes ?? 0) + (cookMinutes ?? 0) + inactiveMinutes;
-  const items = [
-    { label: "Total", value: duration(totalMinutes) },
-    { label: "Prep", value: duration(prepMinutes) },
-    { label: "Cook", value: duration(cookMinutes) },
-    ...(inactiveMinutes > 0
-      ? [{ label: "Wait", value: duration(inactiveMinutes) }]
-      : []),
-    {
-      label: "Makes",
-      value:
-        yieldQuantity === null
-          ? "—"
-          : `${yieldQuantity} ${yieldUnit ?? "servings"}`,
-    },
-  ];
+  const items: Fact[] = [];
+
+  if (totalMinutes !== null) {
+    items.push({ label: 'Total', value: duration(totalMinutes), icon: 'clock' });
+  }
+  if (prepMinutes !== null) {
+    items.push({ label: 'Prep', value: duration(prepMinutes), icon: 'estimate' });
+  }
+  if (cookMinutes !== null) {
+    items.push({ label: 'Cook', value: duration(cookMinutes), icon: 'flame' });
+  }
+  if (inactiveMinutes > 0) {
+    items.push({ label: 'Waiting', value: duration(inactiveMinutes), icon: 'clock' });
+  }
+  if (yieldQuantity !== null) {
+    items.push({
+      label: 'Makes',
+      value: `${yieldQuantity} ${yieldUnit ?? 'servings'}`,
+      icon: 'meal',
+    });
+  }
+
+  if (!items.length) return null;
+
   return (
-    <View style={styles.bar}>
-      {items.map((item) => (
-        <View key={item.label} style={styles.item}>
-          <Text variant="label" tone="secondary">
-            {item.label}
-          </Text>
-          <Text>{item.value}</Text>
-        </View>
-      ))}
+    <View accessibilityLabel="What this recipe takes" style={styles.section}>
+      <Heading variant="sm">What this recipe takes</Heading>
+      <View style={styles.list}>
+        {items.map((item) => (
+          <View key={item.label} style={styles.row}>
+            <View style={styles.icon}>
+              <Icon name={item.icon} size={20} color={colors.textSecondary} />
+            </View>
+            <Text style={styles.label}>{item.label}</Text>
+            <Text style={styles.value}>{item.value}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 18,
-    backgroundColor: colors.card,
-    paddingVertical: spacing.sm,
+  section: {
+    gap: spacing.md,
   },
-  item: { flex: 1, alignItems: "center", gap: 2 },
+  list: {
+    gap: spacing.lg,
+  },
+  row: {
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  icon: {
+    width: 28,
+    alignItems: 'center',
+  },
+  label: {
+    flex: 1,
+  },
+  value: {
+    color: colors.textSecondary,
+    textAlign: 'right',
+  },
 });

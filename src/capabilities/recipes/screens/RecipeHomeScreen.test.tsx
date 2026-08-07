@@ -119,19 +119,83 @@ describe("Recipe Home", () => {
     fireEvent.press(screen.getByText("Start cooking"));
     expect(onTogglePlan).toHaveBeenCalled();
     expect(onCook).toHaveBeenCalled();
+    expect(screen.getByText("What this recipe takes")).toBeTruthy();
     expect(screen.getByText("Total")).toBeTruthy();
     expect(screen.getByText("55 min")).toBeTruthy();
     expect(screen.getByText("Cake")).toBeTruthy();
     expect(screen.getByText("Glaze")).toBeTruthy();
+    expect(screen.getByText("Instructions")).toBeTruthy();
+    expect(screen.queryByText("Method")).toBeNull();
     expect(screen.getByText("Bake")).toBeTruthy();
     expect(screen.getByText("Finish")).toBeTruthy();
     expect(screen.getByText("¾ cup flour, sifted")).toBeTruthy();
+    expect(screen.getByTestId("object-detail-media-hero")).toBeTruthy();
+    expect(screen.getByTestId("object-detail-media-sheet")).toBeTruthy();
+    expect(screen.getByLabelText("Recipe actions")).toBeTruthy();
+    expect(screen.queryByText("More recipe actions")).toBeNull();
     expect(screen.queryByText("1 1/2 cups flour, sifted")).toBeNull();
     fireEvent.press(screen.getByText("¾ cup flour, sifted"));
     expect(onToggle).toHaveBeenCalledWith("ingredient-1");
   });
 
-  it("shows provenance and missing-time treatment without turning it into an audit log", () => {
+  it("offers contextual Meals at the bottom without inventing ratings", () => {
+    const onOpenRecipe = jest.fn();
+    const recommendedRecipe = {
+      ...recipeContractFixture(),
+      id: "recipe-2",
+    };
+    const recommendedVersion = {
+      ...recipeVersionContractFixture(),
+      id: "version-2",
+      recipeId: "recipe-2",
+      title: "Weeknight noodles",
+    };
+    const screen = render(
+      <RecipeHomeView
+        projection={{
+          recipe: recipeContractFixture(),
+          currentVersion: recipeVersionContractFixture(),
+        }}
+        recommendations={[
+          {
+            projection: {
+              recipe: recommendedRecipe,
+              currentVersion: recommendedVersion,
+            },
+            reason: {
+              id: "similar_ingredients",
+              label: "Uses similar ingredients",
+              icon: "layers",
+            },
+          },
+        ]}
+        servings={4}
+        checked={new Set()}
+        isInPlan={false}
+        planBusy={false}
+        cookActionLabel="Start cooking"
+        onServingsChange={jest.fn()}
+        onToggleIngredient={jest.fn()}
+        onTogglePlan={jest.fn()}
+        onCook={jest.fn()}
+        onMore={jest.fn()}
+        onOpenRecipe={onOpenRecipe}
+      />,
+    );
+
+    expect(screen.getByText("More Meals you might like")).toBeTruthy();
+    expect(screen.getByText("Weeknight noodles")).toBeTruthy();
+    expect(screen.getByText("Uses similar ingredients")).toBeTruthy();
+    expect(screen.queryByText(/review/i)).toBeNull();
+    fireEvent.press(
+      screen.getByLabelText(
+        "Open Weeknight noodles. Uses similar ingredients",
+      ),
+    );
+    expect(onOpenRecipe).toHaveBeenCalledWith("recipe-2");
+  });
+
+  it("omits unknown effort facts instead of rendering placeholder dashes", () => {
     const version = {
       ...recipeVersionContractFixture(),
       prepMinutes: null,
@@ -155,7 +219,11 @@ describe("Recipe Home", () => {
         onMore={jest.fn()}
       />,
     );
-    expect(screen.getAllByText("—")).toHaveLength(3);
+    expect(screen.queryByText("—")).toBeNull();
+    expect(screen.queryByText("Total")).toBeNull();
+    expect(screen.queryByText("Prep")).toBeNull();
+    expect(screen.queryByText("Cook")).toBeNull();
+    expect(screen.getByText("Makes")).toBeTruthy();
     expect(screen.getByText("Private to you")).toBeTruthy();
     expect(screen.getByText(/Grandma Ruth's card/)).toBeTruthy();
   });
@@ -245,5 +313,83 @@ describe("Recipe Home", () => {
     expect(screen.getByText(/Private Cook record/)).toBeTruthy();
     expect(screen.getByText("Continue cooking")).toBeTruthy();
     expect(screen.getByLabelText("Remove this meal from the Plan")).toBeTruthy();
+  });
+
+  it("uses a complete no-photo artwork state without missing-photo language", () => {
+    const recipe = { ...recipeContractFixture(), mediaAssets: [] };
+    const screen = render(
+      <RecipeHomeView
+        projection={{ recipe, currentVersion: recipeVersionContractFixture() }}
+        servings={8}
+        checked={new Set()}
+        isInPlan={false}
+        planBusy={false}
+        cookActionLabel="Start cooking"
+        onServingsChange={jest.fn()}
+        onToggleIngredient={jest.fn()}
+        onTogglePlan={jest.fn()}
+        onCook={jest.fn()}
+        onMore={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Recipe artwork")).toBeTruthy();
+    expect(screen.queryByText("Your recipe")).toBeNull();
+    expect(screen.queryByText(/missing photo/i)).toBeNull();
+  });
+
+  it("pages all active Meal photos in the hero", () => {
+    const recipe = recipeContractFixture();
+    const first = recipe.mediaAssets[0];
+    const screen = render(
+      <RecipeHomeView
+        projection={{
+          recipe: {
+            ...recipe,
+            mediaAssets: [
+              first,
+              { ...first, id: "media-2", storageRef: "https://example.com/second.jpg" },
+            ],
+          },
+          currentVersion: recipeVersionContractFixture(),
+        }}
+        servings={8}
+        checked={new Set()}
+        isInPlan={false}
+        planBusy={false}
+        cookActionLabel="Start cooking"
+        onServingsChange={jest.fn()}
+        onToggleIngredient={jest.fn()}
+        onTogglePlan={jest.fn()}
+        onCook={jest.fn()}
+        onMore={jest.fn()}
+      />,
+    );
+
+    fireEvent(screen.getByTestId("recipe-home-gallery"), "layout", {
+      nativeEvent: { layout: { width: 320, height: 320 } },
+    });
+    expect(screen.getByText("1 / 2", { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it("uses truthful empty Instructions copy", () => {
+    const version = { ...recipeVersionContractFixture(), instructions: [] };
+    const screen = render(
+      <RecipeHomeView
+        projection={{ recipe: recipeContractFixture(), currentVersion: version }}
+        servings={8}
+        checked={new Set()}
+        isInPlan={false}
+        planBusy={false}
+        cookActionLabel="Start cooking"
+        onServingsChange={jest.fn()}
+        onToggleIngredient={jest.fn()}
+        onTogglePlan={jest.fn()}
+        onCook={jest.fn()}
+        onMore={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No instructions added yet.")).toBeTruthy();
   });
 });

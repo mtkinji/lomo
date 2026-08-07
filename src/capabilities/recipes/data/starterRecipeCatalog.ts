@@ -5,6 +5,7 @@ import type {
 } from "./editorialRecipeCatalog";
 import type { RecipeProjection } from "./recipeCache";
 import { STARTER_EDITORIAL_RECIPE_CATALOG } from "./starterEditorialRecipeCatalog";
+import { getCuisineFamilyForFilterValue } from "../domain/cuisineFamilies";
 
 export type StarterRecipeMetadata = {
   category: EditorialRecipeCategory;
@@ -130,6 +131,9 @@ export function filterRecipeInventory(
   },
 ): RecipeProjection[] {
   const terms = options.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const cuisineFamily = options.filters.cuisine
+    ? getCuisineFamilyForFilterValue(options.filters.cuisine)
+    : null;
   const filtered = recipes.filter((projection) => {
     const metadata = getStarterRecipeMetadata(projection.recipe.id);
     const totalMinutes = getRecipeElapsedMinutes(projection);
@@ -148,7 +152,9 @@ export function filterRecipeInventory(
     }
     if (
       options.filters.cuisine !== null &&
-      metadata?.cuisine !== options.filters.cuisine
+      (cuisineFamily
+        ? !metadata || !cuisineFamily.cuisines.includes(metadata.cuisine)
+        : metadata?.cuisine !== options.filters.cuisine)
     ) {
       return false;
     }
