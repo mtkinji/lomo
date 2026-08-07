@@ -8,11 +8,13 @@ const SINGLE_CAPABILITY_CHECKING_COPY: Record<UnifiedChatCapabilityId, string> =
   chapters: 'Checking your Chapters',
   goals: 'Checking your goals',
   money: 'Checking your money',
+  meal_planning: 'Checking your meals',
   navigation: 'Checking where to go',
   notifications: 'Checking your notifications',
   plan: 'Checking your plan',
   profile: 'Checking your profile',
   relationships: 'Checking what you shared',
+  recipes: 'Checking your recipes',
   screenTime: 'Checking Screen Time',
   todos: 'Checking your to-dos',
 };

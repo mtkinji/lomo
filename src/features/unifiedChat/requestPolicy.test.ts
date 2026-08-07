@@ -6,6 +6,12 @@ import {
 } from './requestPolicy';
 
 describe('classifyUnifiedChatRequest', () => {
+  it('routes meal-planning and recipe requests to their Food owners', () => {
+    expect(classifyUnifiedChatRequest({ prompt: 'Plan four cheap dinners for us' }))
+      .toMatchObject({ participatingCapabilities: ['meal_planning'] });
+    expect(classifyUnifiedChatRequest({ prompt: 'Find my lemon pasta recipe' }))
+      .toMatchObject({ participatingCapabilities: ['recipes'] });
+  });
   test.each([
     'Am I within my income spending limit?',
     'Does my budget still fit the 70% living limit?',

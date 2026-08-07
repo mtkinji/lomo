@@ -71,6 +71,7 @@ describe('navigationPersistence', () => {
       'Money',
       'Explore',
       'Games',
+      'Food',
       'Settings',
     ]);
     expect(
@@ -85,6 +86,7 @@ describe('navigationPersistence', () => {
           'Money',
           'Explore',
           'Games',
+          'Food',
           'Settings',
         ]),
         { showDevTools: false },
@@ -103,6 +105,27 @@ describe('navigationPersistence', () => {
     const restored = (await restore(root)) as unknown as TestState;
 
     expect(restored.routes[restored.index].name).toBe(routeName);
+  });
+
+  test('restores the exact Food recipe screen that was open', async () => {
+    const food = nestedState('stack', 'RecipeHome', [
+      route('RecipeLibrary'),
+      route('RecipeHome', undefined, { recipeId: 'recipe-1' }),
+    ]);
+    const root = nestedState('drawer', 'Food', [
+      route('MainTabs'),
+      route('Food', food),
+      route('Settings'),
+    ]);
+
+    const restored = (await restore(root)) as unknown as TestState;
+    const restoredFood = restored.routes[restored.index].state!;
+
+    expect(restored.routes[restored.index].name).toBe('Food');
+    expect(restoredFood.routes[restoredFood.index]).toMatchObject({
+      name: 'RecipeHome',
+      params: { recipeId: 'recipe-1' },
+    });
   });
 
   test('restores a known Money detail route and drops unknown nested routes', async () => {

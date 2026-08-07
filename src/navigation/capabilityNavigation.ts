@@ -41,6 +41,10 @@ export type CapabilityNavigationTarget =
   | {
       name: 'Games';
       params: { screen: 'GamesShelf' };
+    }
+  | {
+      name: 'Food';
+      params: { screen: 'FoodHome' | 'RecipeLibrary' | 'NextMeals' | 'GroceryList' };
     };
 
 export function createCapabilityNavigateAction(target: { name: string; params?: object }) {
@@ -48,9 +52,12 @@ export function createCapabilityNavigateAction(target: { name: string; params?: 
 }
 
 export function resolveCapabilityNavigation(id: CapabilityNavigationId): CapabilityNavigationTarget {
-  const { rootRoute } = id.startsWith('money-')
-    ? getCapabilityMenuDestination(id as 'money-summary' | 'money-transactions' | 'money-accounts')
-    : getCapability(id as Parameters<typeof getCapability>[0]);
+  let rootRoute;
+  try {
+    rootRoute = getCapabilityMenuDestination(id as Parameters<typeof getCapabilityMenuDestination>[0]).rootRoute;
+  } catch {
+    rootRoute = getCapability(id as Parameters<typeof getCapability>[0]).rootRoute;
+  }
 
   if (rootRoute.root === 'Money') {
     return { name: 'Money', params: { screen: rootRoute.screen } };
@@ -60,6 +67,9 @@ export function resolveCapabilityNavigation(id: CapabilityNavigationId): Capabil
   }
   if (rootRoute.root === 'Games') {
     return { name: 'Games', params: { screen: rootRoute.screen } };
+  }
+  if (rootRoute.root === 'Food') {
+    return { name: 'Food', params: { screen: rootRoute.screen } };
   }
 
   switch (rootRoute.tab) {

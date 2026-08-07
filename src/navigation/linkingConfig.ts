@@ -231,6 +231,28 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         GamesAccount: 'games/account',
       },
     },
+    Food: {
+      screens: {
+        RecipeLibrary: 'food',
+        EditorialMealCollection: 'food/collection/:collectionId',
+        RecipeEdit: 'food/recipe/:recipeId/edit',
+        RecipeHome: 'food/recipe/:recipeId/home',
+        RecipeCooking: 'food/recipe/:recipeId',
+        RecipeReadiness: 'food/recipe/:recipeId/ready',
+        RecipeCookMode: 'food/recipe/:recipeId/cook',
+        RecipeCookComplete: 'food/recipe/:recipeId/cook/:sessionId/complete',
+        RecipeImportReview: 'food/import',
+        NextMeals: 'food/plan',
+        MealPlanEditor: 'food/plan/:planId/edit',
+        MealChoiceInvite: 'food/plan/:planId/invite',
+        MealPlanFinalize: 'food/plan/:planId/finalize',
+        MealChoiceResponse: 'food/choices/:roundId',
+        GroceryList: 'food/groceries',
+        AlreadyHaveReview: 'food/groceries/:listId/already-have',
+        GroceryItemEdit: 'food/groceries/:listId/item/:itemId',
+        GroceryHandoff: 'food/groceries/:listId/shop',
+      },
+    },
     Settings: {
       screens: {
         SettingsHome: 'settings',

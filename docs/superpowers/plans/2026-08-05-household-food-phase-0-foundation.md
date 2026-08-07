@@ -53,7 +53,7 @@ Leave unchanged:
 
 **Files:** `src/domain/types.ts`, `src/features/activities/actionCards/activityActionCardTypes.ts`, `src/features/activities/actionCards/activityActionCardPolicy.ts`, `src/features/activities/actionCards/activityActionCardPolicy.test.ts`, `src/domain/normalizeActivity.ts`, `src/domain/normalizeActivity.test.ts`
 
-- [ ] **Step 1: Write failing policy and normalization tests**
+- [x] **Step 1: Write failing policy and normalization tests**
 
 Cover: one binding, at most three passive references, 240-character evidence,
 opaque refs capped at 512 characters, unknown provider retained as unavailable,
@@ -84,7 +84,7 @@ expect(normalizeActivityContext(input).sourceReferences).toHaveLength(3);
 expect(normalizeActivityContext(input).sourceReferences[0].snapshot.reason).toHaveLength(240);
 ```
 
-- [ ] **Step 2: Run the focused tests and verify failure**
+- [x] **Step 2: Run the focused tests and verify failure**
 
 ```bash
 npx jest src/features/activities/actionCards/activityActionCardPolicy.test.ts src/domain/normalizeActivity.test.ts --runInBand
@@ -92,7 +92,7 @@ npx jest src/features/activities/actionCards/activityActionCardPolicy.test.ts sr
 
 Expected: FAIL because the new contracts and normalizer do not exist.
 
-- [ ] **Step 3: Add the closed contracts**
+- [x] **Step 3: Add the closed contracts**
 
 ```ts
 export type ActivityActionCardProviderId =
@@ -128,7 +128,7 @@ Add `sourceReferences?: ActivitySourceReference[]` and
 `normalizeActivityContext` with explicit string trimming and caps, then call it
 from `normalizeActivity` without mutating Activities that have neither field.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Expected: both suites PASS and existing normalization snapshots remain stable.
 
@@ -143,7 +143,7 @@ git commit -m "feat: add bounded activity context bindings"
 
 **Files:** `activityActionCardTypes.ts`, `activityActionCardRegistry.ts`, `activityActionCardRegistry.test.ts`
 
-- [ ] **Step 1: Write failing registry tests**
+- [x] **Step 1: Write failing registry tests**
 
 Prove duplicate provider IDs throw, unknown providers resolve to `unavailable`,
 provider actions require a listed action id, and two invocations with the same
@@ -154,13 +154,13 @@ await expect(registry.invoke(binding, 'hidden_action', context))
   .resolves.toEqual(expect.objectContaining({ outcome: 'rejected', code: 'action_not_offered' }));
 ```
 
-- [ ] **Step 2: Run the test and verify failure**
+- [x] **Step 2: Run the test and verify failure**
 
 ```bash
 npx jest src/features/activities/actionCards/activityActionCardRegistry.test.ts --runInBand
 ```
 
-- [ ] **Step 3: Implement the provider contract and registry**
+- [x] **Step 3: Implement the provider contract and registry**
 
 ```ts
 export type ActivityActionCardProjection = {
@@ -186,7 +186,7 @@ The registry owns the provider map, validates that `actionId` is in the latest
 resolved projection, and passes a generated UUID idempotency key to `invoke`.
 Providers never receive navigation objects or raw analytics clients.
 
-- [ ] **Step 4: Run the registry tests**
+- [x] **Step 4: Run the registry tests**
 
 Expected: PASS for ready, unknown, rejection, and idempotent invocation cases.
 
@@ -201,7 +201,7 @@ git commit -m "feat: register capability-owned activity cards"
 
 **Files:** `useActivityActionCard.ts`, `ActivityActionCard.tsx`, `ActivityActionCard.test.tsx`, `ActivityDetailScreen.tsx`, `src/services/analytics/events.ts`
 
-- [ ] **Step 1: Write component tests**
+- [x] **Step 1: Write component tests**
 
 Cover ready, loading, disconnected, unauthorized, stale, failed/retry, completed,
 primary action, secondary action, double-tap suppression, screen-reader labels,
@@ -216,13 +216,13 @@ expect(invoke).toHaveBeenCalledWith('choose_meals');
 expect(queryByText(/resourceRef/i)).toBeNull();
 ```
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx jest src/features/activities/actionCards/ActivityActionCard.test.tsx --runInBand
 ```
 
-- [ ] **Step 3: Implement the hook and host**
+- [x] **Step 3: Implement the hook and host**
 
 `useActivityActionCard` resolves on binding/viewer changes, cancels stale
 promises, exposes one retry, and holds invocation disabled until the receipt
@@ -241,7 +241,7 @@ Add safe events `ActivityContextCardViewed`, `ActivityContextCardActionInvoked`,
 and `ActivityContextCardOutcome`. Properties are limited to provider,
 projection kind, state, action id, outcome, and latency bucket.
 
-- [ ] **Step 4: Run focused and Activity detail tests**
+- [x] **Step 4: Run focused and Activity detail tests**
 
 ```bash
 npx jest src/features/activities/actionCards/ActivityActionCard.test.tsx src/features/activities/ActivityDetailScreen.stepScreenTime.test.ts --runInBand
@@ -260,19 +260,19 @@ git commit -m "feat: host capability action cards in to-dos"
 
 **Files:** `screenTimeActivityCardProvider.ts`, `screenTimeActivityCardProvider.test.ts`, `ActivityDetailScreen.tsx`
 
-- [ ] **Step 1: Write parity tests**
+- [x] **Step 1: Write parity tests**
 
 Use the existing Focus setup eligibility inputs and assert the provider returns
 the same copy, `set_up`/`not_now` actions, exact Screen Time settings return
 target, and dismissal state as the bespoke opportunity.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx jest src/features/activities/actionCards/screenTimeActivityCardProvider.test.ts --runInBand
 ```
 
-- [ ] **Step 3: Implement the adapter**
+- [x] **Step 3: Implement the adapter**
 
 Move only eligibility/presentation/action mapping into the provider. Reuse the
 existing Screen Time store and navigation destination. Do not migrate the Focus
@@ -296,26 +296,26 @@ git commit -m "refactor: project screen time through activity cards"
 
 **Files:** `src/capabilities/{recipes,meal-planning,groceries}/FEATURE.md`, `src/capabilities/types.ts`, `src/capabilities/registry.ts`, `src/navigation/CapabilityMenu.tsx`, `src/navigation/CapabilityMenu.test.tsx`, `src/navigation/RootNavigator.tsx`
 
-- [ ] **Step 1: Write registry and menu tests**
+- [x] **Step 1: Write registry and menu tests**
 
 Assert one `food` destination appears only with `food-loop-v1`; there are not
 three global rows; the destination opens Recipes when no active plan/list
 exists; and capability ownership remains three manifests.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 ```bash
 npx jest src/capabilities/registry.test.ts src/navigation/CapabilityMenu.test.tsx --runInBand
 ```
 
-- [ ] **Step 3: Add manifests and inactive shell route**
+- [x] **Step 3: Add manifests and inactive shell route**
 
 The Recipes, Meal Planning, and Groceries manifests name the brief, authority,
 records, and exclusions. Register `food` as one grouped destination. Its route
 renders a finite disabled/coming-next state until Phase 1 supplies Recipes; it
 must not advertise importing, planning, shopping, or savings as available.
 
-- [ ] **Step 4: Run tests and product lint**
+- [x] **Step 4: Run tests and product lint**
 
 ```bash
 npx jest src/capabilities/registry.test.ts src/navigation/CapabilityMenu.test.tsx --runInBand
@@ -333,13 +333,13 @@ git commit -m "feat: register the household food capabilities"
 
 **Files:** `scripts/food-provider-feasibility.mjs`, `scripts/food-recipe-import-corpus.mjs`, `package.json`, `docs/delivery-evidence/food/feasibility/README.md`
 
-- [ ] **Step 1: Add fixture-driven script tests**
+- [x] **Step 1: Add fixture-driven script tests**
 
 The scripts accept `--fixture-dir` and emit JSON containing provider, operation,
 status, counts, latency, capability flags, and redacted error class. Tests must
 assert no key, token, URL query, product name, ingredient, or recipe body appears.
 
-- [ ] **Step 2: Implement commands**
+- [x] **Step 2: Implement commands**
 
 ```json
 {
@@ -354,7 +354,7 @@ Supported provider cases are `instacart-list-link`, `instacart-nearby-retailers`
 variables and writes only to a caller-supplied output file under
 `docs/delivery-evidence/food/feasibility/`.
 
-- [ ] **Step 3: Run fixture mode**
+- [x] **Step 3: Run fixture mode**
 
 ```bash
 npm run food:feasibility -- --fixture-dir scripts/fixtures/food-providers --output /tmp/kwilt-food-feasibility.json

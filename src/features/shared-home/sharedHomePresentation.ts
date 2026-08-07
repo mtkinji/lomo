@@ -5,9 +5,9 @@ import type {
   SharedHomeState,
 } from './sharedHomeTypes';
 
-const eventKinds = new Set(['goal_invitation', 'game_turn', 'goal_checkin']);
-const capabilities = new Set(['goals', 'games']);
-const sourceTypes = new Set(['goal_invite', 'game_session', 'goal_checkin']);
+const eventKinds = new Set(['goal_invitation', 'game_turn', 'goal_checkin', 'meal_choice_round']);
+const capabilities = new Set(['goals', 'games', 'meal-planning']);
+const sourceTypes = new Set(['goal_invite', 'game_session', 'goal_checkin', 'meal_choice_round']);
 const states = new Set(['pending', 'available', 'settled', 'expired', 'unavailable']);
 
 function nonEmpty(value: unknown): string | null {
@@ -38,6 +38,10 @@ function parseDestination(value: unknown): SharedHomeDestination | null {
   if (record.kind === 'goal') {
     const goalId = nonEmpty(record.goalId);
     return goalId ? { kind: 'goal', goalId } : null;
+  }
+  if (record.kind === 'meal_choice') {
+    const roundId = nonEmpty(record.roundId);
+    return roundId ? { kind: 'meal_choice', roundId } : null;
   }
   return null;
 }
@@ -109,6 +113,11 @@ export function parseSharedHomeRow(
       || sourceEntityType !== 'goal_checkin'
       || destination.kind !== 'goal'
       || state !== 'available'
+    ))
+    || (eventKind === 'meal_choice_round' && (
+      sourceCapability !== 'meal-planning'
+      || sourceEntityType !== 'meal_choice_round'
+      || destination.kind !== 'meal_choice'
     ))
   ) return null;
 

@@ -1,0 +1,34 @@
+appId: com.andrewwatanabe.kwilt
+---
+- openLink: "kwilt://food"
+- extendedWaitUntil:
+    visible: "Recipes"
+    timeout: 15000
+- tapOn: "Add"
+- assertVisible: "New recipe"
+- tapOn: "Grandma's chocolate cake"
+- inputText: "Weeknight turkey tacos"
+- tapOn: "4"
+- inputText: "4"
+- tapOn: "Add ingredient"
+- tapOn: "e.g. 2 cups flour"
+- inputText: "1 lb ground turkey"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Add step"
+    direction: DOWN
+- tapOn: "Add step"
+- scrollUntilVisible:
+    element:
+      text: "Instruction 1 What happens next?"
+    direction: DOWN
+- tapOn: "Instruction 1 What happens next?"
+- inputText: "Brown the turkey and warm the tortillas."
+- hideKeyboard
+- takeScreenshot: "food-recipe-ready-to-save"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: ".*save_kwilt_recipe.*|.*schema cache.*|.*Recipe could not be saved.*"
+    timeout: 15000
+- takeScreenshot: "food-recipe-save-backend-blocker"

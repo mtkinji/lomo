@@ -1,0 +1,451 @@
+import type { EditorialRecipe } from "./editorialRecipeCatalog";
+
+export const STARTER_RECIPE_BATCH_060: readonly EditorialRecipe[] = [
+  {
+    rosterId: "DI156",
+    title: "Unadon",
+    category: "Dinner",
+    cuisine: "Japanese",
+    tier: "discovery",
+    description:
+      "Hot rice brushed with glossy tare and topped with tender broiled kabayaki eel, its caramelized edges sharpened by fragrant sansho pepper.",
+    yieldQuantity: 4,
+    yieldUnit: "servings",
+    prepMinutes: 10,
+    cookMinutes: 20,
+    inactiveMinutes: 0,
+    artworkIndex: 13,
+    ingredients: [
+      "1/3 cup mirin",
+      "3 tablespoons sake, divided",
+      "3 tablespoons sugar",
+      "1/3 cup soy sauce",
+      "2 fully cooked frozen kabayaki unagi fillets, about 6 ounces each, thawed",
+      "1 teaspoon neutral oil",
+      "4 cups hot cooked Japanese short-grain rice",
+      "1/2 teaspoon ground sansho pepper, for serving",
+    ],
+    instructions: [
+      "Bring mirin and 2 tablespoons sake to a boil in a small saucepan for 2 minutes. Stir in sugar and soy sauce; simmer gently until glossy but still pourable, 8 to 10 minutes, then remove the tare from heat.",
+      "Heat the broiler with a rack 6 inches from the element. Line a rimmed sheet with foil, oil it lightly, and set the thawed fully cooked eel skin-side down. Brush with the remaining tablespoon sake.",
+      "Broil until the eel is hot and its edges begin to crisp, 4 to 5 minutes. Brush lightly with tare and broil 30 to 60 seconds more, watching continuously so the sugar does not burn; verify reheated eel at 165°F.",
+      "Divide hot rice among four bowls and brush each portion with a measured spoonful of tare. Cut each fillet crosswise into four pieces and overlap two pieces over each bowl.",
+      "Brush the eel once more with tare, sprinkle lightly with sansho, and serve immediately. Offer extra tare sparingly so the rice remains distinct rather than syrupy.",
+    ],
+    notes:
+      "Unadon means unagi donburi: kabayaki freshwater eel served over rice in a bowl. Preparing live eel requires specialist filleting, boning, steaming, and grilling skills, so Japanese homes commonly buy cooked kabayaki. This recipe starts there honestly and focuses on careful reheating and fresh tare.",
+    kitchenTestState: "desk-reviewed",
+    research: {
+      accessedAt: "2026-08-06",
+      sources: [
+        {
+          publisher: "Just One Cookbook",
+          title: "Unadon Grilled Eel Rice Bowl",
+          url: "https://www.justonecookbook.com/unagi-don-unadon/",
+          rating: 4.79,
+          ratingCount: 64,
+          signal:
+            "A 4.79/5 Japanese-born developer pattern across 64 votes supports prepared kabayaki eel, homemade mirin-sake-sugar-soy tare, broiler reheating, hot rice, restrained sauce, and sansho.",
+        },
+        {
+          publisher: "Japanese Cooking 101",
+          title: "Unagi Don Unadon Recipe",
+          url: "https://www.japanesecooking101.com/unagi-don-unadon-recipe/",
+          rating: 5,
+          ratingCount: 1,
+          signal:
+            "A Japanese home-cooking source explains why prepared eel is the realistic household starting point and corroborates sake reheating, reduced tare, rice, and sansho.",
+        },
+        {
+          publisher: "Kikkoman Corporation",
+          title: "Scattered Sushi with Broiled Unagi",
+          url: "https://www.kikkoman.com/en/cookbook/recipe/00001382.html",
+          rating: null,
+          ratingCount: null,
+          signal:
+            "A Japanese seasoning authority corroborates using fully broiled unagi as a ready-to-reheat rice topping and cutting it into manageable crosswise pieces without attempting unsafe home eel butchery.",
+        },
+      ],
+      nonNegotiableTechniques: [
+        "Start with commercially prepared fully cooked kabayaki eel rather than raw whole eel.",
+        "Reduce tare only until glossy and apply it in thin layers.",
+        "Reheat eel to 165°F and watch the final sugary broil continuously.",
+      ],
+      repeatedSuccessSignals: [
+        "Eel is tender with lightly caramelized edges",
+        "Tare remains glossy and pourable",
+        "Rice is seasoned but not saturated",
+        "Sansho supplies a citrusy numbing counterpoint",
+      ],
+      repeatedFailureRisks: [
+        "Attempting to butcher raw eel turns a specialist process into an unsafe home shortcut.",
+        "Reducing tare too far makes it salty and syrupy.",
+        "Leaving glazed eel under the broiler burns its sugar before the center is hot.",
+      ],
+      adaptationDecision:
+        "Follow the highest-rated Japanese household approach by treating quality prepared kabayaki as the ingredient, then earn freshness through a balanced tare, precise reheating, and restrained bowl assembly.",
+    },
+  },
+  {
+    rosterId: "DI157",
+    title: "Chicken karaage rice plate",
+    category: "Dinner",
+    cuisine: "Japanese",
+    tier: "household-anchor",
+    description:
+      "Juicy ginger-soy chicken thighs with a craggy, glassy potato-starch crust, served beside rice, shredded cabbage, lemon, and a little Japanese mayonnaise.",
+    yieldQuantity: 6,
+    yieldUnit: "servings",
+    prepMinutes: 20,
+    cookMinutes: 20,
+    inactiveMinutes: 30,
+    artworkIndex: 13,
+    ingredients: [
+      "2 pounds boneless skin-on chicken thighs, cut in even 1 1/2-inch pieces",
+      "2 tablespoons soy sauce",
+      "2 tablespoons sake",
+      "1 tablespoon grated fresh ginger",
+      "2 garlic cloves, finely grated",
+      "1 teaspoon toasted sesame oil",
+      "1/2 teaspoon kosher salt",
+      "1/4 teaspoon black pepper",
+      "3/4 cup potato starch",
+      "1/4 cup all-purpose flour",
+      "6 cups neutral oil, for frying",
+      "6 cups cooked Japanese short-grain rice",
+      "4 cups finely shredded green cabbage",
+      "1 lemon, cut in 6 wedges",
+      "1/3 cup Japanese mayonnaise",
+      "1 teaspoon shichimi togarashi, for serving",
+    ],
+    instructions: [
+      "Massage chicken with soy sauce, sake, ginger, garlic, sesame oil, salt, and pepper. Refrigerate 30 minutes, then drain away loose marinade so the coating can adhere rather than become gummy.",
+      "Whisk potato starch and flour in a shallow bowl. Coat chicken one piece at a time, pressing the mixture into folds and leaving irregular clumps for a craggy crust; shake off only loose powder.",
+      "Heat oil in a heavy pot to 325°F. Fry chicken in four uncrowded batches for 3 minutes, keeping oil above 300°F; transfer to a rack and rest each batch 3 minutes while its center continues cooking.",
+      "Raise oil to 375°F. Refry each batch 45 to 60 seconds until deeply crisp, then drain on the rack. Verify the largest pieces at 165°F and let all chicken rest 3 minutes.",
+      "Plate karaage with rice and a loose mound of cabbage. Add lemon, mayonnaise dusted with shichimi, and serve immediately without covering the crust.",
+    ],
+    notes:
+      "Karaage names a Japanese technique of seasoning before a light flour or starch coating, not generic breaded fried chicken. Skin-on thigh, potato starch, irregular coating, and a rest between fries create the defining juicy center and brittle shell. The rice plate turns an izakaya and bento favorite into a complete household dinner.",
+    kitchenTestState: "desk-reviewed",
+    research: {
+      accessedAt: "2026-08-06",
+      sources: [
+        {
+          publisher: "Just One Cookbook",
+          title: "Karaage Japanese Fried Chicken",
+          url: "https://www.justonecookbook.com/karaage/",
+          rating: 4.77,
+          ratingCount: 416,
+          signal:
+            "A 4.77/5 Japanese-born developer pattern across 416 votes supports skin-on thigh, ginger-garlic-soy-sake seasoning, potato starch with flour, short marination, double frying, and lemon-mayonnaise service.",
+        },
+        {
+          publisher: "Kikkoman Corporation",
+          title: "Crispy Karaage Japanese Fried Chicken",
+          url: "https://www.kikkoman.com/en/cookbook/washoku/karaage.html",
+          rating: null,
+          ratingCount: null,
+          signal:
+            "A Japanese seasoning authority corroborates even 4 cm thigh pieces, fully absorbed soy-sake-ginger-garlic marinade, a light layered flour coating, temperature control, and lemon.",
+        },
+        {
+          publisher: "Ministry of Agriculture, Forestry and Fisheries of Japan",
+          title: "Tori Karaage Fried Chicken",
+          url: "https://www.maff.go.jp/e/policies/market/japan-cuisine/japan/3/index.html",
+          rating: null,
+          ratingCount: null,
+          signal:
+            "Japan's agriculture ministry reinforces thigh meat, ginger, garlic, soy, sesame oil, combined flour and potato starch, deep frying, and a compact home-cooking method.",
+        },
+      ],
+      nonNegotiableTechniques: [
+        "Cut thigh meat evenly and marinate only long enough to season without waterlogging it.",
+        "Use a potato-starch-heavy craggy coating and fry in uncrowded batches.",
+        "Rest between a 325°F first fry and a 375°F finish, then verify 165°F.",
+      ],
+      repeatedSuccessSignals: [
+        "Chicken stays juicy and strongly seasoned",
+        "Crust is irregular, light, and audibly crisp",
+        "Second fry colors quickly without darkening the marinade",
+        "Cabbage and lemon offset the fried richness",
+      ],
+      repeatedFailureRisks: [
+        "Uneven chicken pieces cook at different rates.",
+        "Excess wet marinade turns starch into a pasty shell.",
+        "Crowded low-temperature oil creates greasy karaage.",
+      ],
+      adaptationDecision:
+        "Use the strongest rating signal's double-fry controls, corroborate the identity with two Japanese institutions, and build a familiar complete plate without diluting karaage into breaded chicken nuggets.",
+    },
+  },
+  {
+    rosterId: "DI158",
+    title: "Japanese curry rice",
+    category: "Dinner",
+    cuisine: "Japanese",
+    tier: "household-anchor",
+    description:
+      "Tender chicken, potatoes, and carrots in a mild, velvety Japanese curry built on browned onion and homemade toasted roux, spooned beside rice and crisp pickles.",
+    yieldQuantity: 8,
+    yieldUnit: "servings",
+    prepMinutes: 25,
+    cookMinutes: 60,
+    inactiveMinutes: 0,
+    artworkIndex: 13,
+    ingredients: [
+      "4 tablespoons unsalted butter",
+      "1/3 cup all-purpose flour",
+      "2 tablespoons Japanese curry powder",
+      "1/2 teaspoon garam masala",
+      "2 tablespoons neutral oil",
+      "2 pounds boneless skinless chicken thighs, cut in 1 1/2-inch pieces",
+      "1 1/2 teaspoons kosher salt, divided",
+      "3 large yellow onions, thinly sliced",
+      "2 carrots, cut in 1-inch pieces",
+      "1 1/2 pounds Yukon Gold potatoes, cut in 1 1/2-inch pieces",
+      "6 cups low-sodium chicken stock",
+      "1 small apple, peeled and finely grated",
+      "1 tablespoon Worcestershire sauce",
+      "2 teaspoons soy sauce",
+      "8 cups cooked Japanese short-grain rice",
+      "1 cup fukujinzuke Japanese curry pickles",
+    ],
+    instructions: [
+      "Melt butter over medium-low, whisk in flour, and cook until peanut-butter brown and nutty, 8 to 10 minutes. Stir in curry powder and garam masala for 30 seconds, then scrape the roux into a bowl.",
+      "Heat oil in a Dutch oven. Season chicken with 1 teaspoon salt and brown in two batches until it reaches 165°F; transfer to a plate. Add onions and cook until deep gold, 15 to 18 minutes.",
+      "Add carrots, potatoes, stock, apple, Worcestershire, soy, and remaining salt. Simmer gently until vegetables are tender but intact, 15 to 20 minutes, skimming excess foam.",
+      "Whisk hot broth into the roux a ladle at a time until smooth, then stir it back into the pot. Return chicken and simmer 8 to 10 minutes until the curry is glossy and thick enough to coat rice without becoming paste-like.",
+      "Rest curry off heat 5 minutes. Plate it beside—not completely over—the rice, with fukujinzuke at the edge so each diner can balance rich curry with crisp acidity.",
+    ],
+    notes:
+      "Curry rice is one of Japan's most familiar home meals: mild, thick, gently sweet, and built around onion, potato, and carrot. Homemade roux gives salt and toast control, but the result should still evoke Japanese boxed roux rather than an Indian or Thai curry. This plain curry is distinct from the fried-cutlet combination in katsu curry.",
+    kitchenTestState: "desk-reviewed",
+    research: {
+      accessedAt: "2026-08-06",
+      sources: [
+        {
+          publisher: "Just One Cookbook",
+          title: "Japanese Chicken Curry",
+          url: "https://www.justonecookbook.com/simple-chicken-curry/",
+          rating: 4.62,
+          ratingCount: 1652,
+          signal:
+            "An extraordinary 4.62/5 pattern across 1,652 votes supports chicken thigh, onion, carrot, potato, mild thick roux, rice, pickles, make-ahead value, and Japanese household comfort-food status.",
+        },
+        {
+          publisher: "Ministry of Agriculture, Forestry and Fisheries of Japan",
+          title: "Yokosuka Kaigun Curry",
+          url: "https://www.maff.go.jp/e/policies/market/k_ryouri/search_menu/1089/index.html",
+          rating: null,
+          ratingCount: null,
+          signal:
+            "Japan's official regional-cuisine record calls curry rice one of the country's most popular home dishes and confirms meat, onions, carrots, potatoes, curry powder, flour, and rice.",
+        },
+        {
+          publisher: "Japanese Cooking 101",
+          title: "Japanese Curry and Rice Recipe",
+          url: "https://www.japanesecooking101.com/curry-and-rice-recipe/",
+          rating: 5,
+          ratingCount: 6,
+          signal:
+            "A Japanese home-cooking source corroborates the thick mild sauce, chunky vegetables, rice, restrained Worcestershire and fruit accents, and accessible family-meal identity.",
+        },
+      ],
+      nonNegotiableTechniques: [
+        "Brown flour-and-butter roux before blooming Japanese curry powder.",
+        "Develop onions deeply and keep potato and carrot pieces intact.",
+        "Dissolve roux gradually, return fully cooked chicken, and stop at a glossy gravy consistency.",
+      ],
+      repeatedSuccessSignals: [
+        "Curry is mild, savory, gently sweet, and thick",
+        "Onions dissolve into the sauce while potatoes retain shape",
+        "Chicken remains tender at a safe endpoint",
+        "Rice and pickles keep the plate balanced",
+      ],
+      repeatedFailureRisks: [
+        "Pale roux tastes floury and lacks Japanese curry depth.",
+        "Adding roux directly in a lump creates dry pockets.",
+        "Hard boiling after thickening scorches the curry and breaks potatoes.",
+      ],
+      adaptationDecision:
+        "Translate the exceptionally popular chicken-curry pattern into a salt-controlled homemade roux while preserving the familiar mild flavor, chunky vegetables, rice, and pickle architecture that families recognize.",
+    },
+  },
+  {
+    rosterId: "DI159",
+    title: "Omurice",
+    category: "Dinner",
+    cuisine: "Japanese",
+    tier: "cuisine-anchor",
+    description:
+      "Savory ketchup chicken rice tucked beneath a tender, thin omelet, finished with a playful ribbon of ketchup for classic Japanese yōshoku comfort.",
+    yieldQuantity: 4,
+    yieldUnit: "servings",
+    prepMinutes: 15,
+    cookMinutes: 25,
+    inactiveMinutes: 0,
+    artworkIndex: 13,
+    ingredients: [
+      "1 pound boneless skinless chicken thighs, cut in 1/2-inch pieces",
+      "1 teaspoon kosher salt, divided",
+      "1/4 teaspoon black pepper",
+      "1 tablespoon unsalted butter, plus 2 teaspoons for eggs",
+      "1 tablespoon neutral oil, plus 2 teaspoons for eggs",
+      "1 small yellow onion, finely chopped",
+      "3/4 cup tomato ketchup, divided",
+      "4 cups cold cooked Japanese short-grain rice, grains loosened",
+      "1/2 cup frozen green peas, thawed",
+      "8 large eggs",
+      "2 tablespoons whole milk",
+      "2 tablespoons finely chopped flat-leaf parsley",
+    ],
+    instructions: [
+      "Season chicken with 1/2 teaspoon salt and pepper. Heat 1 tablespoon butter and 1 tablespoon oil in a wide skillet; cook chicken until browned and 165°F, then add onion and cook until translucent.",
+      "Push the chicken mixture aside and add 1/2 cup ketchup to the bare pan. Cook 30 seconds until darker and less raw-smelling, then fold in rice and peas. Fry until evenly red and steaming; season with 1/4 teaspoon salt and divide into four compact oval mounds on plates.",
+      "Whisk two eggs, 1/2 tablespoon milk, and a small pinch from the remaining salt for the first omelet. Heat an 8-inch nonstick skillet over medium with 1/2 teaspoon each butter and oil.",
+      "Pour in egg and rotate the pan into a thin round. Stir the center briefly, then stop while the base sets; cook until no liquid egg remains and the center reaches 160°F without browning, 45 to 60 seconds.",
+      "Slide the egg over one rice mound and tuck its edges underneath with a towel to form an oval. Repeat with remaining egg, milk, butter, oil, and salt; stripe each with the remaining ketchup and scatter parsley.",
+    ],
+    notes:
+      "Omurice—omelet rice—is Japanese yōshoku created from Western ingredients. The classic household form uses ketchup-seasoned chicken rice and a thin fully set egg wrapper. Modern restaurant versions may split open a runny omelet, but that showpiece technique is neither required nor preferable for this dependable family version.",
+    kitchenTestState: "desk-reviewed",
+    research: {
+      accessedAt: "2026-08-06",
+      sources: [
+        {
+          publisher: "Just One Cookbook",
+          title: "Omurice Omelette Rice",
+          url: "https://www.justonecookbook.com/omurice/",
+          rating: 4.65,
+          ratingCount: 79,
+          signal:
+            "A 4.65/5 Japanese-born developer pattern across 79 votes supports ketchup chicken rice, separately cooked soft thin egg, oval shaping, and the all-ages yōshoku comfort identity.",
+        },
+        {
+          publisher: "Kikkoman Corporation",
+          title: "Japanese Omelette Rice with Chicken Omurice",
+          url: "https://www.kikkoman.com/en/cookbook/recipe/00007328.html",
+          rating: null,
+          ratingCount: null,
+          signal:
+            "A Japanese seasoning authority corroborates small chicken and onion, ketchup cooked before rice, a separate thin omelet, soft wrapping, and ketchup finish.",
+        },
+        {
+          publisher: "Japanese Cooking 101",
+          title: "Omurice Recipe",
+          url: "https://japanesecooking101.com/omurice-recipe/",
+          rating: 5,
+          ratingCount: 2,
+          signal:
+            "A Japanese home-cooking source confirms omurice's century-old kid-friendly identity, chicken-butter-ketchup rice, peas, a crepe-like egg sheet, and classic rather than runny restaurant presentation.",
+        },
+      ],
+      nonNegotiableTechniques: [
+        "Cook ketchup briefly on the bare pan before mixing it with rice.",
+        "Make each omelet separately in a small nonstick skillet.",
+        "Verify chicken at 165°F and the classic fully set egg at 160°F.",
+      ],
+      repeatedSuccessSignals: [
+        "Rice is evenly seasoned and loose rather than wet",
+        "Chicken pieces are small and present in every portion",
+        "Egg is tender, thin, yellow, and unbrowned",
+        "The finished oval reads clearly as omelet rice",
+      ],
+      repeatedFailureRisks: [
+        "Adding cold ketchup directly to rice leaves a raw acidic taste.",
+        "Overloading one giant omelet makes wrapping unreliable.",
+        "High heat browns and toughens egg before it can drape.",
+      ],
+      adaptationDecision:
+        "Choose the broadly loved classic thin-wrapper style over the technically fragile runny showpiece, retain the high-rated ketchup-rice cues, and state complete chicken and egg endpoints for a repeatable household meal.",
+    },
+  },
+  {
+    rosterId: "DI160",
+    title: "Miso glazed black cod",
+    category: "Dinner",
+    cuisine: "Japanese",
+    tier: "cuisine-anchor",
+    description:
+      "Buttery black cod cured in sweet Kyoto-style miso, sake, and mirin for two days, then broiled until its lacquered surface caramelizes around tender flakes.",
+    yieldQuantity: 4,
+    yieldUnit: "servings",
+    prepMinutes: 15,
+    cookMinutes: 15,
+    inactiveMinutes: 2910,
+    artworkIndex: 13,
+    ingredients: [
+      "4 skin-on black cod or sablefish fillets, about 6 ounces each",
+      "1 teaspoon kosher salt",
+      "1/4 cup sake",
+      "1/4 cup mirin",
+      "1/2 cup Saikyo white miso",
+      "1 tablespoon sugar",
+      "1 teaspoon neutral oil",
+      "1 cup finely grated daikon, lightly drained",
+      "1 tablespoon rice vinegar",
+      "4 cups cooked Japanese short-grain rice",
+    ],
+    instructions: [
+      "Sprinkle fish on both sides with salt and refrigerate on a rack 30 minutes. Blot away drawn moisture thoroughly; this firms the flesh and prevents strong fish aroma from entering the marinade.",
+      "Bring sake and mirin to a boil for 30 seconds, cool completely, then whisk with Saikyo miso and sugar. Coat fish all over, cover, and refrigerate 48 hours.",
+      "Heat the broiler with a rack 6 inches away. Scrape—not rinse—nearly all marinade from the fish because the remaining miso can caramelize before the center cooks. Set skin-side down on an oiled foil-lined rack.",
+      "Broil 8 to 12 minutes, rotating the pan and shielding dark spots with foil as needed, until lacquered gold, opaque at the center, and 145°F. Rest 3 minutes.",
+      "Toss grated daikon with rice vinegar. Serve each fillet with rice and daikon beside it, keeping the caramelized surface uncovered and discarding the raw-fish marinade.",
+    ],
+    notes:
+      "Gindara saikyo-yaki is black cod marinated in the sweet white miso associated with Kyoto. Its defining quality comes from a 2–3 day cure, not a thick last-minute glaze. Black cod is sablefish, not true cod; its high fat content stays exceptionally succulent under the broiler.",
+    kitchenTestState: "desk-reviewed",
+    research: {
+      accessedAt: "2026-08-06",
+      sources: [
+        {
+          publisher: "Just One Cookbook",
+          title: "Miso Cod Black Cod with Miso",
+          url: "https://www.justonecookbook.com/black-cod-with-miso/",
+          rating: 4.79,
+          ratingCount: 466,
+          signal:
+            "A 4.79/5 Japanese-born developer pattern across 466 votes supports black cod, Saikyo miso, sake, mirin, salting and blotting, a 2–3 day cure, scraping the marinade, and careful broiling.",
+        },
+        {
+          publisher: "Kikkoman Corporation",
+          title: "Grilled Cod in Miso",
+          url: "https://www.kikkoman.com/en/cookbook/recipe/00000680.html",
+          rating: null,
+          ratingCount: null,
+          signal:
+            "A Japanese seasoning authority corroborates drying fish, fully coating it in a miso-mirin cure, refrigerating well ahead, wiping excess paste, grilling gold, and serving with grated daikon.",
+        },
+        {
+          publisher: "RecipeTin Japan",
+          title: "Nobu's Miso Marinated Black Cod Recipe",
+          url: "https://japan.recipetineats.com/nobus-miso-marinated-black-cod-recipe/",
+          rating: null,
+          ratingCount: null,
+          signal:
+            "A Japanese developer compares the globally popular version with traditional Saikyo-yaki and reinforces sweet white miso, sake, mirin, long marination, oily sablefish, and close heat control.",
+        },
+      ],
+      nonNegotiableTechniques: [
+        "Salt and blot black cod before applying a completely cooled Saikyo-miso marinade.",
+        "Cure for 48 hours and scrape away excess paste before broiling.",
+        "Watch sugar-rich miso continuously, shield dark spots, and stop fish at 145°F.",
+      ],
+      repeatedSuccessSignals: [
+        "Fish is buttery, moist, and clean-flavored",
+        "Miso seasoning penetrates rather than sitting as a thick paste",
+        "Surface is lacquered and caramelized without bitterness",
+        "Acidulated daikon cuts the rich sablefish",
+      ],
+      repeatedFailureRisks: [
+        "A short glaze cannot reproduce a two-day Saikyo cure.",
+        "Leaving thick miso on the fish burns before the center reaches 145°F.",
+        "Using ordinary lean cod changes both cooking tolerance and signature texture.",
+      ],
+      adaptationDecision:
+        "Preserve the highest-rated long-cure method and genuine sablefish identity, add an explicit 145°F endpoint and burn controls, and keep the recipe out of quick shelves through honest inactive time.",
+    },
+  },
+];

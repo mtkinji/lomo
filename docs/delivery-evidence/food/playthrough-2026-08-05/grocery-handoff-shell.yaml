@@ -1,0 +1,11 @@
+appId: com.andrewwatanabe.kwilt
+---
+- tapOn:
+    text: "OK"
+    optional: true
+- openLink: "kwilt://food/groceries/00000000-0000-0000-0000-000000000001/shop"
+- extendedWaitUntil:
+    visible: "Shop groceries"
+    timeout: 15000
+- assertVisible: "Take the reviewed list where you shop."
+- takeScreenshot: "food-grocery-handoff-no-list"

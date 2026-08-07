@@ -87,9 +87,38 @@ const GAMES_STACK_SCHEMA: ChildSchema = {
   fallback: 'GamesShelf',
 };
 
+const FOOD_STACK_SCHEMA: ChildSchema = {
+  allowed: [
+    'FoodHome',
+    'RecipeLibrary',
+    'EditorialMealCollection',
+    'RecipeEdit',
+    'RecipeHome',
+    'RecipeCooking',
+    'RecipeReadiness',
+    'RecipeCookMode',
+    'RecipeCookComplete',
+    'RecipeImportReview',
+    'NextMeals',
+    'MealPlanEditor',
+    'MealChoiceInvite',
+    'MealPlanFinalize',
+    'MealChoiceResponse',
+    'GroceryList',
+    'AlreadyHaveReview',
+    'GroceryItemEdit',
+    'GroceryHandoff',
+    'GrocerySavings',
+    'FoodStockReview',
+    'FoodScenarioReview',
+  ],
+  fallback: 'FoodHome',
+};
+
 const SETTINGS_STACK_SCHEMA: ChildSchema = {
   allowed: [
     'SettingsHome',
+    'SettingsMeals',
     'SettingsExplore',
     'SettingsGames',
     'SettingsAppearance',
@@ -137,6 +166,7 @@ const PRODUCTION_ROOT_SCHEMAS = {
   Money: MONEY_STACK_SCHEMA,
   Explore: EXPLORE_STACK_SCHEMA,
   Games: GAMES_STACK_SCHEMA,
+  Food: FOOD_STACK_SCHEMA,
   Settings: SETTINGS_STACK_SCHEMA,
 } satisfies Record<ProductionRootRouteName, ChildSchema | null>;
 
@@ -149,6 +179,7 @@ function childSchemaForRoute(routeName: string): ChildSchema | null {
   if (routeName === 'Money') return MONEY_STACK_SCHEMA;
   if (routeName === 'Explore') return EXPLORE_STACK_SCHEMA;
   if (routeName === 'Games') return GAMES_STACK_SCHEMA;
+  if (routeName === 'Food') return FOOD_STACK_SCHEMA;
   if (routeName === 'Settings') return SETTINGS_STACK_SCHEMA;
   return null;
 }

@@ -154,7 +154,10 @@ import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../service
 import { retryDomainPull } from '../../services/sync/domainSync';
 // (removed) in-list "AI pick / Quick add" offer now that Plan owns primary scheduling.
 import { PaywallContent } from '../paywall/PaywallDrawer';
-import { RESTING_COMPOSER_HORIZONTAL_INSET_PX } from '../../ui/layout/restingComposerMetrics';
+import {
+  RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+  RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+} from '../../ui/layout/restingComposerMetrics';
 import { useFloatingControlElevation } from './useFloatingControlElevation';
 import { StandaloneFocusExperience } from './StandaloneFocusExperience';
 import { useStandaloneFocusController } from './useStandaloneFocusController';
@@ -1346,10 +1349,9 @@ export function ActivitiesScreen() {
 
   // The Option G shell has no bottom nav. Keep the collapsed pill low, but
   // leave enough breathing room to follow the iPhone's bottom-corner curve.
-  const quickAddCompactBottomOffsetPx = spacing.xl + spacing.sm;
   const quickAddDockBottomOffsetPx = isKanbanLayout
     ? 0
-    : quickAddCompactBottomOffsetPx;
+    : RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX;
   const inventoryDockRightInsetPx = RESTING_COMPOSER_HORIZONTAL_INSET_PX;
   const quickAddDockRightInsetPx = inventoryDockRightInsetPx
     + (INVENTORY_DOCK_BUTTON_SIZE_PX * 2) + (INVENTORY_DOCK_BUTTON_GAP_PX * 2);

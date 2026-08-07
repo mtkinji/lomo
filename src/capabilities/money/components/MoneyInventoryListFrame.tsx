@@ -1,7 +1,11 @@
-import { Children, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, fonts, spacing, typography } from '../../../theme';
-import { Icon, type IconName } from '../../../ui/Icon';
+
+export {
+  InventoryControlGroup as MoneyInventoryControlGroup,
+  InventoryControlSurface as MoneyInventoryControlSurface,
+} from '../../../ui/InventoryControlGroup';
 
 export function MoneyInventoryListFrame({
   action,
@@ -44,32 +48,6 @@ export function MoneyInventoryListFrame({
   );
 }
 
-export function MoneyInventoryControlGroup({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  return (
-    <View style={[styles.controlGroup, style]}>
-      {Children.toArray(children).map((child, index) => (
-        <View key={index} style={styles.controlItem}>
-          {index > 0 ? <View style={styles.controlDivider} /> : null}
-          {child}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-export function MoneyInventoryControlSurface({ active = false, count = 0, iconName }: {
-  active?: boolean;
-  count?: number;
-  iconName: IconName;
-}) {
-  return (
-    <View style={[styles.controlSurface, active ? styles.controlSurfaceActive : null]}>
-      <Icon name={iconName} size={15} color={active ? colors.primaryForeground : colors.textPrimary} />
-      {count > 0 ? <Text style={styles.controlCount}>{count}</Text> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   frame: { gap: spacing.sm },
   header: { minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
@@ -82,10 +60,4 @@ const styles = StyleSheet.create({
   content: { minWidth: 0 },
   contentCards: { gap: spacing.sm },
   contentList: { gap: spacing.sm },
-  controlGroup: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.canvas },
-  controlItem: { flexDirection: 'row', alignItems: 'stretch' },
-  controlDivider: { width: 1, backgroundColor: colors.border },
-  controlSurface: { minWidth: 40, height: 34, paddingHorizontal: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: colors.canvas },
-  controlSurfaceActive: { backgroundColor: colors.pine700 },
-  controlCount: { fontSize: 12, lineHeight: 14, fontFamily: fonts.semibold, color: colors.primaryForeground, textAlign: 'center' },
 });

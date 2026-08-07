@@ -50,6 +50,18 @@ describe('linkingConfig', () => {
   });
 
   test.each([
+    ['food', 'RecipeLibrary', undefined],
+    ['food/recipe/recipe-1', 'RecipeCooking', { recipeId: 'recipe-1' }],
+    ['food/recipe/recipe-1/edit', 'RecipeEdit', { recipeId: 'recipe-1' }],
+    ['food/import', 'RecipeImportReview', undefined],
+  ] as const)('resolves Food path %s', (path, routeName, params) => {
+    const state = getStateFromPath(path, linkingConfig);
+    const leaf = getLeafRoute(state);
+    expect(leaf?.name).toBe(routeName);
+    expect(leaf?.params).toEqual(params);
+  });
+
+  test.each([
     ['games/timer', 'GamesTimer', undefined],
     ['games/tumble/farkle', 'GamesTumble', { mode: 'farkle' }],
     ['games/play/common-thread', 'GamesConnection', { gameId: 'common-thread' }],

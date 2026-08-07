@@ -48,6 +48,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
       { id: 'activity_areas', title: 'Areas', route: 'SettingsActivityAreas' },
       { id: 'plan_availability', title: 'Availability', route: 'SettingsPlanAvailability' },
       { id: 'plan_calendars', title: 'Calendars', route: 'SettingsPlanCalendars' },
+      { id: 'meals', title: 'Meals', route: 'SettingsMeals' },
     ],
   },
   {

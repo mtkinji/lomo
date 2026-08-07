@@ -1,0 +1,11 @@
+appId: com.andrewwatanabe.kwilt
+---
+- swipe:
+    start: 50%, 25%
+    end: 50%, 80%
+    duration: 600
+- swipe:
+    start: 50%, 25%
+    end: 50%, 80%
+    duration: 600
+- takeScreenshot: "food-recipe-save-error-revealed"

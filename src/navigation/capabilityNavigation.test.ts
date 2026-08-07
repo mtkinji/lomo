@@ -33,6 +33,9 @@ describe('resolveCapabilityNavigation', () => {
     ['money-accounts', { name: 'Money', params: { screen: 'MoneyAccounts' } }],
     ['explore', { name: 'Explore', params: { screen: 'ExploreMap' } }],
     ['games', { name: 'Games', params: { screen: 'GamesShelf' } }],
+    ['recipes', { name: 'Food', params: { screen: 'RecipeLibrary' } }],
+    ['meal-planning', { name: 'Food', params: { screen: 'NextMeals' } }],
+    ['groceries', { name: 'Food', params: { screen: 'GroceryList' } }],
   ] as const)('resolves %s through the existing host navigator', (id, expected) => {
     expect(resolveCapabilityNavigation(id)).toEqual(expected);
   });

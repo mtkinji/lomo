@@ -749,7 +749,7 @@ interface AppState {
    * and the host reads these flags to drive visibility + pre-selected scope.
    *
    * `initialScope`:
-   * - `'activities' | 'goals' | 'arcs' | 'chapters'` seeds the chip bar so
+   * - `'activities' | 'goals' | 'arcs' | 'chapters' | 'recipes'` seeds the chip bar so
    *   that only the requested scope is selected on open (used when the
    *   caller is a scope-specific entry point like the Activities tab FAB).
    *   The chip bar remains visible and users can broaden their search by
@@ -758,7 +758,7 @@ interface AppState {
    *   scopes on if nothing is selected).
    */
   globalSearchOpen: boolean;
-  globalSearchInitialScope: 'activities' | 'goals' | 'arcs' | 'chapters' | null;
+  globalSearchInitialScope: 'activities' | 'goals' | 'arcs' | 'chapters' | 'recipes' | null;
   /**
    * Selected object-kind scopes for the global search drawer. Backed by a
    * plain object keyed by scope for persistence-friendly serialization.
@@ -769,6 +769,7 @@ interface AppState {
     goals: boolean;
     arcs: boolean;
     chapters: boolean;
+    recipes: boolean;
   };
   /**
    * Global replacement for `activitySearchIncludeCompleted`. Applied per-kind
@@ -1631,6 +1632,7 @@ export const useAppStore = create<AppState>()(
         goals: true,
         arcs: true,
         chapters: true,
+        recipes: true,
       },
       globalSearchIncludeCompleted: false,
       globalSearchShowMeta: false,
@@ -2924,17 +2926,19 @@ export const useAppStore = create<AppState>()(
               goals: scope === 'goals',
               arcs: scope === 'arcs',
               chapters: scope === 'chapters',
+              recipes: scope === 'recipes',
             };
           } else {
             const current = state.globalSearchScopes;
             const anyOn =
-              current.activities || current.goals || current.arcs || current.chapters;
+              current.activities || current.goals || current.arcs || current.chapters || current.recipes;
             if (!anyOn) {
               next.globalSearchScopes = {
                 activities: true,
                 goals: true,
                 arcs: true,
                 chapters: true,
+                recipes: true,
               };
             }
           }
@@ -3437,6 +3441,7 @@ export const useAppStore = create<AppState>()(
             goals: true,
             arcs: true,
             chapters: true,
+            recipes: true,
           };
         } else {
           const scopes = anyState.globalSearchScopes;
@@ -3444,6 +3449,7 @@ export const useAppStore = create<AppState>()(
           if (typeof scopes.goals !== 'boolean') scopes.goals = true;
           if (typeof scopes.arcs !== 'boolean') scopes.arcs = true;
           if (typeof scopes.chapters !== 'boolean') scopes.chapters = true;
+          if (typeof scopes.recipes !== 'boolean') scopes.recipes = true;
         }
         if (typeof anyState.globalSearchIncludeCompleted !== 'boolean') {
           anyState.globalSearchIncludeCompleted = Boolean(

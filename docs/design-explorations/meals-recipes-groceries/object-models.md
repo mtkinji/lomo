@@ -42,6 +42,9 @@ Public distribution aggregate
 
 Planning and execution
   MealPlan -> immutable RecipeVersion snapshots
+  Money -> authorized FoodBudgetEnvelope read projection
+  Groceries -> FoodStockObservation + StoreOpportunity
+  MealPlan -> FoodScenario proposals
   GroceryList -> ingredient provenance -> product/price/offer evidence
 ```
 
@@ -287,6 +290,92 @@ finalize a plan until the appropriate capability operation is approved.
 organizers. AI receives only the minimum permitted response evidence and must
 not expose one participant's private reasoning to another.
 
+## Budget, stock, and adaptive scenarios
+
+Thrift changes the inputs and order of planning, but it does not justify a new
+top-level capability or a duplicate budget. Money remains authoritative for the
+monthly category plan and actual spending. Groceries owns observations about
+food on hand, store opportunities, trip targets, basket estimates, and receipt
+evidence. Meal Planning owns the proposed or accepted change to meals.
+
+### `FoodBudgetEnvelope`
+
+`FoodBudgetEnvelope` is a purpose-limited read projection from Money, not a Food
+record that can drift from financial truth. It pins the Money plan version,
+selected Food category ids, period, planned/spent/remaining cents, optional
+forecast range, freshness, and observation time. Food cannot mutate it.
+
+A `FoodCycleSpendingConstraint` stores the user-owned target for one planning or
+shopping cycle. It records whether the amount was entered directly or prepared
+from a Money envelope and preserves the accepted assumptions. The trip target
+does not alter the Money budget. UI and AI must keep these states distinct:
+
+- monthly Food category room;
+- this-cycle trip target;
+- basket estimate range and price coverage;
+- receipt/order paid total;
+- receipt-proven comparison with a preserved baseline;
+- cash safe until payday, which requires separate Money authority and evidence.
+
+### `FoodStockObservation`
+
+Stock is represented as time-bound evidence, not a magical exact pantry:
+
+```ts
+type FoodStockObservation = {
+  id: string;
+  ownerPersonId: string;
+  ingredientConcept: string;
+  quantityMin: number | null;
+  quantityMax: number | null;
+  unit: string | null;
+  location: 'pantry' | 'fridge' | 'freezer' | 'other' | null;
+  state: 'confirmed' | 'likely' | 'check_first' | 'depleted';
+  source: 'already_have' | 'manual' | 'photo' | 'voice' | 'receipt' | 'order';
+  observedAt: string;
+  confidence: number;
+  supersedesObservationId: string | null;
+};
+```
+
+An observation may be superseded, corrected, or marked depleted. Confidence may
+decay by evidence type and food class, but age alone cannot assert that food is
+safe, unsafe, present, or consumed. Receipt evidence can support **Likely on
+hand**, not exact current inventory. Recipe retrieval may use likely evidence
+only if it exposes that confidence and asks for confirmation when the decision
+depends on it.
+
+### `StoreOpportunity`
+
+A store opportunity is temporary evidence from an authorized provider, barcode,
+price-tag photo, shared URL, or user voice. It records retailer/location when
+known, product/concept, package quantity, observed and comparable unit price,
+source artifact, confidence, observed time, and expiration. It is neither a
+GroceryItem nor a purchase.
+
+### `FoodScenario`
+
+A scenario compares one versioned plan/basket baseline with a proposed set of
+typed Meal Planning and Grocery operations. It records constraint and opportunity
+references, changed meals, changed GroceryItems, estimated basket range, price
+coverage, evidence time, expected source versions, and prepared/accepted/
+rejected/expired state.
+
+Scenario invariants:
+
+- At most one accepted scenario advances a given source version.
+- Accepting is an atomic user decision but produces separate capability-owned
+  operations and receipts; partial failure has an explicit recovery record.
+- A changed price or stock observation cannot silently rewrite a finalized plan
+  or reviewed GroceryList.
+- A nominal discount is insufficient. Ranking accounts for comparable quantity,
+  likely household use, existing stock, storage, expected waste, trip target,
+  extra stops, activation work, and family constraints.
+- “I bought it” may create purchase and likely-stock evidence, but does not
+  imply the household accepted a meal-plan substitution or consumed the item.
+- Estimate history is immutable. New price evidence creates a new scenario; it
+  does not rewrite the baseline used for a realized-savings claim.
+
 ## Groceries, products, and economic evidence
 
 `GroceryList` versions retain a source reference for every derived item:
@@ -324,6 +413,14 @@ model-generated statement can upgrade `observed`, `eligible`, `activated`,
   with evidence references and the effective version.
 - No retailer or savings state advances without provider or receipt evidence
   at the required authority level.
+- Food cannot mutate or restate a Money budget from its cached projection.
+- Monthly category room, trip target, basket estimate, paid total, and realized
+  savings cannot be represented by one overloaded amount or status.
+- A likely stock observation cannot satisfy a decision that requires confirmed
+  stock without visible confirmation.
+- StoreOpportunity capture cannot mutate a plan, list, stock, or Money record.
+- Accepting a FoodScenario rejects stale source versions and emits one receipt
+  from every capability operation it applies.
 - Account switching clears private cached food projections before the next
   identity renders.
 

@@ -11,7 +11,7 @@ serves:
 briefs:
   - global-search-findability
 status: shipped
-last_reviewed: 2026-05-09
+last_reviewed: 2026-08-06
 ---
 
 # search
@@ -20,7 +20,9 @@ Helps Marcus find captured meaning and relevant commitments without manually mai
 
 ## Surfaces in this folder
 
-- `GlobalSearchDrawer.tsx` - global search entry point.
+- `GlobalSearchDrawer.tsx` - global search entry point for To-dos, Goals, Arcs,
+  Chapters, and Recipes. Capability inventories can open it pre-scoped to their
+  object type; Recipe results retain food imagery and cooking metadata.
 - `searchAlgorithms.ts` - ranking and matching logic for local search.
 
 ## Notes

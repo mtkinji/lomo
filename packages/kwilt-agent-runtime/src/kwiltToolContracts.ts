@@ -1,4 +1,5 @@
 import type { AgentToolDefinition } from './types.ts';
+import { FOOD_TOOL_CONTRACTS } from './foodOperationContracts.ts';
 
 const OBJECT_SCHEMA = { type: 'object', properties: {}, additionalProperties: false } as const;
 const ACTIVITY_FIELD_PROPERTIES = {
@@ -215,6 +216,7 @@ const SCREEN_TIME_OVERRIDE_PROPERTIES = {
 } as const;
 
 export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
+  ...FOOD_TOOL_CONTRACTS,
   {
     id: 'money.read', version: 1, capabilityId: 'money',
     purpose: 'Read the current plan-versus-income-limit answer and current-month Money aggregates without exposing merchant or account details.',

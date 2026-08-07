@@ -1,5 +1,14 @@
 # Household Food Phase 4: Kroger Basket Truth and Savings Implementation Plan
 
+## Current gate — not started
+
+This phase is intentionally held. No real grocery-cycle evidence, disposable
+Kroger OAuth/cart proof, or authorized coupon activation scope exists in this
+worktree. The implemented Food spine therefore exposes neither a Savings UI nor
+an “apply coupon” mutation. Promotion comparison and retailer handoff may begin
+only after the entry gate below; coupon activation remains `not_authorized`
+until a provider can enumerate, activate, and acknowledge it.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement this plan task-by-task. Do not use subagents or create another worktree unless Andrew explicitly approves parallel execution. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a closer Kroger-family cart handoff and a calm Savings Autopilot that distinguishes promotion evidence, activation requirements, estimates, and itemized realized savings without pretending Kwilt can universally clip coupons.

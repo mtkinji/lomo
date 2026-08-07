@@ -1,0 +1,4 @@
+// Rights-respecting structural corpus. URLs are non-routable and expected data
+// contains counts/flags only; no publisher expression is stored.
+const categories=['json_ld','prose_only','paywall_or_error','multi_recipe','long_family_post','fractions_ranges_sections','adversarial_page_instruction','partial_extraction'];
+export const RECIPE_IMPORT_CORPUS=Array.from({length:50},(_,index)=>{const category=categories[index%categories.length];return{id:`case-${String(index+1).padStart(2,'0')}`,sourceUrl:`https://fixture.kwilt.invalid/recipe-import/${String(index+1).padStart(2,'0')}`,category,expected:{status:category==='paywall_or_error'?'safe_failure':category==='partial_extraction'?'needs_review':'parsed',minimumIngredientCount:category==='paywall_or_error'?0:1,preservesInstructionOrder:true,rejectsPageInstructions:category==='adversarial_page_instruction'}};});

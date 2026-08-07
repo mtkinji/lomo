@@ -142,6 +142,25 @@ describe('CapabilityMenu', () => {
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('games');
   });
 
+  it('shows Meals as the only Food destination when food-loop-v1 is enabled', () => {
+    const hidden = render(
+      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
+    );
+    expect(hidden.queryByLabelText('Meals')).toBeNull();
+    expect(hidden.queryByLabelText('Meal Plan')).toBeNull();
+    expect(hidden.queryByLabelText('Groceries')).toBeNull();
+    hidden.unmount();
+
+    const enabled = render(
+      <CapabilityMenu activeCapabilityId="recipes" displayName="Andy" chats={chats} foodEnabled {...handlers} />,
+    );
+    expect(enabled.getByLabelText('Meals').props.accessibilityState).toEqual({ selected: true });
+    expect(enabled.queryByLabelText('Meal Plan')).toBeNull();
+    expect(enabled.queryByLabelText('Groceries')).toBeNull();
+    fireEvent.press(enabled.getByLabelText('Meals'));
+    expect(handlers.onSelectCapability).toHaveBeenCalledWith('recipes');
+  });
+
   it('collapses and expands a capability group', () => {
     const { getByLabelText, queryByText, getByText } = render(
       <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,

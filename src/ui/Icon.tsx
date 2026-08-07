@@ -109,6 +109,7 @@ import TrendingDown from 'lucide-react-native/dist/cjs/icons/trending-down';
 import TrendingUp from 'lucide-react-native/dist/cjs/icons/trending-up';
 import TriangleAlert from 'lucide-react-native/dist/cjs/icons/triangle-alert';
 import Underline from 'lucide-react-native/dist/cjs/icons/underline';
+import Utensils from 'lucide-react-native/dist/cjs/icons/utensils';
 import User from 'lucide-react-native/dist/cjs/icons/user';
 import UserMinus from 'lucide-react-native/dist/cjs/icons/user-minus';
 import UserPlus from 'lucide-react-native/dist/cjs/icons/user-plus';
@@ -206,6 +207,7 @@ const iconMap = {
   sparkles: { library: 'lucide', icon: Sparkles },
   plan: { library: 'lucide', icon: Calendar },
   navPlan: { library: 'lucide', icon: Calendar },
+  meal: { library: 'lucide', icon: Utensils },
   focus: { library: 'kwilt', name: 'focus' },
   sendTo: { library: 'lucide', icon: Send },
   sendToCalendar: { library: 'kwilt', name: 'sendToCalendar' },

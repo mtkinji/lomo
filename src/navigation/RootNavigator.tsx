@@ -44,6 +44,7 @@ import { SharedHomeScreen } from '../features/shared-home/SharedHomeScreen';
 import type { UnifiedChatLaunchContext, UnifiedChatRouteParams } from '../features/unifiedChat/launchContext';
 import { deriveCapabilityAgentContext, resolveCapabilityAgentReturn } from '../features/ai/capabilityAgentContext';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
+import { MealsSettingsScreen } from '../features/account/MealsSettingsScreen';
 import { HouseholdSettingsScreen } from '../features/household/HouseholdSettingsScreen';
 import { FamilyScreenTimeLearningScreen } from '../features/household/screenTime/FamilyScreenTimeLearningScreen';
 import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
@@ -143,6 +144,7 @@ import type { ExploreStackParamList } from '../capabilities/explore/navigation/t
 import { GamesNavigator } from '../capabilities/games/navigation/GamesNavigator';
 import { GamesPlayerSettingsScreen } from '../capabilities/games/settings/GamesPlayerSettingsScreen';
 import type { GamesStackParamList } from '../capabilities/games/navigation/types';
+import { FoodNavigator, type FoodStackParamList } from '../features/household-food/FoodNavigator';
 import { ExploreSettingsScreen } from '../capabilities/explore/screens/ExploreSettingsScreen';
 import { useFeatureFlag } from '../services/analytics/useFeatureFlag';
 
@@ -159,6 +161,7 @@ export type RootDrawerParamList = {
   Money: NavigatorScreenParams<MoneyStackParamList> | undefined;
   Explore: NavigatorScreenParams<ExploreStackParamList> | undefined;
   Games: NavigatorScreenParams<GamesStackParamList> | undefined;
+  Food: NavigatorScreenParams<FoodStackParamList> | undefined;
   /**
    * Hidden (no nav surface entry). Kept to preserve `kwilt://agent` deep links and
    * allow programmatic launches even though the "Agent" tab has been removed.
@@ -336,6 +339,7 @@ export type SettingsStackParamList = {
   SettingsHome: undefined;
   SettingsExplore: { entrySurface?: 'explore-map' } | undefined;
   SettingsGames: undefined;
+  SettingsMeals: undefined;
   SettingsAppearance: undefined;
   SettingsProfile: { openAccountDeletion?: boolean } | undefined;
   SettingsAiModel: undefined;
@@ -745,6 +749,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               component={GamesCapabilityHost}
               options={{ title: 'Games', drawerItemStyle: { display: 'none' } }}
             />
+            <Drawer.Screen
+              name="Food"
+              component={FoodCapabilityHost}
+              options={{ title: 'Food', drawerItemStyle: { display: 'none' } }}
+            />
             {showDevTools ? (
               <>
                 <Drawer.Screen
@@ -961,6 +970,14 @@ function GamesCapabilityHost() {
   );
 }
 
+function FoodCapabilityHost() {
+  return (
+    <CapabilityShellProvider>
+      <FoodNavigator />
+    </CapabilityShellProvider>
+  );
+}
+
 function SharedHomeCapabilityHost() {
   return (
     <CapabilityShellProvider>
@@ -989,6 +1006,7 @@ function SettingsStackNavigator() {
   return (
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
       <SettingsStack.Screen name="SettingsHome" component={SettingsHomeScreen} />
+      <SettingsStack.Screen name="SettingsMeals" component={MealsSettingsScreen} />
       <SettingsStack.Screen name="SettingsExplore" component={ExploreSettingsScreen} />
       <SettingsStack.Screen name="SettingsGames" component={GamesPlayerSettingsScreen} />
       <SettingsStack.Screen
@@ -1117,6 +1135,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const menuOpen = useCapabilityMenuOpen();
   const exploreEnabled = useFeatureFlag('explore-capability', __DEV__);
   const sharedHomeEnabled = useFeatureFlag('shared-home-v1', false);
+  const foodEnabled = useFeatureFlag('food-loop-v1', __DEV__);
   const chatRepository = useMemo(() => createUnifiedChatRepository(), []);
   const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);
   const [chatsLoading, setChatsLoading] = useState(false);
@@ -1303,6 +1322,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           coverMenu();
         }}
         exploreEnabled={exploreEnabled}
+        foodEnabled={foodEnabled}
       />
     </View>
   );

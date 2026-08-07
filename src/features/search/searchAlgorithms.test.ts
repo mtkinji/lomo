@@ -1,6 +1,7 @@
 import type { Arc, Goal } from '../../domain/types';
 import type { ChapterRow } from '../../services/chapters';
 import {
+  ALL_GLOBAL_SEARCH_SCOPES,
   flattenChapterNarrative,
   getRecentArcs,
   getRecentChapters,
@@ -9,6 +10,12 @@ import {
   searchChapters,
   searchGoals,
 } from './searchAlgorithms';
+
+describe('global search scopes', () => {
+  test('includes Recipes as a first-class searchable object', () => {
+    expect(ALL_GLOBAL_SEARCH_SCOPES).toContain('recipes');
+  });
+});
 
 function makeArc(overrides: Partial<Arc>): Arc {
   const nowIso = new Date().toISOString();

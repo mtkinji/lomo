@@ -1,4 +1,4 @@
-import { Easing, FadeInDown, FadeOutUp, ReduceMotion } from 'react-native-reanimated';
+import { Easing, FadeInDown, FadeInUp, FadeOutDown, FadeOutUp, ReduceMotion } from 'react-native-reanimated';
 
 /**
  * Central motion tokens for small overlays (menus, tiny popovers, etc.).
@@ -15,5 +15,12 @@ export const motion = {
       .easing(Easing.out(Easing.quad))
       .reduceMotion(ReduceMotion.System),
   },
+  tray: {
+    entering: FadeInUp.duration(260)
+      .easing(Easing.out(Easing.quad))
+      .reduceMotion(ReduceMotion.System),
+    exiting: FadeOutDown.duration(150)
+      .easing(Easing.in(Easing.quad))
+      .reduceMotion(ReduceMotion.System),
+  },
 } as const;
-

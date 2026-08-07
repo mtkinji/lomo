@@ -213,6 +213,7 @@ export function ActivityDetailRefresh(props: any) {
     bottomFadeHeightPx,
     safeAreaTopInsetPx,
     pageGutterX,
+    actionCardElement,
   } = props;
 
   // Check if the activity's due date is today (for visual emphasis)
@@ -961,6 +962,8 @@ export function ActivityDetailRefresh(props: any) {
             })()}
           </View>
         </View>
+
+        {actionCardElement ? <View style={styles.section}>{actionCardElement}</View> : null}
 
         {/* Steps bundle (completion moved to header) */}
         <View style={styles.section}>

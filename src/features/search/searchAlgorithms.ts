@@ -261,13 +261,14 @@ export function getRecentChapters({
 
 // ---------------- Unified helpers ----------------
 
-export type GlobalSearchScope = 'activities' | 'goals' | 'arcs' | 'chapters';
+export type GlobalSearchScope = 'activities' | 'goals' | 'arcs' | 'chapters' | 'recipes';
 
 export const ALL_GLOBAL_SEARCH_SCOPES: readonly GlobalSearchScope[] = [
   'activities',
   'goals',
   'arcs',
   'chapters',
+  'recipes',
 ] as const;
 
 /**

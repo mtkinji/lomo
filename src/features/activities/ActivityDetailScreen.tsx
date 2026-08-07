@@ -44,7 +44,7 @@ import type {
   ActivitiesStackParamList,
 } from '../../navigation/RootNavigator';
 import type { ActivityDetailRouteParams } from '../../navigation/routeParams';
-import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { navigateWhenReady, rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { parseLocalCalendarDate } from '../../services/plan/planDates';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { VStack, HStack, Input, ThreeColumnRow, Combobox, KeyboardAwareScrollView } from '../../ui/primitives';
@@ -150,6 +150,15 @@ import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
 import { OpportunityCard } from '../../ui/OpportunityCard';
 import { ActivityNextActionInlineContent } from './ActivityNextActionDock';
+import { ActivityActionCard } from './actionCards/ActivityActionCard';
+import { useActivityActionCard } from './actionCards/useActivityActionCard';
+import { ActivityActionCardRegistry } from './actionCards/activityActionCardRegistry';
+import { createGroceryActivityCardProvider } from '../../capabilities/groceries/activity/groceryActivityCardProvider';
+import { createGroceryRepository } from '../../capabilities/groceries/data/groceryRepository';
+import { exportGroceryMarkdown } from '../../capabilities/groceries/groceryExport';
+import { createMealPlanningActivityCardProvider } from '../../capabilities/meal-planning/activity/mealPlanningActivityCardProvider';
+import { createMealPlanningRepository } from '../../capabilities/meal-planning/data/mealPlanningRepository';
+import { screenTimeFocusSetupReturnTarget } from './actionCards/screenTimeActivityCardProvider';
 import {
   ACTIVITY_NEXT_BEST_ACTION_MENU_ORDER,
   ACTIVITY_NEXT_BEST_ACTIONS,
@@ -237,6 +246,7 @@ export function ActivityDetailScreen() {
   const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
   const abHeaderV2Enabled = useFeatureFlag('object_detail_header_v2', false);
+  const actionCardsEnabled = useFeatureFlag('activity-context-action-v1', __DEV__);
   const headerV2Enabled = devHeaderV2Enabled || abHeaderV2Enabled;
   // Activity detail uses the refresh layout only (legacy implementation removed).
   const addActivity = useAppStore((state) => state.addActivity);
@@ -287,6 +297,79 @@ export function ActivityDetailScreen() {
     () => activities.find((item) => item.id === activityId),
     [activities, activityId],
   );
+  const actionCardViewerContext = useMemo(() => activity ? ({
+    activityId: activity.id,
+    viewerPersonId: userProfile?.id ?? 'local-person',
+  }) : null, [activity, userProfile?.id]);
+  const activityActionCardRegistry = useMemo(() => {
+    const groceryRepository = createGroceryRepository();
+    const mealPlanningRepository = createMealPlanningRepository();
+    return new ActivityActionCardRegistry([createGroceryActivityCardProvider({
+      resolve: async (listId) => {
+        try { return await groceryRepository.resolveActivity(listId); }
+        catch { return { state: 'disconnected', handoffState: null, expiresAt: null }; }
+      },
+      navigate: (target) => { navigateWhenReady('Food', { screen: target.screen, params: target.params }); },
+      copy: async (listId) => {
+        const list = (await groceryRepository.list()).find((candidate) => candidate.id === listId);
+        if (!list) throw new Error('grocery_list_not_found');
+        await Clipboard.setStringAsync(exportGroceryMarkdown(list));
+      },
+    }), createMealPlanningActivityCardProvider({
+      resolve: async (resourceRef, projectionKind) => {
+        try {
+          if (projectionKind === 'participant_round') {
+            const projection = await mealPlanningRepository.projection(resourceRef) as { state?: string; responseCount?: number | null };
+            return { state: projection.state === 'open' ? 'open' : 'closed', responseCount: projection.responseCount ?? 0 };
+          }
+          const plans = await mealPlanningRepository.list();
+          const plan = plans.find((candidate) => candidate.householdId === resourceRef && candidate.state !== 'archived');
+          return plan && plan.state !== 'archived' ? { state: plan.state, responseCount: 0 } : { state: 'unavailable', responseCount: 0 };
+        } catch { return { state: 'unavailable', responseCount: 0 }; }
+      },
+      navigate: (target) => { navigateWhenReady('Food', { screen: target.screen, params: target.params }); },
+    })]);
+  }, []);
+  const activityActionCard = useActivityActionCard(
+    actionCardsEnabled ? activity?.actionCardBinding : null,
+    actionCardViewerContext,
+    activityActionCardRegistry,
+  );
+  const viewedActionCardRef = useRef<string | null>(null);
+  useEffect(() => {
+    const projection = activityActionCard.projection;
+    if (!activity?.actionCardBinding || !projection) return;
+    const key = `${activity.id}:${activity.actionCardBinding.providerId}:${activity.actionCardBinding.projectionKind}:${projection.state}`;
+    if (viewedActionCardRef.current === key) return;
+    viewedActionCardRef.current = key;
+    capture(AnalyticsEvent.ActivityContextCardViewed, {
+      provider: activity.actionCardBinding.providerId,
+      projection_kind: activity.actionCardBinding.projectionKind,
+      state: projection.state,
+    });
+  }, [activity, activityActionCard.projection, capture]);
+  const invokeActivityActionCard = useCallback(async (actionId: string) => {
+    const binding = activity?.actionCardBinding;
+    if (!binding) return;
+    const startedAt = Date.now();
+    capture(AnalyticsEvent.ActivityContextCardActionInvoked, {
+      provider: binding.providerId, projection_kind: binding.projectionKind, action_id: actionId,
+    });
+    try {
+      const receipt = await activityActionCard.invoke(actionId);
+      const latencyMs = Date.now() - startedAt;
+      capture(AnalyticsEvent.ActivityContextCardOutcome, {
+        provider: binding.providerId, projection_kind: binding.projectionKind, action_id: actionId,
+        outcome: receipt?.outcome ?? 'ignored',
+        latency_bucket: latencyMs < 500 ? 'under_500ms' : latencyMs < 2000 ? '500ms_to_2s' : 'over_2s',
+      });
+    } catch {
+      capture(AnalyticsEvent.ActivityContextCardOutcome, {
+        provider: binding.providerId, projection_kind: binding.projectionKind, action_id: actionId,
+        outcome: 'failed', latency_bucket: 'unknown',
+      });
+    }
+  }, [activity?.actionCardBinding, activityActionCard, capture]);
   const normalizedScreenTimeProtection = useMemo(
     () => normalizeScreenTimeProtectionSettings(screenTimeProtection),
     [screenTimeProtection],
@@ -740,14 +823,7 @@ export function ActivityDetailScreen() {
           surface: 'focus_drawer',
           activity_id: activity?.id,
         });
-        rootNavigationRef.navigate('Settings', {
-          screen: 'SettingsScreenTimeProtection',
-          params: {
-            setupIntent: 'focus_sessions',
-            entrySurface: 'focus_drawer',
-            returnToActivityId: activity?.id,
-          },
-        } as any);
+        rootNavigationRef.navigate('Settings', screenTimeFocusSetupReturnTarget(activity?.id ?? '') as any);
       }}
       secondaryCtaLabel="Not now"
       secondaryCtaVariant="ghost"
@@ -2562,6 +2638,15 @@ export function ActivityDetailScreen() {
               appShellTopInsetPx={0}
               safeAreaTopInsetPx={insets.top}
               pageGutterX={spacing.xl}
+              actionCardElement={actionCardsEnabled && activity?.actionCardBinding ? (
+                <ActivityActionCard
+                  projection={activityActionCard.projection}
+                  loading={activityActionCard.loading}
+                  invoking={activityActionCard.invoking}
+                  onInvoke={(actionId) => { void invokeActivityActionCard(actionId); }}
+                  onRetry={activityActionCard.retry}
+                />
+              ) : null}
               bottomFadeHeightPx={bottomFadeHeightPx}
               />
               {!isKeyboardVisible ? (

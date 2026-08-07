@@ -5,6 +5,8 @@ import { Text } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
 import { useWorkflowRuntime } from './WorkflowRuntimeContext';
 import { useShareIntentStore } from '../../store/useShareIntentStore';
+import { recipeSourceFromSharePayload } from '../../store/useShareIntentStore';
+import { navigateWhenReady } from '../../navigation/rootNavigationRef';
 
 type CreateKind = 'arc' | 'goal' | 'activity';
 
@@ -24,6 +26,7 @@ export function ShareIntakeFlow() {
   const payload = useShareIntentStore((s) => s.payload);
 
   const preview = useMemo(() => summarizeShare(payload), [payload]);
+  const recipeSource = useMemo(() => recipeSourceFromSharePayload(payload), [payload]);
 
   const choose = (kinds: CreateKind[]) => {
     workflowRuntime?.completeStep('intent_pick', {
@@ -49,6 +52,11 @@ export function ShareIntakeFlow() {
         </Button>
       </View>
       <View style={styles.secondaryRow}>
+        {recipeSource ? (
+          <Button variant="outline" onPress={() => navigateWhenReady('Food' as never, { screen: 'RecipeImportReview' } as never)} style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Import as recipe</Text>
+          </Button>
+        ) : null}
         <Button variant="outline" onPress={() => choose(['arc', 'goal', 'activity'])} style={styles.secondaryButton}>
           <Text style={styles.secondaryButtonText}>Create all (Arc + Goal + To-dos)</Text>
         </Button>
@@ -99,5 +107,4 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
   },
 });
-
 

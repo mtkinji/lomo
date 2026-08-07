@@ -18,7 +18,7 @@ describe('Goals inventory contextual Chat', () => {
     expect(source).toContain('accessibilityHint="Opens Chat with the current Goals context"');
     expect(source).toContain('<FloatingControlSurface');
     expect(source).toContain('<Icon name="navAiGuide" size={19}');
-    expect(source).toContain("import { RESTING_COMPOSER_HORIZONTAL_INSET_PX } from '../../ui/layout/restingComposerMetrics'");
     expect(source).toContain('right: RESTING_COMPOSER_HORIZONTAL_INSET_PX');
+    expect(source).toContain('bottom: RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX');
   });
 });

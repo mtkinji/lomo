@@ -14,7 +14,7 @@ export type HouseholdInvitationPreview = {
   role: HouseholdInvitationRole;
   expiresAt: string;
 };
-export type ChildCapabilityId = 'todos' | 'screen-time';
+export type ChildCapabilityId = 'todos' | 'screen-time' | 'meal-planning';
 export type ChildCapabilityState =
   | 'inactive'
   | 'pending_setup'
@@ -93,7 +93,7 @@ function parseSnapshot(value: unknown): HouseholdSnapshot {
   const activationsValid = Array.isArray(candidate.activations) && candidate.activations.every((activation) => (
     activation != null
     && isString(activation.childMembershipId)
-    && ['todos', 'screen-time'].includes(activation.capabilityId)
+    && ['todos', 'screen-time', 'meal-planning'].includes(activation.capabilityId)
     && ['inactive', 'pending_setup', 'active', 'pending_cleanup', 'blocked'].includes(activation.state)
   ));
   const grantsValid = Array.isArray(candidate.grants) && candidate.grants.every((grant) => (

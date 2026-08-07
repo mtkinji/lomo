@@ -1,6 +1,7 @@
 import type { AgentToolProvider } from './types.ts';
 import { defineCapabilityManifest, type CapabilityManifestEntry } from './capabilityManifest.ts';
 import { KWILT_TOOL_CONTRACTS } from './kwiltToolContracts.ts';
+import { FOOD_OPERATION_CONTRACTS } from './foodOperationContracts.ts';
 
 export type KwiltOperationOwner =
   | 'general'
@@ -18,7 +19,11 @@ export type KwiltOperationOwner =
   | 'screenTime'
   | 'notifications'
   | 'navigation'
-  | 'channels';
+  | 'channels'
+  | 'recipes'
+  | 'meal_planning'
+  | 'groceries'
+  | 'savings';
 
 export type ChatCapabilityCoverageState =
   | 'live'
@@ -69,10 +74,15 @@ function ownerForOperation(id: string): KwiltOperationOwner {
   if (id.startsWith('screen_time.')) return 'screenTime';
   if (id.startsWith('search.')) return 'navigation';
   if (id.startsWith('channel.')) return 'channels';
+  if (id.startsWith('receipt.')) return 'groceries';
+  if (id.startsWith('food_budget.')) return 'savings';
+  if (id.startsWith('food_stock.') || id.startsWith('store_opportunity.') || id.startsWith('food_scenario.')) return 'groceries';
+  if (id.startsWith('cook_session.')) return 'recipes';
   const owner = id.split('.')[0];
   if (owner === 'general' || owner === 'relationships' || owner === 'profile' || owner === 'arcs' ||
       owner === 'goals' || owner === 'plan' || owner === 'chapters' || owner === 'money' || owner === 'explore' || owner === 'games' || owner === 'account' ||
-      owner === 'notifications') {
+      owner === 'notifications' || owner === 'recipes' || owner === 'meal_planning' ||
+      owner === 'groceries' || owner === 'savings') {
     return owner;
   }
   throw new Error(`Unknown Kwilt capability owner for operation: ${id}`);
@@ -312,6 +322,22 @@ const relationshipProof = [
   'scripts/unified-chat-migration-contract.test.mjs',
 ] as const;
 
+function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): ChatCapabilityCoverageRow {
+  const row = {
+    id: contract.id,
+    providers: contract.providers,
+    consequence: contract.consequence,
+    confirmation: contract.confirmation,
+    toolIds: contract.authority === 'excluded' ? [] : [contract.id],
+    sourceRefs: contract.sourceRefs,
+  } as const;
+  return bounded(
+    contract.authority === 'excluded' ? 'excluded' : 'pending_provider',
+    row,
+    contract.boundaryReason,
+  );
+}
+
 const CAPABILITY_ROWS = [
   live({ id: 'general.answer', providers: ['server'], consequence: 'low', confirmation: 'none', toolIds: [], sourceRefs: [] }, readProof),
   live({ id: 'general.answer_with_context', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['goals.read', 'activities.read', 'plan.read_day_context', 'chapters.read'], sourceRefs: ['legacy:workspace_snapshots'] }, readProof),
@@ -382,6 +408,8 @@ const CAPABILITY_ROWS = [
 
   bounded('pending_provider', { id: 'explore.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:explore'] }, 'Explore is available from the native capability menu and kwilt://explore, but Chat does not yet receive or control precise location history.'),
   bounded('pending_provider', { id: 'games.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:games'] }, 'Games is available from the native capability menu and kwilt://games, but Chat does not yet open sessions, seat players, or act on game state.'),
+
+  ...FOOD_OPERATION_CONTRACTS.map(foodCapabilityRow),
 
   bounded('pending_provider', { id: 'screen_time.read', providers: ['device'], consequence: 'low', confirmation: 'none', toolIds: ['screen_time.read'], sourceRefs: ['capability:screenTime'] }, 'Authorized Household evidence is projected into Chat, but the explicit read tool response and signed-device proof remain pending.'),
   bounded('pending_provider', { id: 'screen_time.agreement.create', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.create'], sourceRefs: [] }, 'The shared command exists, but Chat proposal staging and confirmation are not wired yet.'),

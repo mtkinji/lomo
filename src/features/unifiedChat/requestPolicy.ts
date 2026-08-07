@@ -10,7 +10,7 @@ export type UnifiedChatRequestClass =
 
 export const UNIFIED_CHAT_CAPABILITY_IDS = [
   'arcs', 'goals', 'todos', 'plan', 'chapters', 'profile', 'relationships',
-  'money', 'screenTime', 'notifications', 'account', 'navigation',
+  'money', 'screenTime', 'notifications', 'account', 'navigation', 'recipes', 'meal_planning',
 ] as const;
 export type UnifiedChatCapabilityId = typeof UNIFIED_CHAT_CAPABILITY_IDS[number];
 
@@ -49,7 +49,7 @@ const DIRECT_TODO_CAPTURE_PATTERN =
 const COMPOUND_TODO_CAPTURE_PATTERN =
   /[,;\n]|\b(?:and|then)\s+(?:call|email|text|buy|pick|schedule|book|submit|finish|clean|send|pack|complete|make|create|add|remember|remind)\b/i;
 const NON_TODO_DOMAIN_PATTERN =
-  /\b(goals?|plans?|chapters?|reflections?|profiles?|screen time|app limits?|money|budget|transaction|payment|transfer)\b/i;
+  /\b(goals?|plans?|chapters?|reflections?|profiles?|screen time|app limits?|money|budget|transaction|payment|transfer|recipes?|meals?|dinners?|groceries)\b/i;
 const GENERAL_CONTENT_CREATION_PATTERN =
   /^(?:please\s+)?(?:make\s+me\b|(?:create|make)\s+(?:a|an|the)\s+[^.!?]{0,80}\b(?:story|poem|recipe|packing list|outline|summary|draft)\b)/i;
 const DAY_PLAN_RECOMMENDATION_PATTERN =
@@ -131,6 +131,11 @@ function explicitCapabilities(prompt: string): UnifiedChatCapabilityId[] {
   const personal = /\b(my|our|i have|i've|unfinished)\b/i.test(prompt);
   const action = ACTION_PATTERN.test(prompt.replace(/\bnext move\b/gi, ''));
   const moneyLimitRequest = /\b(?:income|living|spending)\s+limit\b|\b(?:plan|budget)\b[^.!?]{0,40}\b\d{1,3}%\s+(?:income\s+|spending\s+|living\s+)?limit\b/i.test(prompt);
+  if (/\b(?:meal plan|plan(?:ning)?\s+(?:our\s+|my\s+)?(?:meals?|dinners?)|dinners?\s+(?:for|this|next)|meals?\s+(?:for|this|next))\b/i.test(prompt)) {
+    capabilities.push('meal_planning');
+  } else if ((personal || action) && /\b(?:recipes?|ingredients?|cook(?:ing)?)\b/i.test(prompt)) {
+    capabilities.push('recipes');
+  }
   if ((personal || action) && /\b(arcs?|identit(?:y|ies))\b/i.test(prompt)) capabilities.push('arcs');
   if ((personal || action) && /\bgoals?\b/i.test(prompt)) capabilities.push('goals');
   if (!moneyLimitRequest && (
