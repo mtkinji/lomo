@@ -105,6 +105,7 @@ function mapRow(row: any): RecipeProjection {
     instructions: (versionRow.instructions ?? []).map((step: any) => ({
       id: step.id, recipeVersionId: step.recipe_version_id, position: step.position,
       sectionLabel: step.section_label ?? null, text: step.step_text,
+      mediaAssetIds: step.media_asset_ids ?? [],
     })).sort((a: { position: number }, b: { position: number }) => a.position - b.position),
     createdByPersonId: versionRow.created_by_person_id,
     createdAt: versionRow.created_at,

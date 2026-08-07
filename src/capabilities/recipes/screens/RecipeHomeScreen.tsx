@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Crypto from "expo-crypto";
 import {
   Alert,
+  Animated,
   Pressable,
-  ScrollView,
   Share,
   StyleSheet,
   View,
@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
 import { colors, spacing } from "../../../theme";
 import { Button } from "../../../ui/Button";
-import { ActionDock } from "../../../ui/ActionDock";
+import { SplitActionDock } from "../../../ui/SplitActionDock";
 import { Icon } from "../../../ui/Icon";
 import { AppShell } from "../../../ui/layout/AppShell";
 import {
@@ -23,6 +23,7 @@ import {
   ObjectPageHeader,
 } from "../../../ui/layout/ObjectPageHeader";
 import { PageHeader } from "../../../ui/layout/PageHeader";
+import { ObjectDetailMediaShell } from "../../../ui/layout/ObjectDetailMediaShell";
 import { Heading, Text } from "../../../ui/Typography";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
 import { AnalyticsEvent } from "../../../services/analytics/events";
@@ -31,9 +32,11 @@ import type { MealPlanProjection } from "../../meal-planning/data/mealPlanningRe
 import { mealPlanningCache } from "../../meal-planning/data/mealPlanningCache";
 import { getActiveMealPlan } from "../../meal-planning/domain/mealPlanPresentation";
 import { RecipeActionsMenu } from "../components/RecipeActionsMenu";
+import { RecipeArtworkGallery } from "../components/RecipeArtworkGallery";
 import { RecipeHero } from "../components/RecipeHero";
 import { RecipeIngredientList } from "../components/RecipeIngredientList";
 import { RecipeMethodPreview } from "../components/RecipeMethodPreview";
+import { RecipeRecommendationsSection } from "../components/RecipeRecommendationsSection";
 import { RecipeSummaryBar } from "../components/RecipeSummaryBar";
 import type { RecipeProjection } from "../data/recipeCache";
 import { exportRecipeMarkdown } from "../recipeExport";
@@ -48,9 +51,14 @@ import {
 } from "../data/recipeCookRepository";
 import {
   getStarterRecipeMetadata,
+  buildRecipeLibraryInventory,
   isStarterRecipe,
   STARTER_RECIPE_PROJECTIONS,
 } from "../data/starterRecipeCatalog";
+import {
+  buildContextualRecipeRecommendations,
+  type RecipeRecommendation,
+} from "../domain/recipeRecommendations";
 import { resolveDefaultMealServings } from "../domain/mealPreferences";
 import { canHideRecipe } from "../domain/hiddenRecipes";
 import { useHiddenRecipeStore } from "../runtime/useHiddenRecipeStore";
@@ -62,6 +70,12 @@ import {
 } from "../domain/mealPlanSelection";
 import { getHouseholdSnapshot } from "../../../features/household/data/household";
 import { getSupabaseClient } from "../../../services/backend/supabaseClient";
+import { createGroceryRepository } from "../../groceries/data/groceryRepository";
+import {
+  deriveRecipeNextActions,
+  type RecipeNextAction,
+  type RecipeNextActionId,
+} from "../domain/recipeNextAction";
 
 type HideToast = {
   message: string;
@@ -159,31 +173,31 @@ export function RecipeHeaderActions({
 export function RecipeHomeView({
   projection,
   servings,
-  checked,
   priorLearning = null,
-  isInPlan,
-  planBusy,
-  cookActionLabel,
+  syncPending = false,
+  recommendedAction,
+  menuActions,
+  actionBusy,
   showMoreActions = true,
+  recommendations = [],
   onServingsChange,
-  onToggleIngredient,
-  onTogglePlan,
-  onCook,
+  onDockAction,
   onMore,
+  onOpenRecipe = () => undefined,
 }: {
   projection: RecipeProjection;
   servings: number;
-  checked: Set<string>;
   priorLearning?: RecipeCookRecordProjection | null;
-  isInPlan: boolean;
-  planBusy: boolean;
-  cookActionLabel: "Start cooking" | "Continue cooking";
+  syncPending?: boolean;
+  recommendedAction: RecipeNextAction;
+  menuActions: RecipeNextAction[];
+  actionBusy: boolean;
   showMoreActions?: boolean;
+  recommendations?: RecipeRecommendation[];
   onServingsChange(value: number): void;
-  onToggleIngredient(id: string): void;
-  onTogglePlan(): void;
-  onCook(): void;
+  onDockAction(actionId: RecipeNextActionId, source: "primary" | "menu"): void;
   onMore(): void;
+  onOpenRecipe?(recipeId: string): void;
 }) {
   const { recipe, currentVersion: version } = projection;
   const starterMetadata = getStarterRecipeMetadata(recipe.id);
@@ -194,30 +208,64 @@ export function RecipeHomeView({
     recipe.provenance.rightsBasis === "kwilt_authored"
       ? "About this meal"
       : "Notes";
-  const media =
-    recipe.mediaAssets.find((asset) => asset.lifecycle === "active") ?? null;
   const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
   return (
     <View style={styles.container}>
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: 116 + insets.bottom },
         ]}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
+        scrollEventThrottle={16}
       >
-        <View style={styles.heroSection}>
-          <RecipeHero
-            media={media}
-            familyLabel={familyLabel}
-            style={styles.heroFullBleed}
-          />
-        </View>
-        <View style={styles.recipeSheet}>
-          <View style={styles.heading}>
-            <Heading variant="lg">{version.title}</Heading>
-            {version.description ? (
-              <Text tone="secondary">{version.description}</Text>
+        <ObjectDetailMediaShell
+          variant="immersive"
+          scrollY={scrollY}
+          headerBoundary={insets.top + 64}
+          hero={
+            <RecipeArtworkGallery
+              mediaAssets={recipe.mediaAssets}
+              recipeTitle={version.title}
+              exposeArtworkToAccessibility
+              fallback={
+                <RecipeHero
+                  media={null}
+                  familyLabel={familyLabel}
+                  style={styles.heroFullBleed}
+                />
+              }
+              testID="recipe-home-gallery"
+              style={styles.heroFullBleed}
+            />
+          }
+          sheetInnerStyle={styles.recipeSheetInner}
+        >
+          <View style={styles.headingRow}>
+            <View style={styles.heading}>
+              <Heading variant="lg">{version.title}</Heading>
+              {version.description ? (
+                <Text tone="secondary">{version.description}</Text>
+              ) : null}
+            </View>
+            {showMoreActions ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Recipe actions"
+                hitSlop={8}
+                onPress={onMore}
+                style={({ pressed }) => [
+                  styles.recipeActionsButton,
+                  pressed ? styles.recipeActionsPressed : null,
+                ]}
+              >
+                <Icon name="more" size={22} color={colors.textSecondary} />
+              </Pressable>
             ) : null}
           </View>
           <RecipeSummaryBar
@@ -273,8 +321,6 @@ export function RecipeHomeView({
             lines={version.ingredients}
             fromYield={version.yieldQuantity}
             toYield={servings}
-            checked={checked}
-            onToggle={onToggleIngredient}
           />
           <RecipeMethodPreview steps={version.instructions} />
           {version.notes ? (
@@ -284,6 +330,9 @@ export function RecipeHomeView({
             </View>
           ) : null}
           <View style={styles.provenance}>
+            {syncPending ? (
+              <Text tone="secondary">Saved on this device · Will sync when connected</Text>
+            ) : null}
             <Text variant="label">Source</Text>
             <Text tone="secondary">
               {recipe.provenance.sourceTitle ??
@@ -302,41 +351,23 @@ export function RecipeHomeView({
                   : "Private to you"}
             </Text>
           </View>
-          {showMoreActions ? (
-            <Button variant="ghost" onPress={onMore}>
-              More recipe actions
-            </Button>
-          ) : null}
-        </View>
-      </ScrollView>
-      <ActionDock
-        insetX={spacing.md}
-        insetBottom={spacing.sm}
-        safeAreaLift="half"
-        leftContent={
-          <Pressable
-            accessibilityRole="button"
-            testID="recipe-start-cooking"
-            onPress={onCook}
-            style={({ pressed }) => [
-              styles.cookDockAction,
-              pressed ? styles.dockPressed : null,
-            ]}
-          >
-            <Icon name="play" size={20} color={colors.textPrimary} />
-            <Text variant="label">{cookActionLabel}</Text>
-          </Pressable>
-        }
-        rightItem={{
-          id: "meal-plan",
-          icon: isInPlan ? "check" : "plus",
-          accessibilityLabel: isInPlan
-            ? "Remove this meal from the Plan"
-            : "Add this meal to the Plan",
-          disabled: planBusy,
-          testID: "recipe-plan-toggle",
-          onPress: onTogglePlan,
-        }}
+          <RecipeRecommendationsSection
+            recommendations={recommendations}
+            onOpenRecipe={onOpenRecipe}
+          />
+        </ObjectDetailMediaShell>
+      </Animated.ScrollView>
+      <SplitActionDock
+        recommendedAction={recommendedAction}
+        menuActions={menuActions}
+        onActionPress={onDockAction}
+        disabledActionIds={actionBusy
+          ? Object.fromEntries([recommendedAction, ...menuActions].map((action) => [action.id, true]))
+          : undefined}
+        menuAccessibilityLabel="Show other Meal actions"
+        primaryTestID="recipe-next-action-primary"
+        menuTriggerTestID="recipe-next-action-menu"
+        getMenuTestID={(actionId) => `recipe-next-action-${actionId}`}
       />
     </View>
   );
@@ -352,7 +383,9 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   );
   const starterRecipe = isStarterRecipe(route.params.recipeId);
   const deleteRecipe = useRecipeStore((state) => state.delete);
+  const pendingRecipeIds = useRecipeStore((state) => state.pendingRecipeIds);
   const setRecipeHidden = useHiddenRecipeStore((state) => state.setHidden);
+  const hiddenRecipeIds = useHiddenRecipeStore((state) => state.recipeIds);
   const favoriteRecipeIds = useRecipeFavoriteStore((state) => state.recipeIds);
   const togglingFavoriteRecipeIds = useRecipeFavoriteStore(
     (state) => state.togglingRecipeIds,
@@ -364,15 +397,25 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     ),
   );
   const [servings, setServings] = useState(defaultServings);
-  const [checked, setChecked] = useState<Set<string>>(new Set());
   const [showMore, setShowMore] = useState(false);
   const [activePlan, setActivePlan] = useState<MealPlanProjection | null>(null);
-  const [planBusy, setPlanBusy] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
   const [activeCook, setActiveCook] = useState<RecipeCookSession | null>(null);
   const [priorLearning, setPriorLearning] =
     useState<RecipeCookRecordProjection | null>(null);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const { capture } = useAnalytics();
+  const recommendations = useMemo(
+    () =>
+      projection
+        ? buildContextualRecipeRecommendations({
+            current: projection,
+            recipes: buildRecipeLibraryInventory(personalRecipes),
+            hiddenRecipeIds,
+          })
+        : [],
+    [hiddenRecipeIds, personalRecipes, projection],
+  );
   const reloadActivePlan = useCallback(async () => {
     if (!userId) return null;
     const latest = await createMealPlanningRepository().list();
@@ -440,8 +483,8 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
       </AppShell>
     );
   const togglePlanMembership = async () => {
-    if (planBusy) return;
-    setPlanBusy(true);
+    if (actionBusy) return;
+    setActionBusy(true);
     try {
       const repository = createMealPlanningRepository();
       const result = await toggleRecipeInMealPlan({
@@ -467,7 +510,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         caught instanceof Error ? caught.message : "Try again in a moment.",
       );
     } finally {
-      setPlanBusy(false);
+      setActionBusy(false);
     }
   };
   const confirmDelete = () =>
@@ -521,6 +564,84 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
       message: exportRecipeMarkdown(projection),
     });
   };
+  const isInPlan = activePlan
+    ? mealPlanContainsSelectedRecipeVersion(activePlan, projection)
+    : false;
+  const nextActions = deriveRecipeNextActions({
+    activeCook: Boolean(activeCook),
+    isInPlan,
+    planState: activePlan?.state ?? null,
+  });
+  const openCook = () =>
+    activeCook
+      ? navigation.navigate("RecipeCookMode", {
+          recipeId: projection.recipe.id,
+          servings,
+        })
+      : navigation.navigate("RecipeReadiness", {
+          recipeId: projection.recipe.id,
+          servings,
+        });
+  const compileIngredients = async (scope: "recipe" | "meal_plan") => {
+    if (actionBusy) return;
+    setActionBusy(true);
+    try {
+      const repository = createGroceryRepository();
+      const receipt = scope === "meal_plan"
+        ? await (() => {
+            if (!activePlan || activePlan.state !== "finalized")
+              throw new Error("Finalize the Meal Plan before compiling all of its ingredients.");
+            return repository.compile(activePlan.id, activePlan.version);
+          })()
+        : await repository.compileRecipe({
+            recipeId: projection.recipe.id,
+            recipeVersionId: projection.currentVersion.id,
+            recipeVersion: projection.currentVersion.version,
+            contentHash: projection.currentVersion.contentHash,
+            sourceType: projection.recipe.provenance.method,
+            title: projection.currentVersion.title,
+            yieldQuantity: projection.currentVersion.yieldQuantity,
+            ingredients: projection.currentVersion.ingredients.map((line) => ({
+              id: line.id,
+              originalText: line.originalText,
+              optional: line.optional,
+            })),
+            servings,
+          });
+      capture(AnalyticsEvent.GroceryListCompiled, {
+        outcome: "success",
+        replayed: receipt.replayed,
+      });
+      navigation.navigate("AlreadyHaveReview", { listId: receipt.groceryListId });
+    } catch (caught) {
+      Alert.alert(
+        "Ingredients not ready",
+        caught instanceof Error ? caught.message : "Try again in a moment.",
+      );
+    } finally {
+      setActionBusy(false);
+    }
+  };
+  const handleDockAction = (actionId: RecipeNextActionId) => {
+    switch (actionId) {
+      case "get_this_meal":
+        void compileIngredients("recipe");
+        return;
+      case "get_meal_plan":
+        void compileIngredients("meal_plan");
+        return;
+      case "review_meal_plan":
+        navigation.navigate("NextMeals");
+        return;
+      case "start_cooking":
+      case "continue_cooking":
+        openCook();
+        return;
+      case "add_to_plan":
+      case "remove_from_plan":
+        void togglePlanMembership();
+    }
+  };
   return (
     <AppShell fullBleedCanvas>
       <ObjectPageHeader
@@ -550,40 +671,19 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
       <RecipeHomeView
         projection={projection}
         servings={servings}
-        checked={checked}
         priorLearning={priorLearning}
-        isInPlan={
-          activePlan
-            ? mealPlanContainsSelectedRecipeVersion(activePlan, projection)
-            : false
-        }
-        planBusy={planBusy}
-        cookActionLabel={activeCook ? "Continue cooking" : "Start cooking"}
+        syncPending={pendingRecipeIds.includes(projection.recipe.id)}
+        recommendedAction={nextActions.recommendedAction}
+        menuActions={nextActions.menuActions}
+        actionBusy={actionBusy}
         showMoreActions={!starterRecipe}
+        recommendations={recommendations}
         onServingsChange={setServings}
-        onToggleIngredient={(id) =>
-          setChecked((current) => {
-            const next = new Set(current);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-          })
-        }
-        onTogglePlan={() => {
-          void togglePlanMembership();
-        }}
-        onCook={() =>
-          activeCook
-            ? navigation.navigate("RecipeCookMode", {
-                recipeId: projection.recipe.id,
-                servings,
-              })
-            : navigation.navigate("RecipeReadiness", {
-                recipeId: projection.recipe.id,
-                servings,
-              })
-        }
+        onDockAction={handleDockAction}
         onMore={() => setShowMore(true)}
+        onOpenRecipe={(recipeId) =>
+          navigation.push("RecipeHome", { recipeId })
+        }
       />
       <RecipeActionsMenu
         visible={showMore}
@@ -604,35 +704,35 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.canvas },
   scrollContent: { backgroundColor: colors.canvas },
-  heroSection: { height: 260, backgroundColor: colors.shellAlt },
   heroFullBleed: {
     width: "100%",
     height: "100%",
     aspectRatio: undefined,
     borderRadius: 0,
   },
-  recipeSheet: {
-    marginTop: -20,
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.md,
-    gap: spacing.lg,
-    backgroundColor: colors.canvas,
-    borderTopWidth: 1,
-    borderColor: colors.border,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  recipeSheetInner: {
+    paddingTop: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    gap: spacing["2xl"],
   },
   missing: { flex: 1, alignItems: "center", justifyContent: "center" },
-  heading: { gap: spacing.xs },
-  servings: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  cookDockAction: {
-    minHeight: 56,
+  headingRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
   },
-  dockPressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
+  heading: { flex: 1, gap: spacing.xs },
+  recipeActionsButton: {
+    width: 44,
+    height: 44,
+    marginTop: -spacing.sm,
+    marginRight: -spacing.sm,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recipeActionsPressed: { backgroundColor: colors.cardMuted },
+  servings: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   note: {
     padding: spacing.md,
     gap: spacing.xs,

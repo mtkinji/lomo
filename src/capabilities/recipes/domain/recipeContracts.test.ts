@@ -25,7 +25,13 @@ describe('Recipe contracts', () => {
   });
 
   test('preserves ordered ingredient groups and instruction sections', () => {
-    const version = parseRecipeVersion(familyRecipeFixture.version);
+    const version = parseRecipeVersion({
+      ...familyRecipeFixture.version,
+      instructions: familyRecipeFixture.version.instructions.map((step, index) => ({
+        ...step,
+        mediaAssetIds: index === 0 ? ['media-card-front'] : [],
+      })),
+    });
 
     expect(version.ingredients.map((line) => [line.position, line.groupLabel])).toEqual([
       [0, 'Cake'],
@@ -35,6 +41,10 @@ describe('Recipe contracts', () => {
     expect(version.instructions.map((step) => [step.position, step.sectionLabel])).toEqual([
       [0, 'Bake'],
       [1, 'Finish'],
+    ]);
+    expect(version.instructions.map((step) => step.mediaAssetIds)).toEqual([
+      ['media-card-front'],
+      [],
     ]);
   });
 

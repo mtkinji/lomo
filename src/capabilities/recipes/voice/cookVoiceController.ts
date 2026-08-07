@@ -4,6 +4,7 @@ export type CookVoiceControllerAction =
   | { type: 'next' | 'back' | 'pause' | 'resume' | 'finish' }
   | { type: 'repeat' | 'read_position'; ingredientQuery?: string }
   | { type: 'start_timer'; durationSeconds: number; label: string }
+  | { type: 'start_suggested_timer' }
   | { type: 'pause_timer' | 'resume_timer' | 'cancel_timer'; timerOrdinal: number | null };
 
 export function createCookVoiceController(input: { execute(action: CookVoiceControllerAction): void; now(): number }) {
@@ -27,6 +28,7 @@ export function createCookVoiceController(input: { execute(action: CookVoiceCont
       case 'resume_session': action = { type: 'resume' }; break;
       case 'finish': action = { type: 'finish' }; break;
       case 'start_timer': action = { type: 'start_timer', durationSeconds: intent.durationSeconds, label: intent.label }; break;
+      case 'start_suggested_timer': action = { type: 'start_suggested_timer' }; break;
       case 'pause_timer': case 'resume_timer': case 'cancel_timer': action = { type: intent.kind, timerOrdinal: intent.timerOrdinal }; break;
       default: return { state: 'not_handled' as const, parsed, acknowledgement: null };
     }

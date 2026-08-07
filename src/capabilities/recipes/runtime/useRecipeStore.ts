@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { createStore, type StateCreator } from 'zustand/vanilla';
 
 import { recipeCache, type RecipeCache, type RecipeProjection } from '../data/recipeCache';
+import {
+  applyPendingRecipeVersions,
+  recipeOfflineQueue,
+  reconcileRecipeOfflineQueue,
+  type RecipeOfflineQueue,
+} from '../data/recipeOfflineQueue';
 import { createRecipeRepository, type RecipeRepository, type SaveRecipeInput } from '../data/recipeRepository';
 
 export type RecipeStoreStatus = 'idle' | 'cached' | 'refreshing' | 'ready' | 'error';
@@ -11,24 +17,42 @@ export type RecipeStoreState = {
   recipes: RecipeProjection[];
   status: RecipeStoreStatus;
   error: string | null;
+  pendingCount: number;
+  pendingRecipeIds: string[];
   setIdentity(userId: string | null): Promise<void>;
   refresh(): Promise<void>;
   save(input: SaveRecipeInput, optimisticProjection: RecipeProjection): Promise<void>;
   delete(recipeId: string, expectedVersion: number): Promise<void>;
 };
 
-function initializer(repository: RecipeRepository, cache: RecipeCache): StateCreator<RecipeStoreState> {
+function shouldQueueRecipeSave(error: unknown): boolean {
+  const code = (error as { code?: string })?.code;
+  if (code === 'recipe_repository_failed') return true;
+  if (code) return false;
+  const message = error instanceof Error ? error.message : String(error);
+  return /offline|network|fetch|timeout|connection/i.test(message);
+}
+
+function initializer(repository: RecipeRepository, cache: RecipeCache, queue: RecipeOfflineQueue): StateCreator<RecipeStoreState> {
   return (set, get) => ({
     userId: null,
     recipes: [],
     status: 'idle',
     error: null,
+    pendingCount: 0,
+    pendingRecipeIds: [],
     async setIdentity(userId) {
-      set({ userId, recipes: [], status: userId ? 'idle' : 'idle', error: null });
+      set({ userId, recipes: [], status: 'idle', error: null, pendingCount: 0, pendingRecipeIds: [] });
       if (!userId) return;
-      const cached = await cache.read(userId);
+      const [cached, pending] = await Promise.all([cache.read(userId), queue.read(userId)]);
       if (get().userId !== userId) return;
-      set({ recipes: cached, status: cached.length ? 'cached' : 'idle' });
+      const available = applyPendingRecipeVersions(cached, pending);
+      set({
+        recipes: available,
+        status: available.length ? 'cached' : 'idle',
+        pendingCount: pending.length,
+        pendingRecipeIds: [...new Set(pending.map((item) => item.optimisticProjection.recipe.id))],
+      });
       await get().refresh();
     },
     async refresh() {
@@ -37,9 +61,18 @@ function initializer(repository: RecipeRepository, cache: RecipeCache): StateCre
       const hasCached = get().recipes.length > 0;
       set({ status: hasCached ? 'refreshing' : 'idle', error: null });
       try {
-        const recipes = await repository.list();
+        const sync = await reconcileRecipeOfflineQueue({ userId, queue, save: repository.save });
+        const canonical = await repository.list();
+        const pending = await queue.read(userId);
+        const recipes = applyPendingRecipeVersions(canonical, pending);
         if (get().userId !== userId) return;
-        set({ recipes, status: 'ready', error: null });
+        set({
+          recipes,
+          status: 'ready',
+          pendingCount: pending.length,
+          pendingRecipeIds: [...new Set(pending.map((item) => item.optimisticProjection.recipe.id))],
+          error: sync.conflicts.length ? 'This recipe also changed elsewhere. Review both versions before syncing.' : null,
+        });
         await cache.write(userId, recipes);
       } catch (error) {
         if (get().userId !== userId) return;
@@ -58,8 +91,24 @@ function initializer(repository: RecipeRepository, cache: RecipeCache): StateCre
         await repository.save(input);
         await get().refresh();
       } catch (error) {
+        if ((error as { code?: string })?.code === 'stale_recipe_version') {
+          set({ recipes: previous, status: 'error', error: error instanceof Error ? error.message : String(error) });
+          await get().refresh();
+          throw error;
+        }
+        if (input.recipeId !== null && shouldQueueRecipeSave(error)) {
+          const pending = await queue.enqueue(userId, { ...input, optimisticProjection, queuedAt: new Date().toISOString() });
+          await cache.write(userId, optimistic);
+          set({
+            recipes: optimistic,
+            status: 'ready',
+            error: null,
+            pendingCount: pending.length,
+            pendingRecipeIds: [...new Set(pending.map((item) => item.optimisticProjection.recipe.id))],
+          });
+          return;
+        }
         set({ recipes: previous, status: 'error', error: error instanceof Error ? error.message : String(error) });
-        if ((error as { code?: string })?.code === 'stale_recipe_version') await get().refresh();
         throw error;
       }
     },
@@ -80,8 +129,8 @@ function initializer(repository: RecipeRepository, cache: RecipeCache): StateCre
   });
 }
 
-export function createRecipeStore(repository: RecipeRepository, cache: RecipeCache) {
-  return createStore<RecipeStoreState>(initializer(repository, cache));
+export function createRecipeStore(repository: RecipeRepository, cache: RecipeCache, queue: RecipeOfflineQueue = recipeOfflineQueue) {
+  return createStore<RecipeStoreState>(initializer(repository, cache, queue));
 }
 
 const lazyRecipeRepository: RecipeRepository = {
@@ -90,4 +139,4 @@ const lazyRecipeRepository: RecipeRepository = {
   delete: (recipeId, expectedVersion) => createRecipeRepository().delete(recipeId, expectedVersion),
 };
 
-export const useRecipeStore = create<RecipeStoreState>(initializer(lazyRecipeRepository, recipeCache));
+export const useRecipeStore = create<RecipeStoreState>(initializer(lazyRecipeRepository, recipeCache, recipeOfflineQueue));

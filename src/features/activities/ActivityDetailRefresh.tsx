@@ -25,6 +25,12 @@ import type { ActivityArea, ActivityDifficulty, ActivityPriorityState, ActivityT
 import { getActiveActivityAreas } from '../../domain/activityAreas';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { HeaderActionPill, ObjectPageHeader, OBJECT_PAGE_HEADER_BAR_HEIGHT } from '../../ui/layout/ObjectPageHeader';
+import {
+  buildObjectDetailMediaMotionRange,
+  ObjectDetailMediaHero,
+  ObjectDetailMediaSheet,
+  resolveObjectDetailMediaGeometry,
+} from '../../ui/layout/ObjectDetailMediaShell';
 import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
@@ -385,18 +391,16 @@ export function ActivityDetailRefresh(props: any) {
   // Goals-like hero behavior (parallax + fade out as you scroll up).
   // Keep smaller than Goals (Goal hero = 240px).
   // ---------------------------------------------------------------------------
-  const ACTIVITY_HERO_HEIGHT_PX = 168;
-  // Fade the hero out roughly when the hero has scrolled under the fixed header.
-  const heroFadeEndScrollY = Math.max(1, ACTIVITY_HERO_HEIGHT_PX - headerTotalHeight);
-  const heroFadeStartScrollY = Math.max(0, heroFadeEndScrollY - 48);
-  const heroOpacity = scrollY.interpolate({
-    inputRange: [0, heroFadeStartScrollY, heroFadeEndScrollY],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
+  const activityMediaGeometry = resolveObjectDetailMediaGeometry('compact');
+  const activityMediaFade = buildObjectDetailMediaMotionRange({
+    heroHeight: activityMediaGeometry.heroHeight,
+    overlap: activityMediaGeometry.overlap,
+    headerBoundary: headerTotalHeight,
+    fadeHold: activityMediaGeometry.fadeHold,
+    fadeLead: activityMediaGeometry.fadeLead,
   });
-  // Hero is inside scroll content (moves at 1x). Translate it down by +0.35x scroll
-  // so it nets out to ~0.65x upward movement (subtle parallax).
-  const heroParallaxTranslateY = Animated.multiply(scrollY, 0.35);
+  const heroFadeStartScrollY = activityMediaFade.start;
+  const heroFadeEndScrollY = activityMediaFade.end;
 
   // Header background becomes opaque as the hero disappears (Goals-like).
   const headerBgOpacity = scrollY.interpolate({
@@ -748,11 +752,13 @@ export function ActivityDetailRefresh(props: any) {
       >
         {/* Hero artwork (Goals-like): full-bleed, subtle parallax, fades as it scrolls away. */}
         {heroEnabled ? (
-          <View
+          <ObjectDetailMediaHero
+            variant="compact"
+            scrollY={scrollY}
+            headerBoundary={headerTotalHeight}
             style={[
               localStyles.activityHeroSection,
               {
-                height: ACTIVITY_HERO_HEIGHT_PX,
                 marginTop: -(headerTotalHeight + spacing.xs),
                 // Full-bleed hero: match device width explicitly and shift left by the page gutter.
                 // This avoids relying on negative margins to "stretch" within padded scroll content.
@@ -761,16 +767,6 @@ export function ActivityDetailRefresh(props: any) {
               },
             ]}
           >
-            <Animated.View
-              pointerEvents="box-none"
-              style={[
-                StyleSheet.absoluteFillObject,
-                {
-                  opacity: heroOpacity,
-                  transform: [{ translateY: heroParallaxTranslateY }],
-                },
-              ]}
-            >
               <View style={localStyles.activityHeroImageClip}>
                 <Pressable
                   accessibilityRole="button"
@@ -824,10 +820,14 @@ export function ActivityDetailRefresh(props: any) {
                   </View>
                 ) : null}
               </View>
-            </Animated.View>
-          </View>
+          </ObjectDetailMediaHero>
         ) : null}
 
+        <ObjectDetailMediaSheet
+          variant="compact"
+          style={{ width: windowWidth, marginLeft: -PAGE_GUTTER_X }}
+        >
+          <View style={{ paddingHorizontal: PAGE_GUTTER_X }}>
         {/* Narrative title block */}
         <View style={styles.section}>
           <View style={styles.narrativeTitleBlock}>
@@ -1968,6 +1968,8 @@ export function ActivityDetailRefresh(props: any) {
             </>
           ) : null}
         </View>
+          </View>
+        </ObjectDetailMediaSheet>
 
       </KeyboardAwareScrollView>
     </View>

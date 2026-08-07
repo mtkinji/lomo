@@ -11,8 +11,11 @@ function list(overrides: Partial<GroceryProjection> = {}): GroceryProjection {
     id: 'list-1',
     revision: 4,
     status: 'ready',
+    sourceKind: 'meal_plan',
     sourceMealPlanId: 'plan-1',
     sourceMealPlanVersion: 2,
+    sourceRecipeVersionId: null,
+    sourceTitle: null,
     updatedAt: '2026-08-07T01:00:00.000Z',
     items: [{
       id: 'item-1',

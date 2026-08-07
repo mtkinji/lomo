@@ -11,8 +11,11 @@ function list(
     id,
     revision: 1,
     status,
+    sourceKind: 'meal_plan',
     sourceMealPlanId: planId,
     sourceMealPlanVersion: planVersion,
+    sourceRecipeVersionId: null,
+    sourceTitle: null,
     items: [],
     updatedAt: '2026-08-07T00:00:00.000Z',
   };

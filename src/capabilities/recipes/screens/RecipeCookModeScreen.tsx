@@ -1,24 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
-  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   ScrollView,
+  StatusBar,
   StyleSheet,
   View,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
 import { colors, spacing } from "../../../theme";
 import { Button } from "../../../ui/Button";
+import { Logo } from "../../../ui/Logo";
 import { AppShell } from "../../../ui/layout/AppShell";
 import { PageHeader } from "../../../ui/layout/PageHeader";
 import { Text } from "../../../ui/Typography";
 import { CookCueCard } from "../components/CookCueCard";
-import { CookProgress } from "../components/CookProgress";
+import { CookStepMedia } from "../components/CookStepMedia";
 import { CookTimerControl } from "../components/CookTimerControl";
+import { CookVoiceStatus } from "../components/CookVoiceStatus";
 import { useRecipeCookSession } from "../runtime/useRecipeCookSession";
 import { useRecipeStore } from "../runtime/useRecipeStore";
 import type { RecipeProjection } from "../data/recipeCache";
@@ -28,6 +31,8 @@ import {
 } from "../voice/cookVoiceController";
 import { cookVoiceTransport } from "../voice/cookVoiceTransport";
 import type { CookVoiceState } from "../voice/cookVoiceContracts";
+import { cookVoiceSpeech } from "../voice/cookVoiceSpeech";
+import { createCookVoiceSilenceDetector } from "../voice/cookVoiceSilenceDetector";
 import { AnalyticsEvent } from "../../../services/analytics/events";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
 import { STARTER_RECIPE_PROJECTIONS } from "../data/starterRecipeCatalog";
@@ -135,10 +140,19 @@ function ActiveRecipeCookModeExperience({
   cook: ReturnType<typeof useRecipeCookSession>;
 }) {
   const { capture } = useAnalytics();
+  const insets = useSafeAreaInsets();
   const [voiceState, setVoiceState] = useState<CookVoiceState>("off");
+  const [voiceLevel, setVoiceLevel] = useState(0);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const voiceSessionActiveRef = useRef(true);
+  const recordingActiveRef = useRef(false);
+  const listeningEpochRef = useRef(0);
+  const pendingVoiceResponseRef = useRef<string | null>(null);
+  const finishListeningRef = useRef<() => Promise<void>>(async () => undefined);
+  const beginListeningRef = useRef<() => Promise<void>>(async () => undefined);
   const session = cook.session!;
   const cue = cook.cues[session.currentCueIndex]!;
-  const send = (event: Parameters<typeof cook.send>[0]) => {
+  const send = useCallback((event: Parameters<typeof cook.send>[0]) => {
     if (event.type === "next" || event.type === "back")
       capture(AnalyticsEvent.CookCueAdvanced, {
         method: event.type,
@@ -146,7 +160,7 @@ function ActiveRecipeCookModeExperience({
       });
     if (event.type.endsWith("_timer"))
       capture(AnalyticsEvent.CookTimerOutcome, { outcome: event.type });
-    void cook
+    return cook
       .send(event)
       .catch((error) =>
         Alert.alert(
@@ -154,7 +168,7 @@ function ActiveRecipeCookModeExperience({
           error instanceof Error ? error.message : "Please reopen this recipe.",
         ),
       );
-  };
+  }, [capture, cook, session.currentCueIndex]);
   const executeVoice = useCallback(
     (action: CookVoiceControllerAction) => {
       if (
@@ -177,17 +191,16 @@ function ActiveRecipeCookModeExperience({
           const answer = item
             ? `${item.displayAmount ? `${item.displayAmount} ` : ""}${item.concept}`
             : `I can’t verify ${action.ingredientQuery} from this step.`;
-          AccessibilityInfo.announceForAccessibility(answer);
-          Alert.alert("From this step", answer);
+          pendingVoiceResponseRef.current = answer;
         } else {
-          AccessibilityInfo.announceForAccessibility(cue.displayText);
-          Alert.alert(`Step ${session.currentCueIndex + 1}`, cue.displayText);
+          pendingVoiceResponseRef.current = cue.supportingCue
+            ? `${cue.actionText} Ready when. ${cue.supportingCue.text}`
+            : cue.actionText || cue.displayText;
         }
         return;
       }
       if (action.type === "read_position") {
-        const answer = `Step ${session.currentCueIndex + 1} of ${session.cueCount}.`;
-        AccessibilityInfo.announceForAccessibility(answer);
+        pendingVoiceResponseRef.current = `Step ${session.currentCueIndex + 1} of ${session.cueCount}.`;
         return;
       }
       if (action.type === "start_timer") {
@@ -195,6 +208,18 @@ function ActiveRecipeCookModeExperience({
           durationSeconds: action.durationSeconds,
           label: action.label,
         });
+        return;
+      }
+      if (action.type === "start_suggested_timer") {
+        if (cue.timerSuggestions.length === 1) {
+          const suggestion = cue.timerSuggestions[0];
+          void cook.startTimer(suggestion);
+          pendingVoiceResponseRef.current = `Starting the ${suggestion.label.toLowerCase()} timer.`;
+        } else if (cue.timerSuggestions.length === 0) {
+          pendingVoiceResponseRef.current = "This step doesn’t include a timer. Say a duration, like start a five-minute timer.";
+        } else {
+          pendingVoiceResponseRef.current = "This step includes more than one time. Say the duration you want to use.";
+        }
         return;
       }
       if (
@@ -209,13 +234,10 @@ function ActiveRecipeCookModeExperience({
         );
         const timer = activeTimers[(action.timerOrdinal ?? 1) - 1];
         if (!timer) {
-          Alert.alert(
-            "Timer not found",
-            "Use the timer controls on this step.",
-          );
+          pendingVoiceResponseRef.current = "I couldn’t find that timer. Use the timer controls on this step.";
           return;
         }
-        send({ type: action.type, timerId: timer.id });
+        void send({ type: action.type, timerId: timer.id });
       }
     },
     [cook, cue, send, session],
@@ -233,55 +255,90 @@ function ActiveRecipeCookModeExperience({
     [],
   );
   useEffect(
-    () => () => {
-      void cookVoiceTransport.cancel();
+    () => {
+      voiceSessionActiveRef.current = true;
+      requestAnimationFrame(() => { void beginListeningRef.current(); });
+      return () => {
+        voiceSessionActiveRef.current = false;
+        recordingActiveRef.current = false;
+        listeningEpochRef.current += 1;
+        void cookVoiceTransport.cancel();
+        void cookVoiceSpeech.stop();
+      };
     },
     [],
   );
-  const toggleVoice = async () => {
-    if (voiceState === "off") {
-      try {
-        await cookVoiceTransport.start();
-        setVoiceState("listening");
-      } catch (error) {
-        capture(AnalyticsEvent.CookVoiceFallback, {
-          failure_reason: "start_unavailable",
-          voice_mode: "touch",
-        });
-        Alert.alert(
-          "Voice unavailable",
-          error instanceof Error ? error.message : "Use the touch controls.",
-        );
-      }
-      return;
+  const speakAndResume = useCallback(async (text: string) => {
+    if (!voiceSessionActiveRef.current) return;
+    setVoiceState("speaking");
+    setVoiceLevel(0);
+    try {
+      await cookVoiceSpeech.speak(text);
+    } catch {
+      // Speech is an enhancement. The visual session and touch fallback remain available.
     }
-    if (voiceState !== "listening") return;
+    if (voiceSessionActiveRef.current) await beginListeningRef.current();
+  }, []);
+
+  const finishListening = useCallback(async () => {
+    if (!recordingActiveRef.current) return;
+    recordingActiveRef.current = false;
+    listeningEpochRef.current += 1;
     setVoiceState("thinking");
+    setVoiceLevel(0);
+    pendingVoiceResponseRef.current = null;
     try {
       const transcript = await cookVoiceTransport.stopAndTranscribe();
-      const result = voiceController.handle(transcript, {
-        hasActiveSession: true,
-      });
-      if (result.state === "needs_grounded_answer")
-        Alert.alert(
-          "From this recipe",
-          "I can’t verify that from the saved recipe. Use touch controls or check a trusted cooking source.",
-        );
-      else if (result.acknowledgement)
-        AccessibilityInfo.announceForAccessibility(result.acknowledgement);
+      const result = voiceController.handle(transcript, { hasActiveSession: true });
+      const response = pendingVoiceResponseRef.current
+        ?? result.acknowledgement
+        ?? (result.state === "needs_grounded_answer"
+          ? "I can’t verify that from the saved recipe. Use touch controls or check a trusted cooking source."
+          : result.state === "not_handled"
+            ? "Try next, back, repeat, or start a timer."
+            : null);
+      if (response) await speakAndResume(response);
+      else if (voiceSessionActiveRef.current) await beginListeningRef.current();
     } catch (error) {
       capture(AnalyticsEvent.CookVoiceFallback, {
         failure_reason: "transcription_unavailable",
-        voice_mode: "touch",
+        voice_mode: "cook_mode",
       });
-      Alert.alert(
-        "Voice unavailable",
-        error instanceof Error ? error.message : "Use the touch controls.",
-      );
-    } finally {
       setVoiceState("off");
+      setVoiceError(error instanceof Error ? error.message : "Use the touch controls.");
     }
-  };
+  }, [capture, speakAndResume, voiceController]);
+  finishListeningRef.current = finishListening;
+
+  const beginListening = useCallback(async () => {
+    if (!voiceSessionActiveRef.current || recordingActiveRef.current) return;
+    const epoch = listeningEpochRef.current + 1;
+    listeningEpochRef.current = epoch;
+    setVoiceError(null);
+    setVoiceLevel(0);
+    const detector = createCookVoiceSilenceDetector();
+    try {
+      await cookVoiceTransport.start((level) => {
+        if (epoch !== listeningEpochRef.current || !voiceSessionActiveRef.current) return;
+        setVoiceLevel(level);
+        if (detector.observe(level, Date.now())) void finishListeningRef.current();
+      });
+      if (epoch !== listeningEpochRef.current || !voiceSessionActiveRef.current) {
+        await cookVoiceTransport.cancel();
+        return;
+      }
+      recordingActiveRef.current = true;
+      setVoiceState("listening");
+    } catch (error) {
+      capture(AnalyticsEvent.CookVoiceFallback, {
+        failure_reason: "start_unavailable",
+        voice_mode: "cook_mode",
+      });
+      setVoiceState("off");
+      setVoiceError(error instanceof Error ? error.message : "Use the touch controls.");
+    }
+  }, [capture]);
+  beginListeningRef.current = beginListening;
   const exit = () =>
     Alert.alert("Pause cooking?", "Your exact step and timers will be saved.", [
       { text: "Keep cooking", style: "cancel" },
@@ -294,36 +351,34 @@ function ActiveRecipeCookModeExperience({
       },
     ]);
   return (
-    <AppShell>
-      <PageHeader title={projection.currentVersion.title} onPressBack={exit} />
+    <View style={[styles.cookCanvas, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.turmeric200} />
+      <PageHeader
+        title={projection.currentVersion.title}
+        onPressBack={exit}
+        rightElement={<Logo size={28} />}
+      />
       <ScrollView
-        contentContainerStyle={[styles.content, landscape && styles.landscape]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + spacing.md },
+          landscape && styles.landscapeContent,
+        ]}
       >
         <View style={styles.cueColumn}>
-          <CookProgress
+          <CookCueCard
+            cue={cue}
             current={session.currentCueIndex + 1}
             total={session.cueCount}
           />
-          <CookCueCard cue={cue} />
+          {!landscape ? <CookStepMedia media={cue.media} /> : null}
         </View>
-        <View style={styles.controls}>
-          <Button
-            variant="outline"
-            onPress={() => {
-              void toggleVoice();
-            }}
-          >
-            {voiceState === "listening"
-              ? "Done speaking"
-              : voiceState === "thinking"
-                ? "Thinking…"
-                : "Speak a command"}
-          </Button>
-          <Text variant="label" tone="secondary">
-            {voiceState === "off"
-              ? "VOICE OFF · TOUCH CONTROLS READY"
-              : voiceState.toUpperCase()}
-          </Text>
+        <View style={[
+          styles.controls,
+          landscape && styles.landscapeControls,
+          landscape && !cue.media && styles.landscapeControlsWithoutMedia,
+        ]}>
+          {landscape ? <CookStepMedia media={cue.media} /> : null}
           <CookTimerControl
             suggestions={cue.timerSuggestions}
             timers={session.timers.filter(
@@ -334,32 +389,33 @@ function ActiveRecipeCookModeExperience({
             onStart={(suggestion) => {
               void cook.startTimer(suggestion);
             }}
-            onPause={(timerId) => send({ type: "pause_timer", timerId })}
-            onResume={(timerId) => send({ type: "resume_timer", timerId })}
-            onCancel={(timerId) => send({ type: "cancel_timer", timerId })}
+            onPause={(timerId) => { void send({ type: "pause_timer", timerId }); }}
+            onResume={(timerId) => { void send({ type: "resume_timer", timerId }); }}
+            onCancel={(timerId) => { void send({ type: "cancel_timer", timerId }); }}
+          />
+          <CookVoiceStatus
+            voiceState={voiceState}
+            voiceLevel={voiceLevel}
+            errorMessage={voiceError}
+            onFinishSpeaking={() => { void finishListeningRef.current(); }}
+            onRetry={() => { void beginListeningRef.current(); }}
           />
           <View style={styles.nav}>
             <Button
               variant="outline"
+              style={[
+                styles.navButton,
+                session.currentCueIndex === 0 && styles.navButtonDisabled,
+              ]}
               disabled={session.currentCueIndex === 0}
-              onPress={() => send({ type: "back" })}
+              onPress={() => { void send({ type: "back" }); }}
             >
               Back
-            </Button>
-            <Button
-              variant="outline"
-              onPress={() =>
-                Alert.alert(
-                  `Step ${session.currentCueIndex + 1}`,
-                  cue.displayText,
-                )
-              }
-            >
-              Repeat
             </Button>
             {session.currentCueIndex === session.cueCount - 1 ? (
               <Button
                 variant="primary"
+                style={styles.navButton}
                 onPress={() => {
                   void cook
                     .send({ type: "finish" })
@@ -374,12 +430,12 @@ function ActiveRecipeCookModeExperience({
                 Finish
               </Button>
             ) : (
-              <Button variant="primary" onPress={() => send({ type: "next" })}>Next</Button>
+              <Button variant="primary" style={styles.navButton} onPress={() => { void send({ type: "next" }); }}>Next</Button>
             )}
           </View>
         </View>
       </ScrollView>
-    </AppShell>
+    </View>
   );
 }
 const styles = StyleSheet.create({
@@ -389,19 +445,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.sm,
   },
+  cookCanvas: {
+    flex: 1,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.turmeric200,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.lg,
     gap: spacing.md,
   },
-  landscape: { flexDirection: "row" },
+  landscapeContent: { flexDirection: "row", alignItems: "stretch", gap: spacing.lg },
   cueColumn: { flex: 3, gap: spacing.md },
-  controls: { flex: 2, gap: spacing.md, justifyContent: "center" },
+  controls: { flex: 2, gap: spacing.md, justifyContent: "flex-end" },
+  landscapeControls: { justifyContent: "space-between" },
+  landscapeControlsWithoutMedia: { justifyContent: "center" },
   nav: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing.sm,
-    justifyContent: "flex-end",
+    alignItems: "center",
   },
+  navButton: { flex: 1 },
+  navButtonDisabled: { opacity: 0.48 },
 });

@@ -18,12 +18,14 @@ briefs:
   - household-food-loop
   - family-recipe-capture
   - personal-meal-favorites
+  - global-recipe-catalog
+  - object-detail-media-shell
 status: draft
-last_reviewed: 2026-08-05
+last_reviewed: 2026-08-07
 ---
 
 # Recipes
 
 Owns private reusable Recipe identity, immutable content versions, provenance,
-capture/import review, clean cooking, copy/collaboration sharing, and explicit
-public publication boundaries.
+capture/import review, clean cooking, copy/collaboration sharing, the global
+Kwilt-authored catalog, and explicit public publication boundaries.

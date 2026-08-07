@@ -15,14 +15,17 @@ import {
   StyleProp,
   ViewStyle,
   Text,
-  UIManager,
-  findNodeHandle,
 } from 'react-native';
 import {
   ObjectPageHeader,
   HeaderActionPill,
   OBJECT_PAGE_HEADER_BAR_HEIGHT,
 } from '../../ui/layout/ObjectPageHeader';
+import {
+  ObjectDetailMediaHero,
+  ObjectDetailMediaSheet,
+  resolveObjectDetailMediaGeometry,
+} from '../../ui/layout/ObjectDetailMediaShell';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as ImagePicker from 'expo-image-picker';
@@ -224,81 +227,9 @@ export function ArcDetailScreen() {
   const HEADER_BOTTOM_Y = insets.top + ARC_HEADER_HEIGHT;
   const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
   const scrollY = useRef(new Animated.Value(0)).current;
-  const sheetTopRef = useRef<View | null>(null);
-  const [sheetTopAtRestWindowY, setSheetTopAtRestWindowY] = useState<number | null>(null);
-
-  const measureSheetTopAtRest = useCallback(() => {
-    const node = sheetTopRef.current;
-    if (!node) return;
-    const handle = findNodeHandle(node);
-    if (!handle) return;
-    UIManager.measureInWindow(handle, (_x, y) => {
-      if (typeof y === 'number' && Number.isFinite(y)) {
-        setSheetTopAtRestWindowY(y);
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    // Measure once after initial layout. This is our scroll threshold anchor.
-    requestAnimationFrame(() => {
-      measureSheetTopAtRest();
-    });
-  }, [measureSheetTopAtRest]);
-
-  // `measureInWindow` can occasionally report a too-small Y for views inside scroll containers,
-  // which collapses our interpolation ranges and makes the hero fade immediately.
-  // Provide a layout-based fallback that matches this screen's fixed hero/sheet geometry.
-  const ESTIMATED_ARC_HERO_HEIGHT_PX = 320; // keep in sync with `styles.arcHeroSection.height`
-  const ESTIMATED_ARC_SHEET_MARGIN_TOP_PX = -28; // keep in sync with `styles.arcSheet.marginTop`
-  // The Arc sheet overlaps the hero by `-marginTop`, so the *visible* hero height is reduced.
-  // Use this for spotlight targeting so the coachmark doesn't frame the white sheet overlap.
-  const estimatedVisibleHeroHeightPx = Math.max(
-    0,
-    ESTIMATED_ARC_HERO_HEIGHT_PX + ESTIMATED_ARC_SHEET_MARGIN_TOP_PX,
-  );
-  const estimatedHeaderTransitionStartScrollY = Math.max(
-    0,
-    ESTIMATED_ARC_HERO_HEIGHT_PX + ESTIMATED_ARC_SHEET_MARGIN_TOP_PX - HEADER_BOTTOM_Y,
-  );
-
-  const measuredHeaderTransitionStartScrollY =
-    sheetTopAtRestWindowY != null && Number.isFinite(sheetTopAtRestWindowY)
-      ? Math.max(0, sheetTopAtRestWindowY - HEADER_BOTTOM_Y)
-      : null;
-
-  const headerTransitionStartScrollY =
-    measuredHeaderTransitionStartScrollY != null && measuredHeaderTransitionStartScrollY >= 24
-      ? measuredHeaderTransitionStartScrollY
-      : estimatedHeaderTransitionStartScrollY;
-
-  // Fade the hero out so it reaches 0 opacity exactly when the sheet top touches the
-  // bottom of the fixed header (the start of the header transition).
-  //
-  // Important UX detail: the sheet starts fairly close to the top (it also overlaps
-  // the hero a bit), so a long fade lead can cause the hero to start fading on the
-  // very first pixels of scroll. Add a small "hold" so the hero remains fully visible
-  // until the user has scrolled a meaningful amount, while still syncing the fade-out
-  // endpoint to the sheet/header alignment.
-  const HERO_FADE_LEAD_PX = 180;
-  const HERO_FADE_HOLD_PX = 60;
-
-  // Ensure monotonic input ranges for interpolation (Animated can behave oddly when
-  // input ranges collapse or invert).
-  const heroFadeEndScrollY = Math.max(1, headerTransitionStartScrollY);
-  const heroFadeStartScrollY = Math.min(
-    Math.max(HERO_FADE_HOLD_PX, heroFadeEndScrollY - HERO_FADE_LEAD_PX),
-    heroFadeEndScrollY - 1,
-  );
-
-  const heroOpacity = scrollY.interpolate({
-    inputRange: [0, heroFadeStartScrollY, heroFadeEndScrollY],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
-  });
-  // The hero is inside the scroll content, so it already moves at 1x scroll speed.
-  // Translate it down by +0.5x scroll to net out to ~0.5x upward movement (Airbnb-like parallax).
-  const heroParallaxTranslateY = Animated.multiply(scrollY, 0.5);
+  const arcMediaGeometry = resolveObjectDetailMediaGeometry('immersive');
+  const estimatedVisibleHeroHeightPx =
+    arcMediaGeometry.heroHeight - arcMediaGeometry.overlap;
 
   // When navigated to with `openGoalCreation: true` (for example, from the Goals
   // canvas "new goal" affordance), immediately surface the Goal creation
@@ -1052,7 +983,11 @@ export function ArcDetailScreen() {
             scrollEventThrottle={16}
           >
             <View style={styles.pageContent}>
-              <View style={styles.arcHeroSection}>
+              <ObjectDetailMediaHero
+                variant="immersive"
+                scrollY={scrollY}
+                headerBoundary={HEADER_BOTTOM_Y}
+              >
                 <View ref={heroBannerRef} collapsable={false}>
                   <View
                     ref={heroSpotlightRef}
@@ -1066,12 +1001,6 @@ export function ArcDetailScreen() {
                       height: estimatedVisibleHeroHeightPx,
                     }}
                   />
-                  <Animated.View
-                    style={{
-                      opacity: heroOpacity,
-                      transform: [{ translateY: heroParallaxTranslateY }],
-                    }}
-                  >
                     <TouchableOpacity
                       testID="e2e.arcDetail.heroBanner"
                       style={styles.heroFullBleedWrapper}
@@ -1135,16 +1064,10 @@ export function ArcDetailScreen() {
                         </View>
                       ) : null}
                     </TouchableOpacity>
-                  </Animated.View>
                 </View>
-              </View>
+              </ObjectDetailMediaHero>
 
-              <View
-                ref={sheetTopRef}
-                collapsable={false}
-                onLayout={measureSheetTopAtRest}
-                style={styles.arcSheet}
-              >
+              <ObjectDetailMediaSheet variant="immersive">
                 <View style={styles.arcSheetInner}>
                   <View style={styles.arcTypePillRow}>
                     <HStack style={styles.arcTypePill} alignItems="center" space="xs">
@@ -1328,7 +1251,7 @@ export function ArcDetailScreen() {
                     </View>
                   ) : null}
                 </View>
-              </View>
+              </ObjectDetailMediaSheet>
             </View>
           </KeyboardAwareScrollView>
         </View>

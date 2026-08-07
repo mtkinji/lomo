@@ -13,18 +13,20 @@ import { IngredientLineEditor, type EditableIngredientLine } from '../components
 import { InstructionSectionEditor, type EditableInstructionStep } from '../components/InstructionSectionEditor';
 import type { RecipeProjection } from '../data/recipeCache';
 import { useRecipeStore } from '../runtime/useRecipeStore';
+import type { RecipeVersion } from '../domain/recipeContracts';
+import type { RecipeUpdateDraft } from '../domain/recipeUpdateDraft';
+import {
+  applyRecipeUpdateSuggestion,
+  type RecipeUpdateOperation,
+  type RecipeUpdateSuggestion,
+} from '../domain/recipeUpdateSuggestion';
+import { createRecipeUpdateSuggestionRepository } from '../data/recipeUpdateSuggestionRepository';
 
 function nextId(prefix: string): string { return `${prefix}-${Crypto.randomUUID()}`; }
 
-export type RecipeEditorDraft = {
-  title: string;
-  description: string;
-  servings: string;
+export type RecipeEditorDraft = RecipeUpdateDraft & {
   ingredients: EditableIngredientLine[];
   instructions: EditableInstructionStep[];
-  sourceTitle: string;
-  sourceAuthor: string;
-  notes: string;
 };
 
 export function reviewedDataFromEditorDraft(
@@ -49,8 +51,25 @@ export function reviewedDataFromEditorDraft(
   };
 }
 
-export function RecipeEditView({ initial, saving, error, canSave = true, beforeFields, onSave, onBack }: {
+function operationLabel(operation: RecipeUpdateOperation): string {
+  switch (operation.kind) {
+    case 'set_title': return `Title → ${operation.value}`;
+    case 'set_description': return `Description → ${operation.value}`;
+    case 'set_servings': return `Servings → ${operation.value}`;
+    case 'replace_ingredient': return `Ingredient → ${operation.value}`;
+    case 'add_ingredient': return `Add ingredient · ${operation.value}`;
+    case 'remove_ingredient': return 'Remove one ingredient';
+    case 'replace_instruction': return `Step → ${operation.value}`;
+    case 'add_instruction': return `Add step · ${operation.value}`;
+    case 'remove_instruction': return 'Remove one step';
+    case 'set_notes': return `Notes → ${operation.value}`;
+  }
+}
+
+export function RecipeEditView({ initial, currentVersion, aiSuggest, saving, error, canSave = true, beforeFields, onSave, onBack }: {
   initial: RecipeEditorDraft;
+  currentVersion?: RecipeVersion;
+  aiSuggest?(instruction: string, draft: RecipeEditorDraft): Promise<RecipeUpdateSuggestion>;
   saving: boolean;
   error: string | null;
   canSave?: boolean;
@@ -59,15 +78,63 @@ export function RecipeEditView({ initial, saving, error, canSave = true, beforeF
   onBack(dirty: boolean): void;
 }) {
   const [draft, setDraft] = useState(initial);
+  const [instruction, setInstruction] = useState('');
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestion, setSuggestion] = useState<RecipeUpdateSuggestion | null>(null);
+  const [suggestionUnavailable, setSuggestionUnavailable] = useState(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
   const patch = (values: Partial<RecipeEditorDraft>) => setDraft((current) => ({ ...current, ...values }));
+  const requestSuggestion = async () => {
+    if (!aiSuggest || !instruction.trim() || suggesting) return;
+    setSuggesting(true); setSuggestion(null); setSuggestionUnavailable(false);
+    try { setSuggestion(await aiSuggest(instruction.trim(), draft)); }
+    catch { setSuggestionUnavailable(true); }
+    finally { setSuggesting(false); }
+  };
+  const title = initial.title ? 'Update recipe' : 'New recipe';
+  const saveLabel = currentVersion ? `Save Version ${currentVersion.version + 1}` : 'Save';
   return (
     <AppShell>
-      <PageHeader title={initial.title ? 'Edit recipe' : 'New recipe'} onPressBack={() => onBack(dirty)} rightElement={<Button size="sm" variant="primary" disabled={saving || !canSave || !draft.title.trim()} onPress={() => { void onSave(draft); }}>{saving ? 'Saving…' : 'Save'}</Button>} />
+      <PageHeader title={title} onPressBack={() => onBack(dirty)} rightElement={<Button size="sm" variant="primary" disabled={saving || !canSave || !draft.title.trim()} onPress={() => { void onSave(draft); }}>{saving ? 'Saving…' : saveLabel}</Button>} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>
           {error ? <Text tone="destructive">{error}</Text> : null}
           {beforeFields}
+          {currentVersion && aiSuggest ? (
+            <View style={styles.aiUpdate}>
+              <View style={styles.aiHeading}>
+                <Heading variant="sm">Tell Kwilt what changed</Heading>
+                <Text tone="secondary">AI prepares changes to this draft. You review and save them.</Text>
+              </View>
+              <TextInput
+                accessibilityLabel="Tell Kwilt what changed"
+                multiline
+                value={instruction}
+                onChangeText={setInstruction}
+                placeholder="Double the sauce, use less cream, and make it serve six…"
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.input, styles.aiInput]}
+              />
+              <Button variant="outline" disabled={!instruction.trim() || suggesting} onPress={() => { void requestSuggestion(); }}>
+                {suggesting ? 'Preparing…' : 'Suggest changes'}
+              </Button>
+              {suggestionUnavailable ? <Text tone="secondary">AI help isn’t available. You can still update every field below.</Text> : null}
+              {suggestion ? (
+                <View style={styles.suggestion}>
+                  <Text variant="label">Suggested update</Text>
+                  <Text>{suggestion.summary}</Text>
+                  {suggestion.operations.map((operation, index) => <Text key={`${operation.kind}:${index}`} tone="secondary">{operationLabel(operation)}</Text>)}
+                  <View style={styles.suggestionActions}>
+                    <Button size="sm" variant="primary" onPress={() => {
+                      setDraft(applyRecipeUpdateSuggestion(draft, suggestion, (kind) => nextId(kind)));
+                      setSuggestion(null); setInstruction('');
+                    }}>Apply to draft</Button>
+                    <Button size="sm" variant="ghost" onPress={() => setSuggestion(null)}>Not now</Button>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
           <Field label="Title" value={draft.title} onChangeText={(title) => patch({ title })} placeholder="Grandma's chocolate cake" autoFocus={!initial.title} />
           <Field label="About this recipe" value={draft.description} onChangeText={(description) => patch({ description })} placeholder="Why you love it (optional)" multiline />
           <Field label="Servings" value={draft.servings} onChangeText={(servings) => patch({ servings })} placeholder="4" keyboardType="decimal-pad" />
@@ -144,6 +211,7 @@ export function RecipeEditScreen({ navigation, route }: Props) {
   const saveRecipe = useRecipeStore((state) => state.save);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const suggestionRepository = useMemo(() => createRecipeUpdateSuggestionRepository(), []);
   const initial = useMemo(() => draftFromProjection(projection), [projection]);
   const handleBack = (dirty: boolean) => {
     if (!dirty) { navigation.goBack(); return; }
@@ -180,7 +248,15 @@ export function RecipeEditScreen({ navigation, route }: Props) {
       setError(caught instanceof Error ? caught.message : 'Recipe could not be saved.');
     } finally { setSaving(false); }
   };
-  return <RecipeEditView initial={initial} saving={saving} error={error} onSave={handleSave} onBack={handleBack} />;
+  return <RecipeEditView
+    initial={initial}
+    currentVersion={projection?.currentVersion}
+    aiSuggest={projection ? (instruction, draft) => suggestionRepository.suggest({ version: projection.currentVersion, draft, instruction }) : undefined}
+    saving={saving}
+    error={error}
+    onSave={handleSave}
+    onBack={handleBack}
+  />;
 }
 
 const styles = StyleSheet.create({
@@ -190,4 +266,9 @@ const styles = StyleSheet.create({
   multiline: { minHeight: 96, textAlignVertical: 'top' },
   section: { gap: spacing.sm }, sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bottomSpace: { height: 80 },
+  aiUpdate: { gap: spacing.sm, padding: spacing.md, borderRadius: 16, backgroundColor: colors.shellAlt },
+  aiHeading: { gap: spacing.xs },
+  aiInput: { minHeight: 88 },
+  suggestion: { gap: spacing.xs, paddingTop: spacing.xs },
+  suggestionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingTop: spacing.xs },
 });

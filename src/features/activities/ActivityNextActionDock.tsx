@@ -1,24 +1,8 @@
 import React from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewProps,
-  type ViewStyle,
-} from 'react-native';
-import { BlurView } from 'expo-blur';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, floatingControl, fonts, spacing, typography } from '../../theme';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../../ui/DropdownMenu';
-import { Icon } from '../../ui/Icon';
+import { View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
+import { spacing } from '../../theme';
+import { ActionDockSplitContent } from '../../ui/ActionDockSplitContent';
+import { SplitActionDock } from '../../ui/SplitActionDock';
 import type {
   ActivityNextBestAction,
   ActivityNextBestActionId,
@@ -48,80 +32,17 @@ export function ActivityNextActionInlineContent({
   onActionPress,
   disabledActionIds,
 }: ActivityNextActionInlineContentProps) {
-  const primaryDisabled = Boolean(disabledActionIds?.[recommendedAction.id]);
-  const [primaryActionWidth, setPrimaryActionWidth] = React.useState(0);
-
   return (
-    <View style={styles.inlineContent}>
-      <Pressable
-        testID="e2e.activityDetail.nextAction.primary"
-        accessibilityRole="button"
-        accessibilityLabel={recommendedAction.accessibilityLabel}
-        accessibilityState={primaryDisabled ? { disabled: true } : undefined}
-        disabled={primaryDisabled}
-        hitSlop={10}
-        onPress={() => onActionPress(recommendedAction.id, 'primary')}
-        onLayout={(event) => {
-          const width = event.nativeEvent.layout.width;
-          if (Number.isFinite(width)) setPrimaryActionWidth(width);
-        }}
-        style={({ pressed }) => [
-          styles.primaryAction,
-          primaryDisabled ? styles.disabled : null,
-          pressed && !primaryDisabled ? styles.pressed : null,
-        ]}
-      >
-        <Icon name={recommendedAction.icon} size={22} color={colors.textPrimary} />
-        <Text style={styles.primaryLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.88}>
-          {recommendedAction.label}
-        </Text>
-      </Pressable>
-
-      <View style={styles.divider} />
-
-      <DropdownMenu>
-        <DropdownMenuTrigger accessibilityLabel="Show other to-do actions">
-          <View testID="e2e.activityDetail.nextAction.menuTrigger" pointerEvents="none" style={styles.menuTrigger}>
-            <Icon name="chevronDown" size={22} color={colors.textPrimary} />
-          </View>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          side="top"
-          sideOffset={10}
-          align="start"
-          alignOffset={primaryActionWidth > 0 ? -(primaryActionWidth + StyleSheet.hairlineWidth) : 0}
-        >
-          {menuActions.map((action, index) => {
-            const disabled = Boolean(disabledActionIds?.[action.id]);
-            return (
-              <React.Fragment key={action.id}>
-                {index === 1 ? <DropdownMenuSeparator /> : null}
-                <DropdownMenuItem
-                  testID={`e2e.activityDetail.nextAction.menu.${action.id}`}
-                  disabled={disabled}
-                  onPress={() => onActionPress(action.id, 'menu')}
-                >
-                  <View style={styles.menuRow}>
-                    <Icon
-                      name={action.icon}
-                      size={16}
-                      color={disabled ? colors.muted : colors.textPrimary}
-                    />
-                    <Text
-                      style={[styles.menuLabel, disabled ? styles.menuLabelDisabled : null]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {action.label}
-                    </Text>
-                  </View>
-                </DropdownMenuItem>
-              </React.Fragment>
-            );
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </View>
+    <ActionDockSplitContent
+      recommendedAction={recommendedAction}
+      menuActions={menuActions}
+      onActionPress={onActionPress}
+      disabledActionIds={disabledActionIds}
+      menuAccessibilityLabel="Show other to-do actions"
+      primaryTestID="e2e.activityDetail.nextAction.primary"
+      menuTriggerTestID="e2e.activityDetail.nextAction.menuTrigger"
+      getMenuTestID={(actionId) => `e2e.activityDetail.nextAction.menu.${actionId}`}
+    />
   );
 }
 
@@ -137,129 +58,22 @@ export function ActivityNextActionDock({
   style,
   onLayout,
 }: ActivityNextActionDockProps) {
-  const insets = useSafeAreaInsets();
-
   return (
-    <View
-      pointerEvents="box-none"
+    <SplitActionDock
+      recommendedAction={recommendedAction}
+      menuActions={menuActions}
+      onActionPress={onActionPress}
+      disabledActionIds={disabledActionIds}
+      menuAccessibilityLabel="Show other to-do actions"
+      primaryTestID="e2e.activityDetail.nextAction.primary"
+      menuTriggerTestID="e2e.activityDetail.nextAction.menuTrigger"
+      getMenuTestID={(actionId) => `e2e.activityDetail.nextAction.menu.${actionId}`}
+      targetRef={targetRef}
+      insetX={insetX}
+      insetBottom={insetBottom}
+      safeAreaLift={safeAreaLift}
       onLayout={onLayout}
-      style={[
-        styles.host,
-        {
-          paddingHorizontal: insetX,
-          bottom:
-            (safeAreaLift === 'full'
-              ? insets.bottom
-              : safeAreaLift === 'half'
-                ? Math.round(insets.bottom * 0.5)
-                : 0) + insetBottom,
-        },
-        style,
-      ]}
-    >
-      <View style={styles.dockShadow}>
-        <View ref={targetRef} collapsable={false} style={styles.dock}>
-          <BlurView
-            intensity={floatingControl.material.intensity}
-            tint={floatingControl.material.tint}
-            style={StyleSheet.absoluteFillObject}
-          />
-          <View pointerEvents="none" style={styles.dockTint} />
-          <ActivityNextActionInlineContent
-            recommendedAction={recommendedAction}
-            menuActions={menuActions}
-            onActionPress={onActionPress}
-            disabledActionIds={disabledActionIds}
-          />
-        </View>
-      </View>
-    </View>
+      style={style}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  host: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 60,
-    paddingTop: spacing.sm,
-    alignItems: 'center',
-  },
-  inlineContent: {
-    minHeight: 56,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dockShadow: {
-    ...floatingControl.shadow,
-  },
-  dock: {
-    minHeight: 58,
-    borderRadius: 99,
-    overflow: 'hidden',
-    borderWidth: floatingControl.material.borderWidth,
-    borderColor: floatingControl.material.borderColor,
-    backgroundColor: floatingControl.material.backgroundColor,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dockTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: floatingControl.material.overlayColor,
-  },
-  primaryAction: {
-    minHeight: 56,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingLeft: spacing.lg,
-    paddingRight: spacing.md,
-  },
-  primaryLabel: {
-    ...typography.body,
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.textPrimary,
-    fontFamily: fonts.medium,
-    flexShrink: 1,
-  },
-  divider: {
-    width: StyleSheet.hairlineWidth,
-    alignSelf: 'stretch',
-    backgroundColor: colors.border,
-  },
-  menuTrigger: {
-    width: 54,
-    minHeight: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pressed: {
-    opacity: 0.84,
-    transform: [{ scale: 0.99 }],
-  },
-  disabled: {
-    opacity: 0.48,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minWidth: 0,
-    flex: 1,
-  },
-  menuLabel: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontFamily: fonts.medium,
-    flexShrink: 1,
-  },
-  menuLabelDisabled: {
-    color: colors.muted,
-  },
-});

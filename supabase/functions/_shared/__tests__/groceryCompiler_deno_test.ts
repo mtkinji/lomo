@@ -1,4 +1,4 @@
-import { compileGroceryAuthority } from '../groceryCompiler.ts';
+import { compileGroceryAuthority, compileRecipeGroceryAuthority } from '../groceryCompiler.ts';
 
 const input = {
   plan: { id: 'plan-1', version: 3, state: 'finalized', organizer_person_id: 'person-1' }, expectedVersion: 3, actorPersonId: 'person-1',
@@ -67,4 +67,45 @@ Deno.test('compiles an immutable bundled-catalog ingredient snapshot without pri
   if (result.items[0]?.quantityMin !== 4) throw new Error('catalog serving scale failed');
   if (result.items[0]?.sources[0]?.ingredientLineId !== 'kwilt-recipe-br001-v1-ingredient-1') throw new Error('catalog provenance lost');
   if (result.items[0]?.sources[0]?.kind !== 'catalog_recipe_ingredient') throw new Error('catalog authority was not distinguished');
+});
+
+Deno.test('compiles one readable Recipe version without inventing Meal Plan membership', () => {
+  const result = compileRecipeGroceryAuthority({
+    source: {
+      recipeId: 'recipe-1',
+      recipeVersionId: 'version-1',
+      recipeVersion: 2,
+      contentHash: 'sha256:recipe-1-v2',
+      sourceType: 'manual',
+      title: 'Onion soup',
+      yieldQuantity: 4,
+      ingredients: [],
+    },
+    servings: 8,
+    authoritativeIngredients: [{ id: 'ingredient-1', original_text: '2 onions', optional: false }],
+  });
+
+  if (result.items[0]?.quantityMin !== 4) throw new Error('single Recipe serving scale failed');
+  if (result.items[0]?.sources[0]?.scope !== 'recipe_version') throw new Error('single Recipe scope was not explicit');
+  if (result.items[0]?.sources[0]?.recipeVersionId !== 'version-1') throw new Error('single Recipe provenance was lost');
+});
+
+Deno.test('compiles one immutable bundled-catalog Recipe snapshot', () => {
+  const result = compileRecipeGroceryAuthority({
+    source: {
+      recipeId: 'kwilt-recipe-br001',
+      recipeVersionId: 'kwilt-recipe-br001-v1',
+      recipeVersion: 1,
+      contentHash: 'kwilt:BR001:v1',
+      sourceType: 'catalog',
+      title: 'Pancakes',
+      yieldQuantity: 4,
+      ingredients: [{ id: 'kwilt-recipe-br001-v1-ingredient-1', originalText: '2 cups flour', optional: false }],
+    },
+    servings: 8,
+    authoritativeIngredients: null,
+  });
+
+  if (result.items[0]?.quantityMin !== 4) throw new Error('catalog Recipe serving scale failed');
+  if (result.items[0]?.sources[0]?.kind !== 'catalog_recipe_ingredient') throw new Error('catalog Recipe authority was not distinguished');
 });

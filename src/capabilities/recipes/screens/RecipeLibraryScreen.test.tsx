@@ -107,6 +107,47 @@ describe('Recipe library', () => {
     expect(onSeeAll).toHaveBeenCalledWith({ ...DEFAULT_RECIPE_INVENTORY_FILTERS, cuisine: 'Mexican' });
   });
 
+  it('opens a compact illustrated cuisine family from discovery', () => {
+    const onSeeAll = jest.fn();
+    const recipes = buildRecipeLibraryInventory([]);
+    const screen = render(
+      <RecipeLibraryView {...viewProps} recipes={recipes} onSeeAll={onSeeAll} />,
+    );
+
+    expect(screen.getByText('Explore cuisines')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Browse French meals'));
+
+    expect(onSeeAll).toHaveBeenCalledWith({
+      ...DEFAULT_RECIPE_INVENTORY_FILTERS,
+      cuisine: 'French',
+    });
+  });
+
+  it('reveals regional cuisine refinements inside a family result', () => {
+    const onSeeAll = jest.fn();
+    const filters = {
+      ...DEFAULT_RECIPE_INVENTORY_FILTERS,
+      cuisine: 'French',
+    };
+    const recipes = buildRecipeLibraryInventory([]);
+    const screen = render(
+      <RecipeLibraryView
+        {...viewProps}
+        browseMode="results"
+        filters={filters}
+        recipes={recipes}
+        onSeeAll={onSeeAll}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Show Provençal French meals'));
+
+    expect(onSeeAll).toHaveBeenCalledWith({
+      ...filters,
+      cuisine: 'Provençal French',
+    });
+  });
+
   it('puts liked meals first without turning them into a new inventory', () => {
     const recipes = buildRecipeLibraryInventory([]);
     const favoriteIds = new Set([recipes[2].recipe.id, recipes[5].recipe.id]);

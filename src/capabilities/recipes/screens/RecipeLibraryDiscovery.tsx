@@ -1,4 +1,10 @@
-import { Pressable, ScrollView, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  View,
+  type ImageSourcePropType,
+} from "react-native";
 
 import { colors } from "../../../theme";
 import { HeaderActionPill } from "../../../ui/layout/ObjectPageHeader";
@@ -19,7 +25,6 @@ import type {
 import {
   DEFAULT_RECIPE_INVENTORY_FILTERS,
   STARTER_RECIPE_CATEGORIES,
-  STARTER_RECIPE_CUISINES,
   buildRecipeLibraryInventory,
   countActiveRecipeInventoryFilters,
   filterRecipeInventory,
@@ -28,6 +33,13 @@ import {
   type RecipeInventorySortMode,
   type StarterRecipeMetadata,
 } from "../data/starterRecipeCatalog";
+import {
+  FEATURED_CUISINE_FAMILY_IDS,
+  getCuisineFamily,
+  getCuisineFamilyForFilterValue,
+  type CuisineFamily,
+  type CuisineFamilyId,
+} from "../domain/cuisineFamilies";
 import type {
   EditorialCollection,
   MealEditorialPlacement,
@@ -36,12 +48,32 @@ import { styles } from "./RecipeLibraryScreen.styles";
 
 const RECIPE_CATEGORIES: readonly StarterRecipeMetadata["category"][] =
   STARTER_RECIPE_CATEGORIES;
-const RECIPE_CUISINES = STARTER_RECIPE_CUISINES;
 const SORT_LABELS: Record<RecipeInventorySortMode, string> = {
   featured: "Featured",
   quickest: "Quickest",
   title: "A–Z",
 };
+
+const CUISINE_ARTWORK: Partial<
+  Record<CuisineFamilyId, ImageSourcePropType>
+> = {
+  mexican: require("../../../../assets/illustrations/cuisines/mexican.png"),
+  "latin-american": require("../../../../assets/illustrations/cuisines/latin-american.png"),
+  caribbean: require("../../../../assets/illustrations/cuisines/caribbean.png"),
+  french: require("../../../../assets/illustrations/cuisines/french.png"),
+  italian: require("../../../../assets/illustrations/cuisines/italian.png"),
+  "middle-eastern": require("../../../../assets/illustrations/cuisines/middle-eastern.png"),
+  "indian-south-asian": require("../../../../assets/illustrations/cuisines/indian-south-asian.png"),
+  chinese: require("../../../../assets/illustrations/cuisines/chinese.png"),
+  japanese: require("../../../../assets/illustrations/cuisines/japanese.png"),
+  korean: require("../../../../assets/illustrations/cuisines/korean.png"),
+  thai: require("../../../../assets/illustrations/cuisines/thai.png"),
+  vietnamese: require("../../../../assets/illustrations/cuisines/vietnamese.png"),
+};
+
+const FEATURED_CUISINE_FAMILIES = FEATURED_CUISINE_FAMILY_IDS.map((id) =>
+  getCuisineFamily(id),
+).filter((item): item is CuisineFamily => item !== null);
 
 export type FilterKey = keyof RecipeInventoryFilters;
 
@@ -407,6 +439,108 @@ export function EditorialCollectionOffer({
         </View>
       </View>
     </Pressable>
+  );
+}
+
+export function CuisineFamilyRow({
+  onOpen,
+}: {
+  onOpen(family: CuisineFamily): void;
+}) {
+  return (
+    <View testID="cuisine-family-row" style={styles.cuisineSection}>
+      <Heading variant="md">Explore cuisines</Heading>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.cuisineRow}
+      >
+        {FEATURED_CUISINE_FAMILIES.map((item) => (
+          <Pressable
+            key={item.id}
+            accessibilityRole="button"
+            accessibilityLabel={`Browse ${item.label} meals`}
+            accessibilityHint="Shows matching meals and regional cuisines"
+            onPress={() => onOpen(item)}
+            style={({ pressed }) => [
+              styles.cuisineCard,
+              pressed && styles.cuisineCardPressed,
+            ]}
+          >
+            <Image
+              accessible={false}
+              source={CUISINE_ARTWORK[item.id]}
+              resizeMode="contain"
+              style={styles.cuisineArtwork}
+            />
+            <Text numberOfLines={2} variant="label" style={styles.cuisineLabel}>
+              {item.shortLabel}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+export function CuisineRefinementRow({
+  filters,
+  onChange,
+}: {
+  filters: RecipeInventoryFilters;
+  onChange(filters: RecipeInventoryFilters): void;
+}) {
+  const family = filters.cuisine
+    ? getCuisineFamilyForFilterValue(filters.cuisine)
+    : null;
+  if (!family || family.cuisines.length <= 1) return null;
+  const regionalCuisines = family.cuisines.filter(
+    (cuisine) => cuisine !== family.label,
+  );
+
+  return (
+    <View style={styles.cuisineRefinement}>
+      <Text variant="label" tone="secondary">
+        Explore {family.shortLabel}
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.cuisineRefinementRow}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Show all ${family.label} meals`}
+          accessibilityState={{ selected: filters.cuisine === family.label }}
+          onPress={() => onChange({ ...filters, cuisine: family.label })}
+          style={({ pressed }) => [
+            styles.cuisineRefinementChip,
+            filters.cuisine === family.label &&
+              styles.cuisineRefinementChipSelected,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text variant="label">All</Text>
+        </Pressable>
+        {regionalCuisines.map((cuisine) => (
+          <Pressable
+            key={cuisine}
+            accessibilityRole="button"
+            accessibilityLabel={`Show ${cuisine} meals`}
+            accessibilityState={{ selected: filters.cuisine === cuisine }}
+            onPress={() => onChange({ ...filters, cuisine })}
+            style={({ pressed }) => [
+              styles.cuisineRefinementChip,
+              filters.cuisine === cuisine &&
+                styles.cuisineRefinementChipSelected,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text variant="label">{cuisine}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 

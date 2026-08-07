@@ -22,6 +22,7 @@ import { Heading, Text } from "../../../ui/Typography";
 import type { RecipeProjection } from "../data/recipeCache";
 import { buildRecipeRecommendations } from "../domain/recipeRecommendations";
 import {
+  DEFAULT_RECIPE_INVENTORY_FILTERS,
   countActiveRecipeInventoryFilters,
   type RecipeInventoryFilters,
   type RecipeInventorySortMode,
@@ -36,6 +37,8 @@ import {
 import {
   buildRecipeDiscoverySections,
   buildRecipeShelves,
+  CuisineFamilyRow,
+  CuisineRefinementRow,
   EditorialCollectionOffer,
   RecommendedRecipeRow,
   RecipeCard,
@@ -141,6 +144,14 @@ export function RecipeLibraryView({
           onAddToPlan={onAddToPlan}
           isInPlan={isInPlan}
         />
+        <CuisineFamilyRow
+          onOpen={(family) =>
+            onSeeAll({
+              ...DEFAULT_RECIPE_INVENTORY_FILTERS,
+              cuisine: family.label,
+            })
+          }
+        />
         {buildRecipeDiscoverySections(shelves, editorialPlacements).map(
           (section) => {
             if (section.kind === "shelf")
@@ -198,6 +209,7 @@ export function RecipeLibraryView({
           <Heading variant="md">
             {hasFilters ? "Matching meals" : "All meals"}
           </Heading>
+          <CuisineRefinementRow filters={filters} onChange={onSeeAll} />
         </View>
       }
       ListEmptyComponent={

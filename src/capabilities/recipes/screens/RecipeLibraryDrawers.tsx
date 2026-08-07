@@ -15,16 +15,16 @@ import { RecipeArtwork } from "../components/RecipeArtwork";
 import {
   DEFAULT_RECIPE_INVENTORY_FILTERS,
   STARTER_RECIPE_CATEGORIES,
-  STARTER_RECIPE_CUISINES,
   type RecipeInventoryFilters,
   type RecipeInventorySortMode,
   type StarterRecipeMetadata,
 } from "../data/starterRecipeCatalog";
+import { CUISINE_FAMILIES } from "../domain/cuisineFamilies";
 import { styles } from "./RecipeLibraryScreen.styles";
 
 const RECIPE_CATEGORIES: readonly StarterRecipeMetadata["category"][] =
   STARTER_RECIPE_CATEGORIES;
-const RECIPE_CUISINES = STARTER_RECIPE_CUISINES;
+const RECIPE_CUISINES = CUISINE_FAMILIES.map(({ label }) => label);
 type FilterKey = keyof RecipeInventoryFilters;
 
 function FilterChoice({

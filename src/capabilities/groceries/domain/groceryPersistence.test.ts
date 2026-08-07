@@ -5,6 +5,7 @@ const sql = [
   '20260806030000_groceries.sql',
   '20260807013757_support_bundled_catalog_grocery_sources.sql',
   '20260807030912_preserve_grocery_item_states_on_rebase.sql',
+  '20260807172852_support_recipe_scoped_grocery_lists.sql',
 ].map((file) => readFileSync(resolve(process.cwd(), 'supabase/migrations', file), 'utf8')).join('\n').toLowerCase();
 
 describe('Grocery persistence contract', () => {
@@ -17,6 +18,12 @@ describe('Grocery persistence contract', () => {
       expect(sql).toContain(`function public.${rpc}`);
     }
     expect(sql).toContain('source_meal_plan_version');
+    expect(sql).toContain("source_kind text not null default 'meal_plan'");
+    expect(sql).toContain('source_recipe_version_id');
+    expect(sql).toContain('compile_kwilt_recipe_grocery_list');
+    expect(sql).toContain('kwilt_can_read_recipe');
+    expect(sql).toContain("scope','recipe_version'");
+    expect(sql).toContain("set status='review_needed',updated_at=now()");
     expect(sql).toContain('stale_grocery_list_revision');
     expect(sql).toContain('rebased:user_elected');
     expect(sql).not.toContain('min(new_item.id)');

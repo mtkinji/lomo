@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -19,12 +19,22 @@ import { RecipeArtwork } from './RecipeArtwork';
 type Props = {
   mediaAssets: RecipeMediaAsset[];
   recipeTitle: string;
-  onOpen(): void;
+  onOpen?(): void;
+  fallback?: ReactNode;
+  exposeArtworkToAccessibility?: boolean;
   style?: StyleProp<ViewStyle>;
   testID: string;
 };
 
-export function RecipeArtworkGallery({ mediaAssets, recipeTitle, onOpen, style, testID }: Props) {
+export function RecipeArtworkGallery({
+  mediaAssets,
+  recipeTitle,
+  onOpen,
+  fallback,
+  exposeArtworkToAccessibility = false,
+  style,
+  testID,
+}: Props) {
   const media = useMemo(
     () => mediaAssets.filter((asset) => asset.lifecycle === 'active'),
     [mediaAssets],
@@ -42,15 +52,45 @@ export function RecipeArtworkGallery({ mediaAssets, recipeTitle, onOpen, style, 
     setActiveIndex(Math.min(media.length - 1, Math.max(0, Math.round(event.nativeEvent.contentOffset.x / width))));
   };
 
+  const hiddenAccessibilityProps = exposeArtworkToAccessibility
+    ? {}
+    : {
+        accessible: false as const,
+        accessibilityElementsHidden: true,
+        importantForAccessibility: 'no-hide-descendants' as const,
+      };
+
+  if (!media.length) {
+    return (
+      <View testID={testID} style={[styles.frame, style]} {...hiddenAccessibilityProps}>
+        {fallback ?? (
+          <RecipeArtwork
+            accessibilityLabel={`${recipeTitle} recipe artwork`}
+            style={styles.artwork}
+          />
+        )}
+      </View>
+    );
+  }
+
   if (media.length <= 1) {
+    if (!onOpen) {
+      return (
+        <View testID={testID} style={[styles.frame, style]} {...hiddenAccessibilityProps}>
+          <RecipeArtwork
+            storageRef={first?.storageRef}
+            accessibilityLabel={first?.altText ?? `${recipeTitle} recipe photo`}
+            style={styles.artwork}
+          />
+        </View>
+      );
+    }
     return (
       <Pressable
         testID={testID}
-        accessible={false}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
         onPress={onOpen}
         style={({ pressed }) => [styles.frame, style, pressed && styles.pressed]}
+        {...hiddenAccessibilityProps}
       >
         <RecipeArtwork
           storageRef={first?.storageRef}
@@ -64,11 +104,9 @@ export function RecipeArtworkGallery({ mediaAssets, recipeTitle, onOpen, style, 
   return (
     <View
       testID={testID}
-      accessible={false}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
       onLayout={onLayout}
       style={[styles.frame, style]}
+      {...hiddenAccessibilityProps}
     >
       {width > 0 ? (
         <ScrollView
@@ -86,6 +124,7 @@ export function RecipeArtworkGallery({ mediaAssets, recipeTitle, onOpen, style, 
               testID={`${testID}-photo-${index}`}
               accessible={false}
               onPress={onOpen}
+              disabled={!onOpen}
               style={({ pressed }) => [{ width, height: '100%' }, pressed && styles.pressed]}
             >
               <RecipeArtwork

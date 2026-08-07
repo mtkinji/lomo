@@ -4,6 +4,8 @@ Kwilt's design system is the foundation for product surfaces across the Kwilt fa
 
 ## Foundations
 
+- [UI constitution](ui-constitution.md): authority order, ShadCN-to-Kwilt translation rules, hierarchy, composition, and visual acceptance gates.
+- [Pattern atlas](pattern-atlas.md): composition precedents, maturity, code references, and promotion requirements.
 - [Storybook](storybook.md): the primary review surface for tokens, component candidates, variants, and promotion decisions.
 - [Brand family architecture](brand-family-architecture.md): suite-level naming, app identity, color roles, icon rules, launch lockups, and cross-app UI principles.
 - [Semantic color](semantic-color.md): the required meaning gate for every non-neutral color used in product UI.
@@ -15,19 +17,21 @@ Kwilt's design system is the foundation for product surfaces across the Kwilt fa
 
 ## Current Posture
 
-Kwilt Goals and Kwilt Money should converge on shared foundation tokens and native theme bridges first. The marketing site can opt into selected brand primitives later while keeping more expressive campaign and landing-page leeway.
+ShadCN is Kwilt's upstream design-system reference and quality bar. Kwilt UI is the localized, source-owned implementation for React Native. Feature code composes Kwilt UI; it does not copy ShadCN web code, reproduce local primitives from raw React Native views, or treat an arbitrary existing component as canonical.
 
-## ShadCN Maturity For Existing Components
+Read the [UI constitution](ui-constitution.md) before material UI work. It defines what is normative, what is localized, and what wins when sources disagree.
 
-ShadCN is the model for component ownership and authoring discipline, not a mandate to restyle Kwilt immediately or replace working Kwilt components. Canonical React Native work should start from the existing Goals and Money components, then harden their APIs, states, accessibility, and token usage while preserving the current Kwilt look and feel unless a product/design pass explicitly changes the visual language.
+## ShadCN And Kwilt UI
 
-Adopt these ShadCN-inspired traits in the native system:
+ShadCN is more than loose inspiration. It is the intended model for component anatomy, composability, semantic variants, accessibility, state completeness, token roles, restrained composition, source ownership, and documentation quality.
 
-- Source-owned primitives that live in the repo and can be adapted deliberately, starting from existing `src/ui/*` components.
-- Small, composable APIs with semantic variants such as `primary`, `secondary`, `outline`, `ghost`, `destructive`, and app-specific additions only when they carry real meaning.
-- Token-driven styling through `@kwilt/tokens` and app theme bridges, rather than one-off raw values in feature code.
-- Accessible defaults, explicit disabled/error/loading states, and consistent keyboard/screen-reader behavior.
-- Feature code importing from the canonical Kwilt component layer, not raw implementation details.
+Kwilt UI translates that model for the product and platform:
+
+- ShadCN's web implementation details—Tailwind classes, Radix/Base UI primitives, hover behavior, default dark dashboard posture, and exact theme values—are not copied into React Native.
+- Kwilt owns its color, typography, spacing, motion, haptics, navigation, touch behavior, safe areas, drawers, accessibility behavior, and domain semantics.
+- Primitives designated Canonical by the inventory live in `src/ui/*` and use `@kwilt/tokens` through the app theme bridge. Directory location or barrel export does not grant status.
+- Feature code may use raw React Native `View` only as tokenized layout glue. It must not recreate a known semantic surface or control.
+- A local component is authoritative only within the maturity and scope recorded in the [component inventory](component-inventory.md). Existing code alone is not canonical.
 
 Before promoting a component into the canonical native layer, check:
 
@@ -36,3 +40,4 @@ Before promoting a component into the canonical native layer, check:
 - Accessibility: role, label, hint, focus order, hit target, reduced-motion behavior, and screen-reader output.
 - Theming: semantic colors, typography, radii, spacing, elevation, and motion sourced from tokens or app theme bridges.
 - Documentation: Storybook examples that show the supported variants and expected usage boundaries.
+- Composition: at least one approved pattern-atlas use that proves the primitive works in a coherent surface, not only in isolation.

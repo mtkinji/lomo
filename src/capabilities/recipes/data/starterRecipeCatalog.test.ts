@@ -14,6 +14,7 @@ import {
   recipeContractFixture,
   recipeVersionContractFixture,
 } from "../domain/recipeContractFixtures";
+import { getCuisineFamilyForCuisine } from "../domain/cuisineFamilies";
 
 describe("starter Recipe catalog", () => {
   it("ships exactly 500 unique, contract-valid independently authored recipes", () => {
@@ -128,6 +129,26 @@ describe("starter Recipe catalog", () => {
     ).toHaveLength(90);
   });
 
+  it("filters a canonical cuisine family without discarding regional cuisines", () => {
+    const inventory = buildRecipeLibraryInventory([]);
+    const french = filterRecipeInventory(inventory, {
+      query: "",
+      filters: { ...DEFAULT_RECIPE_INVENTORY_FILTERS, cuisine: "French" },
+      sort: "featured",
+    });
+    const cuisines = french.map(({ recipe }) =>
+      getStarterRecipeMetadata(recipe.id)?.cuisine,
+    );
+
+    expect(cuisines).toEqual(
+      expect.arrayContaining([
+        "French",
+        "Burgundian French",
+        "Provençal French",
+      ]),
+    );
+  });
+
   it("combines independent recipe filters and counts only active dimensions", () => {
     const inventory = buildRecipeLibraryInventory([]);
     const filters = {
@@ -149,7 +170,7 @@ describe("starter Recipe catalog", () => {
         const metadata = getStarterRecipeMetadata(recipe.id);
         return (
           metadata?.category === "Dinner" &&
-          metadata.cuisine === "Italian" &&
+          getCuisineFamilyForCuisine(metadata.cuisine)?.id === "italian" &&
           metadata.totalMinutes <= 40
         );
       }),

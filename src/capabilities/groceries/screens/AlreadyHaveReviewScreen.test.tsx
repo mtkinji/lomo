@@ -12,14 +12,15 @@ describe('Already have review', () => {
   it('finishes the review through grocery authority and returns to the ready list', async () => {
     const markReviewed = jest.fn().mockResolvedValue({});
     (createGroceryRepository as jest.Mock).mockReturnValue({
-      list: jest.fn().mockResolvedValue([{ id: 'list-1', revision: 3, status: 'review_needed', items: [{ id: 'item-1', concept: 'Flour', state: 'needed' }] }]),
+      list: jest.fn().mockResolvedValue([{ id: 'list-1', revision: 3, status: 'review_needed', items: [{ id: 'item-1', concept: 'Flour', quantityMin: 2, quantityMax: null, unit: 'cups', state: 'needed' }] }]),
       markReviewed,
     });
     const replace = jest.fn();
     const screen = render(<AlreadyHaveReviewScreen navigation={{ goBack: jest.fn(), replace } as never} route={{ params: { listId: 'list-1' } } as never} />);
 
-    await waitFor(() => expect(screen.getByText('Flour')).toBeTruthy());
-    fireEvent.press(screen.getByText('Done reviewing'));
+    await waitFor(() => expect(screen.getByText('2 cups Flour')).toBeTruthy());
+    expect(screen.getByText('What do you already have?')).toBeTruthy();
+    fireEvent.press(screen.getByText('Make grocery list'));
 
     await waitFor(() => expect(markReviewed).toHaveBeenCalledWith('list-1', 3));
     expect(replace).toHaveBeenCalledWith('GroceryList', { listId: 'list-1' });
