@@ -23,4 +23,15 @@ describe('contextual Chat presentation', () => {
       placeholder: 'Ask about this goal',
     });
   });
+
+  test('uses meal-planning language for the Meals inventory drawer', () => {
+    expect(getFreshDrawerCopy({
+      capabilityId: 'meal_planning',
+      surface: 'inventory',
+      returnTarget: { name: 'Food', params: { screen: 'RecipeLibrary' } },
+    })).toEqual({
+      title: 'Plan this week',
+      placeholder: 'What should this plan account for?',
+    });
+  });
 });

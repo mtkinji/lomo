@@ -7,7 +7,8 @@ describe('Meal Planning repository', () => {
     await repository.create({ householdId: 'household-1', horizon: { kind: 'next_shop', shopBy: null }, candidates: [] });
     await repository.openRound({ planId: 'plan-1', expectedVersion: 1, participantMembershipIds: ['member-1'], closesAt: null });
     await repository.submitResponse({ roundId: 'round-1', expectedRoundVersion: 1, selectedCandidateIds: [], pass: true, suggestion: null });
-    await repository.finalize({ planId: 'plan-1', expectedVersion: 2, selected: [], organizerNote: null });
+    const occasions = [{ id: 'occasion-1', title: null, placementDate: null, dishes: [{ id: 'dish-1', candidateId: 'candidate-1', dinerPersonIds: ['person-1'], servings: 1 }] }];
+    await repository.finalize({ planId: 'plan-1', expectedVersion: 2, occasions, organizerNote: null });
     await repository.revise('plan-1', 3);
     expect(rpc.mock.calls.map((call) => call[0])).toEqual([
       'create_kwilt_meal_plan','open_kwilt_meal_choice_round','submit_kwilt_meal_choice_response','finalize_kwilt_meal_plan','revise_kwilt_meal_plan',
@@ -15,6 +16,7 @@ describe('Meal Planning repository', () => {
     expect(rpc.mock.calls[3][1]).toEqual(expect.objectContaining({
       p_idempotency_key: 'finalize:plan-1:v2',
       p_content_hash: expect.stringMatching(/^fnv1a32:/),
+      p_occasions: occasions,
     }));
   });
 

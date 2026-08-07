@@ -32,6 +32,9 @@ export const AnalyticsEvent = {
   // Household Food. Metadata only: method, state, counts, and outcome. Never
   // recipe titles, ingredient text, source URLs, media, or object identifiers.
   RecipeLibraryViewed: 'recipe_library_viewed',
+  MealCollectionOpened: 'meal_collection_opened',
+  MealCollectionSelectionChanged: 'meal_collection_selection_changed',
+  MealEditorialPlanReviewStarted: 'meal_editorial_plan_review_started',
   RecipeHomeViewed: 'recipe_home_viewed',
   RecipeManualSaveCompleted: 'recipe_manual_save_completed',
   RecipeImportStarted: 'recipe_import_started',

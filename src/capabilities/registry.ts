@@ -82,11 +82,11 @@ export const CAPABILITY_REGISTRY = [
   exploreCapabilityDefinition,
   gamesCapabilityDefinition,
   {
-    id: 'recipes', label: 'Recipes', group: 'food', icon: 'chapters', availability: 'active',
+    id: 'recipes', label: 'Meals', group: 'food', icon: 'chapters', availability: 'active',
     rootRoute: { root: 'Food', screen: 'RecipeLibrary' }, deepLinks: [], agent: currentKwiltAgentContract, lifecycle: {},
   },
   {
-    id: 'meal-planning', label: 'Meal Planning', group: 'food', icon: 'plan', availability: 'active',
+    id: 'meal-planning', label: 'Meal Plan', group: 'food', icon: 'plan', availability: 'active',
     rootRoute: { root: 'Food', screen: 'NextMeals' }, deepLinks: [], agent: currentKwiltAgentContract, lifecycle: {},
   },
   {
@@ -111,7 +111,7 @@ function currentCapabilityMenuDestination(
 }
 
 export const CAPABILITY_MENU_REGISTRY = [
-  ...(['goals', 'todos', 'plan', 'arcs', 'chapters', 'recipes', 'meal-planning', 'groceries', 'explore', 'games'] as const).map(
+  ...(['goals', 'todos', 'plan', 'arcs', 'chapters', 'recipes', 'explore', 'games'] as const).map(
     currentCapabilityMenuDestination,
   ),
   {

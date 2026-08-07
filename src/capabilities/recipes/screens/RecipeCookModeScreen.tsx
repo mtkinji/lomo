@@ -30,13 +30,18 @@ import { cookVoiceTransport } from "../voice/cookVoiceTransport";
 import type { CookVoiceState } from "../voice/cookVoiceContracts";
 import { AnalyticsEvent } from "../../../services/analytics/events";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
+import { STARTER_RECIPE_PROJECTIONS } from "../data/starterRecipeCatalog";
+import { resolveAvailableRecipe } from "../data/resolveAvailableRecipe";
 
 type Props = NativeStackScreenProps<FoodStackParamList, "RecipeCookMode">;
 export function RecipeCookModeScreen({ navigation, route }: Props) {
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
-  const projection = useRecipeStore((state) =>
-    state.recipes.find((item) => item.recipe.id === route.params.recipeId),
+  const personalRecipes = useRecipeStore((state) => state.recipes);
+  const projection = resolveAvailableRecipe(
+    personalRecipes,
+    route.params.recipeId,
+    STARTER_RECIPE_PROJECTIONS,
   );
   if (!projection)
     return (
@@ -57,7 +62,7 @@ export function RecipeCookModeScreen({ navigation, route }: Props) {
   );
 }
 
-function RecipeCookModeExperience({
+export function RecipeCookModeExperience({
   projection,
   servings,
   landscape,
@@ -71,7 +76,6 @@ function RecipeCookModeExperience({
   const { capture } = useAnalytics();
   const trackedSession = useRef<string | null>(null);
   const cook = useRecipeCookSession(projection, servings);
-  const [voiceState, setVoiceState] = useState<CookVoiceState>("off");
   useEffect(() => {
     if (!cook.restoring && !cook.session) void cook.start();
   }, [cook.restoring, cook.session, cook.start]);
@@ -109,6 +113,31 @@ function RecipeCookModeExperience({
         </View>
       </AppShell>
     );
+  return (
+    <ActiveRecipeCookModeExperience
+      projection={projection}
+      landscape={landscape}
+      navigation={navigation}
+      cook={cook}
+    />
+  );
+}
+
+function ActiveRecipeCookModeExperience({
+  projection,
+  landscape,
+  navigation,
+  cook,
+}: {
+  projection: RecipeProjection;
+  landscape: boolean;
+  navigation: Props["navigation"];
+  cook: ReturnType<typeof useRecipeCookSession>;
+}) {
+  const { capture } = useAnalytics();
+  const [voiceState, setVoiceState] = useState<CookVoiceState>("off");
+  const session = cook.session!;
+  const cue = cook.cues[session.currentCueIndex]!;
   const send = (event: Parameters<typeof cook.send>[0]) => {
     if (event.type === "next" || event.type === "back")
       capture(AnalyticsEvent.CookCueAdvanced, {

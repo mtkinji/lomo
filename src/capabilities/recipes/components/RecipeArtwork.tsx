@@ -13,10 +13,12 @@ export function RecipeArtwork({
   storageRef,
   accessibilityLabel,
   style,
+  cropZoom = 1,
 }: {
   storageRef?: string | null;
   accessibilityLabel: string;
   style?: StyleProp<ImageStyle>;
+  cropZoom?: number;
 }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const artworkIndex = getBundledRecipeArtworkIndex(storageRef);
@@ -34,7 +36,7 @@ export function RecipeArtwork({
     const atlasIndex = artworkIndex % 12;
     const column = atlasIndex % 4;
     const row = Math.floor(atlasIndex / 4);
-    const cellSize = Math.max(size.width, size.height);
+    const cellSize = Math.max(size.width, size.height) * cropZoom;
     return (
       <View accessibilityLabel={accessibilityLabel} onLayout={onLayout} style={[styles.frame, style]}>
         {size.width > 0 && size.height > 0 ? (

@@ -78,7 +78,9 @@ without becoming pantry clerks, budget administrators, or coupon experts.
 - **Recipes** owns reusable food knowledge, provenance, versions, clean cooking,
   private ownership, and recipe-specific sharing.
 - **Meal Planning** owns horizons, candidates, family choice rounds, responses,
-  constraints, servings, day placement, and finalization.
+  intended diners, meal occasions, per-dish servings, optional placement, and
+  finalization. Different dishes can belong to one occasion without creating
+  adult or child serving classes.
 - **Groceries** owns compiled lists, Already have state, household additions,
   confidence-aware stock observations, trip targets, store opportunities,
   product mappings, price and offer evidence, basket scenarios, savings plans,
@@ -89,6 +91,21 @@ without becoming pantry clerks, budget administrators, or coupon experts.
   purpose-limited projection and never copies or silently changes budget truth.
 - **Activities** optionally carry recurring prompts, scheduled cooking, and
   shopping execution. They never become canonical Recipes or Meal Plans.
+
+### Household fit and privacy
+
+- Catalog meals may be hidden only from the current person's discovery and are
+  always recoverable. Hiding never deletes a Recipe or edits a Meal Plan.
+- `must_avoid` food needs are user-provided, person-specific context. Kwilt may
+  name a recorded ingredient conflict when evidence and viewer authority allow,
+  but it never claims a meal is safe.
+- Meal Planning checks only the people intended to eat a dish. An excluded usual
+  diner must receive another dish or be explicitly marked not eating for that
+  occasion before finalization.
+- Groceries receives finalized dish entries, servings, and Recipe provenance;
+  it never receives diner names or food-need labels.
+- A planning reminder is earned after successful finalization, defaults off,
+  and is stored as a removable Activity rather than parallel notification state.
 
 ### Learning-release loop
 
@@ -247,6 +264,31 @@ off to the Meal Planning-owned editor, prepare no more than seven candidates,
 preserve plain meal notes, allow every Recipe candidate to be added or removed,
 and make the unsaved boundary explicit. Opening or preparing the offer must not
 create, finalize, invite, compile groceries, or mutate Money.
+
+### Editorial Collections and prepared plans
+
+The first editorial learning release replaces a single generic planning offer
+with at most two deterministic invitations distributed through the broad Meals
+browse. Each opens a fixed-grammar Collection page with an authored premise,
+ordered sections, versioned Recipe references, and concise `Why try it?` and
+`Why is it doable?` evidence. A page may support temporary choose-some selection,
+a complete prepared `MealPlanTemplate`, or both.
+
+Both paths converge on the existing Meal Plan editor. The editor receives a
+serializable editorial seed, resolves it against the bundled Recipe inventory,
+copies immutable Recipe snapshots plus source id/version into candidate
+provenance, deduplicates by Recipe version, and requires explicit Save. When an
+editable plan already exists, the household chooses whether to add to that
+draft or start the next plan. Editorial content never finalizes a plan, compiles
+Groceries, or remains live-linked to the adopted household copy.
+
+The learning release authors records in TypeScript behind typed validators and
+uses a deterministic weekly resolver rather than a CMS. It adds no saved
+Collection object, notification, template library, numeric budget promise, or
+passive taste model. See
+[`editorial-meal-collections`](../design-explorations/editorial-meal-collections/03-converge.md),
+[`04-learning-release.md`](../design-explorations/editorial-meal-collections/04-learning-release.md),
+and [`05-evaluate-learning.md`](../design-explorations/editorial-meal-collections/05-evaluate-learning.md).
 
 ## Open questions
 

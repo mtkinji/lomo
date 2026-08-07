@@ -19,6 +19,10 @@ const DRAWER_COPY: Record<
     inventory: { title: 'Chat about chapters', placeholder: 'Ask about these chapters' },
     detail: { title: 'Chat about this chapter', placeholder: 'Ask about this chapter' },
   },
+  meal_planning: {
+    inventory: { title: 'Plan this week', placeholder: 'What should this plan account for?' },
+    detail: { title: 'Chat about this meal plan', placeholder: 'Ask about this meal plan' },
+  },
 };
 
 export function buildFreshDrawerContext(

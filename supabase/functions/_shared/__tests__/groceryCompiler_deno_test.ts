@@ -23,3 +23,21 @@ Deno.test('rejects stale, unfinalized, wrong-owner, and missing Recipe authority
     if (!failed) throw new Error('invalid authority compiled');
   }
 });
+
+Deno.test('compiles every dish once while keeping dish entry provenance private', () => {
+  const result = compileGroceryAuthority({
+    ...input,
+    entries: [
+      { id: 'adult-dish', plan_version: 3, servings: 4, recipe_snapshot: { recipeVersionId: 'version-1', yieldQuantity: 4 } },
+      { id: 'alternate-dish', plan_version: 3, servings: 2, recipe_snapshot: { recipeVersionId: 'version-2', yieldQuantity: 2 } },
+    ],
+    ingredientsByVersionId: {
+      'version-1': [{ id: 'onions', original_text: '2 onions', optional: false }],
+      'version-2': [{ id: 'bread', original_text: '4 slices bread', optional: false }],
+    },
+  });
+  const sources = result.items.flatMap((item) => item.sources);
+  if (sources.filter((source) => source.planEntryId === 'adult-dish').length !== 1) throw new Error('first dish duplicated');
+  if (sources.filter((source) => source.planEntryId === 'alternate-dish').length !== 1) throw new Error('alternate dish duplicated');
+  if (JSON.stringify(result).match(/diner|allerg|food.need/i)) throw new Error('private meal-fit context leaked');
+});

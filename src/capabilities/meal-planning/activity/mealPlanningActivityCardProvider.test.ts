@@ -23,4 +23,11 @@ describe('Meal Planning Activity card', () => {
     expect(navigate).toHaveBeenCalledWith({ screen: 'MealChoiceResponse', params: { roundId: 'round-1', intent: 'pass' } });
     expect(receipt.outcome).toBe('completed');
   });
+
+  it('summarizes unresolved fit without leaking a person or ingredient', async () => {
+    const provider = createMealPlanningActivityCardProvider({ resolve: jest.fn().mockResolvedValue({ state: 'ready_to_finalize', responseCount: 0, unresolvedMealCount: 1 }), navigate: jest.fn() });
+    const card = await provider.resolve({ providerId: 'meal_planning', projectionKind: 'organizer_cycle', resourceRef: 'household-1', sourceVersion: '1' }, { viewerPersonId: 'person-1', activityId: 'activity-1' });
+    expect(card.detail).toBe('1 meal needs attention.');
+    expect(card.detail).not.toMatch(/peanut|avery/i);
+  });
 });

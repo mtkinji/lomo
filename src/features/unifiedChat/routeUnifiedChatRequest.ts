@@ -27,6 +27,8 @@ const CAPABILITY_DESCRIPTIONS: Readonly<Record<UnifiedChatCapabilityId, string>>
   notifications: 'Open native notification settings and authorization owned by the device.',
   account: 'Read show-up streak status or open native account, subscription, and destructive account-review surfaces; never silently execute consequential changes.',
   navigation: 'Open an exact native Kwilt destination such as search.',
+  recipes: 'Find and discuss the user\'s authorized Recipes and meal ideas.',
+  meal_planning: 'Prepare a household-aware Meal Plan using explicit preferences, budget boundaries, and available food evidence.',
 };
 
 const capabilityDescriptions = (Object.keys(CAPABILITY_DESCRIPTIONS) as UnifiedChatCapabilityId[])

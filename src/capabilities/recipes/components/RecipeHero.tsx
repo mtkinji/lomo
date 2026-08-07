@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type ImageStyle, type StyleProp } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BookHeart } from 'lucide-react-native';
 
@@ -12,11 +12,11 @@ function displayableUri(asset: RecipeMediaAsset | null): string | null {
   return /^(https?:|file:|data:)/.test(asset.storageRef) ? asset.storageRef : null;
 }
 
-export function RecipeHero({ media, familyLabel }: { media: RecipeMediaAsset | null; familyLabel: string | null }) {
+export function RecipeHero({ media, familyLabel, style }: { media: RecipeMediaAsset | null; familyLabel: string | null; style?: StyleProp<ImageStyle> }) {
   const uri = displayableUri(media);
-  if (uri || media?.storageRef.startsWith('bundle://')) return <RecipeArtwork accessibilityLabel={media?.altText ?? 'Recipe photo'} storageRef={media?.storageRef} style={styles.hero} />;
+  if (uri || media?.storageRef.startsWith('bundle://')) return <RecipeArtwork accessibilityLabel={media?.altText ?? 'Recipe photo'} storageRef={media?.storageRef} style={[styles.hero, style]} cropZoom={1.04} />;
   return (
-    <LinearGradient colors={[colors.pine50, colors.card]} style={[styles.hero, styles.fallback]}>
+    <LinearGradient colors={[colors.pine50, colors.card]} style={[styles.hero, styles.fallback, style]}>
       <View style={styles.icon}><BookHeart color={colors.pine700} size={32} /></View>
       <Text variant="label" tone="secondary">{familyLabel ? `From ${familyLabel}` : 'Your recipe'}</Text>
     </LinearGradient>

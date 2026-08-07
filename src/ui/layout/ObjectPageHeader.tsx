@@ -6,6 +6,7 @@ import {
   StyleSheet,
   View,
   type ImageSourcePropType,
+  type AccessibilityState,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -242,6 +243,7 @@ export type HeaderActionPillProps = {
   hitSlop?: number;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  accessibilityState?: AccessibilityState;
 };
 
 export function HeaderActionPill({
@@ -256,6 +258,7 @@ export function HeaderActionPill({
   hitSlop = 10,
   style,
   disabled,
+  accessibilityState,
 }: HeaderActionPillProps) {
   const resolvedOpacity = materialOpacity ?? new Animated.Value(1);
   const materialToken =
@@ -279,7 +282,7 @@ export function HeaderActionPill({
       onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={disabled ? { disabled: true } : undefined}
+      accessibilityState={{ ...accessibilityState, ...(disabled ? { disabled: true } : {}) }}
       hitSlop={hitSlop}
       disabled={disabled}
     >

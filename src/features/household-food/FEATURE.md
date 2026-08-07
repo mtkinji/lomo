@@ -24,3 +24,11 @@ last_reviewed: 2026-08-05
 Defines the program-level contract connecting Recipes, Meal Planning, and
 Groceries while keeping each capability's data, permissions, mutations, and
 receipts separate.
+
+Recipes owns reusable food knowledge and personal discovery controls. Meal
+Planning owns usual diners, person-scoped fit checks, occasions, dish
+assignments, quantities, and finalization. Groceries consumes each finalized
+dish exactly once with Recipe and serving provenance, without private diner or
+food-need context. Recorded food needs are user-provided guidance, not medical
+or safety guarantees; reminders are optional Activities offered only after a
+successful plan.

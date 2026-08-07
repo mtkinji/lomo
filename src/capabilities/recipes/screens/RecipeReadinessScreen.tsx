@@ -10,6 +10,8 @@ import { PageHeader } from '../../../ui/layout/PageHeader';
 import { Heading, Text } from '../../../ui/Typography';
 import type { RecipeVersion } from '../domain/recipeContracts';
 import { useRecipeStore } from '../runtime/useRecipeStore';
+import { STARTER_RECIPE_PROJECTIONS } from '../data/starterRecipeCatalog';
+import { resolveAvailableRecipe } from '../data/resolveAvailableRecipe';
 
 export type RecipeReadinessItem = { id: string; label: string; inferred: boolean };
 export function deriveRecipeReadiness(version: RecipeVersion, servings: number): RecipeReadinessItem[] {
@@ -25,7 +27,8 @@ export function deriveRecipeReadiness(version: RecipeVersion, servings: number):
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'RecipeReadiness'>;
 export function RecipeReadinessScreen({ navigation, route }: Props) {
-  const projection = useRecipeStore((state) => state.recipes.find((item) => item.recipe.id === route.params.recipeId));
+  const personalRecipes = useRecipeStore((state) => state.recipes);
+  const projection = resolveAvailableRecipe(personalRecipes, route.params.recipeId, STARTER_RECIPE_PROJECTIONS);
   if (!projection) return <AppShell><PageHeader title="Before you begin" onPressBack={() => navigation.goBack()} /><View style={styles.center}><Text>This recipe is not available.</Text></View></AppShell>;
   const items = deriveRecipeReadiness(projection.currentVersion, route.params.servings);
   return <AppShell><PageHeader title="Before you begin" onPressBack={() => navigation.goBack()} /><ScrollView contentContainerStyle={styles.content}><Heading variant="lg">Set yourself up, then cook one step at a time.</Heading><Text tone="secondary">These checks don’t change your recipe. Inferred equipment is labeled so you can ignore it.</Text><View style={styles.list}>{items.map((item) => <View key={item.id} style={styles.item}><CheckCircle2 color={colors.pine700} size={22} /><View style={styles.itemText}><Text>{item.label}</Text>{item.inferred ? <Text variant="label" tone="secondary">INFERRED</Text> : null}</View></View>)}</View>{!projection.currentVersion.instructions.length ? <Text tone="destructive">Add at least one method step before starting Cook Mode.</Text> : null}<Button variant="primary" disabled={!projection.currentVersion.instructions.length} onPress={() => navigation.replace('RecipeCookMode', route.params)}>Start cooking</Button><Button variant="ghost" onPress={() => navigation.goBack()}>Not yet</Button></ScrollView></AppShell>;

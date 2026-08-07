@@ -234,6 +234,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
     Food: {
       screens: {
         RecipeLibrary: 'food',
+        EditorialMealCollection: 'food/collection/:collectionId',
         RecipeEdit: 'food/recipe/:recipeId/edit',
         RecipeHome: 'food/recipe/:recipeId/home',
         RecipeCooking: 'food/recipe/:recipeId',

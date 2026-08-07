@@ -20,7 +20,14 @@ export type MealPlanProjection = {
   state: 'draft' | 'collecting_choices' | 'ready_to_finalize' | 'finalized' | 'archived';
   horizon: MealPlanHorizon;
   candidates: MealPlanCandidateDraft[];
-  entries: Array<{ id: string; candidateId: string; title: string; servings: number | null; placementDate: string | null }>;
+  entries: Array<{ id: string; candidateId: string; title: string; servings: number | null; placementDate: string | null; occasionId: string | null; dinerPersonIds: string[] }>;
+  occasions: Array<{
+    id: string;
+    title: string | null;
+    placementDate: string | null;
+    notEatingPersonIds: string[];
+    dishes: Array<{ id: string; candidateId: string; title: string; servings: number | null; dinerPersonIds: string[] }>;
+  }>;
   activeRound: { id: string; version: number; state: 'open' | 'closed' | 'cancelled'; closesAt: string | null } | null;
   updatedAt: string;
 };
@@ -35,12 +42,32 @@ function mapPlan(row: any): MealPlanProjection {
   if (!row || typeof row.id !== 'string' || !Number.isInteger(row.version)) throw new Error('Invalid Meal Plan projection.');
   const candidates = Array.isArray(row.candidates) ? [...row.candidates].sort((a, b) => Number(a.position) - Number(b.position)) : [];
   const entries = Array.isArray(row.entries) ? [...row.entries].sort((a, b) => Number(a.position) - Number(b.position)) : [];
+  const occasions = Array.isArray(row.occasions) ? [...row.occasions].sort((a, b) => Number(a.position) - Number(b.position)) : [];
   const rounds = Array.isArray(row.rounds) ? [...row.rounds].sort((a, b) => String(b.opened_at).localeCompare(String(a.opened_at))) : [];
   return {
     id: row.id, householdId: row.household_id, version: row.version, state: row.state,
     horizon: validateMealPlanHorizon(row.horizon),
     candidates: candidates.map((candidate: any) => ({ id: candidate.id, kind: candidate.kind, title: candidate.title, recipeSnapshot: candidate.recipe_snapshot ?? null })),
-    entries: entries.map((entry: any) => ({ id: entry.id, candidateId: entry.candidate_id, title: entry.title, servings: entry.servings === null ? null : Number(entry.servings), placementDate: entry.placement_date ?? null })),
+    entries: entries.map((entry: any) => ({ id: entry.id, candidateId: entry.candidate_id, title: entry.title, servings: entry.servings === null ? null : Number(entry.servings), placementDate: entry.placement_date ?? null, occasionId: entry.occasion_id ?? null, dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids : [] })),
+    occasions: occasions.length ? occasions.map((occasion: any) => ({
+      id: occasion.id,
+      title: occasion.title ?? null,
+      placementDate: occasion.placement_date ?? null,
+      notEatingPersonIds: Array.isArray(occasion.not_eating_person_ids) ? occasion.not_eating_person_ids : [],
+      dishes: entries.filter((entry: any) => entry.occasion_id === occasion.id).map((entry: any) => ({
+        id: entry.id,
+        candidateId: entry.candidate_id,
+        title: entry.title,
+        servings: entry.servings === null ? null : Number(entry.servings),
+        dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids : [],
+      })),
+    })) : entries.map((entry: any) => ({
+      id: `legacy:${entry.id}`,
+      title: null,
+      placementDate: entry.placement_date ?? null,
+      notEatingPersonIds: [],
+      dishes: [{ id: entry.id, candidateId: entry.candidate_id, title: entry.title, servings: entry.servings === null ? null : Number(entry.servings), dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids : [] }],
+    })),
     activeRound: rounds[0] ? { id: rounds[0].id, version: rounds[0].version, state: rounds[0].state, closesAt: rounds[0].closes_at ?? null } : null,
     updatedAt: row.updated_at,
   };
@@ -49,7 +76,7 @@ function mapPlan(row: any): MealPlanProjection {
 export function createMealPlanningRepository(client: SupabaseClient = getSupabaseClient()) {
   return {
     async list(): Promise<MealPlanProjection[]> {
-      const { data, error } = await client.from('kwilt_meal_plans').select('*,candidates:kwilt_meal_plan_candidates(*),entries:kwilt_meal_plan_entries(*),rounds:kwilt_meal_choice_rounds(*)').order('updated_at', { ascending: false });
+      const { data, error } = await client.from('kwilt_meal_plans').select('*,candidates:kwilt_meal_plan_candidates(*),entries:kwilt_meal_plan_entries(*),occasions:kwilt_meal_plan_occasions(*),rounds:kwilt_meal_choice_rounds(*)').order('updated_at', { ascending: false });
       if (error) throw new Error(error.message);
       return (data ?? []).map(mapPlan);
     },
@@ -77,13 +104,24 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
       if (candidateError || responseError) throw new Error(candidateError?.message ?? responseError?.message);
       return aggregateMealChoices({ candidateIds: (candidates ?? []).map((row) => row.candidate_id), responses: (responses ?? []).map((row) => ({ selectedCandidateIds: row.selected_candidate_ids, pass: row.passed })) });
     },
-    finalize(input: { planId: string; expectedVersion: number; selected: Array<{ candidateId: string; servings: number | null; placementDate: string | null }>; organizerNote: string | null }) {
+    finalize(input: {
+      planId: string;
+      expectedVersion: number;
+      occasions: Array<{
+        id: string;
+        title: string | null;
+        placementDate: string | null;
+        notEatingPersonIds?: string[];
+        dishes: Array<{ id: string; candidateId: string; dinerPersonIds: string[]; servings: number | null }>;
+      }>;
+      organizerNote: string | null;
+    }) {
       const idempotencyKey = `finalize:${input.planId}:v${input.expectedVersion}`;
-      const contentHash = stableContentHash({ selected: input.selected, organizerNote: input.organizerNote });
+      const contentHash = stableContentHash({ occasions: input.occasions, organizerNote: input.organizerNote });
       return rpc(client, 'finalize_kwilt_meal_plan', {
         p_plan_id: input.planId,
         p_expected_version: input.expectedVersion,
-        p_selected_candidates: input.selected,
+        p_occasions: input.occasions,
         p_organizer_note: input.organizerNote,
         p_idempotency_key: idempotencyKey,
         p_content_hash: contentHash,

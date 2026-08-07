@@ -21,12 +21,16 @@ import type { FoodStockObservation } from '../../groceries/domain/foodStockContr
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { buildMealPlanningRecipeInventory, orderMealPlanningRecipeInventory } from '../domain/mealPlanningRecipeInventory';
+import { buildEditorialMealPlanCandidates, mergeEditorialMealPlanCandidates } from '../domain/editorialMealPlanSeed';
+import { useAppStore } from '../../../store/useAppStore';
+import { resolveDefaultMealServings } from '../../recipes/domain/mealPreferences';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'MealPlanEditor'>;
 
 export function MealPlanEditorScreen({ navigation, route }: Props) {
   const personalRecipes = useRecipeStore((state) => state.recipes);
   const recipes = useMemo(() => buildMealPlanningRecipeInventory(personalRecipes), [personalRecipes]);
+  const defaultServings = useAppStore((state) => resolveDefaultMealServings(state.userProfile?.preferences?.meals?.defaultServings));
   const [existing, setExisting] = useState<MealPlanProjection | null>(null);
   const [horizonKind, setHorizonKind] = useState<MealPlanHorizon['kind']>('next_shop');
   const [mealCount, setMealCount] = useState('5');
@@ -41,15 +45,36 @@ export function MealPlanEditorScreen({ navigation, route }: Props) {
   const { capture } = useAnalytics();
   useEffect(() => { void createFoodStockRepository().list().then(setStock).catch(() => setStock([])); }, []);
   useEffect(() => {
-    if (!route.params?.planId) return;
-    void createMealPlanningRepository().list().then((plans) => {
-      const plan = plans.find((item) => item.id === route.params?.planId);
-      if (!plan) return;
-      setExisting(plan); setHorizonKind(plan.horizon.kind); setSelected(plan.candidates);
-      if (plan.horizon.kind === 'meal_count') setMealCount(String(plan.horizon.count));
-      if (plan.horizon.kind === 'date_range') { setStartsOn(plan.horizon.startsOn); setEndsOn(plan.horizon.endsOn); }
+    let cancelled = false;
+    const initialize = async () => {
+      const planId = route.params?.planId;
+      const seed = route.params?.editorialSeed;
+      let plan: MealPlanProjection | null = null;
+      if (planId) {
+        const plans = await createMealPlanningRepository().list();
+        plan = plans.find((item) => item.id === planId) ?? null;
+      }
+      if (cancelled) return;
+      if (plan) setExisting(plan);
+      const baseCandidates = plan?.candidates ?? [];
+      const seededCandidates = seed ? buildEditorialMealPlanCandidates({
+        seed,
+        recipes,
+        servings: defaultServings,
+        createId: Crypto.randomUUID,
+      }) : [];
+      setSelected(seed ? mergeEditorialMealPlanCandidates(baseCandidates, seededCandidates) : baseCandidates);
+      const horizon = plan?.horizon ?? seed?.horizon;
+      if (!horizon) return;
+      setHorizonKind(horizon.kind);
+      if (horizon.kind === 'meal_count') setMealCount(String(horizon.count));
+      if (horizon.kind === 'date_range') { setStartsOn(horizon.startsOn); setEndsOn(horizon.endsOn); }
+    };
+    void initialize().catch((error) => {
+      if (!cancelled) Alert.alert('Starting point not loaded', error instanceof Error ? error.message : 'Try again in a moment.');
     });
-  }, [route.params?.planId]);
+    return () => { cancelled = true; };
+  }, [defaultServings, recipes, route.params?.editorialSeed, route.params?.planId]);
   const toggleRecipe = (recipeId: string) => {
     const recipe = recipes.find((item) => item.recipe.id === recipeId);
     if (!recipe) return;
@@ -132,9 +157,9 @@ export function MealPlanEditorScreen({ navigation, route }: Props) {
   };
   return (
     <AppShell>
-      <PageHeader title="Meal Planning" onPressBack={() => navigation.goBack()} rightElement={<Button size="sm" disabled={saving || !selected.length} onPress={() => { void save(); }}>{saving ? 'Saving…' : 'Save'}</Button>} />
+      <PageHeader title="Meal Plan" onPressBack={() => navigation.goBack()} rightElement={<Button size="sm" disabled={saving || !selected.length} onPress={() => { void save(); }}>{saving ? 'Saving…' : 'Save'}</Button>} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {route.params?.source === 'recipe_library' && !existing ? <View style={styles.intro}><Text variant="label" style={styles.eyebrow}>PLAN WITH KWILT</Text><Heading variant="md">Start with a short, editable draft.</Heading><Text tone="secondary">Kwilt will use your recipes and current Food observations. Nothing is created until you Save.</Text></View> : null}
+        {route.params?.editorialSeed ? <View style={styles.intro}><Text variant="label" style={styles.eyebrow}>CURATED STARTING POINT</Text><Heading variant="md">Review {route.params.editorialSeed.sourceTitle}</Heading><Text tone="secondary">{existing ? 'These meals are added to your current draft for review.' : 'This is an editable proposal.'} Nothing changes until you Save.</Text></View> : route.params?.source === 'recipe_library' && !existing ? <View style={styles.intro}><Text variant="label" style={styles.eyebrow}>PLAN WITH KWILT</Text><Heading variant="md">Start with a short, editable draft.</Heading><Text tone="secondary">Kwilt will use your recipes and current Food observations. Nothing is created until you Save.</Text></View> : null}
         <Heading variant="sm">How far are you planning?</Heading>
         <View style={styles.chips}>{(['next_shop','meal_count','date_range','open'] as const).map((kind) => <Button key={kind} size="sm" variant={horizonKind === kind ? 'primary' : 'outline'} onPress={() => setHorizonKind(kind)}>{kind === 'next_shop' ? 'Next shop' : kind === 'meal_count' ? 'Meal count' : kind === 'date_range' ? 'Date range' : 'Open'}</Button>)}</View>
         {horizonKind === 'meal_count' ? <TextInput accessibilityLabel="Number of meals" keyboardType="number-pad" value={mealCount} onChangeText={setMealCount} style={styles.input} /> : null}

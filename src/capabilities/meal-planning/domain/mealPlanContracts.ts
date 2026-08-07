@@ -40,6 +40,26 @@ export type MealPlanEntry = {
   title: string;
   servings: number | null;
   placementDate: string | null;
+  occasionId: string | null;
+  dinerPersonIds: string[];
+};
+
+export type MealPlanDish = {
+  id: string;
+  candidateId: string;
+  kind: MealCandidate['kind'];
+  recipeSnapshot: PlannedRecipeSnapshot | null;
+  title: string;
+  dinerPersonIds: string[];
+  servings: number | null;
+};
+
+export type MealPlanOccasion = {
+  id: string;
+  title: string | null;
+  placementDate: string | null;
+  dishes: MealPlanDish[];
+  notEatingPersonIds?: string[];
 };
 
 export type MealChoiceRound = {
@@ -73,6 +93,7 @@ export type MealPlan = {
   horizon: MealPlanHorizon;
   candidates: MealCandidate[];
   entries: MealPlanEntry[];
+  occasions: MealPlanOccasion[];
   choiceRound: MealChoiceRound | null;
   aiProposals: MealPlanAiProposal[];
   finalization: { idempotencyKey: string; contentHash: string } | null;
@@ -141,6 +162,50 @@ function validateCandidate(candidate: MealCandidate, planId: string): MealCandid
   return { ...candidate, recipeSnapshot: cloneSnapshot(candidate.recipeSnapshot) };
 }
 
+function validateOccasions(
+  occasions: readonly MealPlanOccasion[],
+  candidateById: ReadonlyMap<string, MealCandidate>,
+): MealPlanOccasion[] {
+  const occasionIds = new Set<string>();
+  const dishIds = new Set<string>();
+  return occasions.map((occasion) => {
+    if (!occasion.id || occasionIds.has(occasion.id)) {
+      throw new MealPlanContractError('meal_plan.occasion_invalid', 'Meal occasion identities must be present and unique.');
+    }
+    occasionIds.add(occasion.id);
+    if (occasion.placementDate) assertDate(occasion.placementDate, 'placementDate');
+    if (!occasion.dishes.length) {
+      throw new MealPlanContractError('meal_plan.occasion_invalid', 'A finalized meal occasion needs at least one dish.');
+    }
+    return {
+      ...occasion,
+      notEatingPersonIds: [...new Set(occasion.notEatingPersonIds ?? [])],
+      dishes: occasion.dishes.map((dish) => {
+        const candidate = candidateById.get(dish.candidateId);
+        if (!dish.id || dishIds.has(dish.id) || !candidate) {
+          throw new MealPlanContractError('meal_plan.dish_invalid', 'Meal dishes must be unique and reference a current candidate.');
+        }
+        dishIds.add(dish.id);
+        if (new Set(dish.dinerPersonIds).size !== dish.dinerPersonIds.length || dish.dinerPersonIds.some((id) => !id)) {
+          throw new MealPlanContractError('meal_plan.diners_invalid', 'Dish diners must be unique people.');
+        }
+        if (dish.servings !== null && (!Number.isFinite(dish.servings) || dish.servings <= 0)) {
+          throw new MealPlanContractError('meal_plan.servings_invalid', 'Servings must be positive when supplied.');
+        }
+        return {
+          id: dish.id,
+          candidateId: candidate.id,
+          kind: candidate.kind,
+          recipeSnapshot: cloneSnapshot(candidate.recipeSnapshot),
+          title: candidate.title,
+          dinerPersonIds: [...dish.dinerPersonIds],
+          servings: dish.servings,
+        };
+      }),
+    };
+  });
+}
+
 export function parseMealPlan(value: MealPlan): MealPlan {
   if (!value.id || !value.ownerPersonId || !Number.isInteger(value.version) || value.version < 1) {
     throw new MealPlanContractError('meal_plan.identity_invalid', 'Meal Plan identity, owner, and version are required.');
@@ -161,11 +226,37 @@ export function parseMealPlan(value: MealPlan): MealPlan {
     }
     return { ...proposal, evidence: proposal.evidence.map((evidence) => ({ ...evidence })), candidateIds: [...proposal.candidateIds] };
   });
+  const entries = value.entries.map((entry) => ({
+    ...entry,
+    occasionId: entry.occasionId ?? null,
+    dinerPersonIds: [...(entry.dinerPersonIds ?? [])],
+    recipeSnapshot: cloneSnapshot(entry.recipeSnapshot),
+  }));
+  const suppliedOccasions = value.occasions ?? [];
+  const legacyOccasions: MealPlanOccasion[] = value.status === 'finalized' && !suppliedOccasions.length
+    ? entries.map((entry) => ({
+      id: entry.occasionId ?? `${value.id}:occasion:${entry.id}`,
+      title: null,
+      placementDate: entry.placementDate,
+      dishes: [{
+        id: entry.id,
+        candidateId: entry.candidateId,
+        kind: entry.kind,
+        recipeSnapshot: cloneSnapshot(entry.recipeSnapshot),
+        title: entry.title,
+        dinerPersonIds: [...entry.dinerPersonIds],
+        servings: entry.servings,
+      }],
+      notEatingPersonIds: [],
+    }))
+    : suppliedOccasions;
+  const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   return {
     ...value,
     horizon: parseHorizon(value.horizon),
     candidates,
-    entries: value.entries.map((entry) => ({ ...entry, recipeSnapshot: cloneSnapshot(entry.recipeSnapshot) })),
+    entries,
+    occasions: legacyOccasions.length ? validateOccasions(legacyOccasions, candidateById) : [],
     choiceRound: value.choiceRound ? { ...value.choiceRound, invitedPersonIds: [...value.choiceRound.invitedPersonIds] } : null,
     aiProposals,
   };
@@ -177,7 +268,14 @@ export function finalizeMealPlan(
     expectedVersion: number;
     idempotencyKey: string;
     contentHash: string;
-    selected: Array<{ candidateId: string; servings: number | null; placementDate: string | null }>;
+    selected?: Array<{ candidateId: string; servings: number | null; placementDate: string | null }>;
+    occasions?: Array<{
+      id: string;
+      title: string | null;
+      placementDate: string | null;
+      dishes: Array<{ id: string; candidateId: string; dinerPersonIds: string[]; servings: number | null }>;
+      notEatingPersonIds?: string[];
+    }>;
     now: string;
   },
 ): MealPlan {
@@ -201,29 +299,54 @@ export function finalizeMealPlan(
     );
   }
   const candidateById = new Map(plan.candidates.map((candidate) => [candidate.id, candidate]));
-  const entries = input.selected.map((selection, index): MealPlanEntry => {
+  const requestedOccasions: MealPlanOccasion[] = input.occasions?.map((occasion) => ({
+    ...occasion,
+    dishes: occasion.dishes.map((dish) => {
+      const candidate = candidateById.get(dish.candidateId);
+      return {
+        ...dish,
+        kind: candidate?.kind ?? 'meal_note',
+        recipeSnapshot: cloneSnapshot(candidate?.recipeSnapshot ?? null),
+        title: candidate?.title ?? '',
+      };
+    }),
+  })) ?? (input.selected ?? []).map((selection, index) => {
     const candidate = candidateById.get(selection.candidateId);
-    if (!candidate) throw new MealPlanContractError('meal_plan.candidate_invalid', 'Selected candidate no longer exists.');
-    if (selection.servings !== null && (!Number.isFinite(selection.servings) || selection.servings <= 0)) {
-      throw new MealPlanContractError('meal_plan.servings_invalid', 'Servings must be positive when supplied.');
-    }
-    if (selection.placementDate) assertDate(selection.placementDate, 'placementDate');
     return {
-      id: `${plan.id}:entry:${index + 1}`,
-      candidateId: candidate.id,
-      kind: candidate.kind,
-      recipeSnapshot: cloneSnapshot(candidate.recipeSnapshot),
-      title: candidate.title,
-      servings: selection.servings,
+      id: `${plan.id}:occasion:${index + 1}`,
+      title: null,
       placementDate: selection.placementDate,
+      dishes: [{
+        id: `${plan.id}:entry:${index + 1}`,
+        candidateId: selection.candidateId,
+        kind: candidate?.kind ?? 'meal_note',
+        recipeSnapshot: cloneSnapshot(candidate?.recipeSnapshot ?? null),
+        title: candidate?.title ?? '',
+        dinerPersonIds: [],
+        servings: selection.servings,
+      }],
+      notEatingPersonIds: [],
     };
   });
+  const occasions = validateOccasions(requestedOccasions, candidateById);
+  const entries = occasions.flatMap((occasion) => occasion.dishes.map((dish): MealPlanEntry => ({
+    id: dish.id,
+    candidateId: dish.candidateId,
+    kind: dish.kind,
+    recipeSnapshot: cloneSnapshot(dish.recipeSnapshot),
+    title: dish.title,
+    servings: dish.servings,
+    placementDate: occasion.placementDate,
+    occasionId: occasion.id,
+    dinerPersonIds: [...dish.dinerPersonIds],
+  })));
   const now = new Date(input.now).toISOString();
   return {
     ...plan,
     version: plan.version + 1,
     status: 'finalized',
     entries,
+    occasions,
     aiProposals: [],
     finalization: { idempotencyKey: input.idempotencyKey, contentHash: input.contentHash },
     finalizedAt: now,

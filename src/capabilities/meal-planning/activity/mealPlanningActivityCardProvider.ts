@@ -1,6 +1,6 @@
 import type { ActivityActionCardProvider, ActivityCardReceipt } from '../../../features/activities/actionCards/activityActionCardTypes';
 
-type AuthorityProjection = { state: 'draft'|'collecting_choices'|'ready_to_finalize'|'finalized'|'open'|'closed'|'unavailable'|'unauthorized'; responseCount: number };
+type AuthorityProjection = { state: 'draft'|'collecting_choices'|'ready_to_finalize'|'finalized'|'open'|'closed'|'unavailable'|'unauthorized'; responseCount: number; unresolvedMealCount?: number };
 type Target = { screen: 'NextMeals'; params?: undefined } | { screen: 'MealChoiceResponse'; params: { roundId: string; intent?: 'pass' } };
 
 export function createMealPlanningActivityCardProvider(input: {
@@ -11,13 +11,16 @@ export function createMealPlanningActivityCardProvider(input: {
     id: 'meal_planning',
     async resolve(binding, context) {
       const authority = await input.resolve(binding.resourceRef, binding.projectionKind, context.viewerPersonId);
-      if (authority.state === 'unavailable' || authority.state === 'unauthorized') return { providerId: provider.id, projectionKind: binding.projectionKind, state: authority.state, eyebrow: 'Meal Planning', title: authority.state === 'unauthorized' ? 'You no longer have access' : 'Meal planning is unavailable', detail: 'Open Food to check the current plan.', freshnessLabel: null, primaryAction: null, secondaryAction: null };
+      if (authority.state === 'unavailable' || authority.state === 'unauthorized') return { providerId: provider.id, projectionKind: binding.projectionKind, state: authority.state, eyebrow: 'Meal Plan', title: authority.state === 'unauthorized' ? 'You no longer have access' : 'Meal Plan is unavailable', detail: 'Open Food to check the current plan.', freshnessLabel: null, primaryAction: null, secondaryAction: null };
       if (binding.projectionKind === 'participant_round') {
         const open = authority.state === 'open';
         return { providerId: provider.id, projectionKind: binding.projectionKind, state: open ? 'ready' : 'completed', eyebrow: 'Family meal choices', title: open ? 'What sounds good?' : 'Choices are closed', detail: open ? 'Pick up to three, pass, or suggest one.' : null, freshnessLabel: null, primaryAction: open ? { id: 'choose', label: 'Choose meals' } : null, secondaryAction: open ? { id: 'pass', label: 'Pass' } : null };
       }
       const completed = authority.state === 'finalized';
-      return { providerId: provider.id, projectionKind: binding.projectionKind, state: completed ? 'completed' : 'ready', eyebrow: 'Meal Planning', title: completed ? 'Meals are decided' : 'Plan the next meals', detail: authority.responseCount ? `${authority.responseCount} household responses are ready.` : 'Choose the cadence and meals that fit this shop.', freshnessLabel: null, primaryAction: completed ? null : { id: 'open_plan', label: 'Open plan' }, secondaryAction: null };
+      const detail = authority.unresolvedMealCount
+        ? `${authority.unresolvedMealCount} ${authority.unresolvedMealCount === 1 ? 'meal needs' : 'meals need'} attention.`
+        : authority.responseCount ? `${authority.responseCount} household responses are ready.` : 'Choose the cadence and meals that fit this shop.';
+      return { providerId: provider.id, projectionKind: binding.projectionKind, state: completed ? 'completed' : 'ready', eyebrow: 'Meal Plan', title: completed ? 'Meals are decided' : 'Plan the next meals', detail, freshnessLabel: null, primaryAction: completed ? null : { id: 'open_plan', label: 'Open plan' }, secondaryAction: null };
     },
     async invoke(invocation): Promise<ActivityCardReceipt> {
       const target: Target = invocation.binding.projectionKind === 'participant_round'

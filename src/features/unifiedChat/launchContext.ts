@@ -10,7 +10,7 @@ import {
 import type { AttachUnifiedChatContextInput } from './types';
 
 export type UnifiedChatLaunchContext = {
-  capabilityId: Extract<UnifiedChatCapabilityId, 'goals' | 'todos' | 'chapters'>;
+  capabilityId: Extract<UnifiedChatCapabilityId, 'goals' | 'todos' | 'chapters' | 'meal_planning'>;
   surface: 'inventory' | 'detail';
   object?: { type: 'goal' | 'activity' | 'chapter'; id: string };
   returnTarget: Record<string, unknown>;
@@ -46,6 +46,7 @@ const CAPABILITY_LABELS: Record<UnifiedChatLaunchContext['capabilityId'], string
   goals: 'Goals',
   todos: 'To-dos',
   chapters: 'Chapters',
+  meal_planning: 'Meals',
 };
 
 /**
@@ -66,6 +67,8 @@ export function resolveUnifiedChatLaunchAttachment(
       returnTarget: launch.returnTarget,
     };
   }
+
+  if (launch.capabilityId === 'meal_planning') return null;
 
   const evidence = launch.capabilityId === 'goals'
     ? goalsChatAdapter.evidence.list({ goals: snapshots.goals })

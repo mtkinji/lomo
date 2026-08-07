@@ -18,17 +18,21 @@ export function scaledIngredientDisplay(line: RecipeIngredientLine, fromYield: n
 export function RecipeIngredientList({ lines, fromYield, toYield, checked, onToggle }: {
   lines: RecipeIngredientLine[]; fromYield: number | null; toYield: number; checked: Set<string>; onToggle(id: string): void;
 }) {
-  return <View style={styles.section}><Heading variant="md">Ingredients</Heading>{lines.length ? lines.map((line) => {
+  return <View style={styles.section}><Heading variant="md">Ingredients</Heading>{lines.length ? lines.map((line, index) => {
     const active = checked.has(line.id);
-    return <Pressable key={line.id} accessibilityRole="checkbox" accessibilityState={{ checked: active }} onPress={() => onToggle(line.id)} style={styles.line}>
-      <View style={[styles.check, active && styles.checkActive]}>{active ? <Check size={14} color={colors.primaryForeground} /> : null}</View>
-      <Text style={active ? styles.done : undefined}>{scaledIngredientDisplay(line, fromYield, toYield)}</Text>
-    </Pressable>;
+    const showGroup = Boolean(line.groupLabel) && line.groupLabel !== lines[index - 1]?.groupLabel;
+    return <View key={line.id} style={styles.groupedLine}>
+      {showGroup ? <Text variant="label" tone="secondary" style={styles.groupLabel}>{line.groupLabel}</Text> : null}
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: active }} onPress={() => onToggle(line.id)} style={styles.line}>
+        <View style={[styles.check, active && styles.checkActive]}>{active ? <Check size={14} color={colors.primaryForeground} /> : null}</View>
+        <Text style={active ? styles.done : undefined}>{scaledIngredientDisplay(line, fromYield, toYield)}</Text>
+      </Pressable>
+    </View>;
   }) : <Text tone="secondary">No ingredients added yet.</Text>}</View>;
 }
 
 const styles = StyleSheet.create({
-  section: { gap: spacing.sm }, line: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.xs },
+  section: { gap: spacing.sm }, groupedLine: { gap: spacing.xs }, groupLabel: { marginTop: spacing.sm }, line: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.xs },
   check: { width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   checkActive: { backgroundColor: colors.pine700, borderColor: colors.pine700 }, done: { textDecorationLine: 'line-through', color: colors.textSecondary },
 });

@@ -1,16 +1,8 @@
 import type { NavigationState } from '@react-navigation/native';
+import type { RootDrawerParamList } from './RootNavigator';
 
-type RootRouteName =
-  | 'MainTabs'
-  | 'Agent'
-  | 'UnifiedChat'
-  | 'ArcsStack'
-  | 'Money'
-  | 'Explore'
-  | 'Games'
-  | 'Settings'
-  | 'DevTools'
-  | 'GuidedOvertureLab';
+type ProductionRootRouteName = Exclude<keyof RootDrawerParamList, 'DevTools' | 'GuidedOvertureLab'>;
+type RootRouteName = ProductionRootRouteName | 'DevTools' | 'GuidedOvertureLab';
 
 type PersistedRouteLike = {
   key?: string;
@@ -95,9 +87,38 @@ const GAMES_STACK_SCHEMA: ChildSchema = {
   fallback: 'GamesShelf',
 };
 
+const FOOD_STACK_SCHEMA: ChildSchema = {
+  allowed: [
+    'FoodHome',
+    'RecipeLibrary',
+    'EditorialMealCollection',
+    'RecipeEdit',
+    'RecipeHome',
+    'RecipeCooking',
+    'RecipeReadiness',
+    'RecipeCookMode',
+    'RecipeCookComplete',
+    'RecipeImportReview',
+    'NextMeals',
+    'MealPlanEditor',
+    'MealChoiceInvite',
+    'MealPlanFinalize',
+    'MealChoiceResponse',
+    'GroceryList',
+    'AlreadyHaveReview',
+    'GroceryItemEdit',
+    'GroceryHandoff',
+    'GrocerySavings',
+    'FoodStockReview',
+    'FoodScenarioReview',
+  ],
+  fallback: 'FoodHome',
+};
+
 const SETTINGS_STACK_SCHEMA: ChildSchema = {
   allowed: [
     'SettingsHome',
+    'SettingsMeals',
     'SettingsExplore',
     'SettingsGames',
     'SettingsAppearance',
@@ -133,6 +154,22 @@ const SETTINGS_STACK_SCHEMA: ChildSchema = {
   fallback: 'SettingsHome',
 };
 
+// Keep persistence coverage compile-time complete with the registered root navigator.
+// Adding a production root to RootDrawerParamList must add its restoration policy here.
+const PRODUCTION_ROOT_SCHEMAS = {
+  StandaloneFocus: null,
+  MainTabs: MAIN_TABS_SCHEMA,
+  Agent: null,
+  UnifiedChat: null,
+  SharedHome: null,
+  ArcsStack: ARCS_STACK_SCHEMA,
+  Money: MONEY_STACK_SCHEMA,
+  Explore: EXPLORE_STACK_SCHEMA,
+  Games: GAMES_STACK_SCHEMA,
+  Food: FOOD_STACK_SCHEMA,
+  Settings: SETTINGS_STACK_SCHEMA,
+} satisfies Record<ProductionRootRouteName, ChildSchema | null>;
+
 function childSchemaForRoute(routeName: string): ChildSchema | null {
   if (routeName === 'MainTabs') return MAIN_TABS_SCHEMA;
   if (routeName === 'GoalsTab') return GOALS_STACK_SCHEMA;
@@ -142,6 +179,7 @@ function childSchemaForRoute(routeName: string): ChildSchema | null {
   if (routeName === 'Money') return MONEY_STACK_SCHEMA;
   if (routeName === 'Explore') return EXPLORE_STACK_SCHEMA;
   if (routeName === 'Games') return GAMES_STACK_SCHEMA;
+  if (routeName === 'Food') return FOOD_STACK_SCHEMA;
   if (routeName === 'Settings') return SETTINGS_STACK_SCHEMA;
   return null;
 }
@@ -202,14 +240,7 @@ export function sanitizePersistedNavigationState(
 
 export function getAllowedPersistedRootRoutes(showDevTools: boolean): RootRouteName[] {
   return [
-    'MainTabs',
-    'Agent',
-    'UnifiedChat',
-    'ArcsStack',
-    'Money',
-    'Explore',
-    'Games',
-    'Settings',
+    ...(Object.keys(PRODUCTION_ROOT_SCHEMAS) as ProductionRootRouteName[]),
     ...(showDevTools ? (['DevTools', 'GuidedOvertureLab'] as const) : []),
   ];
 }

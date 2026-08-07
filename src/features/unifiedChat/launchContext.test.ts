@@ -29,6 +29,14 @@ describe('resolveUnifiedChatLaunchAttachment', () => {
     });
   });
 
+  test('projects Meals inventory context for the shared drawer', () => {
+    expect(resolveUnifiedChatLaunchAttachment({
+      capabilityId: 'meal_planning', surface: 'inventory', returnTarget: { name: 'Food' },
+    }, { goals: [], activities: [], chapters: [] })).toMatchObject({
+      capabilityId: 'meal_planning', objectType: 'capability', label: 'Meals',
+    });
+  });
+
   test.each([
     ['goals', { type: 'goal', id: 'goal-1' }, 'Read together'],
     ['todos', { type: 'activity', id: 'activity-1' }, 'Visit the library'],

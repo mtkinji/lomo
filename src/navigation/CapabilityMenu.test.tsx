@@ -142,23 +142,23 @@ describe('CapabilityMenu', () => {
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('games');
   });
 
-  it('shows three Food capabilities only when food-loop-v1 is enabled', () => {
+  it('shows Meals as the only Food destination when food-loop-v1 is enabled', () => {
     const hidden = render(
       <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
     );
-    expect(hidden.queryByLabelText('Recipes')).toBeNull();
-    expect(hidden.queryByLabelText('Meal Planning')).toBeNull();
+    expect(hidden.queryByLabelText('Meals')).toBeNull();
+    expect(hidden.queryByLabelText('Meal Plan')).toBeNull();
     expect(hidden.queryByLabelText('Groceries')).toBeNull();
     hidden.unmount();
 
     const enabled = render(
-      <CapabilityMenu activeCapabilityId="meal-planning" displayName="Andy" chats={chats} foodEnabled {...handlers} />,
+      <CapabilityMenu activeCapabilityId="recipes" displayName="Andy" chats={chats} foodEnabled {...handlers} />,
     );
-    expect(enabled.getByLabelText('Recipes')).toBeTruthy();
-    expect(enabled.getByLabelText('Meal Planning').props.accessibilityState).toEqual({ selected: true });
-    expect(enabled.getByLabelText('Groceries')).toBeTruthy();
-    fireEvent.press(enabled.getByLabelText('Groceries'));
-    expect(handlers.onSelectCapability).toHaveBeenCalledWith('groceries');
+    expect(enabled.getByLabelText('Meals').props.accessibilityState).toEqual({ selected: true });
+    expect(enabled.queryByLabelText('Meal Plan')).toBeNull();
+    expect(enabled.queryByLabelText('Groceries')).toBeNull();
+    fireEvent.press(enabled.getByLabelText('Meals'));
+    expect(handlers.onSelectCapability).toHaveBeenCalledWith('recipes');
   });
 
   it('collapses and expands a capability group', () => {

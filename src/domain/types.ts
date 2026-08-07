@@ -1095,6 +1095,10 @@ export interface UserProfile {
         writeCalendarId?: string | null;
       };
     };
+    meals?: {
+      /** Default household-sized serving count for cooking and meal planning. */
+      defaultServings?: number;
+    };
   };
   communication: {
     tone?: CommunicationTone;

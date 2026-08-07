@@ -44,6 +44,7 @@ import { SharedHomeScreen } from '../features/shared-home/SharedHomeScreen';
 import type { UnifiedChatLaunchContext, UnifiedChatRouteParams } from '../features/unifiedChat/launchContext';
 import { deriveCapabilityAgentContext, resolveCapabilityAgentReturn } from '../features/ai/capabilityAgentContext';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
+import { MealsSettingsScreen } from '../features/account/MealsSettingsScreen';
 import { HouseholdSettingsScreen } from '../features/household/HouseholdSettingsScreen';
 import { FamilyScreenTimeLearningScreen } from '../features/household/screenTime/FamilyScreenTimeLearningScreen';
 import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
@@ -338,6 +339,7 @@ export type SettingsStackParamList = {
   SettingsHome: undefined;
   SettingsExplore: { entrySurface?: 'explore-map' } | undefined;
   SettingsGames: undefined;
+  SettingsMeals: undefined;
   SettingsAppearance: undefined;
   SettingsProfile: { openAccountDeletion?: boolean } | undefined;
   SettingsAiModel: undefined;
@@ -1004,6 +1006,7 @@ function SettingsStackNavigator() {
   return (
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
       <SettingsStack.Screen name="SettingsHome" component={SettingsHomeScreen} />
+      <SettingsStack.Screen name="SettingsMeals" component={MealsSettingsScreen} />
       <SettingsStack.Screen name="SettingsExplore" component={ExploreSettingsScreen} />
       <SettingsStack.Screen name="SettingsGames" component={GamesPlayerSettingsScreen} />
       <SettingsStack.Screen

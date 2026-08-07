@@ -23,10 +23,16 @@ import { FoodScenarioReviewScreen } from '../../capabilities/groceries/screens/F
 import { FoodHomeScreen } from './FoodHomeScreen';
 import { useAppStore } from '../../store/useAppStore';
 import { useRecipeStore } from '../../capabilities/recipes/runtime/useRecipeStore';
+import { useRecipeFavoriteStore } from '../../capabilities/recipes/runtime/useRecipeFavoriteStore';
+import type { EditorialMealPlanSeed } from '../../capabilities/meal-planning/domain/editorialMealPlanSeed';
+import { EditorialMealCollectionScreen } from '../../capabilities/recipes/screens/EditorialMealCollectionScreen';
+import { useHiddenRecipeStore } from '../../capabilities/recipes/runtime/useHiddenRecipeStore';
+import { useHouseholdMealPreferencesStore } from './runtime/useHouseholdMealPreferencesStore';
 
 export type FoodStackParamList = {
   FoodHome: undefined;
   RecipeLibrary: undefined;
+  EditorialMealCollection: { collectionId: string };
   RecipeEdit: { recipeId?: string };
   RecipeHome: { recipeId: string };
   RecipeCooking: { recipeId: string };
@@ -35,7 +41,7 @@ export type FoodStackParamList = {
   RecipeCookComplete: { sessionId: string; recipeId: string };
   RecipeImportReview: undefined;
   NextMeals: undefined;
-  MealPlanEditor: { planId?: string; source?: 'recipe_library' };
+  MealPlanEditor: { planId?: string; source?: 'recipe_library' | 'editorial_collection'; editorialSeed?: EditorialMealPlanSeed };
   MealChoiceInvite: { planId: string };
   MealPlanFinalize: { planId: string };
   MealChoiceResponse: { roundId: string; intent?: 'pass' };
@@ -53,11 +59,20 @@ const Stack = createNativeStackNavigator<FoodStackParamList>();
 export function FoodNavigator() {
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const setRecipeIdentity = useRecipeStore((state) => state.setIdentity);
-  useEffect(() => { void setRecipeIdentity(userId); }, [setRecipeIdentity, userId]);
+  const setRecipeFavoriteIdentity = useRecipeFavoriteStore((state) => state.setIdentity);
+  const setHiddenRecipeIdentity = useHiddenRecipeStore((state) => state.setIdentity);
+  const setHouseholdMealPreferencesIdentity = useHouseholdMealPreferencesStore((state) => state.setIdentity);
+  useEffect(() => {
+    void setRecipeIdentity(userId);
+    void setRecipeFavoriteIdentity(userId);
+    void setHiddenRecipeIdentity(userId);
+    void setHouseholdMealPreferencesIdentity(userId);
+  }, [setHiddenRecipeIdentity, setHouseholdMealPreferencesIdentity, setRecipeFavoriteIdentity, setRecipeIdentity, userId]);
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="FoodHome" component={FoodHomeScreen} />
       <Stack.Screen name="RecipeLibrary" component={RecipeLibraryScreen} />
+      <Stack.Screen name="EditorialMealCollection" component={EditorialMealCollectionScreen} />
       <Stack.Screen name="RecipeEdit" component={RecipeEditScreen} />
       <Stack.Screen name="RecipeHome" component={RecipeHomeScreen} />
       <Stack.Screen name="RecipeCooking" component={RecipeCookingScreen} />
