@@ -3,11 +3,15 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
   Alert,
   Pressable,
+  PixelRatio,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
+import * as Crypto from "expo-crypto";
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
 import { useAppStore } from "../../../store/useAppStore";
 import { colors, spacing } from "../../../theme";
@@ -29,6 +33,12 @@ import { GroceryItemProvenanceSheet } from "../components/GroceryItemProvenanceS
 import { createMealPlanningRepository } from "../../meal-planning/data/mealPlanningRepository";
 import { AnalyticsEvent } from "../../../services/analytics/events";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
+import {
+  applyQueuedGroceryStates,
+  groceryOfflineQueue,
+  reconcileGroceryOfflineQueue,
+  shouldStackGroceryItemLayout,
+} from "../data/groceryOfflineQueue";
 
 type Props = NativeStackScreenProps<FoodStackParamList, "GroceryList">;
 const aisleLabels: Record<string, string> = {
@@ -42,11 +52,32 @@ const aisleLabels: Record<string, string> = {
   household: "Household",
   other: "Other",
 };
+
+export function resolveGroceryListEntry(
+  lists: GroceryProjection[],
+  planId: string,
+  planVersion: number,
+): { kind: "show"; list: GroceryProjection } | { kind: "compile" } {
+  const current = lists.find(
+    (item) =>
+      item.status !== "stale" &&
+      item.sourceMealPlanId === planId &&
+      item.sourceMealPlanVersion === planVersion,
+  );
+  if (current) return { kind: "show", list: current };
+  const stale = lists.find(
+    (item) => item.status === "stale" && item.sourceMealPlanId === planId,
+  );
+  return stale ? { kind: "show", list: stale } : { kind: "compile" };
+}
+
 export function GroceryListScreen({ navigation, route }: Props) {
   const { capture } = useAnalytics();
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const [list, setList] = useState<GroceryProjection | null>(null);
   const [offline, setOffline] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showOpportunity, setShowOpportunity] = useState(false);
   const [manualItem, setManualItem] = useState("");
@@ -54,6 +85,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const [provenanceItem, setProvenanceItem] = useState<
     GroceryProjection["items"][number] | null
   >(null);
+  const { width, fontScale } = useWindowDimensions();
+  const stackItemRows = shouldStackGroceryItemLayout({ width, fontScale: Math.max(fontScale, PixelRatio.getFontScale()) });
   const requestedListId = route.params?.listId;
   const chooseList = useCallback(
     (lists: GroceryProjection[]) =>
@@ -64,14 +97,27 @@ export function GroceryListScreen({ navigation, route }: Props) {
   );
   const load = useCallback(async () => {
     if (!userId) return;
-    const cached = await groceryCache.read(userId);
-    const cachedList = chooseList(cached);
+    const [cached, pending] = await Promise.all([
+      groceryCache.read(userId),
+      groceryOfflineQueue.read(userId),
+    ]);
+    const cachedWithPending = applyQueuedGroceryStates(cached, pending);
+    const cachedList = chooseList(cachedWithPending);
     if (cachedList) setList(cachedList);
+    setPendingCount(pending.length);
     try {
-      const lists = await createGroceryRepository().list();
-      setList(chooseList(lists));
-      setOffline(false);
-      await groceryCache.write(userId, lists);
+      const repository = createGroceryRepository();
+      const lists = await repository.list();
+      const reconciled = await reconcileGroceryOfflineQueue({
+        userId,
+        lists,
+        queue: groceryOfflineQueue,
+        setItemState: repository.setItemState,
+      });
+      setList(chooseList(reconciled.lists));
+      setPendingCount(reconciled.pendingCount);
+      setOffline(reconciled.interrupted);
+      await groceryCache.write(userId, reconciled.lists);
     } catch {
       setOffline(Boolean(cachedList));
     }
@@ -81,7 +127,18 @@ export function GroceryListScreen({ navigation, route }: Props) {
       if (route.params?.planId && route.params.planVersion) {
         setBusy(true);
         try {
-          const receipt = await createGroceryRepository().compile(
+          const repository = createGroceryRepository();
+          const existing = await repository.list();
+          const entry = resolveGroceryListEntry(
+            existing,
+            route.params.planId,
+            route.params.planVersion,
+          );
+          if (entry.kind === "show") {
+            navigation.replace("GroceryList", { listId: entry.list.id });
+            return;
+          }
+          const receipt = await repository.compile(
             route.params.planId,
             route.params.planVersion,
           );
@@ -89,6 +146,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
             outcome: "success",
             replayed: receipt.replayed,
           });
+          navigation.replace("GroceryList", { listId: receipt.groceryListId });
+          return;
         } catch (error) {
           Alert.alert(
             "Grocery list did not compile",
@@ -100,7 +159,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
       }
       await load();
     })();
-  }, [capture, load, route.params?.planId, route.params?.planVersion]);
+  }, [capture, load, navigation, route.params?.planId, route.params?.planVersion]);
   const groups = useMemo(() => {
     const map = new Map<string, GroceryProjection["items"]>();
     for (const item of list?.items ?? [])
@@ -108,23 +167,19 @@ export function GroceryListScreen({ navigation, route }: Props) {
     return [...map.entries()];
   }, [list]);
   const toggle = async (itemId: string, state: "needed" | "already_have") => {
-    if (!list || offline) return;
-    setBusy(true);
-    try {
-      await createGroceryRepository().setItemState(
-        itemId,
-        list.revision,
-        state,
-      );
-      await load();
-    } catch (error) {
-      Alert.alert(
-        "List changed",
-        error instanceof Error ? error.message : "Refresh and try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
+    if (!list || !userId || list.status === "stale") return;
+    const mutations = await groceryOfflineQueue.enqueue(userId, {
+      listId: list.id,
+      itemId,
+      state,
+      queuedAt: `${new Date().toISOString()}#${Crypto.randomUUID()}`,
+    });
+    const cached = await groceryCache.read(userId);
+    const optimistic = applyQueuedGroceryStates(cached.length ? cached : [list], mutations);
+    await groceryCache.write(userId, optimistic);
+    setList(chooseList(optimistic));
+    setPendingCount(mutations.length);
+    void load();
   };
   const refreshWithChanges = async () => {
     if (!list || offline) return;
@@ -169,9 +224,10 @@ export function GroceryListScreen({ navigation, route }: Props) {
     <AppShell>
       <PageHeader
         title="Groceries"
+        titleMaxFontSizeMultiplier={1.6}
         onPressBack={() => navigation.goBack()}
         rightElement={
-          list ? (
+          list?.status === "ready" && !stackItemRows ? (
             <Button
               size="sm"
               onPress={() =>
@@ -183,10 +239,18 @@ export function GroceryListScreen({ navigation, route }: Props) {
           ) : undefined
         }
       />
-      <ScrollView contentContainerStyle={styles.content}>
-        {offline ? (
-          <Text tone="secondary">
-            Showing the saved list. Reconnect to make changes.
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
+          setRefreshing(true);
+          void load().finally(() => setRefreshing(false));
+        }} />}
+      >
+        {offline || pendingCount ? (
+          <Text tone="secondary" accessibilityLiveRegion="polite">
+            {pendingCount
+              ? `${pendingCount} change${pendingCount === 1 ? "" : "s"} saved on this device. Pull to sync when reconnected.`
+              : "Showing the saved list. Pull to refresh when reconnected."}
           </Text>
         ) : null}
         {busy && !list ? <Text>Compiling ingredients…</Text> : null}
@@ -215,6 +279,11 @@ export function GroceryListScreen({ navigation, route }: Props) {
                     : "Ready to shop."}
               </Text>
             </View>
+            {list.status === "ready" && stackItemRows ? (
+              <Button onPress={() => navigation.navigate("GroceryHandoff", { listId: list.id })}>
+                Shop
+              </Button>
+            ) : null}
             {list.status === "stale" ? (
               <Button
                 disabled={busy || offline}
@@ -225,22 +294,76 @@ export function GroceryListScreen({ navigation, route }: Props) {
                 Refresh and preserve my changes
               </Button>
             ) : null}
-            <Button
-              variant="outline"
-              onPress={() =>
-                navigation.navigate("AlreadyHaveReview", { listId: list.id })
-              }
-            >
-              Review what I already have
-            </Button>
-            <Button
-              variant="outline"
-              onPress={() =>
-                navigation.navigate("GrocerySavings", { listId: list.id })
-              }
-            >
-              Check savings
-            </Button>
+            {list.status === "review_needed" ? (
+              <Button
+                onPress={() =>
+                  navigation.navigate("AlreadyHaveReview", { listId: list.id })
+                }
+              >
+                Review what I already have
+              </Button>
+            ) : null}
+            {groups.map(([aisle, items]) => (
+              <View key={aisle} style={styles.group}>
+                <Heading variant="sm">{aisleLabels[aisle] ?? "Other"}</Heading>
+                {items.map((item) => {
+                  const quantity = item.quantityMin !== null
+                    ? `${item.quantityMin}${item.quantityMax !== null ? `–${item.quantityMax}` : ""}${item.unit ? ` ${item.unit}` : ""} `
+                    : "";
+                  const stateLabel = item.state === "already_have" ? "Have it" : item.state === "needed" ? "Need" : item.state === "purchased" ? "Purchased" : "Skipped";
+                  return (
+                    <View key={item.id} style={[styles.item, stackItemRows && styles.itemStacked]}>
+                      <Pressable
+                        disabled={list.status === "stale"}
+                        accessibilityRole="checkbox"
+                        accessibilityLabel={`${quantity}${item.concept}`}
+                        accessibilityHint={`Double tap to mark as ${item.state === "needed" ? "already have" : "needed"}. Long press to edit this item.`}
+                        accessibilityState={{ checked: item.state !== "needed", disabled: list.status === "stale" }}
+                        onPress={() => { void toggle(item.id, item.state === "needed" ? "already_have" : "needed"); }}
+                        onLongPress={() => navigation.navigate("GroceryItemEdit", { listId: list.id, itemId: item.id })}
+                        style={[styles.itemCheck, stackItemRows && styles.itemCheckStacked, item.state !== "needed" && styles.done]}
+                      >
+                        <View style={styles.itemText}>
+                          <Text>{quantity}{item.concept}</Text>
+                          {item.reviewReason ? <Text tone="secondary">{item.reviewReason}</Text> : null}
+                        </View>
+                        <Text tone="secondary">{stateLabel}</Text>
+                      </Pressable>
+                      <Button size="xs" variant="ghost" onPress={() => setProvenanceItem(item)} accessibilityLabel={`Why ${item.concept} is on the list`}>
+                        Why?
+                      </Button>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+            {list.status === "review_needed" ? (
+              <Button
+                disabled={busy || offline}
+                onPress={() => {
+                  void createGroceryRepository()
+                    .markReviewed(list.id, list.revision)
+                    .then(() => {
+                      capture(AnalyticsEvent.GroceryListReviewed, {
+                        count: list.items.length,
+                      });
+                      return load();
+                    });
+                }}
+              >
+                List looks right
+              </Button>
+            ) : null}
+            {list.status === "ready" ? (
+              <Button
+                variant="outline"
+                onPress={() =>
+                  navigation.navigate("GrocerySavings", { listId: list.id })
+                }
+              >
+                Check savings
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               onPress={() => setShowManualItem((current) => !current)}
@@ -290,75 +413,6 @@ export function GroceryListScreen({ navigation, route }: Props) {
             <Button variant="ghost" onPress={() => setShowOpportunity(true)}>
               Found a sale or store opportunity?
             </Button>
-            {groups.map(([aisle, items]) => (
-              <View key={aisle} style={styles.group}>
-                <Heading variant="sm">{aisleLabels[aisle] ?? "Other"}</Heading>
-                {items.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: item.state !== "needed" }}
-                    onPress={() => {
-                      void toggle(
-                        item.id,
-                        item.state === "needed" ? "already_have" : "needed",
-                      );
-                    }}
-                    onLongPress={() =>
-                      navigation.navigate("GroceryItemEdit", {
-                        listId: list.id,
-                        itemId: item.id,
-                      })
-                    }
-                    style={[
-                      styles.item,
-                      item.state !== "needed" && styles.done,
-                    ]}
-                  >
-                    <View style={styles.itemText}>
-                      <Text>
-                        {item.quantityMin !== null
-                          ? `${item.quantityMin}${item.quantityMax !== null ? `–${item.quantityMax}` : ""}${item.unit ? ` ${item.unit}` : ""} `
-                          : ""}
-                        {item.concept}
-                      </Text>
-                      {item.reviewReason ? (
-                        <Text tone="secondary">{item.reviewReason}</Text>
-                      ) : null}
-                    </View>
-                    <View style={styles.itemActions}>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        onPress={() => setProvenanceItem(item)}
-                      >
-                        Why?
-                      </Button>
-                      <Text tone="secondary">
-                        {item.state === "already_have" ? "Have it" : "Need"}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-            {list.status === "review_needed" ? (
-              <Button
-                disabled={busy || offline}
-                onPress={() => {
-                  void createGroceryRepository()
-                    .markReviewed(list.id, list.revision)
-                    .then(() => {
-                      capture(AnalyticsEvent.GroceryListReviewed, {
-                        count: list.items.length,
-                      });
-                      return load();
-                    });
-                }}
-              >
-                List looks right
-              </Button>
-            ) : null}
           </>
         ) : null}
       </ScrollView>
@@ -429,13 +483,13 @@ const styles = StyleSheet.create({
   group: { gap: spacing.xs },
   item: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
+  itemStacked: { alignItems: "stretch", flexDirection: "column", paddingBottom: spacing.xs },
+  itemCheck: { minHeight: 48, flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm },
+  itemCheckStacked: { alignItems: "flex-start", flexDirection: "column" },
   itemText: { flex: 1, gap: 2 },
-  itemActions: { alignItems: "flex-end", gap: 2 },
   done: { opacity: 0.5 },
 });

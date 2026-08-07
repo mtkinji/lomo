@@ -394,6 +394,7 @@ export function MealPlanDrawer({
   onSnapIndexChange,
   onSearch,
   onClose,
+  onContinue,
   onRemove,
 }: {
   visible: boolean;
@@ -403,6 +404,7 @@ export function MealPlanDrawer({
   onSnapIndexChange(index: number): void;
   onSearch(): void;
   onClose(): void;
+  onContinue(): void;
   onRemove(candidateId: string): void;
 }) {
   const count = items.length;
@@ -486,7 +488,7 @@ export function MealPlanDrawer({
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Finish planning"
+              accessibilityLabel="Close Meal Plan"
               hitSlop={8}
               onPress={onClose}
               style={({ pressed }) => [
@@ -543,6 +545,11 @@ export function MealPlanDrawer({
                 Family choices are underway. Finish reviewing them before
                 changing this plan.
               </Text>
+            ) : null}
+            {items.length ? (
+              <Button fullWidth onPress={onContinue}>
+                Review Meal Plan
+              </Button>
             ) : null}
           </BottomDrawerScrollView>
         </View>

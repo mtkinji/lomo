@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ReactNode } from 'react';
-import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
+import { Text as RNText, type TextProps as RNTextProps, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { fonts } from '../theme/typography';
@@ -73,16 +73,23 @@ function getHeadingVariantStyle(variant: HeadingVariant | undefined) {
   }
 }
 
+export function getAccessibleLineHeight(lineHeight: number | undefined, fontScale: number): number | undefined {
+  return fontScale >= 1.3 ? undefined : lineHeight;
+}
+
 /**
  * App-level body text primitive. Mirrors `typography.body*` plus color tokens.
  */
 export function Text({ style, children, variant = 'bodySm', tone = 'default', ...rest }: AppTextProps) {
+  const { fontScale } = useWindowDimensions();
+  const variantStyle = getTextVariantStyle(variant);
   return (
     <RNText
       {...rest}
       style={[
         {
-          ...getTextVariantStyle(variant),
+          ...variantStyle,
+          lineHeight: getAccessibleLineHeight(variantStyle.lineHeight, fontScale),
           color: getToneColor(tone),
         },
         style,
@@ -104,6 +111,8 @@ export const Heading = React.forwardRef<React.ElementRef<typeof RNText>, AppHead
   accessibilityRole,
   ...rest
 }, ref) {
+  const { fontScale } = useWindowDimensions();
+  const variantStyle = getHeadingVariantStyle(variant);
   return (
     <RNText
       ref={ref}
@@ -111,7 +120,8 @@ export const Heading = React.forwardRef<React.ElementRef<typeof RNText>, AppHead
       accessibilityRole={accessibilityRole ?? 'header'}
       style={[
         {
-          ...getHeadingVariantStyle(variant),
+          ...variantStyle,
+          lineHeight: getAccessibleLineHeight(variantStyle.lineHeight, fontScale),
           color: getToneColor(tone),
         },
         style,
@@ -134,6 +144,7 @@ export function ButtonLabel({
   tone = 'default',
   ...rest
 }: ButtonLabelProps) {
+  const { fontScale } = useWindowDimensions();
   const inherited = React.useContext(ButtonContext);
   const resolvedSize = size ?? inherited?.size ?? 'md';
   const base = BUTTON_SIZE_TOKENS[resolvedSize].text;
@@ -144,6 +155,7 @@ export function ButtonLabel({
       style={[
         {
           ...base,
+          lineHeight: getAccessibleLineHeight(base.lineHeight, fontScale),
           color: getToneColor(tone),
           // Android adds extra top/bottom font padding by default, which can
           // make labels look vertically off-center inside fixed-height buttons.

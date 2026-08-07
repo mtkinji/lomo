@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260806030000_groceries.sql'), 'utf8').toLowerCase();
+const sql = [
+  '20260806030000_groceries.sql',
+  '20260807013757_support_bundled_catalog_grocery_sources.sql',
+  '20260807030912_preserve_grocery_item_states_on_rebase.sql',
+].map((file) => readFileSync(resolve(process.cwd(), 'supabase/migrations', file), 'utf8')).join('\n').toLowerCase();
 
 describe('Grocery persistence contract', () => {
   it('defines versioned owner-only lists, provenance, corrections, and honest handoffs', () => {
@@ -18,9 +22,13 @@ describe('Grocery persistence contract', () => {
     expect(sql).not.toContain('min(new_item.id)');
     expect(sql).toContain('correction_unmatched');
     expect(sql).toContain('stale_grocery_rebase_source');
+    expect(sql).toContain('catalog_recipe_ingredient');
+    expect(sql).toContain("source_snapshot->>'recipeversionid'");
     expect(sql).toContain('provider_link_created');
     expect(sql).toContain('opened_for_product_review');
     expect(sql).toContain('user_reported_checkout_complete');
+    expect(sql).toContain("'state:user_elected'");
+    expect(sql).toContain("state=case when v_correction.after_value?'state'");
     expect(sql).toContain('revoke insert,update,delete');
     expect(sql).not.toMatch(/\bordered\b/);
   });

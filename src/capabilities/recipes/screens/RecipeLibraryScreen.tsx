@@ -475,6 +475,11 @@ export function RecipeLibraryScreen({ navigation }: Props) {
             setPlanBrowsing(false);
             setPlanDrawerSnapIndex(0);
           }}
+          onContinue={() => {
+            setPlanBrowsing(false);
+            setPlanDrawerSnapIndex(0);
+            navigation.navigate("NextMeals");
+          }}
           onRemove={(candidateId) => {
             void removeCandidate(candidateId);
           }}

@@ -33,6 +33,53 @@ describe('Meal Plan finalization occasions', () => {
     ]);
   });
 
+  it('gives a revised plan new occasion and dish identities while preserving its choices', () => {
+    let next = 0;
+    const [occasion] = buildDefaultMealOccasions({
+      ...plan,
+      version: 4,
+      occasions: [{
+        id: 'finalized-occasion',
+        title: 'Friday',
+        placementDate: null,
+        notEatingPersonIds: [],
+        dishes: [{
+          id: 'finalized-dish',
+          candidateId: 'candidate-a',
+          title: 'Pasta',
+          servings: 4,
+          dinerPersonIds: ['adult'],
+        }],
+      }],
+    }, ['adult'], 2, () => `revision-${++next}`);
+
+    expect(occasion).toMatchObject({
+      id: 'revision-1',
+      title: 'Friday',
+      dishes: [{ id: 'revision-2', candidateId: 'candidate-a', servings: 4 }],
+    });
+  });
+
+  it('rebinds a preserved dish to the current candidate for the same exact Recipe version', () => {
+    const [occasion] = buildDefaultMealOccasions({
+      ...plan,
+      candidates: [{
+        ...plan.candidates[0],
+        id: 'candidate-current',
+        recipeSnapshot: { recipeVersionId: 'recipe-version-1', selectedServings: 4 },
+      }],
+      occasions: [{
+        id: 'old-occasion', title: null, placementDate: null, notEatingPersonIds: [],
+        dishes: [{
+          id: 'old-dish', candidateId: 'candidate-old', title: 'Pasta', servings: 4,
+          dinerPersonIds: ['adult'], recipeSnapshot: { recipeVersionId: 'recipe-version-1' },
+        }],
+      }],
+    }, ['adult'], 2, () => 'new-id');
+
+    expect(occasion.dishes[0].candidateId).toBe('candidate-current');
+  });
+
   it('preserves a recipe candidate split and requires excluded diners to be resolved', () => {
     const split = {
       ...plan,

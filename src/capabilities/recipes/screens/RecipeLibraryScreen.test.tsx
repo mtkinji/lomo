@@ -295,6 +295,7 @@ describe('Recipe library', () => {
     const onSnapIndexChange = jest.fn();
     const onSearch = jest.fn();
     const onClose = jest.fn();
+    const onContinue = jest.fn();
     const onRemove = jest.fn();
     const items = Array.from({ length: 6 }, (_, index) => ({
       id: `meal-${index + 1}`,
@@ -311,6 +312,7 @@ describe('Recipe library', () => {
         onSnapIndexChange={onSnapIndexChange}
         onSearch={onSearch}
         onClose={onClose}
+        onContinue={onContinue}
         onRemove={onRemove}
       />,
     );
@@ -334,6 +336,7 @@ describe('Recipe library', () => {
         onSnapIndexChange={onSnapIndexChange}
         onSearch={onSearch}
         onClose={onClose}
+        onContinue={onContinue}
         onRemove={onRemove}
       />,
     );
@@ -341,9 +344,9 @@ describe('Recipe library', () => {
     expect(expanded.queryByLabelText('Search meals')).toBeNull();
     expect(expanded.getByText('Meal 6')).toBeTruthy();
     fireEvent.press(expanded.getByLabelText('Remove Meal 1 from Meal Plan'));
-    fireEvent.press(expanded.getByLabelText('Finish planning'));
+    fireEvent.press(expanded.getByRole('button', { name: 'Review Meal Plan' }));
     expect(onRemove).toHaveBeenCalledWith('candidate-1');
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onContinue).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the durable Meal Plan visible and badges active meals', () => {
