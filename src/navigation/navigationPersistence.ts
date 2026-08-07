@@ -1,16 +1,8 @@
 import type { NavigationState } from '@react-navigation/native';
+import type { RootDrawerParamList } from './RootNavigator';
 
-type RootRouteName =
-  | 'MainTabs'
-  | 'Agent'
-  | 'UnifiedChat'
-  | 'ArcsStack'
-  | 'Money'
-  | 'Explore'
-  | 'Games'
-  | 'Settings'
-  | 'DevTools'
-  | 'GuidedOvertureLab';
+type ProductionRootRouteName = Exclude<keyof RootDrawerParamList, 'DevTools' | 'GuidedOvertureLab'>;
+type RootRouteName = ProductionRootRouteName | 'DevTools' | 'GuidedOvertureLab';
 
 type PersistedRouteLike = {
   key?: string;
@@ -133,6 +125,21 @@ const SETTINGS_STACK_SCHEMA: ChildSchema = {
   fallback: 'SettingsHome',
 };
 
+// Keep persistence coverage compile-time complete with the registered root navigator.
+// Adding a production root to RootDrawerParamList must add its restoration policy here.
+const PRODUCTION_ROOT_SCHEMAS = {
+  StandaloneFocus: null,
+  MainTabs: MAIN_TABS_SCHEMA,
+  Agent: null,
+  UnifiedChat: null,
+  SharedHome: null,
+  ArcsStack: ARCS_STACK_SCHEMA,
+  Money: MONEY_STACK_SCHEMA,
+  Explore: EXPLORE_STACK_SCHEMA,
+  Games: GAMES_STACK_SCHEMA,
+  Settings: SETTINGS_STACK_SCHEMA,
+} satisfies Record<ProductionRootRouteName, ChildSchema | null>;
+
 function childSchemaForRoute(routeName: string): ChildSchema | null {
   if (routeName === 'MainTabs') return MAIN_TABS_SCHEMA;
   if (routeName === 'GoalsTab') return GOALS_STACK_SCHEMA;
@@ -202,14 +209,7 @@ export function sanitizePersistedNavigationState(
 
 export function getAllowedPersistedRootRoutes(showDevTools: boolean): RootRouteName[] {
   return [
-    'MainTabs',
-    'Agent',
-    'UnifiedChat',
-    'ArcsStack',
-    'Money',
-    'Explore',
-    'Games',
-    'Settings',
+    ...(Object.keys(PRODUCTION_ROOT_SCHEMAS) as ProductionRootRouteName[]),
     ...(showDevTools ? (['DevTools', 'GuidedOvertureLab'] as const) : []),
   ];
 }

@@ -113,7 +113,6 @@ export default function App() {
   const startFirstTimeFlow = useFirstTimeUxStore((state) => state.startFlow);
   const dismissFirstTimeFlow = useFirstTimeUxStore((state) => state.dismissFlow);
   const isPro = useEntitlementsStore((state) => state.isPro);
-  const isIdentifyingEntitlements = useEntitlementsStore((state) => state.isIdentifying);
   const lastResolvedEntitlementsAppUserID = useEntitlementsStore((state) => state.lastResolvedAppUserID);
   const llmModel = useAppStore((state) => state.llmModel);
   const hasCustomizedLlmModel = useAppStore((state) => state.hasCustomizedLlmModel);
@@ -563,7 +562,8 @@ export default function App() {
     authHydrated &&
     authStartupState === 'signedIn' &&
     Boolean(authIdentity?.userId) &&
-    (isIdentifyingEntitlements || lastResolvedEntitlementsAppUserID !== authIdentity?.userId);
+    // A background refresh for an already-resolved user must never unmount the app shell.
+    lastResolvedEntitlementsAppUserID !== authIdentity?.userId;
 
   // Always render app surfaces under SafeAreaProvider so any top-level interstitials
   // (sign-in, returning-user flows, etc.) can safely call `useSafeAreaInsets()`.
