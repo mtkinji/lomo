@@ -1,5 +1,5 @@
-import { advanceClueRound, choiceReveal, forecastReveal, matchSummary, matchesPattern, nextPlayerIndex, nextPromptIndex, type ClueRoundState } from '../connectionGames';
-import { clueTargets, commonThreadPrompts, forecastPrompts, objectQuestPrompts, samePagePrompts, storyRelayPrompts } from '../connectionPrompts';
+import { advanceClueFinder, choiceReveal, finishClueTurn, formatClueTime, forecastReveal, matchSummary, matchesPattern, recordClueResult, resolveClueMotion, startClueTurn, nextPlayerIndex, nextPromptIndex, type ClueRoundState } from '../connectionGames';
+import { clueModes, clueTargets, commonThreadPrompts, forecastPrompts, objectQuestPrompts, samePagePrompts } from '../connectionPrompts';
 
 describe('connection game rules', () => {
   it('summarizes unanimous, majority, and split Same Page choices', () => {
@@ -44,26 +44,51 @@ describe('connection game rules', () => {
     });
   });
 
-  it('bounds Clue Circle to three targets per player and finishes after everyone', () => {
-    let round: ClueRoundState = { finderIndex: 0, attempts: 0, scores: [0, 0], phase: 'playing' };
-    round = advanceClueRound(round, 2, true);
-    round = advanceClueRound(round, 2, false);
-    round = advanceClueRound(round, 2, true);
-    expect(round).toEqual({ finderIndex: 1, attempts: 0, scores: [2, 0], phase: 'handoff' });
+  it('keeps correct and pass rapid while only correct adds to the finder score', () => {
+    let round: ClueRoundState = { finderIndex: 0, turnScore: 0, scores: [0, 0], phase: 'handoff' };
+    round = startClueTurn(round);
+    round = recordClueResult(round, 'correct');
+    round = recordClueResult(round, 'pass');
 
-    round = { ...round, phase: 'playing' };
-    round = advanceClueRound(round, 2, true);
-    round = advanceClueRound(round, 2, true);
-    round = advanceClueRound(round, 2, false);
-    expect(round).toEqual({ finderIndex: 1, attempts: 3, scores: [2, 2], phase: 'finished' });
+    expect(round).toEqual({ finderIndex: 0, turnScore: 1, scores: [1, 0], phase: 'playing' });
+  });
+
+  it('ends each timed turn before rotating and finishes after every finder', () => {
+    let round: ClueRoundState = { finderIndex: 0, turnScore: 0, scores: [0, 0], phase: 'playing' };
+    round = recordClueResult(round, 'correct');
+    round = finishClueTurn(round);
+    expect(round.phase).toBe('turn-complete');
+
+    round = advanceClueFinder(round, 2);
+    expect(round).toEqual({ finderIndex: 1, turnScore: 0, scores: [1, 0], phase: 'handoff' });
+
+    round = startClueTurn(round);
+    round = recordClueResult(round, 'correct');
+    round = recordClueResult(round, 'correct');
+    round = finishClueTurn(round);
+    round = advanceClueFinder(round, 2);
+    expect(round).toEqual({ finderIndex: 1, turnScore: 2, scores: [1, 2], phase: 'finished' });
+  });
+
+  it('formats the rapid-turn clock without negative time', () => {
+    expect(formatClueTime(60)).toBe('1:00');
+    expect(formatClueTime(9)).toBe('0:09');
+    expect(formatClueTime(-1)).toBe('0:00');
+  });
+
+  it('requires a neutral motion before accepting the opposite gesture', () => {
+    expect(resolveClueMotion(110, 'armed')).toEqual({ state: 'waiting-for-neutral', result: 'correct' });
+    expect(resolveClueMotion(-110, 'waiting-for-neutral')).toEqual({ state: 'waiting-for-neutral', result: null });
+    expect(resolveClueMotion(0, 'waiting-for-neutral')).toEqual({ state: 'armed', result: null });
+    expect(resolveClueMotion(-110, 'armed')).toEqual({ state: 'waiting-for-neutral', result: 'pass' });
   });
 
   it('has enough original prompts for repeat family sessions', () => {
     expect(samePagePrompts.length).toBeGreaterThanOrEqual(12);
     expect(commonThreadPrompts.length).toBeGreaterThanOrEqual(12);
     expect(objectQuestPrompts.length).toBeGreaterThanOrEqual(12);
-    expect(storyRelayPrompts.length).toBeGreaterThanOrEqual(8);
     expect(forecastPrompts.length).toBeGreaterThanOrEqual(10);
-    expect(clueTargets.length).toBeGreaterThanOrEqual(24);
+    expect(clueTargets.length).toBeGreaterThanOrEqual(72);
+    expect(clueModes.length).toBeGreaterThanOrEqual(4);
   });
 });

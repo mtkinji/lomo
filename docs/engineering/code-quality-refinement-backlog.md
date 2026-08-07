@@ -127,8 +127,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: partner-name filtering, approval count, and the development draft preview override are split across adjacent screen expressions.
   - Result: `goalCheckinPartnerPresentation.ts` now owns trimmed live names, full partner counts, and the development-only preview override, with focused tests preserving production behavior.
 
-- [ ] Extract Goal route check-in approval decision
+- [x] Extract Goal route check-in approval decision
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: route intent, screen focus, pending-draft presence, and the once-per-request guard form one opening rule embedded in an effect.
-  - Ideal test: pin missing route intent, blurred screen, missing draft, already-opened request, and eligible opening states.
+  - Result: `goalRouteCheckinApprovalDecision.ts` now owns reset, wait, and schedule-open outcomes, with focused tests for every suppression gate and the eligible state.
+
+- [ ] Extract Goal check-in partner-circle sync decision
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: draft existence and live partner-circle equality gate a persistence mutation inside the screen effect.
+  - Ideal test: pin missing draft, unchanged circle, and changed-circle synchronization states.
   - Risk: low

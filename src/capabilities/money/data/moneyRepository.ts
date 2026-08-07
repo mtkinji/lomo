@@ -89,6 +89,11 @@ export type ConfirmedMerchantRuleWrite = {
   categorySourceId: string;
 };
 
+export type ConfirmedCategoryOrderWrite = {
+  confirmedAt: string;
+  categoryIds: string[];
+};
+
 export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
   classifyUnresolvedTransactions(): Promise<{ consideredCount: number; assignedCount: number; unresolvedCount: number }>;
@@ -112,6 +117,7 @@ export interface MoneyRepository {
     matchMode?: 'exact' | 'partial';
   }): Promise<ConfirmedMerchantRuleWrite>;
   createCategory(input: CategoryPlanInput): Promise<{ categoryId: string; snapshot: MoneySnapshot }>;
+  reorderCategories(categoryIds: string[]): Promise<ConfirmedCategoryOrderWrite>;
   renameCategory(categoryId: string, name: string): Promise<ConfirmedCategoryWrite>;
   updateCategoryCover(categoryId: string, cover: MoneyCategoryCover | null): Promise<ConfirmedCategoryWrite>;
   updateCategoryPlan(categoryId: string, input: {
@@ -378,6 +384,21 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       if (typeof data !== 'string' || !data.trim()) throw new Error('Money created the category without a return id.');
       return { categoryId: data.trim(), snapshot: await loadSnapshot() };
     },
+    async reorderCategories(categoryIds) {
+      const normalizedCategoryIds = categoryIds.map((categoryId) => categoryId.trim());
+      if (normalizedCategoryIds.length === 0) throw new Error('Choose a category order to save.');
+      if (normalizedCategoryIds.some((categoryId) => !categoryId)
+        || new Set(normalizedCategoryIds).size !== normalizedCategoryIds.length) {
+        throw new Error('Each active category must appear exactly once.');
+      }
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      const { data, error } = await db.rpc('reorder_budget_categories', {
+        p_category_ids: normalizedCategoryIds,
+      });
+      if (error) throw new Error(`Money could not save the category order: ${error.message || 'Unknown database error'}`);
+      return requireCategoryOrderReceipt(data, normalizedCategoryIds);
+    },
     async renameCategory(categoryId, name) {
       const normalizedCategoryId = categoryId.trim();
       if (!normalizedCategoryId) throw new Error('Choose a category to rename.');
@@ -572,6 +593,23 @@ function requireCategoryCoverReceipt(
     throw new Error('Money could not confirm the category cover. Refresh and try again.');
   }
   return { confirmedAt };
+}
+
+function requireCategoryOrderReceipt(value: unknown, expectedCategoryIds: string[]): ConfirmedCategoryOrderWrite {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Money could not confirm the category order. Refresh and try again.');
+  }
+  const receipt = value as Record<string, unknown>;
+  const categoryIds = Array.isArray(receipt.category_ids)
+    ? receipt.category_ids.filter((categoryId): categoryId is string => typeof categoryId === 'string')
+    : [];
+  const confirmedAt = typeof receipt.updated_at === 'string' ? receipt.updated_at : '';
+  if (categoryIds.length !== expectedCategoryIds.length
+    || categoryIds.some((categoryId, index) => categoryId !== expectedCategoryIds[index])
+    || !Number.isFinite(Date.parse(confirmedAt))) {
+    throw new Error('Money could not confirm the category order. Refresh and try again.');
+  }
+  return { categoryIds, confirmedAt };
 }
 
 function requireConfirmedRows(label: string, rows: unknown[], expectedCount: number): void {

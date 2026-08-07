@@ -516,11 +516,17 @@ export function buildWorkbenchSnapshot(
     ).map((proposal) => {
       const { expectedUpdatedAt: _expectedUpdatedAt, ...fields } = proposal.operation.payload as Record<string, unknown>;
       const visibleFields = proposal.capabilityId === 'screenTime'
-        ? {
-            expiresAt: proposal.operation.payload.expiresAt,
-            timeBasis: proposal.operation.payload.timeBasis,
-            targetCount: proposal.operation.payload.targets.length,
-          }
+        ? proposal.operation.type === 'create_family_screen_time_prerequisite_agreement'
+          ? {
+              thresholdMinutes: proposal.operation.payload.rule.prerequisiteActivity.thresholdMinutes,
+              reset: proposal.operation.payload.rule.prerequisiteActivity.reset,
+              targetCount: 1,
+            }
+          : {
+              expiresAt: proposal.operation.payload.expiresAt,
+              timeBasis: proposal.operation.payload.timeBasis,
+              targetCount: proposal.operation.payload.targets.length,
+            }
         : proposal.capabilityId !== 'plan'
         ? fields
         : proposal.operation.type === 'remove_activity_from_plan'

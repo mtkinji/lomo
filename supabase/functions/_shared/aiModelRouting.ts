@@ -6,6 +6,7 @@ export type KwiltAiJob =
   | 'arc_image_query'
   | 'conversation_summary'
   | 'lightweight_helper'
+  | 'story_game'
   | 'agent_judgment'
   | 'current_information'
   | 'unified_chat_attachment'
@@ -21,6 +22,7 @@ const CHAT_MODEL_BY_JOB: Record<KwiltAiJob, string> = {
   arc_image_query: 'gpt-4o-mini',
   conversation_summary: 'gpt-4o-mini',
   lightweight_helper: 'gpt-4o-mini',
+  story_game: 'gpt-4o-mini',
   agent_judgment: 'gpt-5.6-luna',
   default_chat: 'gpt-4o-mini',
   current_information: 'gpt-5.2',

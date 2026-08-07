@@ -48,7 +48,9 @@ type MoneyDataContextValue = MoneyDataState & {
   setTransactionPlanRoleOverride: (transactionId: string, planRoleOverride: 'protected' | 'flexible' | null) => Promise<void>;
   saveMerchantRule: (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => Promise<void>;
   savingCategory: boolean;
+  savingCategoryOrder: boolean;
   createCategory: (input: CategoryPlanInput) => Promise<string>;
+  reorderCategories: (categoryIds: string[]) => Promise<void>;
   renameCategory: (categoryId: string, name: string) => Promise<void>;
   updateCategoryCover: (categoryId: string, cover: Parameters<MoneyRepository['updateCategoryCover']>[1]) => Promise<void>;
   updateCategoryPlan: (
@@ -81,6 +83,7 @@ export function MoneyDataProvider({
   const [state, dispatch] = useReducer(moneyDataReducer, initialMoneyDataState);
   const [reviewingTransactionId, setReviewingTransactionId] = useState<string | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
+  const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
   const [pendingAppControlReviewCategoryId, setPendingAppControlReviewCategoryId] = useState<string | null>(null);
   const resolvedRepository = useMemo(() => repository ?? createMoneyRepository(), [repository]);
   const mutationVersionRef = useRef(0);
@@ -356,6 +359,24 @@ export function MoneyDataProvider({
     }
   }, [acceptSnapshot, resolvedRepository]);
 
+  const reorderCategories = useCallback(async (categoryIds: string[]) => {
+    setSavingCategoryOrder(true);
+    try {
+      const result = await resolvedRepository.reorderCategories(categoryIds);
+      dispatch({ type: 'confirmed_category_order', categorySourceIds: result.categoryIds });
+      const version = ++mutationVersionRef.current;
+      refreshInBackground(version);
+    } catch (error) {
+      dispatch({
+        type: 'failure',
+        message: error instanceof Error ? error.message : 'The category order could not be saved.',
+      });
+      throw error;
+    } finally {
+      setSavingCategoryOrder(false);
+    }
+  }, [refreshInBackground, resolvedRepository]);
+
   const applyCategoryMutation = useCallback(async (mutation: () => Promise<ConfirmedCategoryWrite>) => {
     setSavingCategory(true);
     try {
@@ -495,14 +516,16 @@ export function MoneyDataProvider({
     setTransactionPlanRoleOverride,
     saveMerchantRule,
     savingCategory,
+    savingCategoryOrder,
     createCategory,
+    reorderCategories,
     renameCategory,
     updateCategoryCover,
     updateCategoryPlan,
     previewCategoryPlanAmount,
     pendingAppControlReviewCategoryId,
     reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, previewCategoryPlanAmount, reconcileGovernedPlanFoundation, refresh, renameCategory, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, previewCategoryPlanAmount, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

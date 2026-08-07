@@ -467,8 +467,13 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         </View>
       </BottomDrawer>
 
-      <BottomDrawer visible={settingsOpen} onClose={() => setSettingsOpen(false)} snapPoints={['82%']} enableContentPanningGesture>
-        <BottomDrawerScrollView contentContainerStyle={styles.drawerScrollContent} keyboardShouldPersistTaps="handled">
+      <BottomDrawer
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        snapPoints={['82%']}
+        keyboardBehavior="extend"
+      >
+        <View style={styles.drawerFixedHeader}>
           <BottomDrawerHeader
             closeAccessibilityLabel="Close category settings"
             onClose={() => setSettingsOpen(false)}
@@ -476,6 +481,13 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
             titleVariant="lg"
             variant="withClose"
           />
+        </View>
+        <BottomDrawerScrollView
+          automaticallyAdjustKeyboardInsets
+          contentContainerStyle={styles.drawerScrollContent}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+        >
           <Input editable={!savingCategory} label="Name" onChangeText={(value) => { setCategoryNameDraft(value); setPlanImpact(null); setShowPlanChanges(false); }} value={categoryNameDraft} />
           <Input editable={!savingCategory} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); setPlanImpact(null); }} value={categoryAmountDraft} />
           <View style={styles.settingGroup}>
@@ -545,8 +557,13 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         </BottomDrawerScrollView>
       </BottomDrawer>
 
-      <BottomDrawer visible={forecastSettingsOpen} onClose={() => setForecastSettingsOpen(false)} snapPoints={['82%']} enableContentPanningGesture>
-        <BottomDrawerScrollView contentContainerStyle={styles.drawerScrollContent} keyboardShouldPersistTaps="handled">
+      <BottomDrawer
+        visible={forecastSettingsOpen}
+        onClose={() => setForecastSettingsOpen(false)}
+        snapPoints={['82%']}
+        keyboardBehavior="extend"
+      >
+        <View style={styles.drawerFixedHeader}>
           <BottomDrawerHeader
             closeAccessibilityLabel="Close forecast settings"
             onClose={() => setForecastSettingsOpen(false)}
@@ -554,6 +571,13 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
             titleVariant="lg"
             variant="withClose"
           />
+        </View>
+        <BottomDrawerScrollView
+          automaticallyAdjustKeyboardInsets
+          contentContainerStyle={styles.drawerScrollContent}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.drawerCopy}>Choose the evidence Kwilt should use for the month-end estimate. This changes the forecast, not transactions or the monthly limit.</Text>
           <View style={styles.modeList}>
             <ForecastModeRow active={forecastModeDraft === 'paced'} detail="Extend spending so far across the rest of the month." label="Spending pace" onPress={() => setForecastModeDraft('paced')} />
@@ -796,6 +820,7 @@ const styles = StyleSheet.create({
   receiptText: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   unavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
+  drawerFixedHeader: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg },
   drawerScrollContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 60 },
   drawerCopy: { ...typography.bodySm, color: colors.textSecondary },
   forecastFacts: { flexDirection: 'row', gap: spacing.sm },

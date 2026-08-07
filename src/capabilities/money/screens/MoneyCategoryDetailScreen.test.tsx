@@ -73,4 +73,14 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).toContain('Count spending here against flexible room.');
     expect(source).toContain("updateCategoryPlan(category.sourceId, { planRole: planRoleDraft })");
   });
+
+  it('keeps editable drawers bottom-attached while their forms reveal focused inputs', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+
+    expect(source.match(/keyboardBehavior="extend"/g)).toHaveLength(2);
+    expect(source.match(/automaticallyAdjustKeyboardInsets/g)).toHaveLength(2);
+    expect(source.match(/style=\{styles\.drawerFixedHeader\}/g)).toHaveLength(2);
+    expect(source).toContain('visible={settingsOpen}');
+    expect(source).toContain('visible={forecastSettingsOpen}');
+  });
 });

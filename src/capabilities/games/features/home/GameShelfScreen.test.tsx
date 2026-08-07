@@ -28,12 +28,11 @@ describe('GameShelfScreen', () => {
     mockJoinDrawerProps = null;
   });
 
-  it('renders the complete committed catalog and utility', () => {
+  it('separates the 2.0 shelf from development playtest tables', () => {
     const screen = render(<GameShelfScreen />);
     [
       'Bank',
       'Farkle',
-      'Show of Hands',
       'Common Thread',
       'Object Quest',
       'Story Relay',
@@ -45,6 +44,19 @@ describe('GameShelfScreen', () => {
       'Game Timer',
       'Basic Dice Roller',
     ].forEach((title) => expect(screen.getByText(title)).toBeTruthy());
+    expect(screen.getByText('Ready for the table')).toBeTruthy();
+    expect(screen.getByText('Workshop')).toBeTruthy();
+    expect(screen.getAllByText('5–10 min · lively').length).toBeGreaterThan(0);
+    expect(screen.getByText('Oddball')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Play Oddball' })).toBeTruthy();
+  });
+
+  it('opens Oddball from the featured recommendation', () => {
+    const screen = render(<GameShelfScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Play Oddball' }));
+
+    expect(router.push).toHaveBeenCalledWith('/play/same-page');
   });
 
   it('opens the one-minute game timer from Utilities', () => {

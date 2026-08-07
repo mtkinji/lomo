@@ -34,6 +34,10 @@ const iosAppExtensions = [
           targetName: 'KwiltShieldAction',
           bundleIdentifier: 'com.andrewwatanabe.kwilt.shield-action',
         },
+        {
+          targetName: 'KwiltDeviceActivityMonitor',
+          bundleIdentifier: 'com.andrewwatanabe.kwilt.device-activity-monitor',
+        },
       ]
     : []),
 ];

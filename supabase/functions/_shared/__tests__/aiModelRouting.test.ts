@@ -16,6 +16,7 @@ describe('resolveKwiltAiModel', () => {
 
   it('routes ambient helpers and unknown jobs to the cheap default model', () => {
     expect(resolveKwiltAiModel({ route: '/v1/chat/completions', job: 'lightweight_helper' })).toBe('gpt-4o-mini');
+    expect(resolveKwiltAiModel({ route: '/v1/chat/completions', job: 'story_game' })).toBe('gpt-4o-mini');
     expect(resolveKwiltAiModel({ route: '/v1/chat/completions', job: 'activity_generation' })).toBe('gpt-4o-mini');
     expect(resolveKwiltAiModel({ route: '/v1/chat/completions', job: 'not-real', requestedModel: 'gpt-5.2' })).toBe(
       'gpt-4o-mini'
@@ -32,6 +33,7 @@ describe('resolveKwiltAiModel', () => {
     expect(normalizeKwiltAiJob('')).toBe('default_chat');
     expect(normalizeKwiltAiJob(null)).toBe('default_chat');
     expect(normalizeKwiltAiJob('arc_generation')).toBe('arc_generation');
+    expect(normalizeKwiltAiJob('story_game')).toBe('story_game');
     expect(normalizeKwiltAiJob('agent_judgment')).toBe('agent_judgment');
   });
 });

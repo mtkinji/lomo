@@ -9,7 +9,11 @@ const snapshots = {
     membershipId: 'charlie', displayName: 'Charlie', canManage: true,
     policy: {
       childMembershipId: 'charlie', subjectId: 'subject-charlie', desiredPolicyVersion: 7,
-      selections: [{ id: 'selection-charlie', label: 'Brawl Stars', selectionRef: 'opaque-ref', status: 'active' as const }],
+      selections: [
+        { id: 'selection-charlie', label: 'Brawl Stars', selectionRef: 'opaque-ref', status: 'active' as const },
+        { id: 'selection-games', label: 'Games', selectionRef: 'opaque-games', status: 'active' as const },
+        { id: 'selection-gospel', label: 'Gospel Library', selectionRef: 'opaque-gospel', status: 'active' as const },
+      ],
       agreements: [], activeOverrides: [], pendingRequests: [], devices: [], latestDeviceReceipt: null,
     },
   }] },
@@ -55,6 +59,52 @@ describe('Unified Chat family Screen Time provider', () => {
         timeBasis: 'wall_clock', expiresAt: '2026-07-30T13:00:00.000Z',
       },
     }, tool('screen_time.override.block'))).resolves.toMatchObject({
+      status: 'failed', code: 'screen_time_target_stale', retryable: true,
+    });
+    expect(provider.proposals()).toEqual([]);
+  });
+
+  it('stages an explicit daily prerequisite agreement using two saved selections', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    const result = await provider.execute({
+      id: 'call-4', toolId: 'screen_time.agreement.create', arguments: {
+        childMembershipId: 'charlie',
+        targetSelectionId: 'selection-games',
+        expectedPolicyVersion: 7,
+        rule: {
+          weekdays: [0, 1, 2, 3, 4, 5, 6], startMinute: 0, endMinute: 1439,
+          dailyLimitMinutes: null,
+          prerequisiteActivity: { selectionId: 'selection-gospel', thresholdMinutes: 5, reset: 'daily' },
+        },
+      },
+    }, tool('screen_time.agreement.create'));
+
+    expect(result).toMatchObject({ status: 'proposed' });
+    expect(provider.proposals()).toEqual([expect.objectContaining({
+      capabilityId: 'screenTime',
+      title: 'Use Gospel Library before Games',
+      body: 'Charlie uses Gospel Library for 5 minutes before Games become available each day.',
+      operation: expect.objectContaining({
+        type: 'create_family_screen_time_prerequisite_agreement',
+        payload: expect.objectContaining({
+          childMembershipId: 'charlie', targetSelectionId: 'selection-games', expectedPolicyVersion: 7,
+        }),
+      }),
+    })]);
+  });
+
+  it('rejects a prerequisite agreement when either saved selection is stale or belongs elsewhere', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    await expect(provider.execute({
+      id: 'call-5', toolId: 'screen_time.agreement.create', arguments: {
+        childMembershipId: 'charlie', targetSelectionId: 'selection-games', expectedPolicyVersion: 7,
+        rule: {
+          weekdays: [0, 1, 2, 3, 4, 5, 6], startMinute: 0, endMinute: 1439,
+          dailyLimitMinutes: null,
+          prerequisiteActivity: { selectionId: 'missing', thresholdMinutes: 5, reset: 'daily' },
+        },
+      },
+    }, tool('screen_time.agreement.create'))).resolves.toMatchObject({
       status: 'failed', code: 'screen_time_target_stale', retryable: true,
     });
     expect(provider.proposals()).toEqual([]);

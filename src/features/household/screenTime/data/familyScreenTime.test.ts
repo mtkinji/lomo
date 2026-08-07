@@ -3,6 +3,7 @@ import {
   applyFamilyScreenTimeOverrideBatchRpc,
   cancelFamilyScreenTimeOverrideRpc,
   createFamilyScreenTimeAccessRequestRpc,
+  createFamilyScreenTimePrerequisiteAgreementRpc,
   decideFamilyScreenTimeAccessRequestRpc,
   fetchFamilyScreenTimeSnapshot,
   recordFamilyScreenTimeDeviceReceiptRpc,
@@ -126,6 +127,25 @@ describe('family Screen Time data boundary', () => {
       p_child_membership_id: 'child-1', p_install_id: 'install-1', p_policy_version: 8,
       p_outcome: 'applied', p_occurred_at: '2026-07-30T10:01:00.000Z',
       p_operation_id: 'device:8', p_failure_code: null,
+    });
+  });
+
+  it('uses an atomic versioned RPC for a prerequisite agreement', async () => {
+    const { client, rpc } = clientReturning({});
+    const prerequisiteRule = {
+      weekdays: [0, 1, 2, 3, 4, 5, 6], startMinute: 0, endMinute: 1439,
+      dailyLimitMinutes: null,
+      prerequisiteActivity: { selectionId: 'selection-gospel', thresholdMinutes: 5, reset: 'daily' as const },
+    };
+    await createFamilyScreenTimePrerequisiteAgreementRpc(client, {
+      childMembershipId: 'child-1', targetSelectionId: 'selection-games',
+      prerequisiteSelectionId: 'selection-gospel', expectedPolicyVersion: 7,
+      rule: prerequisiteRule, operationId: 'agreement:1',
+    });
+    expect(rpc).toHaveBeenCalledWith('create_kwilt_family_screen_time_prerequisite_agreement', {
+      p_child_membership_id: 'child-1', p_target_selection_id: 'selection-games',
+      p_prerequisite_selection_id: 'selection-gospel', p_expected_policy_version: 7,
+      p_rule: prerequisiteRule, p_operation_id: 'agreement:1',
     });
   });
 

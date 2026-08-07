@@ -182,8 +182,19 @@ export function buildFamilyScreenTimeDecisionTelemetry(
     capability_id: 'screenTime',
     operation_type: proposal.operation.type,
     decision: action,
-    target_count: proposal.operation.payload.targets.length,
-    time_basis: proposal.operation.payload.timeBasis,
+    target_count: proposal.operation.type === 'create_family_screen_time_prerequisite_agreement'
+      ? 1
+      : proposal.operation.payload.targets.length,
+    time_basis: proposal.operation.type === 'create_family_screen_time_prerequisite_agreement'
+      ? 'foreground_usage_prerequisite'
+      : proposal.operation.payload.timeBasis,
+    ...(proposal.operation.type === 'create_family_screen_time_prerequisite_agreement'
+      ? {
+          threshold_minutes_bucket: proposal.operation.payload.rule.prerequisiteActivity.thresholdMinutes <= 5
+            ? '1_5'
+            : proposal.operation.payload.rule.prerequisiteActivity.thresholdMinutes <= 15 ? '6_15' : '16_plus',
+        }
+      : {}),
     ...(outcome ? { outcome } : {}),
   };
 }

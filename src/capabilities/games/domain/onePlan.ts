@@ -133,55 +133,109 @@ export const onePlanScenarios: OnePlanScenario[] = [
   },
 ];
 
-export type OnePlanOutcome =
-  | { kind: 'bridge'; optionIndex: number; vote: 'first' | 'final' }
-  | { kind: 'chaos' };
+export const ODDBALL_WINNING_SCORE = 8;
 
-export type OnePlanGame = {
-  phase: 'choice' | 'first-reveal' | 'pitch' | 'final-reveal' | 'consequence' | 'finished';
-  bridges: number;
-  chaos: number;
-  roundIndex: number;
-  scenarioIndex: number;
-  outcome: OnePlanOutcome | null;
-  winner: 'bridges' | 'chaos' | null;
+export type OddballPlayer = {
+  id: string;
+  name: string;
+  score: number;
 };
 
-export function createOnePlanGame(scenarioIndex = 0): OnePlanGame {
-  return { phase: 'choice', bridges: 0, chaos: 0, roundIndex: 0, scenarioIndex, outcome: null, winner: null };
-}
+export type OddballOutcome =
+  | {
+    kind: 'scored';
+    winningOptionIndex: number;
+    scorerIds: string[];
+    oddballPlayerId: string | null;
+    markerChanged: boolean;
+  }
+  | { kind: 'tie' };
 
-export function beginOnePlanReveal(game: OnePlanGame): OnePlanGame {
-  if (game.phase === 'choice') return { ...game, phase: 'first-reveal' };
-  if (game.phase === 'pitch') return { ...game, phase: 'final-reveal' };
-  return game;
-}
+export type OddballGame = {
+  phase: 'teaching' | 'choosing' | 'recording' | 'result' | 'finished';
+  players: OddballPlayer[];
+  roundIndex: number;
+  scenarioIndex: number;
+  oddballPlayerId: string | null;
+  outcome: OddballOutcome | null;
+  winnerId: string | null;
+};
 
-export function reportOnePlanConsensus(game: OnePlanGame, optionIndex: number): OnePlanGame {
-  if ((game.phase !== 'first-reveal' && game.phase !== 'final-reveal') || optionIndex < 0 || optionIndex > 2) return game;
+export type OddballRoundReport = {
+  winningOptionIndex: number | null;
+  scorerIds: string[];
+  oddballPlayerId: string | null;
+};
+
+export function createOddballGame(names: string[], scenarioIndex = 0): OddballGame {
   return {
-    ...game,
-    phase: 'consequence',
-    bridges: game.bridges + 1,
-    outcome: { kind: 'bridge', optionIndex, vote: game.phase === 'first-reveal' ? 'first' : 'final' },
+    phase: 'teaching',
+    players: names.map((name, index) => ({ id: `player-${index + 1}`, name, score: 0 })),
+    roundIndex: 0,
+    scenarioIndex,
+    oddballPlayerId: null,
+    outcome: null,
+    winnerId: null,
   };
 }
 
-export function reportOnePlanSplit(game: OnePlanGame): OnePlanGame {
-  if (game.phase === 'first-reveal') return { ...game, phase: 'pitch' };
-  if (game.phase === 'final-reveal') {
-    return { ...game, phase: 'consequence', chaos: game.chaos + 1, outcome: { kind: 'chaos' } };
-  }
-  return game;
+export function startOddballRound(game: OddballGame): OddballGame {
+  if (game.phase !== 'teaching' && game.phase !== 'result') return game;
+  return { ...game, phase: 'choosing', outcome: null };
 }
 
-export function advanceOnePlan(game: OnePlanGame): OnePlanGame {
-  if (game.phase !== 'consequence') return game;
-  if (game.bridges >= 3) return { ...game, phase: 'finished', winner: 'bridges' };
-  if (game.chaos >= 3) return { ...game, phase: 'finished', winner: 'chaos' };
+export function beginOddballReveal(game: OddballGame): OddballGame {
+  return game.phase === 'choosing' ? { ...game, phase: 'recording' } : game;
+}
+
+function eligibleWinner(players: OddballPlayer[], oddballPlayerId: string | null) {
+  const eligible = players.filter((player) => player.id !== oddballPlayerId);
+  const highScore = Math.max(...eligible.map((player) => player.score));
+  if (highScore < ODDBALL_WINNING_SCORE) return null;
+  const leaders = eligible.filter((player) => player.score === highScore);
+  return leaders.length === 1 ? leaders[0].id : null;
+}
+
+export function scoreOddballRound(game: OddballGame, report: OddballRoundReport): OddballGame {
+  if (game.phase !== 'recording') return game;
+  if (report.winningOptionIndex === null) {
+    if (report.scorerIds.length || report.oddballPlayerId) return game;
+    return { ...game, phase: 'result', outcome: { kind: 'tie' } };
+  }
+
+  const validPlayerIds = new Set(game.players.map((player) => player.id));
+  const scorerIds = [...new Set(report.scorerIds)];
+  const validOption = Number.isInteger(report.winningOptionIndex) && report.winningOptionIndex >= 0 && report.winningOptionIndex < 3;
+  const validScorers = scorerIds.length >= 2 && scorerIds.every((id) => validPlayerIds.has(id));
+  const validOddball = report.oddballPlayerId === null
+    || (validPlayerIds.has(report.oddballPlayerId) && !scorerIds.includes(report.oddballPlayerId));
+  if (!validOption || !validScorers || !validOddball) return game;
+
+  const scorerSet = new Set(scorerIds);
+  const players = game.players.map((player) => scorerSet.has(player.id) ? { ...player, score: player.score + 1 } : player);
+  const oddballPlayerId = report.oddballPlayerId ?? game.oddballPlayerId;
   return {
     ...game,
-    phase: 'choice',
+    phase: 'result',
+    players,
+    oddballPlayerId,
+    outcome: {
+      kind: 'scored',
+      winningOptionIndex: report.winningOptionIndex,
+      scorerIds,
+      oddballPlayerId: report.oddballPlayerId,
+      markerChanged: report.oddballPlayerId !== null && report.oddballPlayerId !== game.oddballPlayerId,
+    },
+    winnerId: eligibleWinner(players, oddballPlayerId),
+  };
+}
+
+export function advanceOddballGame(game: OddballGame): OddballGame {
+  if (game.phase !== 'result') return game;
+  if (game.winnerId) return { ...game, phase: 'finished' };
+  return {
+    ...game,
+    phase: 'choosing',
     roundIndex: game.roundIndex + 1,
     scenarioIndex: (game.scenarioIndex + 1) % onePlanScenarios.length,
     outcome: null,

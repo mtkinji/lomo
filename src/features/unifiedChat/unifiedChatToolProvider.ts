@@ -20,7 +20,11 @@ import { parseProfileMutationPatch, type ProfileProposalOperation } from './prof
 import { parseChapterNotePatch, type ChapterProposalOperation } from './chapterProposal';
 import { createDeviceToolProvider } from './deviceToolProvider';
 import type { PlanPlacementConversationReferent } from './planConversationReferent';
-import { parseScreenTimeOverrideProposal, type ScreenTimeProposalOperation } from './screenTimeProposal';
+import {
+  parseScreenTimeOverrideProposal,
+  parseScreenTimePrerequisiteAgreementProposal,
+  type ScreenTimeProposalOperation,
+} from './screenTimeProposal';
 
 export type StagedUnifiedChatToolProposal =
   | {
@@ -259,6 +263,43 @@ export function createUnifiedChatToolProvider({
         body: action === 'allow'
           ? `${childLabel} · for Kwilt family restrictions · until ${expiryLabel}`
           : `${childLabel} · until ${expiryLabel}`,
+        operation,
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal: proposal as unknown as Record<string, unknown> };
+    }
+
+    if (call.toolId === 'screen_time.agreement.create') {
+      const operation = parseScreenTimePrerequisiteAgreementProposal(call.arguments);
+      if (!operation) {
+        return failed(
+          'invalid_screen_time_agreement',
+          'Choose one child, one required app, one target app group, and a daily foreground-minute threshold.',
+        );
+      }
+      const child = snapshots.screenTime?.children.find((candidate) => (
+        candidate.canManage && candidate.membershipId === operation.payload.childMembershipId
+      ));
+      const targetSelection = child?.policy.selections.find((selection) => (
+        selection.status === 'active' && selection.id === operation.payload.targetSelectionId
+      ));
+      const prerequisiteSelection = child?.policy.selections.find((selection) => (
+        selection.status === 'active'
+        && selection.id === operation.payload.rule.prerequisiteActivity.selectionId
+      ));
+      if (!child || !targetSelection || !prerequisiteSelection
+        || child.policy.desiredPolicyVersion !== operation.payload.expectedPolicyVersion) {
+        return {
+          status: 'failed', code: 'screen_time_target_stale',
+          message: 'The child, saved app selection, or Screen Time version changed. Refresh before continuing.',
+          retryable: true,
+        };
+      }
+      const minutes = operation.payload.rule.prerequisiteActivity.thresholdMinutes;
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'screenTime',
+        title: `Use ${prerequisiteSelection.label} before ${targetSelection.label}`,
+        body: `${child.displayName} uses ${prerequisiteSelection.label} for ${minutes} minute${minutes === 1 ? '' : 's'} before ${targetSelection.label} become available each day.`,
         operation,
       };
       staged.push(proposal);

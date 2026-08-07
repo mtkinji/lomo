@@ -111,7 +111,8 @@ export type AgentWorkbenchProposal = {
       'create_arc' | 'update_arc' | 'delete_arc' | 'update_profile' | 'update_chapter_note' |
       'create_money_category' | 'rename_money_category' |
       'remember_relationship' | 'correct_relationship' | 'forget_relationship' |
-      'block_family_screen_time_selection' | 'allow_family_screen_time_selection';
+      'block_family_screen_time_selection' | 'allow_family_screen_time_selection' |
+      'create_family_screen_time_prerequisite_agreement';
     targetId?: string;
     summary: string;
     fields: Record<string, unknown>;

@@ -19,6 +19,9 @@ import UIKit
 private enum KwiltShieldCopy {
   static let appGroupIdentifier = "${appGroupId}"
   static let reasonKey = "kwilt_screen_time_shield_reason_v1"
+  static let prerequisiteLabelKey = "kwilt_screen_time_prerequisite_label_v1"
+  static let targetLabelKey = "kwilt_screen_time_target_label_v1"
+  static let thresholdMinutesKey = "kwilt_screen_time_prerequisite_minutes_v1"
 
   static func reason() -> String {
     guard let defaults = UserDefaults(suiteName: appGroupIdentifier),
@@ -45,6 +48,9 @@ private enum KwiltShieldCopy {
       return "This category is running hot."
     case "money_transactions_need_review":
       return "Review recent spending."
+    case "family_prerequisite":
+      let label = UserDefaults(suiteName: appGroupIdentifier)?.string(forKey: prerequisiteLabelKey)
+      return "Use \\(label ?? "the required app") first."
     default:
       return "Do one thing first."
     }
@@ -60,6 +66,12 @@ private enum KwiltShieldCopy {
       return "Wait for this short pause to end, or open Kwilt to change it."
     case "money_usage_threshold", "money_review_required", "money_over_limit", "money_ahead_of_pace", "money_transactions_need_review":
       return "Open Kwilt Money to review before using \\(appName)."
+    case "family_prerequisite":
+      let defaults = UserDefaults(suiteName: appGroupIdentifier)
+      let prerequisite = defaults?.string(forKey: prerequisiteLabelKey) ?? "the required app"
+      let target = defaults?.string(forKey: targetLabelKey) ?? appName
+      let minutes = max(1, defaults?.integer(forKey: thresholdMinutesKey) ?? 1)
+      return "Use \\(prerequisite) for \\(minutes) minute\\(minutes == 1 ? "" : "s") to open \\(target)."
     default:
       return "Complete a to-do, record progress, or finish Focus in Kwilt to open \\(appName) today."
     }
@@ -149,6 +161,122 @@ final class KwiltShieldActionExtension: ShieldActionDelegate {
     default:
       completionHandler(.none)
     }
+  }
+}
+`;
+}
+
+function buildDeviceActivityMonitorSwift(appGroupId) {
+  return `import DeviceActivity
+import FamilyControls
+import Foundation
+import ManagedSettings
+
+private struct KwiltPrerequisiteMonitorConfiguration: Codable {
+  let agreementId: String
+  let policyVersion: Int
+  let targetSelectionId: String
+  let targetSelection: FamilyActivitySelection
+  let prerequisiteLabel: String
+  let targetLabel: String
+  let thresholdMinutes: Int
+}
+
+private struct KwiltPrerequisiteMonitorReceipt: Codable {
+  let kind: String
+  let agreementId: String
+  let policyVersion: Int
+  let occurredAtMs: Double
+}
+
+private enum KwiltPrerequisiteMonitorRuntime {
+  static let appGroupIdentifier = "${appGroupId}"
+  static let configPrefix = "kwilt_screen_time_prerequisite_config_v1."
+  static let eventKey = "kwilt_screen_time_prerequisite_event_v1"
+  static let shieldReasonKey = "kwilt_screen_time_shield_reason_v1"
+  static let prerequisiteLabelKey = "kwilt_screen_time_prerequisite_label_v1"
+  static let targetLabelKey = "kwilt_screen_time_target_label_v1"
+  static let thresholdMinutesKey = "kwilt_screen_time_prerequisite_minutes_v1"
+
+  static func safeIdentifier(_ value: String) -> String {
+    let allowed = value.unicodeScalars.filter {
+      CharacterSet.alphanumerics.contains($0) || $0 == "-" || $0 == "_"
+    }
+    let normalized = String(String.UnicodeScalarView(allowed)).prefix(48)
+    return normalized.isEmpty ? "default" : String(normalized)
+  }
+
+  static func defaults() -> UserDefaults? {
+    UserDefaults(suiteName: appGroupIdentifier)
+  }
+
+  static func configuration(for activity: DeviceActivityName) -> KwiltPrerequisiteMonitorConfiguration? {
+    guard let data = defaults()?.data(forKey: "\\(configPrefix)\\(activity.rawValue)") else { return nil }
+    return try? JSONDecoder().decode(KwiltPrerequisiteMonitorConfiguration.self, from: data)
+  }
+
+  static func store(for configuration: KwiltPrerequisiteMonitorConfiguration) -> ManagedSettingsStore {
+    ManagedSettingsStore(named: ManagedSettingsStore.Name(
+      "kwilt.prerequisite.\\(safeIdentifier(configuration.agreementId))"
+    ))
+  }
+
+  static func applyTarget(for configuration: KwiltPrerequisiteMonitorConfiguration) {
+    let store = store(for: configuration)
+    let targetSelection = configuration.targetSelection
+    store.shield.applications = targetSelection.applicationTokens.isEmpty
+      ? nil
+      : targetSelection.applicationTokens
+    store.shield.applicationCategories = targetSelection.categoryTokens.isEmpty
+      ? nil
+      : .specific(targetSelection.categoryTokens, except: Set<ApplicationToken>())
+    store.shield.webDomains = targetSelection.webDomainTokens.isEmpty
+      ? nil
+      : targetSelection.webDomainTokens
+    let shared = defaults()
+    shared?.set("family_prerequisite", forKey: shieldReasonKey)
+    shared?.set(configuration.prerequisiteLabel, forKey: prerequisiteLabelKey)
+    shared?.set(configuration.targetLabel, forKey: targetLabelKey)
+    shared?.set(configuration.thresholdMinutes, forKey: thresholdMinutesKey)
+  }
+
+  static func record(kind: String, configuration: KwiltPrerequisiteMonitorConfiguration) {
+    let receipt = KwiltPrerequisiteMonitorReceipt(
+      kind: kind,
+      agreementId: configuration.agreementId,
+      policyVersion: configuration.policyVersion,
+      occurredAtMs: Date().timeIntervalSince1970 * 1000.0
+    )
+    if let data = try? JSONEncoder().encode(receipt) {
+      defaults()?.set(data, forKey: eventKey)
+    }
+  }
+}
+
+final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
+  override func intervalDidStart(for activity: DeviceActivityName) {
+    super.intervalDidStart(for: activity)
+    guard let configuration = KwiltPrerequisiteMonitorRuntime.configuration(for: activity) else { return }
+    KwiltPrerequisiteMonitorRuntime.applyTarget(for: configuration)
+    KwiltPrerequisiteMonitorRuntime.record(kind: "interval_started", configuration: configuration)
+  }
+
+  override func eventDidReachThreshold(
+    _ event: DeviceActivityEvent.Name,
+    activity: DeviceActivityName
+  ) {
+    super.eventDidReachThreshold(event, activity: activity)
+    guard let configuration = KwiltPrerequisiteMonitorRuntime.configuration(for: activity) else { return }
+    let store = KwiltPrerequisiteMonitorRuntime.store(for: configuration)
+    store.clearAllSettings()
+    KwiltPrerequisiteMonitorRuntime.record(kind: "threshold_reached", configuration: configuration)
+  }
+
+  override func intervalDidEnd(for activity: DeviceActivityName) {
+    super.intervalDidEnd(for: activity)
+    guard let configuration = KwiltPrerequisiteMonitorRuntime.configuration(for: activity) else { return }
+    KwiltPrerequisiteMonitorRuntime.store(for: configuration).clearAllSettings()
+    KwiltPrerequisiteMonitorRuntime.record(kind: "interval_ended", configuration: configuration)
   }
 }
 `;
@@ -275,6 +403,15 @@ function withScreenTimeShieldExtensions(config) {
         displayName: 'KwiltShieldAction',
         extensionPointIdentifier: 'com.apple.ManagedSettings.shield-action-service',
         principalClass: '$(PRODUCT_MODULE_NAME).KwiltShieldActionExtension',
+      },
+      {
+        name: 'KwiltDeviceActivityMonitor',
+        suffix: 'device-activity-monitor',
+        file: 'KwiltDeviceActivityMonitor.swift',
+        swift: buildDeviceActivityMonitorSwift,
+        displayName: 'KwiltDeviceActivityMonitor',
+        extensionPointIdentifier: 'com.apple.deviceactivity.monitor-extension',
+        principalClass: '$(PRODUCT_MODULE_NAME).KwiltDeviceActivityMonitorExtension',
       },
     ].forEach((target) => {
       project = ensureTarget(project, config, target);

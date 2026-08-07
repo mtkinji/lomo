@@ -12,7 +12,7 @@ last_reviewed: 2026-07-20
 
 # connection-games
 
-Owns the local connection games plus Slanguage's joined-phone learning release. Content is bundled and session-only; Story Relay supports conducted multi-chapter local play, Doodle Bridge runs a two-pass secret-dare drawing reveal, and Slanguage uses private canonical rooms for timed composition, reveal, and voting.
+Owns the local connection games plus Slanguage's joined-phone learning release. Story Relay is a local/cast-first cooperative adventure whose rules and included content work offline while bounded AI may shape fiction and callbacks; Doodle Bridge runs a two-pass secret-dare drawing reveal, and Slanguage uses private canonical rooms for timed composition, reveal, and voting.
 # Related product briefs
 
 - `tv-landscape-play`

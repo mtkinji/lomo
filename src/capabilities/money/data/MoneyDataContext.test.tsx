@@ -53,6 +53,19 @@ function SaveRuleProbe() {
   );
 }
 
+function ReorderProbe() {
+  const { reorderCategories, savingCategoryOrder, snapshot: currentSnapshot } = useMoneyData();
+  return (
+    <View>
+      <Text>{savingCategoryOrder ? 'reordering' : 'order-ready'}</Text>
+      <Text>{currentSnapshot?.categories.map((category) => category.name).join(',') ?? 'no-categories'}</Text>
+      <Pressable accessibilityRole="button" onPress={() => { void reorderCategories(['category-2', 'category-1']); }}>
+        <Text>Reorder</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function snapshotCache(cached: MoneySnapshot | null): MoneySnapshotCache {
   return {
     load: jest.fn(async () => cached),
@@ -62,6 +75,40 @@ function snapshotCache(cached: MoneySnapshot | null): MoneySnapshotCache {
 }
 
 describe('MoneyDataProvider merchant-rule confirmation', () => {
+  it('applies a confirmed category order immediately and refreshes broader Money truth in the background', async () => {
+    const orderedSnapshot = {
+      ...snapshot,
+      categories: [
+        { id: 'groceries', sourceId: 'category-1', name: 'Groceries' },
+        { id: 'shopping', sourceId: 'category-2', name: 'Shopping' },
+      ],
+    } as unknown as MoneySnapshot;
+    const backgroundRefresh = deferred<MoneySnapshot>();
+    const repository = {
+      loadSnapshot: jest.fn()
+        .mockResolvedValueOnce(orderedSnapshot)
+        .mockImplementationOnce(() => backgroundRefresh.promise),
+      reorderCategories: jest.fn().mockResolvedValue({
+        categoryIds: ['category-2', 'category-1'],
+        confirmedAt: '2026-08-05T01:00:00.000Z',
+      }),
+    } as unknown as MoneyRepository;
+    const screen = render(
+      <MoneyDataProvider repository={repository}>
+        <ReorderProbe />
+      </MoneyDataProvider>,
+    );
+
+    await screen.findByText('Groceries,Shopping');
+    fireEvent.press(screen.getByRole('button', { name: 'Reorder' }));
+
+    await screen.findByText('Shopping,Groceries');
+    expect(screen.getByText('order-ready')).toBeTruthy();
+    expect(repository.reorderCategories).toHaveBeenCalledWith(['category-2', 'category-1']);
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(2);
+
+  });
+
   it('renders the last trustworthy snapshot while the authoritative refresh remains in flight', async () => {
     const refresh = deferred<MoneySnapshot>();
     const cached = { ...snapshot, generatedAt: 'cached' } as MoneySnapshot;

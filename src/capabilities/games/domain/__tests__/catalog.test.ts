@@ -1,4 +1,4 @@
-import { basicDiceUtility, gameCatalog } from '../catalog';
+import { basicDiceUtility, catalogForRelease, gameCatalog } from '../catalog';
 
 describe('game catalog', () => {
   it('contains eleven unique shared games', () => {
@@ -18,15 +18,36 @@ describe('game catalog', () => {
     expect(basicDiceUtility.route).toEqual({ kind: 'tumble', mode: 'roller' });
   });
 
-  it('replaces Same Page with Show of Hands without expanding the shelf', () => {
-    expect(gameCatalog.find((game) => game.id === 'same-page')).toMatchObject({ title: 'Show of Hands' });
+  it('replaces Same Page with player-aware Oddball without expanding the shelf', () => {
+    expect(gameCatalog.find((game) => game.id === 'same-page')).toMatchObject({ title: 'Oddball', minPlayers: 3, maxPlayers: 8 });
     expect(gameCatalog.map((game) => game.title)).not.toContain('Same Page');
     expect(gameCatalog.map((game) => game.title)).not.toContain('One Plan');
+    expect(gameCatalog.map((game) => game.title)).not.toContain('Show of Hands');
   });
 
   it('adds Slanguage as a three-to-eight-phone game', () => {
     expect(gameCatalog.find((game) => game.id === 'slanguage')).toMatchObject({
       title: 'Slanguage', minPlayers: 3, maxPlayers: 8, promise: 'Remix one sentence. Funniest wins.',
     });
+  });
+
+  it('keeps the rebuilt Story Relay in playtest until a real family table proves it', () => {
+    expect(gameCatalog.find((game) => game.id === 'story-relay')).toMatchObject({
+      promise: 'Face one wild story together.',
+      durationMinutes: [15, 25],
+      releaseStatus: 'playtest',
+    });
+  });
+
+  it('keeps the 2.0 production shelf narrower than the playtest inventory', () => {
+    const production = catalogForRelease(false);
+    const workshop = catalogForRelease(true).filter((game) => game.releaseStatus !== 'ready');
+
+    expect(production.map((game) => game.id)).toEqual([
+      'bank', 'farkle', 'same-page', 'family-forecast',
+      'pass-pattern', 'doodle-bridge',
+    ]);
+    expect(workshop.map((game) => game.id)).toEqual(['common-thread', 'object-quest', 'story-relay', 'clue-circle', 'slanguage']);
+    expect(gameCatalog.every((game) => game.durationMinutes[0] > 0 && game.energy.length > 0)).toBe(true);
   });
 });

@@ -2,10 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   applyFamilyScreenTimeOverrideBatchRpc,
   cancelFamilyScreenTimeOverrideRpc,
+  createFamilyScreenTimePrerequisiteAgreementRpc,
   fetchFamilyScreenTimeSnapshot,
   type FamilyScreenTimeAction,
   type FamilyScreenTimeBasis,
   type FamilyScreenTimeSnapshot,
+  type FamilyScreenTimePrerequisiteRule,
 } from './data/familyScreenTime';
 
 export type FamilyScreenTimeDeliveryState = 'device_required' | 'applying' | 'applied' | 'failed';
@@ -25,6 +27,18 @@ type AppliedOverride = {
   startsAt: string;
   expiresAt: string | null;
   policyVersion: number;
+};
+
+type CreatedPrerequisiteAgreement = {
+  agreementId: string;
+  childMembershipId: string;
+  targetSelectionId: string;
+  prerequisiteSelectionId: string;
+  rule: FamilyScreenTimePrerequisiteRule;
+  active: boolean;
+  version: number;
+  desiredPolicyVersion: number;
+  operationId: string;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => value != null && typeof value === 'object' && !Array.isArray(value);
@@ -47,6 +61,16 @@ function parseBatch(value: unknown): { operationId: string; overrides: AppliedOv
     throw new Error('Invalid family Screen Time override result');
   }
   return { operationId: value.operationId, overrides: value.overrides.map(parseAppliedOverride) };
+}
+
+function parseCreatedPrerequisiteAgreement(value: unknown): CreatedPrerequisiteAgreement {
+  if (!isRecord(value) || !isString(value.agreementId) || !isString(value.childMembershipId)
+    || !isString(value.targetSelectionId) || !isString(value.prerequisiteSelectionId)
+    || !isRecord(value.rule) || value.active !== true || !isNumber(value.version)
+    || !isNumber(value.desiredPolicyVersion) || !isString(value.operationId)) {
+    throw new Error('Invalid family Screen Time prerequisite agreement result');
+  }
+  return value as CreatedPrerequisiteAgreement;
 }
 
 function deliveryState(snapshot: FamilyScreenTimeSnapshot, policyVersion: number): FamilyScreenTimeDeliveryState {
@@ -162,5 +186,43 @@ export async function cancelTemporaryFamilyScreenTimeAccess(client: SupabaseClie
     desiredPolicyVersion: raw.desiredPolicyVersion,
     operationId: raw.operationId,
     deliveryState: deliveryState(snapshot, raw.desiredPolicyVersion),
+  };
+}
+
+export async function createFamilyScreenTimePrerequisiteAgreement(client: SupabaseClient, input: {
+  childMembershipId: string;
+  targetSelectionId: string;
+  expectedPolicyVersion: number;
+  rule: FamilyScreenTimePrerequisiteRule;
+  operationId: string;
+}) {
+  if (!input.childMembershipId || !input.targetSelectionId || !input.operationId.trim()
+    || !Number.isInteger(input.expectedPolicyVersion) || input.expectedPolicyVersion < 0
+    || !input.rule.prerequisiteActivity.selectionId
+    || input.rule.prerequisiteActivity.selectionId === input.targetSelectionId) {
+    throw new Error('Invalid family Screen Time prerequisite agreement');
+  }
+  const result = parseCreatedPrerequisiteAgreement(
+    await createFamilyScreenTimePrerequisiteAgreementRpc(client, {
+      childMembershipId: input.childMembershipId,
+      targetSelectionId: input.targetSelectionId,
+      prerequisiteSelectionId: input.rule.prerequisiteActivity.selectionId,
+      expectedPolicyVersion: input.expectedPolicyVersion,
+      rule: input.rule,
+      operationId: input.operationId,
+    }),
+  );
+  if (result.operationId !== input.operationId || result.childMembershipId !== input.childMembershipId
+    || result.targetSelectionId !== input.targetSelectionId
+    || result.prerequisiteSelectionId !== input.rule.prerequisiteActivity.selectionId) {
+    throw new Error('Family Screen Time prerequisite agreement result mismatch');
+  }
+  const snapshot = await fetchFamilyScreenTimeSnapshot(client, input.childMembershipId);
+  if (snapshot.desiredPolicyVersion !== result.desiredPolicyVersion) {
+    throw new Error('Family Screen Time policy version mismatch');
+  }
+  return {
+    ...result,
+    deliveryState: deliveryState(snapshot, result.desiredPolicyVersion),
   };
 }

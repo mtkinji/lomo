@@ -411,12 +411,7 @@ export type UnifiedChatProposalOperation = UnifiedChatProposalOperationBase & (
       capabilityId: 'money'; type: 'rename_money_category'; targetId: string;
       payload: { name: string; expectedName: string };
     }
-  | {
-      capabilityId: 'screenTime';
-      type: ScreenTimeProposalOperation['type'];
-      targetId: null;
-      payload: ScreenTimeProposalOperation['payload'];
-    }
+  | ({ capabilityId: 'screenTime' } & ScreenTimeProposalOperation)
   | {
       capabilityId: 'relationships';
       type: 'remember_relationship' | 'correct_relationship' | 'forget_relationship';

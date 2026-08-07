@@ -44,9 +44,16 @@ Use `KeyboardAwareScrollView` when a screen/sheet is collecting text and you wan
 
 This is the “never covered” default for most forms.
 
-### 3) Sheets / bottom drawers: `BottomDrawer` is keyboard-safe by default
+### 3) Sheets / bottom drawers: choose one explicit keyboard relationship
 
 `BottomDrawer` wraps its overlay with `KeyboardAvoidingView` so the entire sheet lifts above the keyboard.
+
+For editable drawers that should remain visually attached to the bottom edge, use:
+
+- `keyboardBehavior="extend"` on `BottomDrawer`
+- `BottomDrawerScrollView` with `automaticallyAdjustKeyboardInsets` around the editable/scrollable content
+
+This keeps the sheet spatially stable and continuing underneath the keyboard while iOS adjusts the scrollable viewport around focused fields. Do not use a plain `ScrollView` or nest `KeyboardAwareScrollView` inside an `extend` drawer; its manual focus-scrolling can over-correct inside modal sheet coordinates.
 
 #### Special-case: Agent chat inside a drawer
 
@@ -109,5 +116,3 @@ Run on a small iPhone simulator/device:
 - In a sheet: focus an input near the bottom: it lifts/scrolls above keyboard.
 - In Agent chat: focus an inline card input while keyboard is already open: it scrolls into view.
 - In Agent chat (iOS): toggle QuickType bar / emoji keyboard while an input is focused: no big gaps, no jump-off-screen.
-
-

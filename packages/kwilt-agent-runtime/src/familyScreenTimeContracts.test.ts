@@ -56,6 +56,21 @@ describe('family Screen Time agent contracts', () => {
     expect(serialized).not.toContain('opaquetoken');
   });
 
+  it('models one daily foreground prerequisite in standing agreement creation', () => {
+    const schema = tool('screen_time.agreement.create')?.inputSchema as {
+      required?: string[];
+      properties?: { rule?: { properties?: Record<string, unknown>; required?: string[] } };
+    };
+    expect(schema.required).toEqual([
+      'childMembershipId', 'targetSelectionId', 'expectedPolicyVersion', 'rule',
+    ]);
+    expect(schema.properties?.rule?.required).toContain('prerequisiteActivity');
+    expect(JSON.stringify(schema.properties?.rule?.properties?.prerequisiteActivity)).toContain('thresholdMinutes');
+    expect(JSON.stringify(schema.properties?.rule?.properties?.prerequisiteActivity)).toContain('daily');
+    expect(JSON.stringify(schema)).not.toContain('childName');
+    expect(JSON.stringify(schema)).not.toContain('appName');
+  });
+
   it('does not claim mobile or Phone execution before providers are wired and proven', () => {
     for (const entry of KWILT_CAPABILITY_MANIFEST.filter((candidate) => (
       candidate.id.startsWith('screen_time.') && candidate.id !== 'screen_time.configure'
