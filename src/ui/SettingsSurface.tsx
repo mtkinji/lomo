@@ -186,11 +186,13 @@ export function SettingsToggleRow({
   disabled = false,
   enabled,
   onPress,
+  switchTone,
   title,
 }: {
   disabled?: boolean;
   enabled: boolean;
   onPress: () => void;
+  switchTone?: KwiltSwitchProps['tone'];
   title: string;
 }) {
   return (
@@ -210,6 +212,7 @@ export function SettingsToggleRow({
           accessible={false}
           accessibilityLabel={title}
           disabled={disabled}
+          tone={switchTone}
           value={enabled}
           onPress={onPress}
         />
@@ -223,6 +226,7 @@ export function SettingsToggle({
   accessibilityLabel,
   disabled = false,
   onPress,
+  tone,
   value,
 }: Omit<KwiltSwitchProps, 'style'>) {
   return (
@@ -230,6 +234,7 @@ export function SettingsToggle({
       accessible={accessible}
       accessibilityLabel={accessibilityLabel}
       disabled={disabled}
+      tone={tone}
       value={value}
       onPress={onPress}
     />

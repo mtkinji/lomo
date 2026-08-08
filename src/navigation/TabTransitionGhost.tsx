@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
-import { Portal } from '@rn-primitives/portal';
+import { Portal } from '../ui/Portal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MainTabsParamList } from './RootNavigator';
 import { colors, spacing } from '../theme';

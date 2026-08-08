@@ -14,7 +14,6 @@ import {
   Switch,
   UIManager,
   View,
-  TextInput,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -54,6 +53,7 @@ import {
   Card,
   EmptyState,
   KeyboardAwareScrollView,
+  FormField,
 } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { useActivityEnrichmentStore } from '../../store/useActivityEnrichmentStore';
@@ -134,6 +134,8 @@ import { styles, QUICK_ADD_BAR_HEIGHT } from './activitiesScreenStyles';
 import { useChromeVisibility } from '../../navigation/ChromeVisibilityContext';
 import { INVENTORY_CHROME_ANIMATION_MS, inventoryChromeReanimatedEasing } from '../../navigation/chromeMotion';
 import { Dialog } from '../../ui/Dialog';
+import { AlertDialog } from '../../ui/AlertDialog';
+import { SettingsToggleRow } from '../../ui/SettingsSurface';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
 import { InventoryDockAffordances, INVENTORY_DOCK_BUTTON_GAP_PX, INVENTORY_DOCK_BUTTON_SIZE_PX } from './InventoryDockAffordances';
@@ -393,6 +395,7 @@ export function ActivitiesScreen() {
   const [viewEditorName, setViewEditorName] = React.useState('');
   const [viewEditorLayout, setViewEditorLayout] = React.useState<import('../../domain/types').ActivityViewLayout>('list');
   const [viewEditorKanbanGroupBy, setViewEditorKanbanGroupBy] = React.useState<import('../../domain/types').KanbanGroupBy>('status');
+  const [deleteViewConfirmVisible, setDeleteViewConfirmVisible] = React.useState(false);
 
   // Widget entrypoint: open the requested saved view (list) inside the existing app shell/canvas.
   React.useEffect(() => {
@@ -413,6 +416,8 @@ export function ActivitiesScreen() {
   const [isApplyingAiCustomization, setIsApplyingAiCustomization] = React.useState(false);
 
   const viewsButtonRef = React.useRef<View | null>(null);
+  const viewsTriggerRef = React.useRef<React.ElementRef<typeof DropdownMenuTrigger> | null>(null);
+  const viewActionsTriggerRef = React.useRef<React.ElementRef<typeof DropdownMenuTrigger> | null>(null);
   const filterButtonRef = React.useRef<View | null>(null);
   const sortButtonRef = React.useRef<View | null>(null);
   const { ref: dueDateEditorRef, open: openActivityDueDate } = useActivityDueDateEditor();
@@ -2647,7 +2652,7 @@ export function ActivitiesScreen() {
 
   const handleDuplicateCurrentView = React.useCallback(() => {
     if (!viewEditorTargetId) return;
-    const view = activityViews.find((v) => v.id === viewEditorTargetId);
+    const view = activityViews.find((candidate) => candidate.id === viewEditorTargetId);
     if (!view) return;
     handleDuplicateView(view);
     setViewEditorVisible(false);
@@ -2655,9 +2660,17 @@ export function ActivitiesScreen() {
 
   const handleDeleteCurrentView = React.useCallback(() => {
     if (!viewEditorTargetId) return;
+    const view = activityViews.find((candidate) => candidate.id === viewEditorTargetId);
+    if (!view || view.isSystem) return;
+    setDeleteViewConfirmVisible(true);
+  }, [activityViews, viewEditorTargetId]);
+
+  const handleConfirmDeleteCurrentView = React.useCallback(() => {
+    if (!viewEditorTargetId) return;
     const view = activityViews.find((v) => v.id === viewEditorTargetId);
     if (!view || view.isSystem) return;
     handleDeleteView(view);
+    setDeleteViewConfirmVisible(false);
     setViewEditorVisible(false);
   }, [activityViews, handleDeleteView, viewEditorTargetId]);
 
@@ -2910,6 +2923,7 @@ export function ActivitiesScreen() {
                 {isPro ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger
+                      ref={viewsTriggerRef}
                       testID="e2e.activities.toolbar.views"
                       accessibilityRole="button"
                       accessibilityLabel="Views menu"
@@ -2964,6 +2978,7 @@ export function ActivitiesScreen() {
                 ) : (
                   <DropdownMenu>
                     <DropdownMenuTrigger
+                      ref={viewsTriggerRef}
                       testID="e2e.activities.toolbar.views"
                       accessibilityRole="button"
                       accessibilityLabel="Views"
@@ -3815,14 +3830,55 @@ export function ActivitiesScreen() {
         visible={viewEditorVisible}
         onClose={() => setViewEditorVisible(false)}
         title={viewEditorMode === 'create' ? 'New view' : 'View settings'}
+        description={viewEditorMode === 'create' ? 'Name the view and choose how it is arranged.' : 'Adjust how this view is arranged and what it shows.'}
         size="md"
         showHeaderDivider
+        dismissOnBackdrop={false}
+        showCloseButton={false}
+        returnFocusRef={viewsTriggerRef}
         footer={
           <HStack style={styles.viewEditorActions} space="sm" alignItems="center">
+            {viewEditorMode === 'settings' ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  ref={viewActionsTriggerRef}
+                  accessibilityRole="button"
+                  accessibilityLabel="View actions"
+                >
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    pointerEvents="none"
+                    accessible={false}
+                  >
+                    <HStack alignItems="center" space="xs">
+                      <Icon name="more" size={16} color={colors.textPrimary} />
+                      <ButtonLabel size="md">More</ButtonLabel>
+                    </HStack>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" side="top">
+                  <DropdownMenuItem
+                    label="Duplicate view"
+                    icon="clipboard"
+                    onPress={handleDuplicateCurrentView}
+                  />
+                  {activityViews.some((view) => view.id === viewEditorTargetId && !view.isSystem) ? (
+                    <DropdownMenuItem
+                      label="Delete view"
+                      icon="trash"
+                      variant="destructive"
+                      onPress={handleDeleteCurrentView}
+                    />
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+            <View style={styles.viewEditorActionSpacer} />
             <Button variant="ghost" size="small" onPress={() => setViewEditorVisible(false)}>
               <ButtonLabel size="md">Cancel</ButtonLabel>
             </Button>
-            <Button size="small" onPress={handleConfirmViewEdit}>
+            <Button variant="primary" size="small" onPress={handleConfirmViewEdit}>
               <ButtonLabel size="md" tone="inverse">
                 Save
               </ButtonLabel>
@@ -3831,99 +3887,61 @@ export function ActivitiesScreen() {
         }
       >
         <VStack space="md">
-          <View>
-            <Text style={styles.viewEditorFieldLabel}>View name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., Top priorities"
-              placeholderTextColor={colors.textSecondary}
-              value={viewEditorName}
-              onChangeText={setViewEditorName}
-            />
-          </View>
+          <Input
+            label="View name"
+            placeholder="e.g., Top priorities"
+            value={viewEditorName}
+            onChangeText={setViewEditorName}
+            variant="outline"
+            elevation="flat"
+          />
 
-          <View>
-            <Text style={styles.viewEditorFieldLabel}>Layout</Text>
-            <SegmentedControl
-              value={viewEditorLayout}
-              onChange={setViewEditorLayout}
-              options={LAYOUT_OPTIONS}
-              size="compact"
-            />
-          </View>
-
-          {viewEditorLayout === 'kanban' && (
-            <View>
-              <Text style={styles.viewEditorFieldLabel}>Group by</Text>
+          <FormField label="Layout">
+            {(controlProps) => (
               <SegmentedControl
-                value={viewEditorKanbanGroupBy}
-                onChange={setViewEditorKanbanGroupBy}
-                options={KANBAN_GROUP_OPTIONS}
+                {...controlProps}
+                value={viewEditorLayout}
+                onChange={setViewEditorLayout}
+                options={LAYOUT_OPTIONS}
                 size="compact"
               />
-            </View>
+            )}
+          </FormField>
+
+          {viewEditorLayout === 'kanban' && (
+            <FormField label="Group by">
+              {(controlProps) => (
+                <SegmentedControl
+                  {...controlProps}
+                  value={viewEditorKanbanGroupBy}
+                  onChange={setViewEditorKanbanGroupBy}
+                  options={KANBAN_GROUP_OPTIONS}
+                  size="compact"
+                />
+              )}
+            </FormField>
           )}
 
           {viewEditorMode === 'settings' && (
-            <>
-              <HStack
-                style={styles.viewEditorToggleRow}
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <Text style={styles.viewEditorToggleLabel}>Show completed </Text>
-                <Pressable
-                  accessibilityRole="switch"
-                  accessibilityLabel="Toggle visibility of completed to-dos section"
-                  accessibilityState={{ checked: showCompleted }}
-                  onPress={() => handleUpdateShowCompleted(!showCompleted)}
-                  style={[
-                    styles.viewEditorToggleTrack,
-                    showCompleted && styles.viewEditorToggleTrackOn,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.viewEditorToggleThumb,
-                      showCompleted && styles.viewEditorToggleThumbOn,
-                    ]}
-                  />
-                </Pressable>
-              </HStack>
-
-              <VStack style={styles.viewEditorShortcutsSection} space="xs">
-                <Text style={styles.viewEditorFieldLabel}>View actions</Text>
-                <HStack style={styles.viewEditorSecondaryActions} space="sm" alignItems="center">
-                  <Button
-                    variant="outline"
-                    size="small"
-                    onPress={handleDuplicateCurrentView}
-                    accessibilityRole="button"
-                    accessibilityLabel="Duplicate this view"
-                  >
-                    <HStack alignItems="center" space="xs">
-                      <Icon name="clipboard" size={14} color={colors.textPrimary} />
-                      <Text style={styles.viewEditorShortcutLabel}>Duplicate view</Text>
-                    </HStack>
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="small"
-                    onPress={handleDeleteCurrentView}
-                    accessibilityRole="button"
-                    accessibilityLabel="Delete this view"
-                  >
-                    <HStack alignItems="center" space="xs">
-                      <Icon name="trash" size={14} color={colors.canvas} />
-                      <Text style={styles.viewEditorShortcutDestructiveLabel}>Delete view</Text>
-                    </HStack>
-                  </Button>
-                </HStack>
-              </VStack>
-            </>
+            <SettingsToggleRow
+              title="Show completed"
+              enabled={showCompleted}
+              onPress={() => handleUpdateShowCompleted(!showCompleted)}
+              switchTone="neutral"
+            />
           )}
         </VStack>
       </Dialog>
+      <AlertDialog
+        visible={deleteViewConfirmVisible}
+        title="Delete this view?"
+        description="The view will be removed. Your to-dos will remain."
+        cancelLabel="Keep view"
+        actionLabel="Delete view"
+        onClose={() => setDeleteViewConfirmVisible(false)}
+        onAction={handleConfirmDeleteCurrentView}
+        returnFocusRef={viewActionsTriggerRef}
+      />
 
       {/* Inline View Creator Drawer */}
       <BottomDrawer

@@ -1,17 +1,149 @@
-import { useEffect, useRef, type ElementRef, type ReactNode } from 'react';
+/**
+ * Localized from React Native Reusables dialog anatomy.
+ * Upstream: https://reactnativereusables.com/docs/components/dialog
+ * Reference: founded-labs/react-native-reusables@119d0b101ff0d18408dc392120e12b5c78ae0c05
+ * Retrieved: 2026-08-07
+ */
+import * as DialogPrimitive from '@rn-primitives/dialog';
+import {
+  forwardRef,
+  useEffect,
+  useRef,
+  type ComponentProps,
+  type ElementRef,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import {
   AccessibilityInfo,
   KeyboardAvoidingView,
-  Modal,
   Platform,
-  Pressable,
+  ScrollView,
   StyleSheet,
   View,
+  type StyleProp,
+  type TextStyle,
+  type ViewProps,
+  type ViewStyle,
 } from 'react-native';
 import * as ReactNative from 'react-native';
+import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
 import { colors, spacing, typography } from '../theme';
-import { Text, Heading } from './Typography';
-import { useAccessibilityPreferences } from './hooks/useAccessibilityPreferences';
+import { cardElevation } from '../theme/surfaces';
+import { Icon } from './Icon';
+
+const DialogRoot = DialogPrimitive.Root;
+const DialogTrigger = DialogPrimitive.Trigger;
+const DialogPortal = DialogPrimitive.Portal;
+const DialogClose = DialogPrimitive.Close;
+const FullWindowOverlay = Platform.OS === 'ios' ? RNFullWindowOverlay : View;
+
+type DialogOverlayProps = ComponentProps<typeof DialogPrimitive.Overlay> & {
+  style?: StyleProp<ViewStyle>;
+};
+
+const DialogOverlay = forwardRef<ElementRef<typeof DialogPrimitive.Overlay>, DialogOverlayProps>(
+  function DialogOverlay({ style, ...props }, ref) {
+    return (
+      <DialogPrimitive.Overlay
+        ref={ref}
+        testID="dialog.backdrop"
+        importantForAccessibility="no"
+        style={[styles.overlay, style] as never}
+        {...props}
+      />
+    );
+  },
+);
+
+type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content> & {
+  portalHost?: string;
+  dismissOnBackdrop?: boolean;
+  showCloseButton?: boolean;
+  surfaceStyle?: StyleProp<ViewStyle>;
+};
+
+const DialogContent = forwardRef<ElementRef<typeof DialogPrimitive.Content>, DialogContentProps>(
+  function DialogContent(
+    {
+      portalHost,
+      dismissOnBackdrop = true,
+      showCloseButton = true,
+      surfaceStyle,
+      children,
+      ...props
+    },
+    ref,
+  ) {
+    return (
+      <DialogPortal hostName={portalHost}>
+        <FullWindowOverlay style={styles.fullWindowOverlay}>
+          <DialogOverlay closeOnPress={dismissOnBackdrop}>
+            <KeyboardAvoidingView
+              style={styles.keyboardFrame}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+              <DialogPrimitive.Content
+                ref={ref}
+                testID="dialog.surface"
+                accessibilityViewIsModal
+                importantForAccessibility="yes"
+                style={[styles.surface, surfaceStyle] as never}
+                {...props}
+              >
+                {children}
+                {showCloseButton ? <DialogCloseButton /> : null}
+              </DialogPrimitive.Content>
+            </KeyboardAvoidingView>
+          </DialogOverlay>
+        </FullWindowOverlay>
+      </DialogPortal>
+    );
+  },
+);
+
+function DialogCloseButton(props: Omit<ComponentProps<typeof DialogPrimitive.Close>, 'children'>) {
+  return (
+    <DialogClose
+      accessibilityLabel="Close dialog"
+      hitSlop={12}
+      style={styles.closeButton}
+      {...props}
+    >
+      <Icon name="close" size={18} color={colors.textSecondary} />
+    </DialogClose>
+  );
+}
+
+function DialogHeader({ style, ...props }: ViewProps) {
+  return <View style={[styles.header, style]} {...props} />;
+}
+
+const DialogTitle = forwardRef<
+  ElementRef<typeof DialogPrimitive.Title>,
+  ComponentProps<typeof DialogPrimitive.Title> & { style?: StyleProp<TextStyle>; size?: 'sm' | 'md' }
+>(function DialogTitle({ style, size = 'sm', ...props }, ref) {
+  return (
+    <DialogPrimitive.Title
+      ref={ref}
+      accessibilityRole="header"
+      style={[size === 'md' ? styles.titleMd : styles.titleSm, style] as never}
+      {...props}
+    />
+  );
+});
+
+function DialogDescription({ style, ...props }: ComponentProps<typeof DialogPrimitive.Description>) {
+  return <DialogPrimitive.Description style={[styles.description, style] as never} {...props} />;
+}
+
+function DialogBody({ style, ...props }: ViewProps) {
+  return <View testID="dialog.body" style={[styles.body, style]} {...props} />;
+}
+
+function DialogFooter({ style, ...props }: ViewProps) {
+  return <View testID="dialog.footer" style={[styles.footer, style]} {...props} />;
+}
 
 type DialogProps = {
   visible: boolean;
@@ -19,26 +151,18 @@ type DialogProps = {
   title?: ReactNode;
   description?: ReactNode;
   children?: ReactNode;
-  /**
-   * Optional footer content. When omitted, the caller is responsible for
-   * rendering actions inside `children`.
-   */
   footer?: ReactNode;
-  /**
-   * Optional visual size for the dialog header. Use `md` for primary flows
-   * where the title should feel closer to a section heading, and `sm` for
-   * lighter confirmations / utility dialogs.
-   */
   size?: 'sm' | 'md';
-  /**
-   * When true, renders a subtle divider under the header to separate it from
-   * the body content. Useful for denser dialogs with form fields or strong
-   * footers where the title should feel more structurally anchored.
-   */
   showHeaderDivider?: boolean;
+  dismissOnBackdrop?: boolean;
+  showCloseButton?: boolean;
+  portalHost?: string;
+  surfaceStyle?: StyleProp<ViewStyle>;
+  returnFocusRef?: RefObject<unknown>;
 };
 
-export function Dialog({
+/** Compatibility composition for existing controlled callers. */
+function Dialog({
   visible,
   onClose,
   title,
@@ -47,146 +171,118 @@ export function Dialog({
   footer,
   size = 'sm',
   showHeaderDivider = false,
+  dismissOnBackdrop = true,
+  showCloseButton = true,
+  portalHost,
+  surfaceStyle,
+  returnFocusRef,
 }: DialogProps) {
-  const titleRef = useRef<ElementRef<typeof Heading>>(null);
-  const { reduceMotionEnabled } = useAccessibilityPreferences();
+  const titleRef = useRef<ElementRef<typeof DialogPrimitive.Title>>(null);
+  const wasVisibleRef = useRef(false);
 
   useEffect(() => {
-    if (!visible || !title) return;
+    if (!visible) {
+      if (!wasVisibleRef.current || !returnFocusRef?.current) {
+        wasVisibleRef.current = false;
+        return;
+      }
+      wasVisibleRef.current = false;
+      const timeoutId = setTimeout(() => {
+        const node = ReactNative.findNodeHandle(
+          returnFocusRef.current as ElementRef<typeof View>,
+        );
+        if (node != null) AccessibilityInfo.setAccessibilityFocus(node);
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+
+    wasVisibleRef.current = true;
+    if (!title) return;
     const timeoutId = setTimeout(() => {
       const node = ReactNative.findNodeHandle(titleRef.current);
       if (node != null) AccessibilityInfo.setAccessibilityFocus(node);
     }, 100);
     return () => clearTimeout(timeoutId);
-  }, [title, visible]);
-
-  // Safety: When `visible` is false, don't render a `Modal` at all.
-  // We've seen rare RN/iOS edge-cases where rapidly stacking/dismissing overlays can
-  // leave an "invisible" modal layer that still intercepts touches. Returning `null`
-  // ensures the dialog cannot block input unless it is explicitly visible.
-  if (!visible) return null;
-
-  // Prefer a simple, reliable Modal-based implementation so dialogs always
-  // render as a centered card with a dimmed backdrop on top of the current
-  // app canvas.
-  //
-  // IMPORTANT: Avoid rendering a dynamically-chosen component type (e.g.
-  // `<OverlayComponent />`) here. In some RN/Fabric builds that can surface as
-  // "Element type is invalid ... got: undefined" even when the underlying
-  // import is correct. An explicit branch keeps the element type stable.
-  const canUseKeyboardAvoidingView = KeyboardAvoidingView != null;
+  }, [returnFocusRef, title, visible]);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType={reduceMotionEnabled ? 'none' : 'fade'}
-      onRequestClose={onClose}
+    <DialogRoot
+      open={visible}
+      onOpenChange={(open) => {
+        if (!open) onClose?.();
+      }}
     >
-      {canUseKeyboardAvoidingView ? (
-        <KeyboardAvoidingView
-          style={styles.overlay}
-          // Dialogs sometimes host form fields (e.g., quick edits). Ensure the
-          // card lifts above the keyboard instead of being obscured.
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
-        >
-          {/* Backdrop press target (behind the card) */}
-          <Pressable
-            testID="dialog.backdrop"
-            accessible={false}
-            importantForAccessibility="no"
-            style={StyleSheet.absoluteFill}
-            onPress={onClose}
-          />
-
-          <View
-            testID="dialog.surface"
-            accessibilityViewIsModal
-            importantForAccessibility="yes"
-            onAccessibilityEscape={onClose}
-            style={styles.card}
+      <DialogContent
+        portalHost={portalHost}
+        dismissOnBackdrop={dismissOnBackdrop}
+        showCloseButton={showCloseButton}
+        surfaceStyle={surfaceStyle}
+      >
+        {title || description ? (
+          <DialogHeader style={showHeaderDivider ? styles.headerDivider : undefined}>
+            {title ? <DialogTitle ref={titleRef} size={size}>{title}</DialogTitle> : null}
+            {description ? <DialogDescription>{description}</DialogDescription> : null}
+          </DialogHeader>
+        ) : null}
+        {children ? (
+          <ScrollView
+            style={styles.bodyScroll}
+            contentContainerStyle={styles.bodyScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {(title || description) && (
-              <View style={[styles.header, showHeaderDivider && styles.headerDivider]}>
-                {title ? (
-                  <Heading ref={titleRef} style={size === 'md' ? styles.titleMd : styles.titleSm} variant="sm">
-                    {title}
-                  </Heading>
-                ) : null}
-                {description ? <Text style={styles.description}>{description}</Text> : null}
-              </View>
-            )}
-            {children ? <View style={styles.body}>{children}</View> : null}
-            {footer ? <View style={styles.footer}>{footer}</View> : null}
-          </View>
-        </KeyboardAvoidingView>
-      ) : (
-        <View style={styles.overlay}>
-          {/* Backdrop press target (behind the card) */}
-          <Pressable
-            testID="dialog.backdrop"
-            accessible={false}
-            importantForAccessibility="no"
-            style={StyleSheet.absoluteFill}
-            onPress={onClose}
-          />
-
-          <View
-            testID="dialog.surface"
-            accessibilityViewIsModal
-            importantForAccessibility="yes"
-            onAccessibilityEscape={onClose}
-            style={styles.card}
-          >
-            {(title || description) && (
-              <View style={[styles.header, showHeaderDivider && styles.headerDivider]}>
-                {title ? (
-                  <Heading ref={titleRef} style={size === 'md' ? styles.titleMd : styles.titleSm} variant="sm">
-                    {title}
-                  </Heading>
-                ) : null}
-                {description ? <Text style={styles.description}>{description}</Text> : null}
-              </View>
-            )}
-            {children ? <View style={styles.body}>{children}</View> : null}
-            {footer ? <View style={styles.footer}>{footer}</View> : null}
-          </View>
-        </View>
-      )}
-    </Modal>
+            <DialogBody>{children}</DialogBody>
+          </ScrollView>
+        ) : null}
+        {footer ? <DialogFooter>{footer}</DialogFooter> : null}
+      </DialogContent>
+    </DialogRoot>
   );
 }
 
 const styles = StyleSheet.create({
+  fullWindowOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
   overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.scrimModal,
+  },
+  keyboardFrame: {
     flex: 1,
-    // Dark, neutral scrim shared across overlays.
-    backgroundColor: colors.scrimStrong,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
-  card: {
+  surface: {
     width: '100%',
     maxWidth: 480,
-    borderRadius: 28,
+    maxHeight: '92%',
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     backgroundColor: colors.canvas,
-    padding: spacing.lg,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
+    padding: spacing.xl,
+    ...cardElevation.overlay,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
-    // Space between title/description block and the main dialog body. We keep
-    // the body itself flush so individual child components (like CelebrationGif)
-    // don't need to manage their own top margin.
+    gap: spacing.xs,
+    paddingRight: spacing.xl,
     marginBottom: spacing.lg,
   },
   headerDivider: {
-    paddingBottom: spacing.sm,
-    marginBottom: spacing.xl,
+    paddingBottom: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
@@ -199,14 +295,35 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   description: {
-    marginTop: 0,
-    ...typography.body,
-    color: colors.textPrimary,
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  bodyScroll: {
+    flexGrow: 0,
+  },
+  bodyScrollContent: {
+    flexGrow: 0,
   },
   body: {
-    marginTop: 0,
+    width: '100%',
   },
   footer: {
     marginTop: spacing.xl,
   },
 });
+
+export {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogCloseButton,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+  DialogTrigger,
+};

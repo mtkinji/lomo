@@ -64,6 +64,7 @@ for (const entry of featureDirs) {
 
 const sourceFiles = walk(path.join(repoRoot, 'src'), (file) => /\.(ts|tsx)$/.test(file));
 const directReusableImport = /from\s+['"][^'"]*components\/ui\/[^'"]*['"]/;
+const directRnPrimitiveImport = /from\s+['"]@rn-primitives\//;
 const rawTextImport = /import\s+\{[^}]*\bText\b[^}]*\}\s+from\s+['"]react-native['"]/;
 const rawTextAliasImport = /import\s+\{[^}]*\bText\s+as\s+\w+[^}]*\}\s+from\s+['"]react-native['"]/;
 const rawTextWarningsByFeature = new Map();
@@ -117,6 +118,14 @@ for (const file of sourceFiles) {
       readFileAtRef(brandGreenBaselineRef, relativeFile),
     );
     if (finding) errors.push(finding);
+  }
+
+  if (!relativeFile.startsWith('src/ui/') && directRnPrimitiveImport.test(text)) {
+    pushImportFinding(
+      errors,
+      file,
+      'app and feature code must import RN Primitives behavior through src/ui adapters',
+    );
   }
 
   if (relativeFile.startsWith('src/features/') && (rawTextImport.test(text) || rawTextAliasImport.test(text))) {

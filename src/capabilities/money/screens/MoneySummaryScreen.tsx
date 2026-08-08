@@ -671,12 +671,7 @@ function SummaryMenuItem({ icon, label, onPress }: {
   onPress: () => void;
 }) {
   return (
-    <DropdownMenuItem onPress={onPress} accessibilityLabel={label}>
-      <View style={menuStyles.menuItemRow}>
-        <Icon name={icon} size={18} color={colors.textPrimary} />
-        <Text style={menuStyles.menuItemText} {...menuItemTextProps}>{label}</Text>
-      </View>
-    </DropdownMenuItem>
+    <DropdownMenuItem onPress={onPress} accessibilityLabel={label} label={label} icon={icon} />
   );
 }
 

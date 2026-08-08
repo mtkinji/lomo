@@ -5,7 +5,7 @@ import * as Device from 'expo-device';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { PortalHost } from '@rn-primitives/portal';
+import { PortalHost } from './src/ui/Portal';
 import {
   useFonts,
   Inter_400Regular,

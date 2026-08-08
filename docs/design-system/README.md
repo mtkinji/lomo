@@ -4,8 +4,9 @@ Kwilt's design system is the foundation for product surfaces across the Kwilt fa
 
 ## Foundations
 
-- [UI constitution](ui-constitution.md): authority order, ShadCN-to-Kwilt translation rules, hierarchy, composition, and visual acceptance gates.
-- [Pattern atlas](pattern-atlas.md): composition precedents, maturity, code references, and promotion requirements.
+- [UI constitution](ui-constitution.md): authority order, ShadCN discipline, RNR-to-Kwilt translation, hierarchy, composition, and acceptance gates.
+- [Pattern atlas](pattern-atlas.md): composition precedents, maturity, code references, and promotion evidence.
+- [External UI references](references/README.md): time-bounded product evidence and preserve/translate/reject studies.
 - [Storybook](storybook.md): the primary review surface for tokens, component candidates, variants, and promotion decisions.
 - [Brand family architecture](brand-family-architecture.md): suite-level naming, app identity, color roles, icon rules, launch lockups, and cross-app UI principles.
 - [Semantic color](semantic-color.md): the required meaning gate for every non-neutral color used in product UI.
@@ -15,23 +16,13 @@ Kwilt's design system is the foundation for product surfaces across the Kwilt fa
 - [Drawer guidance](drawer-guidance.md): drawer taxonomy and extraction rules for Goals task drawers versus Money choice pickers.
 - [Picker guidance](picker-guidance.md): closed trigger and open selection-surface rules for Goals and Money.
 
-## Current Posture
+## Current posture
 
-ShadCN is Kwilt's upstream design-system reference and quality bar. Kwilt UI is the localized, source-owned implementation for React Native. Feature code composes Kwilt UI; it does not copy ShadCN web code, reproduce local primitives from raw React Native views, or treat an arbitrary existing component as canonical.
+ShadCN is Kwilt's authoring and quality model. React Native Reusables is the preferred native upstream reference for generic component anatomy and composition. Kwilt UI is the localized, source-owned production implementation.
 
-Read the [UI constitution](ui-constitution.md) before material UI work. It defines what is normative, what is localized, and what wins when sources disagree.
+RNR does not imply NativeWind. Kwilt retains its existing `StyleSheet`, `src/theme`, and `@kwilt/tokens` architecture. Feature code composes `src/ui`; it does not import RNR source, behavior primitives, or recreate known controls from raw React Native views.
 
-## ShadCN And Kwilt UI
-
-ShadCN is more than loose inspiration. It is the intended model for component anatomy, composability, semantic variants, accessibility, state completeness, token roles, restrained composition, source ownership, and documentation quality.
-
-Kwilt UI translates that model for the product and platform:
-
-- ShadCN's web implementation details—Tailwind classes, Radix/Base UI primitives, hover behavior, default dark dashboard posture, and exact theme values—are not copied into React Native.
-- Kwilt owns its color, typography, spacing, motion, haptics, navigation, touch behavior, safe areas, drawers, accessibility behavior, and domain semantics.
-- Primitives designated Canonical by the inventory live in `src/ui/*` and use `@kwilt/tokens` through the app theme bridge. Directory location or barrel export does not grant status.
-- Feature code may use raw React Native `View` only as tokenized layout glue. It must not recreate a known semantic surface or control.
-- A local component is authoritative only within the maturity and scope recorded in the [component inventory](component-inventory.md). Existing code alone is not canonical.
+Read the [UI constitution](ui-constitution.md) before material UI work. The [component inventory](component-inventory.md) grants maturity; folder location and import availability do not.
 
 Before promoting a component into the canonical native layer, check:
 

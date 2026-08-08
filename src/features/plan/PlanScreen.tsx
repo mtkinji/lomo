@@ -117,23 +117,19 @@ export function PlanScreen() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="bottom">
               <DropdownMenuItem
+                label="Manage calendars"
+                icon="calendar"
                 onPress={() => {
                   (navigation as any).navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
                 }}
-              >
-                <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
-                  Manage calendars
-                </Text>
-              </DropdownMenuItem>
+              />
               <DropdownMenuItem
+                label="Set availability"
+                icon="clock"
                 onPress={() => {
                   (navigation as any).navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
                 }}
-              >
-                <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
-                  Set availability
-                </Text>
-              </DropdownMenuItem>
+              />
             </DropdownMenuContent>
           </DropdownMenu>
         }
