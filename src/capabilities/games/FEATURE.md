@@ -15,6 +15,7 @@ briefs:
   - bank-roll-pacing
   - games-timer
   - deeper-story-relay
+  - stitch-five-game
 status: shipping
 last_reviewed: 2026-08-03
 ---

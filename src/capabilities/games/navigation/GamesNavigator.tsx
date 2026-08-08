@@ -6,6 +6,7 @@ import { JoinTableScreen } from '../features/remote/JoinTableScreen';
 import { RemoteGameScreen } from '../features/remote/RemoteGameScreen';
 import { TumbleScreen } from '../features/tumble/TumbleScreen';
 import { GameTimerScreen } from '../features/timer/GameTimerScreen';
+import { StitchFiveScreen } from '../features/stitch-five/StitchFiveScreen';
 import { AuthProvider } from '../shell/AuthProvider';
 import type { GamesStackParamList } from './types';
 
@@ -17,6 +18,7 @@ export function GamesNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
         <Stack.Screen name="GamesShelf" component={GameShelfScreen} />
         <Stack.Screen name="GamesTimer" component={GameTimerScreen} />
+        <Stack.Screen name="GamesStitchFive" component={StitchFiveScreen} />
         <Stack.Screen name="GamesTumble" component={TumbleScreen} />
         <Stack.Screen name="GamesConnection" component={ConnectionGameScreen} />
         <Stack.Screen name="GamesJoin" component={JoinTableScreen} />

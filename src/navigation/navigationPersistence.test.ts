@@ -187,6 +187,22 @@ describe('navigationPersistence', () => {
     expect(restoredGames.routes[restoredGames.index]).toMatchObject({ name: 'GamesTimer' });
   });
 
+  test('restores an in-progress Stitch Five route', async () => {
+    const games = nestedState('stack', 'GamesStitchFive', [
+      route('GamesShelf'),
+      route('GamesStitchFive'),
+    ]);
+    const root = nestedState('drawer', 'Games', [
+      route('MainTabs'),
+      route('Games', games),
+      route('Settings'),
+    ]);
+
+    const restored = (await restore(root)) as unknown as TestState;
+    const restoredGames = restored.routes[restored.index].state!;
+    expect(restoredGames.routes[restoredGames.index]).toMatchObject({ name: 'GamesStitchFive' });
+  });
+
   test('restores Explore settings instead of falling back to Settings home', async () => {
     const settings = nestedState('stack', 'SettingsExplore', [
       route('SettingsHome'),

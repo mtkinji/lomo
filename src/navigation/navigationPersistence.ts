@@ -78,6 +78,7 @@ const GAMES_STACK_SCHEMA: ChildSchema = {
   allowed: [
     'GamesShelf',
     'GamesTimer',
+    'GamesStitchFive',
     'GamesTumble',
     'GamesConnection',
     'GamesJoin',
