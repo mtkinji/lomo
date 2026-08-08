@@ -175,7 +175,7 @@ the actual decision, not by whether it displays a comprehensive financial report
 
 ### 4. What rituals and artifacts do people already use?
 
-Likely practices form a stitch-five rather than one complete system:
+Likely practices form a patchwork rather than one complete system:
 
 - checking one bank-account or credit-card balance;
 - maintaining a paper list of bills and due dates;
