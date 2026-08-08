@@ -1,15 +1,26 @@
 import { basicDiceUtility, catalogForRelease, gameCatalog } from '../catalog';
 
 describe('game catalog', () => {
-  it('contains eleven unique shared games', () => {
-    expect(gameCatalog).toHaveLength(11);
-    expect(new Set(gameCatalog.map((game) => game.id)).size).toBe(11);
+  it('contains twelve unique shared games in development', () => {
+    expect(gameCatalog).toHaveLength(12);
+    expect(new Set(gameCatalog.map((game) => game.id)).size).toBe(12);
     expect(gameCatalog.every((game) => game.minPlayers >= 2)).toBe(true);
   });
 
   it('keeps Bank and Farkle on Tumble and routes nine connection games separately', () => {
     expect(gameCatalog.filter((game) => game.route.kind === 'tumble').map((game) => game.id)).toEqual(['bank', 'farkle']);
     expect(gameCatalog.filter((game) => game.route.kind === 'connection')).toHaveLength(9);
+  });
+
+  it('keeps Stitch Five in Workshop on its own local route', () => {
+    expect(gameCatalog.find((game) => game.id === 'stitch-five')).toMatchObject({
+      title: 'Stitch Five',
+      minPlayers: 2,
+      maxPlayers: 4,
+      route: { kind: 'stitch-five' },
+      releaseStatus: 'learning',
+    });
+    expect(catalogForRelease(false).map((game) => game.id)).not.toContain('stitch-five');
   });
 
   it('defines Basic Dice Roller as a utility rather than a game', () => {
@@ -47,7 +58,7 @@ describe('game catalog', () => {
       'bank', 'farkle', 'same-page', 'family-forecast',
       'pass-pattern', 'doodle-bridge',
     ]);
-    expect(workshop.map((game) => game.id)).toEqual(['common-thread', 'object-quest', 'story-relay', 'clue-circle', 'slanguage']);
+    expect(workshop.map((game) => game.id)).toEqual(['common-thread', 'object-quest', 'story-relay', 'clue-circle', 'slanguage', 'stitch-five']);
     expect(gameCatalog.every((game) => game.durationMinutes[0] > 0 && game.energy.length > 0)).toBe(true);
   });
 });

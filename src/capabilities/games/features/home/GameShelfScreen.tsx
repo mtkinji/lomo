@@ -12,6 +12,7 @@ import { PageHeader } from '@/src/ui/layout/PageHeader';
 
 function openGame(game: GameDefinition) {
   if (game.route.kind === 'tumble') router.push({ pathname: '/tumble', params: { mode: game.route.mode } });
+  else if (game.route.kind === 'stitch-five') router.push('/stitch-five');
   else router.push(`/play/${game.route.gameId}` as Href);
 }
 

@@ -9,10 +9,11 @@ export type ConnectionGameId =
   | 'clue-circle'
   | 'slanguage';
 
-export type CatalogGameId = 'bank' | 'farkle' | ConnectionGameId;
+export type CatalogGameId = 'bank' | 'farkle' | 'stitch-five' | ConnectionGameId;
 
 export type GameRoute =
   | { kind: 'tumble'; mode: 'bank' | 'farkle' | 'roller' }
+  | { kind: 'stitch-five' }
   | { kind: 'connection'; gameId: ConnectionGameId };
 
 export type GameDefinition = {
@@ -44,9 +45,18 @@ const acceptedGameCatalog: GameDefinition[] = [
 ];
 
 export const slanguageLearningReleaseEnabled = __DEV__ || process.env.EXPO_PUBLIC_SLANGUAGE_LEARNING_RELEASE === '1';
-export const gameCatalog: GameDefinition[] = slanguageLearningReleaseEnabled ? [...acceptedGameCatalog, {
+export const stitchFiveLearningReleaseEnabled = __DEV__ || process.env.EXPO_PUBLIC_STITCH_FIVE_LEARNING_RELEASE === '1';
+const slanguageLearningGame: GameDefinition = {
   id: 'slanguage', title: 'Slanguage', promise: 'Remix one sentence. Funniest wins.', minPlayers: 3, maxPlayers: 8, accent: '#B8D96B', mark: 'Aa', route: { kind: 'connection', gameId: 'slanguage' }, remotePath: 'Every player composes privately in one canonical open table, then reveals and votes together.', durationMinutes: [20, 30], energy: 'lively', releaseStatus: 'learning',
-}] : acceptedGameCatalog;
+};
+const stitchFiveLearningGame: GameDefinition = {
+  id: 'stitch-five', title: 'Stitch Five', promise: 'Build a quilt, one roll at a time.', minPlayers: 2, maxPlayers: 4, accent: '#D88E78', mark: '▦', route: { kind: 'stitch-five' }, remotePath: 'Local pass-and-play learning release; remote play is intentionally excluded.', durationMinutes: [15, 30], energy: 'warm', releaseStatus: 'learning',
+};
+export const gameCatalog: GameDefinition[] = [
+  ...acceptedGameCatalog,
+  ...(slanguageLearningReleaseEnabled ? [slanguageLearningGame] : []),
+  ...(stitchFiveLearningReleaseEnabled ? [stitchFiveLearningGame] : []),
+];
 
 export function catalogForRelease(includeWorkshop: boolean) {
   return includeWorkshop ? gameCatalog : gameCatalog.filter((game) => game.releaseStatus === 'ready');

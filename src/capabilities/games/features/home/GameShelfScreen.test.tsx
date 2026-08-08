@@ -41,6 +41,7 @@ describe('GameShelfScreen', () => {
       'Doodle Bridge',
       'Clue Circle',
       'Slanguage',
+      'Stitch Five',
       'Game Timer',
       'Basic Dice Roller',
     ].forEach((title) => expect(screen.getByText(title)).toBeTruthy());

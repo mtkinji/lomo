@@ -224,6 +224,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
       screens: {
         GamesShelf: 'games',
         GamesTimer: 'games/timer',
+        GamesStitchFive: 'games/stitch-five',
         GamesTumble: 'games/tumble/:mode?',
         GamesConnection: 'games/play/:gameId',
         GamesJoin: 'games/join/:token?',

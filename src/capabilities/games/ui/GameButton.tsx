@@ -11,9 +11,10 @@ type Props = {
   icon?: ReactNode;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  maxFontSizeMultiplier?: number;
 };
 
-export function GameButton({ children, onPress, disabled, tone = 'coral', icon, style, accessibilityLabel }: Props) {
+export function GameButton({ children, onPress, disabled, tone = 'coral', icon, style, accessibilityLabel, maxFontSizeMultiplier }: Props) {
   const palette = {
     coral: [gamesTheme.colors.coral, gamesTheme.colors.coralDark],
     turmeric: [gamesTheme.colors.turmeric, gamesTheme.colors.turmericDark],
@@ -44,7 +45,7 @@ export function GameButton({ children, onPress, disabled, tone = 'coral', icon, 
     >
       <View style={styles.content}>
         {icon}
-        {isTextLabel ? <Text style={styles.label}>{labelParts}</Text> : children}
+        {isTextLabel ? <Text maxFontSizeMultiplier={maxFontSizeMultiplier} style={styles.label}>{labelParts}</Text> : children}
       </View>
     </Pressable>
   );

@@ -5,6 +5,7 @@ describe('Games router adapter', () => {
     ['/', { screen: 'GamesShelf' }],
     ['/timer', { screen: 'GamesTimer' }],
     ['/hourglass', { screen: 'GamesTimer' }],
+    ['/stitch-five', { screen: 'GamesStitchFive' }],
     ['/play/common-thread', { screen: 'GamesConnection', params: { gameId: 'common-thread' } }],
     ['/join/ABCD', { screen: 'GamesJoin', params: { token: 'ABCD' } }],
     ['/room/room-1', { screen: 'GamesRemote', params: { sessionId: 'room-1' } }],

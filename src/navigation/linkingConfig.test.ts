@@ -63,6 +63,7 @@ describe('linkingConfig', () => {
 
   test.each([
     ['games/timer', 'GamesTimer', undefined],
+    ['games/stitch-five', 'GamesStitchFive', undefined],
     ['games/tumble/farkle', 'GamesTumble', { mode: 'farkle' }],
     ['games/play/common-thread', 'GamesConnection', { gameId: 'common-thread' }],
     ['games/join/ABCD12', 'GamesJoin', { token: 'ABCD12' }],

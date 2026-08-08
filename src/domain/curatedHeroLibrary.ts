@@ -266,7 +266,7 @@ const CORE_ARC_HERO_LIBRARY: ArcHeroImage[] = [
     },
   },
   {
-    id: 'arc-earth-patchwork-01',
+    id: 'arc-earth-stitch-five-01',
     uri: resolveBundledUri(require('../assets/arc-banners/banner5.png')),
     palette: ['#92400E', '#F59E0B', '#374151', '#6B7280'],
     tags: {
