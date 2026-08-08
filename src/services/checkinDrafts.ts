@@ -474,6 +474,18 @@ export function canSendDraft(draft: CheckinDraft): boolean {
   return true;
 }
 
+export function prepareCheckinDraftSend(
+  text: string,
+  draft: Pick<CheckinDraft, 'items'> | null | undefined,
+): { text: string; itemCount: number } | null {
+  const trimmedText = text.trim();
+  if (trimmedText.length === 0) return null;
+  return {
+    text: trimmedText,
+    itemCount: draft?.items.length ?? 0,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Send / skip / dismiss
 // ─────────────────────────────────────────────────────────────────────────────

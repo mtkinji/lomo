@@ -137,8 +137,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: draft existence and live partner-circle equality gate a persistence mutation inside the screen effect.
   - Result: `shouldUpdatePartnerCircle` now owns the missing-draft and unchanged-circle no-op contract beside the draft mutation logic, with focused coverage for all three states.
 
-- [ ] Extract Goal pending check-in send preparation
+- [x] Extract Goal pending check-in send preparation
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: text normalization, empty-send suppression, and analytics item count are embedded in the async screen handler.
-  - Ideal test: pin blank, whitespace-only, trimmed-text, missing-draft, and populated-draft inputs.
-  - Risk: low
+  - Result: `prepareCheckinDraftSend` now returns a normalized submission payload or rejects blank input, with focused tests for whitespace, trimming, missing drafts, and populated item counts.
+
+- [ ] Extract Goal pending check-in delivery controller
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: submission, analytics, draft/nudge lifecycle updates, feed refresh, toast, error reporting, and busy cleanup remain coupled inside the screen callback.
+  - Ideal test: pin successful delivery side effects, failure reporting, and busy-state cleanup through injected dependencies.
+  - Risk: medium

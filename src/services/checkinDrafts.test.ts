@@ -12,6 +12,7 @@ import {
   markDismissed,
   markSent,
   markSkipped,
+  prepareCheckinDraftSend,
   removeBySource,
   removeItem,
   shouldConfirmSkip,
@@ -307,6 +308,41 @@ describe('partner circle changes', () => {
       now: ANCHOR,
     });
     expect(canSendDraft(draft)).toBe(false);
+  });
+});
+
+describe('check-in send preparation', () => {
+  test.each(['', '   ', '\n\t'])('rejects blank text %j', (text) => {
+    expect(prepareCheckinDraftSend(text, null)).toBeNull();
+  });
+
+  test('trims text and uses zero items when the draft is missing', () => {
+    expect(prepareCheckinDraftSend('  We did it  ', null)).toEqual({
+      text: 'We did it',
+      itemCount: 0,
+    });
+  });
+
+  test('includes the populated draft item count', () => {
+    const draft = createDraft({
+      goalId: 'g',
+      partnerCircleKey: 'u1|u2',
+      initialItem: makeDraftItem(
+        {
+          sourceType: 'activity',
+          sourceId: 'act_1',
+          title: 'A',
+          completedAt: ANCHOR.toISOString(),
+        },
+        ANCHOR,
+      ),
+      now: ANCHOR,
+    });
+
+    expect(prepareCheckinDraftSend('Sent', draft)).toEqual({
+      text: 'Sent',
+      itemCount: 1,
+    });
   });
 });
 
