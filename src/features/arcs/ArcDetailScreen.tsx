@@ -925,38 +925,24 @@ export function ArcDetailScreen() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent side="bottom" sideOffset={6} align="end">
                     <DropdownMenuItem
+                      label="Cover image"
+                      icon="edit"
                       onPress={() => {
                         setIsHeroModalVisible(true);
                       }}
-                    >
-                      <View style={menuStyles.menuItemRow}>
-                        <Icon name="edit" size={16} color={colors.textSecondary} />
-                        <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
-                          Cover image
-                        </Text>
-                      </View>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onPress={handleToggleArchiveArc}>
-                      <View style={menuStyles.menuItemRow}>
-                        <Icon
-                          name={arc?.status === 'archived' ? 'refresh' : 'archive'}
-                          size={16}
-                          color={colors.textSecondary}
-                        />
-                        <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
-                          {arc?.status === 'archived' ? 'Restore' : 'Archive'}
-                        </Text>
-                      </View>
-                    </DropdownMenuItem>
+                    />
+                    <DropdownMenuItem
+                      label={arc?.status === 'archived' ? 'Restore' : 'Archive'}
+                      icon={arc?.status === 'archived' ? 'refresh' : 'archive'}
+                      onPress={handleToggleArchiveArc}
+                    />
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onPress={handleDeleteArc} variant="destructive">
-                      <View style={menuStyles.menuItemRow}>
-                        <Icon name="trash" size={16} color={colors.destructive} />
-                        <Text style={menuStyles.destructiveMenuItemText} {...menuItemTextProps}>
-                          Delete arc
-                        </Text>
-                      </View>
-                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      label="Delete arc"
+                      icon="trash"
+                      onPress={handleDeleteArc}
+                      variant="destructive"
+                    />
                   </DropdownMenuContent>
                 </DropdownMenu>
               </HStack>

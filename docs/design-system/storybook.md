@@ -30,6 +30,7 @@ Default viewport: `Large mobile` (`414 x 896`). Component stories should be revi
 - `Settings/Patterns`: SettingsGroup, SettingsRow, SettingsToggleRow.
 - `Overlays/Drawers`: drawer taxonomy, Money-style choice picker, Goals-style task drawer, and extraction guidance.
 - `Navigation/Actions`: KeyActionsRow, StreakCapsule, ActionDock, and ObjectPageHeader references.
+- `Overlays and Forms/RNR Convergence`: localized DropdownMenu, Dialog, AlertDialog, and FormField anatomy and states.
 
 ## Why Storybook
 

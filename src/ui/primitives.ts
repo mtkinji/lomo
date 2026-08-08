@@ -1,15 +1,48 @@
-// Curated ShadCN-aligned exports for Kwilt UI.
-// This barrel includes canonical primitives plus documented candidate/local
+// Curated ShadCN/RNR-aligned exports for Kwilt UI.
+// This barrel includes Canonical primitives plus documented Candidate/local
 // compositions for migration compatibility. Import presence alone does not grant
-// canonical status; docs/design-system/component-inventory.md is authoritative.
+// maturity; docs/design-system/component-inventory.md is authoritative.
 
 export { Button, IconButton } from './Button';
 export { Card } from './Card';
 export { Input } from './Input';
 export { BottomDrawer as Sheet } from './BottomDrawer';
 export { Badge } from './Badge';
-export { DropdownMenu } from './DropdownMenu';
-export { Dialog } from './Dialog';
+export {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './DropdownMenu';
+export {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogCloseButton,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogRoot,
+  DialogTitle,
+  DialogTrigger,
+} from './Dialog';
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogRoot,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from './AlertDialog';
+export { FormField, type FormFieldControlProps } from './FormField';
 export { VStack, HStack } from './Stack';
 export { Text, Heading, ButtonLabel } from './Typography';
 export { SurveyCard } from './SurveyCard';

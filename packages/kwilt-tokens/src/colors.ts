@@ -201,4 +201,5 @@ export const colors = {
   // Global overlay / scrim tokens for dialogs, sheets, and modals.
   scrim: 'rgba(15,23,42,0.5)',
   scrimStrong: 'rgba(15,23,42,0.7)',
+  scrimModal: 'rgba(15,23,42,0.82)',
 };

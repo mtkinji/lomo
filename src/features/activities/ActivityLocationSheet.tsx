@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
-import { PortalHost } from '@rn-primitives/portal';
+import { PortalHost } from '../../ui/Portal';
 import MapView, { Circle, type Region } from 'react-native-maps';
 import { colors, spacing, typography } from '../../theme';
 import { BottomDrawer, BottomDrawerNativeGestureView, BottomDrawerScrollView } from '../../ui/BottomDrawer';

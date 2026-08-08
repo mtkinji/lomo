@@ -1,5 +1,13 @@
 import React, { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Animated,
+  Pressable,
+  StyleSheet,
+  View,
+  type AccessibilityState,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { colors, spacing, typography, fonts } from '../theme';
 import { Text } from './Typography';
 import { useAccessibilityPreferences } from './hooks/useAccessibilityPreferences';
@@ -17,6 +25,11 @@ type SegmentedControlProps<Value extends string> = {
   options: SegmentedOption<Value>[];
   style?: StyleProp<ViewStyle>;
   size?: SegmentedControlSize;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityState?: AccessibilityState;
+  'aria-invalid'?: boolean;
+  'aria-describedby'?: string;
   /**
    * Optional stable testID prefix for E2E tests.
    * Each segment receives `testID="${testIDPrefix}.${option.value}"`.
@@ -35,6 +48,11 @@ export function SegmentedControl<Value extends string>({
   style,
   size = 'default',
   testIDPrefix,
+  accessibilityLabel,
+  accessibilityHint,
+  accessibilityState,
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
 }: SegmentedControlProps<Value>) {
   const [layouts, setLayouts] = useState<Record<string, { x: number; width: number }>>({});
   const thumbX = useRef(new Animated.Value(0)).current;
@@ -87,7 +105,16 @@ export function SegmentedControl<Value extends string>({
             key={option.value}
             testID={testIDPrefix ? `${testIDPrefix}.${String(option.value)}` : undefined}
             accessibilityRole="tab"
-            accessibilityState={{ selected: isSelected }}
+            accessibilityLabel={
+              accessibilityLabel && typeof option.label === 'string'
+                ? `${accessibilityLabel}, ${option.label}`
+                : undefined
+            }
+            accessibilityHint={accessibilityHint}
+            accessibilityState={{ ...accessibilityState, selected: isSelected }}
+            aria-invalid={ariaInvalid}
+            aria-describedby={ariaDescribedBy}
+            disabled={accessibilityState?.disabled}
             style={[styles.segment, isCompact && styles.segmentCompact]}
             onLayout={(event) => {
               const { x, width } = event.nativeEvent.layout;

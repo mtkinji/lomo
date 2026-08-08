@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Modal, Platform, Pressable, View } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
-import { PortalHost } from '@rn-primitives/portal';
+import { PortalHost } from '../../ui/Portal';
 import { colors, spacing } from '../../theme';
 import { SOUND_SCAPES, type SoundscapeId } from '../../services/soundscape';
 import { BottomDrawer } from '../../ui/BottomDrawer';

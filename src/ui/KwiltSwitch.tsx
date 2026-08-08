@@ -8,7 +8,7 @@ export type KwiltSwitchProps = {
   disabled?: boolean;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
-  tone?: 'default' | 'inverse';
+  tone?: 'default' | 'inverse' | 'neutral';
   value: boolean;
 };
 
@@ -28,17 +28,18 @@ export function KwiltSwitch({
     inputRange: [0, 1],
     outputRange: [0, 16],
   });
+  const enabledTrackColor = tone === 'neutral' ? colors.primary : colors.pine700;
   const trackBackgroundColor = animation.interpolate({
     inputRange: [0, 1],
     outputRange: tone === 'inverse'
       ? ['rgba(250,247,237,0.14)', colors.parchment]
-      : ['#DDE1DC', colors.pine700],
+      : ['#DDE1DC', enabledTrackColor],
   });
   const trackBorderColor = animation.interpolate({
     inputRange: [0, 1],
     outputRange: tone === 'inverse'
       ? ['rgba(250,247,237,0.72)', colors.parchment]
-      : ['#C9CEC8', colors.pine700],
+      : ['#C9CEC8', enabledTrackColor],
   });
   const thumbBackgroundColor = animation.interpolate({
     inputRange: [0, 1],

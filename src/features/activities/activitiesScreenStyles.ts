@@ -719,23 +719,11 @@ export const styles = StyleSheet.create({
   viewEditorToggleThumbDisabled: {
     opacity: 0.85,
   },
-  viewEditorShortcutsSection: {
-    marginTop: spacing.lg,
-  },
-  viewEditorSecondaryActions: {
-    flexDirection: 'row',
-  },
   viewEditorActions: {
     marginTop: spacing.lg,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
   },
-  viewEditorShortcutLabel: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-  },
-  viewEditorShortcutDestructiveLabel: {
-    ...typography.bodySm,
-    color: colors.canvas,
+  viewEditorActionSpacer: {
+    flex: 1,
   },
 });

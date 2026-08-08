@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
-import { PortalHost } from '@rn-primitives/portal';
+import { PortalHost } from '../../ui/Portal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useCanUseProTools } from '../../store/proToolsAccess';

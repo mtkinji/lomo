@@ -1,6 +1,6 @@
 # Kwilt Component Inventory
 
-This is the first picking list for promoting components into a shared Kwilt design system. It is intentionally biased toward Kwilt Goals for mature general-purpose patterns, with Kwilt Money called out where it has the stronger interaction.
+This inventory records component maturity and scope for the unified Kwilt native app. Use it with the [UI constitution](ui-constitution.md), [pattern atlas](pattern-atlas.md), and [Storybook](storybook.md).
 
 Use this with [Storybook](storybook.md) as the component review surface.
 
@@ -33,7 +33,11 @@ Only an explicit product/design-owner decision recorded here grants Canonical st
 | --- | --- | --- | --- |
 | `Card` | `src/ui/Card.tsx` | Canonical | Use only for a meaningful surface or interaction boundary, not default grouping. |
 | `Button` | `src/ui/Button.tsx` | Canonical | Semantic variant and size system. One screen decision gets one dominant primary action. |
-| `Input` | `src/ui/Input.tsx` | Canonical | Handles variants, icons, multiline behavior, focus/error states. |
+| `Input` | `src/ui/Input.tsx` | Canonical | Handles labels, descriptions/errors, variants, icons, multiline behavior, focus, and disabled states. |
+| `FormField` | `src/ui/FormField.tsx` | Promote | RNR-aligned label/control/description/message anatomy; requires native and Storybook review. |
+| `Dialog` | `src/ui/Dialog.tsx` | Promote | Existing compatibility API plus RNR-aligned anatomy; requires caller and runtime convergence. |
+| `AlertDialog` | `src/ui/AlertDialog.tsx` | Promote | Consequential confirmation only; requires runtime evidence before Canonical. |
+| `DropdownMenu` | `src/ui/DropdownMenu.tsx` | Promote | RN Primitives behavior with localized RNR anatomy; requires caller and runtime convergence. |
 | `PickerFieldTrigger` | `src/ui/PickerFields.tsx` | Canonical | Reusable closed-field grammar. |
 | `EnumPickerField` / `SmallSetPickerField` | `src/ui/PickerFields.tsx` | Canonical | Default for small fixed-set choices with compact drawer rows and selected checks. |
 | `RelationPickerField` | Kwilt Goals `src/ui/PickerFields.tsx` | Candidate | Strong searchable picker for larger object lists; may need drawer-vs-fullscreen adaptation for Money and desktop. |

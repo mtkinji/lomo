@@ -15,7 +15,7 @@ import {
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
 import { colors, spacing, typography, motion } from '../theme';
 import { cardElevation } from '../theme/surfaces';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 import { NativeOnlyAnimatedView } from './NativeOnlyAnimatedView';
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
@@ -139,13 +139,30 @@ function DropdownMenuItem({
   style,
   inset,
   variant = 'default',
+  label,
+  icon,
+  selected,
+  children,
+  accessibilityHint,
+  accessibilityState,
   ...props
 }: DropdownMenuPrimitive.ItemProps & {
   inset?: boolean;
   variant?: 'default' | 'destructive';
+  label?: string;
+  icon?: IconName;
+  selected?: boolean;
 }) {
+  const isDestructive = variant === 'destructive';
+  const foregroundColor = isDestructive ? colors.destructive : colors.textPrimary;
+
   return (
     <DropdownMenuPrimitive.Item
+      accessibilityRole="menuitem"
+      accessibilityHint={accessibilityHint ?? (isDestructive ? 'Destructive action' : undefined)}
+      accessibilityState={
+        selected === undefined ? accessibilityState : { ...accessibilityState, selected }
+      }
       style={[
         styles.item,
         inset && styles.inset,
@@ -155,11 +172,10 @@ function DropdownMenuItem({
       {...props}
     >
       <View style={styles.itemContent}>
-        {/* We rely on the children (Text, Icon rows) to inherit colors or set them explicitly. 
-            Unlike NativeWind context, we can't easily inject text colors down, so we trust 
-            the caller to use <Text> or we could wrap children if strict coloring is needed. 
-            For now, simpler is better. */}
-        {resolvePressableChildren(props.children as PressableChildren)}
+        {icon ? <Icon name={icon} size={18} color={foregroundColor} /> : null}
+        {label ? <Text style={[styles.itemLabel, isDestructive && styles.destructiveItemLabel]}>{label}</Text> : null}
+        {resolvePressableChildren(children as PressableChildren)}
+        {selected ? <Icon name="check" size={16} color={colors.textPrimary} style={styles.trailingCheck} /> : null}
       </View>
     </DropdownMenuPrimitive.Item>
   );
@@ -248,10 +264,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
-    minWidth: 260,
+    minWidth: 200,
+    overflow: 'hidden',
     ...cardElevation.overlay,
   },
   item: {
@@ -267,6 +284,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     flex: 1,
+  },
+  itemLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  destructiveItemLabel: {
+    color: colors.destructive,
+  },
+  trailingCheck: {
+    marginLeft: 'auto',
   },
   checkboxItem: {
     paddingLeft: spacing.xl + spacing.sm, // Make room for indicator

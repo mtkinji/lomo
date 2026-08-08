@@ -20,7 +20,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { PortalHost } from '@rn-primitives/portal';
+import { PortalHost } from '../../ui/Portal';
 import { FullWindowOverlay } from 'react-native-screens';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
