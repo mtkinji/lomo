@@ -437,6 +437,13 @@ export function getDraftAgeLabelText(label: DraftAgeLabel): string {
 // Partner circle changes
 // ─────────────────────────────────────────────────────────────────────────────
 
+export function shouldUpdatePartnerCircle(
+  draft: Pick<CheckinDraft, 'partnerCircleKey'> | null | undefined,
+  nextKey: string,
+): boolean {
+  return draft !== null && draft !== undefined && draft.partnerCircleKey !== nextKey;
+}
+
 /**
  * Apply a new partner circle key to a draft. If the key changes, the draft
  * enters a "needs re-approval" state so the user reviews the audience before
