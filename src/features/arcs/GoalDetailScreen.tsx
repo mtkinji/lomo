@@ -159,6 +159,7 @@ import { CheckinApprovalSheet } from '../goals/CheckinApprovalSheet';
 import {
   buildPartnerCircleKey,
   makeDraftItem,
+  prepareCheckinDraftSend,
   shouldUpdatePartnerCircle,
   shouldShowImmediatePrompt as canShowImmediateApprovalPrompt,
 } from '../../services/checkinDrafts';
@@ -952,15 +953,15 @@ export function GoalDetailScreen() {
   const handleSendPendingDraft = useCallback(
     async (text: string) => {
       if (!goalId) return;
-      const trimmed = text.trim();
-      if (trimmed.length === 0) return;
+      const preparedSend = prepareCheckinDraftSend(text, pendingDraft);
+      if (!preparedSend) return;
       setPendingDraftBusy(true);
       try {
         const { submitCheckin } = await import('../../services/checkins');
-        await submitCheckin({ goalId, preset: null, text: trimmed });
+        await submitCheckin({ goalId, preset: null, text: preparedSend.text });
         capture(AnalyticsEvent.CheckinDraftSent, {
           goalId,
-          itemCount: pendingDraft?.items.length ?? 0,
+          itemCount: preparedSend.itemCount,
         });
         useCheckinDraftStore.getState().markSent(goalId);
         useCheckinNudgeStore.getState().recordCheckin(goalId);
