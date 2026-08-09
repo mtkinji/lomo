@@ -12,9 +12,9 @@ export function createKrogerConnectionRepository(client:SupabaseClient=getSupaba
   async connect(){const start=await invoke<{authUrl:string}>(client,'kroger-auth',{});const result=await WebBrowser.openAuthSessionAsync(start.authUrl,'kwilt://kroger-auth');if(result.type!=='success'||!result.url.includes('status=success'))throw new Error('provider.connection_cancelled');return await this.status();},
   searchLocations(zipCode:string){return invoke<{locations:KrogerLocation[]}>(client,'kroger-api',{action:'locations',zipCode});},
   selectLocation(location:KrogerLocation){return invoke<{location:KrogerLocation}>(client,'kroger-api',{action:'select_location',location});},
-  prepareMatches(groceryListId:string,expectedRevision:number){return invoke<{retailerLabel:string;location:{id:string;name:string;address:string};matches:KrogerMatch[]}>(client,'kroger-api',{action:'prepare_matches',groceryListId,expectedRevision});},
-  confirmMapping(groceryListId:string,groceryItemId:string,product:KrogerProduct,quantity:number){return invoke<{mappingId:string;state:'confirmed'}>(client,'kroger-api',{action:'confirm_mapping',groceryListId,groceryItemId,product,quantity});},
-  cartAdd(groceryListId:string,expectedRevision:number){return invoke<{handoffId:string;state:'cart_add_acknowledged';cartUrl:string;addedItemCount:number;replayed:boolean}>(client,'kroger-api',{action:'cart_add',groceryListId,expectedRevision});},
+  prepareMatches(groceryListId:string,expectedRevision:number,location:KrogerLocation){return invoke<{retailerLabel:string;location:{id:string;name:string;address:string};matches:KrogerMatch[]}>(client,'kroger-api',{action:'prepare_matches',groceryListId,expectedRevision,location});},
+  confirmMapping(groceryListId:string,groceryItemId:string,product:KrogerProduct,quantity:number,location:KrogerLocation){return invoke<{mappingId:string;state:'confirmed'}>(client,'kroger-api',{action:'confirm_mapping',groceryListId,groceryItemId,product,quantity,location});},
+  cartAdd(groceryListId:string,expectedRevision:number){return invoke<{handoffId:string;state:'cart_add_acknowledged';cartUrl:string;addedItemCount:number;remainingItemCount:number;retailerLabel:string;replayed:boolean}>(client,'kroger-api',{action:'cart_add',groceryListId,expectedRevision});},
   revoke(){return invoke<{state:'revoked'}>(client,'kroger-auth',{action:'revoke'});},
  };
 }

@@ -17,7 +17,6 @@ import {
 } from "../../../ui/DropdownMenu";
 import { Icon } from "../../../ui/Icon";
 import { menuItemTextProps, menuStyles } from "../../../ui/menuStyles";
-import { HeaderActionPill } from "../../../ui/layout/ObjectPageHeader";
 import { Heading, Text } from "../../../ui/Typography";
 import type { RecipeProjection } from "../data/recipeCache";
 import { buildRecipeRecommendations } from "../domain/recipeRecommendations";
@@ -232,39 +231,7 @@ export function RecipeLibraryView({
     />
   );
 }
-export function MealPlanHeaderAction({
-  count,
-  onPress,
-}: {
-  count: number;
-  onPress(): void;
-}) {
-  const countLabel = count > 99 ? "99+" : String(count);
-  return (
-    <Pressable
-      testID="meal-plan-header-action"
-      accessibilityRole="button"
-      accessibilityLabel={count ? `Plan, ${count} meals` : "Plan"}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.mealPlanHeaderAction,
-        pressed && styles.pressed,
-      ]}
-    >
-      <Icon name="meal" size={15} color={colors.textPrimary} />
-      <Text variant="label" style={styles.mealPlanHeaderLabel}>
-        Plan
-      </Text>
-      {count ? (
-        <View testID="meal-plan-header-count" style={styles.mealPlanCountBadge}>
-          <Text variant="label" style={styles.mealPlanCountText}>
-            {countLabel}
-          </Text>
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
+export { MealPlanHeaderAction } from '../../../features/household-food/components/MealPlanHeaderAction';
 
 export function MealsOverflowMenu({
   hiddenCount,

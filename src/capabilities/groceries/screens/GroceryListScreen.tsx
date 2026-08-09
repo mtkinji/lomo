@@ -1,75 +1,151 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Alert,
   Pressable,
-  PixelRatio,
   RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
-  useWindowDimensions,
   View,
-} from "react-native";
-import * as Crypto from "expo-crypto";
-import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
-import { useAppStore } from "../../../store/useAppStore";
-import { colors, spacing } from "../../../theme";
-import { Button } from "../../../ui/Button";
-import { AppShell } from "../../../ui/layout/AppShell";
-import { PageHeader } from "../../../ui/layout/PageHeader";
-import { Heading, Text } from "../../../ui/Typography";
-import { groceryCache } from "../data/groceryCache";
+} from 'react-native';
+import * as Crypto from 'expo-crypto';
+
+import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
+import { FloatingControlSurface } from '../../../features/activities/FloatingControlSurface';
+import { MealPlanHeaderAction } from '../../../features/household-food/components/MealPlanHeaderAction';
+import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
+import { AnalyticsEvent } from '../../../services/analytics/events';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
+import { useAppStore } from '../../../store/useAppStore';
+import { colors, spacing } from '../../../theme';
+import { BottomDrawer } from '../../../ui/BottomDrawer';
+import { Button, IconButton } from '../../../ui/Button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../../ui/DropdownMenu';
+import { Icon } from '../../../ui/Icon';
+import { AppShell } from '../../../ui/layout/AppShell';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
+import { PageHeader } from '../../../ui/layout/PageHeader';
+import {
+  RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+  RESTING_COMPOSER_HEIGHT_PX,
+  RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+} from '../../../ui/layout/restingComposerMetrics';
+import { Heading, Text } from '../../../ui/Typography';
+import { RecipeIngredientChecklist } from '../../recipes/components/RecipeIngredientList';
+import { formatKitchenQuantity } from '../../recipes/domain/recipeScaling';
+import { createMealPlanningRepository } from '../../meal-planning/data/mealPlanningRepository';
+import { groceryCache } from '../data/groceryCache';
 import {
   createGroceryRepository,
   type GroceryProjection,
-} from "../data/groceryRepository";
-import {
-  StoreOpportunityCaptureSheet,
-  type StoreOpportunityDraft,
-} from "../components/StoreOpportunityCaptureSheet";
-import { createFoodScenarioRepository } from "../data/foodScenarioRepository";
-import { GroceryItemProvenanceSheet } from "../components/GroceryItemProvenanceSheet";
-import { createMealPlanningRepository } from "../../meal-planning/data/mealPlanningRepository";
-import { AnalyticsEvent } from "../../../services/analytics/events";
-import { useAnalytics } from "../../../services/analytics/useAnalytics";
-import { useCapabilityShell } from "../../../navigation/CapabilityShellContext";
+} from '../data/groceryRepository';
 import {
   applyQueuedGroceryStates,
   groceryOfflineQueue,
   reconcileGroceryOfflineQueue,
-  shouldStackGroceryItemLayout,
-} from "../data/groceryOfflineQueue";
+} from '../data/groceryOfflineQueue';
+import { groceryFulfillmentSummary } from '../domain/groceryFulfillment';
 
-type Props = NativeStackScreenProps<FoodStackParamList, "GroceryList">;
+type Props = NativeStackScreenProps<FoodStackParamList, 'GroceryList'>;
+
 const aisleLabels: Record<string, string> = {
-  produce: "Produce",
-  bakery: "Bakery",
-  dairy_eggs: "Dairy & eggs",
-  meat_seafood: "Meat & seafood",
-  pantry: "Pantry",
-  frozen: "Frozen",
-  beverages: "Beverages",
-  household: "Household",
-  other: "Other",
+  produce: 'Produce',
+  bakery: 'Bakery',
+  dairy_eggs: 'Dairy & eggs',
+  meat_seafood: 'Meat & seafood',
+  pantry: 'Pantry',
+  frozen: 'Frozen',
+  beverages: 'Beverages',
+  household: 'Household',
+  other: 'Other',
 };
+
+type MarkReviewed = (
+  listId: string,
+  expectedRevision: number,
+) => Promise<unknown>;
+
+export async function prepareGroceryListForFulfillment(
+  list: GroceryProjection,
+  markReviewed: MarkReviewed,
+): Promise<void> {
+  if (list.status === 'stale') {
+    throw new Error('Update this grocery list from the current Plan before shopping.');
+  }
+  if (list.status === 'review_needed') {
+    await markReviewed(list.id, list.revision);
+  }
+}
 
 export function resolveGroceryListEntry(
   lists: GroceryProjection[],
   planId: string,
   planVersion: number,
-): { kind: "show"; list: GroceryProjection } | { kind: "compile" } {
+): { kind: 'show'; list: GroceryProjection } | { kind: 'compile' } {
   const current = lists.find(
     (item) =>
-      item.status !== "stale" &&
+      item.status !== 'stale' &&
       item.sourceMealPlanId === planId &&
       item.sourceMealPlanVersion === planVersion,
   );
-  if (current) return { kind: "show", list: current };
+  if (current) return { kind: 'show', list: current };
   const stale = lists.find(
-    (item) => item.status === "stale" && item.sourceMealPlanId === planId,
+    (item) => item.status === 'stale' && item.sourceMealPlanId === planId,
   );
-  return stale ? { kind: "show", list: stale } : { kind: "compile" };
+  return stale ? { kind: 'show', list: stale } : { kind: 'compile' };
+}
+
+function groceryItemDisplay(item: GroceryProjection['items'][number]): string {
+  if (item.quantityMin === null) return item.concept;
+  const amount = `${formatKitchenQuantity(item.quantityMin)}${
+    item.quantityMax === null ? '' : `–${formatKitchenQuantity(item.quantityMax)}`
+  }`;
+  const unit = item.unit && item.unit !== 'count' ? ` ${item.unit}` : '';
+  return `${amount}${unit} ${item.concept}`;
+}
+
+function GroceriesMenu({
+  coveredCount,
+  reviewingCovered,
+  onToggleReview,
+}: {
+  coveredCount: number;
+  reviewingCovered: boolean;
+  onToggleReview(): void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger accessibilityLabel="Grocery list options">
+        <View pointerEvents="none">
+          <IconButton
+            accessibilityRole="button"
+            accessibilityLabel="Grocery list options"
+            variant="ghost"
+          >
+            <Icon name="more" size={18} color={colors.textPrimary} />
+          </IconButton>
+        </View>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="bottom" sideOffset={6} align="start">
+        <DropdownMenuItem
+          icon="check"
+          label={
+            reviewingCovered
+              ? 'Show full list'
+              : `Review checked items${coveredCount ? ` (${coveredCount})` : ''}`
+          }
+          disabled={!coveredCount && !reviewingCovered}
+          onPress={onToggleReview}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 export function GroceryListScreen({ navigation, route }: Props) {
@@ -81,22 +157,20 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const [pendingCount, setPendingCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [showOpportunity, setShowOpportunity] = useState(false);
-  const [manualItem, setManualItem] = useState("");
-  const [showManualItem, setShowManualItem] = useState(false);
-  const [provenanceItem, setProvenanceItem] = useState<
-    GroceryProjection["items"][number] | null
-  >(null);
-  const { width, fontScale } = useWindowDimensions();
-  const stackItemRows = shouldStackGroceryItemLayout({ width, fontScale: Math.max(fontScale, PixelRatio.getFontScale()) });
+  const [manualItem, setManualItem] = useState('');
+  const [showAddDrawer, setShowAddDrawer] = useState(false);
+  const [reviewingCovered, setReviewingCovered] = useState(false);
+  const [sourcePlanMealCount, setSourcePlanMealCount] = useState(0);
   const requestedListId = route.params?.listId;
+
   const chooseList = useCallback(
     (lists: GroceryProjection[]) =>
       requestedListId
         ? (lists.find((item) => item.id === requestedListId) ?? null)
-        : (lists.find((item) => item.status !== "stale") ?? lists[0] ?? null),
+        : (lists.find((item) => item.status !== 'stale') ?? lists[0] ?? null),
     [requestedListId],
   );
+
   const load = useCallback(async () => {
     if (!userId) return;
     const [cached, pending] = await Promise.all([
@@ -124,6 +198,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
       setOffline(Boolean(cachedList));
     }
   }, [chooseList, userId]);
+
   useEffect(() => {
     void (async () => {
       if (route.params?.planId && route.params.planVersion) {
@@ -136,8 +211,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
             route.params.planId,
             route.params.planVersion,
           );
-          if (entry.kind === "show") {
-            navigation.replace("GroceryList", { listId: entry.list.id });
+          if (entry.kind === 'show') {
+            navigation.replace('GroceryList', { listId: entry.list.id });
             return;
           }
           const receipt = await repository.compile(
@@ -145,15 +220,15 @@ export function GroceryListScreen({ navigation, route }: Props) {
             route.params.planVersion,
           );
           capture(AnalyticsEvent.GroceryListCompiled, {
-            outcome: "success",
+            outcome: 'success',
             replayed: receipt.replayed,
           });
-          navigation.replace("GroceryList", { listId: receipt.groceryListId });
+          navigation.replace('GroceryList', { listId: receipt.groceryListId });
           return;
         } catch (error) {
           Alert.alert(
-            "Grocery list did not compile",
-            error instanceof Error ? error.message : "Please try again.",
+            'Grocery list did not compile',
+            error instanceof Error ? error.message : 'Please try again.',
           );
         } finally {
           setBusy(false);
@@ -162,18 +237,71 @@ export function GroceryListScreen({ navigation, route }: Props) {
       await load();
     })();
   }, [capture, load, navigation, route.params?.planId, route.params?.planVersion]);
-  const groups = useMemo(() => {
-    const map = new Map<string, GroceryProjection["items"]>();
-    for (const item of list?.items ?? [])
-      map.set(item.aisle, [...(map.get(item.aisle) ?? []), item]);
-    return [...map.entries()];
-  }, [list]);
-  const toggle = async (itemId: string, state: "needed" | "already_have") => {
-    if (!list || !userId || list.status === "stale") return;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!list?.sourceMealPlanId) {
+      setSourcePlanMealCount(0);
+      return () => {
+        cancelled = true;
+      };
+    }
+    void createMealPlanningRepository()
+      .list()
+      .then((plans) => {
+        if (cancelled) return;
+        const sourcePlan = plans.find(
+          (plan) =>
+            plan.id === list.sourceMealPlanId &&
+            (list.sourceMealPlanVersion === null || plan.version === list.sourceMealPlanVersion),
+        );
+        setSourcePlanMealCount(sourcePlan?.entries.length ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setSourcePlanMealCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [list?.sourceMealPlanId, list?.sourceMealPlanVersion]);
+
+  const fulfillment = groceryFulfillmentSummary(list?.items ?? []);
+  const coveredIds = useMemo(
+    () =>
+      new Set(
+        (list?.items ?? [])
+          .filter((item) => item.state !== 'needed')
+          .map((item) => item.id),
+      ),
+    [list],
+  );
+  const checklistItems = useMemo(() => {
+    const grouped = new Map<string, GroceryProjection['items']>();
+    for (const item of list?.items ?? []) {
+      if (item.state === 'skipped') continue;
+      if (reviewingCovered && item.state === 'needed') continue;
+      grouped.set(item.aisle, [...(grouped.get(item.aisle) ?? []), item]);
+    }
+    return [...grouped.entries()].flatMap(([aisle, items]) =>
+      items.map((item) => ({
+        id: item.id,
+        display: groceryItemDisplay(item),
+        groupLabel: aisleLabels[aisle] ?? 'Other',
+        supportingText: item.retailerCart
+          ? `In ${item.retailerCart.retailerLabel} cart`
+          : null,
+      })),
+    );
+  }, [list, reviewingCovered]);
+
+  const toggle = async (itemId: string) => {
+    if (!list || !userId || list.status === 'stale') return;
+    const item = list.items.find((candidate) => candidate.id === itemId);
+    if (!item) return;
     const mutations = await groceryOfflineQueue.enqueue(userId, {
       listId: list.id,
       itemId,
-      state,
+      state: item.state === 'needed' ? 'already_have' : 'needed',
       queuedAt: `${new Date().toISOString()}#${Crypto.randomUUID()}`,
     });
     const cached = await groceryCache.read(userId);
@@ -183,6 +311,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
     setPendingCount(mutations.length);
     void load();
   };
+
   const refreshWithChanges = async () => {
     if (!list || offline) return;
     setBusy(true);
@@ -190,296 +319,264 @@ export function GroceryListScreen({ navigation, route }: Props) {
       const plan = (await createMealPlanningRepository().list()).find(
         (item) => item.id === list.sourceMealPlanId,
       );
-      if (!plan || plan.state !== "finalized")
-        throw new Error(
-          "Finalize the updated meal plan before rebuilding groceries.",
-        );
+      if (!plan || plan.state !== 'finalized') {
+        throw new Error('Finalize the updated meal plan before rebuilding groceries.');
+      }
       const receipt = await createGroceryRepository().compile(
         plan.id,
         plan.version,
         { fromListId: list.id, expectedRevision: list.revision },
       );
-      const preserved =
-        receipt.rebasedCorrectionCount + receipt.rebasedManualCount;
-      capture(AnalyticsEvent.GroceryListCompiled, {
-        outcome: receipt.rebaseConflictCount ? "review_required" : "success",
-        count: preserved,
-        warning_count: receipt.rebaseConflictCount,
-      });
-      Alert.alert(
-        "New list ready",
-        `${preserved} change${preserved === 1 ? " was" : "s were"} carried forward.${receipt.rebaseConflictCount ? ` ${receipt.rebaseConflictCount} need${receipt.rebaseConflictCount === 1 ? "s" : ""} review.` : ""}`,
-      );
-      navigation.replace("GroceryList", { listId: receipt.groceryListId });
+      navigation.replace('GroceryList', { listId: receipt.groceryListId });
     } catch (error) {
       Alert.alert(
-        "List did not refresh",
-        error instanceof Error
-          ? error.message
-          : "Review the current plan and try again.",
+        'List did not update',
+        error instanceof Error ? error.message : 'Open Plan and try again.',
       );
     } finally {
       setBusy(false);
     }
   };
+
+  const openFulfillment = async () => {
+    if (!list || busy || offline || pendingCount) return;
+    setBusy(true);
+    try {
+      const repository = createGroceryRepository();
+      await prepareGroceryListForFulfillment(list, repository.markReviewed);
+      if (list.status === 'review_needed') {
+        capture(AnalyticsEvent.GroceryListReviewed, { count: list.items.length });
+      }
+      navigation.navigate('KrogerCart', { listId: list.id });
+    } catch (error) {
+      Alert.alert(
+        'Shopping is not ready',
+        error instanceof Error ? error.message : 'Refresh the list and try again.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addManualItem = async () => {
+    if (!list || !manualItem.trim() || busy || offline) return;
+    setBusy(true);
+    try {
+      await createGroceryRepository().addItem(list.id, list.revision, manualItem.trim());
+      setManualItem('');
+      setShowAddDrawer(false);
+      await load();
+    } catch (error) {
+      Alert.alert(
+        'Item did not save',
+        error instanceof Error ? error.message : 'Refresh and try again.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const shopLabel = list?.status === 'stale'
+    ? 'Update from Plan'
+    : offline || pendingCount
+      ? 'Sync to shop'
+      : fulfillment.actionLabel;
+  const shopDisabled =
+    !list ||
+    busy ||
+    offline ||
+    pendingCount > 0 ||
+    (list.status !== 'stale' && fulfillment.disabled);
+
   return (
     <AppShell>
       <PageHeader
         title="Groceries"
         titleMaxFontSizeMultiplier={1.6}
-        onPressMenu={route.params?.entryPoint === "capability-menu" ? openMenu : undefined}
-        onPressBack={route.params?.entryPoint === "capability-menu" ? undefined : () => navigation.goBack()}
-        rightElement={
-          list?.status === "ready" && !stackItemRows ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onPress={() =>
-                navigation.navigate("GroceryHandoff", { listId: list.id })
-              }
-            >
-              Shop
-            </Button>
+        onPressMenu={route.params?.entryPoint === 'capability-menu' ? openMenu : undefined}
+        onPressBack={route.params?.entryPoint === 'capability-menu' ? undefined : () => navigation.goBack()}
+        moreMenu={
+          list ? (
+            <GroceriesMenu
+              coveredCount={coveredIds.size}
+              reviewingCovered={reviewingCovered}
+              onToggleReview={() => setReviewingCovered((current) => !current)}
+            />
           ) : undefined
+        }
+        rightElement={
+          <MealPlanHeaderAction
+            count={sourcePlanMealCount}
+            onPress={() => navigation.navigate('NextMeals')}
+          />
         }
       />
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
-          setRefreshing(true);
-          void load().finally(() => setRefreshing(false));
-        }} />}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void load().finally(() => setRefreshing(false));
+            }}
+          />
+        }
       >
         {offline || pendingCount ? (
           <Text tone="secondary" accessibilityLiveRegion="polite">
             {pendingCount
-              ? `${pendingCount} change${pendingCount === 1 ? "" : "s"} saved on this device. Pull to sync when reconnected.`
-              : "Showing the saved list. Pull to refresh when reconnected."}
+              ? `${pendingCount} change${pendingCount === 1 ? '' : 's'} saved on this device. Pull to sync.`
+              : 'Showing the saved list. Pull to refresh when reconnected.'}
           </Text>
         ) : null}
-        {busy && !list ? <Text>Compiling ingredients…</Text> : null}
+        {busy && !list ? <Text tone="secondary">Building your grocery list…</Text> : null}
         {!busy && !list ? (
           <View style={styles.empty}>
-            <Heading variant="md">
-              Finalize a meal plan to make its grocery list.
-            </Heading>
-            <Button variant="outline" onPress={() => navigation.navigate("NextMeals")}>
-              Open Meal Plan
-            </Button>
+            <Heading variant="md">No grocery list yet.</Heading>
           </View>
         ) : null}
-        {list ? (
-          <>
-            <View style={styles.summary}>
-              <Heading variant="md">
-                {list.items.filter((item) => item.state === "needed").length}{" "}
-                things to get
-              </Heading>
-              <Text tone="secondary">
-                {list.status === "stale"
-                  ? "The meal plan changed. Rebuild this list and review carried-forward changes."
-                  : list.status === "review_needed"
-                    ? "Review uncertain quantities and what you already have."
-                    : "Ready to shop."}
-              </Text>
-            </View>
-            {list.status === "ready" && stackItemRows ? (
-              <Button variant="outline" onPress={() => navigation.navigate("GroceryHandoff", { listId: list.id })}>
-                Shop
-              </Button>
-            ) : null}
-            {list.status === "stale" ? (
-              <Button
-                variant="outline"
-                disabled={busy || offline}
-                onPress={() => {
-                  void refreshWithChanges();
-                }}
-              >
-                Refresh and preserve my changes
-              </Button>
-            ) : null}
-            {list.status === "review_needed" ? (
-              <Button
-                variant="outline"
-                onPress={() =>
-                  navigation.navigate("AlreadyHaveReview", { listId: list.id })
-                }
-              >
-                Review what I already have
-              </Button>
-            ) : null}
-            {groups.map(([aisle, items]) => (
-              <View key={aisle} style={styles.group}>
-                <Heading variant="sm">{aisleLabels[aisle] ?? "Other"}</Heading>
-                {items.map((item) => {
-                  const quantity = item.quantityMin !== null
-                    ? `${item.quantityMin}${item.quantityMax !== null ? `–${item.quantityMax}` : ""}${item.unit ? ` ${item.unit}` : ""} `
-                    : "";
-                  const stateLabel = item.state === "already_have" ? "Have it" : item.state === "needed" ? "Need" : item.state === "purchased" ? "Purchased" : "Skipped";
-                  return (
-                    <View key={item.id} style={[styles.item, stackItemRows && styles.itemStacked]}>
-                      <Pressable
-                        disabled={list.status === "stale"}
-                        accessibilityRole="checkbox"
-                        accessibilityLabel={`${quantity}${item.concept}`}
-                        accessibilityHint={`Double tap to mark as ${item.state === "needed" ? "already have" : "needed"}. Long press to edit this item.`}
-                        accessibilityState={{ checked: item.state !== "needed", disabled: list.status === "stale" }}
-                        onPress={() => { void toggle(item.id, item.state === "needed" ? "already_have" : "needed"); }}
-                        onLongPress={() => navigation.navigate("GroceryItemEdit", { listId: list.id, itemId: item.id })}
-                        style={[styles.itemCheck, stackItemRows && styles.itemCheckStacked, item.state !== "needed" && styles.done]}
-                      >
-                        <View style={styles.itemText}>
-                          <Text>{quantity}{item.concept}</Text>
-                          {item.reviewReason ? <Text tone="secondary">{item.reviewReason}</Text> : null}
-                        </View>
-                        <Text tone="secondary">{stateLabel}</Text>
-                      </Pressable>
-                      <Button size="xs" variant="ghost" onPress={() => setProvenanceItem(item)} accessibilityLabel={`Why ${item.concept} is on the list`}>
-                        Why?
-                      </Button>
-                    </View>
-                  );
-                })}
-              </View>
-            ))}
-            {list.status === "review_needed" ? (
-              <Button
-                variant="outline"
-                disabled={busy || offline}
-                onPress={() => {
-                  void createGroceryRepository()
-                    .markReviewed(list.id, list.revision)
-                    .then(() => {
-                      capture(AnalyticsEvent.GroceryListReviewed, {
-                        count: list.items.length,
-                      });
-                      return load();
-                    });
-                }}
-              >
-                List looks right
-              </Button>
-            ) : null}
-            {list.status === "ready" ? (
-              <Button
-                variant="outline"
-                onPress={() =>
-                  navigation.navigate("GrocerySavings", { listId: list.id })
-                }
-              >
-                Check savings
-              </Button>
-            ) : null}
-            <Button
-              variant="ghost"
-              onPress={() => setShowManualItem((current) => !current)}
-            >
-              Add a household request or staple
-            </Button>
-            {showManualItem ? (
-              <View style={styles.manual}>
-                <TextInput
-                  accessibilityLabel="Household request or staple"
-                  placeholder="Milk, dish soap…"
-                  value={manualItem}
-                  onChangeText={setManualItem}
-                  style={styles.input}
-                />
-                <Button
-                  variant="outline"
-                  disabled={!manualItem.trim() || busy || offline}
-                  onPress={() => {
-                    if (!list) return;
-                    setBusy(true);
-                    void createGroceryRepository()
-                      .addItem(list.id, list.revision, manualItem.trim())
-                      .then(() => {
-                        setManualItem("");
-                        setShowManualItem(false);
-                        return load();
-                      })
-                      .catch((error) =>
-                        Alert.alert(
-                          "Item did not save",
-                          error instanceof Error
-                            ? error.message
-                            : "Refresh and try again.",
-                        ),
-                      )
-                      .finally(() => setBusy(false));
-                  }}
-                >
-                  Add to this list
-                </Button>
-                <Text tone="secondary">
-                  Added separately from recipe ingredients so everyone can see
-                  why it is here.
-                </Text>
-              </View>
-            ) : null}
-            <Button variant="ghost" onPress={() => setShowOpportunity(true)}>
-              Found a sale or store opportunity?
-            </Button>
-          </>
+        {list?.status === 'stale' ? (
+          <Text tone="secondary">Plan changed. Update this list before shopping.</Text>
+        ) : null}
+        {list && checklistItems.length ? (
+          <RecipeIngredientChecklist
+            items={checklistItems}
+            checked={coveredIds}
+            disabled={list.status === 'stale'}
+            onToggle={(itemId) => {
+              void toggle(itemId);
+            }}
+            onLongPress={(itemId) =>
+              navigation.navigate('GroceryItemEdit', { listId: list.id, itemId })
+            }
+            accessibilityHint={(_, checked) =>
+              `Double tap to mark as ${checked ? 'needed' : 'already covered'}. Long press to edit.`
+            }
+          />
+        ) : list && reviewingCovered ? (
+          <Text tone="secondary">No checked items yet.</Text>
         ) : null}
       </ScrollView>
-      <StoreOpportunityCaptureSheet
-        visible={showOpportunity}
-        onClose={() => setShowOpportunity(false)}
-        onSubmit={async (draft: StoreOpportunityDraft) => {
-          const observedAt = new Date().toISOString();
-          const quantity = Number(draft.quantity);
-          const priceCents = Math.round(Number(draft.price) * 100);
-          const comparable = Math.round(
-            Number(draft.regularUnitPrice || Number(draft.price) / quantity) *
-              100,
-          );
-          await createFoodScenarioRepository().capture({
-            concept: draft.concept.trim(),
-            evidenceMethod: "manual",
-            provider: null,
-            barcode: null,
-            artifactRef: null,
-            sourceUrl: null,
-            transcript: null,
-            retailer: draft.retailer.trim(),
-            locationId: null,
-            packageQuantity: quantity,
-            packageUnit: draft.unit.trim(),
-            observedPriceCents: priceCents,
-            comparableUnitPriceCents: comparable,
-            comparableUnit: draft.unit.trim(),
-            confidence: 1,
-            observedAt,
-            expiresAt: new Date(Date.now() + 86400000).toISOString(),
-          });
-          capture(AnalyticsEvent.StoreOpportunityCaptured, { method: "manual" });
-          setShowOpportunity(false);
-          Alert.alert(
-            "Opportunity saved",
-            "Kwilt saved the observed price. Review it before changing meals or the list.",
-          );
-        }}
-      />
-      <GroceryItemProvenanceSheet
-        visible={Boolean(provenanceItem)}
-        item={provenanceItem}
-        onClose={() => setProvenanceItem(null)}
-      />
+
+      <View testID="grocery-list-dock" pointerEvents="box-none" style={styles.dock}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add grocery item"
+          disabled={!list || busy || offline}
+          onPress={() => setShowAddDrawer(true)}
+          style={({ pressed }) => [
+            styles.addButton,
+            (!list || busy || offline) && styles.disabled,
+            pressed && styles.pressed,
+          ]}
+        >
+          <FloatingControlSurface
+            borderRadius={RESTING_COMPOSER_HEIGHT_PX / 2}
+            isProminent
+            style={styles.addSurface}
+            surfaceStyle={styles.addSurfaceContent}
+          >
+            <View style={styles.addContent}>
+              <Icon name="plus" size={18} color={colors.textPrimary} />
+              <Text tone="secondary">Add item</Text>
+            </View>
+          </FloatingControlSurface>
+        </Pressable>
+        <Button
+          testID="grocery-shop-remaining"
+          variant="primary"
+          disabled={shopDisabled}
+          style={styles.shopButton}
+          onPress={() => {
+            if (list?.status === 'stale') void refreshWithChanges();
+            else void openFulfillment();
+          }}
+        >
+          {busy ? 'Working…' : shopLabel}
+        </Button>
+      </View>
+
+      <BottomDrawer
+        visible={showAddDrawer}
+        onClose={() => setShowAddDrawer(false)}
+        snapPoints={['42%']}
+      >
+        <BottomDrawerHeader
+          variant="withClose"
+          title="Add grocery item"
+          onClose={() => setShowAddDrawer(false)}
+        />
+        <View style={styles.addDrawerContent}>
+          <TextInput
+            autoFocus
+            accessibilityLabel="Grocery item"
+            placeholder="Milk, dish soap…"
+            value={manualItem}
+            onChangeText={setManualItem}
+            onSubmitEditing={() => {
+              void addManualItem();
+            }}
+            returnKeyType="done"
+            style={styles.input}
+          />
+          <Button
+            variant="primary"
+            disabled={!manualItem.trim() || busy || offline}
+            onPress={() => {
+              void addManualItem();
+            }}
+          >
+            Add to Groceries
+          </Button>
+        </View>
+      </BottomDrawer>
     </AppShell>
   );
 }
+
 const styles = StyleSheet.create({
-  content: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom:
+      RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX +
+      RESTING_COMPOSER_HEIGHT_PX +
+      spacing.xl,
+  },
   empty: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  summary: { gap: spacing.xs },
-  manual: { gap: spacing.sm },
+  dock: {
+    position: 'absolute',
+    left: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+    right: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+    bottom: RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+    height: RESTING_COMPOSER_HEIGHT_PX,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    zIndex: 60,
+    elevation: 60,
+  },
+  addButton: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
+  addSurface: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
+  addSurfaceContent: {
+    height: RESTING_COMPOSER_HEIGHT_PX,
+    justifyContent: 'center',
+  },
+  addContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  shopButton: { flex: 1.25, height: RESTING_COMPOSER_HEIGHT_PX },
+  addDrawerContent: { gap: spacing.md },
   input: {
     minHeight: 48,
     borderWidth: 1,
@@ -488,16 +585,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     color: colors.textPrimary,
   },
-  group: { gap: spacing.xs },
-  item: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  itemStacked: { alignItems: "stretch", flexDirection: "column", paddingBottom: spacing.xs },
-  itemCheck: { minHeight: 48, flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm },
-  itemCheckStacked: { alignItems: "flex-start", flexDirection: "column" },
-  itemText: { flex: 1, gap: 2 },
-  done: { opacity: 0.5 },
+  disabled: { opacity: 0.45 },
+  pressed: { opacity: 0.68 },
 });

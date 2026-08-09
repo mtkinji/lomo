@@ -40,8 +40,8 @@ Deno.test('refuses a token response missing cart authority', async () => {
 });
 
 Deno.test('normalizes product proposals and only builds confirmed cart rows', () => {
-  assertEquals(parseKrogerProducts({ data: [{ productId: 'p1', upc: '001', description: 'Milk', brand: 'Kroger', items: [{ size: '1 gal', price: { regular: 4, promo: 3.5 }, fulfillment: { curbside: true } }] }] }), [{
-    id: 'p1', upc: '001', title: 'Milk', brand: 'Kroger', size: '1 gal', regularPriceCents: 400, promoPriceCents: 350, pickupAvailable: true,
+  assertEquals(parseKrogerProducts({ data: [{ productId: 'p1', upc: '001', description: 'Milk', brand: 'Kroger', images: [{ perspective: 'back', sizes: [{ size: 'small', url: 'https://images.example/back.png' }] }, { perspective: 'front', sizes: [{ size: 'large', url: 'https://images.example/front-large.png' }, { size: 'small', url: 'https://images.example/front-small.png' }] }], items: [{ size: '1 gal', price: { regular: 4, promo: 3.5 }, fulfillment: { curbside: true } }] }] }), [{
+    id: 'p1', upc: '001', title: 'Milk', brand: 'Kroger', size: '1 gal', thumbnailUrl: 'https://images.example/front-small.png', regularPriceCents: 400, promoPriceCents: 350, pickupAvailable: true,
   }]);
   assertEquals(buildKrogerCartPayload([{ upc: '001', quantity: 1 }]), { items: [{ upc: '001', quantity: 1, modality: 'PICKUP' }] });
 });

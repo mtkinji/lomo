@@ -1,0 +1,2 @@
+create index kwilt_retailer_handoff_items_mapping_idx
+  on public.kwilt_retailer_handoff_items(product_mapping_id);

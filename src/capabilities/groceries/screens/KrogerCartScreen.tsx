@@ -1,35 +1,537 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { openBrowserAsync } from 'expo-web-browser';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { colors, spacing } from '../../../theme';
+import { Button } from '../../../ui/Button';
+import { Icon } from '../../../ui/Icon';
+import { Input } from '../../../ui/Input';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
-import { Button } from '../../../ui/Button';
-import { Input } from '../../../ui/Input';
-import { Heading, Text } from '../../../ui/Typography';
+import { ButtonLabel, Heading, Text } from '../../../ui/Typography';
 import { createGroceryRepository, type GroceryProjection } from '../data/groceryRepository';
-import { createKrogerConnectionRepository, type KrogerConnectionStatus, type KrogerMatch } from '../data/krogerConnectionRepository';
+import {
+  createKrogerConnectionRepository,
+  type KrogerConnectionStatus,
+  type KrogerMatch,
+} from '../data/krogerConnectionRepository';
 import type { KrogerLocation, KrogerProduct } from '../providers/krogerProvider';
+import { replacementMatchesConcept } from '../domain/krogerProductMatching';
 
-type Props=NativeStackScreenProps<FoodStackParamList,'KrogerCart'>;
-type Selection=Record<string,KrogerProduct>;
-const money=(cents:number|null)=>cents===null?null:`$${(cents/100).toFixed(2)}`;
-export function KrogerCartScreen({navigation,route}:Props){
- const repository=useMemo(()=>createKrogerConnectionRepository(),[]);const [list,setList]=useState<GroceryProjection|null>(null);const [status,setStatus]=useState<KrogerConnectionStatus|null>(null);const [zip,setZip]=useState('84045');const [locations,setLocations]=useState<KrogerLocation[]>([]);const [matches,setMatches]=useState<KrogerMatch[]|null>(null);const [selected,setSelected]=useState<Selection>({});const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [success,setSuccess]=useState<{cartUrl:string;count:number}|null>(null);
- useEffect(()=>{void Promise.all([createGroceryRepository().list(),repository.status()]).then(([lists,next])=>{setList(lists.find(row=>row.id===route.params.listId)??null);setStatus(next);}).catch(()=>setError("Smith's checkout isn't configured yet. Your plain list is still available."));},[repository,route.params.listId]);
- const run=async(work:()=>Promise<void>)=>{setBusy(true);setError(null);try{await work();}catch(e){const message=e instanceof Error&&e.message.includes('check_retailer_cart')?"The request may have reached Smith's. Check your cart before trying again.":"That didn't go through. Your grocery list has not changed.";setError(message);}finally{setBusy(false);}};
- const connect=()=>run(async()=>{const next=await repository.connect();setStatus(next);});
- const findStores=()=>run(async()=>{const result=await repository.searchLocations(zip);setLocations(result.locations);});
- const choose=(location:KrogerLocation)=>run(async()=>{await repository.selectLocation(location);setStatus(await repository.status());setLocations([]);});
- const prepare=()=>run(async()=>{if(!list)return;const result=await repository.prepareMatches(list.id,list.revision);setMatches(result.matches);});
- const confirm=(match:KrogerMatch,product:KrogerProduct)=>run(async()=>{if(!list)return;await repository.confirmMapping(list.id,match.groceryItem.id,product,match.groceryItem.quantity);setSelected(current=>({...current,[match.groceryItem.id]:product}));});
- const add=()=>run(async()=>{if(!list)return;const result=await repository.cartAdd(list.id,list.revision);setSuccess({cartUrl:result.cartUrl,count:result.addedItemCount});});
- const connection=status?.connection; const matchedCount=Object.keys(selected).length;
- return <AppShell><PageHeader title="Shop at Smith's" titleMaxFontSizeMultiplier={1.6} onPressBack={()=>navigation.goBack()}/><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-  {error?<View style={styles.message}><Text>{error}</Text></View>:null}
-  {success?<><Heading variant="md">Added to Smith's cart</Heading><Text tone="secondary">{success.count} matched items were added. Review products, substitutions, pickup slot, payment, and checkout at Smith's.</Text><Button variant="primary" onPress={()=>{void WebBrowser.openBrowserAsync(success.cartUrl);}}>Open Smith's cart</Button></>:error?null:status===null?<Text>Checking Smith's…</Text>:!connection||connection.state!=='active'?<><Heading variant="md">Connect Smith's</Heading><Text tone="secondary">Kwilt needs your permission to add the products you approve. Smith's still owns your cart and checkout.</Text><Button variant="primary" disabled={busy} onPress={connect}>{busy?'Connecting…':"Connect Smith's"}</Button></>:!connection.location?<><Heading variant="md">Choose your Smith's</Heading><Text tone="secondary">Products, prices, and pickup availability depend on the store.</Text><Input label="ZIP code" accessibilityLabel="ZIP code" keyboardType="number-pad" value={zip} onChangeText={setZip}/><Button variant="primary" disabled={busy||zip.length!==5} onPress={findStores}>{busy?'Looking…':"Find Smith's stores"}</Button>{locations.map(location=><Button key={location.id} variant="outline" onPress={()=>choose(location)}>{location.name}{location.address?` · ${location.address}`:''}</Button>)}</>:matches===null?<><Heading variant="md">Match your list</Heading><Text tone="secondary">{connection.location.name}{connection.location.address?` · ${connection.location.address}`:''}</Text><Text>Kwilt will suggest products. You approve each match before anything enters your cart.</Text><Button variant="primary" disabled={busy||!list||list.status!=='ready'} onPress={prepare}>{busy?'Finding products…':'Review product matches'}</Button></>:<><View style={styles.intro}><Heading variant="md">Review product matches</Heading><Text tone="secondary">{matchedCount} of {matches.length} selected. Unmatched items stay on your Kwilt list.</Text></View>{matches.map(match=><View key={match.groceryItem.id} style={styles.match}><View><Heading variant="sm">{match.groceryItem.concept}</Heading><Text tone="secondary">Need {match.groceryItem.quantity}{match.groceryItem.unit?` ${match.groceryItem.unit}`:''}</Text></View>{match.products.length===0?<Text tone="secondary">No Smith's match found.</Text>:match.products.map(product=>{const active=selected[match.groceryItem.id]?.upc===product.upc;const price=money(product.promoPriceCents??product.regularPriceCents);return <Pressable key={product.upc} accessibilityRole="button" accessibilityState={{selected:active}} accessibilityLabel={`Choose ${product.title}`} onPress={()=>confirm(match,product)} style={[styles.product,active&&styles.productSelected]}><View style={styles.grow}><Text>{product.title}</Text><Text tone="secondary">{[product.brand,product.size,product.pickupAvailable?'Pickup':null].filter(Boolean).join(' · ')}</Text></View>{price?<Text>{price}</Text>:null}</Pressable>;})}</View>)}<Button variant="primary" disabled={busy||matchedCount===0} onPress={add}>{busy?'Adding…':`Add ${matchedCount} item${matchedCount===1?'':'s'} to Smith's cart`}</Button><Text tone="secondary">Smith's may merge these with items already in your cart. Kwilt cannot read or remove retailer cart items.</Text></>}
- </ScrollView></AppShell>;
+type Props = NativeStackScreenProps<FoodStackParamList, 'KrogerCart'>;
+type CartLine = { product: KrogerProduct; quantity: number };
+type Selection = Record<string, CartLine>;
+type Success = { cartUrl: string; count: number; remainingCount: number; retailerLabel: string };
+
+const money = (cents: number | null) =>
+  cents === null ? null : `$${(cents / 100).toFixed(2)}`;
+
+const productPrice = (product: KrogerProduct) =>
+  product.promoPriceCents ?? product.regularPriceCents;
+
+const createDraftCart = (matches: KrogerMatch[]): Selection =>
+  Object.fromEntries(
+    matches.flatMap((match) => {
+      const product = match.products[0];
+      return product ? [[match.groceryItem.id, { product, quantity: 1 }]] : [];
+    }),
+  );
+
+function StoreSelector({ location, onPress }: { location: KrogerLocation; onPress: () => void }) {
+  const label = location.banner || location.name;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      accessibilityLabel={`Store: ${label}. Change store`}
+      onPress={onPress}
+    >
+      <View style={styles.storeSelectorContent}>
+        <Text>{label}</Text>
+        <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+      </View>
+    </Button>
+  );
 }
-const styles=StyleSheet.create({content:{padding:spacing.md,paddingBottom:spacing['3xl'],gap:spacing.md},intro:{gap:spacing.xs},message:{padding:spacing.md,borderWidth:1,borderColor:colors.border,borderRadius:12},match:{gap:spacing.sm,paddingVertical:spacing.sm},product:{minHeight:64,borderWidth:1,borderColor:colors.border,borderRadius:14,padding:spacing.md,flexDirection:'row',alignItems:'center',gap:spacing.sm},productSelected:{borderColor:colors.primary,borderWidth:2},grow:{flex:1,gap:2}});
+
+function ProductThumbnail({ product }: { product: KrogerProduct }) {
+  return (
+    <View style={styles.thumbnailFrame} accessible={false}>
+      {product.thumbnailUrl ? (
+        <Image
+          accessibilityRole="image"
+          accessibilityLabel={`${product.title} product image`}
+          source={{ uri: product.thumbnailUrl }}
+          resizeMode="contain"
+          style={styles.thumbnail}
+        />
+      ) : (
+        <Icon name="image" size={20} color={colors.textSecondary} />
+      )}
+    </View>
+  );
+}
+
+function ReplacementChoice({
+  product,
+  disabled,
+  onPress,
+}: {
+  product: KrogerProduct;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const price = money(productPrice(product));
+  const details = [product.brand, product.size].filter(Boolean).join(' · ');
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      accessibilityLabel={`Use ${product.title}`}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.replacement, pressed && styles.productPressed]}
+    >
+      <ProductThumbnail product={product} />
+      <View style={styles.grow}>
+        <Text>{product.title}</Text>
+        {details ? <Text tone="secondary">{details}</Text> : null}
+      </View>
+      {price ? <Text>{price}</Text> : null}
+    </Pressable>
+  );
+}
+
+export function KrogerCartScreen({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
+  const repository = useMemo(() => createKrogerConnectionRepository(), []);
+  const [list, setList] = useState<GroceryProjection | null>(null);
+  const [status, setStatus] = useState<KrogerConnectionStatus | null>(null);
+  const [zip, setZip] = useState('84045');
+  const [locations, setLocations] = useState<KrogerLocation[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<KrogerLocation | null>(null);
+  const [choosingStore, setChoosingStore] = useState(false);
+  const [matches, setMatches] = useState<KrogerMatch[] | null>(null);
+  const [selected, setSelected] = useState<Selection>({});
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<Success | null>(null);
+
+  useEffect(() => {
+    void Promise.all([createGroceryRepository().list(), repository.status()])
+      .then(async ([lists, next]) => {
+        const nextList = lists.find((row) => row.id === route.params.listId) ?? null;
+        setList(nextList);
+        setStatus(next);
+        if (next.connection?.location) {
+          const location = { ...next.connection.location, banner: next.connection.retailerLabel };
+          setSelectedLocation(location);
+          if (nextList?.status === 'ready') {
+            const result = await repository.prepareMatches(nextList.id, nextList.revision, location);
+            setMatches(result.matches);
+            setSelected(createDraftCart(result.matches));
+          }
+        }
+      })
+      .catch(() =>
+        setError('Online shopping is not configured yet. Your plain list is still available.'),
+      );
+  }, [repository, route.params.listId]);
+
+  const run = async (work: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await work();
+    } catch (caught) {
+      const message =
+        caught instanceof Error && caught.message.includes('check_retailer_cart')
+          ? 'The request may have reached the retailer. Check your cart before trying again.'
+          : "That didn't go through. Your grocery list has not changed.";
+      setError(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const findStores = () =>
+    run(async () => {
+      const result = await repository.searchLocations(zip);
+      setLocations(result.locations);
+    });
+  const choose = (location: KrogerLocation) =>
+    run(async () => {
+      setSelectedLocation(location);
+      setLocations([]);
+      setChoosingStore(false);
+      setMatches(null);
+      setSelected({});
+      setEditingItemId(null);
+      if (status?.connection?.state === 'active') {
+        await repository.selectLocation(location);
+        setStatus(await repository.status());
+      }
+      if (!list || list.status !== 'ready') return;
+      const result = await repository.prepareMatches(list.id, list.revision, location);
+      setMatches(result.matches);
+      setSelected(createDraftCart(result.matches));
+    });
+  const replaceProduct = (itemId: string, product: KrogerProduct) => {
+    setSelected((current) => ({ ...current, [itemId]: { product, quantity: 1 } }));
+    setEditingItemId(null);
+  };
+  const adjustQuantity = (itemId: string, delta: number) =>
+    setSelected((current) => {
+      const line = current[itemId];
+      if (!line) return current;
+      return {
+        ...current,
+        [itemId]: { ...line, quantity: Math.max(1, line.quantity + delta) },
+      };
+    });
+  const remove = (itemId: string) => {
+    setSelected((current) => {
+      const next = { ...current };
+      delete next[itemId];
+      return next;
+    });
+    setEditingItemId((current) => (current === itemId ? null : current));
+  };
+  const add = async () => {
+    setAddingToCart(true);
+    try {
+      await run(async () => {
+        if (!list || !selectedLocation) return;
+        const selectedMatches = (matches ?? []).flatMap((match) => {
+          const line = selected[match.groceryItem.id];
+          return line ? [{ match, line }] : [];
+        });
+        for (const { match, line } of selectedMatches) {
+          await repository.confirmMapping(
+            list.id,
+            match.groceryItem.id,
+            line.product,
+            line.quantity,
+            selectedLocation,
+          );
+        }
+        if (status?.connection?.state !== 'active') {
+          const connected = await repository.connect();
+          setStatus(connected);
+        }
+        await repository.selectLocation(selectedLocation);
+        setStatus(await repository.status());
+        const result = await repository.cartAdd(list.id, list.revision);
+        setSuccess({
+          cartUrl: result.cartUrl,
+          count: result.addedItemCount,
+          remainingCount: result.remainingItemCount,
+          retailerLabel: result.retailerLabel,
+        });
+        await openBrowserAsync(result.cartUrl);
+      });
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  const matchedCount = Object.keys(selected).length;
+  const showStorePicker = !selectedLocation || choosingStore;
+  const showCartAction = !success && !error && !showStorePicker && matches !== null;
+  const missingCount = Math.max(0, (matches?.length ?? 0) - matchedCount);
+  const cartLines = (matches ?? []).flatMap((match) => {
+    const line = selected[match.groceryItem.id];
+    return line ? [{ match, line }] : [];
+  });
+  const pricedLines = cartLines.filter(({ line }) => productPrice(line.product) !== null);
+  const subtotalCents = pricedLines.reduce(
+    (total, { line }) => total + (productPrice(line.product) ?? 0) * line.quantity,
+    0,
+  );
+  const subtotalLabel =
+    pricedLines.length === cartLines.length
+      ? 'Estimated subtotal'
+      : `Estimated subtotal for ${pricedLines.length} of ${cartLines.length} items`;
+  const pageTitle = selectedLocation && !showStorePicker ? 'Cart' : 'Shop online';
+
+  return (
+    <AppShell>
+      <PageHeader
+        title={pageTitle}
+        titleMaxFontSizeMultiplier={1.6}
+        onPressBack={() => navigation.goBack()}
+        rightElement={
+          selectedLocation && !showStorePicker ? (
+            <StoreSelector location={selectedLocation} onPress={() => setChoosingStore(true)} />
+          ) : undefined
+        }
+      />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {error ? <View style={styles.message}><Text>{error}</Text></View> : null}
+        {success ? (
+          <>
+            <Heading variant="md">Added to {success.retailerLabel}</Heading>
+            <Text tone="secondary">
+              {success.count} item{success.count === 1 ? '' : 's'} added to the retailer cart.
+              {success.remainingCount
+                ? ` ${success.remainingCount} stay on your Kwilt list for another shopping pass.`
+                : ' Everything on this pass is now in a retailer cart.'}
+            </Text>
+            <Button variant="primary" onPress={() => void openBrowserAsync(success.cartUrl)}>
+              Open {success.retailerLabel} cart
+            </Button>
+            {success.remainingCount ? (
+              <Button variant="outline" onPress={() => navigation.goBack()}>
+                Back to {success.remainingCount} remaining
+              </Button>
+            ) : null}
+            <Text tone="secondary">
+              Checkout, substitutions, and pickup timing are confirmed by the retailer.
+            </Text>
+          </>
+        ) : error ? null : status === null ? (
+          <Text>Checking online shopping…</Text>
+        ) : showStorePicker ? (
+          <>
+            <Input
+              label="ZIP code"
+              accessibilityLabel="ZIP code"
+              keyboardType="number-pad"
+              value={zip}
+              onChangeText={setZip}
+            />
+            <Button variant="primary" disabled={busy || zip.length !== 5} onPress={findStores}>
+              {busy ? 'Looking…' : 'Find stores'}
+            </Button>
+            {locations.map((location) => (
+              <Button key={location.id} variant="outline" onPress={() => choose(location)}>
+                {`${location.name}${location.address ? ` · ${location.address}` : ''}`}
+              </Button>
+            ))}
+          </>
+        ) : matches === null ? (
+          <>
+            <Text tone="secondary">Finding products…</Text>
+          </>
+        ) : (
+          <>
+            {cartLines.length ? (
+              <View style={styles.cartList}>
+                {cartLines.map(({ match, line }) => {
+                  const unitPrice = productPrice(line.product);
+                  const linePrice = unitPrice === null ? null : unitPrice * line.quantity;
+                  const details = [line.product.brand, line.product.size].filter(Boolean).join(' · ');
+                  const alternatives = match.products.filter(
+                    (product) =>
+                      product.upc !== line.product.upc &&
+                      replacementMatchesConcept(match.groceryItem.concept, product),
+                  );
+                  const editing = editingItemId === match.groceryItem.id;
+
+                  return (
+                    <View key={match.groceryItem.id} style={styles.cartLine}>
+                      <View style={styles.productSummary}>
+                        <ProductThumbnail product={line.product} />
+                        <View style={styles.grow}>
+                          <Heading variant="sm">{line.product.title}</Heading>
+                          {details ? <Text tone="secondary">{details}</Text> : null}
+                          {line.quantity > 1 && unitPrice !== null ? (
+                            <Text tone="secondary">{money(unitPrice)} each</Text>
+                          ) : null}
+                        </View>
+                        {linePrice !== null ? <Text>{money(linePrice)}</Text> : null}
+                      </View>
+                      <View style={styles.lineControls}>
+                        <View style={styles.quantityControls}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            accessibilityLabel={`Decrease quantity for ${line.product.title}`}
+                            disabled={busy || line.quantity === 1}
+                            onPress={() => adjustQuantity(match.groceryItem.id, -1)}
+                          >
+                            −
+                          </Button>
+                          <Text>Qty {line.quantity}</Text>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            accessibilityLabel={`Increase quantity for ${line.product.title}`}
+                            disabled={busy}
+                            onPress={() => adjustQuantity(match.groceryItem.id, 1)}
+                          >
+                            +
+                          </Button>
+                        </View>
+                        <View style={styles.itemActions}>
+                          {alternatives.length ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              accessibilityLabel={`Edit ${line.product.title}`}
+                              onPress={() =>
+                                setEditingItemId((current) =>
+                                  current === match.groceryItem.id ? null : match.groceryItem.id,
+                                )
+                              }
+                            >
+                              Edit
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            accessibilityLabel={`Remove ${line.product.title} from cart`}
+                            onPress={() => remove(match.groceryItem.id)}
+                          >
+                            Remove
+                          </Button>
+                        </View>
+                      </View>
+                      {editing ? (
+                        <View style={styles.replacements}>
+                          <Text variant="label">Replace with</Text>
+                          {alternatives.map((product) => (
+                            <ReplacementChoice
+                              key={product.upc}
+                              product={product}
+                              disabled={busy}
+                              onPress={() => replaceProduct(match.groceryItem.id, product)}
+                            />
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.emptyCart}>
+                <Heading variant="md">Your cart is empty</Heading>
+                <Text tone="secondary">Your grocery list has not changed.</Text>
+              </View>
+            )}
+            {missingCount ? (
+              <Text tone="secondary">
+                {missingCount} grocery list item{missingCount === 1 ? '' : 's'} {missingCount === 1 ? "isn't" : "aren't"} in this cart.
+              </Text>
+            ) : null}
+          </>
+        )}
+      </ScrollView>
+      {showCartAction ? (
+        <View
+          testID="kroger-cart-footer"
+          style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
+        >
+          <View style={styles.footerSummary}>
+            <View style={styles.grow}>
+              <Text variant="label">{subtotalLabel}</Text>
+              <Text tone="secondary">Current item prices at {selectedLocation?.banner ?? 'this store'}</Text>
+            </View>
+            <Heading variant="md">{money(subtotalCents)}</Heading>
+          </View>
+          <Button
+            variant="primary"
+            disabled={busy || matchedCount === 0}
+            fullWidth
+            accessibilityLabel={
+              addingToCart
+                ? 'Adding items to retailer cart'
+                : `Add ${matchedCount} item${matchedCount === 1 ? '' : 's'} to ${selectedLocation?.banner ?? 'retailer'}`
+            }
+            onPress={add}
+          >
+            <View style={styles.cartButtonContent}>
+              <ButtonLabel tone="inverse">
+                {addingToCart
+                  ? 'Adding…'
+                  : `Add ${matchedCount} item${matchedCount === 1 ? '' : 's'} to ${selectedLocation?.banner ?? 'retailer'}`}
+              </ButtonLabel>
+            </View>
+          </Button>
+          <Text tone="secondary" style={styles.footerNote}>
+            Then review pickup, substitutions, fees, and the final total at {selectedLocation?.banner ?? 'the retailer'}.
+          </Text>
+        </View>
+      ) : null}
+    </AppShell>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll: { flex: 1 },
+  content: { padding: spacing.md, paddingBottom: spacing['2xl'], gap: spacing.md },
+  message: { padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
+  storeSelectorContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  cartList: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.cardBorder },
+  cartLine: {
+    paddingVertical: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.cardBorder,
+    gap: spacing.sm,
+  },
+  productSummary: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  thumbnailFrame: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    backgroundColor: colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  thumbnail: { width: '100%', height: '100%' },
+  productPressed: { backgroundColor: colors.muted },
+  lineControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  quantityControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  itemActions: { flexDirection: 'row', alignItems: 'center' },
+  grow: { flex: 1, gap: 2 },
+  replacements: {
+    marginTop: spacing.xs,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.cardBorder,
+    gap: spacing.xs,
+  },
+  replacement: {
+    minHeight: 58,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  emptyCart: { paddingVertical: spacing['2xl'], alignItems: 'center', gap: spacing.xs },
+  footer: {
+    marginHorizontal: -spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
+    backgroundColor: colors.canvas,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.cardBorder,
+  },
+  footerSummary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  footerNote: { textAlign: 'center' },
+  cartButtonContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+});

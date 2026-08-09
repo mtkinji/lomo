@@ -115,16 +115,23 @@ export type RecipeIngredientChecklistItem = {
   id: string;
   display: string;
   groupLabel?: string | null;
+  supportingText?: string | null;
 };
 
 export function RecipeIngredientChecklist({
   items,
   checked,
   onToggle,
+  onLongPress,
+  disabled = false,
+  accessibilityHint,
 }: {
   items: RecipeIngredientChecklistItem[];
   checked: Set<string>;
   onToggle(id: string): void;
+  onLongPress?(id: string): void;
+  disabled?: boolean;
+  accessibilityHint?(item: RecipeIngredientChecklistItem, checked: boolean): string;
 }) {
   return (
     <View testID="ingredient-list" style={styles.list}>
@@ -142,10 +149,15 @@ export function RecipeIngredientChecklist({
               </Text>
             ) : null}
             <Pressable
+              {...(disabled ? { disabled: true } : {})}
               accessibilityRole="checkbox"
               accessibilityLabel={parts.display}
-              accessibilityState={{ checked: active }}
+              accessibilityHint={accessibilityHint?.(item, active)}
+              accessibilityState={
+                disabled ? { checked: active, disabled: true } : { checked: active }
+              }
               onPress={() => onToggle(item.id)}
+              onLongPress={onLongPress ? () => onLongPress(item.id) : undefined}
               style={({ pressed }) => [
                 styles.line,
                 pressed && styles.linePressed,
@@ -163,8 +175,9 @@ export function RecipeIngredientChecklist({
                   />
                 ) : null}
               </View>
-              <Text style={[styles.lineText, active && styles.done]}>
-                {parts.amount ? (
+              <View style={styles.lineCopy}>
+                <Text style={[styles.lineText, active && styles.done]}>
+                  {parts.amount ? (
                   <>
                     <Text
                       testID={`ingredient-amount-${item.id}`}
@@ -187,8 +200,12 @@ export function RecipeIngredientChecklist({
                   >
                     {parts.qualifier}
                   </Text>
+                  ) : null}
+                </Text>
+                {item.supportingText ? (
+                  <Text variant="bodySm" tone="secondary">{item.supportingText}</Text>
                 ) : null}
-              </Text>
+              </View>
             </Pressable>
           </View>
         );
@@ -254,6 +271,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  lineCopy: { flex: 1, gap: 2 },
   lineText: { flex: 1 },
   amount: { fontFamily: fonts.medium },
   ingredient: { fontFamily: fonts.regular },
