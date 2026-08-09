@@ -179,6 +179,8 @@ import {
   canRemoveGoalPartnerMember,
 } from './goalPartnerAccessPresentation';
 import { buildGoalCheckinPartnerPresentation } from './goalCheckinPartnerPresentation';
+import { deliverGoalCheckin } from './goalCheckinDeliveryController';
+import { createGoalCheckinDeliveryDependencies } from './goalCheckinDeliveryRuntime';
 import { selectGoalRouteCheckinApprovalAction } from './goalRouteCheckinApprovalDecision';
 import { selectGoalPartnerPromptTrigger } from './goalPartnerPromptDecision';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
@@ -955,29 +957,14 @@ export function GoalDetailScreen() {
       if (!goalId) return;
       const preparedSend = prepareCheckinDraftSend(text, pendingDraft);
       if (!preparedSend) return;
-      setPendingDraftBusy(true);
-      try {
-        const { submitCheckin } = await import('../../services/checkins');
-        await submitCheckin({ goalId, preset: null, text: preparedSend.text });
-        capture(AnalyticsEvent.CheckinDraftSent, {
-          goalId,
-          itemCount: preparedSend.itemCount,
-        });
-        useCheckinDraftStore.getState().markSent(goalId);
-        useCheckinNudgeStore.getState().recordCheckin(goalId);
-        setFeedRefreshKey((key) => key + 1);
-        useToastStore.getState().showToast({
-          message: 'Check-in sent',
-          variant: 'success',
-          durationMs: 2200,
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to send check-in';
-        capture(AnalyticsEvent.SharedGoalCheckinFailed, { goalId, error: message });
-        Alert.alert('Unable to send', message);
-      } finally {
-        setPendingDraftBusy(false);
-      }
+      await deliverGoalCheckin(
+        { goalId, text: preparedSend.text, itemCount: preparedSend.itemCount },
+        createGoalCheckinDeliveryDependencies({
+          capture,
+          setBusy: setPendingDraftBusy,
+          refreshFeed: () => setFeedRefreshKey((key) => key + 1),
+        }),
+      );
     },
     [capture, goalId, pendingDraft]
   );

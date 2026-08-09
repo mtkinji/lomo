@@ -142,8 +142,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: text normalization, empty-send suppression, and analytics item count are embedded in the async screen handler.
   - Result: `prepareCheckinDraftSend` now returns a normalized submission payload or rejects blank input, with focused tests for whitespace, trimming, missing drafts, and populated item counts.
 
-- [ ] Extract Goal pending check-in delivery controller
+- [x] Extract Goal pending check-in delivery controller
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: submission, analytics, draft/nudge lifecycle updates, feed refresh, toast, error reporting, and busy cleanup remain coupled inside the screen callback.
-  - Ideal test: pin successful delivery side effects, failure reporting, and busy-state cleanup through injected dependencies.
+  - Result: `goalCheckinDeliveryController.ts` now owns delivery ordering, error normalization, success/failure routing, and guaranteed busy cleanup through explicit dependencies, with focused sequence tests.
+
+- [ ] Extract Goal pending check-in lifecycle commands
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: skip, item removal, and approval dismissal each pair analytics with draft-store mutations in adjacent screen callbacks.
+  - Ideal test: pin analytics payloads and store commands for skip, remove-item, and dismiss actions.
   - Risk: medium
