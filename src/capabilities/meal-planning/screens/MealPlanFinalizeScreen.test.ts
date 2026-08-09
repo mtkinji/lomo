@@ -42,6 +42,7 @@ describe('Meal Plan finalization occasions', () => {
         id: 'finalized-occasion',
         title: 'Friday',
         placementDate: null,
+        timing: { kind: 'flexible' },
         notEatingPersonIds: [],
         dishes: [{
           id: 'finalized-dish',
@@ -69,7 +70,7 @@ describe('Meal Plan finalization occasions', () => {
         recipeSnapshot: { recipeVersionId: 'recipe-version-1', selectedServings: 4 },
       }],
       occasions: [{
-        id: 'old-occasion', title: null, placementDate: null, notEatingPersonIds: [],
+        id: 'old-occasion', title: null, placementDate: null, timing: { kind: 'flexible' }, notEatingPersonIds: [],
         dishes: [{
           id: 'old-dish', candidateId: 'candidate-old', title: 'Pasta', servings: 4,
           dinerPersonIds: ['adult'], recipeSnapshot: { recipeVersionId: 'recipe-version-1' },

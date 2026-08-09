@@ -6,7 +6,7 @@ it('keeps alternate dishes together under one finalized meal', () => {
     id: 'plan', householdId: 'household', version: 2, state: 'finalized', horizon: { kind: 'meal_count', count: 1 },
     candidates: [], entries: [], activeRound: null, updatedAt: '2026-08-06T12:00:00.000Z',
     occasions: [{
-      id: 'dinner', title: 'Sunday dinner', placementDate: '2026-08-09', notEatingPersonIds: [],
+      id: 'dinner', title: 'Sunday dinner', placementDate: '2026-08-09', timing: { kind: 'occasion', date: '2026-08-09', mealPeriod: 'dinner' }, notEatingPersonIds: [],
       dishes: [
         { id: 'adult-dish', candidateId: 'a', title: 'Curry', servings: 2, dinerPersonIds: ['a', 'b'], recipeSnapshot: { recipeId: 'recipe-curry' } },
         { id: 'kid-dish', candidateId: 'b', title: 'Toast', servings: 3, dinerPersonIds: ['c', 'd', 'e'] },
@@ -15,12 +15,26 @@ it('keeps alternate dishes together under one finalized meal', () => {
   };
 
   expect(finalizedOccasionSummaries(plan)).toEqual([expect.objectContaining({
-    title: 'Sunday dinner',
+    title: 'Sun, Aug 9 · Dinner',
+    section: 'dated',
     dishes: [
       expect.objectContaining({ label: 'Curry · 2 people · 2 servings', recipeId: 'recipe-curry' }),
       expect.objectContaining({ label: 'Toast · 3 people · 3 servings', recipeId: null }),
     ],
   })]);
+});
+
+it('projects saved pre-migration occasions into explicit timing', () => {
+  const legacyPlan = {
+    id: 'legacy', householdId: 'household', version: 2, state: 'finalized', horizon: { kind: 'open' },
+    candidates: [], entries: [], activeRound: null, updatedAt: '2026-08-06T12:00:00.000Z',
+    occasions: [{
+      id: 'legacy-meal', title: null, placementDate: null, notEatingPersonIds: [],
+      dishes: [{ id: 'dish', candidateId: 'candidate', title: 'Soup', servings: 2, dinerPersonIds: ['a'] }],
+    }],
+  } as unknown as MealPlanProjection;
+
+  expect(finalizedOccasionSummaries(legacyPlan)[0]).toMatchObject({ section: 'flexible', title: 'Flexible' });
 });
 
 describe('Meal Plan next move', () => {

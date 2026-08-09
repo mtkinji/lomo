@@ -86,6 +86,7 @@ describe('Meal Plan contracts', () => {
         id: 'occasion-dinner',
         title: 'Dinner',
         placementDate: null,
+        timing: { kind: 'flexible' },
         dishes: [
           { id: 'dish-adults', candidateId: 'candidate-cake', dinerPersonIds: ['adult-a', 'adult-b'], servings: 2 },
           { id: 'dish-child', candidateId: 'candidate-toast', dinerPersonIds: ['child'], servings: 1 },
@@ -107,17 +108,17 @@ describe('Meal Plan contracts', () => {
     {
       label: 'duplicate occasion ids',
       occasions: [
-        { id: 'same', title: null, placementDate: null, dishes: [{ id: 'dish-1', candidateId: 'candidate-cake', dinerPersonIds: ['adult'], servings: 1 }] },
-        { id: 'same', title: null, placementDate: null, dishes: [{ id: 'dish-2', candidateId: 'candidate-cake', dinerPersonIds: ['adult'], servings: 1 }] },
+        { id: 'same', title: null, placementDate: null, timing: { kind: 'flexible' as const }, dishes: [{ id: 'dish-1', candidateId: 'candidate-cake', dinerPersonIds: ['adult'], servings: 1 }] },
+        { id: 'same', title: null, placementDate: null, timing: { kind: 'flexible' as const }, dishes: [{ id: 'dish-2', candidateId: 'candidate-cake', dinerPersonIds: ['adult'], servings: 1 }] },
       ],
     },
     {
       label: 'duplicate diners',
-      occasions: [{ id: 'occasion', title: null, placementDate: null, dishes: [{ id: 'dish', candidateId: 'candidate-cake', dinerPersonIds: ['adult', 'adult'], servings: 2 }] }],
+      occasions: [{ id: 'occasion', title: null, placementDate: null, timing: { kind: 'flexible' as const }, dishes: [{ id: 'dish', candidateId: 'candidate-cake', dinerPersonIds: ['adult', 'adult'], servings: 2 }] }],
     },
     {
       label: 'empty occasion',
-      occasions: [{ id: 'occasion', title: null, placementDate: null, dishes: [] }],
+      occasions: [{ id: 'occasion', title: null, placementDate: null, timing: { kind: 'flexible' as const }, dishes: [] }],
     },
   ])('rejects $label', ({ occasions }) => {
     expect(() => finalizeMealPlan(draftPlan, {

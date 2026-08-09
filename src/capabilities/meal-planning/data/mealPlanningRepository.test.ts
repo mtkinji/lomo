@@ -1,13 +1,35 @@
 import { createMealPlanningRepository, mapMealPlanRow } from './mealPlanningRepository';
 
 describe('Meal Planning repository', () => {
+  it('reads and mutates the shared cart only through actor-aware RPCs', async () => {
+    const rpc = jest.fn()
+      .mockResolvedValueOnce({ data: {
+        planId: null, householdId: 'household-1', version: null, state: null,
+        viewer: { personId: 'person-1', role: 'caregiver', canAdd: true, canSettle: false }, candidates: [],
+      }, error: null })
+      .mockResolvedValue({ data: {}, error: null });
+    const repository = createMealPlanningRepository({ rpc } as never);
+
+    expect(await repository.getSharedCart('household-1')).toMatchObject({ householdId: 'household-1', candidates: [] });
+    await repository.addSharedCandidate('household-1', { id: 'candidate-1', kind: 'meal_note', title: 'Tacos', recipeSnapshot: null });
+    await repository.withdrawSharedCandidate('candidate-1');
+    await repository.setSharedReaction('candidate-1', true);
+
+    expect(rpc.mock.calls).toEqual([
+      ['get_kwilt_shared_meal_cart', { p_household_id: 'household-1' }],
+      ['add_kwilt_shared_meal_candidate', { p_household_id: 'household-1', p_candidate_id: 'candidate-1', p_candidate: { id: 'candidate-1', kind: 'meal_note', title: 'Tacos', recipeSnapshot: null } }],
+      ['withdraw_kwilt_shared_meal_candidate', { p_candidate_id: 'candidate-1' }],
+      ['set_kwilt_shared_meal_reaction', { p_candidate_id: 'candidate-1', p_reacted: true }],
+    ]);
+  });
+
   it('creates, opens, responds, finalizes, and revises only through authority RPCs', async () => {
     const rpc = jest.fn().mockResolvedValue({ data: {}, error: null });
     const repository = createMealPlanningRepository({ rpc } as never);
     await repository.create({ householdId: 'household-1', horizon: { kind: 'next_shop', shopBy: null }, candidates: [] });
     await repository.openRound({ planId: 'plan-1', expectedVersion: 1, participantMembershipIds: ['member-1'], closesAt: null });
     await repository.submitResponse({ roundId: 'round-1', expectedRoundVersion: 1, selectedCandidateIds: [], pass: true, suggestion: null });
-    const occasions = [{ id: 'occasion-1', title: null, placementDate: null, dishes: [{ id: 'dish-1', candidateId: 'candidate-1', dinerPersonIds: ['person-1'], servings: 1 }] }];
+    const occasions = [{ id: 'occasion-1', title: null, placementDate: null, timing: { kind: 'flexible' as const }, dishes: [{ id: 'dish-1', candidateId: 'candidate-1', dinerPersonIds: ['person-1'], servings: 1 }] }];
     await repository.finalize({ planId: 'plan-1', expectedVersion: 2, occasions, organizerNote: null });
     await repository.revise('plan-1', 3);
     expect(rpc.mock.calls.map((call) => call[0])).toEqual([
@@ -31,8 +53,8 @@ describe('Meal Planning repository', () => {
       horizon: { kind: 'next_shop', shopBy: null }, updated_at: '2026-08-07T00:00:00.000Z',
       candidates: [], rounds: [],
       occasions: [
-        { id: 'old-occasion', plan_version: 2, position: 0, title: null, placement_date: null, not_eating_person_ids: [] },
-        { id: 'current-occasion', plan_version: 4, position: 0, title: null, placement_date: null, not_eating_person_ids: [] },
+        { id: 'old-occasion', plan_version: 2, position: 0, title: null, placement_date: null, timing_kind: 'flexible', not_eating_person_ids: [] },
+        { id: 'current-occasion', plan_version: 4, position: 0, title: null, placement_date: null, timing_kind: 'flexible', not_eating_person_ids: [] },
       ],
       entries: [
         { id: 'old-dish', plan_version: 2, position: 0, occasion_id: 'old-occasion', candidate_id: 'candidate-old', title: 'Old', servings: 2, placement_date: null, diner_person_ids: [] },

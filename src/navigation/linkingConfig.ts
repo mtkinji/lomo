@@ -252,6 +252,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         AlreadyHaveReview: 'food/groceries/:listId/already-have',
         GroceryItemEdit: 'food/groceries/:listId/item/:itemId',
         GroceryHandoff: 'food/groceries/:listId/shop',
+        KrogerCart: 'food/groceries/:listId/smiths',
       },
     },
     Settings: {

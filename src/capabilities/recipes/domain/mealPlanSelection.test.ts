@@ -1,179 +1,55 @@
-import type { MealPlanProjection } from '../../meal-planning/data/mealPlanningRepository';
+import type { SharedMealCartProjection } from '../../meal-planning/domain/sharedMealCart';
 import { recipeContractFixture, recipeVersionContractFixture } from './recipeContractFixtures';
-import {
-  mealPlanContainsSelectedRecipeVersion,
-  removeCandidateFromMealPlan,
-  toggleRecipeInMealPlan,
-} from './mealPlanSelection';
-import { buildMealPlanRecipeCandidate } from './mealPlanRecipeCandidate';
+import { sharedMealCartContainsRecipeVersion, toggleRecipeInSharedMealCart } from './mealPlanSelection';
 
-const projection = {
-  recipe: recipeContractFixture(),
-  currentVersion: recipeVersionContractFixture(),
-};
+const projection = { recipe: recipeContractFixture(), currentVersion: recipeVersionContractFixture() };
 
-function plan(state: MealPlanProjection['state'], candidates = [
-  buildMealPlanRecipeCandidate(projection, { candidateId: 'candidate-1', servings: 4 }),
-]): MealPlanProjection {
+function cart(candidates: SharedMealCartProjection['candidates'] = []): SharedMealCartProjection {
   return {
-    id: 'plan-1',
-    householdId: 'household-1',
-    version: state === 'draft' ? 4 : 3,
-    state,
-    horizon: { kind: 'open' },
+    planId: 'plan-1', householdId: 'household-1', version: 2, state: 'draft',
+    viewer: { personId: 'person-1', role: 'owner', canAdd: true, canSettle: true },
     candidates,
-    entries: candidates.map((candidate, index) => ({
-      id: `entry-${index + 1}`,
-      candidateId: candidate.id,
-      title: candidate.title,
-      servings: 4,
-      placementDate: null,
-      occasionId: null,
-      dinerPersonIds: [],
-    })),
-    occasions: [],
-    activeRound: null,
-    updatedAt: '2026-08-06T12:00:00.000Z',
   };
 }
 
-describe('implicit Meal Plan selection', () => {
-  it('revises an underway plan and then removes its checked meal', async () => {
-    const finalized = plan('finalized');
-    const revised = plan('draft');
-    const updated = plan('draft', []);
-    const repository = {
-      create: jest.fn(),
-      revise: jest.fn().mockResolvedValue({ state: 'draft' }),
-      update: jest.fn().mockResolvedValue({ state: 'draft' }),
-    };
-    const reloadPlan = jest.fn()
-      .mockResolvedValueOnce(revised)
-      .mockResolvedValueOnce(updated);
-
-    const result = await toggleRecipeInMealPlan({
-      plan: finalized,
-      projection,
-      servings: 4,
-      candidateId: 'new-candidate',
-      repository,
-      reloadPlan,
-      resolveHouseholdId: jest.fn(),
+describe('shared Meal Cart recipe selection', () => {
+  it('appends the first meal without replacing the plan candidate set', async () => {
+    const next = cart();
+    const repository = { addSharedCandidate: jest.fn(), withdrawSharedCandidate: jest.fn() };
+    const result = await toggleRecipeInSharedMealCart({
+      cart: null, householdId: 'household-1', projection, servings: 4, candidateId: 'candidate-1',
+      repository, reloadCart: jest.fn().mockResolvedValue(next),
     });
-
-    expect(repository.revise).toHaveBeenCalledWith('plan-1', 3);
-    expect(repository.update).toHaveBeenCalledWith({
-      planId: 'plan-1',
-      expectedVersion: 4,
-      candidates: [],
-    });
-    expect(result).toEqual({ plan: updated, selected: false });
+    expect(repository.addSharedCandidate).toHaveBeenCalledWith('household-1', expect.objectContaining({ id: 'candidate-1', title: projection.currentVersion.title }));
+    expect(repository.withdrawSharedCandidate).not.toHaveBeenCalled();
+    expect(result).toEqual({ cart: next, selected: true });
   });
 
-  it('creates an open plan on the first selection without asking for a planning mode or horizon', async () => {
-    const created = plan('draft');
-    const repository = {
-      create: jest.fn().mockResolvedValue({ planId: 'plan-1' }),
-      revise: jest.fn(),
-      update: jest.fn(),
+  it('withdraws only the selected candidate when the actor is authorized', async () => {
+    const candidate = {
+      id: 'candidate-1', kind: 'recipe' as const, title: projection.currentVersion.title,
+      recipeSnapshot: { recipeVersionId: projection.currentVersion.id }, position: 0, selected: true,
+      contributor: { personId: 'person-1', displayName: 'Maya', avatarUrl: null }, supporters: [],
+      viewerReacted: true, canReact: true, canWithdraw: true,
     };
-    const reloadPlan = jest.fn().mockResolvedValue(created);
-
-    const result = await toggleRecipeInMealPlan({
-      plan: null,
-      projection,
-      servings: 4,
-      candidateId: 'candidate-1',
-      repository,
-      reloadPlan,
-      resolveHouseholdId: jest.fn().mockResolvedValue('household-1'),
+    const next = cart();
+    const repository = { addSharedCandidate: jest.fn(), withdrawSharedCandidate: jest.fn() };
+    const result = await toggleRecipeInSharedMealCart({
+      cart: cart([candidate]), householdId: 'household-1', projection, servings: 4, candidateId: 'unused',
+      repository, reloadCart: jest.fn().mockResolvedValue(next),
     });
-
-    expect(repository.create).toHaveBeenCalledWith({
-      householdId: 'household-1',
-      horizon: { kind: 'open' },
-      candidates: [expect.objectContaining({
-        id: 'candidate-1',
-        recipeSnapshot: expect.objectContaining({ recipeVersionId: projection.currentVersion.id }),
-      })],
-    });
-    expect(result).toEqual({ plan: created, selected: true });
+    expect(repository.withdrawSharedCandidate).toHaveBeenCalledWith('candidate-1');
+    expect(repository.addSharedCandidate).not.toHaveBeenCalled();
+    expect(result).toEqual({ cart: next, selected: false });
   });
 
-  it('does not silently rewrite a plan while family choices are open', async () => {
-    await expect(toggleRecipeInMealPlan({
-      plan: plan('collecting_choices'),
-      projection,
-      servings: 4,
-      candidateId: 'candidate-2',
-      repository: { create: jest.fn(), revise: jest.fn(), update: jest.fn() },
-      reloadPlan: jest.fn(),
-      resolveHouseholdId: jest.fn(),
-    })).rejects.toThrow('Family choices are underway');
-  });
-
-  it('lets the durable drawer remove a meal from an underway plan through the same implicit revision', async () => {
-    const finalized = plan('finalized');
-    const revised = plan('draft');
-    const updated = plan('draft', []);
-    const repository = {
-      create: jest.fn(),
-      revise: jest.fn().mockResolvedValue({ state: 'draft' }),
-      update: jest.fn().mockResolvedValue({ state: 'draft' }),
+  it('does not treat an unselected historical candidate as in the current plan', () => {
+    const historical = {
+      id: 'candidate-1', kind: 'recipe' as const, title: projection.currentVersion.title,
+      recipeSnapshot: { recipeVersionId: projection.currentVersion.id }, position: 0, selected: false,
+      contributor: { personId: 'person-1', displayName: 'Maya', avatarUrl: null }, supporters: [],
+      viewerReacted: true, canReact: false, canWithdraw: false,
     };
-    const reloadPlan = jest.fn()
-      .mockResolvedValueOnce(revised)
-      .mockResolvedValueOnce(updated);
-
-    const result = await removeCandidateFromMealPlan({
-      plan: finalized,
-      candidateId: 'candidate-1',
-      repository,
-      reloadPlan,
-    });
-
-    expect(repository.revise).toHaveBeenCalledWith('plan-1', 3);
-    expect(repository.update).toHaveBeenCalledWith({ planId: 'plan-1', expectedVersion: 4, candidates: [] });
-    expect(result).toBe(updated);
-  });
-
-  it('does not check a historical candidate that was left out of the finalized plan', async () => {
-    const otherProjection = {
-      recipe: { ...projection.recipe, id: 'recipe-2' },
-      currentVersion: { ...projection.currentVersion, id: 'recipe-version-2', recipeId: 'recipe-2', title: 'Another meal' },
-    };
-    const selectedCandidate = buildMealPlanRecipeCandidate(projection, { candidateId: 'candidate-1', servings: 4 });
-    const historicalCandidate = buildMealPlanRecipeCandidate(otherProjection, { candidateId: 'candidate-2', servings: 4 });
-    const finalized = {
-      ...plan('finalized', [selectedCandidate, historicalCandidate]),
-      entries: [{
-        id: 'entry-1', candidateId: 'candidate-1', title: selectedCandidate.title,
-        servings: 4, placementDate: null, occasionId: null, dinerPersonIds: [],
-      }],
-    };
-    const revised = { ...finalized, version: 4, state: 'draft' as const };
-    const updated = plan('draft', [selectedCandidate, historicalCandidate]);
-    const repository = {
-      create: jest.fn(),
-      revise: jest.fn().mockResolvedValue({ state: 'draft' }),
-      update: jest.fn().mockResolvedValue({ state: 'draft' }),
-    };
-
-    expect(mealPlanContainsSelectedRecipeVersion(finalized, otherProjection)).toBe(false);
-    await toggleRecipeInMealPlan({
-      plan: finalized,
-      projection: otherProjection,
-      servings: 4,
-      candidateId: 'candidate-new',
-      repository,
-      reloadPlan: jest.fn().mockResolvedValueOnce(revised).mockResolvedValueOnce(updated),
-      resolveHouseholdId: jest.fn(),
-    });
-
-    expect(repository.update).toHaveBeenCalledWith({
-      planId: 'plan-1',
-      expectedVersion: 4,
-      candidates: [selectedCandidate, historicalCandidate],
-    });
+    expect(sharedMealCartContainsRecipeVersion({ ...cart([historical]), state: 'finalized' }, projection)).toBe(false);
   });
 });

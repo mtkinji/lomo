@@ -15,7 +15,7 @@ alter table public.kwilt_grocery_lists
 alter table public.kwilt_grocery_lists
   alter column source_meal_plan_id drop not null,
   alter column source_meal_plan_version drop not null,
-  drop constraint kwilt_grocery_lists_source_meal_plan_id_source_meal_plan_version_key,
+  drop constraint kwilt_grocery_lists_source_meal_plan_id_source_meal_plan_ve_key,
   add constraint kwilt_grocery_lists_source_scope_check check (
     (source_kind='meal_plan'
       and source_meal_plan_id is not null

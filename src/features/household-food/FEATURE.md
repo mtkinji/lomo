@@ -15,8 +15,10 @@ serves:
   - jtbd-trust-this-app-with-my-life
 briefs:
   - household-food-loop
+  - shared-meal-cart
+  - progressive-meal-commitment
 status: draft
-last_reviewed: 2026-08-05
+last_reviewed: 2026-08-08
 ---
 
 # Household food

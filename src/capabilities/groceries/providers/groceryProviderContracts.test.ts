@@ -7,7 +7,7 @@ import {
 describe('grocery provider contracts', () => {
   it('keeps discovery, quote, coupon activation, cart, and order authority distinct', () => {
     expect(providerCapabilities.instacart).toEqual(expect.objectContaining({ handoff: true, couponActivation: false, orderEvidence: false }));
-    expect(providerCapabilities.kroger).toEqual(expect.objectContaining({ cartAdd: 'gated', couponActivation: false, orderEvidence: false }));
+    expect(providerCapabilities.kroger).toEqual(expect.objectContaining({ cartAdd: true, handoff: true, couponActivation: false, orderEvidence: false }));
   });
 
   it('does not call an ambiguous cart write ordered', () => {

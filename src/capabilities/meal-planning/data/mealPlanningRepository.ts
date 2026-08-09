@@ -2,9 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { validateMealChoiceResponse } from '../domain/mealChoiceAggregate';
 import { validateMealPlanHorizon } from '../domain/mealPlanLifecycle';
-import type { MealPlanHorizon } from '../domain/mealPlanContracts';
+import type { MealPeriod, MealPlanHorizon, MealTimingIntent } from '../domain/mealPlanContracts';
 import { aggregateMealChoices } from '../domain/mealChoiceAggregate';
 import { stableContentHash } from '@kwilt/food-core';
+import { parseSharedMealCartProjection, type SharedMealCartProjection } from '../domain/sharedMealCart';
 
 export type MealPlanCandidateDraft = {
   id: string;
@@ -25,6 +26,7 @@ export type MealPlanProjection = {
     id: string;
     title: string | null;
     placementDate: string | null;
+    timing: MealTimingIntent;
     notEatingPersonIds: string[];
     dishes: Array<{ id: string; candidateId: string; title: string; servings: number | null; dinerPersonIds: string[]; recipeSnapshot?: Record<string, unknown> | null }>;
   }>;
@@ -38,6 +40,10 @@ type VersionedMealPlanRow = {
   occasion_id?: unknown;
   [key: string]: unknown;
 };
+
+function mealPeriod(value: unknown): MealPeriod {
+  return value === 'breakfast' || value === 'lunch' || value === 'dinner' || value === 'snack' ? value : 'dinner';
+}
 
 async function rpc(client: SupabaseClient, name: string, args: Record<string, unknown>): Promise<unknown> {
   const { data, error } = await client.rpc(name, args);
@@ -66,6 +72,16 @@ export function mapMealPlanRow(row: any): MealPlanProjection {
       id: String(occasion.id),
       title: typeof occasion.title === 'string' ? occasion.title : null,
       placementDate: typeof occasion.placement_date === 'string' ? occasion.placement_date : null,
+      timing: occasion.timing_kind === 'coverage'
+        ? {
+          kind: 'coverage',
+          dates: Array.isArray(occasion.coverage_dates) ? occasion.coverage_dates.filter((date): date is string => typeof date === 'string') : [],
+          mealPeriod: mealPeriod(occasion.meal_period),
+          label: typeof occasion.coverage_label === 'string' ? occasion.coverage_label : String(occasion.title ?? ''),
+        }
+        : occasion.timing_kind === 'occasion' || typeof occasion.placement_date === 'string'
+          ? { kind: 'occasion', date: String(occasion.placement_date), mealPeriod: mealPeriod(occasion.meal_period) }
+          : { kind: 'flexible' },
       notEatingPersonIds: Array.isArray(occasion.not_eating_person_ids) ? occasion.not_eating_person_ids.filter((id): id is string => typeof id === 'string') : [],
       dishes: entries.filter((entry) => entry.occasion_id === occasion.id).map((entry) => ({
         id: String(entry.id),
@@ -79,6 +95,9 @@ export function mapMealPlanRow(row: any): MealPlanProjection {
       id: `legacy:${entry.id}`,
       title: null,
       placementDate: typeof entry.placement_date === 'string' ? entry.placement_date : null,
+      timing: typeof entry.placement_date === 'string'
+        ? { kind: 'occasion', date: entry.placement_date, mealPeriod: 'dinner' }
+        : { kind: 'flexible' },
       notEatingPersonIds: [],
       dishes: [{ id: String(entry.id), candidateId: String(entry.candidate_id), title: String(entry.title), servings: entry.servings === null ? null : Number(entry.servings), dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids.filter((id): id is string => typeof id === 'string') : [], recipeSnapshot: entry.recipe_snapshot && typeof entry.recipe_snapshot === 'object' ? entry.recipe_snapshot as Record<string, unknown> : null }],
     })),
@@ -89,6 +108,24 @@ export function mapMealPlanRow(row: any): MealPlanProjection {
 
 export function createMealPlanningRepository(client: SupabaseClient = getSupabaseClient()) {
   return {
+    async getSharedCart(householdId: string): Promise<SharedMealCartProjection> {
+      const projection = parseSharedMealCartProjection(await rpc(client, 'get_kwilt_shared_meal_cart', { p_household_id: householdId }));
+      if (!projection) throw new Error('The shared Meal Cart is unavailable.');
+      return projection;
+    },
+    addSharedCandidate(householdId: string, candidate: MealPlanCandidateDraft) {
+      return rpc(client, 'add_kwilt_shared_meal_candidate', {
+        p_household_id: householdId,
+        p_candidate_id: candidate.id,
+        p_candidate: candidate,
+      });
+    },
+    withdrawSharedCandidate(candidateId: string) {
+      return rpc(client, 'withdraw_kwilt_shared_meal_candidate', { p_candidate_id: candidateId });
+    },
+    setSharedReaction(candidateId: string, reacted: boolean) {
+      return rpc(client, 'set_kwilt_shared_meal_reaction', { p_candidate_id: candidateId, p_reacted: reacted });
+    },
     async list(): Promise<MealPlanProjection[]> {
       const { data, error } = await client.from('kwilt_meal_plans').select('*,candidates:kwilt_meal_plan_candidates(*),entries:kwilt_meal_plan_entries(*),occasions:kwilt_meal_plan_occasions(*),rounds:kwilt_meal_choice_rounds(*)').order('updated_at', { ascending: false });
       if (error) throw new Error(error.message);
@@ -125,6 +162,7 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
         id: string;
         title: string | null;
         placementDate: string | null;
+        timing: MealTimingIntent;
         notEatingPersonIds?: string[];
         dishes: Array<{ id: string; candidateId: string; dinerPersonIds: string[]; servings: number | null }>;
       }>;
@@ -143,7 +181,13 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
     },
     revise(planId: string, expectedVersion: number) { return rpc(client, 'revise_kwilt_meal_plan', { p_plan_id: planId, p_expected_version: expectedVersion }); },
     subscribe(onInvalidate: () => void): () => void {
-      const channel = client.channel('meal-planning-invalidation').on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plans' }, onInvalidate).subscribe();
+      const channel = client.channel('meal-planning-invalidation')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plans' }, onInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plan_candidates' }, onInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_candidate_reactions' }, onInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plan_entries' }, onInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plan_occasions' }, onInvalidate)
+        .subscribe();
       return () => { void client.removeChannel(channel); };
     },
   };
