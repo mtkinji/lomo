@@ -9,7 +9,7 @@ job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life, jtbd-get-help-without-retelling-my-life, jtbd-stay-in-control-of-ai-actions]
 related_briefs: [brief-unified-chat, brief-kwilt-phone-agent]
 owner: andrew
-last_updated: 2026-08-07
+last_updated: 2026-08-08
 ---
 
 # Kwilt Live — Reusable Hands-Free Conversational Action Runtime
@@ -28,9 +28,10 @@ and explains what it did without requiring touch or command syntax.
 The capability must not become a Cook Mode-only assistant. Kwilt Chat
 already defines a channel-independent Agent Runtime with typed tools, policy,
 proposals, receipts, recovery, and capability ownership. Kwilt Live adds a
-spoken-conversation channel to that runtime; Cook Mode is the first and most
-demanding native proving surface. The first learning release is regular Cook
-Mode feature code, not a hidden or internally flagged variant.
+spoken-conversation channel to that runtime. Chat is the first-party home for
+the durable conversation, while Cook Mode remains the most demanding contextual
+surface. The first learning release is regular product code, not a hidden or
+internally flagged variant.
 
 ## Target audience
 
@@ -104,12 +105,23 @@ Confirmed in source on August 7, 2026:
   provider in the shared runtime, a deployed Cook agent path, or signed-device
   conversational proof.
 
-The first transport is a cascaded conversation: record, transcribe, interpret,
-execute, and generate natural speech. Interruption is a local native-audio job:
-echo-cancelled input detects the cook while Kwilt speaks, stops playback, and
-preserves the beginning of the new utterance. A Realtime transport remains the
-fallback architectural direction if the cascaded path cannot meet physical-device
-latency or barge-in reliability gates.
+The current shared conversation transport uses a dedicated
+`gpt-live-transcribe` session over WebRTC for continuous foreground audio, turn
+detection, interruption, and provisional transcription. Final utterances enter
+the existing Unified Chat turn pipeline, which remains the authority for durable
+messages, assistant answers, tools, proposals, receipts, corrections, and undo.
+Authoritative assistant text is spoken through Kwilt's existing authenticated
+speech endpoint, defaulting to Marin. Cook Mode retains its deterministic local
+command lane and complete touch controls. This cost-conscious cascaded path is
+accepted only if signed-device measurements satisfy the response and barge-in
+gates; otherwise a full speech-to-speech Realtime transport remains an option.
+
+For ordinary conversational turns, the target from end-of-speech to first useful
+spoken response is a median below one second and p95 below two seconds on a signed
+device and representative network. A quick status sound, animation, or generic
+acknowledgement does not count as a useful response. For longer tool work, Kwilt
+may acknowledge progress quickly but must not claim success before an
+authoritative capability receipt exists.
 
 ## Design
 
@@ -160,6 +172,24 @@ Observation language invites one concise proposal. Explicit reversible commands
 may apply to the current Cook Session immediately. Durable recipe revisions,
 sharing, purchases, money changes, and other consequential actions retain their
 capability-owned confirmation policy.
+
+### Chat conversation contract
+
+Conversation mode is a mode of the current Chat thread, not a separate inbox or
+ephemeral voice history:
+
+- the existing timeline remains visible and scrollable while listening and
+  speaking;
+- provisional user transcription is visible, then one finalized utterance is
+  persisted as one normal user message;
+- assistant words appear in the same timeline while they are spoken and settle
+  into one normal assistant message;
+- tool progress, proposals, receipts, corrections, and undo remain ordinary
+  timeline events owned by the existing Chat runtime;
+- ending conversation mode returns to the composer in the same thread; and
+- a Chat widget may enter a fresh thread directly in conversation mode, but its
+  label must make the microphone transition explicit and the first permission
+  gate must remain visible.
 
 ### Conversation session contract
 
@@ -255,8 +285,9 @@ receipt projection without importing Recipes-specific logic.
 
 ## Open questions
 
-- Whether cascaded native barge-in meets the physical-device quality and latency
-  gate or should be replaced by a Realtime transport.
+- Whether the WebRTC transcription plus Marin speech path meets the
+  physical-device quality and latency gate or should be replaced by a full
+  speech-to-speech Realtime transport.
 - Whether confirmed spoken transcripts belong in durable Chat history by default
   or whether Cook Mode should retain only action summaries and receipts.
 - Which low-risk operations beyond the current Cook Session earn standing voice

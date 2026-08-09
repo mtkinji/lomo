@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { encodeBase64 } from 'https://deno.land/std@0.224.0/encoding/base64.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { parseCookVoiceSpeechBody } from '../_shared/cookVoiceSpeech.ts';
+import { parseCookVoiceSpeechBody, resolveCookVoiceSpeechConfig } from '../_shared/cookVoiceSpeech.ts';
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -46,8 +46,10 @@ serve(async (req) => {
     return json(503, { error: { code: 'provider_unavailable', message: 'Natural voice is unavailable.' } });
   }
 
-  const model = Deno.env.get('OPENAI_COOK_VOICE_MODEL')?.trim() || 'tts-1-hd';
-  const voice = Deno.env.get('OPENAI_COOK_VOICE')?.trim() || 'nova';
+  const { model, voice } = resolveCookVoiceSpeechConfig(
+    Deno.env.get('OPENAI_COOK_VOICE_MODEL'),
+    Deno.env.get('OPENAI_COOK_VOICE'),
+  );
   const upstream = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: {

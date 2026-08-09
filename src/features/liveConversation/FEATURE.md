@@ -17,6 +17,17 @@ last_reviewed: 2026-08-07
 
 # Live Conversation
 
+Reusable native foreground-audio channel for first-party Chat conversation and
+future contextual surfaces. A dedicated `gpt-live-transcribe` session owns
+WebRTC media, turn detection, interruption, and provisional transcription.
+Unified Chat owns every finalized durable turn and all capability authority, and
+its assistant text is spoken through the shared Marin voice. Long-lived provider
+credentials and raw audio are never stored on device.
+
+Current proof: session request policy, safety identifier, event normalization,
+and state reduction have automated coverage. A new native build and signed-device
+audio/latency verification are still required.
+
 Adds a reusable realtime spoken-conversation channel over Kwilt's shared Agent
 Runtime. Cook Mode is the first proving surface; capability-owned tools,
 permissions, receipts, and fallback behavior remain authoritative.
@@ -26,4 +37,3 @@ permissions, receipts, and fallback behavior remain authoritative.
 - Shared live-session contracts and state machine.
 - Native realtime audio transport and interruption handling.
 - Bridge from spoken function calls to discovered Kwilt capability tools.
-

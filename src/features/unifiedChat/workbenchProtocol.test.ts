@@ -37,6 +37,8 @@ describe('Unified Chat workbench protocol', () => {
     { type: 'timeline.jump.latest' },
     { type: 'voice.toggle' },
     { type: 'voice.toggle', prompt: 'Call Mom tomorrow', selectionStart: 8, selectionEnd: 8 },
+    { type: 'conversation.start' },
+    { type: 'conversation.stop' },
     { type: 'context.add' },
     { type: 'attachment.pick' },
     { type: 'attachment.remove', attachmentId: 'local-1' },
