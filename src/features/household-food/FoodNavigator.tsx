@@ -49,7 +49,13 @@ export type FoodStackParamList = {
   MealChoiceInvite: { planId: string };
   MealPlanFinalize: { planId: string };
   MealChoiceResponse: { roundId: string; intent?: 'pass' };
-  GroceryList: { listId?: string; planId?: string; planVersion?: number; handoffUrl?: string } | undefined;
+  GroceryList: {
+    listId?: string;
+    planId?: string;
+    planVersion?: number;
+    handoffUrl?: string;
+    entryPoint?: 'capability-menu';
+  } | undefined;
   AlreadyHaveReview: { listId: string };
   GroceryItemEdit: { listId: string; itemId: string };
   GroceryHandoff: { listId: string };

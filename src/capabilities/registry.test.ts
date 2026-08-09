@@ -23,7 +23,7 @@ describe('capability registry', () => {
     ]);
   });
 
-  it('keeps food authority internal while exposing only Meals as a user-facing destination', () => {
+  it('keeps Meal Planning contextual while exposing Recipes and Groceries as user-facing destinations', () => {
     expect(CAPABILITY_REGISTRY.filter(({ id }) => ['recipes', 'meal-planning', 'groceries'].includes(id))).toEqual([
       expect.objectContaining({ id: 'recipes', label: 'Meals', availability: 'active' }),
       expect.objectContaining({ id: 'meal-planning', label: 'Meal Plan', availability: 'active' }),
@@ -33,6 +33,7 @@ describe('capability registry', () => {
       ({ id, label, ownerId, rootRoute }) => ({ id, label, ownerId, rootRoute }),
     )).toEqual([
       { id: 'recipes', label: 'Meals', ownerId: 'recipes', rootRoute: { root: 'Food', screen: 'RecipeLibrary' } },
+      { id: 'groceries', label: 'Groceries', ownerId: 'groceries', rootRoute: { root: 'Food', screen: 'GroceryList' } },
     ]);
     expect(CAPABILITY_MENU_REGISTRY.some(({ id }) => id === ('food' as never))).toBe(false);
   });

@@ -44,7 +44,10 @@ export type CapabilityNavigationTarget =
     }
   | {
       name: 'Food';
-      params: { screen: 'FoodHome' | 'RecipeLibrary' | 'NextMeals' | 'GroceryList' };
+      params: {
+        screen: 'FoodHome' | 'RecipeLibrary' | 'NextMeals' | 'GroceryList';
+        params?: { entryPoint: 'capability-menu' };
+      };
     };
 
 export function createCapabilityNavigateAction(target: { name: string; params?: object }) {
@@ -69,6 +72,15 @@ export function resolveCapabilityNavigation(id: CapabilityNavigationId): Capabil
     return { name: 'Games', params: { screen: rootRoute.screen } };
   }
   if (rootRoute.root === 'Food') {
+    if (id === 'groceries') {
+      return {
+        name: 'Food',
+        params: {
+          screen: 'GroceryList',
+          params: { entryPoint: 'capability-menu' },
+        },
+      };
+    }
     return { name: 'Food', params: { screen: rootRoute.screen } };
   }
 
