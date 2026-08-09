@@ -1,5 +1,12 @@
 export const MAX_COOK_VOICE_SPEECH_CHARS = 1200;
 
+export function resolveCookVoiceSpeechConfig(model: string | undefined, voice: string | undefined) {
+  return {
+    model: model?.trim() || 'tts-1-hd',
+    voice: voice?.trim() || 'marin',
+  };
+}
+
 export function sanitizeCookVoiceSpeechText(value: unknown): string {
   if (typeof value !== 'string') return '';
   return value

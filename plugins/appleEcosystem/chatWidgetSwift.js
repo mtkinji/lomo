@@ -24,7 +24,7 @@ struct ChatWidgetProvider: TimelineProvider {
 struct ChatWidgetView: View {
   var body: some View {
     widgetContainer {
-      Link(destination: URL(string: "kwilt://chat?entry=fresh&source=widget")!) {
+      Link(destination: URL(string: "kwilt://chat?entry=fresh&mode=conversation&source=widget")!) {
         VStack(alignment: .leading, spacing: 0) {
           HStack(spacing: 6) {
             if let logo = kwiltLogoImage() {
@@ -33,7 +33,7 @@ struct ChatWidgetView: View {
                 .scaledToFit()
                 .frame(width: 18, height: 18)
             }
-            Text("Chat")
+            Text("Talk to Kwilt")
               .font(KwiltWidgetTypography.label)
             Spacer()
           }
@@ -41,7 +41,7 @@ struct ChatWidgetView: View {
 
           Spacer()
 
-          Text("Ask Kwilt")
+          Text("Start a conversation")
             .font(KwiltWidgetTypography.title)
             .minimumScaleFactor(0.8)
             .lineLimit(2)

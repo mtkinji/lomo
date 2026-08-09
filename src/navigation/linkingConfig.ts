@@ -178,6 +178,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
       path: 'chat',
       parse: {
         entry: (value: string) => value === 'fresh' ? 'fresh' : undefined,
+        mode: (value: string) => value === 'conversation' ? 'conversation' : undefined,
         source: (value: string) => String(value),
         widgetLaunchId: (value: string) => String(value),
       },

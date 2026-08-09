@@ -106,6 +106,8 @@ import {
   buildUnifiedChatReconciliationTelemetry,
 } from './unifiedChatTelemetry';
 import { appendUnifiedChatVoiceLevel } from './unifiedChatVoiceMetering';
+import { startLiveConversationSession, type LiveConversationConnection } from '../liveConversation/liveConversationSessionClient';
+import { cookVoiceSpeech } from '../../capabilities/recipes/voice/cookVoiceSpeech';
 import {
   insertUnifiedChatTranscriptAtSelection,
   type UnifiedChatVoiceInsertion,
@@ -224,8 +226,12 @@ export function UnifiedChatScreen({
   } | null>(null);
   const consumedLaunchContext = useRef<string | null>(null);
   const voiceTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const liveConversation = useRef<LiveConversationConnection | null>(null);
+  const conversationAutoStartRef = useRef(false);
+  const conversationAssistantCountRef = useRef(0);
   const [threads, setThreads] = useState<UnifiedChatThread[]>([]);
   const [aggregate, setAggregate] = useState<UnifiedChatThreadAggregate | null>(null);
+  const aggregateRef = useRef<UnifiedChatThreadAggregate | null>(null);
   const [prompt, setPrompt] = useState('');
   const voiceInsertionRef = useRef<UnifiedChatVoiceInsertion | null>(null);
   const [attachments, setAttachments] = useState<UnifiedChatAttachment[]>([]);
@@ -237,9 +243,12 @@ export function UnifiedChatScreen({
   const [surfaceLoadFailed, setSurfaceLoadFailed] = useState(false);
   const [clientActionInFlight, setClientActionInFlight] = useState(false);
   const [voice, setVoice] = useState<{
-    state: 'idle' | 'recording' | 'transcribing' | 'error';
+    state: 'idle' | 'recording' | 'transcribing' | 'connecting' | 'listening' | 'thinking' |
+      'speaking' | 'interrupted' | 'recovering' | 'error';
     elapsedSeconds: number;
     levels: number[];
+    provisionalTranscript?: string;
+    finalizedUtterance?: { id: string; text: string };
     message?: string;
   }>({ state: 'idle', elapsedSeconds: 0, levels: [] });
 
@@ -247,6 +256,8 @@ export function UnifiedChatScreen({
     if (voiceTimer.current) clearInterval(voiceTimer.current);
     voiceTimer.current = null;
   }, []);
+
+  useEffect(() => { aggregateRef.current = aggregate; }, [aggregate]);
 
   const retrySurface = useCallback(() => {
     setError(null);
@@ -448,7 +459,83 @@ export function UnifiedChatScreen({
   useEffect(() => () => {
     clearVoiceTimer();
     void cancelUnifiedChatVoiceRecording();
+    void liveConversation.current?.stop();
+    liveConversation.current = null;
+    void cookVoiceSpeech.stop();
   }, [clearVoiceTimer]);
+
+  const stopConversation = useCallback(async () => {
+    clearVoiceTimer();
+    const current = liveConversation.current;
+    liveConversation.current = null;
+    await Promise.all([current?.stop(), cookVoiceSpeech.stop()]);
+    setVoice({ state: 'idle', elapsedSeconds: 0, levels: [] });
+  }, [clearVoiceTimer]);
+
+  const startConversation = useCallback(async () => {
+    if (liveConversation.current || voice.state === 'connecting') return;
+    await cancelUnifiedChatVoiceRecording();
+    clearVoiceTimer();
+    setVoice({ state: 'connecting', elapsedSeconds: 0, levels: [], message: 'Connecting…' });
+    try {
+      const connection = await startLiveConversationSession({
+        onConnected: () => {
+          setVoice((current) => ({ ...current, state: 'listening', message: 'Listening' }));
+          voiceTimer.current = setInterval(() => {
+            setVoice((current) => current.state === 'idle' || current.state === 'error'
+              ? current
+              : { ...current, elapsedSeconds: current.elapsedSeconds + 1 });
+          }, 1000);
+        },
+        onEvent: (event) => {
+          if (event.type === 'speech_started') {
+            void cookVoiceSpeech.stop();
+            setVoice((current) => ({ ...current, state: 'listening', provisionalTranscript: '',
+              finalizedUtterance: undefined, message: 'Listening' }));
+          } else if (event.type === 'speech_stopped') {
+            setVoice((current) => ({ ...current, state: 'thinking', message: 'Thinking…' }));
+          } else if (event.type === 'transcript_delta') {
+            setVoice((current) => ({ ...current, state: 'listening',
+              provisionalTranscript: `${current.provisionalTranscript ?? ''}${event.delta}` }));
+          } else if (event.type === 'transcript_final') {
+            conversationAssistantCountRef.current = aggregateRef.current?.messages.filter((item) => item.role === 'assistant').length ?? 0;
+            setVoice((current) => ({ ...current, state: 'thinking', provisionalTranscript: '',
+              finalizedUtterance: { id: event.itemId, text: event.transcript }, message: 'Thinking…' }));
+          } else if (event.type === 'provider_error') {
+            setVoice((current) => ({ ...current, state: 'recovering', message: 'Reconnecting…' }));
+          }
+        },
+        onFailure: () => setVoice((current) => ({ ...current,
+          state: 'recovering', message: 'Connection interrupted.' })),
+      });
+      liveConversation.current = connection;
+    } catch (conversationError) {
+      setVoice({ state: 'error', elapsedSeconds: 0, levels: [],
+        message: conversationError instanceof Error ? conversationError.message : 'Conversation mode is unavailable.' });
+    }
+  }, [clearVoiceTimer, voice.state]);
+
+  useEffect(() => {
+    if (routeParams?.mode !== 'conversation' || !surfaceReady || conversationAutoStartRef.current) return;
+    conversationAutoStartRef.current = true;
+    void startConversation();
+  }, [routeParams?.mode, startConversation, surfaceReady]);
+
+  useEffect(() => {
+    if (voice.state !== 'thinking' || !aggregate) return;
+    const assistantMessages = aggregate.messages.filter((item) => item.role === 'assistant');
+    if (assistantMessages.length <= conversationAssistantCountRef.current) return;
+    const response = assistantMessages.at(-1)?.body.trim();
+    if (!response) return;
+    conversationAssistantCountRef.current = assistantMessages.length;
+    setVoice((current) => ({ ...current,
+      state: 'speaking', finalizedUtterance: undefined, message: 'Speaking' }));
+    void cookVoiceSpeech.speak(response).catch(() => undefined).finally(() => {
+      setVoice((current) => liveConversation.current
+        ? { ...current, state: 'listening', message: 'Listening' }
+        : current);
+    });
+  }, [aggregate, voice.state]);
 
   useEffect(() => {
     if (!freshEntry || freshEntrySource !== 'widget') return undefined;
@@ -693,6 +780,15 @@ export function UnifiedChatScreen({
       }
       if (command.type === 'attachment.remove') {
         setAttachments((current) => current.filter((item) => item.id !== command.attachmentId));
+        return;
+      }
+      if (command.type === 'conversation.start') {
+        Keyboard.dismiss();
+        await startConversation();
+        return;
+      }
+      if (command.type === 'conversation.stop') {
+        await stopConversation();
         return;
       }
       if (command.type === 'voice.toggle') {
@@ -1340,7 +1436,7 @@ export function UnifiedChatScreen({
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, voice.state],
   );
 
   const pendingClientAction = useMemo(

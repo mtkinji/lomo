@@ -92,6 +92,10 @@ describe('linkingConfig', () => {
       name: 'UnifiedChat',
       params: { entry: 'fresh', source: 'widget' },
     });
+    expect(parse('chat?entry=fresh&mode=conversation&source=widget')).toMatchObject({
+      name: 'UnifiedChat',
+      params: { entry: 'fresh', mode: 'conversation', source: 'widget' },
+    });
   });
 
   test('kwilt://home opens Shared Home with an optional exact delivery', () => {

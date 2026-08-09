@@ -20,6 +20,7 @@ export type UnifiedChatRouteParams = {
   launchContext?: UnifiedChatLaunchContext;
   threadId?: string | null;
   entry?: 'fresh';
+  mode?: 'conversation';
   source?: string;
   /** Distinguishes repeated opens of the same static Home Screen widget URL. */
   widgetLaunchId?: string;
