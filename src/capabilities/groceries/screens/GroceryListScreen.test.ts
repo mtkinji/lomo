@@ -1,5 +1,8 @@
 import type { GroceryProjection } from '../data/groceryRepository';
-import { resolveGroceryListEntry } from './GroceryListScreen';
+import {
+  prepareGroceryListForFulfillment,
+  resolveGroceryListEntry,
+} from './GroceryListScreen';
 
 function list(
   id: string,
@@ -40,5 +43,36 @@ describe('Grocery List entry resolution', () => {
 
   it('compiles only when the plan has no current or stale grocery list', () => {
     expect(resolveGroceryListEntry([], 'plan-1', 4)).toEqual({ kind: 'compile' });
+  });
+});
+
+describe('Grocery List fulfillment preparation', () => {
+  it('uses the fulfillment action itself to settle a review-needed list', async () => {
+    const markReviewed = jest.fn().mockResolvedValue({ status: 'ready' });
+    await prepareGroceryListForFulfillment(
+      list('review', 'review_needed', 'plan-1', 4),
+      markReviewed,
+    );
+
+    expect(markReviewed).toHaveBeenCalledWith('review', 1);
+  });
+
+  it('opens an already-ready list without adding another confirmation', async () => {
+    const markReviewed = jest.fn();
+    await prepareGroceryListForFulfillment(
+      list('ready', 'ready', 'plan-1', 4),
+      markReviewed,
+    );
+
+    expect(markReviewed).not.toHaveBeenCalled();
+  });
+
+  it('does not fulfill a stale list', async () => {
+    await expect(
+      prepareGroceryListForFulfillment(
+        list('stale', 'stale', 'plan-1', 4),
+        jest.fn(),
+      ),
+    ).rejects.toThrow('Update this grocery list from the current Plan before shopping.');
   });
 });

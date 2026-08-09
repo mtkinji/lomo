@@ -1,6 +1,14 @@
-import { createGroceryRepository } from './groceryRepository';
+import { createGroceryRepository, mapGroceryProjectionRows } from './groceryRepository';
 
 describe('Grocery repository', () => {
+  it('projects retailer cart acknowledgement without changing grocery state', () => {
+    const [list] = mapGroceryProjectionRows([{id:'list-1',revision:1,status:'ready',updated_at:'2026-08-09',items:[{id:'item-1',position:0,concept:'milk',quantity_min:1,quantity_max:null,unit:'gallon',aisle:'dairy_eggs',state:'needed',sources:[],cart_entries:[{provider:'kroger',retailer_label:"Smith's",location_name:'Saratoga Springs',state:'cart_add_acknowledged',created_at:'2026-08-09T12:00:00Z'}]}]}]);
+    expect(list.items[0]).toMatchObject({
+      state: 'needed',
+      retailerCart: { provider: 'kroger', retailerLabel: "Smith's", locationName: 'Saratoga Springs', state: 'cart_add_acknowledged' },
+    });
+  });
+
   it('compiles through the server boundary and mutates only through revisioned RPCs', async () => {
     const invoke=jest.fn().mockResolvedValue({data:{receipt:{}},error:null}); const rpc=jest.fn().mockResolvedValue({data:{},error:null}); const repository=createGroceryRepository({functions:{invoke},rpc} as never);
     await repository.compile('plan-1',3); await repository.compile('plan-1',4,{fromListId:'list-1',expectedRevision:5}); await repository.compileRecipe({

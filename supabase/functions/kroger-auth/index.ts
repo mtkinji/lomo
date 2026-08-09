@@ -14,7 +14,7 @@ async function challenge(value:string) { const digest=await crypto.subtle.digest
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   const admin=getSupabaseAdmin(), clientId=env('KROGER_CLIENT_ID'), clientSecret=env('KROGER_CLIENT_SECRET'), stateSecret=env('KROGER_OAUTH_STATE_SECRET'), tokenSecret=env('KROGER_TOKEN_SECRET');
-  if (!admin || !clientId || !clientSecret || !stateSecret || !tokenSecret || env('FOOD_KROGER_HANDOFF_ENABLED') !== 'true') return response(503,{error:{code:'provider_unavailable',message:"Smith's connection is not configured yet."}});
+  if (!admin || !clientId || !clientSecret || !stateSecret || !tokenSecret || env('FOOD_KROGER_HANDOFF_ENABLED') !== 'true') return response(503,{error:{code:'provider_unavailable',message:'Kroger cart access is not configured yet.'}});
   const url=new URL(req.url);
   if (req.method === 'GET') {
     const error=url.searchParams.get('error'); if(error)return Response.redirect(appRedirect('error',error==='access_denied'?'cancelled':'provider_denied'),302);
@@ -26,7 +26,7 @@ serve(async (req) => {
     const token=await exchangeKrogerToken({clientId,clientSecret,redirectUri:callbackUrl(req),code,verifier:codeVerifier}).catch(()=>null); if(!token)return Response.redirect(appRedirect('error','token_exchange_failed'),302);
     const {data:binding}=await admin.from('kwilt_person_auth_bindings').select('person_id').eq('user_id',claims.userId).eq('status','active').maybeSingle(); if(!binding?.person_id)return Response.redirect(appRedirect('error','account_unavailable'),302);
     const now=new Date().toISOString(); const expiresAt=token.expiresIn>0?new Date(Date.now()+token.expiresIn*1000).toISOString():null;
-    const {data:account,error:accountError}=await admin.from('kwilt_grocery_provider_accounts').upsert({owner_person_id:binding.person_id,provider:'kroger',scopes:token.scope,token_vault_ref:`server_encrypted:kroger:${binding.person_id}`,state:'active',retailer_label:"Smith's",access_expires_at:expiresAt,updated_at:now},{onConflict:'owner_person_id,provider'}).select('id').single();
+    const {data:account,error:accountError}=await admin.from('kwilt_grocery_provider_accounts').upsert({owner_person_id:binding.person_id,provider:'kroger',scopes:token.scope,token_vault_ref:`server_encrypted:kroger:${binding.person_id}`,state:'active',retailer_label:'Kroger',access_expires_at:expiresAt,updated_at:now},{onConflict:'owner_person_id,provider'}).select('id').single();
     if(accountError||!account?.id)return Response.redirect(appRedirect('error','account_save_failed'),302);
     const encrypted={access:await encryptToken(tokenSecret,token.accessToken),refresh:token.refreshToken?await encryptToken(tokenSecret,token.refreshToken):null,tokenType:token.tokenType,scope:token.scope};
     const {error:tokenError}=await admin.from('kwilt_grocery_provider_tokens').upsert({account_id:account.id,token_payload:encrypted,expires_at:expiresAt,updated_at:now},{onConflict:'account_id'}); if(tokenError)return Response.redirect(appRedirect('error','account_save_failed'),302);
