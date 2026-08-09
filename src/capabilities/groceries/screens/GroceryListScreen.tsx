@@ -33,6 +33,7 @@ import { GroceryItemProvenanceSheet } from "../components/GroceryItemProvenanceS
 import { createMealPlanningRepository } from "../../meal-planning/data/mealPlanningRepository";
 import { AnalyticsEvent } from "../../../services/analytics/events";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
+import { useCapabilityShell } from "../../../navigation/CapabilityShellContext";
 import {
   applyQueuedGroceryStates,
   groceryOfflineQueue,
@@ -73,6 +74,7 @@ export function resolveGroceryListEntry(
 
 export function GroceryListScreen({ navigation, route }: Props) {
   const { capture } = useAnalytics();
+  const { openMenu } = useCapabilityShell();
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const [list, setList] = useState<GroceryProjection | null>(null);
   const [offline, setOffline] = useState(false);
@@ -225,11 +227,13 @@ export function GroceryListScreen({ navigation, route }: Props) {
       <PageHeader
         title="Groceries"
         titleMaxFontSizeMultiplier={1.6}
-        onPressBack={() => navigation.goBack()}
+        onPressMenu={route.params?.entryPoint === "capability-menu" ? openMenu : undefined}
+        onPressBack={route.params?.entryPoint === "capability-menu" ? undefined : () => navigation.goBack()}
         rightElement={
           list?.status === "ready" && !stackItemRows ? (
             <Button
               size="sm"
+              variant="outline"
               onPress={() =>
                 navigation.navigate("GroceryHandoff", { listId: list.id })
               }
@@ -259,7 +263,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
             <Heading variant="md">
               Finalize a meal plan to make its grocery list.
             </Heading>
-            <Button onPress={() => navigation.navigate("NextMeals")}>
+            <Button variant="outline" onPress={() => navigation.navigate("NextMeals")}>
               Open Meal Plan
             </Button>
           </View>
@@ -280,12 +284,13 @@ export function GroceryListScreen({ navigation, route }: Props) {
               </Text>
             </View>
             {list.status === "ready" && stackItemRows ? (
-              <Button onPress={() => navigation.navigate("GroceryHandoff", { listId: list.id })}>
+              <Button variant="outline" onPress={() => navigation.navigate("GroceryHandoff", { listId: list.id })}>
                 Shop
               </Button>
             ) : null}
             {list.status === "stale" ? (
               <Button
+                variant="outline"
                 disabled={busy || offline}
                 onPress={() => {
                   void refreshWithChanges();
@@ -296,6 +301,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
             ) : null}
             {list.status === "review_needed" ? (
               <Button
+                variant="outline"
                 onPress={() =>
                   navigation.navigate("AlreadyHaveReview", { listId: list.id })
                 }
@@ -339,6 +345,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
             ))}
             {list.status === "review_needed" ? (
               <Button
+                variant="outline"
                 disabled={busy || offline}
                 onPress={() => {
                   void createGroceryRepository()
@@ -380,6 +387,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
                   style={styles.input}
                 />
                 <Button
+                  variant="outline"
                   disabled={!manualItem.trim() || busy || offline}
                   onPress={() => {
                     if (!list) return;

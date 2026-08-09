@@ -35,7 +35,7 @@ describe('resolveCapabilityNavigation', () => {
     ['games', { name: 'Games', params: { screen: 'GamesShelf' } }],
     ['recipes', { name: 'Food', params: { screen: 'RecipeLibrary' } }],
     ['meal-planning', { name: 'Food', params: { screen: 'NextMeals' } }],
-    ['groceries', { name: 'Food', params: { screen: 'GroceryList' } }],
+    ['groceries', { name: 'Food', params: { screen: 'GroceryList', params: { entryPoint: 'capability-menu' } } }],
   ] as const)('resolves %s through the existing host navigator', (id, expected) => {
     expect(resolveCapabilityNavigation(id)).toEqual(expected);
   });

@@ -111,7 +111,7 @@ function currentCapabilityMenuDestination(
 }
 
 export const CAPABILITY_MENU_REGISTRY = [
-  ...(['goals', 'todos', 'plan', 'arcs', 'chapters', 'recipes', 'explore', 'games'] as const).map(
+  ...(['goals', 'todos', 'plan', 'arcs', 'chapters', 'recipes', 'groceries', 'explore', 'games'] as const).map(
     currentCapabilityMenuDestination,
   ),
   {

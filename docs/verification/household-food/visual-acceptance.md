@@ -88,14 +88,27 @@ backend-enabled rerun. The fresh import and manual-entry captures also confirm
 that the shared disabled-primary treatment is visually too close to enabled;
 this should be solved in the shared Button system, not locally in Food.
 
-The capability-menu correction is also visually and operationally accepted on
-the iPhone 17 Pro Simulator: Food contains separate Recipes, Next meals, and
-Groceries rows, with no synthetic Food destination. Each row opened its direct
-inventory surface and updated the selected accessibility state. Evidence:
+The earlier capability-menu correction was visually and operationally accepted
+on the iPhone 17 Pro Simulator with separate Recipes, Next meals, and Groceries
+rows and no synthetic Food destination. That three-row treatment is now
+superseded by the Grocery Flywheel decision: Food should contain only Meals and
+Groceries, while Plan remains contextual inside Meals. The historical evidence
+still proves direct routing, but the new two-row contract requires fresh render
+proof. Historical evidence:
 [`27-food-capabilities-menu.png`](../../delivery-evidence/food/playthrough-2026-08-05/27-food-capabilities-menu.png),
 [`28-next-meals-direct.png`](../../delivery-evidence/food/playthrough-2026-08-05/28-next-meals-direct.png),
 [`29-groceries-direct.png`](../../delivery-evidence/food/playthrough-2026-08-05/29-groceries-direct.png), and
 [`30-recipes-direct.png`](../../delivery-evidence/food/playthrough-2026-08-05/30-recipes-direct.png).
+
+The Grocery Flywheel two-row contract is now proven on the iPhone 17 Pro
+Simulator from `fix/groceries-primary-navigation`. Food contains Meals and
+Groceries only; Meal Plan is absent from the global menu. Groceries opens the
+populated household list with the global navigation affordance, neutral outline
+workflow actions instead of green fills, and the Groceries row remains selected
+when the menu is reopened. Evidence:
+[`01-food-menu-meals-groceries.jpeg`](../../delivery-evidence/food/groceries-primary-navigation-2026-08-09/01-food-menu-meals-groceries.jpeg),
+[`02-grocery-list-primary.jpeg`](../../delivery-evidence/food/groceries-primary-navigation-2026-08-09/02-grocery-list-primary.jpeg), and
+[`03-groceries-selected.jpeg`](../../delivery-evidence/food/groceries-primary-navigation-2026-08-09/03-groceries-selected.jpeg).
 
 ## Required acceptance matrix
 
@@ -105,7 +118,7 @@ inventory surface and updated the selected accessibility state. Evidence:
 | Recipe Library and Home | pending | 100-recipe library, filter, search, and bundled Home passed | n/a | pending | pending | pending |
 | Import evidence review | pending | entry modes passed; parsed review pending | n/a | pending | pending | pending |
 | Plan, family response, finalize | pending | empty editor and local note passed; shared flow pending | n/a | pending | pending | pending |
-| Grocery review, provenance, savings, scenario | pending | historical empty only | n/a | pending | pending | pending |
+| Grocery review, provenance, savings, scenario | pending | populated primary list and direct navigation passed; provenance, savings, and scenario pending | n/a | pending | pending | pending |
 | Cook Mode | pending | pending | pending | pending | pending | pending |
 
 Fresh offline capture is complete on the iPhone 17 Pro Simulator, including the
