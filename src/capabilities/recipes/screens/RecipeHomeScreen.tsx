@@ -28,6 +28,7 @@ import { useAnalytics } from "../../../services/analytics/useAnalytics";
 import { AnalyticsEvent } from "../../../services/analytics/events";
 import { createMealPlanningRepository } from "../../meal-planning/data/mealPlanningRepository";
 import type { MealPlanProjection } from "../../meal-planning/data/mealPlanningRepository";
+import type { SharedMealCartProjection } from "../../meal-planning/domain/sharedMealCart";
 import { mealPlanningCache } from "../../meal-planning/data/mealPlanningCache";
 import { getActiveMealPlan } from "../../meal-planning/domain/mealPlanPresentation";
 import { RecipeActionsMenu } from "../components/RecipeActionsMenu";
@@ -64,8 +65,8 @@ import { useHiddenRecipeStore } from "../runtime/useHiddenRecipeStore";
 import { useRecipeFavoriteStore } from "../runtime/useRecipeFavoriteStore";
 import { resolveAvailableRecipe } from "../data/resolveAvailableRecipe";
 import {
-  mealPlanContainsSelectedRecipeVersion,
-  toggleRecipeInMealPlan,
+  sharedMealCartContainsRecipeVersion,
+  toggleRecipeInSharedMealCart,
 } from "../domain/mealPlanSelection";
 import { getHouseholdSnapshot } from "../../../features/household/data/household";
 import { getSupabaseClient } from "../../../services/backend/supabaseClient";
@@ -385,6 +386,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
   const [showMore, setShowMore] = useState(false);
   const [activePlan, setActivePlan] = useState<MealPlanProjection | null>(null);
+  const [sharedCart, setSharedCart] = useState<SharedMealCartProjection | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [activeCook, setActiveCook] = useState<RecipeCookSession | null>(null);
   const [priorLearning, setPriorLearning] =
@@ -410,6 +412,13 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     setActivePlan(next);
     return next;
   }, [userId]);
+  const reloadSharedCart = useCallback(async () => {
+    const household = await getHouseholdSnapshot(getSupabaseClient());
+    if (!household.household) throw new Error("Set up your Household before starting a shared Plan.");
+    const next = await createMealPlanningRepository().getSharedCart(household.household.id);
+    setSharedCart(next);
+    return next;
+  }, []);
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -424,6 +433,11 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
           const latest = await createMealPlanningRepository().list();
           if (!cancelled) setActivePlan(getActiveMealPlan(latest));
           await mealPlanningCache.write(userId, latest);
+          const household = await getHouseholdSnapshot(getSupabaseClient());
+          if (household.household) {
+            const cart = await createMealPlanningRepository().getSharedCart(household.household.id);
+            if (!cancelled) setSharedCart(cart);
+          }
         } catch {
           // Keep the cached plan while offline.
         }
@@ -473,23 +487,18 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     setActionBusy(true);
     try {
       const repository = createMealPlanningRepository();
-      const result = await toggleRecipeInMealPlan({
-        plan: activePlan,
+      const household = await getHouseholdSnapshot(getSupabaseClient());
+      if (!household.household) throw new Error("Set up your Household before starting a shared Plan.");
+      const result = await toggleRecipeInSharedMealCart({
+        cart: sharedCart,
+        householdId: household.household.id,
         projection,
         servings,
         candidateId: Crypto.randomUUID(),
         repository,
-        reloadPlan: reloadActivePlan,
-        resolveHouseholdId: async () => {
-          const household = await getHouseholdSnapshot(getSupabaseClient());
-          if (!household.household)
-            throw new Error(
-              "Set up your Household before starting a shared Meal Plan.",
-            );
-          return household.household.id;
-        },
+        reloadCart: reloadSharedCart,
       });
-      setActivePlan(result.plan);
+      setSharedCart(result.cart);
     } catch (caught) {
       Alert.alert(
         "Meal Plan not updated",
@@ -550,8 +559,8 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
       message: exportRecipeMarkdown(projection),
     });
   };
-  const isInPlan = activePlan
-    ? mealPlanContainsSelectedRecipeVersion(activePlan, projection)
+  const isInPlan = sharedCart
+    ? sharedMealCartContainsRecipeVersion(sharedCart, projection)
     : false;
   const nextActions = deriveRecipeNextActions({
     activeCook: Boolean(activeCook),

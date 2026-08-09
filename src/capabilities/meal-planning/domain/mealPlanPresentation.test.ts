@@ -1,48 +1,25 @@
+import { getActiveMealPlan, getCommittedMealPlan } from './mealPlanPresentation';
 import type { MealPlanProjection } from '../data/mealPlanningRepository';
-import { getActiveMealPlanCount } from './mealPlanPresentation';
 
-function plan(
-  state: MealPlanProjection['state'],
-  candidates: number,
-  entries: number,
-): MealPlanProjection {
+function plan(id: string, state: MealPlanProjection['state'], updatedAt: string): MealPlanProjection {
   return {
-    id: `plan-${state}`,
-    householdId: 'household-1',
-    version: 1,
-    state,
-    horizon: { kind: 'next_shop', shopBy: null },
-    candidates: Array.from({ length: candidates }, (_, index) => ({
-      id: `candidate-${index}`,
-      kind: 'meal_note',
-      title: `Meal ${index + 1}`,
-      recipeSnapshot: null,
-    })),
-    entries: Array.from({ length: entries }, (_, index) => ({
-      id: `entry-${index}`,
-      candidateId: `candidate-${index}`,
-      title: `Meal ${index + 1}`,
-      servings: 4,
-      placementDate: null,
-      occasionId: null,
-      dinerPersonIds: [],
-    })),
-    occasions: [],
-    activeRound: null,
-    updatedAt: '2026-08-06T12:00:00.000Z',
+    id, householdId: 'household-1', version: 1, state, updatedAt,
+    horizon: { kind: 'open' }, candidates: [], entries: [], occasions: [], activeRound: null,
   };
 }
 
-describe('Meal Plan presentation', () => {
-  it('counts proposed meals until the plan is finalized', () => {
-    expect(getActiveMealPlanCount([plan('draft', 5, 0)])).toBe(5);
+describe('Meal Plan presentation selection', () => {
+  it('keeps the draft cart separate from the committed Next meals batch', () => {
+    const plans = [
+      plan('cart', 'draft', '2026-08-08T12:00:00.000Z'),
+      plan('committed', 'finalized', '2026-08-08T11:00:00.000Z'),
+    ];
+
+    expect(getActiveMealPlan(plans)?.id).toBe('cart');
+    expect(getCommittedMealPlan(plans)?.id).toBe('committed');
   });
 
-  it('counts decided meals after finalization', () => {
-    expect(getActiveMealPlanCount([plan('finalized', 5, 3)])).toBe(3);
-  });
-
-  it('does not present an archived plan as active', () => {
-    expect(getActiveMealPlanCount([plan('archived', 5, 3)])).toBe(0);
+  it('returns no committed batch when only cart work exists', () => {
+    expect(getCommittedMealPlan([plan('cart', 'draft', '2026-08-08T12:00:00.000Z')])).toBeNull();
   });
 });

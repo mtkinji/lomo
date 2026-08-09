@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Pressable, TextInput, View } from "react-native";
+import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
 import { colors } from "../../../theme";
 import { BottomDrawer, BottomDrawerScrollView } from "../../../ui/BottomDrawer";
@@ -12,6 +13,7 @@ import { FloatingControlSurface } from "../../../features/activities/FloatingCon
 import { FloatingDockActionButton } from "../../../features/activities/FloatingDockActionButton";
 import { INVENTORY_DOCK_BUTTON_SIZE_PX } from "../../../features/activities/InventoryDockAffordances";
 import { RecipeArtwork } from "../components/RecipeArtwork";
+import { OverlappingAvatarStack } from "../../../ui/OverlappingAvatarStack";
 import {
   DEFAULT_RECIPE_INVENTORY_FILTERS,
   STARTER_RECIPE_CATEGORIES,
@@ -21,6 +23,12 @@ import {
 } from "../data/starterRecipeCatalog";
 import { CUISINE_FAMILIES } from "../domain/cuisineFamilies";
 import { styles } from "./RecipeLibraryScreen.styles";
+import {
+  formatMealTiming,
+  type MealCommitment,
+} from "../../meal-planning/domain/mealCommitments";
+import type { MealPeriod, MealTimingIntent } from "../../meal-planning/domain/mealPlanContracts";
+import type { CommittedMealPreview, GroceryPlanAction } from "../domain/mealPlanAffordance";
 
 const RECIPE_CATEGORIES: readonly StarterRecipeMetadata["category"][] =
   STARTER_RECIPE_CATEGORIES;
@@ -384,58 +392,78 @@ export type MealPlanTrayItem = {
   candidateId: string;
   title: string;
   storageRef: string | null;
+  contributor?: { personId: string; displayName: string; avatarUrl: string | null };
+  supporters?: Array<{ personId: string; displayName: string; avatarUrl: string | null }>;
+  viewerReacted?: boolean;
+  canReact?: boolean;
+  canWithdraw?: boolean;
+  selected?: boolean;
 };
-
-const MEAL_PLAN_DRAWER_PEEK_HEIGHT = 124;
 
 export function MealPlanDrawer({
   visible,
   items,
+  committedMeals = [],
+  committedMealCount = committedMeals.length,
+  groceryAction,
   canEdit,
-  snapIndex,
-  onSnapIndexChange,
-  onSearch,
   onClose,
   onContinue,
   onRemove,
+  canSettle = false,
+  onReact,
+  onSettle,
+  onOpenGroceries,
 }: {
   visible: boolean;
   items: MealPlanTrayItem[];
+  committedMeals?: CommittedMealPreview[];
+  committedMealCount?: number;
+  groceryAction?: GroceryPlanAction | null;
   canEdit: boolean;
-  snapIndex: number;
-  onSnapIndexChange(index: number): void;
-  onSearch(): void;
   onClose(): void;
   onContinue(): void;
   onRemove(candidateId: string): void;
+  canSettle?: boolean;
+  onReact?(candidateId: string, reacted: boolean): void;
+  onSettle?(commitments: MealCommitment[]): void;
+  onOpenGroceries?(): void;
 }) {
+  const [phase, setPhase] = useState<"cart" | "choose" | "place">("cart");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [timingByCandidateId, setTimingByCandidateId] = useState<Record<string, MealTimingIntent>>({});
+  const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!visible) {
+      setPhase("cart");
+      setSelectedIds(new Set());
+      setTimingByCandidateId({});
+      setEditingCandidateId(null);
+    }
+  }, [visible]);
+  const selectedItems = useMemo(
+    () => items.filter((item) => selectedIds.has(item.candidateId)),
+    [items, selectedIds],
+  );
+  const setTiming = (candidateId: string, timing: MealTimingIntent) => {
+    setTimingByCandidateId((current) => ({ ...current, [candidateId]: timing }));
+  };
+  const startPlacement = () => {
+    setTimingByCandidateId(Object.fromEntries([...selectedIds].map((candidateId) => [candidateId, { kind: "flexible" }])));
+    setPhase("place");
+  };
   const count = items.length;
-  const mealLabel = count === 1 ? "1 meal" : `${count} meals`;
-  const visibleItems = items.slice(0, 4);
-  const overflowCount = Math.max(0, count - visibleItems.length);
+  const planLabel = [
+    committedMealCount === 1 ? "1 committed meal" : committedMealCount ? `${committedMealCount} committed meals` : null,
+    count === 1 ? "1 idea waiting" : count ? `${count} ideas waiting` : null,
+  ].filter(Boolean).join(", ") || "empty";
   return (
-    <>
-      {visible && snapIndex === 0 ? (
-        <View style={styles.planDrawerSearch}>
-          <FloatingDockActionButton
-            testID="meal-plan-drawer-search"
-            accessibilityLabel="Search meals"
-            accessibilityHint="Opens Search scoped to Meals"
-            icon="search"
-            isProminent
-            onPress={onSearch}
-            size={INVENTORY_DOCK_BUTTON_SIZE_PX}
-          />
-        </View>
-      ) : null}
-      <BottomDrawer
+    <BottomDrawer
         visible={visible}
         onClose={onClose}
-        snapPoints={[MEAL_PLAN_DRAWER_PEEK_HEIGHT, "88%"]}
-        snapIndex={snapIndex}
-        onSnapIndexChange={(index) => onSnapIndexChange(index)}
+        snapPoints={["88%"]}
+        snapIndex={0}
         dismissable={false}
-        hideBackdrop={snapIndex === 0}
         presentation="inline"
         enableContentPanningGesture
         contentExtendsIntoBottomSafeArea
@@ -444,50 +472,16 @@ export function MealPlanDrawer({
       >
         <View style={styles.planDrawerViewport}>
           <View style={styles.planDrawerHeader}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Review Meal Plan, ${mealLabel}`}
-              accessibilityHint={
-                snapIndex === 0 ? "Expands the Meal Plan drawer" : undefined
-              }
-              onPress={() => onSnapIndexChange(1)}
-              style={({ pressed }) => [
-                styles.planDrawerHeaderMain,
-                pressed && styles.pressed,
-              ]}
+            <View
+              accessible
+              accessibilityRole="header"
+              accessibilityLabel={`Meal Plan, ${planLabel}`}
+              style={styles.planDrawerHeaderMain}
             >
-              <View style={styles.planDrawerTitleRow}>
-                <Icon name="meal" size={16} color={colors.textPrimary} />
-                <Text variant="label">Plan</Text>
-                <Text variant="label" tone="secondary">
-                  {count}
-                </Text>
-              </View>
-              <View style={styles.planDrawerThumbnails}>
-                {visibleItems.map((item) => (
-                  <View
-                    key={item.id}
-                    testID="meal-plan-drawer-thumbnail"
-                    style={styles.planDrawerThumbnailFrame}
-                  >
-                    <RecipeArtwork
-                      storageRef={item.storageRef}
-                      accessibilityLabel={item.title}
-                      style={styles.planDrawerThumbnail}
-                    />
-                  </View>
-                ))}
-                {overflowCount ? (
-                  <Text
-                    variant="label"
-                    tone="secondary"
-                    style={styles.planDrawerOverflow}
-                  >
-                    +{overflowCount}
-                  </Text>
-                ) : null}
-              </View>
-            </Pressable>
+              <Icon name="meal" size={16} color={colors.textPrimary} />
+              <Text variant="label">Plan</Text>
+              {count ? <Text variant="label" tone="secondary">{count}</Text> : null}
+            </View>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Close Meal Plan"
@@ -504,58 +498,236 @@ export function MealPlanDrawer({
           <BottomDrawerScrollView
             contentContainerStyle={styles.planDrawerContent}
           >
+            {phase === "cart" && committedMeals.length ? (
+              <View style={styles.committedPlanSection}>
+                <View style={styles.committedPlanHeading}>
+                  <Heading variant="sm">Ready when you are</Heading>
+                  <Text tone="secondary">{committedMealCount} {committedMealCount === 1 ? "meal" : "meals"}</Text>
+                </View>
+                <View style={styles.committedMealList}>
+                  {committedMeals.map((meal) => (
+                    <View key={meal.id} style={styles.committedMealCard}>
+                      <RecipeArtwork storageRef={meal.storageRef} accessibilityLabel={meal.title} style={styles.committedMealArtwork} />
+                      <View style={styles.committedMealCopy}>
+                        <Text numberOfLines={2} style={styles.committedMealTitle}>{meal.title}</Text>
+                        <Text tone="secondary" numberOfLines={1}>{meal.timingLabel}</Text>
+                        {meal.detail ? <Text tone="secondary" numberOfLines={1}>{meal.detail}</Text> : null}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+                {groceryAction && onOpenGroceries ? (
+                  <Button variant="secondary" fullWidth onPress={onOpenGroceries}>{groceryAction.label}</Button>
+                ) : null}
+              </View>
+            ) : null}
+            {phase === "cart" && committedMeals.length && items.length ? (
+              <View style={styles.planIdeasHeading}>
+                <Text variant="label" tone="secondary">IDEAS WAITING</Text>
+                <Text tone="secondary">Keep adding, or choose another batch.</Text>
+              </View>
+            ) : null}
+            {phase === "place" ? (
+              <View style={styles.planDrawerPlacementIntro}>
+                <Heading variant="sm">Place any meals whose timing matters.</Heading>
+                <Text tone="secondary">Flexible meals are already ready to use.</Text>
+              </View>
+            ) : null}
             {items.length ? (
               <View style={styles.planDrawerList}>
-                {items.map((item) => (
-                  <View key={item.id} style={styles.planDrawerRow}>
-                    <View style={styles.planDrawerArtworkFrame}>
-                      <RecipeArtwork
-                        storageRef={item.storageRef}
-                        accessibilityLabel={item.title}
-                        style={styles.planDrawerArtwork}
-                      />
-                    </View>
-                    <Text style={styles.planDrawerTitle} numberOfLines={2}>
-                      {item.title}
-                    </Text>
-                    {canEdit ? (
-                      <IconButton
-                        accessibilityLabel={`Remove ${item.title} from Meal Plan`}
-                        variant="ghost"
-                        onPress={() => onRemove(item.candidateId)}
-                      >
-                        <Icon
-                          name="close"
-                          size={17}
-                          color={colors.textSecondary}
+                {(phase === "place" ? selectedItems : items).map((item) => (
+                  <View key={item.id} style={styles.planDrawerItem}>
+                    <Pressable
+                      disabled={phase === "cart"}
+                      accessibilityRole={phase === "choose" ? "checkbox" : "button"}
+                      accessibilityLabel={phase === "choose" ? `Use ${item.title}` : phase === "place" ? `Set timing for ${item.title}, ${formatMealTiming(timingByCandidateId[item.candidateId] ?? { kind: "flexible" })}` : undefined}
+                      accessibilityState={phase === "choose" ? { checked: selectedIds.has(item.candidateId) } : undefined}
+                      onPress={() => phase === "choose" ? setSelectedIds((current) => {
+                        const next = new Set(current);
+                        if (next.has(item.candidateId)) next.delete(item.candidateId); else next.add(item.candidateId);
+                        return next;
+                      }) : phase === "place" ? setEditingCandidateId((current) => current === item.candidateId ? null : item.candidateId) : undefined}
+                      style={({ pressed }) => [styles.planDrawerRow, pressed && styles.pressed]}
+                    >
+                      {phase === "choose" ? (
+                        <View style={[styles.planDrawerSelection, selectedIds.has(item.candidateId) && styles.planDrawerSelectionActive]}>
+                          {selectedIds.has(item.candidateId) ? <Icon name="check" size={14} color={colors.canvas} /> : null}
+                        </View>
+                      ) : null}
+                      <View style={styles.planDrawerArtworkFrame}>
+                        <RecipeArtwork
+                          storageRef={item.storageRef}
+                          accessibilityLabel={item.title}
+                          style={styles.planDrawerArtwork}
                         />
-                      </IconButton>
+                      </View>
+                      <View style={styles.planDrawerMealCopy}>
+                        <Text style={styles.planDrawerTitle} numberOfLines={2}>{item.title}</Text>
+                        {phase === "place" ? <Text tone="secondary">{formatMealTiming(timingByCandidateId[item.candidateId] ?? { kind: "flexible" })}</Text> : null}
+                        {phase !== "place" && item.contributor ? <Text tone="secondary">Added by {item.contributor.displayName}</Text> : null}
+                        {phase !== "place" && item.supporters?.length ? (
+                          <View style={styles.planDrawerSupporters}>
+                            <OverlappingAvatarStack avatars={item.supporters.map((person) => ({ id: person.personId, name: person.displayName, avatarUrl: person.avatarUrl }))} size={20} maxVisible={3} overlapPx={7} />
+                            <Text tone="secondary">{item.supporters.map((person) => person.displayName).join(", ")}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      {phase === "cart" && item.canReact && onReact ? (
+                        <Button
+                          size="sm"
+                          variant={item.viewerReacted ? "secondary" : "ghost"}
+                          accessibilityLabel={`${item.viewerReacted ? "Remove" : "Add"} Sounds good for ${item.title}`}
+                          onPress={() => onReact(item.candidateId, !item.viewerReacted)}
+                        >Sounds good</Button>
+                      ) : null}
+                      {phase === "cart" && canEdit && (item.canWithdraw ?? true) ? (
+                        <IconButton
+                          accessibilityLabel={`Remove ${item.title} from Meal Plan`}
+                          variant="ghost"
+                          onPress={() => onRemove(item.candidateId)}
+                        >
+                          <Icon name="close" size={17} color={colors.textSecondary} />
+                        </IconButton>
+                      ) : null}
+                    </Pressable>
+                    {phase === "place" && editingCandidateId === item.candidateId ? (
+                      <MealTimingEditor
+                        value={timingByCandidateId[item.candidateId] ?? { kind: "flexible" }}
+                        onChange={(timing) => setTiming(item.candidateId, timing)}
+                      />
                     ) : null}
                   </View>
                 ))}
               </View>
-            ) : (
+            ) : !committedMeals.length ? (
               <View style={styles.planDrawerEmpty}>
                 <Heading variant="sm">Choose what sounds good.</Heading>
                 <Text tone="secondary">
                   Tap + on any meal. Your choices will collect here.
                 </Text>
               </View>
-            )}
-            {!canEdit && items.length ? (
+            ) : null}
+            {!canEdit && items.length && !canSettle ? (
               <Text tone="secondary">
-                Family choices are underway. Finish reviewing them before
-                changing this plan.
+                This settled Plan is ready for Groceries.
               </Text>
             ) : null}
-            {items.length ? (
-              <Button fullWidth onPress={onContinue}>
-                Review Meal Plan
+            {items.length && phase === "choose" ? (
+              <Button
+                variant="primary"
+                fullWidth
+                disabled={selectedIds.size === 0}
+                style={selectedIds.size === 0 ? styles.planDrawerSettlementDisabled : undefined}
+                onPress={startPlacement}
+              >
+                Continue
               </Button>
+            ) : items.length && phase === "cart" && canSettle ? (
+              <Button variant="secondary" fullWidth onPress={() => { setPhase("choose"); setSelectedIds(new Set()); }}>
+                Choose next meals
+              </Button>
+            ) : phase === "place" ? (
+              <Button
+                variant="primary"
+                fullWidth
+                onPress={() => onSettle?.(selectedItems.map((item) => ({
+                  candidateId: item.candidateId,
+                  timing: timingByCandidateId[item.candidateId] ?? { kind: "flexible" },
+                })))}
+              >
+                Use these meals
+              </Button>
+            ) : items.length && !onSettle ? (
+              <Button variant="primary" fullWidth onPress={onContinue}>Review Meal Plan</Button>
             ) : null}
           </BottomDrawerScrollView>
         </View>
       </BottomDrawer>
-    </>
+  );
+}
+
+const MEAL_PERIODS: MealPeriod[] = ["breakfast", "lunch", "dinner", "snack"];
+
+function dateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function nextSevenDays(): Array<{ date: string; label: string; weekday: number }> {
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + index);
+    return {
+      date: dateKey(date),
+      label: new Intl.DateTimeFormat("en-US", { weekday: "short", day: "numeric" }).format(date),
+      weekday: date.getDay(),
+    };
+  });
+}
+
+function TimingChoice({ label, selected, onPress }: { label: string; selected: boolean; onPress(): void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.planTimingChoice, selected && styles.planTimingChoiceSelected, pressed && styles.pressed]}
+    >
+      <Text variant="label">{label}</Text>
+    </Pressable>
+  );
+}
+
+function MealTimingEditor({ value, onChange }: { value: MealTimingIntent; onChange(value: MealTimingIntent): void }) {
+  const days = useMemo(nextSevenDays, []);
+  const period = value.kind === "flexible" ? "dinner" : value.mealPeriod;
+  const setPeriod = (mealPeriod: MealPeriod) => {
+    if (value.kind === "occasion") onChange({ ...value, mealPeriod });
+    if (value.kind === "coverage") onChange({ ...value, mealPeriod });
+  };
+  const chooseCoverage = () => {
+    const weekdays = days.filter((day) => day.weekday > 0 && day.weekday < 6).map((day) => day.date);
+    onChange({ kind: "coverage", dates: weekdays.length ? weekdays : [days[0].date], mealPeriod: "lunch", label: "Weekday lunches" });
+  };
+  return (
+    <View style={styles.planTimingEditor} onStartShouldSetResponder={() => true}>
+      <View style={styles.planTimingChoices}>
+        <TimingChoice label="Flexible" selected={value.kind === "flexible"} onPress={() => onChange({ kind: "flexible" })} />
+        <TimingChoice label="One day" selected={value.kind === "occasion"} onPress={() => onChange({ kind: "occasion", date: days[0].date, mealPeriod: "dinner" })} />
+        <TimingChoice label="Several days" selected={value.kind === "coverage"} onPress={chooseCoverage} />
+      </View>
+      {value.kind === "occasion" ? (
+        <DateTimePicker
+          value={new Date(`${value.date}T12:00:00`)}
+          mode="date"
+          display="compact"
+          minimumDate={new Date(`${days[0].date}T00:00:00`)}
+          onChange={(_event: DateTimePickerEvent, date?: Date) => date && onChange({ ...value, date: dateKey(date) })}
+        />
+      ) : null}
+      {value.kind === "coverage" ? (
+        <>
+          <View style={styles.planTimingChoices}>
+            {days.map((day) => <TimingChoice key={day.date} label={day.label} selected={value.dates.includes(day.date)} onPress={() => onChange({ ...value, dates: value.dates.includes(day.date) ? value.dates.filter((date) => date !== day.date) : [...value.dates, day.date].sort() })} />)}
+          </View>
+          <TextInput
+            accessibilityLabel="Coverage name"
+            value={value.label}
+            onChangeText={(label) => onChange({ ...value, label })}
+            placeholder="What covers these meals?"
+            placeholderTextColor={colors.textSecondary}
+            style={styles.planTimingInput}
+          />
+        </>
+      ) : null}
+      {value.kind !== "flexible" ? (
+        <View style={styles.planTimingChoices}>
+          {MEAL_PERIODS.map((mealPeriod) => <TimingChoice key={mealPeriod} label={mealPeriod.charAt(0).toUpperCase() + mealPeriod.slice(1)} selected={period === mealPeriod} onPress={() => setPeriod(mealPeriod)} />)}
+        </View>
+      ) : null}
+    </View>
   );
 }

@@ -16,7 +16,8 @@ import { FoodRealityStrip } from '../components/FoodRealityStrip';
 import { createFoodStockRepository } from '../../groceries/data/foodStockRepository';
 import { createFoodCycleRepository } from '../../groceries/data/foodCycleRepository';
 import { TripTargetSheet } from '../components/TripTargetSheet';
-import { getActiveMealPlan } from '../domain/mealPlanPresentation';
+import { getActiveMealPlan, getCommittedMealPlan } from '../domain/mealPlanPresentation';
+import { formatMealTiming } from '../domain/mealCommitments';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'NextMeals'>;
 
@@ -41,18 +42,43 @@ function horizonLabel(plan: MealPlanProjection): string {
   return 'Open plan';
 }
 
-export function finalizedOccasionSummaries(plan: MealPlanProjection): Array<{ id: string; title: string; date: string | null; dishes: Array<{ id: string; label: string; recipeId: string | null }> }> {
-  return plan.occasions.map((occasion, index) => ({
-    id: occasion.id,
-    title: occasion.title?.trim() || `Meal ${index + 1}`,
-    date: occasion.placementDate,
-    dishes: occasion.dishes.map((dish) => ({
-      id: dish.id,
-      label: `${dish.title} · ${dish.dinerPersonIds.length} ${dish.dinerPersonIds.length === 1 ? 'person' : 'people'} · ${dish.servings ?? 'Flexible'} ${dish.servings === 1 ? 'serving' : 'servings'}`,
-      recipeId: typeof dish.recipeSnapshot?.recipeId === 'string' ? dish.recipeSnapshot.recipeId : null,
-    })),
-  }));
+export type FinalizedOccasionSummary = {
+  id: string;
+  section: 'dated' | 'coverage' | 'flexible';
+  title: string;
+  date: string | null;
+  dishes: Array<{ id: string; label: string; recipeId: string | null }>;
+};
+
+export function finalizedOccasionSummaries(plan: MealPlanProjection): FinalizedOccasionSummary[] {
+  const sectionOrder = { dated: 0, coverage: 1, flexible: 2 } as const;
+  return plan.occasions.map((occasion): FinalizedOccasionSummary => {
+    const timing = occasion.timing ?? (occasion.placementDate
+      ? { kind: 'occasion' as const, date: occasion.placementDate, mealPeriod: 'dinner' as const }
+      : { kind: 'flexible' as const });
+    return {
+      id: occasion.id,
+      section: timing.kind === 'occasion' ? 'dated' : timing.kind === 'coverage' ? 'coverage' : 'flexible',
+      title: formatMealTiming(timing),
+      date: occasion.placementDate,
+      dishes: occasion.dishes.map((dish) => ({
+        id: dish.id,
+        label: `${dish.title} · ${dish.dinerPersonIds.length} ${dish.dinerPersonIds.length === 1 ? 'person' : 'people'} · ${dish.servings ?? 'Flexible'} ${dish.servings === 1 ? 'serving' : 'servings'}`,
+        recipeId: typeof dish.recipeSnapshot?.recipeId === 'string' ? dish.recipeSnapshot.recipeId : null,
+      })),
+    };
+  }).sort((left, right) => {
+    const section = sectionOrder[left.section] - sectionOrder[right.section];
+    if (section) return section;
+    return (left.date ?? '').localeCompare(right.date ?? '');
+  });
 }
+
+const SECTION_LABELS: Record<FinalizedOccasionSummary['section'], string> = {
+  dated: 'PLACED',
+  coverage: 'THIS HORIZON',
+  flexible: 'FLEXIBLE',
+};
 
 export function NextMealsScreen({ navigation }: Props) {
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
@@ -74,7 +100,7 @@ export function NextMealsScreen({ navigation }: Props) {
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void createFoodStockRepository().list().then((items) => setStockCount(items.filter((item) => item.state !== 'depleted').length)).catch(() => undefined); }, []);
   useEffect(()=>{void createFoodCycleRepository().current().then((constraint)=>setTripTargetCents(constraint?.targetCents??null)).catch(()=>undefined);},[]);
-  const plan = getActiveMealPlan(plans);
+  const plan = getCommittedMealPlan(plans) ?? getActiveMealPlan(plans);
   const nextMove = plan ? deriveMealPlanNextMove(plan) : null;
   const continuePlan = () => {
     if (!plan || !nextMove) {
@@ -98,18 +124,21 @@ export function NextMealsScreen({ navigation }: Props) {
         {offline ? <Text tone="secondary">Showing the saved plan. Reconnect to respond or finalize.</Text> : null}
         {loading && !plan ? <Text tone="secondary">Loading your meal plan…</Text> : null}
         {!loading && !plan ? (
-          <View style={styles.empty}><Heading variant="md">Choose what sounds good next.</Heading><Text tone="secondary">Add a few meals first. The plan will take shape as you choose.</Text><Button onPress={() => navigation.navigate('RecipeLibrary')}>Choose meals</Button></View>
+          <View style={styles.empty}><Heading variant="md">Choose what sounds good next.</Heading><Text tone="secondary">Add a few meals first. The plan will take shape as you choose.</Text><Button variant="primary" onPress={() => navigation.navigate('RecipeLibrary')}>Choose meals</Button></View>
         ) : null}
         {plan ? (
           <View style={styles.planCard}>
             <Text variant="label" tone="secondary">{horizonLabel(plan).toUpperCase()}</Text>
             <Heading variant="lg">{plan.state === 'finalized' ? 'Meals decided' : 'What sounds good next?'}</Heading>
             <View style={styles.meals}>{plan.state === 'finalized'
-              ? finalizedOccasionSummaries(plan).map((occasion) => <View key={occasion.id} style={styles.occasion}><Text variant="label">{occasion.title}{occasion.date ? ` · ${occasion.date}` : ''}</Text>{occasion.dishes.map((dish) => dish.recipeId ? <Pressable key={dish.id} accessibilityRole="button" accessibilityLabel={`Open ${dish.label.split(' · ')[0]} recipe`} onPress={() => navigation.navigate('RecipeHome', { recipeId: dish.recipeId! })} style={({ pressed }) => [styles.dishLink, pressed && styles.pressed]}><Text tone="secondary" style={styles.dishLabel}>{dish.label}</Text><Icon name="chevronRight" size={17} color={colors.textSecondary} /></Pressable> : <Text key={dish.id} tone="secondary">{dish.label}</Text>)}</View>)
+              ? (Object.keys(SECTION_LABELS) as FinalizedOccasionSummary['section'][]).map((section) => {
+                const occasions = finalizedOccasionSummaries(plan).filter((occasion) => occasion.section === section);
+                return occasions.length ? <View key={section} style={styles.section}><Text variant="label" tone="secondary">{SECTION_LABELS[section]}</Text>{occasions.map((occasion) => <View key={occasion.id} style={styles.occasion}><Text variant="label">{occasion.title}</Text>{occasion.dishes.map((dish) => dish.recipeId ? <Pressable key={dish.id} accessibilityRole="button" accessibilityLabel={`Open ${dish.label.split(' · ')[0]} recipe`} onPress={() => navigation.navigate('RecipeHome', { recipeId: dish.recipeId! })} style={({ pressed }) => [styles.dishLink, pressed && styles.pressed]}><Text tone="secondary" style={styles.dishLabel}>{dish.label}</Text><Icon name="chevronRight" size={17} color={colors.textSecondary} /></Pressable> : <Text key={dish.id} tone="secondary">{dish.label}</Text>)}</View>)}</View> : null;
+              })
               : plan.candidates.map((item) => <Text key={item.id}>• {item.title}</Text>)}</View>
             <View style={styles.actions}>
               {plan.state === 'collecting_choices' ? <Text tone="secondary">Family choices are open.</Text> : null}
-              {nextMove ? <Button onPress={continuePlan}>{nextMove.label}</Button> : null}
+              {nextMove ? <Button variant="primary" onPress={continuePlan}>{nextMove.label}</Button> : null}
               {plan.state === 'draft' && plan.candidates.length ? <Button variant="outline" onPress={() => navigation.navigate('MealChoiceInvite', { planId: plan.id })}>Ask the family</Button> : null}
               {plan.state === 'draft' ? <Button variant="ghost" onPress={() => navigation.navigate('RecipeLibrary')}>Keep choosing</Button> : null}
               {plan.state === 'finalized' ? <Button variant="outline" onPress={() => { void createMealPlanningRepository().revise(plan.id, plan.version).then(load); }}>Change meals</Button> : null}
@@ -124,5 +153,5 @@ export function NextMealsScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingHorizontal: spacing.md, paddingBottom: spacing.xl, gap: spacing.md }, empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md },
-  planCard: { padding: spacing.lg, gap: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.card, borderRadius: 18 }, meals: { gap: spacing.sm }, occasion: { gap: spacing.xs }, dishLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, dishLabel: { flex: 1 }, pressed: { opacity: 0.6 }, actions: { gap: spacing.sm },
+  planCard: { padding: spacing.lg, gap: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.card, borderRadius: 18 }, meals: { gap: spacing.md }, section: { gap: spacing.sm }, occasion: { gap: spacing.xs }, dishLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, dishLabel: { flex: 1 }, pressed: { opacity: 0.6 }, actions: { gap: spacing.sm },
 });

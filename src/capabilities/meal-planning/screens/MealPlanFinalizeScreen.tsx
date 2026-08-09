@@ -18,6 +18,7 @@ import { resolveSuggestedMealServings } from '../../recipes/domain/mealPreferenc
 import { MealOccasionDrawer } from '../components/MealOccasionDrawer';
 import { buildMealPlanningReminderActivity, MealPlanningReminderOfferDrawer } from '../components/MealPlanningReminderOfferDrawer';
 import { createMealPlanningRepository, type MealPlanProjection } from '../data/mealPlanningRepository';
+import type { MealTimingIntent } from '../domain/mealPlanContracts';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'MealPlanFinalize'>;
 
@@ -33,6 +34,7 @@ export type EditableMealOccasion = {
   id: string;
   title: string | null;
   placementDate: string | null;
+  timing: MealTimingIntent;
   notEatingPersonIds: string[];
   dishes: EditableMealDish[];
 };
@@ -70,6 +72,7 @@ export function buildDefaultMealOccasions(
       id: makeId(),
       title: null,
       placementDate: null,
+      timing: { kind: 'flexible' },
       notEatingPersonIds: snapshot.excludedDinerResolution === 'not_eating' ? excluded : [],
       dishes: [{
         id: makeId(),

@@ -4,6 +4,10 @@ export function getActiveMealPlan(plans: MealPlanProjection[]): MealPlanProjecti
   return plans.find((plan) => plan.state !== 'archived') ?? null;
 }
 
+export function getCommittedMealPlan(plans: MealPlanProjection[]): MealPlanProjection | null {
+  return plans.find((plan) => plan.state === 'finalized') ?? null;
+}
+
 export function getActiveMealPlanCount(plans: MealPlanProjection[]): number {
   const plan = getActiveMealPlan(plans);
   if (!plan) return 0;

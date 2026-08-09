@@ -54,6 +54,7 @@ describe('linkingConfig', () => {
     ['food/recipe/recipe-1', 'RecipeCooking', { recipeId: 'recipe-1' }],
     ['food/recipe/recipe-1/edit', 'RecipeEdit', { recipeId: 'recipe-1' }],
     ['food/import', 'RecipeImportReview', undefined],
+    ['food/groceries/list-1/smiths', 'KrogerCart', { listId: 'list-1' }],
   ] as const)('resolves Food path %s', (path, routeName, params) => {
     const state = getStateFromPath(path, linkingConfig);
     const leaf = getLeafRoute(state);

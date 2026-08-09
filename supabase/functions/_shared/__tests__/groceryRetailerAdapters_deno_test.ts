@@ -14,11 +14,29 @@ const items = [
 Deno.test('builds a conservative Instacart list-link payload without choosing products', () => {
   assertEquals(buildInstacartListPayload('Kwilt groceries', items), {
     title: 'Kwilt groceries',
+    link_type: 'shopping_list',
+    expires_in: 30,
     line_items: [
-      { name: 'whole milk', quantity: 1, unit: 'gallon' },
-      { name: 'apples', quantity: 4, unit: 'each', instructions: 'Honeycrisp if available; Need 4–6 each' },
+      { name: 'whole milk', line_item_measurements: [{ quantity: 1, unit: 'gallon' }] },
+      {
+        name: 'apples',
+        display_text: 'apples · Honeycrisp if available · Need 4–6 each',
+        line_item_measurements: [{ quantity: 4, unit: 'each' }],
+      },
     ],
   });
+});
+
+Deno.test('normalizes Kwilt units to supported Instacart measurements', () => {
+  assertEquals(buildInstacartListPayload('List', [
+    { concept: 'eggs', quantityMin: 6, quantityMax: null, unit: 'count', note: null },
+    { concept: 'garlic', quantityMin: 2, quantityMax: null, unit: 'clove', note: null },
+    { concept: 'olive oil', quantityMin: 30, quantityMax: null, unit: 'ml', note: null },
+  ]).line_items, [
+    { name: 'eggs', line_item_measurements: [{ quantity: 6, unit: 'each' }] },
+    { name: 'garlic', display_text: '2 clove garlic' },
+    { name: 'olive oil', line_item_measurements: [{ quantity: 30, unit: 'milliliter' }] },
+  ]);
 });
 
 Deno.test('accepts only an https product link and captures provider request id', () => {
@@ -49,10 +67,20 @@ Deno.test('maps rate limit, provider failure, malformed response, and timeout to
 
 Deno.test('sends a server credential and returns the reviewed-product link', async () => {
   let authorization = '';
+  let sentPayload: unknown = null;
+  const before = Date.now();
   const result = await createInstacartListLink({
     enabled: true, apiKey: 'server-secret', payload: buildInstacartListPayload('List', items),
-    fetcher: (_url, init) => { authorization = new Headers(init?.headers).get('authorization') ?? ''; return Promise.resolve(Response.json({ products_link_url: 'https://www.instacart.com/store/recipes/abc' })); },
+    fetcher: (_url, init) => {
+      authorization = new Headers(init?.headers).get('authorization') ?? '';
+      sentPayload = JSON.parse(String(init?.body));
+      return Promise.resolve(Response.json({ products_link_url: 'https://www.instacart.com/store/recipes/abc' }));
+    },
   });
   assertEquals(authorization, 'Bearer server-secret');
+  assertEquals(sentPayload, buildInstacartListPayload('List', items));
   assertEquals(result.url, 'https://www.instacart.com/store/recipes/abc');
+  const expiresAt = Date.parse(result.expiresAt);
+  assertEquals(expiresAt >= before + 29 * 24 * 60 * 60 * 1000, true);
+  assertEquals(expiresAt <= before + 31 * 24 * 60 * 60 * 1000, true);
 });

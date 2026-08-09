@@ -17,6 +17,7 @@ import { GroceryListScreen } from '../../capabilities/groceries/screens/GroceryL
 import { AlreadyHaveReviewScreen } from '../../capabilities/groceries/screens/AlreadyHaveReviewScreen';
 import { GroceryItemEditScreen } from '../../capabilities/groceries/screens/GroceryItemEditScreen';
 import { GroceryHandoffScreen } from '../../capabilities/groceries/screens/GroceryHandoffScreen';
+import { KrogerCartScreen } from '../../capabilities/groceries/screens/KrogerCartScreen';
 import { GrocerySavingsScreen } from '../../capabilities/groceries/screens/GrocerySavingsScreen';
 import { FoodStockReviewScreen } from '../../capabilities/groceries/screens/FoodStockReviewScreen';
 import { FoodScenarioReviewScreen } from '../../capabilities/groceries/screens/FoodScenarioReviewScreen';
@@ -52,6 +53,7 @@ export type FoodStackParamList = {
   AlreadyHaveReview: { listId: string };
   GroceryItemEdit: { listId: string; itemId: string };
   GroceryHandoff: { listId: string };
+  KrogerCart: { listId: string };
   GrocerySavings: { listId: string };
   FoodStockReview: { concepts?: string[] } | undefined;
   FoodScenarioReview: { scenarioId: string };
@@ -97,6 +99,7 @@ export function FoodNavigator() {
       <Stack.Screen name="AlreadyHaveReview" component={AlreadyHaveReviewScreen} />
       <Stack.Screen name="GroceryItemEdit" component={GroceryItemEditScreen} />
       <Stack.Screen name="GroceryHandoff" component={GroceryHandoffScreen} />
+      <Stack.Screen name="KrogerCart" component={KrogerCartScreen} />
       <Stack.Screen name="GrocerySavings" component={GrocerySavingsScreen} />
       <Stack.Screen name="FoodStockReview" component={FoodStockReviewScreen} />
       <Stack.Screen name="FoodScenarioReview" component={FoodScenarioReviewScreen} />

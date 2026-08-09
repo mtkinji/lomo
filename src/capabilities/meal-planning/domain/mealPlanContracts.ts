@@ -24,6 +24,13 @@ export type MealPlanHorizon =
   | { kind: 'date_range'; startsOn: string; endsOn: string }
   | { kind: 'open' };
 
+export type MealPeriod = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export type MealTimingIntent =
+  | { kind: 'flexible' }
+  | { kind: 'occasion'; date: string; mealPeriod: MealPeriod }
+  | { kind: 'coverage'; dates: string[]; mealPeriod: MealPeriod; label: string };
+
 export type MealCandidate = {
   id: string;
   kind: 'recipe' | 'meal_note';
@@ -58,6 +65,7 @@ export type MealPlanOccasion = {
   id: string;
   title: string | null;
   placementDate: string | null;
+  timing: MealTimingIntent;
   dishes: MealPlanDish[];
   notEatingPersonIds?: string[];
 };
@@ -174,11 +182,15 @@ function validateOccasions(
     }
     occasionIds.add(occasion.id);
     if (occasion.placementDate) assertDate(occasion.placementDate, 'placementDate');
+    if (!occasion.timing) throw new MealPlanContractError('meal_plan.timing_invalid', 'Meal timing is required.');
     if (!occasion.dishes.length) {
       throw new MealPlanContractError('meal_plan.occasion_invalid', 'A finalized meal occasion needs at least one dish.');
     }
     return {
       ...occasion,
+      timing: occasion.timing.kind === 'coverage'
+        ? { ...occasion.timing, dates: [...occasion.timing.dates] }
+        : { ...occasion.timing },
       notEatingPersonIds: [...new Set(occasion.notEatingPersonIds ?? [])],
       dishes: occasion.dishes.map((dish) => {
         const candidate = candidateById.get(dish.candidateId);
@@ -238,6 +250,9 @@ export function parseMealPlan(value: MealPlan): MealPlan {
       id: entry.occasionId ?? `${value.id}:occasion:${entry.id}`,
       title: null,
       placementDate: entry.placementDate,
+      timing: entry.placementDate
+        ? { kind: 'occasion', date: entry.placementDate, mealPeriod: 'dinner' }
+        : { kind: 'flexible' },
       dishes: [{
         id: entry.id,
         candidateId: entry.candidateId,
@@ -273,6 +288,7 @@ export function finalizeMealPlan(
       id: string;
       title: string | null;
       placementDate: string | null;
+      timing: MealTimingIntent;
       dishes: Array<{ id: string; candidateId: string; dinerPersonIds: string[]; servings: number | null }>;
       notEatingPersonIds?: string[];
     }>;
@@ -316,6 +332,9 @@ export function finalizeMealPlan(
       id: `${plan.id}:occasion:${index + 1}`,
       title: null,
       placementDate: selection.placementDate,
+      timing: selection.placementDate
+        ? { kind: 'occasion' as const, date: selection.placementDate, mealPeriod: 'dinner' as const }
+        : { kind: 'flexible' as const },
       dishes: [{
         id: `${plan.id}:entry:${index + 1}`,
         candidateId: selection.candidateId,

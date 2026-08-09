@@ -14,7 +14,7 @@ export type GroceryProviderCapabilities = {
 
 export const providerCapabilities: Record<GroceryProviderId, GroceryProviderCapabilities> = {
   instacart: { stores: true, productMatch: 'gated', quote: false, offers: false, couponActivation: false, cartAdd: false, handoff: true, orderEvidence: false },
-  kroger: { stores: true, productMatch: true, quote: true, offers: true, couponActivation: false, cartAdd: 'gated', handoff: false, orderEvidence: false },
+  kroger: { stores: true, productMatch: true, quote: true, offers: true, couponActivation: false, cartAdd: true, handoff: true, orderEvidence: false },
 };
 
 export type ProviderEvidence = {

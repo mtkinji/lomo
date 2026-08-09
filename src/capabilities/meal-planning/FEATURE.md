@@ -15,11 +15,14 @@ serves:
   - jtbd-trust-this-app-with-my-life
 briefs:
   - household-food-loop
+  - shared-meal-cart
+  - progressive-meal-commitment
 status: draft
-last_reviewed: 2026-08-05
+last_reviewed: 2026-08-08
 ---
 
 # Meal Planning
 
-Owns flexible planning horizons, immutable Recipe candidates, bounded family
-choice rounds, participant responses, organizer finalization, and revisions.
+Owns the household-private shared meal cart, flexible planning horizons,
+immutable Recipe candidates, named positive support, organizer settlement,
+progressive timing, historical choice rounds, and revisions.
