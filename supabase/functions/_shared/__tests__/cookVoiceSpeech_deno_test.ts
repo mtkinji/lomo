@@ -1,6 +1,7 @@
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import {
   parseCookVoiceSpeechBody,
+  resolveCookVoiceSpeechConfig,
   sanitizeCookVoiceSpeechText,
 } from '../cookVoiceSpeech.ts';
 
@@ -22,4 +23,15 @@ Deno.test('rejects missing and oversized spoken responses', () => {
 
 Deno.test('removes control characters before sending text to speech', () => {
   assertEquals(sanitizeCookVoiceSpeechText('Next\u0000 step\t now'), 'Next step now');
+});
+
+Deno.test('uses Marin as the shared natural Kwilt voice', () => {
+  assertEquals(resolveCookVoiceSpeechConfig(undefined, undefined), {
+    model: 'tts-1-hd',
+    voice: 'marin',
+  });
+  assertEquals(resolveCookVoiceSpeechConfig(' tts-1 ', ' cedar '), {
+    model: 'tts-1',
+    voice: 'cedar',
+  });
 });

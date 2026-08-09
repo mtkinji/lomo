@@ -191,9 +191,12 @@ export type AgentWorkbenchSnapshot = {
     state: 'ready' | 'working' | 'complete';
     attachments: AgentWorkbenchAttachment[];
     voice: {
-      state: 'idle' | 'recording' | 'transcribing' | 'unsupported' | 'error';
+      state: 'idle' | 'recording' | 'transcribing' | 'connecting' | 'listening' | 'thinking' |
+        'speaking' | 'interrupted' | 'recovering' | 'unsupported' | 'error';
       elapsedSeconds: number;
       levels?: number[];
+      provisionalTranscript?: string;
+      finalizedUtterance?: { id: string; text: string };
       message?: string;
     };
   };
@@ -208,6 +211,8 @@ export type SupportedAgentWorkbenchCommand =
   | { type: 'attachment.remove'; attachmentId: string }
   | { type: 'voice.toggle'; prompt?: undefined; selectionStart?: undefined; selectionEnd?: undefined }
   | { type: 'voice.toggle'; prompt: string; selectionStart: number; selectionEnd: number }
+  | { type: 'conversation.start' }
+  | { type: 'conversation.stop' }
   | { type: 'run.send'; prompt: string }
   | { type: 'run.stop'; runId: string }
   | { type: 'run.steer'; runId: string; prompt: string }
@@ -318,6 +323,9 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
             selectionStart: value.selectionStart, selectionEnd: value.selectionEnd,
           }
         : null;
+    case 'conversation.start':
+    case 'conversation.stop':
+      return { type: value.type };
     case 'context.add':
       return { type: 'context.add' };
     case 'timeline.jump.latest':

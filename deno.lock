@@ -55,6 +55,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@config-plugins/react-native-webrtc@14",
         "npm:@expo-google-fonts/inter@~0.4.2",
         "npm:@expo-google-fonts/urbanist@~0.4.2",
         "npm:@gorhom/bottom-sheet@^5.2.14",
@@ -141,6 +142,7 @@
         "npm:react-native-svg@15.15.3",
         "npm:react-native-url-polyfill@3",
         "npm:react-native-web@0.21.2",
+        "npm:react-native-webrtc@^124.0.8",
         "npm:react-native-webview@13.16.0",
         "npm:react-native-worklets@0.7.4",
         "npm:react-native@0.83.10",

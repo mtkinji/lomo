@@ -9,7 +9,7 @@ const widgetsEnabled = (process.env.KWILT_ENABLE_WIDGETS ?? '').trim() === '1';
 const screenTimeEnabled = (process.env.KWILT_ENABLE_SCREEN_TIME ?? '').trim() === '1';
 const appGroupId = 'group.com.andrewwatanabe.kwilt';
 const microphoneUsageDescription =
-  'Kwilt uses the microphone for voice input in Chat and audio notes you choose to record.';
+  'Kwilt uses the microphone when you choose voice input or conversation mode in Chat, and for audio notes you choose to record.';
 const screenTimeEntitlements = {
   'com.apple.developer.family-controls': true,
   'com.apple.security.application-groups': [appGroupId],
@@ -245,6 +245,7 @@ const config = {
     favicon: './assets/favicon.png',
   },
   plugins: [
+    '@config-plugins/react-native-webrtc',
     'expo-asset',
     'expo-background-task',
     'expo-web-browser',
