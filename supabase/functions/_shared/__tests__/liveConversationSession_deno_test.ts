@@ -19,9 +19,9 @@ Deno.test('OpenAI session uses dedicated live transcription so Chat remains auth
 });
 
 Deno.test('ephemeral response exposes only the bounded client credential', () => {
-  const secret = extractEphemeralClientSecret({ client_secret: { value: 'ek_test_123456789', expires_at: 123 }, model: 'ignored' });
+  const secret = extractEphemeralClientSecret({ value: 'ek_test_123456789', expires_at: 123, session: { type: 'transcription' } });
   if (secret?.value !== 'ek_test_123456789' || secret.expiresAt !== 123) throw new Error('secret not extracted');
-  if (extractEphemeralClientSecret({ client_secret: { value: 'short' } })) throw new Error('short secret accepted');
+  if (extractEphemeralClientSecret({ value: 'short' })) throw new Error('short secret accepted');
 });
 
 Deno.test('safety identifier is stable and does not expose the user id', async () => {
