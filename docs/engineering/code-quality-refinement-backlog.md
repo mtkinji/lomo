@@ -147,8 +147,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: submission, analytics, draft/nudge lifecycle updates, feed refresh, toast, error reporting, and busy cleanup remain coupled inside the screen callback.
   - Result: `goalCheckinDeliveryController.ts` now owns delivery ordering, error normalization, success/failure routing, and guaranteed busy cleanup through explicit dependencies, with focused sequence tests.
 
-- [ ] Extract Goal pending check-in lifecycle commands
+- [x] Extract Goal pending check-in lifecycle commands
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: skip, item removal, and approval dismissal each pair analytics with draft-store mutations in adjacent screen callbacks.
-  - Ideal test: pin analytics payloads and store commands for skip, remove-item, and dismiss actions.
-  - Risk: medium
+  - Result: `goalCheckinLifecycleCommands.ts` now owns missing-goal guards and analytics/store ordering for skip, remove-item, and dismiss actions, with runtime wiring isolated from the screen.
+
+- [ ] Extract Goal target-date mutations
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: offset date math, end-of-day normalization, quality-state transitions, and update timestamps are embedded in screen callbacks.
+  - Ideal test: pin fixed-reference offsets, end-of-day time, metrics/no-metrics quality state, and clear behavior.
+  - Risk: low

@@ -181,6 +181,7 @@ import {
 import { buildGoalCheckinPartnerPresentation } from './goalCheckinPartnerPresentation';
 import { deliverGoalCheckin } from './goalCheckinDeliveryController';
 import { createGoalCheckinDeliveryDependencies } from './goalCheckinDeliveryRuntime';
+import { useGoalCheckinLifecycleController } from './goalCheckinLifecycleRuntime';
 import { selectGoalRouteCheckinApprovalAction } from './goalRouteCheckinApprovalDecision';
 import { selectGoalPartnerPromptTrigger } from './goalPartnerPromptDecision';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
@@ -969,31 +970,16 @@ export function GoalDetailScreen() {
     [capture, goalId, pendingDraft]
   );
 
-  const handleSkipPendingDraft = useCallback(() => {
-    if (!goalId) return;
-    capture(AnalyticsEvent.CheckinDraftSkipped, {
-      goalId,
-      itemCount: pendingDraft?.items.length ?? 0,
-    });
-    useCheckinDraftStore.getState().markSkipped(goalId);
-  }, [capture, goalId, pendingDraft]);
-
-  const handleRemovePendingDraftItem = useCallback(
-    (itemId: string) => {
-      if (!goalId) return;
-      capture(AnalyticsEvent.CheckinDraftItemRemoved, { goalId, itemId });
-      useCheckinDraftStore.getState().removeItem({ goalId, itemId });
-    },
-    [capture, goalId]
-  );
-
-  const handleApprovalSheetDismiss = useCallback(() => {
-    setCheckinApprovalSheetVisible(false);
-    if (goalId) {
-      useCheckinDraftStore.getState().markDismissed(goalId);
-      capture(AnalyticsEvent.CheckinDraftDismissed, { goalId });
-    }
-  }, [capture, goalId]);
+  const {
+    handleSkipPendingDraft,
+    handleRemovePendingDraftItem,
+    handleApprovalSheetDismiss,
+  } = useGoalCheckinLifecycleController({
+    capture,
+    goalId,
+    itemCount: pendingDraft?.items.length ?? 0,
+    setApprovalVisible: setCheckinApprovalSheetVisible,
+  });
 
   const handleApprovalSheetSend = useCallback(
     async (text: string) => {
