@@ -15,8 +15,9 @@ describe('Kroger provider', () => {
   });
 
   it('normalizes Smiths locations without exposing provider response details', () => {
-    expect(normalizeKrogerLocations({ data: [{ locationId: '70600123', name: 'Smiths', chain: 'SMITHS', address: { addressLine1: '689 N Redwood Rd', city: 'Saratoga Springs', state: 'UT', zipCode: '84045' } }] })).toEqual([{
+    expect(normalizeKrogerLocations({ data: [{ locationId: '70600123', name: 'Smiths', chain: 'SMITHS', geolocation: { latitude: 40.34, longitude: -111.91 }, address: { addressLine1: '689 N Redwood Rd', city: 'Saratoga Springs', state: 'UT', zipCode: '84045' } }] })).toEqual([{
       id: '70600123', name: 'Smiths', banner: "Smith's", address: '689 N Redwood Rd · Saratoga Springs, UT 84045',
+      latitude: 40.34, longitude: -111.91,
     }]);
   });
 

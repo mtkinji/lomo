@@ -17,6 +17,7 @@ import {
 type FloatingDockActionButtonProps = {
   accessibilityLabel: string;
   accessibilityHint: string;
+  disabled?: boolean;
   icon: IconName;
   isProminent: boolean;
   onPress: () => void;
@@ -32,6 +33,7 @@ type FloatingDockActionButtonProps = {
 export function FloatingDockActionButton({
   accessibilityLabel,
   accessibilityHint,
+  disabled = false,
   icon,
   isProminent,
   onPress,
@@ -44,9 +46,10 @@ export function FloatingDockActionButton({
   iconTestID,
 }: FloatingDockActionButtonProps) {
   const handlePress = React.useCallback(() => {
+    if (disabled) return;
     void HapticsService.trigger('canvas.selection');
     onPress();
-  }, [onPress]);
+  }, [disabled, onPress]);
 
   return (
     <Pressable
@@ -54,11 +57,14 @@ export function FloatingDockActionButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={handlePress}
       style={({ pressed }) => [
         styles.button,
         { width: size, height: size },
         style,
+        disabled ? styles.buttonDisabled : null,
         pressed ? styles.buttonPressed : null,
       ]}
     >
@@ -87,6 +93,7 @@ const styles = StyleSheet.create({
     opacity: 0.72,
     transform: [{ scale: 0.97 }],
   },
+  buttonDisabled: { opacity: 0.45 },
   surface: {
     height: '100%',
   },

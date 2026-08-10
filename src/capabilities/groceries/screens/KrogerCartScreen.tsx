@@ -5,14 +5,22 @@ import { openBrowserAsync } from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
+import { LocationPermissionService } from '../../../services/LocationPermissionService';
+import {
+  geocodeStoreSearchBestEffort,
+  getCurrentStoreSearchContextBestEffort,
+  hydrateStoreCoordinatesBestEffort,
+} from '../../../services/location/currentLocation';
+import { useAppStore } from '../../../store/useAppStore';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
-import { Input } from '../../../ui/Input';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { ButtonLabel, Heading, Text } from '../../../ui/Typography';
+import { KrogerStoreFinder } from '../components/KrogerStoreFinder';
 import { createGroceryRepository, type GroceryProjection } from '../data/groceryRepository';
+import { preferredGroceryStore } from '../data/preferredGroceryStore';
 import {
   createKrogerConnectionRepository,
   type KrogerConnectionStatus,
@@ -108,13 +116,19 @@ function ReplacementChoice({
 
 export function KrogerCartScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const repository = useMemo(() => createKrogerConnectionRepository(), []);
   const [list, setList] = useState<GroceryProjection | null>(null);
   const [status, setStatus] = useState<KrogerConnectionStatus | null>(null);
-  const [zip, setZip] = useState('84045');
+  const [zip, setZip] = useState('');
   const [locations, setLocations] = useState<KrogerLocation[]>([]);
+  const [preferredLocation, setPreferredLocation] = useState<KrogerLocation | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<KrogerLocation | null>(null);
   const [choosingStore, setChoosingStore] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [storeSearchMessage, setStoreSearchMessage] = useState<string | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [showsUserLocation, setShowsUserLocation] = useState(false);
   const [matches, setMatches] = useState<KrogerMatch[] | null>(null);
   const [selected, setSelected] = useState<Selection>({});
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -124,25 +138,55 @@ export function KrogerCartScreen({ navigation, route }: Props) {
   const [success, setSuccess] = useState<Success | null>(null);
 
   useEffect(() => {
-    void Promise.all([createGroceryRepository().list(), repository.status()])
-      .then(async ([lists, next]) => {
+    void Promise.all([
+      createGroceryRepository().list(),
+      repository.status(),
+      preferredGroceryStore.read(userId),
+    ])
+      .then(async ([lists, next, preferred]) => {
         const nextList = lists.find((row) => row.id === route.params.listId) ?? null;
         setList(nextList);
         setStatus(next);
-        if (next.connection?.location) {
-          const location = { ...next.connection.location, banner: next.connection.retailerLabel };
+        setPreferredLocation(preferred);
+        const remembered = preferred ?? (next.connection?.location
+          ? {
+              ...next.connection.location,
+              banner: next.connection.retailerLabel,
+              latitude: null,
+              longitude: null,
+            }
+          : null);
+        if (remembered) {
+          const location = remembered;
           setSelectedLocation(location);
           if (nextList?.status === 'ready') {
             const result = await repository.prepareMatches(nextList.id, nextList.revision, location);
             setMatches(result.matches);
             setSelected(createDraftCart(result.matches));
           }
+          return;
+        }
+
+        const permission = await LocationPermissionService.syncOsPermissionStatus();
+        if (permission === 'authorized' || permission === 'foregroundOnly') {
+          const context = await getCurrentStoreSearchContextBestEffort();
+          if (context) {
+            setShowsUserLocation(true);
+            setMapCenter(context);
+            setZip(context.postalCode);
+            try {
+              const result = await repository.searchLocations(context.postalCode);
+              setLocations(await hydrateStoreCoordinatesBestEffort(result.locations));
+            } catch {
+              setStoreSearchMessage('Stores could not load. Search by ZIP instead.');
+            }
+          }
         }
       })
       .catch(() =>
         setError('Online shopping is not configured yet. Your plain list is still available.'),
       );
-  }, [repository, route.params.listId]);
+  }, [repository, route.params.listId, userId]);
 
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -160,11 +204,48 @@ export function KrogerCartScreen({ navigation, route }: Props) {
     }
   };
 
-  const findStores = () =>
-    run(async () => {
-      const result = await repository.searchLocations(zip);
-      setLocations(result.locations);
-    });
+  const searchStores = async (postalCode: string, center?: { latitude: number; longitude: number } | null) => {
+    setBusy(true);
+    setStoreSearchMessage(null);
+    try {
+      const result = await repository.searchLocations(postalCode);
+      setLocations(await hydrateStoreCoordinatesBestEffort(result.locations));
+      const nextCenter = center ?? await geocodeStoreSearchBestEffort(postalCode);
+      if (nextCenter) setMapCenter(nextCenter);
+      setSearchOpen(false);
+      if (!result.locations.length) setStoreSearchMessage('No supported stores were found in this area.');
+    } catch {
+      setStoreSearchMessage('Stores could not load. Try another ZIP code.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const findStores = () => {
+    if (/^\d{5}$/.test(zip)) void searchStores(zip);
+  };
+  const findCurrentLocation = () => {
+    void (async () => {
+      setBusy(true);
+      setStoreSearchMessage(null);
+      const granted = await LocationPermissionService.ensurePermissionWithRationale('attach_place');
+      if (!granted) {
+        setBusy(false);
+        setSearchOpen(true);
+        return;
+      }
+      const context = await getCurrentStoreSearchContextBestEffort();
+      setBusy(false);
+      if (!context) {
+        setStoreSearchMessage('Current location is unavailable. Search by ZIP instead.');
+        setSearchOpen(true);
+        return;
+      }
+      setShowsUserLocation(true);
+      setMapCenter(context);
+      setZip(context.postalCode);
+      await searchStores(context.postalCode, context);
+    })();
+  };
   const choose = (location: KrogerLocation) =>
     run(async () => {
       setSelectedLocation(location);
@@ -182,6 +263,26 @@ export function KrogerCartScreen({ navigation, route }: Props) {
       setMatches(result.matches);
       setSelected(createDraftCart(result.matches));
     });
+  const setAsPreferred = (location: KrogerLocation) => {
+    void run(async () => {
+      await preferredGroceryStore.write(userId, location);
+      setPreferredLocation(location);
+      setSelectedLocation(location);
+      setLocations([]);
+      setChoosingStore(false);
+      setMatches(null);
+      setSelected({});
+      setEditingItemId(null);
+      if (status?.connection?.state === 'active') {
+        await repository.selectLocation(location);
+        setStatus(await repository.status());
+      }
+      if (!list || list.status !== 'ready') return;
+      const result = await repository.prepareMatches(list.id, list.revision, location);
+      setMatches(result.matches);
+      setSelected(createDraftCart(result.matches));
+    });
+  };
   const replaceProduct = (itemId: string, product: KrogerProduct) => {
     setSelected((current) => ({ ...current, [itemId]: { product, quantity: 1 } }));
     setEditingItemId(null);
@@ -272,6 +373,25 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           ) : undefined
         }
       />
+      {showStorePicker && !error ? (
+        <KrogerStoreFinder
+          locations={locations}
+          preferredLocation={preferredLocation}
+          zip={zip}
+          busy={busy}
+          searchOpen={searchOpen}
+          storeSearchMessage={storeSearchMessage}
+          mapCenter={mapCenter}
+          showsUserLocation={showsUserLocation}
+          bottomInset={insets.bottom}
+          onZipChange={setZip}
+          onOpenSearch={() => setSearchOpen(true)}
+          onFindStores={findStores}
+          onFindCurrentLocation={findCurrentLocation}
+          onChoose={choose}
+          onSetPreferred={setAsPreferred}
+        />
+      ) : (
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -301,24 +421,6 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           </>
         ) : error ? null : status === null ? (
           <Text>Checking online shopping…</Text>
-        ) : showStorePicker ? (
-          <>
-            <Input
-              label="ZIP code"
-              accessibilityLabel="ZIP code"
-              keyboardType="number-pad"
-              value={zip}
-              onChangeText={setZip}
-            />
-            <Button variant="primary" disabled={busy || zip.length !== 5} onPress={findStores}>
-              {busy ? 'Looking…' : 'Find stores'}
-            </Button>
-            {locations.map((location) => (
-              <Button key={location.id} variant="outline" onPress={() => choose(location)}>
-                {`${location.name}${location.address ? ` · ${location.address}` : ''}`}
-              </Button>
-            ))}
-          </>
         ) : matches === null ? (
           <>
             <Text tone="secondary">Finding products…</Text>
@@ -429,6 +531,7 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           </>
         )}
       </ScrollView>
+      )}
       {showCartAction ? (
         <View
           testID="kroger-cart-footer"

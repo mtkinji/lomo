@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Alert,
@@ -6,20 +6,21 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
+  type TextInput,
   View,
 } from 'react-native';
 import * as Crypto from 'expo-crypto';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { FloatingControlSurface } from '../../../features/activities/FloatingControlSurface';
+import { FloatingDockActionButton } from '../../../features/activities/FloatingDockActionButton';
+import { QuickAddDock } from '../../../features/activities/QuickAddDock';
 import { MealPlanHeaderAction } from '../../../features/household-food/components/MealPlanHeaderAction';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { useAppStore } from '../../../store/useAppStore';
 import { colors, spacing } from '../../../theme';
-import { BottomDrawer } from '../../../ui/BottomDrawer';
 import { Button, IconButton } from '../../../ui/Button';
 import {
   DropdownMenu,
@@ -29,7 +30,6 @@ import {
 } from '../../../ui/DropdownMenu';
 import { Icon } from '../../../ui/Icon';
 import { AppShell } from '../../../ui/layout/AppShell';
-import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import {
   RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
@@ -159,6 +159,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const [busy, setBusy] = useState(false);
   const [manualItem, setManualItem] = useState('');
   const [showAddDrawer, setShowAddDrawer] = useState(false);
+  const manualItemInputRef = useRef<TextInput | null>(null);
   const [reviewingCovered, setReviewingCovered] = useState(false);
   const [sourcePlanMealCount, setSourcePlanMealCount] = useState(0);
   const requestedListId = route.params?.listId;
@@ -412,131 +413,130 @@ export function GroceryListScreen({ navigation, route }: Props) {
         }
       />
       <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              void load().finally(() => setRefreshing(false));
-            }}
-          />
-        }
-      >
-        {offline || pendingCount ? (
-          <Text tone="secondary" accessibilityLiveRegion="polite">
-            {pendingCount
-              ? `${pendingCount} change${pendingCount === 1 ? '' : 's'} saved on this device. Pull to sync.`
-              : 'Showing the saved list. Pull to refresh when reconnected.'}
-          </Text>
-        ) : null}
-        {busy && !list ? <Text tone="secondary">Building your grocery list…</Text> : null}
-        {!busy && !list ? (
-          <View style={styles.empty}>
-            <Heading variant="md">No grocery list yet.</Heading>
-          </View>
-        ) : null}
-        {list?.status === 'stale' ? (
-          <Text tone="secondary">Plan changed. Update this list before shopping.</Text>
-        ) : null}
-        {list && checklistItems.length ? (
-          <RecipeIngredientChecklist
-            items={checklistItems}
-            checked={coveredIds}
-            disabled={list.status === 'stale'}
-            onToggle={(itemId) => {
-              void toggle(itemId);
-            }}
-            onLongPress={(itemId) =>
-              navigation.navigate('GroceryItemEdit', { listId: list.id, itemId })
-            }
-            accessibilityHint={(_, checked) =>
-              `Double tap to mark as ${checked ? 'needed' : 'already covered'}. Long press to edit.`
-            }
-          />
-        ) : list && reviewingCovered ? (
-          <Text tone="secondary">No checked items yet.</Text>
-        ) : null}
+          style={styles.list}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                void load().finally(() => setRefreshing(false));
+              }}
+            />
+          }
+        >
+          {offline || pendingCount ? (
+            <Text tone="secondary" accessibilityLiveRegion="polite">
+              {pendingCount
+                ? `${pendingCount} change${pendingCount === 1 ? '' : 's'} saved on this device. Pull to sync.`
+                : 'Showing the saved list. Pull to refresh when reconnected.'}
+            </Text>
+          ) : null}
+          {busy && !list ? <Text tone="secondary">Building your grocery list…</Text> : null}
+          {!busy && !list ? (
+            <View style={styles.empty}>
+              <Heading variant="md">No grocery list yet.</Heading>
+            </View>
+          ) : null}
+          {list?.status === 'stale' ? (
+            <Text tone="secondary">Plan changed. Update this list before shopping.</Text>
+          ) : null}
+          {list && checklistItems.length ? (
+            <RecipeIngredientChecklist
+              items={checklistItems}
+              checked={coveredIds}
+              disabled={list.status === 'stale'}
+              onToggle={(itemId) => {
+                void toggle(itemId);
+              }}
+              onLongPress={(itemId) =>
+                navigation.navigate('GroceryItemEdit', { listId: list.id, itemId })
+              }
+              accessibilityHint={(_, checked) =>
+                `Double tap to mark as ${checked ? 'needed' : 'already covered'}. Long press to edit.`
+              }
+            />
+          ) : list && reviewingCovered ? (
+            <Text tone="secondary">No checked items yet.</Text>
+          ) : null}
       </ScrollView>
 
-      <View testID="grocery-list-dock" pointerEvents="box-none" style={styles.dock}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add grocery item"
-          disabled={!list || busy || offline}
-          onPress={() => setShowAddDrawer(true)}
-          style={({ pressed }) => [
-            styles.addButton,
-            (!list || busy || offline) && styles.disabled,
-            pressed && styles.pressed,
-          ]}
+      {!showAddDrawer ? (
+        <View
+          testID="grocery-list-dock"
+          pointerEvents="box-none"
+          style={styles.dock}
         >
-          <FloatingControlSurface
-            borderRadius={RESTING_COMPOSER_HEIGHT_PX / 2}
+          <Pressable
+              testID="grocery-shop-remaining"
+              accessibilityRole="button"
+              accessibilityLabel={shopLabel}
+              accessibilityState={{ disabled: shopDisabled }}
+              disabled={shopDisabled}
+              onPress={() => {
+                if (list?.status === 'stale') void refreshWithChanges();
+                else void openFulfillment();
+              }}
+              style={({ pressed }) => [
+                styles.shopButton,
+                shopDisabled && styles.disabled,
+                pressed && styles.pressed,
+              ]}
+            >
+              <FloatingControlSurface
+                borderRadius={RESTING_COMPOSER_HEIGHT_PX / 2}
+                isProminent
+                style={styles.shopSurface}
+                surfaceStyle={styles.shopSurfaceContent}
+              >
+                <Text style={styles.shopLabel}>{busy ? 'Working…' : shopLabel}</Text>
+              </FloatingControlSurface>
+          </Pressable>
+          <FloatingDockActionButton
+            testID="grocery-add-item"
+            accessibilityLabel="Add grocery item"
+            accessibilityHint="Opens the grocery item composer"
+            icon="plus"
             isProminent
-            style={styles.addSurface}
-            surfaceStyle={styles.addSurfaceContent}
-          >
-            <View style={styles.addContent}>
-              <Icon name="plus" size={18} color={colors.textPrimary} />
-              <Text tone="secondary">Add item</Text>
-            </View>
-          </FloatingControlSurface>
-        </Pressable>
-        <Button
-          testID="grocery-shop-remaining"
-          variant="primary"
-          disabled={shopDisabled}
-          style={styles.shopButton}
-          onPress={() => {
-            if (list?.status === 'stale') void refreshWithChanges();
-            else void openFulfillment();
-          }}
-        >
-          {busy ? 'Working…' : shopLabel}
-        </Button>
-      </View>
-
-      <BottomDrawer
-        visible={showAddDrawer}
-        onClose={() => setShowAddDrawer(false)}
-        snapPoints={['42%']}
-      >
-        <BottomDrawerHeader
-          variant="withClose"
-          title="Add grocery item"
-          onClose={() => setShowAddDrawer(false)}
-        />
-        <View style={styles.addDrawerContent}>
-          <TextInput
-            autoFocus
-            accessibilityLabel="Grocery item"
-            placeholder="Milk, dish soap…"
-            value={manualItem}
-            onChangeText={setManualItem}
-            onSubmitEditing={() => {
-              void addManualItem();
-            }}
-            returnKeyType="done"
-            style={styles.input}
-          />
-          <Button
-            variant="primary"
-            disabled={!manualItem.trim() || busy || offline}
+            size={RESTING_COMPOSER_HEIGHT_PX}
+            disabled={!list || busy || offline}
             onPress={() => {
-              void addManualItem();
+              setShowAddDrawer(true);
             }}
-          >
-            Add to Groceries
-          </Button>
+          />
         </View>
-      </BottomDrawer>
+      ) : null}
+      <QuickAddDock
+        placement="bottomDock"
+        placeholder="Add a grocery item"
+        value={manualItem}
+        onChangeText={setManualItem}
+        inputRef={manualItemInputRef}
+        isFocused={showAddDrawer}
+        setIsFocused={setShowAddDrawer}
+        onSubmit={() => {
+          void addManualItem();
+        }}
+        onCollapse={() => {
+          setManualItem('');
+          setShowAddDrawer(false);
+        }}
+        dismissAfterSubmit={false}
+        showCollapsedTrigger={false}
+        showLeadingAffordance={false}
+        showAiActions={false}
+        inputAccessibilityLabel="Grocery item"
+        submitAccessibilityLabel="Add grocery item to list"
+      />
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
+  list: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.md,
@@ -563,26 +563,14 @@ const styles = StyleSheet.create({
     zIndex: 60,
     elevation: 60,
   },
-  addButton: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
-  addSurface: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
-  addSurfaceContent: {
+  shopButton: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
+  shopSurface: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
+  shopSurfaceContent: {
     height: RESTING_COMPOSER_HEIGHT_PX,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  addContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  shopButton: { flex: 1.25, height: RESTING_COMPOSER_HEIGHT_PX },
-  addDrawerContent: { gap: spacing.md },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
+  shopLabel: {
     color: colors.textPrimary,
   },
   disabled: { opacity: 0.45 },

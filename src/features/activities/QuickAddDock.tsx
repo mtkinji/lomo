@@ -103,6 +103,14 @@ type QuickAddDockProps = {
   onDismissPlaceReceipt?: () => void;
   onSetPlaceAlert?: () => void;
   onReviewPlaceReceipt?: () => void;
+  /** Hide the built-in collapsed trigger when another capability owns its resting dock. */
+  showCollapsedTrigger?: boolean;
+  /** Hide the To-do completion affordance for capability-owned capture. */
+  showLeadingAffordance?: boolean;
+  /** Hide To-do AI enrichment controls when they do not apply to the captured object. */
+  showAiActions?: boolean;
+  inputAccessibilityLabel?: string;
+  submitAccessibilityLabel?: string;
 };
 
 export function QuickAddDock({
@@ -132,6 +140,11 @@ export function QuickAddDock({
   onDismissPlaceReceipt,
   onSetPlaceAlert,
   onReviewPlaceReceipt,
+  showCollapsedTrigger = true,
+  showLeadingAffordance = true,
+  showAiActions = true,
+  inputAccessibilityLabel = 'To-do title',
+  submitAccessibilityLabel = 'Create to-do',
 }: QuickAddDockProps) {
   const collapsedBottomOffsetPx =
     placement === 'inline'
@@ -249,16 +262,16 @@ export function QuickAddDock({
   const submitQuickAdd = React.useCallback(() => {
     if (!canSubmit) return;
     setIsAiMenuOpen(false);
-    onSubmit({ aiActions: selectedAiActions });
+    onSubmit(showAiActions ? { aiActions: selectedAiActions } : undefined);
     if (dismissAfterSubmit) onCollapse();
-  }, [canSubmit, dismissAfterSubmit, onCollapse, onSubmit, selectedAiActions]);
+  }, [canSubmit, dismissAfterSubmit, onCollapse, onSubmit, selectedAiActions, showAiActions]);
   const selectedAiActionCount = selectedAiActions.length;
   const aiActionSummary =
     selectedAiActionCount === 0 ? 'Off' : `${selectedAiActionCount} on`;
   return (
     <>
       {/* Collapsed dock trigger (always mounted so we can open quickly). */}
-      {placement === 'bottomDock' ? (
+      {showCollapsedTrigger && placement === 'bottomDock' ? (
         <>
           <Animated.View
             testID="quick-add-floating-dock"
@@ -309,7 +322,7 @@ export function QuickAddDock({
             </View>
           </Animated.View>
         </>
-      ) : (
+      ) : showCollapsedTrigger ? (
         <View style={isFocused ? styles.inlineHidden : null}>
           {placeReceipt ? (
             <QuickAddPlaceReceipt
@@ -354,7 +367,7 @@ export function QuickAddDock({
             ) : null}
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* Focused drawer: use BottomDrawer sizing so the hidden portion sits under the keyboard,
           which exactly matches the Goals/Notes behavior you like. */}
@@ -401,14 +414,19 @@ export function QuickAddDock({
           >
             <View testID="quick-add-expanded-composer" style={styles.composerCard}>
                 <View style={[styles.composerInputRow, isInputExpanded ? styles.composerInputRowExpanded : null]}>
-                  <View style={[styles.affordance, isInputExpanded ? styles.affordanceExpanded : null]}>
+                  {showLeadingAffordance ? (
                     <View
-                      style={[
-                        styles.createCheckboxBase,
-                        styles.createCheckboxDisabled,
-                      ]}
-                    />
-                  </View>
+                      testID="quick-add-leading-affordance"
+                      style={[styles.affordance, isInputExpanded ? styles.affordanceExpanded : null]}
+                    >
+                      <View
+                        style={[
+                          styles.createCheckboxBase,
+                          styles.createCheckboxDisabled,
+                        ]}
+                      />
+                    </View>
+                  ) : null}
 
                   <View style={styles.inputContainer}>
                     <View style={styles.titleFieldClipper}>
@@ -456,14 +474,15 @@ export function QuickAddDock({
                           styles.input,
                           { height: inputHeight },
                         ]}
-                        accessibilityLabel="To-do title"
+                        accessibilityLabel={inputAccessibilityLabel}
                       />
                     </View>
                   </View>
                 </View>
 
-                <View style={styles.composerActionsRow}>
-                  <DropdownMenu
+                <View style={[styles.composerActionsRow, !showAiActions && styles.composerActionsRowSolo]}>
+                  {showAiActions ? (
+                    <DropdownMenu
                     {...({
                       open: isAiMenuOpen,
                       onOpenChange: setIsAiMenuOpen,
@@ -553,12 +572,13 @@ export function QuickAddDock({
                         })}
                       </DropdownMenuContent>
                     ) : null}
-                  </DropdownMenu>
+                    </DropdownMenu>
+                  ) : null}
 
                   <Pressable
                     testID="e2e.activities.quickAdd.submit"
                     accessibilityRole="button"
-                    accessibilityLabel="Create to-do"
+                    accessibilityLabel={submitAccessibilityLabel}
                     accessibilityState={{ disabled: !canSubmit }}
                     onPress={submitQuickAdd}
                     hitSlop={8}
@@ -954,6 +974,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     columnGap: spacing.sm,
+  },
+  composerActionsRowSolo: {
+    justifyContent: 'flex-end',
   },
   aiMenuTrigger: {
     minHeight: 34,

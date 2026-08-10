@@ -353,6 +353,33 @@ describe('QuickAddDock', () => {
     expect(getByTestId('e2e.activities.quickAdd.input').props.placeholder).toBe('Add a new to-do');
   });
 
+  it('supports a capability-owned composer without To-do-only chrome', () => {
+    const { getByLabelText, queryByTestId, queryByText } = renderWithProviders(
+      <QuickAddDock
+        placement="bottomDock"
+        placeholder="Add a grocery item"
+        value="dish soap"
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+        showCollapsedTrigger={false}
+        showLeadingAffordance={false}
+        showAiActions={false}
+        inputAccessibilityLabel="Grocery item"
+        submitAccessibilityLabel="Add grocery item to list"
+      />,
+    );
+
+    expect(queryByTestId('quick-add-floating-dock')).toBeNull();
+    expect(queryByTestId('quick-add-leading-affordance')).toBeNull();
+    expect(queryByText('AI actions')).toBeNull();
+    expect(getByLabelText('Grocery item')).toBeTruthy();
+    expect(getByLabelText('Add grocery item to list')).toBeTruthy();
+  });
+
   it('keeps the native text input multiline while the title grows past one visual row', () => {
     const { getByTestId } = renderWithProviders(<QuickAddHarness />);
     const input = getByTestId('e2e.activities.quickAdd.input');

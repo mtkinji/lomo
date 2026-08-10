@@ -21,6 +21,7 @@ type RecordValue = Record<string, unknown>;
 const record = (value: unknown): RecordValue => value && typeof value === 'object' && !Array.isArray(value) ? value as RecordValue : {};
 const text = (value: unknown) => typeof value === 'string' ? value.trim() : '';
 const cents = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) ? Math.round(value * 100) : null;
+const coordinate = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) ? value : null;
 const imageSizePreference = ['small', 'thumbnail', 'medium', 'large', 'xlarge'];
 
 function productThumbnail(value: unknown): string | null {
@@ -35,18 +36,25 @@ function productThumbnail(value: unknown): string | null {
   return text(sizes.find((image) => text(image.url))?.url) || null;
 }
 
-export type KrogerLocation = { id: string; name: string; banner: string; address: string };
+export type KrogerLocation = {
+  id: string;
+  name: string;
+  banner: string;
+  address: string;
+  latitude?: number | null;
+  longitude?: number | null;
+};
 export type KrogerProduct = { id: string; upc: string; title: string; brand: string | null; size: string | null; thumbnailUrl?: string | null; regularPriceCents: number | null; promoPriceCents: number | null; pickupAvailable: boolean };
 
 export function normalizeKrogerLocations(value: unknown): KrogerLocation[] {
   const rows = Array.isArray(record(value).data) ? record(value).data as unknown[] : [];
   return rows.flatMap((raw) => {
-    const row = record(raw); const address = record(row.address); const id = text(row.locationId); const name = text(row.name);
+    const row = record(raw); const address = record(row.address); const geolocation = record(row.geolocation); const id = text(row.locationId); const name = text(row.name);
     if (!id || !name) return [];
     const chain = text(row.chain).toLowerCase();
     const banner = chain.includes('smith') || name.toLowerCase().includes('smith') ? "Smith's" : name;
     const street = text(address.addressLine1); const stateZip = [text(address.state), text(address.zipCode)].filter(Boolean).join(' '); const locality = [text(address.city), stateZip].filter(Boolean).join(', ');
-    return [{ id, name, banner, address: [street, locality].filter(Boolean).join(' · ') }];
+    return [{ id, name, banner, address: [street, locality].filter(Boolean).join(' · '), latitude: coordinate(geolocation.latitude), longitude: coordinate(geolocation.longitude) }];
   });
 }
 

@@ -5,6 +5,7 @@ import { createGroceryRepository } from '../data/groceryRepository';
 
 const mockOpenMenu = jest.fn();
 const mockEnqueue = jest.fn();
+const mockAddItem = jest.fn();
 
 type MockPageHeaderProps = {
   title: string;
@@ -47,6 +48,42 @@ jest.mock('../../../navigation/CapabilityShellContext', () => ({
 jest.mock('../../../services/analytics/useAnalytics', () => ({
   useAnalytics: () => ({ capture: jest.fn() }),
 }));
+jest.mock('../../../features/activities/QuickAddDock', () => {
+  const { Pressable, TextInput, View } = require('react-native');
+  return {
+    QuickAddDock: ({
+      isFocused,
+      value,
+      onChangeText,
+      onSubmit,
+      inputAccessibilityLabel,
+      submitAccessibilityLabel,
+      showCollapsedTrigger,
+      showLeadingAffordance,
+      showAiActions,
+    }: {
+      isFocused: boolean;
+      value: string;
+      onChangeText: (value: string) => void;
+      onSubmit: () => void;
+      inputAccessibilityLabel: string;
+      submitAccessibilityLabel: string;
+      showCollapsedTrigger: boolean;
+      showLeadingAffordance: boolean;
+      showAiActions: boolean;
+    }) => isFocused ? (
+      <View
+        testID="grocery-quick-add-composer"
+        accessibilityValue={{
+          text: JSON.stringify({ showCollapsedTrigger, showLeadingAffordance, showAiActions }),
+        }}
+      >
+        <TextInput accessibilityLabel={inputAccessibilityLabel} value={value} onChangeText={onChangeText} />
+        <Pressable accessibilityRole="button" accessibilityLabel={submitAccessibilityLabel} onPress={onSubmit} />
+      </View>
+    ) : null,
+  };
+});
 jest.mock('../../meal-planning/data/mealPlanningRepository', () => ({
   createMealPlanningRepository: () => ({
     list: jest.fn().mockResolvedValue([
@@ -110,6 +147,7 @@ describe('Grocery List primary capability', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockEnqueue.mockResolvedValue([]);
+    mockAddItem.mockResolvedValue({});
     (createGroceryRepository as jest.Mock).mockReturnValue({
       list: jest.fn().mockResolvedValue([
         {
@@ -134,6 +172,7 @@ describe('Grocery List primary capability', () => {
       ]),
       setItemState: jest.fn(),
       markReviewed,
+      addItem: mockAddItem,
     });
   });
 
@@ -182,5 +221,28 @@ describe('Grocery List primary capability', () => {
     await waitFor(() => expect(markReviewed).toHaveBeenCalledWith('list-1', 1));
     expect(screen.getByText('Shop online')).toBeTruthy();
     expect(navigate).toHaveBeenCalledWith('KrogerCart', { listId: 'list-1' });
+  });
+
+  it('opens the To-do composer contract without To-do-only controls', async () => {
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
+    expect(screen.getByLabelText('Shop online')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Add grocery item' }));
+
+    const composer = screen.getByLabelText('Grocery item');
+    expect(screen.getByTestId('grocery-quick-add-composer').props.accessibilityValue.text).toBe(
+      JSON.stringify({ showCollapsedTrigger: false, showLeadingAffordance: false, showAiActions: false }),
+    );
+    expect(screen.queryByLabelText('Shop online')).toBeNull();
+    fireEvent.changeText(composer, 'dish soap');
+    fireEvent.press(screen.getByRole('button', { name: 'Add grocery item to list' }));
+
+    await waitFor(() => expect(mockAddItem).toHaveBeenCalledWith('list-1', 1, 'dish soap'));
   });
 });

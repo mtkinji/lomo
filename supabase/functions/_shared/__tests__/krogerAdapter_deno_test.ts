@@ -4,6 +4,7 @@ import {
   buildKrogerCartPayload,
   exchangeKrogerToken,
   parseKrogerProducts,
+  parseKrogerLocations,
   RetailerAdapterError,
 } from '../krogerAdapter.ts';
 
@@ -14,6 +15,23 @@ Deno.test('builds the exact customer cart scope and PKCE authorization request',
   assertEquals(url.origin + url.pathname, 'https://api.kroger.com/v1/connect/oauth2/authorize');
   assertEquals(url.searchParams.get('scope'), 'cart.basic:write');
   assertEquals(url.searchParams.get('code_challenge_method'), 'S256');
+});
+
+Deno.test('preserves store coordinates for map-first location selection', () => {
+  assertEquals(parseKrogerLocations({ data: [{
+    locationId: 'store-1',
+    name: "Smith's Marketplace - Saratoga Springs Marketplace",
+    chain: 'SMITHS',
+    address: { addressLine1: '689 N Redwood Rd', city: 'Saratoga Springs', state: 'UT', zipCode: '84045' },
+    geolocation: { latitude: 40.34, longitude: -111.91 },
+  }] }), [{
+    id: 'store-1',
+    name: "Smith's Marketplace - Saratoga Springs Marketplace",
+    banner: "Smith's",
+    address: '689 N Redwood Rd · Saratoga Springs UT 84045',
+    latitude: 40.34,
+    longitude: -111.91,
+  }]);
 });
 
 Deno.test('uses basic auth server-side when exchanging the authorization code', async () => {
