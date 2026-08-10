@@ -692,6 +692,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
   },
+  focusDrawerSheetContent: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
+  },
   sheetHeader: {
     paddingTop: 0,
     paddingBottom: 0,
@@ -1103,6 +1107,9 @@ export const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     gap: spacing.sm,
   },
+  focusDrawerSheetFooter: {
+    paddingHorizontal: 0,
+  },
   focusOverlay: {
     flex: 1,
     backgroundColor: colors.pine700,
@@ -1206,6 +1213,15 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
+    maxHeight: 480,
+  },
+  focusSoundscapeQuickMenuLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   focusSoundscapeQuickMenuItem: {
     minHeight: 40,

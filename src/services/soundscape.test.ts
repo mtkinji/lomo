@@ -42,9 +42,24 @@ describe('Focus soundscape sources', () => {
 
     await expect(resolveSoundscapeSource('rainlitLibrary')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
     expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.rainlit-library');
+
+    await expect(resolveSoundscapeSource('quietRain')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
+    expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.quiet-rain');
+
+    await expect(resolveSoundscapeSource('forestStream')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
+    expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.forest-stream');
+
+    await expect(resolveSoundscapeSource('oceanWaves')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
+    expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.ocean-waves');
+
+    await expect(resolveSoundscapeSource('fireplace')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
+    expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.fireplace');
+
+    await expect(resolveSoundscapeSource('nightMeadow')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
+    expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.night-meadow');
   });
 
-  test('offers all six remote choices plus the bundled fallback', () => {
+  test('offers the repaired music choices and five nature choices plus the bundled fallback', () => {
     expect(SOUND_SCAPES.map((item) => item.id)).toEqual([
       'default',
       'copacabanaFocus',
@@ -53,6 +68,11 @@ describe('Focus soundscape sources', () => {
       'openRoadFocus',
       'cedarWorkshop',
       'rainlitLibrary',
+      'quietRain',
+      'forestStream',
+      'oceanWaves',
+      'fireplace',
+      'nightMeadow',
     ]);
     expect(SOUND_SCAPES.map((item) => item.title)).toEqual([
       'Deep Work Drift',
@@ -62,6 +82,11 @@ describe('Focus soundscape sources', () => {
       'Open Road',
       'Cedar Workshop',
       'Rainlit Library',
+      'Quiet Rain',
+      'Forest Stream',
+      'Ocean Waves',
+      'Fireplace',
+      'Night Meadow',
     ]);
   });
 

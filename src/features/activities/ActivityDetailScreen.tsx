@@ -823,7 +823,7 @@ export function ActivityDetailScreen() {
       title="Fewer distractions during Focus."
       body="Block selected apps while Focus runs."
       tone="brand"
-      shadow="layered"
+      shadow="single"
       padding="sm"
       ctaAlign="right"
       ctaLabel="Set Up"
@@ -831,6 +831,7 @@ export function ActivityDetailScreen() {
       ctaLeadingIconName={null}
       ctaSize="sm"
       onPressCta={() => {
+        setActiveSheet(null);
         markScreenTimeSetupOfferCtaTapped('focus_drawer');
         capture(AnalyticsEvent.ScreenTimeSetupOfferCtaTapped, {
           setup_intent: 'focus_sessions',

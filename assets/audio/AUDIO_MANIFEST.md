@@ -29,12 +29,17 @@ Public root: `https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/
 
 | Catalog id | Reviewed title / purpose | Category | Immutable object |
 | --- | --- | --- | --- |
-| `focus.copacabana` | Copacabana Focus | `focus.music` | `focus/copacabana-focus-ccaaf823e168.mp3` |
-| `focus.focus-tunnel` | Focus Tunnel | `focus.music` | `focus/focus-tunnel-f6d4ab6fde4e.mp3` |
-| `focus.midnight-study` | Midnight Study Session | `focus.music` | `focus/midnight-study-3f5294ec1320.mp3` |
-| `focus.open-road` | Open Road Focus 1 | `focus.music` | `focus/open-road-focus-8173b2ab68a5.mp3` |
-| `focus.cedar-workshop` | Cedar Workshop 2 | `focus.music` | `focus/cedar-workshop-eac9775e1d4f.mp3` |
-| `focus.rainlit-library` | Rainlit Library 2 | `focus.music` | `focus/rainlit-library-5731d14f10a5.mp3` |
+| `focus.copacabana` | Copacabana | `focus.music` | `focus/copacabana-focus-9714caeb0913.mp3` |
+| `focus.focus-tunnel` | Focus Tunnel | `focus.music` | `focus/focus-tunnel-36e2e0d5c498.mp3` |
+| `focus.midnight-study` | Midnight Study | `focus.music` | `focus/midnight-study-f415ecb449e4.mp3` |
+| `focus.open-road` | Open Road | `focus.music` | `focus/open-road-focus-707dfde8b7ee.mp3` |
+| `focus.cedar-workshop` | Cedar Workshop | `focus.music` | `focus/cedar-workshop-56a9047ea7ae.mp3` |
+| `focus.rainlit-library` | Rainlit Library | `focus.music` | `focus/rainlit-library-f28fdc597fd5.mp3` |
+| `focus.quiet-rain` | Quiet Rain | `focus.music` | `focus/quiet-rain-90631c045614.mp3` |
+| `focus.forest-stream` | Forest Stream | `focus.music` | `focus/forest-stream-96a2d1cccd42.mp3` |
+| `focus.ocean-waves` | Ocean Waves | `focus.music` | `focus/ocean-waves-1bc54848be4d.mp3` |
+| `focus.fireplace` | Fireplace | `focus.music` | `focus/fireplace-437701bb0f20.mp3` |
+| `focus.night-meadow` | Night Meadow | `focus.music` | `focus/night-meadow-652815cb09d9.mp3` |
 | `game.story-relay` | Story Relay 1 | `game.music` | `games/story-relay-a63e69918b9c.mp3` |
 | `game.clue-circle` | Clue Circle 2 | `game.music` | `games/clue-circle-f11ae524d433.mp3` |
 | `game.slanguage` | Slanguage 1 | `game.music` | `games/slanguage-b4848a867f22.mp3` |
@@ -42,7 +47,38 @@ Public root: `https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/
 | `game.bank-building` | Bank: High stakes | `game.music` | `games/bank-building-80c059ab399e.mp3` |
 | `game.bank-maximum` | Bank: First risky rolls | `game.music` | `games/bank-maximum-b04a34eb7fd2.mp3` |
 
-The Supabase `audio_assets` bucket is public-read, MP3-only, capped at 10 MiB per object, and has no client write policy. Objects use content-addressed names and `public, max-age=31536000, immutable` cache metadata.
+The Supabase `audio_assets` bucket is public-read, MP3-only, capped at 10 MiB per object, and has no client write policy. Objects use content-addressed names. The August 10 Dashboard upload returned `Cache-Control: no-cache`. The corresponding `storage.objects` rows report `cacheControl: max-age=3600`, but a reversible one-object test proved that changing only that Postgres metadata does not change the public response. Quiet Rain's cache value was restored to `max-age=3600`; the row's `updated_at` advanced, while its object path, bytes, size, and ETag did not change. Correcting the headers therefore requires a supported Storage API/S3 re-upload with object credentials. `public, max-age=31536000, immutable` remains a delivery-optimization follow-up and is not represented as complete here.
+
+## Focus seamless-loop corrected masters
+
+The August 10 correction pass preserves the six published July music sources, removes their composed intro/outro boundary, rotates each accepted candidate to an established internal start point, and places an equal-power crossfade inside the master. The authoring sources, rejected candidates, lossless intermediates, and boundary auditions remain outside Git and the app bundle. Every row below passed the automated `focus.music` and loop-seam policies and was published at its content-addressed object. Andrew's boundary listening and signed-iPhone playback remain pending.
+
+| Track | Transform | Measurements | Candidate SHA-256 | Status |
+| --- | --- | --- | --- | --- |
+| Copacabana | 16 s loop start; 16 s equal-power tail-to-head crossfade | 223.992 s; 48 kHz stereo; -24.2 LUFS; -11.0 dBTP; 0 ms lead/tail; 1.10 dB boundary delta; -65.56 dBFS derivative jump | `9714caebdff69795bcffaa70faaae030b9a62dca4677261f1cc3bbd7d6ef09d7` | Published; automated pass; listening pending |
+| Focus Tunnel | 8 s loop start; 8 s equal-power tail-to-head crossfade | 232.056 s; 48 kHz stereo; -24.2 LUFS; -9.3 dBTP; 0 ms lead/tail; 0.13 dB boundary delta; -49.10 dBFS derivative jump | `36e2e0d582f1efe69afd251e9f8cff522f51c09db6303a4b4ac16d485f5a9121` | Published; automated pass; listening pending |
+| Midnight Study | 30 s loop start; 12 s equal-power tail-to-head crossfade | 210.048 s; 48 kHz stereo; -24.2 LUFS; -9.1 dBTP; 0 ms lead/tail; 2.92 dB boundary delta; -36.31 dBFS derivative jump | `f415ecb4a9108b7b4f4652bd2fe5a6920a21a95082b7df417d96a1de67304171` | Published; automated pass; listening pending |
+| Open Road | 45 s loop start; 12 s equal-power tail-to-head crossfade | 183.072 s; 48 kHz stereo; -24.2 LUFS; -11.5 dBTP; 0 ms lead/tail; 1.79 dB boundary delta; -63.15 dBFS derivative jump | `707dfde8636abcfa2f86d554b146139f4a746ca3d1d959534060792aa564acb3` | Published; automated pass; listening pending |
+| Cedar Workshop | 60 s loop start; 12 s equal-power tail-to-head crossfade | 168.048 s; 48 kHz stereo; -24.2 LUFS; -8.4 dBTP; 0 ms lead/tail; 2.75 dB boundary delta; -38.41 dBFS derivative jump | `56a9047e031d4f4f598d6b0d1d5390e20a2b76f27f0f5142526d2de3def5a371` | Published; automated pass; listening pending |
+| Rainlit Library | 60 s loop start; 12 s equal-power tail-to-head crossfade | 167.832 s; 48 kHz stereo; -24.2 LUFS; -12.8 dBTP; 0 ms lead/tail; 0.20 dB boundary delta; -37.94 dBFS derivative jump | `f28fdc596dab4f3d9c36ed1ce5d826681ba12c72809fb3b543d36a348457a8a8` | Published; automated pass; listening pending |
+
+## Focus nature masters
+
+ElevenLabs Sound Effects v2 produced four 30-second loop-enabled candidates per prompt. Forest Stream was generated twice because the first result arrived after the UI poll, yielding eight candidates and 2,400 credits spent for that family. The accepted WAVs were rotated through a one- or two-second equal-power seam, tiled eight times before the single delivery encode, normalized with one decibel of lossy-codec true-peak headroom, and published as multi-minute masters. This makes source repetition less recognizable and reduces native transport boundaries to roughly one every four minutes.
+
+| Track | Accepted generation | Transform | Measurements | Master SHA-256 | Status |
+| --- | --- | --- | --- | --- | --- |
+| Quiet Rain | `l4E1JzV5tX9J61qBmIfD`, candidate 3 | 1 s seam; 29 s unit tiled 8x | 232.032 s; -24.1 LUFS; -2.6 dBTP; 0 ms lead/tail; 1.97 dB boundary delta | `90631c045614e14a21a55775202a2fd7b26ffa9820f3f829dcbb110f7ac617bd` | Published; automated pass; listening pending |
+| Forest Stream | `Ynta6iO9N0GdPn1KME47`, candidate 4 | 1 s seam; 29 s unit tiled 8x | 232.032 s; -24.2 LUFS; -3.2 dBTP; 0 ms lead/tail; 0.39 dB boundary delta | `96a2d1cccd42cbd0322d589917e1bca4f100cc446efd1ecbee6e9cb8c75af840` | Published; automated pass; listening pending |
+| Ocean Waves | `vU1DnIbxUSpPSVQxBQRb`, candidate 3 | 2 s seam; 28 s unit tiled 8x | 224.040 s; -24.2 LUFS; -3.1 dBTP; 0 ms lead/tail; 1.97 dB boundary delta | `1bc54848be4d5e6aa7191723c6aa9d647000d01d1748d05498d5ac5fed9e482a` | Published; automated pass; listening pending |
+| Fireplace | `y8EVp6AsoKXQMpZGQfsQ`, candidate 4 | 1 s seam; 29 s unit tiled 8x | 232.032 s; -24.2 LUFS; -3.0 dBTP; 0 ms lead/tail; 0.69 dB boundary delta | `437701bb0f201add2f5034753848eddc952b8d4f5c9a62e093700b2f22439b4c` | Published; automated pass; listening pending |
+| Night Meadow | `YiqNkeyhoLwnZhsPugTR`, candidate 1 | 1 s seam; 29 s unit tiled 8x | 232.032 s; -24.2 LUFS; -13.8 dBTP; 0 ms lead/tail; 0.58 dB boundary delta | `652815cb09d9367a19808cc6f555b05562919911414baba706e6593c69f85de9` | Published; automated pass; listening pending |
+
+### Runtime proof
+
+On August 10, the active Metro server was verified as owned by `/Users/andrewwatanabe/Kwilt`, and the installed `com.andrewwatanabe.kwilt` development client was exercised on an iPhone 17 Pro Simulator running iOS 26.5. `kwilt://focus` rendered one Soundscape control with Music and Nature groups, all eleven remote choices, one dominant Start action, and a scrollable menu. Quiet Rain selected successfully and started a one-minute Focus session with audio enabled. This is Simulator interaction and remote-start proof only; repeated-boundary listening and signed physical-iPhone behavior remain pending.
+
+The paired physical device is Andy's iPhone 16 on iOS 26.5.2 with Developer Mode enabled. CoreDevice reached it over the local network, but the device was locked and rejected developer-disk-image mounting with `kAMDMobileImageMounterDeviceLocked`; signed-device inspection and playback therefore remain unproven until the phone is unlocked.
 
 ## Existing UI effects
 
@@ -81,4 +117,9 @@ Add one row per approved generation before copying it into a production asset di
 | `assets/games/success-banjo-run-1.mp3` | Player profile win | `game.signature` | ElevenLabs Sound Effects; generated in Andrew's paid workspace | Exuberant 2.4-second acoustic banjo victory run with natural articulation and a resolved cadence | 2026-07-31 / `VrVnvU0kvLSYBIp3M17E` | 24 | Family mastering pass; production file copied byte-for-byte from approved master | 2.424 s; 48 kHz stereo; -18.2 LUFS; -6.6 dBTP; audit pass | Andrew Audio Lab approval; repeated in-app iPhone review pending |
 | `assets/games/success-tiny-crowd-{1,2,3,4}.mp3` | Player profile win; Bank doubles reuse; Activities completion celebrations | `game.signature` | ElevenLabs Sound Effects; generated in Andrew's paid workspace | Compact clean-start small-group victory cheer with a natural swell, peak, and resolution | 2026-07-31 / `14wVUUxxip4MwGYNJd9w`, `4oEbpxhoHT0qS73HBg9A`, `F9ma9iFaJyT0dPeCG7CA`, `sFjcsavGsjy4CrRS9Uba` | 96 | Family mastering pass; Tiny Crowd 4 gently compressed before normalization; production files copied byte-for-byte from approved masters | 2.424 s; 48 kHz stereo; -18.5 to -18.2 LUFS; -11.3 to -1.7 dBTP; audit pass | Andrew Audio Lab approval; repeated in-app iPhone review pending, including Activities warm/prominent gains |
 | `assets/games/bank-coin-gather-{1,3}.mp3` | Bank-the-pot mechanic | `game.mechanic` | ElevenLabs Sound Effects; generated in Andrew's paid workspace | Real tabletop coins jingling, sliding together, and settling with one modest bright clink; explicitly not casino or jackpot audio | 2026-07-31 / `0gAeC0mG8K6kb4Q4ijD8`, `YJSnWHBOEQeLFzMWzRIw` | 24 | Family mastering pass; production files copied byte-for-byte from approved masters | 1.224 s; 48 kHz stereo; -20.3 to -20.2 LUFS; -9.4 to -8.2 dBTP; audit pass | Andrew Audio Lab approval; repeated in-app Bank review pending |
+| `focus/quiet-rain-90631c045614.mp3` | Focus | `focus.music` | ElevenLabs Sound Effects v2, Looping on | Seamless 30-second quiet steady rain ambience for deep focus; soft rain on leaves and a distant roof; steady density; no thunder, voices, birds, music, foreground drops, or fades | 2026-08-10 / `l4E1JzV5tX9J61qBmIfD`, candidate 3 | 1,200 | 1 s equal-power seam; 29 s unit tiled 8x; two-pass loudness normalization; MP3 codec headroom | 232.032 s; -24.1 LUFS; -2.6 dBTP; seam audit pass | Boundary and signed-iPhone review pending |
+| `focus/forest-stream-96a2d1cccd42.mp3` | Focus | `focus.music` | ElevenLabs Sound Effects v2, Looping on | Seamless 30-second forest stream ambience for deep focus; clear steady water over rounded stones; no birds, insects, voices, footsteps, music, or fades | 2026-08-10 / `Ynta6iO9N0GdPn1KME47`, candidate 4; extra batch `gHOnfFgxjH4YiBTABmne` retained outside Git | 2,400 | 1 s equal-power seam; 29 s unit tiled 8x; two-pass loudness normalization; MP3 codec headroom | 232.032 s; -24.2 LUFS; -3.2 dBTP; seam audit pass | Boundary and signed-iPhone review pending |
+| `focus/ocean-waves-1bc54848be4d.mp3` | Focus | `focus.music` | ElevenLabs Sound Effects v2, Looping on | Seamless 30-second gentle ocean waves for deep focus; slow small waves on a sandy shore; no gulls, boats, people, music, crashes, or fades | 2026-08-10 / `vU1DnIbxUSpPSVQxBQRb`, candidate 3 | 1,200 | 2 s equal-power seam; 28 s unit tiled 8x; two-pass loudness normalization; MP3 codec headroom | 224.040 s; -24.2 LUFS; -3.1 dBTP; seam audit pass | Boundary and signed-iPhone review pending |
+| `focus/fireplace-437701bb0f20.mp3` | Focus | `focus.music` | ElevenLabs Sound Effects v2, Looping on | Seamless 30-second quiet fireplace ambience for deep focus; small steady wood fire and ember bed; no loud pops, voices, room sounds, music, or fades | 2026-08-10 / `y8EVp6AsoKXQMpZGQfsQ`, candidate 4 | 1,200 | 1 s equal-power seam; 29 s unit tiled 8x; two-pass loudness normalization; MP3 codec headroom | 232.032 s; -24.2 LUFS; -3.0 dBTP; seam audit pass | Boundary and signed-iPhone review pending |
+| `focus/night-meadow-652815cb09d9.mp3` | Focus | `focus.music` | ElevenLabs Sound Effects v2, Looping on | Seamless 30-second night meadow for deep focus; continuous small insects and faint grass breeze; no owls, frogs, voices, footsteps, music, sudden calls, or fades | 2026-08-10 / `YiqNkeyhoLwnZhsPugTR`, candidate 1 | 1,200 | 1 s equal-power seam; 29 s unit tiled 8x; two-pass loudness normalization; MP3 codec headroom | 232.032 s; -24.2 LUFS; -13.8 dBTP; seam audit pass | Boundary and signed-iPhone review pending |
 | Remote Focus and Games catalog above | Focus / Games | `focus.music`, `game.music` | Music generation; exact model metadata not retained in listening-room export | Prompt/id not retained in export | 2026-07-30 / unavailable | Recorded in generation workspace | MP3 mastering pass | Focus -24 LUFS; Games -24 LUFS | Andrew listening-room approval; in-app device review pending |

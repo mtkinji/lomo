@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Platform, Pressable, View } from 'react-native';
+import { Animated, Easing, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
 import { PortalHost } from '../../ui/Portal';
 import { colors, spacing } from '../../theme';
-import { SOUND_SCAPES, type SoundscapeId } from '../../services/soundscape';
+import { type SoundscapeId } from '../../services/soundscape';
+import { soundscapesByKind } from '../../services/soundscapeCatalog';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { Icon } from '../../ui/Icon';
@@ -70,8 +71,8 @@ export function ActivityFocusExperience({
     outputRange: [...palette, palette[0]],
   });
   const snapPoints = useMemo(() => {
-    if (Platform.OS === 'ios') return controller.customExpanded ? ['82%' as const] : ['56%' as const];
-    return controller.customExpanded ? ['74%' as const] : ['54%' as const];
+    if (Platform.OS === 'ios') return controller.customExpanded ? ['92%' as const] : ['82%' as const];
+    return controller.customExpanded ? ['90%' as const] : ['78%' as const];
   }, [controller.customExpanded]);
 
   useEffect(() => {
@@ -186,24 +187,31 @@ export function ActivityFocusExperience({
                 <View style={styles.focusAudioControlWrap}>
                   {soundscapeMenuVisible ? (
                     <Animated.View style={[styles.focusSoundscapeQuickMenu, { opacity: menuAnimation, transform: [{ translateY: menuAnimation.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }, { scale: menuAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) }] }]}>
-                      {SOUND_SCAPES.map((item) => {
-                        const selected = item.id === soundscapeTrackId;
-                        return (
-                          <Pressable
-                            key={item.id}
-                            onPress={() => {
-                              setSoundscapeTrackId(item.id);
-                              setSoundscapeMenuOpen(false);
-                            }}
-                            style={({ pressed }) => [styles.focusSoundscapeQuickMenuItem, selected && styles.focusSoundscapeQuickMenuItemActive, pressed && styles.focusSoundscapeQuickMenuItemPressed]}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Select ${item.title} soundscape`}
-                          >
-                            <Text style={styles.focusSoundscapeQuickMenuItemText} numberOfLines={1}>{item.title}</Text>
-                            {selected ? <Icon name="check" size={16} color={colors.textPrimary} /> : null}
-                          </Pressable>
-                        );
-                      })}
+                      <ScrollView showsVerticalScrollIndicator={false}>
+                        {soundscapesByKind().map((section) => (
+                          <View key={section.kind}>
+                            <Text style={styles.focusSoundscapeQuickMenuLabel}>{section.title}</Text>
+                            {section.soundscapes.map((item) => {
+                              const selected = item.id === soundscapeTrackId;
+                              return (
+                                <Pressable
+                                  key={item.id}
+                                  onPress={() => {
+                                    setSoundscapeTrackId(item.id);
+                                    setSoundscapeMenuOpen(false);
+                                  }}
+                                  style={({ pressed }) => [styles.focusSoundscapeQuickMenuItem, selected && styles.focusSoundscapeQuickMenuItemActive, pressed && styles.focusSoundscapeQuickMenuItemPressed]}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`Select ${item.title} soundscape`}
+                                >
+                                  <Text style={styles.focusSoundscapeQuickMenuItemText} numberOfLines={1}>{item.title}</Text>
+                                  {selected ? <Icon name="check" size={16} color={colors.textPrimary} /> : null}
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </ScrollView>
                     </Animated.View>
                   ) : null}
                   <HeaderActionPill

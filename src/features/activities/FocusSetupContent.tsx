@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
-import { SOUND_SCAPES, type SoundscapeId } from '../../services/soundscapeCatalog';
+import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { SOUND_SCAPES, soundscapesByKind, type SoundscapeId } from '../../services/soundscapeCatalog';
 import { colors, spacing } from '../../theme';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
@@ -8,6 +8,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { Icon } from '../../ui/Icon';
@@ -55,6 +57,8 @@ export function FocusSetupContent({
   startTestID,
   scrollMode = 'page',
 }: FocusSetupContentProps) {
+  const { height: windowHeight } = useWindowDimensions();
+  const soundscapeMenuMaxHeight = Math.max(240, Math.min(560, Math.floor(windowHeight * 0.55)));
   const audioOptions: Array<{ id: FocusAudioSelection; title: string }> = [
     ...(allowNoAudio ? [{ id: 'none' as const, title: 'No audio' }] : []),
     ...SOUND_SCAPES,
@@ -137,17 +141,40 @@ export function FocusSetupContent({
             sideOffset={6}
             align="start"
           >
-            {audioOptions.map((item) => (
-              <DropdownMenuCheckboxItem
-                key={item.id}
-                checked={item.id === audio}
-                onCheckedChange={(checked) => {
-                  if (checked) onAudioChange(item.id);
-                }}
-              >
-                <Text style={styles.menuRowText} numberOfLines={1}>{item.title}</Text>
-              </DropdownMenuCheckboxItem>
-            ))}
+            <ScrollView
+              testID="focus-soundscape-menu-scroll"
+              style={{ maxHeight: soundscapeMenuMaxHeight }}
+              showsVerticalScrollIndicator
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+            >
+              {allowNoAudio ? (
+                <DropdownMenuCheckboxItem
+                  checked={audio === 'none'}
+                  onCheckedChange={(checked) => {
+                    if (checked) onAudioChange('none');
+                  }}
+                >
+                  <Text style={styles.menuRowText} numberOfLines={1}>No audio</Text>
+                </DropdownMenuCheckboxItem>
+              ) : null}
+              {soundscapesByKind().map((section) => (
+                <DropdownMenuGroup key={section.kind}>
+                  <DropdownMenuLabel>{section.title}</DropdownMenuLabel>
+                  {section.soundscapes.map((item) => (
+                    <DropdownMenuCheckboxItem
+                      key={item.id}
+                      checked={item.id === audio}
+                      onCheckedChange={(checked) => {
+                        if (checked) onAudioChange(item.id);
+                      }}
+                    >
+                      <Text style={styles.menuRowText} numberOfLines={1}>{item.title}</Text>
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuGroup>
+              ))}
+            </ScrollView>
           </DropdownMenuContent>
         </DropdownMenu>
       </View>
@@ -159,7 +186,7 @@ export function FocusSetupContent({
       {scrollMode === 'drawer' ? (
         <BottomDrawerScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={styles.sheetContent}
+          contentContainerStyle={[styles.sheetContent, styles.focusDrawerSheetContent]}
           keyboardShouldPersistTaps="handled"
         >
           {fields}
@@ -173,7 +200,7 @@ export function FocusSetupContent({
           {fields}
         </ScrollView>
       )}
-      <View style={styles.focusSheetFooter}>
+      <View style={[styles.focusSheetFooter, scrollMode === 'drawer' && styles.focusDrawerSheetFooter]}>
         <Button
           variant="primary"
           fullWidth
