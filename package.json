@@ -25,6 +25,8 @@
     "test:code-health": "node --test scripts/code-health-lib.test.mjs",
     "architecture:lint": "node --test scripts/architecture-lint-lib.test.mjs && node scripts/architecture-lint.mjs",
     "audio:audit": "node scripts/audio/audit-assets.mjs",
+    "audio:audit:loops": "node scripts/audio/audit-loop-seams.mjs",
+    "audio:master:loop": "node scripts/audio/master-loop.mjs",
     "audio:audit:enforce": "node scripts/audio/audit-assets.mjs --enforce",
     "audio:normalize": "node scripts/audio/normalize-assets.mjs",
     "test:audio-tooling": "node --test scripts/audio/audio-audit-lib.test.mjs",

@@ -19,10 +19,12 @@ briefs:
   - activity-areas
   - auto-schedule
   - calendar-export-ics
+  - completion-celebration-audio
   - due-date-reminders
   - dynamic-next-best-action
   - focus-mode-education
   - focus-protection
+  - focus-seamless-soundscapes
   - focus-widget
   - geolocation-activity-offers
   - keyboard-input-safety
@@ -40,7 +42,7 @@ briefs:
   - todo-list-grouping-config
   - todo-organization-triage
 status: shipped
-last_reviewed: 2026-08-05
+last_reviewed: 2026-08-10
 ---
 
 # activities

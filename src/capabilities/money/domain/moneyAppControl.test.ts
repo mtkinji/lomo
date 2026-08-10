@@ -4,6 +4,7 @@ import {
   getMoneyAppControlPresetCopy,
   isFreshMoneyReviewHandoff,
   normalizeMoneyAppControlSettings,
+  projectMoneyScreenTimeRule,
   recordMoneyAppControlReview,
 } from './moneyAppControl';
 
@@ -55,6 +56,38 @@ function snapshot(): MoneySnapshot {
 }
 
 describe('Money app control', () => {
+  it('projects a category-owned policy into the shared rule identity', () => {
+    const settings = normalizeMoneyAppControlSettings({
+      authorizationStatus: 'approved',
+      policies: {
+        shopping: {
+          enabled: true,
+          preset: 'when_over',
+          selectedApps: [{ token: 'amazon' }],
+          selectedCategories: [],
+          unlockWindowMinutes: 15,
+        },
+      },
+    });
+
+    expect(projectMoneyScreenTimeRule({
+      categorySourceId: 'shopping',
+      categoryName: 'Shopping',
+      policy: settings.policies.shopping,
+    })).toEqual({
+      id: 'money_shopping',
+      domain: 'money',
+      subject: { kind: 'self' },
+      selectionId: 'money_shopping',
+      title: 'Review Shopping',
+      trigger: { type: 'money_review', categorySourceId: 'shopping' },
+      temporaryOpen: { allowed: true, durationMinutes: 20 },
+      active: true,
+      desiredVersion: 1,
+      appliedVersion: null,
+    });
+  });
+
   it('normalizes untrusted policy settings and keeps category policies namespaced', () => {
     expect(normalizeMoneyAppControlSettings({
       authorizationStatus: 'approved',

@@ -127,30 +127,6 @@ export function usePlanSlotCapture(params: {
     [scheduleProposals],
   );
 
-  const existingActivities = useMemo(
-    () =>
-      activities
-        .filter((activity) => {
-          if (activity.status === 'done' || activity.status === 'cancelled') return false;
-          if (activity.scheduledAt) return false;
-          if (!activity.title.trim()) return false;
-          if (scheduledProposalIds.has(activity.id)) return false;
-          return true;
-        })
-        .sort((a, b) => {
-          const ao = typeof a.orderIndex === 'number' ? a.orderIndex : Number.MAX_SAFE_INTEGER;
-          const bo = typeof b.orderIndex === 'number' ? b.orderIndex : Number.MAX_SAFE_INTEGER;
-          return ao - bo;
-        })
-        .slice(0, 12)
-        .map((activity) => ({
-          activityId: activity.id,
-          title: activity.title,
-          estimateMinutes: activity.estimateMinutes ?? null,
-        })),
-    [activities, scheduledProposalIds],
-  );
-
   const getNextOrderIndex = useCallback(() => {
     const orderIndexes = activities
       .map((activity) => activity.orderIndex)
@@ -314,7 +290,9 @@ export function usePlanSlotCapture(params: {
       lockedAiActions: canUseUnsplash ? undefined : { cover_image: 'Pro' },
       onLockedAiActionPress: handleLockedAiActionPress,
     },
-    existingActivities,
+    activities,
+    goals,
+    scheduledProposalIds: [...scheduledProposalIds],
     selectedActivityId,
     createdActivityId,
     committingActivityId,

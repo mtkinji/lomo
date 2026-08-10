@@ -21,7 +21,7 @@ import {
   type ActivityCompletionUndoSnapshot,
 } from '../activities/activityCompletionUndo';
 import { HapticsService } from '../../services/HapticsService';
-import { playActivityDoneSound } from '../../services/uiSounds';
+import { willCompleteAllScheduledActivitiesToday } from '../../services/completionFeedbackSoundPolicy';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
@@ -228,8 +228,14 @@ export function ActivityEventPeek({
     const didCompleteNow = !wasDone && nextStatus === 'done';
     void HapticsService.trigger(didCompleteNow ? 'outcome.bigSuccess' : 'canvas.primary.confirm');
     if (didCompleteNow) {
-      void playActivityDoneSound();
-      recordShowUpWithCelebration();
+      recordShowUpWithCelebration({
+        baseSound: 'activity',
+        allScheduledActivitiesDone: willCompleteAllScheduledActivitiesToday({
+          activities,
+          completingActivityId: activityId,
+          now: new Date(timestamp),
+        }),
+      });
       recordScreenTimeQualifyingAction({
         action: 'activity_completed',
         occurredAt: new Date(timestamp),

@@ -13,11 +13,38 @@ jest.mock('react-native', () => {
 });
 
 jest.mock('./screenTimeProtectionRuntime', () => ({
-  applyMeaningfulFirstRestrictionsIfLocked: jest.fn().mockResolvedValue(false),
+  reconcileScreenTimeRestrictions: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock('../capabilities/money/runtime/moneyAppControlRuntime', () => ({
+  reconcileLatestMoneyAppControls: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('../features/activities/focusSessionStore', () => ({
+  useFocusSessionStore: {
+    getState: jest.fn(() => ({ activeSession: null })),
+    persist: {
+      hasHydrated: jest.fn(() => true),
+      onFinishHydration: jest.fn(() => jest.fn()),
+    },
+  },
+}));
+
+jest.mock('../store/useAppStore', () => ({
+  useAppStore: {
+    getState: jest.fn(() => ({})),
+    persist: {
+      hasHydrated: jest.fn(() => true),
+      onFinishHydration: jest.fn(() => jest.fn()),
+    },
+  },
 }));
 
 import { AppState } from 'react-native';
-import { applyMeaningfulFirstRestrictionsIfLocked } from './screenTimeProtectionRuntime';
+import { useFocusSessionStore } from '../features/activities/focusSessionStore';
+import { useAppStore } from '../store/useAppStore';
+import { reconcileScreenTimeRestrictions } from './screenTimeProtectionRuntime';
+import { reconcileLatestMoneyAppControls } from '../capabilities/money/runtime/moneyAppControlRuntime';
 import {
   startScreenTimeProtectionForegroundSync,
   stopScreenTimeProtectionForegroundSyncForTests,
@@ -25,25 +52,58 @@ import {
 
 describe('screenTimeProtectionForegroundSync', () => {
   beforeEach(() => {
+    jest.restoreAllMocks();
     stopScreenTimeProtectionForegroundSyncForTests();
     jest.clearAllMocks();
     (AppState as any).currentState = 'background';
+    (useFocusSessionStore.getState as jest.Mock).mockReturnValue({ activeSession: null });
+    (useFocusSessionStore.persist.hasHydrated as jest.Mock).mockReturnValue(true);
   });
 
   afterEach(() => {
     stopScreenTimeProtectionForegroundSyncForTests();
   });
 
-  it('reconciles once on start and on foreground return', () => {
+  it('fully reconciles once on start and on foreground return so a persisted unlock clears a stale native shield', () => {
     startScreenTimeProtectionForegroundSync();
 
-    expect(applyMeaningfulFirstRestrictionsIfLocked).toHaveBeenCalledTimes(1);
+    expect(reconcileScreenTimeRestrictions).toHaveBeenCalledWith({ focusSessionActive: false });
+    expect(reconcileLatestMoneyAppControls).toHaveBeenCalledTimes(1);
 
     (AppState as any).__emit('active');
-    expect(applyMeaningfulFirstRestrictionsIfLocked).toHaveBeenCalledTimes(2);
+    expect(reconcileScreenTimeRestrictions).toHaveBeenCalledTimes(2);
+    expect(reconcileLatestMoneyAppControls).toHaveBeenCalledTimes(2);
 
     (AppState as any).__emit('active');
-    expect(applyMeaningfulFirstRestrictionsIfLocked).toHaveBeenCalledTimes(2);
+    expect(reconcileScreenTimeRestrictions).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves an active Focus restriction during foreground reconciliation', () => {
+    (useFocusSessionStore.getState as jest.Mock).mockReturnValue({
+      activeSession: { sessionId: 'focus-1', mode: 'running' },
+    });
+
+    startScreenTimeProtectionForegroundSync();
+
+    expect(reconcileScreenTimeRestrictions).toHaveBeenCalledWith({ focusSessionActive: true });
+  });
+
+  it('waits for persisted Screen Time state before reconciling on cold launch', () => {
+    let finishAppHydration: Parameters<typeof useAppStore.persist.onFinishHydration>[0] | undefined;
+    jest.spyOn(useAppStore.persist, 'hasHydrated').mockReturnValue(false);
+    jest.spyOn(useAppStore.persist, 'onFinishHydration').mockImplementation((
+      listener: Parameters<typeof useAppStore.persist.onFinishHydration>[0],
+    ) => {
+      finishAppHydration = listener;
+      return jest.fn();
+    });
+
+    startScreenTimeProtectionForegroundSync();
+
+    expect(reconcileScreenTimeRestrictions).not.toHaveBeenCalled();
+    jest.spyOn(useAppStore.persist, 'hasHydrated').mockReturnValue(true);
+    finishAppHydration?.(useAppStore.getState());
+    expect(reconcileScreenTimeRestrictions).toHaveBeenCalledWith({ focusSessionActive: false });
   });
 
   it('does not register duplicate app state listeners', () => {

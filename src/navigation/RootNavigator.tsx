@@ -81,6 +81,7 @@ import { CreditsInterstitialDrawerHost } from '../features/onboarding/CreditsInt
 import { JoinSharedGoalDrawerHost } from '../features/goals/JoinSharedGoalDrawerHost';
 import { ToastHost } from '../ui/ToastHost';
 import { AuthPromptDrawerHost } from '../features/account/AuthPromptDrawerHost';
+import { ScreenTimeUnlockGuideHost } from '../features/screen-time/components/ScreenTimeUnlockGuideHost';
 import { PlanKickoffDrawerHost } from '../features/plan/PlanKickoffDrawerHost';
 import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
 import { markOpenedFromWidget } from '../services/analytics/widgetAttribution';
@@ -787,6 +788,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       <PaywallDrawerHost />
       <JoinSharedGoalDrawerHost />
       <AuthPromptDrawerHost />
+      <ScreenTimeUnlockGuideHost />
       <ToastHost />
     </NavigationContainer>
   );
@@ -1141,7 +1143,6 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const menuOpen = useCapabilityMenuOpen();
   const exploreEnabled = useFeatureFlag('explore-capability', __DEV__);
   const sharedHomeEnabled = useFeatureFlag('shared-home-v1', false);
-  const foodEnabled = useFeatureFlag('food-loop-v1', __DEV__);
   const chatRepository = useMemo(() => createUnifiedChatRepository(), []);
   const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);
   const [chatsLoading, setChatsLoading] = useState(false);
@@ -1273,7 +1274,6 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         chatsError={chatsError}
         displayName={displayName}
         avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
-        moneyLivingLimitEnabled
         onSelectCapability={(id) => {
           const capability = resolveCapabilityNavigation(id);
           capture(AnalyticsEvent.CapabilitySelected, {
@@ -1328,7 +1328,6 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           coverMenu();
         }}
         exploreEnabled={exploreEnabled}
-        foodEnabled={foodEnabled}
       />
     </View>
   );

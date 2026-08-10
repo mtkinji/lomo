@@ -1,4 +1,8 @@
 import type { ScreenTimeAuthorizationStatus, ScreenTimeToken } from '../../../services/screenTimeProtection';
+import {
+  DEFAULT_TEMPORARY_OPEN_MINUTES,
+  type ScreenTimeRule,
+} from '../../../features/screen-time/domain/screenTimeRule';
 import type { MoneyCategory, MoneySnapshot } from '../data/moneySnapshot';
 
 export type MoneyAppControlPreset =
@@ -86,13 +90,10 @@ export function normalizeMoneyAppControlSettings(value: unknown): MoneyAppContro
     Object.entries(raw.policies as Record<string, unknown>).forEach(([categoryId, policyValue]) => {
       if (!categoryId.trim() || !policyValue || typeof policyValue !== 'object') return;
       const policy = policyValue as any;
-      const unlockWindowMinutes = Number(policy.unlockWindowMinutes);
       policies[categoryId] = {
         enabled: policy.enabled === true,
         preset: normalizePreset(policy.preset),
-        unlockWindowMinutes: Number.isFinite(unlockWindowMinutes)
-          ? Math.max(1, Math.min(120, Math.round(unlockWindowMinutes)))
-          : 20,
+        unlockWindowMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
         selectedApps: normalizeTokens(policy.selectedApps),
         selectedCategories: normalizeTokens(policy.selectedCategories),
         lastReview: normalizeReview(policy.lastReview),
@@ -114,6 +115,33 @@ export function hasMoneyAppControlTargets(policy: MoneyAppControlPolicy | undefi
 export function moneyAppControlSelectionId(categorySourceId: string): string {
   const safe = categorySourceId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 54);
   return `money_${safe || 'category'}`;
+}
+
+export function projectMoneyScreenTimeRule(params: {
+  categorySourceId: string;
+  categoryName: string;
+  policy: MoneyAppControlPolicy | undefined;
+}): ScreenTimeRule | null {
+  if (!params.policy || !hasMoneyAppControlTargets(params.policy)) return null;
+  const categorySourceId = params.categorySourceId.trim();
+  const categoryName = params.categoryName.trim();
+  if (!categorySourceId || !categoryName) return null;
+  const selectionId = moneyAppControlSelectionId(categorySourceId);
+  return {
+    id: selectionId,
+    domain: 'money',
+    subject: { kind: 'self' },
+    selectionId,
+    title: `Review ${categoryName}`,
+    trigger: { type: 'money_review', categorySourceId },
+    temporaryOpen: {
+      allowed: true,
+      durationMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
+    },
+    active: params.policy.enabled,
+    desiredVersion: 1,
+    appliedVersion: null,
+  };
 }
 
 function hasFreshOpenReview(policy: MoneyAppControlPolicy, now: Date): boolean {

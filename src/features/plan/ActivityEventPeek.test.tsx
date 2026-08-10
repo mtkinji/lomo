@@ -8,6 +8,7 @@ import {
   seedDomain,
 } from '../../test/storeFixtures';
 import { useAppStore } from '../../store/useAppStore';
+import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
 import { useToastStore } from '../../store/useToastStore';
 import { ActivityEventPeek } from './ActivityEventPeek';
 
@@ -19,10 +20,6 @@ jest.mock('../../services/analytics/useAnalytics', () => ({
 
 jest.mock('../../services/HapticsService', () => ({
   HapticsService: { trigger: jest.fn(async () => undefined) },
-}));
-
-jest.mock('../../services/uiSounds', () => ({
-  playActivityDoneSound: jest.fn(async () => undefined),
 }));
 
 jest.mock('../../store/useCelebrationStore', () => ({
@@ -65,6 +62,8 @@ const baseProps = {
 };
 
 describe('ActivityEventPeek completion action', () => {
+  const recordShowUpWithCelebrationMock = recordShowUpWithCelebration as jest.Mock;
+
   beforeEach(() => {
     jest.clearAllMocks();
     resetAllStores();
@@ -84,6 +83,10 @@ describe('ActivityEventPeek completion action', () => {
     const activity = useAppStore.getState().activities.find((candidate) => candidate.id === 'act-1');
     expect(activity?.status).toBe('done');
     expect(activity?.completedAt).toBeTruthy();
+    expect(recordShowUpWithCelebrationMock).toHaveBeenCalledWith({
+      baseSound: 'activity',
+      allScheduledActivitiesDone: false,
+    });
     expect(useToastStore.getState()).toMatchObject({
       message: 'To-do complete',
       actionLabel: 'Undo',

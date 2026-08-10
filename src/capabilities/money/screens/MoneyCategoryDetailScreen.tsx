@@ -59,11 +59,9 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const isFocused = useIsFocused();
   const scrollY = useRef(new Animated.Value(0)).current;
   const {
-    pendingAppControlReviewCategoryId,
     previewCategoryPlanAmount,
     refresh,
     renameCategory,
-    reviewMoneyAppControl,
     savingCategory,
     snapshot,
     status,
@@ -87,7 +85,6 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const [planImpact, setPlanImpact] = useState<LivingPlanOverridePreview | null>(null);
   const [showPlanChanges, setShowPlanChanges] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [reviewReceipt, setReviewReceipt] = useState<'opened_for_now' | 'left_blocked' | null>(null);
   const [chartScrubbing, setChartScrubbing] = useState(false);
   const [coverDrawerOpen, setCoverDrawerOpen] = useState(false);
   const view = useMemo(() => snapshot
@@ -211,16 +208,6 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
 
   const setMutationError = (error: unknown) => {
     setCategoryError(error instanceof Error ? error.message : 'The category could not be updated.');
-  };
-
-  const recordReview = async (outcome: 'opened_for_now' | 'left_blocked') => {
-    if (!category) return;
-    try {
-      await reviewMoneyAppControl(category.sourceId, outcome);
-      setReviewReceipt(outcome);
-    } catch (error) {
-      setMutationError(error);
-    }
   };
 
   const saveForecastSettings = async () => {
@@ -361,20 +348,6 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
                 <Icon name="chevronRight" size={18} color={colors.pine700} />
               </Pressable>
             </View>
-
-            {pendingAppControlReviewCategoryId === category.sourceId ? (
-              <View style={styles.reviewCard}>
-                <View style={styles.offerIcon}><Icon name="shield" size={20} color={colors.pine700} /></View>
-                <View style={styles.reviewBody}>
-                  <Text style={styles.offerTitle}>Review {category.name} before opening selected apps</Text>
-                  <Text style={styles.offerCopy}>Choose whether this pause still helps before access changes.</Text>
-                </View>
-                <Button fullWidth onPress={() => void recordReview('opened_for_now')}>Open for 20 min</Button>
-                <Button fullWidth variant="outline" onPress={() => void recordReview('left_blocked')}>Keep blocked</Button>
-              </View>
-            ) : reviewReceipt ? (
-              <Text style={styles.receiptText}>{reviewReceipt === 'opened_for_now' ? 'Selected apps are open for 20 min.' : 'Selected apps remain blocked.'}</Text>
-            ) : null}
 
             <View style={styles.activitySection}>
               <View style={styles.sectionHeader}>

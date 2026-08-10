@@ -254,9 +254,9 @@ export function MealsOverflowMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         {...({ asChild: true } as const)}
-        accessibilityLabel="Meals actions"
+        accessibilityLabel="Recipes actions"
       >
-        <IconButton accessibilityLabel="Meals actions" variant="ghost">
+        <IconButton accessibilityLabel="Recipes actions" variant="ghost">
           <Icon name="more" size={20} color={colors.textPrimary} />
         </IconButton>
       </DropdownMenuTrigger>

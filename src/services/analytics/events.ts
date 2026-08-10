@@ -128,6 +128,13 @@ export const AnalyticsEvent = {
   UnifiedChatOperationalOutcome: 'unified_chat_operational_outcome',
   FamilyScreenTimeChatProposalDecided: 'family_screen_time_chat_proposal_decided',
   FamilyScreenTimeChatPolicyOutcome: 'family_screen_time_chat_policy_outcome',
+  ScreenTimeGuideShown: 'screen_time_guide_shown',
+  ScreenTimeGuideDismissed: 'screen_time_guide_dismissed',
+  ScreenTimeGuideRequirementOpened: 'screen_time_guide_requirement_opened',
+  ScreenTimeTemporaryOpenRequested: 'screen_time_temporary_open_requested',
+  ScreenTimeTemporaryOpenApplied: 'screen_time_temporary_open_applied',
+  ScreenTimeTemporaryOpenDenied: 'screen_time_temporary_open_denied',
+  ScreenTimeTemporaryOpenFailed: 'screen_time_temporary_open_failed',
 
   // Phone Agent SMS beta. Server-side callers must only attach safe metadata:
   // channel, action type, prompt kind, object kind, and booleans.

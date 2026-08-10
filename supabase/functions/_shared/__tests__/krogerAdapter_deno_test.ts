@@ -63,3 +63,19 @@ Deno.test('normalizes product proposals and only builds confirmed cart rows', ()
   }]);
   assertEquals(buildKrogerCartPayload([{ upc: '001', quantity: 1 }]), { items: [{ upc: '001', quantity: 1, modality: 'PICKUP' }] });
 });
+
+Deno.test('coalesces duplicate retailer products before sending the cart payload', () => {
+  assertEquals(
+    buildKrogerCartPayload([
+      { upc: '001', quantity: 1 },
+      { upc: '001', quantity: 1 },
+      { upc: '002', quantity: 3 },
+    ]),
+    {
+      items: [
+        { upc: '001', quantity: 2, modality: 'PICKUP' },
+        { upc: '002', quantity: 3, modality: 'PICKUP' },
+      ],
+    },
+  );
+});

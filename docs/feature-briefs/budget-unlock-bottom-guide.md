@@ -10,7 +10,7 @@ job_step: choose-intentional-access
 serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life, jtbd-review-budget-reality-before-spending]
 related_briefs: [brief-budget-app-unlock-review, brief-screen-time-controls]
 owner: andrew
-last_updated: 2026-07-09
+last_updated: 2026-08-10
 source_repo: mtkinji/kwilt-budget
 source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 ---
@@ -18,6 +18,12 @@ source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 > **Money source note:** Promoted from frozen standalone Money product documentation. Preserve its product reasoning, but verify route, implementation, delivery, and release claims against `src/capabilities/money/` and current runtime evidence.
 
 # Budget Unlock Bottom Guide
+
+> **Superseded interaction location:** Money still owns the budget condition and its
+> durable editor, but a Screen Time shield no longer deep-links into Budget Detail.
+> The shared root contextual guide preserves the last-viewed Kwilt page, shows all
+> applicable rule cards, and offers the canonical authorized **Open for 20 min** action.
+> See [Rule-based Screen Time and contextual unlock](rule-based-screen-time-contextual-unlock.md).
 
 ## Context
 The active app-pause affordance on Budget Detail has moved from a large card toward a compact item. The next product bet is that the right grammar is not an inline item at all: it is a Kwilt-style bottom guide, similar to the main Kwilt "Plan your day" guide.

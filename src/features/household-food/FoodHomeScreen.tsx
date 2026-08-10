@@ -86,7 +86,7 @@ export function FoodHomeScreen({ navigation }: Props) {
           </ScrollView>
         ) : (
           <View style={styles.empty}>
-            <Text>{recipeStatus === 'error' ? 'Meals are unavailable offline.' : 'Save a recipe once; cook from a clean, ad-free copy after that.'}</Text>
+            <Text>{recipeStatus === 'error' ? 'Recipes are unavailable offline.' : 'Save a recipe once; cook from a clean, ad-free copy after that.'}</Text>
             <Button variant="outline" onPress={() => navigation.navigate('RecipeLibrary')}>Add a recipe</Button>
           </View>
         )}

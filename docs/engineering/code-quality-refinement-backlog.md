@@ -137,8 +137,23 @@ Prioritize by compounding leverage per unit of risk:
   - Why: draft existence and live partner-circle equality gate a persistence mutation inside the screen effect.
   - Result: `shouldUpdatePartnerCircle` now owns the missing-draft and unchanged-circle no-op contract beside the draft mutation logic, with focused coverage for all three states.
 
-- [ ] Extract Goal pending check-in send preparation
+- [x] Extract Goal pending check-in send preparation
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: text normalization, empty-send suppression, and analytics item count are embedded in the async screen handler.
-  - Ideal test: pin blank, whitespace-only, trimmed-text, missing-draft, and populated-draft inputs.
+  - Result: `prepareCheckinDraftSend` now returns a normalized submission payload or rejects blank input, with focused tests for whitespace, trimming, missing drafts, and populated item counts.
+
+- [x] Extract Goal pending check-in delivery controller
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: submission, analytics, draft/nudge lifecycle updates, feed refresh, toast, error reporting, and busy cleanup remain coupled inside the screen callback.
+  - Result: `goalCheckinDeliveryController.ts` now owns delivery ordering, error normalization, success/failure routing, and guaranteed busy cleanup through explicit dependencies, with focused sequence tests.
+
+- [x] Extract Goal pending check-in lifecycle commands
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: skip, item removal, and approval dismissal each pair analytics with draft-store mutations in adjacent screen callbacks.
+  - Result: `goalCheckinLifecycleCommands.ts` now owns missing-goal guards and analytics/store ordering for skip, remove-item, and dismiss actions, with runtime wiring isolated from the screen.
+
+- [ ] Extract Goal target-date mutations
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: offset date math, end-of-day normalization, quality-state transitions, and update timestamps are embedded in screen callbacks.
+  - Ideal test: pin fixed-reference offsets, end-of-day time, metrics/no-metrics quality state, and clear behavior.
   - Risk: low

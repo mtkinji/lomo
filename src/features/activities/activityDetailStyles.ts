@@ -65,6 +65,16 @@ export const styles = StyleSheet.create({
     flexShrink: 1,
     flex: 1,
   },
+  focusSoundscapeMenuItem: {
+    minHeight: 44,
+    paddingVertical: spacing.xs,
+  },
+  focusSoundscapeMenuItemText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flexShrink: 1,
+    flex: 1,
+  },
   menuItemText: menuStyles.menuItemText,
   destructiveMenuRowText: {
     ...menuStyles.destructiveMenuItemText,
@@ -240,7 +250,7 @@ export const styles = StyleSheet.create({
   },
   narrativeTitleBlock: {
     width: '100%',
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xs,
   },
   originLinkRow: {
@@ -592,9 +602,14 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   stepCheckbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1.5,
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1,
+  },
+  stepCheckboxCompleted: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   stepLeftIconBox: {
     // Alignment box: keep left-column centers consistent with the title's 24x24 check-circle,
@@ -608,6 +623,10 @@ export const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     paddingVertical: spacing.xs / 2,
+  },
+  stepTextCompleted: {
+    color: colors.textSecondary,
+    textDecorationLine: 'line-through',
   },
   newStepInput: {
     // Avoid extra inner padding on the single-line inline "Add step" input;
@@ -682,6 +701,10 @@ export const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
+  },
+  focusDrawerSheetContent: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
   },
   sheetHeader: {
     paddingTop: 0,
@@ -1094,6 +1117,9 @@ export const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     gap: spacing.sm,
   },
+  focusDrawerSheetFooter: {
+    paddingHorizontal: 0,
+  },
   focusOverlay: {
     flex: 1,
     backgroundColor: colors.pine700,
@@ -1197,6 +1223,15 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
+    maxHeight: 480,
+  },
+  focusSoundscapeQuickMenuLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   focusSoundscapeQuickMenuItem: {
     minHeight: 40,

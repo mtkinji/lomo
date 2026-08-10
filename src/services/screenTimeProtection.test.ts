@@ -23,6 +23,39 @@ function base(overrides: Partial<ScreenTimeProtectionSettings> = {}): ScreenTime
 }
 
 describe('screenTimeProtection.normalizeScreenTimeProtectionSettings', () => {
+  it('migrates shared legacy targets into independent personal rules', () => {
+    const settings = normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved',
+      selectedApps: [{ token: 'youtube', label: 'YouTube' }],
+      selectedCategories: [{ token: 'social', label: 'Social' }],
+      focusProtection: { enabled: true, setupCompleted: true },
+      meaningfulFirst: { enabled: true, setupCompleted: true, bypassMinutes: 15 },
+    });
+
+    expect(settings.personalRules).toEqual([
+      expect.objectContaining({
+        id: 'personal_real_step',
+        kind: 'real_step',
+        selectionId: 'personal_real_step',
+        selectedApps: [{ token: 'youtube', label: 'YouTube' }],
+        selectedCategories: [{ token: 'social', label: 'Social' }],
+        enabled: true,
+        temporaryOpenMinutes: 20,
+        needsSelectionReview: true,
+      }),
+      expect.objectContaining({
+        id: 'personal_focus',
+        kind: 'focus',
+        selectionId: 'personal_focus',
+        selectedApps: [{ token: 'youtube', label: 'YouTube' }],
+        selectedCategories: [{ token: 'social', label: 'Social' }],
+        enabled: true,
+        temporaryOpenMinutes: 20,
+        needsSelectionReview: true,
+      }),
+    ]);
+  });
+
   it('keeps a shared app selection and fills missing mode defaults', () => {
     const settings = normalizeScreenTimeProtectionSettings({
       authorizationStatus: 'approved',
@@ -36,7 +69,7 @@ describe('screenTimeProtection.normalizeScreenTimeProtectionSettings', () => {
     expect(settings.meaningfulFirst.enabled).toBe(true);
     expect(settings.meaningfulFirst.unlockPolicy).toEqual({ type: 'until_next_local_day' });
     expect(settings.meaningfulFirst.minFocusMinutes).toBe(10);
-    expect(settings.meaningfulFirst.bypassMinutes).toBe(15);
+    expect(settings.meaningfulFirst.bypassMinutes).toBe(20);
     expect(settings.setupOffer.lastDismissedAtIso).toBeNull();
   });
 
@@ -362,7 +395,7 @@ describe('screenTimeProtection meaningful-first unlocks', () => {
     });
 
     expect(bypass.lastQualifiedAtIso).toBeNull();
-    expect(bypass.currentUnlockUntilIso).toBe('2026-06-19T08:15:00.000Z');
+    expect(bypass.currentUnlockUntilIso).toBe('2026-06-19T08:20:00.000Z');
   });
 });
 

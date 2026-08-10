@@ -9,7 +9,7 @@ job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-move-the-few-things-that-matter, jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-focus-protection, brief-meaningful-first-app-access, brief-family-screen-time-controls, brief-screen-time-controls]
 owner: andrew
-last_updated: 2026-07-30
+last_updated: 2026-08-10
 ---
 
 # Screen Time Controls Contextual Setup
@@ -98,6 +98,8 @@ Default rules:
 - Settings discovery shows both choices without forcing a default.
 
 After setup, **Settings > Screen Time > My Screen Time** becomes the personal management surface. The parent Screen Time route may also summarize family and Money agreements, but their rows route to Household or Money rather than duplicating their editors:
+
+- Represent **Do a real step first** and **Protect Focus** as separate light rule cards with independent app selections. Choosing both creates two rules; it does not create an ambiguous combined switch.
 
 - Show whether Screen Time Controls are on.
 - Show the current blocked-app/category count.

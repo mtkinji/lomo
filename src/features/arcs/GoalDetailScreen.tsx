@@ -159,6 +159,7 @@ import { CheckinApprovalSheet } from '../goals/CheckinApprovalSheet';
 import {
   buildPartnerCircleKey,
   makeDraftItem,
+  prepareCheckinDraftSend,
   shouldUpdatePartnerCircle,
   shouldShowImmediatePrompt as canShowImmediateApprovalPrompt,
 } from '../../services/checkinDrafts';
@@ -178,6 +179,9 @@ import {
   canRemoveGoalPartnerMember,
 } from './goalPartnerAccessPresentation';
 import { buildGoalCheckinPartnerPresentation } from './goalCheckinPartnerPresentation';
+import { deliverGoalCheckin } from './goalCheckinDeliveryController';
+import { createGoalCheckinDeliveryDependencies } from './goalCheckinDeliveryRuntime';
+import { useGoalCheckinLifecycleController } from './goalCheckinLifecycleRuntime';
 import { selectGoalRouteCheckinApprovalAction } from './goalRouteCheckinApprovalDecision';
 import { selectGoalPartnerPromptTrigger } from './goalPartnerPromptDecision';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
@@ -952,60 +956,30 @@ export function GoalDetailScreen() {
   const handleSendPendingDraft = useCallback(
     async (text: string) => {
       if (!goalId) return;
-      const trimmed = text.trim();
-      if (trimmed.length === 0) return;
-      setPendingDraftBusy(true);
-      try {
-        const { submitCheckin } = await import('../../services/checkins');
-        await submitCheckin({ goalId, preset: null, text: trimmed });
-        capture(AnalyticsEvent.CheckinDraftSent, {
-          goalId,
-          itemCount: pendingDraft?.items.length ?? 0,
-        });
-        useCheckinDraftStore.getState().markSent(goalId);
-        useCheckinNudgeStore.getState().recordCheckin(goalId);
-        setFeedRefreshKey((key) => key + 1);
-        useToastStore.getState().showToast({
-          message: 'Check-in sent',
-          variant: 'success',
-          durationMs: 2200,
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to send check-in';
-        capture(AnalyticsEvent.SharedGoalCheckinFailed, { goalId, error: message });
-        Alert.alert('Unable to send', message);
-      } finally {
-        setPendingDraftBusy(false);
-      }
+      const preparedSend = prepareCheckinDraftSend(text, pendingDraft);
+      if (!preparedSend) return;
+      await deliverGoalCheckin(
+        { goalId, text: preparedSend.text, itemCount: preparedSend.itemCount },
+        createGoalCheckinDeliveryDependencies({
+          capture,
+          setBusy: setPendingDraftBusy,
+          refreshFeed: () => setFeedRefreshKey((key) => key + 1),
+        }),
+      );
     },
     [capture, goalId, pendingDraft]
   );
 
-  const handleSkipPendingDraft = useCallback(() => {
-    if (!goalId) return;
-    capture(AnalyticsEvent.CheckinDraftSkipped, {
-      goalId,
-      itemCount: pendingDraft?.items.length ?? 0,
-    });
-    useCheckinDraftStore.getState().markSkipped(goalId);
-  }, [capture, goalId, pendingDraft]);
-
-  const handleRemovePendingDraftItem = useCallback(
-    (itemId: string) => {
-      if (!goalId) return;
-      capture(AnalyticsEvent.CheckinDraftItemRemoved, { goalId, itemId });
-      useCheckinDraftStore.getState().removeItem({ goalId, itemId });
-    },
-    [capture, goalId]
-  );
-
-  const handleApprovalSheetDismiss = useCallback(() => {
-    setCheckinApprovalSheetVisible(false);
-    if (goalId) {
-      useCheckinDraftStore.getState().markDismissed(goalId);
-      capture(AnalyticsEvent.CheckinDraftDismissed, { goalId });
-    }
-  }, [capture, goalId]);
+  const {
+    handleSkipPendingDraft,
+    handleRemovePendingDraftItem,
+    handleApprovalSheetDismiss,
+  } = useGoalCheckinLifecycleController({
+    capture,
+    goalId,
+    itemCount: pendingDraft?.items.length ?? 0,
+    setApprovalVisible: setCheckinApprovalSheetVisible,
+  });
 
   const handleApprovalSheetSend = useCallback(
     async (text: string) => {

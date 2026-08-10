@@ -664,6 +664,7 @@ describe('resetUserSpecificState', () => {
     useAppStore.setState({
       hapticsEnabled: false,
       soundscapeEnabled: false,
+      soundscapeTrackId: 'forestStream',
       focusOverlayColorIndex: 3,
       notificationPreferences: {
         ...useAppStore.getState().notificationPreferences,
@@ -680,6 +681,7 @@ describe('resetUserSpecificState', () => {
     // Device settings should be preserved.
     expect(state.hapticsEnabled).toBe(false);
     expect((state as any).soundscapeEnabled).toBe(false);
+    expect((state as any).soundscapeTrackId).toBe('forestStream');
     expect((state as any).focusOverlayColorIndex).toBe(3);
     expect(state.notificationPreferences.notificationsEnabled).toBe(true);
     expect(state.notificationPreferences.allowDailyFocus).toBe(true);
@@ -1135,7 +1137,7 @@ describe('screen time protection settings', () => {
     expect(settings.focusProtection.enabled).toBe(true);
     expect(settings.meaningfulFirst.currentUnlockUntilIso).toBeNull();
     expect(settings.meaningfulFirst.minFocusMinutes).toBe(10);
-    expect(settings.meaningfulFirst.bypassMinutes).toBe(15);
+    expect(settings.meaningfulFirst.bypassMinutes).toBe(20);
     expect(settings.setupOffer.lastShownAtIso).toBeNull();
   });
 

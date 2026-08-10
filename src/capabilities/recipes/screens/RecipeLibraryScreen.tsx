@@ -452,7 +452,7 @@ export function RecipeLibraryScreen({ navigation }: Props) {
   return (
     <AppShell>
       <PageHeader
-        title="Meals"
+        title="Recipes"
         onPressMenu={openMenu}
         moreMenu={
           <MealsOverflowMenu
@@ -645,7 +645,7 @@ export function RecipeLibraryScreen({ navigation }: Props) {
         visible={mealChatVisible}
         onClose={() => setMealChatVisible(false)}
         launchContext={mealChatLaunchContext}
-        scopeLabel="Meals"
+        scopeLabel="Recipes"
         source="meals_inventory_contextual_drawer"
         threadId={mealChatThreadId}
         onThreadIdChange={setMealChatThreadId}

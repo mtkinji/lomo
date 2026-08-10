@@ -14,9 +14,27 @@ import { consumeOpenedFromWidget } from '../services/analytics/widgetAttribution
 import { track } from '../services/analytics/analytics';
 import { posthogClient } from '../services/analytics/posthogClient';
 import { AnalyticsEvent } from '../services/analytics/events';
+import {
+  allActivitiesDoneCelebrationId,
+  chooseCompletionFeedbackSound,
+  type CompletionBaseSound,
+  type CompletionFeedbackSound,
+  type StreakSoundMoment,
+} from '../services/completionFeedbackSoundPolicy';
 
 const STREAK_MILESTONE_BONUS_CREDITS = 5;
 const STREAK_MILESTONE_REWARDS = new Set([7, 14, 30, 60, 100]);
+
+function playCompletionSound(sound: CompletionFeedbackSound) {
+  try {
+    // Keep expo-audio out of the global celebration-store import graph. Most
+    // screens import this store even though playback only matters on an action.
+    const { playCompletionFeedbackSound } = require('../services/uiSounds') as typeof import('../services/uiSounds');
+    void playCompletionFeedbackSound(sound);
+  } catch {
+    // Completion audio is best-effort and must never block the state change.
+  }
+}
 
 export type CelebrationMoment = {
   /** Unique key for this celebration instance to prevent duplicates */
@@ -568,9 +586,12 @@ export function celebrateDailyStreak(days: number, onDismiss?: () => void) {
 /**
  * Trigger an all activities done celebration
  */
-export function celebrateAllActivitiesDone(onDismiss?: () => void) {
+export function celebrateAllActivitiesDone(
+  localDate = localDateKey(new Date()),
+  onDismiss?: () => void,
+) {
   useCelebrationStore.getState().celebrate({
-    id: `all-done-${Date.now()}`,
+    id: allActivitiesDoneCelebrationId(localDate),
     kind: 'allActivitiesDone',
     headline: 'All clear. 🎉',
     subheadline: 'You finished what was on the plan. That deserves a moment.',
@@ -693,7 +714,10 @@ export function celebrateStreakRepaired(repairedStreak: number, onDismiss?: () =
  *
  * Also records significant milestones to the server for future friend celebrations.
  */
-export function recordShowUpWithCelebration() {
+export function recordShowUpWithCelebration(options?: {
+  baseSound?: CompletionBaseSound;
+  allScheduledActivitiesDone?: boolean;
+}) {
   const appStore = useAppStore.getState();
   const prevStreak = appStore.currentShowUpStreak ?? 0;
   const prevDate = appStore.lastShowUpDate;
@@ -717,6 +741,7 @@ export function recordShowUpWithCelebration() {
   const nextDate = nextState.lastShowUpDate;
   const nextGrace = nextState.streakGrace ?? prevGrace;
   const nextBreakState = nextState.streakBreakState ?? prevBreakState;
+  let streakSoundMoment: StreakSoundMoment = 'none';
 
   if (prevDate !== nextDate) {
     // Repair success: streak was restored from a break state
@@ -725,6 +750,7 @@ export function recordShowUpWithCelebration() {
       nextBreakState.repairedAtMs != null &&
       nextStreak > 1
     ) {
+      streakSoundMoment = 'repaired';
       setTimeout(() => {
         celebrateStreakRepaired(nextStreak);
       }, 500);
@@ -734,6 +760,7 @@ export function recordShowUpWithCelebration() {
       nextBreakState.brokenStreakLength > 3 &&
       nextStreak === 1
     ) {
+      streakSoundMoment = 'repairOpportunity';
       // Streak just broke — repair opportunity (only for streaks > 3)
       setTimeout(() => {
         celebrateStreakRepairOpportunity(nextBreakState.brokenStreakLength!);
@@ -749,6 +776,7 @@ export function recordShowUpWithCelebration() {
         }, 1500);
       }
     } else if (nextGrace.graceDaysUsed > 0 && nextStreak > 1) {
+      streakSoundMoment = 'savedByGrace';
       setTimeout(() => {
         celebrateStreakSaved(
           nextStreak,
@@ -758,10 +786,21 @@ export function recordShowUpWithCelebration() {
         );
       }, 500);
     } else if (nextStreak > prevStreak) {
+      streakSoundMoment = nextStreak > 1
+        ? (isSpecialStreakMilestone(nextStreak) ? 'milestone' : 'continued')
+        : 'none';
       setTimeout(() => {
         celebrateDailyStreak(nextStreak);
       }, 500);
     }
+
+    playCompletionSound(
+      chooseCompletionFeedbackSound({
+        baseSound: options?.baseSound ?? 'none',
+        streakMoment: streakSoundMoment,
+        allScheduledActivitiesDone: options?.allScheduledActivitiesDone ?? false,
+      }),
+    );
 
     if (isShowUpStreakMilestone(nextStreak)) {
       void recordShowUpStreakMilestone(nextStreak);
@@ -816,5 +855,18 @@ export function recordShowUpWithCelebration() {
         streak_length: nextStreak,
       });
     }
+  } else {
+    playCompletionSound(
+      chooseCompletionFeedbackSound({
+        baseSound: options?.baseSound ?? 'none',
+        streakMoment: 'none',
+        allScheduledActivitiesDone: options?.allScheduledActivitiesDone ?? false,
+      }),
+    );
+  }
+
+  if (options?.allScheduledActivitiesDone) {
+    const todayKey = localDateKey(new Date());
+    setTimeout(() => celebrateAllActivitiesDone(todayKey), 800);
   }
 }

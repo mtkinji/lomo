@@ -1,6 +1,8 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, screen } from '@testing-library/react-native';
 import { renderWithProviders } from '../test/renderWithProviders';
+import { colors } from '../theme';
 import { ActivityListItem } from './ActivityListItem';
 
 describe('ActivityListItem timing metadata', () => {
@@ -52,5 +54,35 @@ describe('ActivityListItem timing metadata', () => {
       nativeEvent: { actionName: 'editDuration' },
     });
     expect(onEstimatePress).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('ActivityListItem completion treatment', () => {
+  it('matches the Grocery checked-item treatment and strikes through the title', () => {
+    renderWithProviders(
+      <ActivityListItem
+        title="Buy groceries"
+        isCompleted
+        onToggleComplete={jest.fn()}
+      />,
+    );
+
+    const completionControl = screen.getByRole('checkbox');
+    expect(completionControl.props.accessibilityState).toEqual({ checked: true });
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId('activity-completion-indicator').props.style),
+    ).toMatchObject({
+      width: 22,
+      height: 22,
+      borderRadius: 7,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+    });
+    expect(StyleSheet.flatten(screen.getByTestId('activity-title').props.style)).toMatchObject({
+      color: colors.textSecondary,
+      textDecorationLine: 'line-through',
+    });
   });
 });

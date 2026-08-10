@@ -32,6 +32,11 @@ const REMOTE_SOUNDSCAPE_IDS: Partial<Record<SoundscapeId, RemoteAudioAssetId>> =
   openRoadFocus: 'focus.open-road',
   cedarWorkshop: 'focus.cedar-workshop',
   rainlitLibrary: 'focus.rainlit-library',
+  quietRain: 'focus.quiet-rain',
+  forestStream: 'focus.forest-stream',
+  oceanWaves: 'focus.ocean-waves',
+  fireplace: 'focus.fireplace',
+  nightMeadow: 'focus.night-meadow',
 };
 
 let currentSoundscapeId: SoundscapeId = 'default';

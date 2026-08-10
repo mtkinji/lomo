@@ -19,7 +19,10 @@ const { addWidgetFontResources, copyWidgetFontResources } = require('./appleEcos
 const { getMoneyWidgetSwift } = require('./appleEcosystem/moneyWidgetSwift');
 const { getFocusWidgetSwift } = require('./appleEcosystem/focusWidgetSwift');
 const { getChatWidgetSwift } = require('./appleEcosystem/chatWidgetSwift');
-const { withScreenTimeShieldExtensions } = require('./appleEcosystem/screenTimeShieldExtensions');
+const {
+  buildRestrictionLedgerSwift,
+  withScreenTimeShieldExtensions,
+} = require('./appleEcosystem/screenTimeShieldExtensions');
 const {
   PREREQUISITE_CONFIGURATION_SWIFT,
   PREREQUISITE_EXTERN,
@@ -261,6 +264,7 @@ import SwiftUI
 import UIKit
 #endif
 
+${buildRestrictionLedgerSwift('__KWILT_APP_GROUP_ID__')}
 ${PREREQUISITE_CONFIGURATION_SWIFT}
 
 @objc(KwiltScreenTimeProtection)
@@ -275,6 +279,8 @@ class KwiltScreenTimeProtection: NSObject {
   private let shieldReasonKey = "kwilt_screen_time_shield_reason_v1"
   private let shieldUpdatedAtKey = "kwilt_screen_time_shield_updated_at_v1"
   private let reviewRequestedAtKey = "kwilt_screen_time_review_requested_at_v1"
+  private let handoffReasonKey = "kwilt_screen_time_handoff_reason_v1"
+  private let handoffRestrictionsKey = "kwilt_screen_time_handoff_restrictions_v2"
 ${PREREQUISITE_PROPERTIES_SWIFT}
 
   @available(iOS 16.0, *)
@@ -336,8 +342,7 @@ ${PREREQUISITE_PROPERTIES_SWIFT}
   }
 
   @available(iOS 16.0, *)
-  private func saveShieldReason(from json: String) {
-    guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
+  private func saveShieldReason(from json: String) -> String {
     let data = json.data(using: .utf8)
     let payload = data.flatMap { try? JSONSerialization.jsonObject(with: $0, options: []) as? [String: Any] }
     let reasons = payload?["reasons"] as? [String] ?? []
@@ -349,8 +354,11 @@ ${PREREQUISITE_PROPERTIES_SWIFT}
     } else {
       reason = (payload?["reason"] as? String) ?? (payload?["mode"] as? String) ?? "default"
     }
-    defaults.set(reason, forKey: shieldReasonKey)
-    defaults.set(Date().timeIntervalSince1970 * 1000.0, forKey: shieldUpdatedAtKey)
+    if let defaults = UserDefaults(suiteName: appGroupIdentifier) {
+      defaults.set(reason, forKey: shieldReasonKey)
+      defaults.set(Date().timeIntervalSince1970 * 1000.0, forKey: shieldUpdatedAtKey)
+    }
+    return reason
   }
 
   @available(iOS 16.0, *)
@@ -420,8 +428,32 @@ ${PREREQUISITE_HELPERS_SWIFT}
       return
     }
     let requestedAtMs = defaults.double(forKey: reviewRequestedAtKey)
+    let reason = defaults.string(forKey: handoffReasonKey)
+    let restrictionsData = defaults.data(forKey: handoffRestrictionsKey)
+    let restrictions = restrictionsData
+      .flatMap { try? JSONDecoder().decode([KwiltRestrictionLedgerEntry].self, from: $0) }
+      ?? []
     defaults.removeObject(forKey: reviewRequestedAtKey)
-    resolve(requestedAtMs > 0 ? requestedAtMs : nil)
+    defaults.removeObject(forKey: handoffReasonKey)
+    defaults.removeObject(forKey: handoffRestrictionsKey)
+    guard requestedAtMs > 0 else {
+      resolve(nil)
+      return
+    }
+    resolve([
+      "requestedAtMs": requestedAtMs,
+      "reason": reason ?? "default",
+      "restrictions": restrictions.map { entry in
+        [
+          "restrictionId": entry.id,
+          "ruleId": entry.ruleId ?? entry.id,
+          "selectionId": entry.selectionId ?? entry.id,
+          "reason": entry.reason,
+          "label": entry.label ?? "",
+          "appliedAtMs": entry.appliedAtMs,
+        ]
+      },
+    ])
   }
 
   @objc(requestAuthorization:rejecter:)
@@ -505,7 +537,20 @@ ${PREREQUISITE_HELPERS_SWIFT}
         return
       }
       applySelection(selection, for: selectionId)
-      saveShieldReason(from: json)
+      let reason = saveShieldReason(from: json)
+      let payload = payload(from: json)
+      let restrictionLabel = (payload?["restrictionLabel"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+      let ruleId = ((payload?["ruleId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 } ?? selectionId
+      KwiltRestrictionLedger.upsert(
+        id: selectionId,
+        ruleId: ruleId,
+        selectionId: selectionId,
+        reason: reason,
+        label: restrictionLabel?.isEmpty == false ? restrictionLabel : nil,
+        applicationTokenKeys: KwiltRestrictionLedger.tokenKeys(selection.applicationTokens),
+        categoryTokenKeys: KwiltRestrictionLedger.tokenKeys(selection.categoryTokens),
+        webDomainTokenKeys: KwiltRestrictionLedger.tokenKeys(selection.webDomainTokens)
+      )
       resolve(true)
       return
     }
@@ -521,6 +566,7 @@ ${PREREQUISITE_HELPERS_SWIFT}
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
     if #available(iOS 16.0, *) {
       store(for: "default").clearAllSettings()
+      KwiltRestrictionLedger.remove(id: "default")
       clearShieldReason()
       resolve(true)
       return
@@ -537,7 +583,9 @@ ${PREREQUISITE_HELPERS_SWIFT}
   ) {
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
     if #available(iOS 16.0, *) {
-      store(for: selectionId(from: json)).clearAllSettings()
+      let selectionId = selectionId(from: json)
+      store(for: selectionId).clearAllSettings()
+      KwiltRestrictionLedger.remove(id: selectionId)
       resolve(true)
       return
     }
@@ -615,6 +663,10 @@ private struct KwiltScreenTimePickerView: View {
 }
 #endif
 `;
+
+function buildScreenTimeProtectionSwift(appGroupId) {
+  return KWILT_SCREEN_TIME_PROTECTION_SWIFT.replaceAll('__KWILT_APP_GROUP_ID__', appGroupId);
+}
 
 const KWILT_SCREEN_TIME_PROTECTION_EXTERN = `#import <React/RCTBridgeModule.h>
 
@@ -1268,7 +1320,7 @@ module.exports = function withAppleEcosystemIntegrations(config) {
   });
   config = withBuildSourceFile(config, {
     filePath: 'KwiltScreenTimeProtection.swift',
-    contents: KWILT_SCREEN_TIME_PROTECTION_SWIFT.replace('__KWILT_APP_GROUP_ID__', appGroupId),
+    contents: buildScreenTimeProtectionSwift(appGroupId),
     overwrite: true,
   });
   config = withBuildSourceFile(config, {
@@ -2774,3 +2826,5 @@ struct ${targetName}Bundle: WidgetBundle {
 
   return config;
 };
+
+module.exports.buildScreenTimeProtectionSwift = buildScreenTimeProtectionSwift;

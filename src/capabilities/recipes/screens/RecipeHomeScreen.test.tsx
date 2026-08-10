@@ -40,7 +40,7 @@ describe("Recipe Home", () => {
     expect(onError).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: "Hidden from your Meals",
+        message: "Hidden from your recipes",
         actionLabel: "Undo",
       }),
     );
@@ -179,7 +179,7 @@ describe("Recipe Home", () => {
       />,
     );
 
-    expect(screen.getByText("More Meals you might like")).toBeTruthy();
+    expect(screen.getByText("More recipes you might like")).toBeTruthy();
     expect(screen.getByText("Weeknight noodles")).toBeTruthy();
     expect(screen.getByText("Uses similar ingredients")).toBeTruthy();
     expect(screen.queryByText(/review/i)).toBeNull();

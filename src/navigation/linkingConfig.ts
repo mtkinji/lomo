@@ -259,6 +259,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
     Settings: {
       screens: {
         SettingsHome: 'settings',
+        SettingsScreenTimeProtection: 'settings/screen-time',
         SettingsExplore: 'settings/explore',
         SettingsGames: 'settings/games',
         // Trial-expiry and Pro-grant emails deep-link into the Manage

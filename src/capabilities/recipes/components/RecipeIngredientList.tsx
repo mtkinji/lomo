@@ -1,4 +1,5 @@
 import { parseIngredientLine } from "@kwilt/food-core";
+import type { RefObject } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { colors, fonts, spacing } from "../../../theme";
@@ -123,6 +124,8 @@ export function RecipeIngredientChecklist({
   checked,
   onToggle,
   onLongPress,
+  firstItemTargetRef,
+  targetItemId,
   disabled = false,
   accessibilityHint,
 }: {
@@ -130,6 +133,8 @@ export function RecipeIngredientChecklist({
   checked: Set<string>;
   onToggle(id: string): void;
   onLongPress?(id: string): void;
+  firstItemTargetRef?: RefObject<View | null>;
+  targetItemId?: string | null;
   disabled?: boolean;
   accessibilityHint?(item: RecipeIngredientChecklistItem, checked: boolean): string;
 }) {
@@ -137,12 +142,21 @@ export function RecipeIngredientChecklist({
     <View testID="ingredient-list" style={styles.list}>
       {items.map((item, index) => {
         const active = checked.has(item.id);
+        const isTarget = Boolean(
+          firstItemTargetRef && (targetItemId ? item.id === targetItemId : index === 0),
+        );
         const parts = ingredientDisplayPartsFromText(item.display);
         const showGroup =
           Boolean(item.groupLabel) &&
           item.groupLabel !== items[index - 1]?.groupLabel;
         return (
-          <View key={item.id} style={styles.groupedLine}>
+          <View
+            key={item.id}
+            ref={isTarget ? firstItemTargetRef : undefined}
+            collapsable={!isTarget}
+            testID={isTarget ? 'ingredient-coachmark-target' : undefined}
+            style={styles.groupedLine}
+          >
             {showGroup ? (
               <Text variant="label" tone="secondary" style={styles.groupLabel}>
                 {item.groupLabel}

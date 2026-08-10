@@ -92,7 +92,6 @@ export function StandaloneFocusScreen() {
         onCustomExpandedChange={setCustomExpanded}
         audio={audio}
         onAudioChange={setAudio}
-        allowNoAudio
         portalHostName={portalHostName}
         onStart={() => void start()}
         starting={starting}

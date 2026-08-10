@@ -7,6 +7,15 @@ import {
 } from './registry';
 
 describe('capability registry', () => {
+  it('orders the capability families by the accepted navigation hierarchy', () => {
+    expect(CAPABILITY_GROUPS.map(({ id }) => id)).toEqual([
+      'money',
+      'food',
+      'goals-plans',
+      'fun',
+    ]);
+  });
+
   it('keeps the accepted Phase 1 capability order', () => {
     expect(CAPABILITY_REGISTRY.map(({ id }) => id)).toEqual([
       'goals',
@@ -25,17 +34,31 @@ describe('capability registry', () => {
 
   it('keeps Meal Planning contextual while exposing Recipes and Groceries as user-facing destinations', () => {
     expect(CAPABILITY_REGISTRY.filter(({ id }) => ['recipes', 'meal-planning', 'groceries'].includes(id))).toEqual([
-      expect.objectContaining({ id: 'recipes', label: 'Meals', availability: 'active' }),
+      expect.objectContaining({ id: 'recipes', label: 'Recipes', availability: 'active' }),
       expect.objectContaining({ id: 'meal-planning', label: 'Meal Plan', availability: 'active' }),
       expect.objectContaining({ id: 'groceries', label: 'Groceries', availability: 'active' }),
     ]);
     expect(CAPABILITY_MENU_REGISTRY.filter(({ group }) => group === 'food').map(
       ({ id, label, ownerId, rootRoute }) => ({ id, label, ownerId, rootRoute }),
     )).toEqual([
-      { id: 'recipes', label: 'Meals', ownerId: 'recipes', rootRoute: { root: 'Food', screen: 'RecipeLibrary' } },
+      { id: 'recipes', label: 'Recipes', ownerId: 'recipes', rootRoute: { root: 'Food', screen: 'RecipeLibrary' } },
       { id: 'groceries', label: 'Groceries', ownerId: 'groceries', rootRoute: { root: 'Food', screen: 'GroceryList' } },
     ]);
     expect(CAPABILITY_MENU_REGISTRY.some(({ id }) => id === ('food' as never))).toBe(false);
+  });
+
+  it('orders Goals & Plans from identity through reflection', () => {
+    expect(
+      CAPABILITY_MENU_REGISTRY.filter(({ group }) => group === 'goals-plans').map(
+        ({ id, label }) => ({ id, label }),
+      ),
+    ).toEqual([
+      { id: 'arcs', label: 'Arcs' },
+      { id: 'goals', label: 'Goals' },
+      { id: 'todos', label: 'To-dos' },
+      { id: 'plan', label: 'Plans' },
+      { id: 'chapters', label: 'Chapters' },
+    ]);
   });
 
   it('uses unique capability IDs', () => {
@@ -101,7 +124,7 @@ describe('capability registry', () => {
     ).toEqual([
       {
         id: 'money-summary',
-        label: 'Summary',
+        label: 'Budgets',
         ownerId: 'money',
         rootRoute: { root: 'Money', screen: 'MoneySummary' },
       },

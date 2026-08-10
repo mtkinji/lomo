@@ -1,20 +1,45 @@
 import { AppState, type AppStateStatus } from 'react-native';
-import { applyMeaningfulFirstRestrictionsIfLocked } from './screenTimeProtectionRuntime';
+import { useFocusSessionStore } from '../features/activities/focusSessionStore';
+import { useAppStore } from '../store/useAppStore';
+import { reconcileScreenTimeRestrictions } from './screenTimeProtectionRuntime';
+import { reconcileLatestMoneyAppControls } from '../capabilities/money/runtime/moneyAppControlRuntime';
 
 let started = false;
 let lastKnownState: AppStateStatus = AppState.currentState;
 let subscription: { remove: () => void } | null = null;
+let hydrationSubscriptions: Array<() => void> = [];
+
+function reconcileCurrentProtectionState(): void {
+  const focusSessionActive = useFocusSessionStore.getState().activeSession?.mode === 'running';
+  void reconcileScreenTimeRestrictions({ focusSessionActive }).catch(() => undefined);
+  void reconcileLatestMoneyAppControls().catch(() => undefined);
+}
+
+function reconcileAfterHydration(): void {
+  if (useAppStore.persist.hasHydrated() && useFocusSessionStore.persist.hasHydrated()) {
+    hydrationSubscriptions.forEach((unsubscribe) => unsubscribe());
+    hydrationSubscriptions = [];
+    reconcileCurrentProtectionState();
+    return;
+  }
+  if (hydrationSubscriptions.length > 0) return;
+  const retry = () => reconcileAfterHydration();
+  hydrationSubscriptions = [
+    useAppStore.persist.onFinishHydration(retry),
+    useFocusSessionStore.persist.onFinishHydration(retry),
+  ];
+}
 
 export function startScreenTimeProtectionForegroundSync(): void {
   if (started) return;
   started = true;
   lastKnownState = AppState.currentState;
 
-  applyMeaningfulFirstRestrictionsIfLocked().catch(() => undefined);
+  reconcileAfterHydration();
 
   subscription = AppState.addEventListener('change', (nextState) => {
     if (nextState === 'active' && lastKnownState !== 'active') {
-      applyMeaningfulFirstRestrictionsIfLocked().catch(() => undefined);
+      reconcileAfterHydration();
     }
     lastKnownState = nextState;
   });
@@ -22,6 +47,8 @@ export function startScreenTimeProtectionForegroundSync(): void {
 
 export function stopScreenTimeProtectionForegroundSyncForTests(): void {
   subscription?.remove();
+  hydrationSubscriptions.forEach((unsubscribe) => unsubscribe());
+  hydrationSubscriptions = [];
   subscription = null;
   started = false;
   lastKnownState = AppState.currentState;

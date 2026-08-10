@@ -10,11 +10,16 @@ import {
 } from '../domain/moneyAppControl';
 import { loadMoneyAppControlSettings } from './moneyAppControlStorage';
 
+let latestSnapshot: MoneySnapshot | null = null;
+let latestSettings: MoneyAppControlSettings | null = null;
+
 export async function reconcileMoneyAppControls(
   snapshot: MoneySnapshot,
   suppliedSettings?: MoneyAppControlSettings,
 ): Promise<void> {
+  latestSnapshot = snapshot;
   const settings = suppliedSettings ?? await loadMoneyAppControlSettings();
+  latestSettings = settings;
   await Promise.all(snapshot.categories.map(async (category) => {
     const policy = settings.policies[category.sourceId];
     const selectionId = moneyAppControlSelectionId(category.sourceId);
@@ -30,7 +35,19 @@ export async function reconcileMoneyAppControls(
       },
       reasons: [evaluation.reason!],
       selectionId,
+      ruleId: selectionId,
       reason: evaluation.reason!,
+      restrictionLabel: category.name,
     });
   }));
+}
+
+export async function reconcileLatestMoneyAppControls(): Promise<void> {
+  if (!latestSnapshot) return;
+  await reconcileMoneyAppControls(latestSnapshot, latestSettings ?? undefined);
+}
+
+export function resetLatestMoneyAppControlSnapshotForTests(): void {
+  latestSnapshot = null;
+  latestSettings = null;
 }

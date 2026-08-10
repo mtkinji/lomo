@@ -71,7 +71,7 @@ import { probeReturningUserWithRetry } from './src/services/sync/returningUserPr
 import { startStreakSync } from './src/services/sync/streakSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
 import { startScreenTimeProtectionForegroundSync } from './src/services/screenTimeProtectionForegroundSync';
-import { startMoneyAppControlForegroundSync } from './src/capabilities/money/runtime/moneyAppControlForegroundSync';
+import { startScreenTimeHandoffForegroundSync } from './src/features/screen-time/runtime/screenTimeHandoffForegroundSync';
 import { moneySnapshotCache } from './src/capabilities/money/runtime/moneySnapshotCache';
 import { fireResendSignupEvent } from './src/services/resendSignupEvent';
 import { startPushTokenSync } from './src/services/pushTokenService';
@@ -412,8 +412,8 @@ export default function App() {
     startPartnerProgressService();
     // Keep Meaningful First app shields applied across launches/foreground returns.
     startScreenTimeProtectionForegroundSync();
-    // Route fresh Screen Time shield handoffs into the native Money review flow.
-    startMoneyAppControlForegroundSync();
+    // Preserve the current Kwilt route and surface fresh shield handoffs in one root guide.
+    startScreenTimeHandoffForegroundSync();
   }, []);
 
   useEffect(() => {

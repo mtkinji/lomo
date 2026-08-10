@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
 import { openBrowserAsync } from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,14 +9,24 @@ import { LocationPermissionService } from '../../../services/LocationPermissionS
 import {
   geocodeStoreSearchBestEffort,
   getCurrentStoreSearchContextBestEffort,
+  getStoreSearchContextForQueryBestEffort,
   hydrateStoreCoordinatesBestEffort,
 } from '../../../services/location/currentLocation';
 import { useAppStore } from '../../../store/useAppStore';
-import { colors, spacing } from '../../../theme';
+import { useToastStore } from '../../../store/useToastStore';
+import { cardElevation, colors, fonts, spacing, typography } from '../../../theme';
 import { Button } from '../../../ui/Button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../../ui/DropdownMenu';
 import { Icon } from '../../../ui/Icon';
 import { AppShell } from '../../../ui/layout/AppShell';
-import { PageHeader } from '../../../ui/layout/PageHeader';
+import { HeaderActionPill, ObjectPageHeader } from '../../../ui/layout/ObjectPageHeader';
 import { ButtonLabel, Heading, Text } from '../../../ui/Typography';
 import { KrogerStoreFinder } from '../components/KrogerStoreFinder';
 import { createGroceryRepository, type GroceryProjection } from '../data/groceryRepository';
@@ -27,11 +37,12 @@ import {
   type KrogerMatch,
 } from '../data/krogerConnectionRepository';
 import type { KrogerLocation, KrogerProduct } from '../providers/krogerProvider';
-import { replacementMatchesConcept } from '../domain/krogerProductMatching';
+import {
+  projectKrogerCartGroups,
+  type KrogerCartSelection,
+} from '../domain/krogerCartProjection';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'KrogerCart'>;
-type CartLine = { product: KrogerProduct; quantity: number };
-type Selection = Record<string, CartLine>;
 type Success = { cartUrl: string; count: number; remainingCount: number; retailerLabel: string };
 
 const money = (cents: number | null) =>
@@ -40,7 +51,7 @@ const money = (cents: number | null) =>
 const productPrice = (product: KrogerProduct) =>
   product.promoPriceCents ?? product.regularPriceCents;
 
-const createDraftCart = (matches: KrogerMatch[]): Selection =>
+const createDraftCart = (matches: KrogerMatch[]): KrogerCartSelection =>
   Object.fromEntries(
     matches.flatMap((match) => {
       const product = match.products[0];
@@ -48,20 +59,75 @@ const createDraftCart = (matches: KrogerMatch[]): Selection =>
     }),
   );
 
-function StoreSelector({ location, onPress }: { location: KrogerLocation; onPress: () => void }) {
+function StoreCartHeader({
+  location,
+  isPreferred,
+  topInset,
+  onBack,
+  onChange,
+  onForget,
+}: {
+  location: KrogerLocation;
+  isPreferred: boolean;
+  topInset: number;
+  onBack: () => void;
+  onChange: () => void;
+  onForget: () => void;
+}) {
   const label = location.banner || location.name;
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      accessibilityLabel={`Store: ${label}. Change store`}
-      onPress={onPress}
+    <View
+      testID="kroger-cart-header"
+      style={[
+        styles.storeHeader,
+        {
+          marginTop: -topInset,
+          minHeight: 52 + topInset,
+          paddingTop: topInset + 4,
+        },
+      ]}
     >
-      <View style={styles.storeSelectorContent}>
-        <Text>{label}</Text>
-        <Icon name="chevronDown" size={16} color={colors.textSecondary} />
+      <Button
+        variant="ghost"
+        size="icon"
+        iconButtonSize={36}
+        accessibilityLabel="Back to groceries"
+        onPress={onBack}
+      >
+        <Icon name="arrowLeft" size={21} color={colors.textPrimary} />
+      </Button>
+      <View style={styles.storeIdentity}>
+        <Text style={styles.storeName} numberOfLines={1}>{label}</Text>
+        <Text style={styles.storeAddress} tone="secondary" numberOfLines={1}>{location.address}</Text>
       </View>
-    </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            testID="store-menu-trigger"
+            variant="ghost"
+            size="icon"
+            iconButtonSize={36}
+            accessibilityLabel={`Change store. Current store ${label}, ${location.address}`}
+          >
+            <Icon name="chevronDown" size={18} color={colors.textSecondary} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem label="Choose another store" icon="pin" onPress={onChange} />
+          {isPreferred ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                label="Forget preferred store"
+                icon="trash"
+                variant="destructive"
+                onPress={onForget}
+              />
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </View>
   );
 }
 
@@ -83,34 +149,47 @@ function ProductThumbnail({ product }: { product: KrogerProduct }) {
   );
 }
 
-function ReplacementChoice({
-  product,
-  disabled,
-  onPress,
+function CartLoadingState({
+  location,
+  itemCount,
+  onBack,
 }: {
-  product: KrogerProduct;
-  disabled: boolean;
-  onPress: () => void;
+  location: KrogerLocation | null;
+  itemCount: number | null;
+  onBack: () => void;
 }) {
-  const price = money(productPrice(product));
-  const details = [product.brand, product.size].filter(Boolean).join(' · ');
+  const retailerLabel = location?.banner || location?.name;
+  const detail = retailerLabel && itemCount !== null
+    ? `Matching ${itemCount} item${itemCount === 1 ? '' : 's'} with ${retailerLabel}.`
+    : 'Getting your grocery list ready.';
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      accessibilityLabel={`Use ${product.title}`}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [styles.replacement, pressed && styles.productPressed]}
-    >
-      <ProductThumbnail product={product} />
-      <View style={styles.grow}>
-        <Text>{product.title}</Text>
-        {details ? <Text tone="secondary">{details}</Text> : null}
+    <View testID="kroger-cart-loading" style={styles.loadingSurface}>
+      <ObjectPageHeader
+        barHeight={52}
+        horizontalPadding={spacing.md}
+        showFullWidthBackground={false}
+        left={(
+          <HeaderActionPill
+            accessibilityLabel="Back to groceries"
+            materialVariant="floatingWhite"
+            size={48}
+            onPress={onBack}
+          >
+            <Icon name="arrowLeft" size={21} color={colors.textPrimary} />
+          </HeaderActionPill>
+        )}
+      />
+      <View style={styles.loadingContent}>
+        <ActivityIndicator
+          accessibilityLabel="Building your cart"
+          color={colors.textPrimary}
+          size="small"
+        />
+        <Heading variant="md">Building your cart</Heading>
+        <Text tone="secondary" style={styles.loadingDetail}>{detail}</Text>
       </View>
-      {price ? <Text>{price}</Text> : null}
-    </Pressable>
+    </View>
   );
 }
 
@@ -118,28 +197,30 @@ export function KrogerCartScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const repository = useMemo(() => createKrogerConnectionRepository(), []);
+  const groceryRepository = useMemo(() => createGroceryRepository(), []);
   const [list, setList] = useState<GroceryProjection | null>(null);
   const [status, setStatus] = useState<KrogerConnectionStatus | null>(null);
-  const [zip, setZip] = useState('');
+  const [initializing, setInitializing] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [locations, setLocations] = useState<KrogerLocation[]>([]);
   const [preferredLocation, setPreferredLocation] = useState<KrogerLocation | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<KrogerLocation | null>(null);
   const [choosingStore, setChoosingStore] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [storeSearchMessage, setStoreSearchMessage] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number } | null>(null);
   const [showsUserLocation, setShowsUserLocation] = useState(false);
   const [matches, setMatches] = useState<KrogerMatch[] | null>(null);
-  const [selected, setSelected] = useState<Selection>({});
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<KrogerCartSelection>({});
   const [busy, setBusy] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<Success | null>(null);
+  const showToast = useToastStore((state) => state.showToast);
 
   useEffect(() => {
+    setInitializing(true);
     void Promise.all([
-      createGroceryRepository().list(),
+      groceryRepository.list(),
       repository.status(),
       preferredGroceryStore.read(userId),
     ])
@@ -173,20 +254,21 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           if (context) {
             setShowsUserLocation(true);
             setMapCenter(context);
-            setZip(context.postalCode);
+            setSearchQuery(context.postalCode);
             try {
               const result = await repository.searchLocations(context.postalCode);
               setLocations(await hydrateStoreCoordinatesBestEffort(result.locations));
             } catch {
-              setStoreSearchMessage('Stores could not load. Search by ZIP instead.');
+              setStoreSearchMessage('Stores could not load. Search another area.');
             }
           }
         }
       })
       .catch(() =>
         setError('Online shopping is not configured yet. Your plain list is still available.'),
-      );
-  }, [repository, route.params.listId, userId]);
+      )
+      .finally(() => setInitializing(false));
+  }, [groceryRepository, repository, route.params.listId, userId]);
 
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -212,16 +294,34 @@ export function KrogerCartScreen({ navigation, route }: Props) {
       setLocations(await hydrateStoreCoordinatesBestEffort(result.locations));
       const nextCenter = center ?? await geocodeStoreSearchBestEffort(postalCode);
       if (nextCenter) setMapCenter(nextCenter);
-      setSearchOpen(false);
       if (!result.locations.length) setStoreSearchMessage('No supported stores were found in this area.');
     } catch {
-      setStoreSearchMessage('Stores could not load. Try another ZIP code.');
+      setStoreSearchMessage('Stores could not load. Search another area.');
     } finally {
       setBusy(false);
     }
   };
   const findStores = () => {
-    if (/^\d{5}$/.test(zip)) void searchStores(zip);
+    void (async () => {
+      const query = searchQuery.trim();
+      if (!query) {
+        setStoreSearchMessage('Enter a city, address, or ZIP.');
+        return;
+      }
+      if (/^\d{5}$/.test(query)) {
+        await searchStores(query);
+        return;
+      }
+      setBusy(true);
+      setStoreSearchMessage(null);
+      const context = await getStoreSearchContextForQueryBestEffort(query);
+      if (!context) {
+        setBusy(false);
+        setStoreSearchMessage('We couldn’t find that area. Try a city, address, or ZIP.');
+        return;
+      }
+      await searchStores(context.postalCode, context);
+    })();
   };
   const findCurrentLocation = () => {
     void (async () => {
@@ -230,19 +330,18 @@ export function KrogerCartScreen({ navigation, route }: Props) {
       const granted = await LocationPermissionService.ensurePermissionWithRationale('attach_place');
       if (!granted) {
         setBusy(false);
-        setSearchOpen(true);
+        setStoreSearchMessage('We couldn’t use your location. Search an area instead.');
         return;
       }
       const context = await getCurrentStoreSearchContextBestEffort();
       setBusy(false);
       if (!context) {
-        setStoreSearchMessage('Current location is unavailable. Search by ZIP instead.');
-        setSearchOpen(true);
+        setStoreSearchMessage('We couldn’t use your location. Search an area instead.');
         return;
       }
       setShowsUserLocation(true);
       setMapCenter(context);
-      setZip(context.postalCode);
+      setSearchQuery(context.postalCode);
       await searchStores(context.postalCode, context);
     })();
   };
@@ -253,7 +352,6 @@ export function KrogerCartScreen({ navigation, route }: Props) {
       setChoosingStore(false);
       setMatches(null);
       setSelected({});
-      setEditingItemId(null);
       if (status?.connection?.state === 'active') {
         await repository.selectLocation(location);
         setStatus(await repository.status());
@@ -267,28 +365,32 @@ export function KrogerCartScreen({ navigation, route }: Props) {
     void run(async () => {
       await preferredGroceryStore.write(userId, location);
       setPreferredLocation(location);
-      setSelectedLocation(location);
-      setLocations([]);
-      setChoosingStore(false);
-      setMatches(null);
-      setSelected({});
-      setEditingItemId(null);
-      if (status?.connection?.state === 'active') {
-        await repository.selectLocation(location);
-        setStatus(await repository.status());
-      }
-      if (!list || list.status !== 'ready') return;
-      const result = await repository.prepareMatches(list.id, list.revision, location);
-      setMatches(result.matches);
-      setSelected(createDraftCart(result.matches));
+      showToast({ message: `${location.banner || location.name} saved as your store`, variant: 'light' });
     });
   };
-  const replaceProduct = (itemId: string, product: KrogerProduct) => {
-    setSelected((current) => ({ ...current, [itemId]: { product, quantity: 1 } }));
-    setEditingItemId(null);
+  const forgetPreferredStore = () => {
+    const remembered = preferredLocation;
+    void run(async () => {
+      await preferredGroceryStore.clear(userId);
+      setPreferredLocation(null);
+      showToast({
+        message: 'Preferred store forgotten',
+        variant: 'light',
+        ...(remembered ? {
+          actionLabel: 'Undo',
+          actionOnPress: () => {
+            void preferredGroceryStore.write(userId, remembered).then(() => setPreferredLocation(remembered));
+          },
+        } : {}),
+      });
+    });
   };
-  const adjustQuantity = (itemId: string, delta: number) =>
+  const adjustQuantity = (itemIds: string[], delta: number) =>
     setSelected((current) => {
+      const itemId = delta < 0
+        ? itemIds.find((id) => (current[id]?.quantity ?? 0) > 1)
+        : itemIds[0];
+      if (!itemId) return current;
       const line = current[itemId];
       if (!line) return current;
       return {
@@ -296,13 +398,12 @@ export function KrogerCartScreen({ navigation, route }: Props) {
         [itemId]: { ...line, quantity: Math.max(1, line.quantity + delta) },
       };
     });
-  const remove = (itemId: string) => {
+  const remove = (itemIds: string[]) => {
     setSelected((current) => {
       const next = { ...current };
-      delete next[itemId];
+      itemIds.forEach((itemId) => delete next[itemId]);
       return next;
     });
-    setEditingItemId((current) => (current === itemId ? null : current));
   };
   const add = async () => {
     setAddingToCart(true);
@@ -342,56 +443,82 @@ export function KrogerCartScreen({ navigation, route }: Props) {
     }
   };
 
-  const matchedCount = Object.keys(selected).length;
-  const showStorePicker = !selectedLocation || choosingStore;
+  const showStorePicker = !initializing && (!selectedLocation || choosingStore);
+  const showCartLoading = initializing || (!showStorePicker && !error && matches === null);
   const showCartAction = !success && !error && !showStorePicker && matches !== null;
-  const missingCount = Math.max(0, (matches?.length ?? 0) - matchedCount);
-  const cartLines = (matches ?? []).flatMap((match) => {
-    const line = selected[match.groceryItem.id];
-    return line ? [{ match, line }] : [];
-  });
-  const pricedLines = cartLines.filter(({ line }) => productPrice(line.product) !== null);
-  const subtotalCents = pricedLines.reduce(
-    (total, { line }) => total + (productPrice(line.product) ?? 0) * line.quantity,
+  const selectedSourceCount = Object.keys(selected).length;
+  const cartGroups = projectKrogerCartGroups(matches ?? [], selected);
+  const matchedCount = cartGroups.reduce((total, group) => total + group.quantity, 0);
+  const missingCount = Math.max(0, (matches?.length ?? 0) - selectedSourceCount);
+  const pricedGroups = cartGroups.filter((group) => productPrice(group.product) !== null);
+  const subtotalCents = pricedGroups.reduce(
+    (total, group) => total + (productPrice(group.product) ?? 0) * group.quantity,
     0,
   );
   const subtotalLabel =
-    pricedLines.length === cartLines.length
+    pricedGroups.length === cartGroups.length
       ? 'Estimated subtotal'
-      : `Estimated subtotal for ${pricedLines.length} of ${cartLines.length} items`;
-  const pageTitle = selectedLocation && !showStorePicker ? 'Cart' : 'Shop online';
-
+      : `Estimated subtotal for ${pricedGroups.length} of ${cartGroups.length} products`;
   return (
-    <AppShell>
-      <PageHeader
-        title={pageTitle}
-        titleMaxFontSizeMultiplier={1.6}
-        onPressBack={() => navigation.goBack()}
-        rightElement={
-          selectedLocation && !showStorePicker ? (
-            <StoreSelector location={selectedLocation} onPress={() => setChoosingStore(true)} />
-          ) : undefined
-        }
-      />
-      {showStorePicker && !error ? (
-        <KrogerStoreFinder
-          locations={locations}
-          preferredLocation={preferredLocation}
-          zip={zip}
-          busy={busy}
-          searchOpen={searchOpen}
-          storeSearchMessage={storeSearchMessage}
-          mapCenter={mapCenter}
-          showsUserLocation={showsUserLocation}
-          bottomInset={insets.bottom}
-          onZipChange={setZip}
-          onOpenSearch={() => setSearchOpen(true)}
-          onFindStores={findStores}
-          onFindCurrentLocation={findCurrentLocation}
-          onChoose={choose}
-          onSetPreferred={setAsPreferred}
+    <AppShell fullBleedCanvas={showStorePicker}>
+      {showCartLoading ? (
+        <CartLoadingState
+          location={selectedLocation}
+          itemCount={list?.items.filter((item) => item.state === 'needed').length ?? null}
+          onBack={() => navigation.goBack()}
         />
+      ) : showStorePicker ? (
+        error ? (
+          <View style={styles.finderErrorSurface}>
+            <ObjectPageHeader
+              barHeight={52}
+              horizontalPadding={spacing.md}
+              showFullWidthBackground={false}
+              left={(
+                <HeaderActionPill
+                  accessibilityLabel="Back to groceries"
+                  materialVariant="floatingWhite"
+                  size={48}
+                  onPress={() => navigation.goBack()}
+                >
+                  <Icon name="arrowLeft" size={21} color={colors.textPrimary} />
+                </HeaderActionPill>
+              )}
+            />
+            <View style={[styles.finderError, { paddingTop: insets.top + 72 }]}>
+              <Text>{error}</Text>
+            </View>
+          </View>
+        ) : (
+          <KrogerStoreFinder
+            locations={locations}
+            preferredLocation={preferredLocation}
+            query={searchQuery}
+            busy={busy}
+            storeSearchMessage={storeSearchMessage}
+            mapCenter={mapCenter}
+            showsUserLocation={showsUserLocation}
+            bottomInset={insets.bottom}
+            onQueryChange={setSearchQuery}
+            onBack={() => navigation.goBack()}
+            onFindStores={findStores}
+            onFindCurrentLocation={findCurrentLocation}
+            onChoose={choose}
+            onSetPreferred={setAsPreferred}
+          />
+        )
       ) : (
+      <>
+      {selectedLocation ? (
+        <StoreCartHeader
+          location={selectedLocation}
+          isPreferred={preferredLocation?.id === selectedLocation.id}
+          topInset={insets.top}
+          onBack={() => navigation.goBack()}
+          onChange={() => setChoosingStore(true)}
+          onForget={forgetPreferredStore}
+        />
+      ) : null}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -419,103 +546,83 @@ export function KrogerCartScreen({ navigation, route }: Props) {
               Checkout, substitutions, and pickup timing are confirmed by the retailer.
             </Text>
           </>
-        ) : error ? null : status === null ? (
-          <Text>Checking online shopping…</Text>
-        ) : matches === null ? (
+        ) : error ? null : (
           <>
-            <Text tone="secondary">Finding products…</Text>
-          </>
-        ) : (
-          <>
-            {cartLines.length ? (
-              <View style={styles.cartList}>
-                {cartLines.map(({ match, line }) => {
-                  const unitPrice = productPrice(line.product);
-                  const linePrice = unitPrice === null ? null : unitPrice * line.quantity;
-                  const details = [line.product.brand, line.product.size].filter(Boolean).join(' · ');
-                  const alternatives = match.products.filter(
-                    (product) =>
-                      product.upc !== line.product.upc &&
-                      replacementMatchesConcept(match.groceryItem.concept, product),
-                  );
-                  const editing = editingItemId === match.groceryItem.id;
-
-                  return (
-                    <View key={match.groceryItem.id} style={styles.cartLine}>
-                      <View style={styles.productSummary}>
-                        <ProductThumbnail product={line.product} />
-                        <View style={styles.grow}>
-                          <Heading variant="sm">{line.product.title}</Heading>
-                          {details ? <Text tone="secondary">{details}</Text> : null}
-                          {line.quantity > 1 && unitPrice !== null ? (
-                            <Text tone="secondary">{money(unitPrice)} each</Text>
-                          ) : null}
+            {cartGroups.length ? (
+              <View style={styles.cartSection}>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  fullWidth
+                  accessibilityLabel="Already have something? Check it off in your grocery list"
+                  accessibilityHint="Returns to your grocery list."
+                  onPress={() => navigation.goBack()}
+                  style={styles.alreadyHaveHint}
+                >
+                  <View style={styles.alreadyHaveHintContent}>
+                    <Icon name="checkCircle" size={16} color={colors.textSecondary} />
+                    <Text style={styles.productDetails} tone="secondary">
+                      Already have something? Check it off in your grocery list.
+                    </Text>
+                  </View>
+                </Button>
+                <View style={styles.cartList}>
+                  {cartGroups.map((group) => {
+                    const unitPrice = productPrice(group.product);
+                    const linePrice = unitPrice === null ? null : unitPrice * group.quantity;
+                    const details = [group.product.brand, group.product.size].filter(Boolean).join(' · ');
+                    return (
+                      <View key={group.key} style={styles.cartLine}>
+                        <View style={styles.productSummary}>
+                          <ProductThumbnail product={group.product} />
+                          <View style={styles.grow}>
+                            <Text style={styles.productTitle} numberOfLines={2}>{group.product.title}</Text>
+                            {details ? <Text style={styles.productDetails} tone="secondary" numberOfLines={1}>{details}</Text> : null}
+                            {group.quantity > 1 && unitPrice !== null ? (
+                              <Text style={styles.productDetails} tone="secondary">{money(unitPrice)} each</Text>
+                            ) : null}
+                          </View>
+                          {linePrice !== null ? <Text>{money(linePrice)}</Text> : null}
                         </View>
-                        {linePrice !== null ? <Text>{money(linePrice)}</Text> : null}
-                      </View>
-                      <View style={styles.lineControls}>
-                        <View style={styles.quantityControls}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            accessibilityLabel={`Decrease quantity for ${line.product.title}`}
-                            disabled={busy || line.quantity === 1}
-                            onPress={() => adjustQuantity(match.groceryItem.id, -1)}
-                          >
-                            −
-                          </Button>
-                          <Text>Qty {line.quantity}</Text>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            accessibilityLabel={`Increase quantity for ${line.product.title}`}
-                            disabled={busy}
-                            onPress={() => adjustQuantity(match.groceryItem.id, 1)}
-                          >
-                            +
-                          </Button>
-                        </View>
-                        <View style={styles.itemActions}>
-                          {alternatives.length ? (
+                        <View style={styles.lineControls}>
+                          <View style={styles.quantityControls}>
                             <Button
-                              variant="ghost"
-                              size="sm"
-                              accessibilityLabel={`Edit ${line.product.title}`}
-                              onPress={() =>
-                                setEditingItemId((current) =>
-                                  current === match.groceryItem.id ? null : match.groceryItem.id,
-                                )
-                              }
+                              variant="outline"
+                              size="icon"
+                              iconButtonSize={30}
+                              accessibilityLabel={`Decrease quantity for ${group.product.title}`}
+                              disabled={busy || group.quantity === group.groceryItemIds.length}
+                              onPress={() => adjustQuantity(group.groceryItemIds, -1)}
                             >
-                              Edit
+                              <Text style={styles.quantityGlyph}>−</Text>
                             </Button>
-                          ) : null}
+                            <Text style={styles.quantityLabel}>Qty {group.quantity}</Text>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              iconButtonSize={30}
+                              accessibilityLabel={`Increase quantity for ${group.product.title}`}
+                              disabled={busy}
+                              onPress={() => adjustQuantity(group.groceryItemIds, 1)}
+                            >
+                              <Text style={styles.quantityGlyph}>+</Text>
+                            </Button>
+                          </View>
                           <Button
                             variant="ghost"
-                            size="sm"
-                            accessibilityLabel={`Remove ${line.product.title} from cart`}
-                            onPress={() => remove(match.groceryItem.id)}
+                            size="icon"
+                            iconButtonSize={32}
+                            accessibilityLabel={`Remove ${group.product.title} from this cart`}
+                            disabled={busy}
+                            onPress={() => remove(group.groceryItemIds)}
                           >
-                            Remove
+                            <Icon name="trash" size={18} color={colors.textSecondary} />
                           </Button>
                         </View>
                       </View>
-                      {editing ? (
-                        <View style={styles.replacements}>
-                          <Text variant="label">Replace with</Text>
-                          {alternatives.map((product) => (
-                            <ReplacementChoice
-                              key={product.upc}
-                              product={product}
-                              disabled={busy}
-                              onPress={() => replaceProduct(match.groceryItem.id, product)}
-                            />
-                          ))}
-                        </View>
-                      ) : null}
-                    </View>
-                  );
-                })}
+                    );
+                  })}
+                </View>
               </View>
             ) : (
               <View style={styles.emptyCart}>
@@ -531,6 +638,7 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           </>
         )}
       </ScrollView>
+      </>
       )}
       {showCartAction ? (
         <View
@@ -538,9 +646,26 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
         >
           <View style={styles.footerSummary}>
-            <View style={styles.grow}>
+            <View style={styles.subtotalLabelRow}>
               <Text variant="label">{subtotalLabel}</Text>
-              <Text tone="secondary">Current item prices at {selectedLocation?.banner ?? 'this store'}</Text>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    iconButtonSize={26}
+                    accessibilityLabel="About estimated subtotal"
+                  >
+                    <Icon name="info" size={16} color={colors.textSecondary} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" style={styles.subtotalMenu}>
+                  <DropdownMenuLabel>
+                    Based on current item prices from {selectedLocation?.banner ?? 'the retailer'}.
+                    Taxes, fees, coupons, weighted-item changes, substitutions, and final availability are confirmed by the retailer.
+                  </DropdownMenuLabel>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </View>
             <Heading variant="md">{money(subtotalCents)}</Heading>
           </View>
@@ -563,9 +688,6 @@ export function KrogerCartScreen({ navigation, route }: Props) {
               </ButtonLabel>
             </View>
           </Button>
-          <Text tone="secondary" style={styles.footerNote}>
-            Then review pickup, substitutions, fees, and the final total at {selectedLocation?.banner ?? 'the retailer'}.
-          </Text>
         </View>
       ) : null}
     </AppShell>
@@ -576,13 +698,49 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: spacing.md, paddingBottom: spacing['2xl'], gap: spacing.md },
   message: { padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
-  storeSelectorContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  cartList: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.cardBorder },
-  cartLine: {
-    paddingVertical: spacing.md,
+  loadingSurface: { flex: 1, backgroundColor: colors.canvas },
+  loadingContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing['3xl'],
+  },
+  loadingDetail: { textAlign: 'center' },
+  finderErrorSurface: { flex: 1, backgroundColor: colors.canvas },
+  finderError: { paddingHorizontal: spacing.xl },
+  storeHeader: {
+    minHeight: 52,
+    marginHorizontal: -spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.cardBorder,
-    gap: spacing.sm,
+    backgroundColor: colors.canvas,
+    ...cardElevation.lift,
+    shadowOffset: { width: 0, height: 4 },
+    zIndex: 1,
+  },
+  storeIdentity: { flex: 1, alignItems: 'center', gap: 0 },
+  storeName: { ...typography.bodySm, fontFamily: fonts.semibold, textAlign: 'center' },
+  storeAddress: { ...typography.caption, textAlign: 'center', maxWidth: '100%' },
+  cartSection: { gap: spacing.xs },
+  alreadyHaveHint: { paddingHorizontal: spacing.xs, alignItems: 'stretch' },
+  alreadyHaveHintContent: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  cartList: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.cardBorder },
+  cartLine: {
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.cardBorder,
+    gap: spacing.xs,
   },
   productSummary: {
     flexDirection: 'row',
@@ -590,40 +748,31 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   thumbnailFrame: {
-    width: 72,
-    height: 72,
-    borderRadius: 10,
+    width: 54,
+    height: 54,
+    borderRadius: 8,
     backgroundColor: colors.muted,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   thumbnail: { width: '100%', height: '100%' },
-  productPressed: { backgroundColor: colors.muted },
+  productTitle: { ...typography.bodySm, fontFamily: fonts.semibold },
+  productDetails: { ...typography.bodyXs },
   lineControls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  quantityControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  itemActions: { flexDirection: 'row', alignItems: 'center' },
+  quantityControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  quantityLabel: { ...typography.bodyXs, minWidth: 34, textAlign: 'center' },
+  quantityGlyph: {
+    ...typography.bodySm,
+    lineHeight: 18,
+    transform: [{ translateY: -1 }],
+  },
   grow: { flex: 1, gap: 2 },
-  replacements: {
-    marginTop: spacing.xs,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.cardBorder,
-    gap: spacing.xs,
-  },
-  replacement: {
-    minHeight: 58,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
   emptyCart: { paddingVertical: spacing['2xl'], alignItems: 'center', gap: spacing.xs },
   footer: {
     marginHorizontal: -spacing.sm,
@@ -633,8 +782,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.cardBorder,
+    ...cardElevation.lift,
+    shadowOffset: { width: 0, height: -4 },
   },
   footerSummary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  footerNote: { textAlign: 'center' },
+  subtotalLabelRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  subtotalMenu: { maxWidth: 320 },
   cartButtonContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
 });

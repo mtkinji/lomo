@@ -1,4 +1,6 @@
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import { audioGainForCategory } from '../capabilities/games/audio/audioGainPolicy';
+import type { CompletionFeedbackSound } from './completionFeedbackSoundPolicy';
 
 /**
  * Lightweight, one-shot UI sound effects.
@@ -13,11 +15,28 @@ let stepDoneSound: AudioPlayer | null = null;
 let stepDoneLoading: Promise<void> | null = null;
 let activityDoneSound: AudioPlayer | null = null;
 let activityDoneLoading: Promise<void> | null = null;
+let tinyCrowdSound: AudioPlayer | null = null;
+let tinyCrowdLoading: Promise<void> | null = null;
 
 // UI sound effect file (bundled).
 // You can swap this for any other short asset under `assets/audio/sfx/`.
 const STEP_DONE_SOURCE = require('../../assets/audio/sfx/list-tap.wav');
 const ACTIVITY_DONE_SOURCE = require('../../assets/audio/sfx/mark-complete.wav');
+// Reuse the already-bundled Games signature instead of adding another asset.
+const TINY_CROWD_SOURCE = require('../../assets/games/success-tiny-crowd-1.mp3');
+const TINY_CROWD_PROMINENT_GAIN = audioGainForCategory('game.signature');
+const TINY_CROWD_WARM_GAIN = TINY_CROWD_PROMINENT_GAIN * 0.55;
+
+function pauseOtherUiSounds(active: AudioPlayer) {
+  for (const player of [stepDoneSound, activityDoneSound, tinyCrowdSound]) {
+    if (!player || player === active) continue;
+    try {
+      player.pause();
+    } catch {
+      // Best-effort: a released or unavailable player should not block feedback.
+    }
+  }
+}
 
 async function ensureUiAudioMode(opts?: { force?: boolean }) {
   if (audioModeConfigured && !opts?.force) return;
@@ -65,6 +84,7 @@ export async function playStepDoneSound() {
     await ensureUiAudioMode({ force: true });
     // Re-assert volume at playback time (some platform/device states can alter gain).
     stepDoneSound.volume = 0.95;
+    pauseOtherUiSounds(stepDoneSound);
     try {
       await stepDoneSound.seekTo(0);
       stepDoneSound.play();
@@ -110,6 +130,7 @@ export async function playActivityDoneSound() {
     if (!activityDoneSound) return;
     await ensureUiAudioMode({ force: true });
     activityDoneSound.volume = 1.0;
+    pauseOtherUiSounds(activityDoneSound);
     try {
       await activityDoneSound.seekTo(0);
       activityDoneSound.play();
@@ -128,10 +149,73 @@ export async function playActivityDoneSound() {
   }
 }
 
+async function preloadTinyCrowdSound() {
+  if (tinyCrowdSound) return;
+  if (tinyCrowdLoading) {
+    await tinyCrowdLoading.catch(() => undefined);
+    return;
+  }
+
+  tinyCrowdLoading = (async () => {
+    await ensureUiAudioMode();
+    const player = createAudioPlayer(TINY_CROWD_SOURCE);
+    player.volume = TINY_CROWD_PROMINENT_GAIN;
+    tinyCrowdSound = player;
+  })();
+
+  try {
+    await tinyCrowdLoading;
+  } finally {
+    tinyCrowdLoading = null;
+  }
+}
+
+async function playTinyCrowdSound(volume: number) {
+  try {
+    await preloadTinyCrowdSound();
+    if (!tinyCrowdSound) return;
+    await ensureUiAudioMode({ force: true });
+    tinyCrowdSound.volume = volume;
+    pauseOtherUiSounds(tinyCrowdSound);
+    try {
+      await tinyCrowdSound.seekTo(0);
+      tinyCrowdSound.play();
+    } catch {
+      tinyCrowdSound?.remove();
+      tinyCrowdSound = null;
+      await preloadTinyCrowdSound();
+      const recovered = tinyCrowdSound as AudioPlayer | null;
+      if (!recovered) return;
+      recovered.volume = volume;
+      pauseOtherUiSounds(recovered);
+      await recovered.seekTo(0);
+      recovered.play();
+    }
+  } catch {
+    // Best-effort: no-op if audio fails.
+  }
+}
+
+export async function playCompletionFeedbackSound(sound: CompletionFeedbackSound) {
+  if (sound === 'none') return;
+  if (sound === 'step') {
+    await playStepDoneSound();
+    return;
+  }
+  if (sound === 'activity') {
+    await playActivityDoneSound();
+    return;
+  }
+  await playTinyCrowdSound(
+    sound === 'tinyCrowdProminent' ? TINY_CROWD_PROMINENT_GAIN : TINY_CROWD_WARM_GAIN,
+  );
+}
+
 export async function unloadUiSounds() {
   try {
     stepDoneSound?.remove();
     activityDoneSound?.remove();
+    tinyCrowdSound?.remove();
   } catch {
     // ignore
   } finally {
@@ -139,5 +223,7 @@ export async function unloadUiSounds() {
     stepDoneLoading = null;
     activityDoneSound = null;
     activityDoneLoading = null;
+    tinyCrowdSound = null;
+    tinyCrowdLoading = null;
   }
 }
