@@ -240,7 +240,7 @@ export const styles = StyleSheet.create({
   },
   narrativeTitleBlock: {
     width: '100%',
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xs,
   },
   originLinkRow: {
@@ -592,9 +592,14 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   stepCheckbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1.5,
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1,
+  },
+  stepCheckboxCompleted: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   stepLeftIconBox: {
     // Alignment box: keep left-column centers consistent with the title's 24x24 check-circle,
@@ -608,6 +613,10 @@ export const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     paddingVertical: spacing.xs / 2,
+  },
+  stepTextCompleted: {
+    color: colors.textSecondary,
+    textDecorationLine: 'line-through',
   },
   newStepInput: {
     // Avoid extra inner padding on the single-line inline "Add step" input;

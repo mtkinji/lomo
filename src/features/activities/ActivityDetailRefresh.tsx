@@ -1035,10 +1035,11 @@ export function ActivityDetailRefresh(props: any) {
                             </Pressable>
                           ) : (
                             <Pressable
-                              accessibilityRole="button"
+                              accessibilityRole="checkbox"
                               accessibilityLabel={
                                 isChecked ? 'Mark step as not done' : 'Mark step as done'
                               }
+                              accessibilityState={{ checked: isChecked }}
                               hitSlop={8}
                               onPress={() => handleToggleStepComplete(step.id)}
                             >
@@ -1048,6 +1049,7 @@ export function ActivityDetailRefresh(props: any) {
                                     styles.checkboxBase,
                                     isChecked ? styles.checkboxCompleted : styles.checkboxPlanned,
                                     styles.stepCheckbox,
+                                    isChecked ? styles.stepCheckboxCompleted : null,
                                   ]}
                                 >
                                   {isChecked ? (
@@ -1116,7 +1118,11 @@ export function ActivityDetailRefresh(props: any) {
                               style={({ pressed }) => [styles.linkedStepTextBlock, pressed ? { opacity: 0.7 } : null]}
                             >
                               <Text
-                                style={[styles.linkedStepTitle, styles.linkedStepTitleLinked]}
+                                style={[
+                                  styles.linkedStepTitle,
+                                  styles.linkedStepTitleLinked,
+                                  isChecked ? styles.stepTextCompleted : null,
+                                ]}
                                 numberOfLines={2}
                                 ellipsizeMode="tail"
                               >
@@ -1131,7 +1137,11 @@ export function ActivityDetailRefresh(props: any) {
                           ) : (
                             <View style={styles.linkedStepTextBlock}>
                               <Text
-                                style={[styles.linkedStepTitle, styles.linkedStepTitleLinked]}
+                                style={[
+                                  styles.linkedStepTitle,
+                                  styles.linkedStepTitleLinked,
+                                  isChecked ? styles.stepTextCompleted : null,
+                                ]}
                                 numberOfLines={2}
                                 ellipsizeMode="tail"
                               >
@@ -1153,7 +1163,10 @@ export function ActivityDetailRefresh(props: any) {
                             placeholder="Describe the step"
                             size="md"
                             variant="inline"
-                            inputStyle={styles.stepInput}
+                            inputStyle={[
+                              styles.stepInput,
+                              isChecked ? styles.stepTextCompleted : null,
+                            ]}
                             multiline
                             multilineMinHeight={typography.body.lineHeight}
                             // Steps should always expand to show the full content (no nested scrolling),

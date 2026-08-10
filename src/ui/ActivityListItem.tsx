@@ -375,12 +375,14 @@ export function ActivityListItem({
             <View style={styles.checkboxWrapper}>
               {onToggleComplete ? (
                 <Pressable
-                  accessibilityRole="button"
+                  accessibilityRole="checkbox"
                   accessibilityLabel={isCompleted ? 'Mark to-do as not done' : 'Mark to-do as done'}
+                  accessibilityState={{ checked: isCompleted }}
                   hitSlop={8}
                   onPress={handlePressComplete}
                 >
                   <View
+                    testID="activity-completion-indicator"
                     style={[
                       styles.checkboxBase,
                       isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
@@ -426,6 +428,7 @@ export function ActivityListItem({
 
           <VStack style={styles.textBlock} space="xs">
             <Text
+              testID="activity-title"
               numberOfLines={2}
               ellipsizeMode="tail"
               style={[styles.title, isCompleted && styles.titleCompleted]}
@@ -720,10 +723,10 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   checkboxBase: {
-    width: 24,
-    height: 24,
-    borderRadius: 999,
-    borderWidth: 2,
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -732,8 +735,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
   checkboxCompleted: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accent,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   completionBurst: {
     position: 'absolute',
@@ -745,10 +748,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   completionBurstInner: {
-    width: 26,
-    height: 26,
-    borderRadius: 999,
-    backgroundColor: colors.success,
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
