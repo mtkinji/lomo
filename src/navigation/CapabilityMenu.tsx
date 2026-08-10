@@ -30,7 +30,6 @@ type CapabilityMenuProps = {
   sharedHomeEnabled?: boolean;
   exploreEnabled?: boolean;
   moneyLivingLimitEnabled?: boolean;
-  foodEnabled?: boolean;
 };
 
 export type CapabilityMenuChat = {
@@ -59,7 +58,6 @@ export function CapabilityMenu({
   sharedHomeEnabled = false,
   exploreEnabled = false,
   moneyLivingLimitEnabled = false,
-  foodEnabled = false,
 }: CapabilityMenuProps) {
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<CapabilityGroupId>>(
     () => new Set(CAPABILITY_GROUPS.map(({ id }) => id)),
@@ -78,7 +76,6 @@ export function CapabilityMenu({
     const capability = CAPABILITY_MENU_REGISTRY.find((candidate) => candidate.id === id);
     if (!capability || capability.availability !== 'active') return null;
     if (capability.id === 'explore' && !exploreEnabled) return null;
-    if (capability.group === 'food' && !foodEnabled) return null;
     const selected = activeCapabilityId === capability.id;
     const label = capability.id === 'money-summary' && moneyLivingLimitEnabled ? 'Budget' : capability.label;
 

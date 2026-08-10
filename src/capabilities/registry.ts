@@ -82,7 +82,7 @@ export const CAPABILITY_REGISTRY = [
   exploreCapabilityDefinition,
   gamesCapabilityDefinition,
   {
-    id: 'recipes', label: 'Meals', group: 'food', icon: 'chapters', availability: 'active',
+    id: 'recipes', label: 'Recipes', group: 'food', icon: 'chapters', availability: 'active',
     rootRoute: { root: 'Food', screen: 'RecipeLibrary' }, deepLinks: [], agent: currentKwiltAgentContract, lifecycle: {},
   },
   {

@@ -1141,7 +1141,6 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const menuOpen = useCapabilityMenuOpen();
   const exploreEnabled = useFeatureFlag('explore-capability', __DEV__);
   const sharedHomeEnabled = useFeatureFlag('shared-home-v1', false);
-  const foodEnabled = useFeatureFlag('food-loop-v1', __DEV__);
   const chatRepository = useMemo(() => createUnifiedChatRepository(), []);
   const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);
   const [chatsLoading, setChatsLoading] = useState(false);
@@ -1328,7 +1327,6 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           coverMenu();
         }}
         exploreEnabled={exploreEnabled}
-        foodEnabled={foodEnabled}
       />
     </View>
   );
