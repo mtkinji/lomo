@@ -1,12 +1,14 @@
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 
-import { colors, spacing } from '../../../theme';
+import { colors, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
 import { Input } from '../../../ui/Input';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
+import { HeaderActionPill, ObjectPageHeader } from '../../../ui/layout/ObjectPageHeader';
 import { Heading, Text } from '../../../ui/Typography';
 import type { KrogerLocation } from '../providers/krogerProvider';
 
@@ -45,18 +47,21 @@ function regionForStores(
   };
 }
 
+function storeMapLabel(index: number): string {
+  return index < 26 ? String.fromCharCode(65 + index) : String(index + 1);
+}
+
 type Props = {
   locations: KrogerLocation[];
   preferredLocation: KrogerLocation | null;
-  zip: string;
+  query: string;
   busy: boolean;
-  searchOpen: boolean;
   storeSearchMessage: string | null;
   mapCenter: { latitude: number; longitude: number } | null;
   showsUserLocation: boolean;
   bottomInset: number;
-  onZipChange(value: string): void;
-  onOpenSearch(): void;
+  onQueryChange(value: string): void;
+  onBack(): void;
   onFindStores(): void;
   onFindCurrentLocation(): void;
   onChoose(location: KrogerLocation): void;
@@ -66,20 +71,42 @@ type Props = {
 export function KrogerStoreFinder({
   locations,
   preferredLocation,
-  zip,
+  query,
   busy,
-  searchOpen,
   storeSearchMessage,
   mapCenter,
   showsUserLocation,
   bottomInset,
-  onZipChange,
-  onOpenSearch,
+  onQueryChange,
+  onBack,
   onFindStores,
   onFindCurrentLocation,
   onChoose,
   onSetPreferred,
 }: Props) {
+  const [previewedLocationId, setPreviewedLocationId] = useState<string | null>(null);
+  const locationLabels = useMemo(
+    () => new Map(locations.map((location, index) => [location.id, storeMapLabel(index)])),
+    [locations],
+  );
+  const previewedId = locations.some((location) => location.id === previewedLocationId)
+    ? previewedLocationId
+    : locations[0]?.id ?? null;
+  const displayedLocations = useMemo(() => {
+    if (!previewedId) return locations;
+    const previewed = locations.find((location) => location.id === previewedId);
+    return previewed
+      ? [previewed, ...locations.filter((location) => location.id !== previewedId)]
+      : locations;
+  }, [locations, previewedId]);
+  const drawerTitle = busy
+    ? 'Finding stores…'
+    : locations.length === 1
+      ? '1 store nearby'
+      : locations.length > 1
+        ? `${locations.length} stores nearby`
+        : 'Nearby stores';
+
   return (
     <View style={styles.storeFinder}>
       <MapView
@@ -97,102 +124,143 @@ export function KrogerStoreFinder({
                   coordinate={{ latitude: location.latitude, longitude: location.longitude }}
                   title={location.banner}
                   description={location.address}
-                  onPress={() => onChoose(location)}
-                />
+                  accessibilityLabel={`${locationLabels.get(location.id)}. ${location.banner}. ${location.address}`}
+                  onPress={() => setPreviewedLocationId(location.id)}
+                >
+                  <View style={[
+                    styles.mapMarker,
+                    location.id === previewedId && styles.mapMarkerPreviewed,
+                  ]}>
+                    <Text
+                      style={styles.mapMarkerLabel}
+                      tone={location.id === previewedId ? 'inverse' : 'default'}
+                    >
+                      {locationLabels.get(location.id)}
+                    </Text>
+                  </View>
+                </Marker>
               )]
             : [],
         )}
       </MapView>
-      <View style={styles.mapTools} pointerEvents="box-none">
-        {searchOpen ? (
+      <ObjectPageHeader
+        barHeight={52}
+        horizontalPadding={spacing.md}
+        sideSlotWidth={48}
+        showFullWidthBackground={false}
+        left={(
+          <HeaderActionPill
+            accessibilityLabel="Back to groceries"
+            materialVariant="floatingWhite"
+            size={48}
+            onPress={onBack}
+          >
+            <Icon name="arrowLeft" size={21} color={colors.textPrimary} />
+          </HeaderActionPill>
+        )}
+        center={(
           <View style={styles.mapSearchField}>
             <Input
-              autoFocus
-              accessibilityLabel="Search stores by ZIP code"
-              keyboardType="number-pad"
-              value={zip}
-              onChangeText={onZipChange}
-              placeholder="ZIP code"
+              accessibilityLabel="Search for nearby stores"
+              value={query}
+              onChangeText={onQueryChange}
+              placeholder="City, address, or ZIP"
               leadingIcon="search"
-              trailingIcon="search"
-              trailingIconAccessibilityLabel="Find stores"
-              onPressTrailingIcon={onFindStores}
+              autoCapitalize="words"
+              autoCorrect={false}
               onSubmitEditing={onFindStores}
               returnKeyType="search"
               containerStyle={styles.mapSearchInput}
             />
           </View>
-        ) : (
-          <Button
-            variant="secondary"
-            size="icon"
-            iconButtonSize={48}
-            accessibilityLabel="Search stores by ZIP code"
-            onPress={onOpenSearch}
-          >
-            <Icon name="search" size={19} color={colors.textPrimary} />
-          </Button>
         )}
-        <Button
-          variant="secondary"
-          size="icon"
-          iconButtonSize={48}
-          accessibilityLabel="Use my current location"
-          disabled={busy}
-          onPress={onFindCurrentLocation}
-        >
-          <Icon name="locate" size={20} color={colors.textPrimary} />
-        </Button>
-      </View>
+        right={(
+          <HeaderActionPill
+            accessibilityLabel="Use my current location"
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            materialVariant="floatingWhite"
+            size={48}
+            onPress={onFindCurrentLocation}
+          >
+            <Icon name="locate" size={20} color={colors.textPrimary} />
+          </HeaderActionPill>
+        )}
+      />
       <BottomDrawer
         visible
         onClose={() => undefined}
         dismissable={false}
         presentation="inline"
         hideBackdrop
-        snapPoints={['38%', '68%']}
+        keyboardBehavior="extend"
+        snapPoints={['30%', '68%']}
         initialSnapIndex={0}
+        enableContentPanningGesture
+        contentExtendsIntoBottomSafeArea
+        sheetStyle={styles.storeDrawerSheet}
+        handleContainerStyle={styles.storeDrawerHandleContainer}
       >
         <BottomDrawerScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.storeDrawerContent, { paddingBottom: bottomInset + spacing.lg }]}
         >
-          <BottomDrawerHeader title="Stores near you" variant="minimal" />
-          {busy ? <Text tone="secondary">Finding stores…</Text> : null}
+          <BottomDrawerHeader
+            title={drawerTitle}
+            variant="minimal"
+            containerStyle={styles.storeDrawerHeader}
+          />
           {storeSearchMessage ? (
             <Text tone="secondary" accessibilityLiveRegion="polite">{storeSearchMessage}</Text>
           ) : null}
           {!busy && !locations.length && !storeSearchMessage ? (
-            <Text tone="secondary">Use your location or search by ZIP to find a store.</Text>
+            <Text tone="secondary">Search an area or use your location.</Text>
           ) : null}
           <View>
-            {locations.map((location) => {
+            {displayedLocations.map((location) => {
               const preferred = preferredLocation?.id === location.id;
+              const previewed = previewedId === location.id;
+              const mapLabel = locationLabels.get(location.id);
               return (
                 <View key={location.id} style={styles.storeRow}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${location.banner}. ${location.address}. Shop with this store`}
+                    accessibilityState={{ selected: previewed }}
+                    accessibilityLabel={`${mapLabel}. ${location.banner}. ${location.address}. Shop with this store`}
                     onPress={() => onChoose(location)}
-                    style={({ pressed }) => [styles.storeChoice, pressed && styles.pressed]}
+                    style={({ pressed }) => [
+                      styles.storeChoice,
+                      previewed && styles.previewedStore,
+                      pressed && styles.pressed,
+                    ]}
                   >
+                    <View style={[styles.storeMapLabel, previewed && styles.storeMapLabelPreviewed]}>
+                      <Text tone={previewed ? 'inverse' : 'default'} style={styles.storeMapLabelText}>
+                        {mapLabel}
+                      </Text>
+                    </View>
                     <View style={styles.grow}>
                       <Heading variant="sm">{location.banner}</Heading>
-                      <Text tone="secondary">{location.address}</Text>
+                      <Text
+                        tone="secondary"
+                        numberOfLines={2}
+                        ellipsizeMode="tail"
+                        style={styles.storeAddress}
+                      >
+                        {location.address}
+                      </Text>
                     </View>
                     <Icon name="chevronRight" size={18} color={colors.textSecondary} />
                   </Pressable>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
+                    iconButtonSize={44}
                     disabled={preferred || busy}
                     accessibilityLabel={preferred ? `${location.banner} is my store` : `Set ${location.banner} as my store`}
                     onPress={() => onSetPreferred(location)}
                   >
-                    <View style={styles.preferredAction}>
-                      <Icon name={preferred ? 'starFilled' : 'star'} size={16} color={colors.textPrimary} />
-                      <Text>{preferred ? 'My store' : 'Set as my store'}</Text>
-                    </View>
+                    <Icon name={preferred ? 'starFilled' : 'star'} size={19} color={colors.textPrimary} />
                   </Button>
                 </View>
               );
@@ -206,25 +274,33 @@ export function KrogerStoreFinder({
 
 const styles = StyleSheet.create({
   storeFinder: { flex: 1, overflow: 'hidden' },
-  mapTools: {
-    position: 'absolute',
-    top: spacing.sm,
-    left: spacing.md,
-    right: spacing.md,
-    zIndex: 30,
-    elevation: 30,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+  mapMarker: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'center',
+    backgroundColor: colors.canvas,
+    borderWidth: 2,
+    borderColor: colors.textPrimary,
   },
-  mapSearchField: { flex: 1 },
-  mapSearchInput: { borderRadius: 24 },
+  mapMarkerPreviewed: { backgroundColor: colors.textPrimary },
+  mapMarkerLabel: { ...typography.bodySm, fontFamily: typography.bodyBold.fontFamily },
+  mapSearchField: { width: '100%', paddingHorizontal: spacing.sm },
+  mapSearchInput: { minHeight: 48, borderRadius: 24 },
+  storeDrawerSheet: { paddingTop: 0 },
+  storeDrawerHandleContainer: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  storeDrawerHeader: { paddingBottom: spacing.xs },
   storeDrawerContent: { paddingHorizontal: spacing.md, gap: spacing.sm },
   storeRow: {
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.cardBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   storeChoice: {
     minHeight: 64,
@@ -232,8 +308,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    flex: 1,
+    borderRadius: 12,
   },
-  preferredAction: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  storeMapLabel: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  storeMapLabelPreviewed: {
+    backgroundColor: colors.textPrimary,
+    borderColor: colors.textPrimary,
+  },
+  storeMapLabelText: { ...typography.bodyXs, fontFamily: typography.bodyBold.fontFamily },
+  previewedStore: { backgroundColor: colors.fieldFill },
+  storeAddress: { ...typography.bodyXs },
   grow: { flex: 1, gap: 2 },
-  pressed: { backgroundColor: colors.muted },
+  pressed: { backgroundColor: colors.fieldFill },
 });

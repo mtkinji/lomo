@@ -27,4 +27,22 @@ describe('preferredGroceryStore', () => {
     await AsyncStorage.setItem('kwilt-groceries-preferred-store-v1:person-1', '{nope');
     await expect(preferredGroceryStore.read('person-1')).resolves.toBeNull();
   });
+
+  it('can forget a preferred store without affecting another person', async () => {
+    const store = {
+      id: 'store-1',
+      name: "Smith's Marketplace",
+      banner: "Smith's",
+      address: '689 N Redwood Rd · Saratoga Springs, UT 84045',
+      latitude: 40.34,
+      longitude: -111.91,
+    };
+    await preferredGroceryStore.write('person-1', store);
+    await preferredGroceryStore.write('person-2', store);
+
+    await preferredGroceryStore.clear('person-1');
+
+    await expect(preferredGroceryStore.read('person-1')).resolves.toBeNull();
+    await expect(preferredGroceryStore.read('person-2')).resolves.toEqual(store);
+  });
 });

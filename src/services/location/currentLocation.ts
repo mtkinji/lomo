@@ -59,6 +59,24 @@ export async function geocodeStoreSearchBestEffort(
   }
 }
 
+export async function getStoreSearchContextForQueryBestEffort(
+  query: string,
+): Promise<CurrentStoreSearchContext | null> {
+  const mod = requireOptionalNativeModule<ExpoLocationNativeModule>('ExpoLocation');
+  if (!mod?.reverseGeocodeAsync) return null;
+  const coordinates = await geocodeStoreSearchBestEffort(query);
+  if (!coordinates) return null;
+  try {
+    const places = await mod.reverseGeocodeAsync(coordinates);
+    const postalCode = places
+      .map((place) => place.postalCode?.trim() ?? '')
+      .find((value) => /^\d{5}$/.test(value));
+    return postalCode ? { ...coordinates, postalCode } : null;
+  } catch {
+    return null;
+  }
+}
+
 type StoreLocationCoordinates = {
   address: string;
   latitude?: number | null;

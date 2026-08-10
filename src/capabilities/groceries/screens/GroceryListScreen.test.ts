@@ -1,5 +1,6 @@
 import type { GroceryProjection } from '../data/groceryRepository';
 import {
+  formatShopOnlineLabel,
   prepareGroceryListForFulfillment,
   resolveGroceryListEntry,
 } from './GroceryListScreen';
@@ -74,5 +75,16 @@ describe('Grocery List fulfillment preparation', () => {
         jest.fn(),
       ),
     ).rejects.toThrow('Update this grocery list from the current Plan before shopping.');
+  });
+});
+
+describe('Grocery List shopping action', () => {
+  it('names the exact unchecked item count that will be sent', () => {
+    expect(formatShopOnlineLabel(1)).toBe('Shop online · 1 item');
+    expect(formatShopOnlineLabel(12)).toBe('Shop online · 12 items');
+  });
+
+  it('keeps an empty handoff count explicit', () => {
+    expect(formatShopOnlineLabel(0)).toBe('Shop online · 0 items');
   });
 });

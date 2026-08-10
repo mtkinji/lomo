@@ -102,7 +102,7 @@ export async function hideCatalogMeal({
     await setHidden(recipeId, true);
     onHidden();
     showToast({
-      message: "Hidden from your Meals",
+      message: "Hidden from your recipes",
       actionLabel: "Undo",
       actionOnPress: async () => {
         try {
@@ -643,7 +643,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         showFullWidthBackground={false}
         left={
           <HeaderActionPill
-            accessibilityLabel="Back to Meals"
+            accessibilityLabel="Back to Recipes"
             materialVariant="floatingWhite"
             onPress={() => navigation.goBack()}
           >

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Alert,
+  Animated,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,11 +18,13 @@ import { FloatingDockActionButton } from '../../../features/activities/FloatingD
 import { QuickAddDock } from '../../../features/activities/QuickAddDock';
 import { MealPlanHeaderAction } from '../../../features/household-food/components/MealPlanHeaderAction';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
+import { useCapabilityMenuOpen } from '../../../navigation/CapabilityMenuStateContext';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { useAppStore } from '../../../store/useAppStore';
 import { colors, spacing } from '../../../theme';
 import { Button, IconButton } from '../../../ui/Button';
+import { Coachmark } from '../../../ui/Coachmark';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,11 +39,14 @@ import {
   RESTING_COMPOSER_HEIGHT_PX,
   RESTING_COMPOSER_HORIZONTAL_INSET_PX,
 } from '../../../ui/layout/restingComposerMetrics';
-import { Heading, Text } from '../../../ui/Typography';
+import { Text } from '../../../ui/Typography';
+import { EmptyState } from '../../../ui/EmptyState';
+import { useAccessibilityPreferences } from '../../../ui/hooks/useAccessibilityPreferences';
 import { RecipeIngredientChecklist } from '../../recipes/components/RecipeIngredientList';
 import { formatKitchenQuantity } from '../../recipes/domain/recipeScaling';
 import { createMealPlanningRepository } from '../../meal-planning/data/mealPlanningRepository';
 import { groceryCache } from '../data/groceryCache';
+import { groceryEducation } from '../data/groceryEducation';
 import {
   createGroceryRepository,
   type GroceryProjection,
@@ -66,6 +72,8 @@ const aisleLabels: Record<string, string> = {
   other: 'Other',
 };
 
+const GROCERY_EMPTY_ILLUSTRATION = require('../../../../assets/illustrations/groceries-empty.png');
+
 type MarkReviewed = (
   listId: string,
   expectedRevision: number,
@@ -81,6 +89,54 @@ export async function prepareGroceryListForFulfillment(
   if (list.status === 'review_needed') {
     await markReviewed(list.id, list.revision);
   }
+}
+
+export function formatShopOnlineLabel(itemCount: number): string {
+  return `Shop online · ${itemCount} item${itemCount === 1 ? '' : 's'}`;
+}
+
+function AnimatedShopOnlineLabel({ itemCount }: { itemCount: number }) {
+  const { reduceMotionEnabled } = useAccessibilityPreferences();
+  const [displayedCount, setDisplayedCount] = useState(itemCount);
+  const progress = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (itemCount === displayedCount) return;
+
+    progress.stopAnimation();
+    setDisplayedCount(itemCount);
+    if (reduceMotionEnabled) {
+      progress.setValue(1);
+      return;
+    }
+
+    progress.setValue(0);
+    Animated.spring(progress, {
+      toValue: 1,
+      damping: 18,
+      stiffness: 260,
+      mass: 0.55,
+      useNativeDriver: true,
+    }).start();
+  }, [displayedCount, itemCount, progress, reduceMotionEnabled]);
+
+  return (
+    <View accessible={false} pointerEvents="none" style={styles.shopLabelFrame}>
+      <Text style={styles.shopLabel}>Shop online · </Text>
+      <Animated.View
+        style={[
+          styles.animatedShopCount,
+          {
+            opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }),
+            transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }],
+          },
+        ]}
+      >
+        <Text style={styles.shopLabel}>{displayedCount}</Text>
+      </Animated.View>
+      <Text style={styles.shopLabel}>{` item${displayedCount === 1 ? '' : 's'}`}</Text>
+    </View>
+  );
 }
 
 export function resolveGroceryListEntry(
@@ -151,6 +207,7 @@ function GroceriesMenu({
 export function GroceryListScreen({ navigation, route }: Props) {
   const { capture } = useAnalytics();
   const { openMenu } = useCapabilityShell();
+  const capabilityMenuOpen = useCapabilityMenuOpen();
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const [list, setList] = useState<GroceryProjection | null>(null);
   const [offline, setOffline] = useState(false);
@@ -160,7 +217,10 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const [manualItem, setManualItem] = useState('');
   const [showAddDrawer, setShowAddDrawer] = useState(false);
   const manualItemInputRef = useRef<TextInput | null>(null);
+  const firstGroceryItemRef = useRef<View | null>(null);
   const [reviewingCovered, setReviewingCovered] = useState(false);
+  const [alreadyHaveEducationLoaded, setAlreadyHaveEducationLoaded] = useState(false);
+  const [alreadyHaveEducationSeen, setAlreadyHaveEducationSeen] = useState(true);
   const [sourcePlanMealCount, setSourcePlanMealCount] = useState(0);
   const requestedListId = route.params?.listId;
 
@@ -199,6 +259,24 @@ export function GroceryListScreen({ navigation, route }: Props) {
       setOffline(Boolean(cachedList));
     }
   }, [chooseList, userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAlreadyHaveEducationLoaded(false);
+    void groceryEducation.hasSeenAlreadyHave(userId)
+      .then((seen) => {
+        if (!cancelled) setAlreadyHaveEducationSeen(seen);
+      })
+      .catch(() => {
+        if (!cancelled) setAlreadyHaveEducationSeen(true);
+      })
+      .finally(() => {
+        if (!cancelled) setAlreadyHaveEducationLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     void (async () => {
@@ -379,15 +457,30 @@ export function GroceryListScreen({ navigation, route }: Props) {
 
   const shopLabel = list?.status === 'stale'
     ? 'Update from Plan'
-    : offline || pendingCount
-      ? 'Sync to shop'
-      : fulfillment.actionLabel;
+    : list
+      ? formatShopOnlineLabel(fulfillment.remainingCount)
+      : 'Shop online';
   const shopDisabled =
     !list ||
     busy ||
     offline ||
     pendingCount > 0 ||
     (list.status !== 'stale' && fulfillment.disabled);
+  const shopVisuallyDisabled =
+    !list ||
+    offline ||
+    (list?.status !== 'stale' && fulfillment.disabled);
+  const showAlreadyHaveCoachmark =
+    alreadyHaveEducationLoaded &&
+    !alreadyHaveEducationSeen &&
+    !capabilityMenuOpen &&
+    !showAddDrawer &&
+    list?.status !== 'stale' &&
+    checklistItems.length > 0;
+  const dismissAlreadyHaveCoachmark = () => {
+    setAlreadyHaveEducationSeen(true);
+    void groceryEducation.markAlreadyHaveSeen(userId).catch(() => undefined);
+  };
 
   return (
     <AppShell>
@@ -426,18 +519,15 @@ export function GroceryListScreen({ navigation, route }: Props) {
             />
           }
         >
-          {offline || pendingCount ? (
-            <Text tone="secondary" accessibilityLiveRegion="polite">
-              {pendingCount
-                ? `${pendingCount} change${pendingCount === 1 ? '' : 's'} saved on this device. Pull to sync.`
-                : 'Showing the saved list. Pull to refresh when reconnected.'}
-            </Text>
-          ) : null}
           {busy && !list ? <Text tone="secondary">Building your grocery list…</Text> : null}
           {!busy && !list ? (
-            <View style={styles.empty}>
-              <Heading variant="md">No grocery list yet.</Heading>
-            </View>
+            <EmptyState
+              variant="screen"
+              illustration={GROCERY_EMPTY_ILLUSTRATION}
+              title="No grocery list yet"
+              instructions="Add meals to your Plan and your list will come together here."
+              style={styles.empty}
+            />
           ) : null}
           {list?.status === 'stale' ? (
             <Text tone="secondary">Plan changed. Update this list before shopping.</Text>
@@ -446,6 +536,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
             <RecipeIngredientChecklist
               items={checklistItems}
               checked={coveredIds}
+              firstItemTargetRef={firstGroceryItemRef}
               disabled={list.status === 'stale'}
               onToggle={(itemId) => {
                 void toggle(itemId);
@@ -459,6 +550,14 @@ export function GroceryListScreen({ navigation, route }: Props) {
             />
           ) : list && reviewingCovered ? (
             <Text tone="secondary">No checked items yet.</Text>
+          ) : list && list.status !== 'stale' ? (
+            <EmptyState
+              variant="screen"
+              illustration={GROCERY_EMPTY_ILLUSTRATION}
+              title="Nothing to pick up"
+              instructions="Add an item when something comes to mind."
+              style={styles.empty}
+            />
           ) : null}
       </ScrollView>
 
@@ -480,17 +579,26 @@ export function GroceryListScreen({ navigation, route }: Props) {
               }}
               style={({ pressed }) => [
                 styles.shopButton,
-                shopDisabled && styles.disabled,
+                shopVisuallyDisabled && styles.disabled,
                 pressed && styles.pressed,
               ]}
             >
               <FloatingControlSurface
+                testID="grocery-shop-surface"
                 borderRadius={RESTING_COMPOSER_HEIGHT_PX / 2}
                 isProminent
                 style={styles.shopSurface}
-                surfaceStyle={styles.shopSurfaceContent}
+                surfaceStyle={[styles.shopSurfaceContent, styles.shopSurfaceBlack]}
               >
-                <Text style={styles.shopLabel}>{busy ? 'Working…' : shopLabel}</Text>
+                {busy ? (
+                  <Text style={styles.shopLabel}>Working…</Text>
+                ) : list?.status === 'stale' ? (
+                  <Text style={styles.shopLabel}>Update from Plan</Text>
+                ) : list ? (
+                  <AnimatedShopOnlineLabel itemCount={fulfillment.remainingCount} />
+                ) : (
+                  <Text style={styles.shopLabel}>Shop online</Text>
+                )}
               </FloatingControlSurface>
           </Pressable>
           <FloatingDockActionButton
@@ -529,6 +637,25 @@ export function GroceryListScreen({ navigation, route }: Props) {
         inputAccessibilityLabel="Grocery item"
         submitAccessibilityLabel="Add grocery item to list"
       />
+      <Coachmark
+        visible={showAlreadyHaveCoachmark}
+        targetRef={firstGroceryItemRef}
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius={12}
+        highlightColor={colors.textPrimary}
+        actionColor={colors.textPrimary}
+        title={<Text style={styles.coachmarkTitle}>Already have something?</Text>}
+        body={(
+          <Text style={styles.coachmarkBody}>
+            Check it off here. It won’t be sent to your online cart.
+          </Text>
+        )}
+        actions={[{ id: 'dismiss', label: 'Got it', variant: 'accent' }]}
+        onAction={dismissAlreadyHaveCoachmark}
+        onDismiss={dismissAlreadyHaveCoachmark}
+        placement="below"
+      />
     </AppShell>
   );
 }
@@ -550,7 +677,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 0,
+    paddingBottom: spacing['3xl'],
   },
+  coachmarkTitle: { fontWeight: '700' },
+  coachmarkBody: { color: colors.textSecondary },
   dock: {
     position: 'absolute',
     left: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
@@ -564,15 +695,36 @@ const styles = StyleSheet.create({
     elevation: 60,
   },
   shopButton: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
-  shopSurface: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
+  shopSurface: {
+    flex: 1,
+    height: RESTING_COMPOSER_HEIGHT_PX,
+    backgroundColor: colors.primary,
+  },
   shopSurfaceContent: {
     height: RESTING_COMPOSER_HEIGHT_PX,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  shopSurfaceBlack: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
   shopLabel: {
-    color: colors.textPrimary,
+    color: colors.primaryForeground,
+    fontVariant: ['tabular-nums'],
+  },
+  shopLabelFrame: {
+    width: '100%',
+    height: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  animatedShopCount: {
+    minWidth: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   disabled: { opacity: 0.45 },
-  pressed: { opacity: 0.68 },
+  pressed: { transform: [{ scale: 0.985 }] },
 });

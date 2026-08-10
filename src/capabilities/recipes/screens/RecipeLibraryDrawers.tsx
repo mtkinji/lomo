@@ -368,7 +368,7 @@ export function RecipeInventoryDock({
       <FloatingDockActionButton
         testID="recipe-inventory-search"
         accessibilityLabel="Search meals"
-        accessibilityHint="Opens Search scoped to Meals"
+        accessibilityHint="Opens Search scoped to Recipes"
         icon="search"
         isProminent
         onPress={onSearch}

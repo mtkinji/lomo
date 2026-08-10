@@ -154,7 +154,7 @@ export function EditorialMealCollectionScreen({ navigation, route }: Props) {
   }, [capture, collection]);
 
   if (!collection) {
-    return <AppShell><PageHeader title="Collection" onPressBack={() => navigation.goBack()} /><View style={styles.missing}><Heading variant="md">This Collection is no longer available.</Heading><Button variant="outline" onPress={() => navigation.replace('RecipeLibrary')}>Back to Meals</Button></View></AppShell>;
+    return <AppShell><PageHeader title="Collection" onPressBack={() => navigation.goBack()} /><View style={styles.missing}><Heading variant="md">This Collection is no longer available.</Heading><Button variant="outline" onPress={() => navigation.replace('RecipeLibrary')}>Back to Recipes</Button></View></AppShell>;
   }
 
   const navigateToReview = (seed: EditorialMealPlanSeed, planId?: string) => {

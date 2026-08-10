@@ -11,6 +11,7 @@ jest.mock('expo-modules-core', () => ({
 import {
   geocodeStoreSearchBestEffort,
   getCurrentStoreSearchContextBestEffort,
+  getStoreSearchContextForQueryBestEffort,
   hydrateStoreCoordinatesBestEffort,
 } from './currentLocation';
 
@@ -39,6 +40,23 @@ describe('current store search context', () => {
     await expect(geocodeStoreSearchBestEffort('84045')).resolves.toEqual({
       latitude: 40.34,
       longitude: -111.91,
+    });
+  });
+
+  it('turns a city or address into the postal code required by retailer search', async () => {
+    mockNativeModule.geocodeAsync.mockResolvedValue([{ latitude: 40.3916, longitude: -111.8508 }]);
+    mockNativeModule.reverseGeocodeAsync.mockResolvedValue([{ postalCode: '84043' }]);
+
+    await expect(getStoreSearchContextForQueryBestEffort('Lehi, UT')).resolves.toEqual({
+      latitude: 40.3916,
+      longitude: -111.8508,
+      postalCode: '84043',
+    });
+
+    expect(mockNativeModule.geocodeAsync).toHaveBeenCalledWith('Lehi, UT');
+    expect(mockNativeModule.reverseGeocodeAsync).toHaveBeenCalledWith({
+      latitude: 40.3916,
+      longitude: -111.8508,
     });
   });
 

@@ -19,7 +19,7 @@ export function HiddenMealsDrawer({ visible, recipes, onClose, onRestore }: {
       <BottomDrawerScrollView contentContainerStyle={styles.content}>
         <BottomDrawerHeader
           title="Hidden meals"
-          subtitle="These stay out of your Meals suggestions until you show them again."
+          subtitle="These stay out of your recipe suggestions until you show them again."
           variant="withClose"
           onClose={onClose}
           closeAccessibilityLabel="Close hidden meals"
@@ -48,7 +48,7 @@ export function HiddenMealsDrawer({ visible, recipes, onClose, onRestore }: {
         }) : (
           <View style={styles.empty}>
             <Heading variant="sm">Nothing is hidden.</Heading>
-            <Text tone="secondary">Meals you restore will return to browsing and suggestions.</Text>
+            <Text tone="secondary">Recipes you restore will return to browsing and suggestions.</Text>
           </View>
         )}
       </BottomDrawerScrollView>

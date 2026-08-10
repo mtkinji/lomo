@@ -17,7 +17,7 @@ export function RecipeRecommendationsSection({
 
   return (
     <View style={styles.section}>
-      <Heading variant="md">More Meals you might like</Heading>
+      <Heading variant="md">More recipes you might like</Heading>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

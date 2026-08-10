@@ -41,5 +41,8 @@ export const preferredGroceryStore = {
   async write(userId: string | null, location: KrogerLocation): Promise<void> {
     await AsyncStorage.setItem(keyFor(userId), JSON.stringify(location));
   },
-};
 
+  async clear(userId: string | null): Promise<void> {
+    await AsyncStorage.removeItem(keyFor(userId));
+  },
+};
