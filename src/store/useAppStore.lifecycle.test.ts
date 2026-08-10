@@ -1137,7 +1137,7 @@ describe('screen time protection settings', () => {
     expect(settings.focusProtection.enabled).toBe(true);
     expect(settings.meaningfulFirst.currentUnlockUntilIso).toBeNull();
     expect(settings.meaningfulFirst.minFocusMinutes).toBe(10);
-    expect(settings.meaningfulFirst.bypassMinutes).toBe(15);
+    expect(settings.meaningfulFirst.bypassMinutes).toBe(20);
     expect(settings.setupOffer.lastShownAtIso).toBeNull();
   });
 

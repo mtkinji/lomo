@@ -16,6 +16,10 @@ jest.mock('./screenTimeProtectionRuntime', () => ({
   reconcileScreenTimeRestrictions: jest.fn().mockResolvedValue([]),
 }));
 
+jest.mock('../capabilities/money/runtime/moneyAppControlRuntime', () => ({
+  reconcileLatestMoneyAppControls: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('../features/activities/focusSessionStore', () => ({
   useFocusSessionStore: {
     getState: jest.fn(() => ({ activeSession: null })),
@@ -40,6 +44,7 @@ import { AppState } from 'react-native';
 import { useFocusSessionStore } from '../features/activities/focusSessionStore';
 import { useAppStore } from '../store/useAppStore';
 import { reconcileScreenTimeRestrictions } from './screenTimeProtectionRuntime';
+import { reconcileLatestMoneyAppControls } from '../capabilities/money/runtime/moneyAppControlRuntime';
 import {
   startScreenTimeProtectionForegroundSync,
   stopScreenTimeProtectionForegroundSyncForTests,
@@ -63,9 +68,11 @@ describe('screenTimeProtectionForegroundSync', () => {
     startScreenTimeProtectionForegroundSync();
 
     expect(reconcileScreenTimeRestrictions).toHaveBeenCalledWith({ focusSessionActive: false });
+    expect(reconcileLatestMoneyAppControls).toHaveBeenCalledTimes(1);
 
     (AppState as any).__emit('active');
     expect(reconcileScreenTimeRestrictions).toHaveBeenCalledTimes(2);
+    expect(reconcileLatestMoneyAppControls).toHaveBeenCalledTimes(2);
 
     (AppState as any).__emit('active');
     expect(reconcileScreenTimeRestrictions).toHaveBeenCalledTimes(2);

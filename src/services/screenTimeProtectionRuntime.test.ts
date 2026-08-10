@@ -1,11 +1,13 @@
 jest.mock('./appleEcosystem/screenTimeProtection', () => ({
   applyScreenTimeRestrictions: jest.fn().mockResolvedValue(true),
   clearScreenTimeRestrictions: jest.fn().mockResolvedValue(true),
+  clearScreenTimeRestrictionsForSelection: jest.fn().mockResolvedValue(true),
 }));
 
 import {
   applyScreenTimeRestrictions,
   clearScreenTimeRestrictions,
+  clearScreenTimeRestrictionsForSelection,
 } from './appleEcosystem/screenTimeProtection';
 import {
   applyMeaningfulFirstRestrictionsIfLocked,
@@ -31,6 +33,7 @@ describe('screenTimeProtectionRuntime', () => {
     const bridge = {
       apply: jest.fn().mockResolvedValue(true),
       clear: jest.fn().mockResolvedValue(true),
+      clearSelection: jest.fn().mockResolvedValue(true),
     };
 
     const reasons = await reconcileScreenTimeRestrictionsForSettings({
@@ -41,7 +44,17 @@ describe('screenTimeProtectionRuntime', () => {
     });
 
     expect(reasons).toEqual(['focus_session_active']);
-    expect(bridge.apply).toHaveBeenCalledWith({ settings, reasons });
+    expect(bridge.apply).toHaveBeenCalledWith({
+      settings: {
+        selectedApps: [{ token: 'youtube', label: 'YouTube' }],
+        selectedCategories: [],
+      },
+      reasons,
+      selectionId: 'personal_focus',
+      ruleId: 'personal_focus',
+      reason: 'focus_session_active',
+      restrictionLabel: 'Focus',
+    });
     expect(bridge.clear).not.toHaveBeenCalled();
   });
 
@@ -54,6 +67,7 @@ describe('screenTimeProtectionRuntime', () => {
     const bridge = {
       apply: jest.fn().mockResolvedValue(true),
       clear: jest.fn().mockResolvedValue(true),
+      clearSelection: jest.fn().mockResolvedValue(true),
     };
 
     const reasons = await reconcileScreenTimeRestrictionsForSettings({
@@ -65,7 +79,8 @@ describe('screenTimeProtectionRuntime', () => {
 
     expect(reasons).toEqual([]);
     expect(bridge.apply).not.toHaveBeenCalled();
-    expect(bridge.clear).toHaveBeenCalledTimes(1);
+    expect(bridge.clearSelection).toHaveBeenCalledWith('personal_focus');
+    expect(bridge.clear).not.toHaveBeenCalled();
   });
 
   it('is best-effort when native restriction calls fail', async () => {
@@ -77,6 +92,7 @@ describe('screenTimeProtectionRuntime', () => {
     const bridge = {
       apply: jest.fn().mockRejectedValue(new Error('native unavailable')),
       clear: jest.fn().mockRejectedValue(new Error('native unavailable')),
+      clearSelection: jest.fn().mockRejectedValue(new Error('native unavailable')),
     };
 
     await expect(
@@ -122,9 +138,64 @@ describe('screenTimeProtectionRuntime', () => {
 
     await expect(applyMeaningfulFirstRestrictionsIfLocked({ now })).resolves.toBe(true);
     expect(applyScreenTimeRestrictions).toHaveBeenCalledWith({
-      settings: useAppStore.getState().screenTimeProtection,
+      settings: {
+        selectedApps: [{ token: 'instagram', label: 'Instagram' }],
+        selectedCategories: [],
+      },
       reasons: ['meaningful_first_locked'],
+      selectionId: 'personal_real_step',
+      ruleId: 'personal_real_step',
+      reason: 'meaningful_first_locked',
+      restrictionLabel: 'A real step',
     });
     expect(clearScreenTimeRestrictions).not.toHaveBeenCalled();
   });
 });
+  it('reconciles independently selected personal rules without a global clear', async () => {
+    const settings = normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved',
+      personalRules: [
+        {
+          id: 'personal_real_step',
+          kind: 'real_step',
+          selectionId: 'personal_real_step',
+          selectedApps: [{ token: 'instagram', label: 'Instagram' }],
+          selectedCategories: [],
+          enabled: true,
+          setupCompleted: true,
+          currentUnlockUntilIso: null,
+          temporaryOpenAllowed: true,
+          temporaryOpenMinutes: 20,
+        },
+        {
+          id: 'personal_focus',
+          kind: 'focus',
+          selectionId: 'personal_focus',
+          selectedApps: [{ token: 'youtube', label: 'YouTube' }],
+          selectedCategories: [],
+          enabled: true,
+          setupCompleted: true,
+          temporaryOpenAllowed: true,
+          temporaryOpenMinutes: 20,
+        },
+      ],
+    });
+
+    await reconcileScreenTimeRestrictionsForSettings({
+      settings,
+      focusSessionActive: false,
+      now,
+      bridge: {
+        apply: applyScreenTimeRestrictions,
+        clearSelection: clearScreenTimeRestrictionsForSelection,
+      },
+    });
+
+    expect(applyScreenTimeRestrictions).toHaveBeenCalledWith(expect.objectContaining({
+      selectionId: 'personal_real_step',
+      ruleId: 'personal_real_step',
+      reasons: ['meaningful_first_locked'],
+    }));
+    expect(clearScreenTimeRestrictionsForSelection).toHaveBeenCalledWith('personal_focus');
+    expect(clearScreenTimeRestrictions).not.toHaveBeenCalled();
+  });

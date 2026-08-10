@@ -13,6 +13,8 @@ function appGroupIdFor(config) {
 function buildRestrictionLedgerSwift(appGroupId) {
   return `private struct KwiltRestrictionLedgerEntry: Codable {
   let id: String
+  let ruleId: String?
+  let selectionId: String?
   let reason: String
   let label: String?
   let appliedAtMs: Double
@@ -48,6 +50,8 @@ private enum KwiltRestrictionLedger {
 
   static func upsert(
     id: String,
+    ruleId: String,
+    selectionId: String,
     reason: String,
     label: String?,
     applicationTokenKeys: [String],
@@ -56,6 +60,8 @@ private enum KwiltRestrictionLedger {
   ) {
     let entry = KwiltRestrictionLedgerEntry(
       id: id,
+      ruleId: ruleId,
+      selectionId: selectionId,
       reason: reason,
       label: label,
       appliedAtMs: Date().timeIntervalSince1970 * 1000.0,
@@ -294,14 +300,18 @@ private enum KwiltReviewRequest {
   static let requestedAtKey = "kwilt_screen_time_review_requested_at_v1"
   static let reasonKey = "kwilt_screen_time_shield_reason_v1"
   static let handoffReasonKey = "kwilt_screen_time_handoff_reason_v1"
+  static let handoffRestrictionsKey = "kwilt_screen_time_handoff_restrictions_v2"
 
-  static func record(reason: String) {
+  static func record(restrictions: [KwiltRestrictionLedgerEntry]) {
     guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
     defaults.set(
       Date().timeIntervalSince1970 * 1000.0,
       forKey: requestedAtKey
     )
-    defaults.set(reason, forKey: handoffReasonKey)
+    defaults.set(restrictions.first?.reason ?? legacyReason(), forKey: handoffReasonKey)
+    if let data = try? JSONEncoder().encode(restrictions) {
+      defaults.set(data, forKey: handoffRestrictionsKey)
+    }
   }
 
   static func legacyReason() -> String {
@@ -348,7 +358,7 @@ final class KwiltShieldActionExtension: ShieldActionDelegate {
     switch action {
     case .primaryButtonPressed:
       if #available(iOS 26.5, *), let openKwilt = ShieldActionResponse(rawValue: 3) {
-        KwiltReviewRequest.record(reason: restrictions.first?.reason ?? KwiltReviewRequest.legacyReason())
+        KwiltReviewRequest.record(restrictions: restrictions)
         completionHandler(openKwilt)
       } else {
         completionHandler(.close)
@@ -439,6 +449,8 @@ private enum KwiltPrerequisiteMonitorRuntime {
     let minutes = configuration.thresholdMinutes
     KwiltRestrictionLedger.upsert(
       id: "prerequisite.\\(configuration.agreementId)",
+      ruleId: configuration.agreementId,
+      selectionId: configuration.targetSelectionId,
       reason: "family_prerequisite",
       label: "Use \\(configuration.prerequisiteLabel) for \\(minutes) minute\\(minutes == 1 ? "" : "s")",
       applicationTokenKeys: KwiltRestrictionLedger.tokenKeys(targetSelection.applicationTokens),

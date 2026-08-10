@@ -30,7 +30,6 @@ type FocusSetupContentProps = {
   onCustomExpandedChange: (expanded: boolean | ((current: boolean) => boolean)) => void;
   audio: FocusAudioSelection;
   onAudioChange: (audio: FocusAudioSelection) => void;
-  allowNoAudio?: boolean;
   portalHostName: string;
   leadingContent?: ReactNode;
   onStart: () => void;
@@ -49,7 +48,6 @@ export function FocusSetupContent({
   onCustomExpandedChange,
   audio,
   onAudioChange,
-  allowNoAudio = false,
   portalHostName,
   leadingContent,
   onStart,
@@ -59,11 +57,7 @@ export function FocusSetupContent({
 }: FocusSetupContentProps) {
   const { height: windowHeight } = useWindowDimensions();
   const soundscapeMenuMaxHeight = Math.max(240, Math.min(560, Math.floor(windowHeight * 0.55)));
-  const audioOptions: Array<{ id: FocusAudioSelection; title: string }> = [
-    ...(allowNoAudio ? [{ id: 'none' as const, title: 'No audio' }] : []),
-    ...SOUND_SCAPES,
-  ];
-  const selectedAudioTitle = audioOptions.find((item) => item.id === audio)?.title ?? 'Soundscape';
+  const selectedAudioTitle = SOUND_SCAPES.find((item) => item.id === audio)?.title ?? 'Soundscape';
   const fields = (
     <VStack space="md">
       {leadingContent}
@@ -148,28 +142,20 @@ export function FocusSetupContent({
               nestedScrollEnabled
               keyboardShouldPersistTaps="handled"
             >
-              {allowNoAudio ? (
-                <DropdownMenuCheckboxItem
-                  checked={audio === 'none'}
-                  onCheckedChange={(checked) => {
-                    if (checked) onAudioChange('none');
-                  }}
-                >
-                  <Text style={styles.menuRowText} numberOfLines={1}>No audio</Text>
-                </DropdownMenuCheckboxItem>
-              ) : null}
               {soundscapesByKind().map((section) => (
                 <DropdownMenuGroup key={section.kind}>
                   <DropdownMenuLabel>{section.title}</DropdownMenuLabel>
                   {section.soundscapes.map((item) => (
                     <DropdownMenuCheckboxItem
                       key={item.id}
+                      testID={`focus-soundscape-option-${item.id}`}
+                      style={styles.focusSoundscapeMenuItem}
                       checked={item.id === audio}
                       onCheckedChange={(checked) => {
                         if (checked) onAudioChange(item.id);
                       }}
                     >
-                      <Text style={styles.menuRowText} numberOfLines={1}>{item.title}</Text>
+                      <Text style={styles.focusSoundscapeMenuItemText} numberOfLines={1}>{item.title}</Text>
                     </DropdownMenuCheckboxItem>
                   ))}
                 </DropdownMenuGroup>

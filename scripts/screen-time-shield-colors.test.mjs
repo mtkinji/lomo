@@ -17,8 +17,9 @@ test('Kwilt Goals uses pine700 for the shield', () => {
 });
 
 test('shield actions preserve the reason for an exact in-app handoff', () => {
-  assert.match(generator, /handoffReasonKey = "kwilt_screen_time_handoff_reason_v1"/);
-  assert.match(generator, /defaults\.set\(reason, forKey: handoffReasonKey\)/);
+  assert.match(generator, /handoffRestrictionsKey = "kwilt_screen_time_handoff_restrictions_v2"/);
+  assert.match(generator, /JSONEncoder\(\)\.encode\(restrictions\)/);
+  assert.match(generator, /KwiltReviewRequest\.record\(restrictions:/);
 });
 
 test('native stores keep target-aware restriction entries instead of one last-writer reason', () => {
@@ -26,9 +27,19 @@ test('native stores keep target-aware restriction entries instead of one last-wr
   assert.match(generator, /applicationTokenKeys/);
   assert.match(generator, /categoryTokenKeys/);
   assert.match(generator, /webDomainTokenKeys/);
+  assert.match(generator, /let ruleId: String\?/);
+  assert.match(generator, /let selectionId: String\?/);
   assert.match(bridgeGenerator, /buildRestrictionLedgerSwift\('__KWILT_APP_GROUP_ID__'\)/);
   assert.match(bridgeGenerator, /KwiltRestrictionLedger\.upsert/);
   assert.match(bridgeGenerator, /KwiltRestrictionLedger\.remove/);
+});
+
+test('the JavaScript bridge receives semantic restriction identity without native tokens', () => {
+  const rendered = buildScreenTimeProtectionSwift('group.test.kwilt');
+  assert.match(rendered, /"restrictionId": entry\.id/);
+  assert.match(rendered, /"ruleId": entry\.ruleId \?\? entry\.id/);
+  assert.match(rendered, /"selectionId": entry\.selectionId \?\? entry\.id/);
+  assert.doesNotMatch(rendered, /"applicationTokenKeys": entry\.applicationTokenKeys/);
 });
 
 test('the app bridge and extensions render the same concrete App Group', () => {

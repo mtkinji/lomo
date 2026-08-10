@@ -1,4 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  DEFAULT_TEMPORARY_OPEN_MINUTES,
+  type ScreenTimeRule,
+} from '../../../screen-time/domain/screenTimeRule';
 
 export type FamilyScreenTimeAction = 'block' | 'allow';
 export type FamilyScreenTimeBasis = 'wall_clock' | 'foreground_usage';
@@ -93,6 +97,32 @@ export type FamilyScreenTimeOverrideBatchInput = {
   usageMinutes: number | null;
   operationId: string;
 };
+
+export function projectFamilyScreenTimeRule(params: {
+  snapshot: FamilyScreenTimeSnapshot;
+  agreement: FamilyScreenTimeAgreement;
+}): ScreenTimeRule | null {
+  const selection = params.snapshot.selections.find((candidate) => (
+    candidate.id === params.agreement.selectionId && candidate.status === 'active'
+  ));
+  if (!selection) return null;
+  const receipt = params.snapshot.latestDeviceReceipt;
+  return {
+    id: `family_${params.agreement.id}`,
+    domain: 'family',
+    subject: { kind: 'child', membershipId: params.snapshot.childMembershipId },
+    selectionId: params.agreement.selectionId,
+    title: selection.label,
+    trigger: { type: 'family_agreement', agreementId: params.agreement.id },
+    temporaryOpen: {
+      allowed: true,
+      durationMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
+    },
+    active: params.agreement.active,
+    desiredVersion: params.snapshot.desiredPolicyVersion,
+    appliedVersion: receipt?.outcome === 'applied' ? receipt.policyVersion : null,
+  };
+}
 
 type RpcResult = { data: unknown; error: { message?: string } | null };
 

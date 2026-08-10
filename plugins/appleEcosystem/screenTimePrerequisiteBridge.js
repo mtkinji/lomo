@@ -130,6 +130,8 @@ const PREREQUISITE_METHODS_SWIFT = `
       let minutes = configuration.thresholdMinutes
       KwiltRestrictionLedger.upsert(
         id: "prerequisite.\\(agreementId)",
+        ruleId: agreementId,
+        selectionId: configuration.targetSelectionId,
         reason: "family_prerequisite",
         label: "Use \\(configuration.prerequisiteLabel) for \\(minutes) minute\\(minutes == 1 ? "" : "s")",
         applicationTokenKeys: KwiltRestrictionLedger.tokenKeys(targetSelection.applicationTokens),

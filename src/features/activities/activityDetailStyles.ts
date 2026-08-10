@@ -65,6 +65,16 @@ export const styles = StyleSheet.create({
     flexShrink: 1,
     flex: 1,
   },
+  focusSoundscapeMenuItem: {
+    minHeight: 44,
+    paddingVertical: spacing.xs,
+  },
+  focusSoundscapeMenuItemText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flexShrink: 1,
+    flex: 1,
+  },
   menuItemText: menuStyles.menuItemText,
   destructiveMenuRowText: {
     ...menuStyles.destructiveMenuItemText,

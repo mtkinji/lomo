@@ -22,6 +22,16 @@ export type ScreenTimePrerequisiteRuleEvent = {
 export type ScreenTimeShieldHandoff = {
   requestedAtMs: number;
   reason: string | null;
+  restrictions: ScreenTimeShieldRestriction[];
+};
+
+export type ScreenTimeShieldRestriction = {
+  restrictionId: string;
+  ruleId: string;
+  selectionId: string;
+  reason: string;
+  label: string | null;
+  appliedAtMs: number;
 };
 
 type KwiltScreenTimeProtectionNativeModule = {
@@ -31,7 +41,11 @@ type KwiltScreenTimeProtectionNativeModule = {
   applyRestrictions?: (json: string) => Promise<boolean>;
   clearRestrictions?: () => Promise<boolean>;
   clearRestrictionsForSelection?: (json: string) => Promise<boolean>;
-  consumePendingReviewRequest?: () => Promise<number | { requestedAtMs?: number; reason?: string } | null | undefined>;
+  consumePendingReviewRequest?: () => Promise<number | {
+    requestedAtMs?: number;
+    reason?: string;
+    restrictions?: unknown;
+  } | null | undefined>;
   applyPrerequisiteRule?: (json: string) => Promise<boolean>;
   clearPrerequisiteRule?: (json: string) => Promise<boolean>;
   consumePrerequisiteRuleEvent?: () => Promise<unknown>;
@@ -80,14 +94,36 @@ export async function consumePendingScreenTimeShieldHandoff(): Promise<ScreenTim
     if (value && typeof value === 'object') {
       const requestedAtMs = Number(value.requestedAtMs);
       if (!Number.isFinite(requestedAtMs) || requestedAtMs <= 0) return null;
+      const restrictions = Array.isArray(value.restrictions)
+        ? value.restrictions.flatMap((entry): ScreenTimeShieldRestriction[] => {
+          if (!entry || typeof entry !== 'object') return [];
+          const raw = entry as Record<string, unknown>;
+          const restrictionId = typeof raw.restrictionId === 'string' ? raw.restrictionId.trim() : '';
+          const ruleId = typeof raw.ruleId === 'string' ? raw.ruleId.trim() : '';
+          const selectionId = typeof raw.selectionId === 'string' ? raw.selectionId.trim() : '';
+          const reason = typeof raw.reason === 'string' ? raw.reason.trim() : '';
+          const appliedAtMs = Number(raw.appliedAtMs);
+          if (!restrictionId || !ruleId || !selectionId || !reason
+            || !Number.isFinite(appliedAtMs) || appliedAtMs <= 0) return [];
+          return [{
+            restrictionId,
+            ruleId,
+            selectionId,
+            reason,
+            label: typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim() : null,
+            appliedAtMs,
+          }];
+        })
+        : [];
       return {
         requestedAtMs,
         reason: typeof value.reason === 'string' && value.reason.trim() ? value.reason.trim() : null,
+        restrictions,
       };
     }
     const requestedAtMs = Number(value);
     return Number.isFinite(requestedAtMs) && requestedAtMs > 0
-      ? { requestedAtMs, reason: null }
+      ? { requestedAtMs, reason: null, restrictions: [] }
       : null;
   } catch {
     return null;
@@ -119,6 +155,7 @@ export async function applyScreenTimeRestrictions(params: {
   settings: Pick<ScreenTimeProtectionSettings, 'selectedApps' | 'selectedCategories'>;
   reasons: ScreenTimeRestrictionReason[];
   selectionId?: string;
+  ruleId?: string;
   reason?: string;
   restrictionLabel?: string;
 }): Promise<boolean> {
@@ -133,6 +170,7 @@ export async function applyScreenTimeRestrictions(params: {
           selectedApps: normalized.selectedApps,
           selectedCategories: normalized.selectedCategories,
           selectionId: params.selectionId,
+          ruleId: params.ruleId,
           reason: params.reason,
           restrictionLabel: params.restrictionLabel,
         }),

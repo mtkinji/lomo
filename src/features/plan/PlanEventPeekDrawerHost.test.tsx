@@ -62,7 +62,9 @@ const slotCapture = {
     selectedAiActions: ['steps' as const],
     onSelectedAiActionsChange: jest.fn(),
   },
-  existingActivities: [],
+  activities: [],
+  goals: [],
+  scheduledProposalIds: [],
   selectedActivityId: null,
   createdActivityId: null,
   committingActivityId: null,
@@ -90,6 +92,11 @@ describe('PlanEventPeekDrawerHost slot capture', () => {
     expect(mockBottomDrawerProps.at(-1)?.contentExtendsIntoBottomSafeArea).toBe(true);
     expect(mockBottomDrawerProps.at(-1)?.snapPoints).toEqual(['56%', '82%']);
     expect(mockBottomDrawerProps.at(-1)?.initialSnapIndex).toBe(0);
+    expect(mockBottomDrawerProps.at(-1)?.sheetStyle).toEqual(
+      expect.not.arrayContaining([
+        expect.objectContaining({ borderTopLeftRadius: expect.any(Number) }),
+      ]),
+    );
     expect(mockScrollViewProps).toHaveLength(0);
     expect(queryByText('Drag the block or its handles to adjust the time.')).toBeNull();
   });

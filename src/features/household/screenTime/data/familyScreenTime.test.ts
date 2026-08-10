@@ -6,13 +6,15 @@ import {
   createFamilyScreenTimePrerequisiteAgreementRpc,
   decideFamilyScreenTimeAccessRequestRpc,
   fetchFamilyScreenTimeSnapshot,
+  projectFamilyScreenTimeRule,
   recordFamilyScreenTimeDeviceReceiptRpc,
   saveFamilyScreenTimeSelectionRpc,
   setFamilyScreenTimeAgreementRpc,
+  type FamilyScreenTimeSnapshot,
 } from './familyScreenTime';
 
 const rule = { weekdays: [1, 2, 3, 4, 5], startMinute: 960, endMinute: 1140 };
-const snapshot = {
+const snapshot: FamilyScreenTimeSnapshot = {
   childMembershipId: 'child-1',
   subjectId: 'subject-1',
   desiredPolicyVersion: 7,
@@ -43,6 +45,24 @@ function clientReturning(data: unknown, error: { message?: string } | null = nul
 }
 
 describe('family Screen Time data boundary', () => {
+  it('projects an agreement into a child-scoped shared rule', () => {
+    expect(projectFamilyScreenTimeRule({
+      snapshot,
+      agreement: snapshot.agreements[0],
+    })).toEqual({
+      id: 'family_agreement-1',
+      domain: 'family',
+      subject: { kind: 'child', membershipId: 'child-1' },
+      selectionId: 'selection-1',
+      title: 'Brawl Stars',
+      trigger: { type: 'family_agreement', agreementId: 'agreement-1' },
+      temporaryOpen: { allowed: true, durationMinutes: 20 },
+      active: true,
+      desiredVersion: 7,
+      appliedVersion: 7,
+    });
+  });
+
   it('parses the complete authoritative child snapshot', async () => {
     const { client, rpc } = clientReturning(snapshot);
     await expect(fetchFamilyScreenTimeSnapshot(client, 'child-1')).resolves.toEqual(snapshot);

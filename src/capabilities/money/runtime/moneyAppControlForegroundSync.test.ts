@@ -30,17 +30,18 @@ describe('moneyAppControlForegroundSync shield routing', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('routes a Meaningful First handoff to Today without claiming a Money review', async () => {
+  it('preserves the current route and leaves the handoff to the root guide', async () => {
     mockConsumePendingScreenTimeShieldHandoff.mockResolvedValue({
       requestedAtMs: 1_786_291_200_000,
       reason: 'meaningful_first_locked',
+      restrictions: [],
     });
 
     startMoneyAppControlForegroundSync();
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(mockOpenURL).toHaveBeenCalledWith('kwilt://today?source=screen-time&highlightSuggested=1');
+    expect(mockOpenURL).not.toHaveBeenCalled();
     expect(claimPendingMoneyReviewHandoff()).toBe(false);
   });
 });

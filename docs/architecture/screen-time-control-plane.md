@@ -1,7 +1,7 @@
 # Screen Time Control Plane
 
 **Status:** Accepted system direction
-**Date:** 2026-07-30
+**Date:** 2026-08-10
 **Implementation host:** `/Users/andrewwatanabe/Kwilt`
 
 Kwilt has one Screen Time product capability built on one control plane. Goals, Money, and Household do not create competing Screen Time products; they own different agreements that compile into the same device-enforcement system.
@@ -11,6 +11,25 @@ This document is the canonical system and navigation contract for Screen Time ac
 ## Decision
 
 > Screen Time is a shared control platform, not a global place of work.
+
+## Contextual shield return
+
+Apple shield actions return to the last valid Kwilt page and present one root-level
+`BottomGuide`; they do not force navigation into Settings, Money, Focus, or Today.
+The guide receives semantic rule and selection identities from the native restriction
+ledger without exposing Apple tokens to JavaScript. It routes to a condition owner only
+after the person chooses **Do this first**.
+
+Each personal real-step or Focus card is an independent rule with its own native
+selection. Money categories and family agreements compile into the same shared rule
+projection while remaining editable only in their canonical domains. Overlapping claims
+retain AND enforcement.
+
+An authorized self-managing adult, household owner, or scoped caregiver may create one
+20-minute wall-clock opening only when every active claim can be overridden truthfully.
+A child cannot self-open. Family changes remain **Applying** until the named child device
+acknowledges the desired policy version. Expiry and foreground reconciliation operate on
+named selections; ordinary transitions never use a global clear.
 
 Users encounter Screen Time at the moment they create or understand an agreement:
 
@@ -284,9 +303,10 @@ Packaging and pricing remain a product decision. The control plane must support 
 
 ## Current Implementation State
 
-As of 2026-07-30:
+As of 2026-08-10:
 
-- Personal Screen Time uses `useAppStore.screenTimeProtection`, the default native selection, and `screenTimeProtectionRuntime`.
+- Personal Screen Time uses `useAppStore.screenTimeProtection`, stable per-rule native selections, and `screenTimeProtectionRuntime`.
+- The shared shield handoff preserves the current route and projects personal, Money, and family claims into the root contextual guide.
 - Money app controls use category-owned persisted policies, category-scoped selection identifiers, and `moneyAppControlRuntime`.
 - Family Screen Time uses server Household activation plus a local pre-TestFlight learning record with a development-only simulated acknowledgement.
 - Personal and Money share the Apple bridge, but each runtime reconciles independently.

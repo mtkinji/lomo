@@ -56,7 +56,7 @@
 - [x] Generate multiple loop-enabled ElevenLabs Sound Effects v2 candidates for Quiet Rain, Forest Stream, Ocean Waves, Fireplace, and Night Meadow.
 - [x] Exclude speech, thunder, close animals, sirens, alarms, bells, music, and singular foreground events in every prompt.
 - [x] Download WAV when available, preserve generation ids/prompts/credit use, and create longer assembled masters if a 30-second pattern is recognizable.
-- [ ] Normalize and audit every accepted candidate under `focus.music`, render three repeats, and perform fixed-volume listening. (Automated audit and auditions complete; fixed-volume listening pending.)
+- [ ] Normalize and audit every accepted candidate under `focus.music`, render three repeats, and perform fixed-volume listening. (Andrew rejected Quiet Rain candidate 3 for wave-like fades and a whiny motor artifact. Retained candidate 4 passes the added steady-rain gate and is published as the replacement; fixed-volume listening of that replacement and the other tracks remains pending.)
 - [x] Record rejected and accepted candidates without copying rejected assets into production.
 
 ### Task 5: Publish new immutable objects
@@ -66,7 +66,7 @@
 - Modify: `assets/audio/AUDIO_MANIFEST.md`
 
 - [x] Hash each accepted MP3 and use a new `focus/<slug>-<12-char-sha>.mp3` object path.
-- [ ] Upload with `audio/mpeg`, `cacheControl: 31536000`, and no upsert to project `sqxwjtorodqjdfnuvprf`. (Immutable Dashboard upload complete without upsert. The public response is `no-cache`; changing only `storage.objects.metadata.cacheControl` did not affect it and was reverted, so a supported Storage API/S3 re-upload remains.)
+- [ ] Upload with `audio/mpeg`, `cacheControl: 31536000`, and no upsert to project `sqxwjtorodqjdfnuvprf`. (Immutable Dashboard uploads are complete without upsert. The Quiet Rain replacement returns `public, max-age=3600`; earlier objects still need a supported Storage API/S3 re-upload to reach the intended one-year immutable policy.)
 - [x] Verify HEAD, byte length, MIME type, range GET, decoded duration, and checksum for all eleven objects.
 - [x] Update catalog paths and expected byte sizes only after remote verification.
 - [x] Keep the old immutable objects; do not overwrite or delete them during the learning release.

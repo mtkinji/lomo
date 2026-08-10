@@ -1,4 +1,5 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import type { MoneyAppControlSettings } from '../../capabilities/money/domain/moneyAppControl';
 import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from '../../services/screenTimeProtection';
 import { renderWithProviders } from '../../test/renderWithProviders';
@@ -12,6 +13,8 @@ const mockRootNavigate = jest.fn();
 const mockGetHouseholdSnapshot = jest.fn();
 const mockMoneySettings = jest.fn<MoneyAppControlSettings, []>();
 const mockGetScreenTimeAuthorizationStatus = jest.fn();
+const mockRequestScreenTimeAuthorization = jest.fn();
+let mockRouteParams: Record<string, unknown> | undefined;
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
@@ -24,7 +27,7 @@ jest.mock('@react-navigation/native', () => {
       navigate: mockSettingsNavigate,
       getParent: () => ({ navigate: mockRootNavigate }),
     }),
-    useRoute: () => ({ params: undefined }),
+    useRoute: () => ({ params: mockRouteParams }),
   };
 });
 
@@ -47,7 +50,7 @@ jest.mock('../../capabilities/money/runtime/moneyAppControlStorage', () => ({
 jest.mock('../../services/appleEcosystem/screenTimeProtection', () => ({
   getScreenTimeAuthorizationStatus: (...args: unknown[]) => mockGetScreenTimeAuthorizationStatus(...args),
   presentScreenTimeActivityPicker: jest.fn(),
-  requestScreenTimeAuthorization: jest.fn(async () => 'approved'),
+  requestScreenTimeAuthorization: (...args: unknown[]) => mockRequestScreenTimeAuthorization(...args),
 }));
 
 jest.mock('../../services/screenTimeProtectionRuntime', () => ({
@@ -94,6 +97,8 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     mockGetHouseholdSnapshot.mockReset().mockResolvedValue(household);
     mockMoneySettings.mockReset().mockReturnValue(money);
     mockGetScreenTimeAuthorizationStatus.mockReset().mockResolvedValue('approved');
+    mockRequestScreenTimeAuthorization.mockReset().mockResolvedValue('approved');
+    mockRouteParams = undefined;
     useAppStore.getState().setAuthIdentity({
       userId: 'user-1',
       email: 'andrew@example.com',
@@ -179,6 +184,54 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(useAppStore.getState().screenTimeProtection.authorizationStatus).toBe('notDetermined');
   });
 
+  it('reopens guided setup when an incomplete user deliberately enters from Focus', async () => {
+    mockGetScreenTimeAuthorizationStatus.mockResolvedValue('notDetermined');
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'notDetermined',
+      },
+    });
+
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    expect(screen.getByText('Do what matters first.')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Close Screen Time Controls setup'));
+    expect(screen.queryByText('Do what matters first.')).toBeNull();
+    expect(screen.getByText('Screen Time access is needed.')).toBeTruthy();
+
+    mockRouteParams = {
+      setupIntent: 'focus_sessions',
+      entrySurface: 'focus_drawer',
+      returnToActivityId: 'activity-1',
+    };
+    screen.rerender(<ScreenTimeProtectionSettingsScreen />);
+
+    expect(await screen.findByText('Fewer distractions during Focus.')).toBeTruthy();
+  });
+
+  it('explains a missing Screen Time capability inline without showing a duplicate alert', async () => {
+    mockGetScreenTimeAuthorizationStatus.mockResolvedValue('notDetermined');
+    mockRequestScreenTimeAuthorization.mockResolvedValue('unavailable');
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'notDetermined',
+      },
+    });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    fireEvent.press(screen.getByText('Set Up'));
+    fireEvent.press(screen.getByText('Continue'));
+
+    expect(await screen.findByText(
+      'Screen Time is unavailable in this build. Reinstall an entitlement-enabled development build to continue.',
+    )).toBeTruthy();
+    expect(alert).not.toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
   it('stays in management when the user intentionally turns every rule off', async () => {
     const { queryByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
 
@@ -192,7 +245,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(queryByText('Do what matters first.')).toBeNull();
   });
 
-  it('makes each setup rule row an accessible switch across every selection combination', async () => {
+  it('makes each setup rule card an accessible checkbox across every selection combination', async () => {
     useAppStore.setState((state) => ({
       screenTimeProtection: {
         ...state.screenTimeProtection,
@@ -228,5 +281,34 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     fireEvent.press(getByLabelText('A real step'));
     expect(getByLabelText('A real step').props.accessibilityState).toMatchObject({ checked: false });
     expect(getByLabelText('Focus').props.accessibilityState).toMatchObject({ checked: true });
+  });
+
+  it('creates independently identified rules when both setup cards are selected', async () => {
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'approved',
+        selectedApps: [{ token: 'social', label: 'Social' }],
+      },
+    });
+
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    fireEvent.press(screen.getByText('Set Up'));
+    fireEvent.press(await screen.findByLabelText('A real step'));
+    fireEvent.press(screen.getByLabelText('Focus'));
+    fireEvent.press(screen.getByText('Done'));
+
+    await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalRules).toEqual([
+      expect.objectContaining({
+        kind: 'real_step',
+        selectionId: 'personal_real_step',
+        selectedApps: [{ token: 'social', label: 'Social' }],
+      }),
+      expect.objectContaining({
+        kind: 'focus',
+        selectionId: 'personal_focus',
+        selectedApps: [{ token: 'social', label: 'Social' }],
+      }),
+    ]));
   });
 });

@@ -79,6 +79,14 @@ describe('audio asset delivery', () => {
     }
   });
 
+  test('Quiet Rain points at the steady broadband replacement master', () => {
+    expect(REMOTE_AUDIO_ASSETS['focus.quiet-rain']).toMatchObject({
+      url: expect.stringContaining('/focus/quiet-rain-bb036739700b.mp3'),
+      cacheFileName: 'focus-quiet-rain-bb036739700b.mp3',
+      expectedBytes: 5_569_388,
+    });
+  });
+
   test('returns a verified cached file without starting a download', async () => {
     const entry = REMOTE_AUDIO_ASSETS['focus.open-road'];
     fileSystemMock.__files.set(cacheUri(entry.cacheFileName), entry.expectedBytes);

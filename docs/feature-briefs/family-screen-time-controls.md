@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-foundation, brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-screen-time-controls-contextual-setup, brief-screen-time-controls]
 owner: andrew
-last_updated: 2026-08-05
+last_updated: 2026-08-10
 ---
 
 # Family Screen Time Controls
@@ -122,6 +122,12 @@ A denial is a durable decision, not the dismissal of one notification:
 The child surface explains when requesting becomes available again. Kwilt must not reproduce the native loop in which every tap becomes a fresh time-sensitive interruption after the caregiver has already said no.
 
 ### Direct temporary controls
+
+When an Apple shield opens Kwilt, preserve the last-viewed page and show the shared
+contextual Screen Time guide. A child sees the requirement but never a direct temporary
+opening. An owner or caregiver with the named child's Screen Time grant may create the
+canonical 20-minute wall-clock allow override; the guide stays **Applying** until device
+delivery is acknowledged. Child access requests remain a separate approval workflow.
 
 A caregiver also needs to act on an immediate family decision without editing the standing agreement or waiting for a child request:
 

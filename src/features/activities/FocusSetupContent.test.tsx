@@ -1,5 +1,6 @@
 import { fireEvent } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import { spacing } from '../../theme';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { FocusSetupContent } from './FocusSetupContent';
 
@@ -28,7 +29,9 @@ jest.mock('../../ui/DropdownMenu', () => {
     ),
     DropdownMenuGroup: ({ children }: any) => <View>{children}</View>,
     DropdownMenuLabel: ({ children }: any) => <Text>{children}</Text>,
-    DropdownMenuCheckboxItem: ({ children }: any) => <View>{children}</View>,
+    DropdownMenuCheckboxItem: ({ children, style, testID }: any) => (
+      <View style={style} testID={testID}>{children}</View>
+    ),
   };
 });
 
@@ -37,7 +40,7 @@ describe('FocusSetupContent', () => {
     const onMinutesChange = jest.fn();
     const onStart = jest.fn();
 
-    const { getAllByText, getByLabelText, getByTestId, getByText } = renderWithProviders(
+    const { getAllByText, getByLabelText, getByTestId, getByText, queryByText } = renderWithProviders(
       <FocusSetupContent
         minutes={25}
         presets={[10, 25, 50]}
@@ -48,7 +51,6 @@ describe('FocusSetupContent', () => {
         onCustomExpandedChange={jest.fn()}
         audio="default"
         onAudioChange={jest.fn()}
-        allowNoAudio
         portalHostName="focus-setup-test"
         onStart={onStart}
       />,
@@ -60,7 +62,12 @@ describe('FocusSetupContent', () => {
     expect(getByText('Nature')).toBeTruthy();
     expect(getAllByText('Deep Work Drift').length).toBeGreaterThan(0);
     expect(getByText('Quiet Rain')).toBeTruthy();
+    expect(queryByText('No audio')).toBeNull();
     expect(getByTestId('focus-soundscape-menu-scroll')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('focus-soundscape-option-default').props.style)).toMatchObject({
+      minHeight: 44,
+      paddingVertical: spacing.xs,
+    });
 
     fireEvent.press(getByText('50m'));
     fireEvent.press(getByLabelText('Start Focus'));
@@ -100,7 +107,6 @@ describe('FocusSetupContent', () => {
         onCustomExpandedChange={jest.fn()}
         audio="quietRain"
         onAudioChange={jest.fn()}
-        allowNoAudio
         portalHostName="focus-setup-test"
         onStart={jest.fn()}
         scrollMode="drawer"

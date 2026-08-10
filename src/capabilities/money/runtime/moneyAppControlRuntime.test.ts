@@ -9,12 +9,17 @@ import {
 } from '../../../services/appleEcosystem/screenTimeProtection';
 import type { MoneySnapshot } from '../data/moneySnapshot';
 import { normalizeMoneyAppControlSettings } from '../domain/moneyAppControl';
-import { reconcileMoneyAppControls } from './moneyAppControlRuntime';
+import {
+  reconcileLatestMoneyAppControls,
+  reconcileMoneyAppControls,
+  resetLatestMoneyAppControlSnapshotForTests,
+} from './moneyAppControlRuntime';
 
 const mockApplyRestrictions = applyScreenTimeRestrictions as jest.Mock;
 const mockClearRestrictions = clearScreenTimeRestrictionsForSelection as jest.Mock;
 
 describe('reconcileMoneyAppControls', () => {
+  beforeEach(() => resetLatestMoneyAppControlSnapshotForTests());
   beforeEach(() => jest.clearAllMocks());
 
   it('records the category name with a restricted Money target', async () => {
@@ -48,5 +53,25 @@ describe('reconcileMoneyAppControls', () => {
       restrictionLabel: 'Shopping',
     }));
     expect(mockClearRestrictions).not.toHaveBeenCalled();
+  });
+
+  it('reconciles the latest known Money snapshot when the app returns to foreground', async () => {
+    const snapshot = {
+      categories: [{ sourceId: 'category-shopping', name: 'Shopping', percentUsed: 95 }],
+      totals: { needsReviewCount: 0 },
+    } as MoneySnapshot;
+    const settings = normalizeMoneyAppControlSettings({
+      authorizationStatus: 'approved',
+      policies: {
+        'category-shopping': {
+          enabled: true, preset: 'always_review', unlockWindowMinutes: 20,
+          selectedApps: [{ token: 'native:applications' }], selectedCategories: [],
+        },
+      },
+    });
+    await reconcileMoneyAppControls(snapshot, settings);
+    jest.clearAllMocks();
+    await reconcileLatestMoneyAppControls();
+    expect(applyScreenTimeRestrictions).toHaveBeenCalled();
   });
 });

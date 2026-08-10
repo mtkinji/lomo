@@ -76,4 +76,66 @@ describe('ActivityFocusExperience drawer presentation', () => {
 
     expect(mockBottomDrawerProps.at(-1)?.snapPoints).toEqual(['82%']);
   });
+
+  it('shrinks the standard iOS setup drawer when the Screen Time offer is absent', () => {
+    expect(Platform.OS).toBe('ios');
+
+    const controller: ActivityFocusController = {
+      session: null,
+      minutes: 25,
+      maxMinutes: 180,
+      presets: [10, 25, 45, 60],
+      customOptions: [5, 10, 15, 20, 25, 30],
+      customExpanded: false,
+      isCustomValue: false,
+      remainingMs: 0,
+      open: jest.fn(),
+      close: jest.fn(),
+      setMinutes: jest.fn(),
+      setCustomExpanded: jest.fn(),
+      start: jest.fn(async () => undefined),
+      pauseOrResume: jest.fn(async () => undefined),
+      end: jest.fn(async () => undefined),
+    };
+
+    const { rerender } = renderWithProviders(
+      <ActivityFocusExperience
+        setupVisible
+        activityTitle="Prepare groceries"
+        topInset={47}
+        bottomInset={34}
+        portalHostName="focus-setup-test"
+        controller={controller}
+        screenTimeOffer={<View />}
+        soundscapeEnabled
+        soundscapeTrackId="quietRain"
+        overlayColorIndex={0}
+        setSoundscapeEnabled={jest.fn()}
+        setSoundscapeTrackId={jest.fn()}
+        setOverlayColorIndex={jest.fn()}
+      />,
+    );
+
+    expect(mockBottomDrawerProps.at(-1)?.snapPoints).toEqual(['82%']);
+
+    rerender(
+      <ActivityFocusExperience
+        setupVisible
+        activityTitle="Prepare groceries"
+        topInset={47}
+        bottomInset={34}
+        portalHostName="focus-setup-test"
+        controller={controller}
+        screenTimeOffer={null}
+        soundscapeEnabled
+        soundscapeTrackId="quietRain"
+        overlayColorIndex={0}
+        setSoundscapeEnabled={jest.fn()}
+        setSoundscapeTrackId={jest.fn()}
+        setOverlayColorIndex={jest.fn()}
+      />,
+    );
+
+    expect(mockBottomDrawerProps.at(-1)?.snapPoints).toEqual(['56%']);
+  });
 });

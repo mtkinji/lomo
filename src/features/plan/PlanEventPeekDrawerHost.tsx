@@ -213,8 +213,6 @@ const styles = StyleSheet.create({
   slotSheet: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     paddingTop: 0,
   },
   slotHeader: {

@@ -81,6 +81,7 @@ import { CreditsInterstitialDrawerHost } from '../features/onboarding/CreditsInt
 import { JoinSharedGoalDrawerHost } from '../features/goals/JoinSharedGoalDrawerHost';
 import { ToastHost } from '../ui/ToastHost';
 import { AuthPromptDrawerHost } from '../features/account/AuthPromptDrawerHost';
+import { ScreenTimeUnlockGuideHost } from '../features/screen-time/components/ScreenTimeUnlockGuideHost';
 import { PlanKickoffDrawerHost } from '../features/plan/PlanKickoffDrawerHost';
 import { handleIncomingReferralUrl, syncBonusCreditsThisMonth } from '../services/referrals';
 import { markOpenedFromWidget } from '../services/analytics/widgetAttribution';
@@ -787,6 +788,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       <PaywallDrawerHost />
       <JoinSharedGoalDrawerHost />
       <AuthPromptDrawerHost />
+      <ScreenTimeUnlockGuideHost />
       <ToastHost />
     </NavigationContainer>
   );

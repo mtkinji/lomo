@@ -1,3 +1,8 @@
+import {
+  DEFAULT_TEMPORARY_OPEN_MINUTES,
+  type ScreenTimeRule,
+} from '../features/screen-time/domain/screenTimeRule';
+
 export type ScreenTimeAuthorizationStatus = 'notDetermined' | 'approved' | 'denied' | 'revoked' | 'unavailable';
 
 export type ScreenTimeToken = {
@@ -41,11 +46,51 @@ export type MeaningfulFirstSettings = {
   lastUpdated: string | null;
 };
 
-export type ScreenTimeProtectionSettings = {
-  authorizationStatus: ScreenTimeAuthorizationStatus;
+export type PersonalScreenTimeRuleKind = 'real_step' | 'focus';
+
+type PersonalScreenTimeRuleBase = {
+  id: string;
+  kind: PersonalScreenTimeRuleKind;
+  selectionId: string;
   selectedApps: ScreenTimeToken[];
   selectedCategories: ScreenTimeToken[];
+  enabled: boolean;
+  setupCompleted: boolean;
+  temporaryOpenAllowed: boolean;
+  temporaryOpenMinutes: typeof DEFAULT_TEMPORARY_OPEN_MINUTES;
+  currentUnlockUntilIso: string | null;
+  needsSelectionReview: boolean;
+  lastUpdated: string | null;
+};
+
+export type PersonalRealStepScreenTimeRule = PersonalScreenTimeRuleBase & {
+  kind: 'real_step';
+  qualifyingActions: MeaningfulFirstQualifyingAction[];
+  minFocusMinutes: number;
+  unlockPolicy: MeaningfulFirstSettings['unlockPolicy'];
+  lastQualifiedAtIso: string | null;
+  lastPromptDismissedAtIso: string | null;
+};
+
+export type PersonalFocusScreenTimeRule = PersonalScreenTimeRuleBase & {
+  kind: 'focus';
+  lastAppliedSessionId: string | null;
+};
+
+export type PersonalScreenTimeRule =
+  | PersonalRealStepScreenTimeRule
+  | PersonalFocusScreenTimeRule;
+
+export type ScreenTimeProtectionSettings = {
+  authorizationStatus: ScreenTimeAuthorizationStatus;
+  personalRules: PersonalScreenTimeRule[];
+  /** @deprecated Read-only compatibility projection while persisted settings migrate. */
+  selectedApps: ScreenTimeToken[];
+  /** @deprecated Read-only compatibility projection while persisted settings migrate. */
+  selectedCategories: ScreenTimeToken[];
+  /** @deprecated Read-only compatibility projection while persisted settings migrate. */
   focusProtection: FocusProtectionSettings;
+  /** @deprecated Read-only compatibility projection while persisted settings migrate. */
   meaningfulFirst: MeaningfulFirstSettings;
   setupOffer: ScreenTimeSetupOfferState;
   lastUpdated: string | null;
@@ -113,7 +158,7 @@ export const DEFAULT_MEANINGFUL_FIRST_SETTINGS: MeaningfulFirstSettings = {
   lastQualifiedAtIso: null,
   setupCompleted: false,
   allowBypass: true,
-  bypassMinutes: 15,
+  bypassMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
   lastPromptDismissedAtIso: null,
   lastUpdated: null,
 };
@@ -130,6 +175,7 @@ export const DEFAULT_SCREEN_TIME_SETUP_OFFER_STATE: ScreenTimeSetupOfferState = 
 
 export const DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS: ScreenTimeProtectionSettings = {
   authorizationStatus: 'notDetermined',
+  personalRules: [],
   selectedApps: [],
   selectedCategories: [],
   focusProtection: DEFAULT_FOCUS_PROTECTION_SETTINGS,
@@ -219,7 +265,7 @@ function normalizeMeaningfulFirst(value: unknown): MeaningfulFirstSettings {
     lastQualifiedAtIso: validIsoOrNull(raw.lastQualifiedAtIso),
     setupCompleted: raw.setupCompleted === true,
     allowBypass: raw.allowBypass !== false,
-    bypassMinutes: Number.isFinite(bypassRaw) && bypassRaw > 0 ? Math.floor(bypassRaw) : 15,
+    bypassMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
     lastPromptDismissedAtIso: validIsoOrNull(raw.lastPromptDismissedAtIso),
     lastUpdated: validIsoOrNull(raw.lastUpdated),
   };
@@ -259,14 +305,164 @@ function normalizeSetupOffer(value: unknown): ScreenTimeSetupOfferState {
   };
 }
 
-export function normalizeScreenTimeProtectionSettings(value: unknown): ScreenTimeProtectionSettings {
+const PERSONAL_REAL_STEP_RULE_ID = 'personal_real_step';
+const PERSONAL_FOCUS_RULE_ID = 'personal_focus';
+
+function normalizePersonalRule(value: unknown): PersonalScreenTimeRule | null {
   const raw = value && typeof value === 'object' ? (value as any) : {};
-  return {
-    authorizationStatus: normalizeAuthorizationStatus(raw.authorizationStatus),
+  const kind: PersonalScreenTimeRuleKind | null = raw.kind === 'real_step' || raw.kind === 'focus'
+    ? raw.kind
+    : null;
+  if (!kind) return null;
+  const id = typeof raw.id === 'string' && raw.id.trim()
+    ? raw.id.trim()
+    : kind === 'real_step' ? PERSONAL_REAL_STEP_RULE_ID : PERSONAL_FOCUS_RULE_ID;
+  const selectionId = typeof raw.selectionId === 'string' && raw.selectionId.trim()
+    ? raw.selectionId.trim()
+    : id;
+  const base = {
+    id,
+    kind,
+    selectionId,
     selectedApps: normalizeTokens(raw.selectedApps),
     selectedCategories: normalizeTokens(raw.selectedCategories),
-    focusProtection: normalizeFocusProtection(raw.focusProtection),
-    meaningfulFirst: normalizeMeaningfulFirst(raw.meaningfulFirst),
+    enabled: raw.enabled === true,
+    setupCompleted: raw.setupCompleted === true,
+    temporaryOpenAllowed: raw.temporaryOpenAllowed !== false,
+    temporaryOpenMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
+    currentUnlockUntilIso: validIsoOrNull(raw.currentUnlockUntilIso),
+    needsSelectionReview: raw.needsSelectionReview === true,
+    lastUpdated: validIsoOrNull(raw.lastUpdated),
+  } as const;
+  if (kind === 'focus') {
+    return {
+      ...base,
+      kind: 'focus',
+      lastAppliedSessionId: typeof raw.lastAppliedSessionId === 'string' && raw.lastAppliedSessionId
+        ? raw.lastAppliedSessionId
+        : null,
+    };
+  }
+  const meaningful = normalizeMeaningfulFirst(raw);
+  return {
+    ...base,
+    kind: 'real_step',
+    qualifyingActions: meaningful.qualifyingActions,
+    minFocusMinutes: meaningful.minFocusMinutes,
+    unlockPolicy: meaningful.unlockPolicy,
+    lastQualifiedAtIso: meaningful.lastQualifiedAtIso,
+    lastPromptDismissedAtIso: meaningful.lastPromptDismissedAtIso,
+  };
+}
+
+function migrateLegacyPersonalRules(raw: any): PersonalScreenTimeRule[] {
+  const selectedApps = normalizeTokens(raw.selectedApps);
+  const selectedCategories = normalizeTokens(raw.selectedCategories);
+  const focus = normalizeFocusProtection(raw.focusProtection);
+  const meaningful = normalizeMeaningfulFirst(raw.meaningfulFirst);
+  const hasTargets = selectedApps.length > 0 || selectedCategories.length > 0;
+  const needsSelectionReview = hasTargets && focus.enabled && meaningful.enabled;
+  const rules: PersonalScreenTimeRule[] = [];
+  if (meaningful.enabled || meaningful.setupCompleted) {
+    rules.push(normalizePersonalRule({
+      id: PERSONAL_REAL_STEP_RULE_ID,
+      kind: 'real_step',
+      selectionId: PERSONAL_REAL_STEP_RULE_ID,
+      selectedApps,
+      selectedCategories,
+      enabled: meaningful.enabled,
+      setupCompleted: meaningful.setupCompleted,
+      temporaryOpenAllowed: meaningful.allowBypass,
+      temporaryOpenMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
+      currentUnlockUntilIso: meaningful.currentUnlockUntilIso,
+      qualifyingActions: meaningful.qualifyingActions,
+      minFocusMinutes: meaningful.minFocusMinutes,
+      unlockPolicy: meaningful.unlockPolicy,
+      lastQualifiedAtIso: meaningful.lastQualifiedAtIso,
+      lastPromptDismissedAtIso: meaningful.lastPromptDismissedAtIso,
+      needsSelectionReview,
+      lastUpdated: meaningful.lastUpdated,
+    })!);
+  }
+  if (focus.enabled || focus.setupCompleted) {
+    rules.push(normalizePersonalRule({
+      id: PERSONAL_FOCUS_RULE_ID,
+      kind: 'focus',
+      selectionId: PERSONAL_FOCUS_RULE_ID,
+      selectedApps,
+      selectedCategories,
+      enabled: focus.enabled,
+      setupCompleted: focus.setupCompleted,
+      temporaryOpenAllowed: true,
+      temporaryOpenMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
+      currentUnlockUntilIso: null,
+      lastAppliedSessionId: focus.lastAppliedSessionId,
+      needsSelectionReview,
+      lastUpdated: focus.lastUpdated,
+    })!);
+  }
+  return rules;
+}
+
+function normalizePersonalRules(raw: any): PersonalScreenTimeRule[] {
+  if (!Array.isArray(raw.personalRules) || raw.personalRules.length === 0) {
+    return migrateLegacyPersonalRules(raw);
+  }
+  const seen = new Set<string>();
+  return raw.personalRules.flatMap((value: unknown) => {
+    const rule = normalizePersonalRule(value);
+    if (!rule || seen.has(rule.id)) return [];
+    seen.add(rule.id);
+    return [rule];
+  });
+}
+
+function unionRuleTokens(
+  rules: PersonalScreenTimeRule[],
+  key: 'selectedApps' | 'selectedCategories',
+  fallback: ScreenTimeToken[],
+): ScreenTimeToken[] {
+  if (rules.length === 0) return fallback;
+  const byToken = new Map<string, ScreenTimeToken>();
+  rules.forEach((rule) => rule[key].forEach((token) => {
+    if (!byToken.has(token.token)) byToken.set(token.token, token);
+  }));
+  return [...byToken.values()];
+}
+
+export function normalizeScreenTimeProtectionSettings(value: unknown): ScreenTimeProtectionSettings {
+  const raw = value && typeof value === 'object' ? (value as any) : {};
+  const personalRules = normalizePersonalRules(raw);
+  const legacyApps = normalizeTokens(raw.selectedApps);
+  const legacyCategories = normalizeTokens(raw.selectedCategories);
+  const focusRule = personalRules.find((rule): rule is PersonalFocusScreenTimeRule => rule.kind === 'focus');
+  const realStepRule = personalRules.find((rule): rule is PersonalRealStepScreenTimeRule => rule.kind === 'real_step');
+  const legacyFocus = normalizeFocusProtection(raw.focusProtection);
+  const legacyMeaningful = normalizeMeaningfulFirst(raw.meaningfulFirst);
+  return {
+    authorizationStatus: normalizeAuthorizationStatus(raw.authorizationStatus),
+    personalRules,
+    selectedApps: unionRuleTokens(personalRules, 'selectedApps', legacyApps),
+    selectedCategories: unionRuleTokens(personalRules, 'selectedCategories', legacyCategories),
+    focusProtection: focusRule ? {
+      enabled: focusRule.enabled,
+      setupCompleted: focusRule.setupCompleted,
+      lastAppliedSessionId: focusRule.lastAppliedSessionId,
+      lastUpdated: focusRule.lastUpdated,
+    } : legacyFocus,
+    meaningfulFirst: realStepRule ? {
+      enabled: realStepRule.enabled,
+      qualifyingActions: realStepRule.qualifyingActions,
+      minFocusMinutes: realStepRule.minFocusMinutes,
+      unlockPolicy: realStepRule.unlockPolicy,
+      currentUnlockUntilIso: realStepRule.currentUnlockUntilIso,
+      lastQualifiedAtIso: realStepRule.lastQualifiedAtIso,
+      setupCompleted: realStepRule.setupCompleted,
+      allowBypass: realStepRule.temporaryOpenAllowed,
+      bypassMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
+      lastPromptDismissedAtIso: realStepRule.lastPromptDismissedAtIso,
+      lastUpdated: realStepRule.lastUpdated,
+    } : legacyMeaningful,
     setupOffer: normalizeSetupOffer(raw.setupOffer),
     lastUpdated: validIsoOrNull(raw.lastUpdated),
   };
@@ -274,6 +470,85 @@ export function normalizeScreenTimeProtectionSettings(value: unknown): ScreenTim
 
 export function hasSelectedScreenTimeTargets(settings: Pick<ScreenTimeProtectionSettings, 'selectedApps' | 'selectedCategories'>): boolean {
   return settings.selectedApps.length > 0 || settings.selectedCategories.length > 0;
+}
+
+export function hasPersonalRuleTargets(rule: PersonalScreenTimeRule): boolean {
+  return rule.selectedApps.length > 0 || rule.selectedCategories.length > 0;
+}
+
+export function projectPersonalScreenTimeRule(rule: PersonalScreenTimeRule): ScreenTimeRule {
+  return {
+    id: rule.id,
+    domain: 'personal',
+    subject: { kind: 'self' },
+    selectionId: rule.selectionId,
+    title: rule.kind === 'focus' ? 'Finish Focus' : 'Do a real step',
+    trigger: rule.kind === 'focus'
+      ? { type: 'focus_active' }
+      : { type: 'real_step_pending', minFocusMinutes: rule.minFocusMinutes },
+    temporaryOpen: {
+      allowed: rule.temporaryOpenAllowed,
+      durationMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
+    },
+    active: rule.enabled,
+    desiredVersion: 1,
+    appliedVersion: null,
+  };
+}
+
+export function getPersonalScreenTimeRule<K extends PersonalScreenTimeRuleKind>(
+  settings: Pick<ScreenTimeProtectionSettings, 'personalRules'>,
+  kind: K,
+): Extract<PersonalScreenTimeRule, { kind: K }> | null {
+  return (settings.personalRules.find((rule) => rule.kind === kind) as Extract<PersonalScreenTimeRule, { kind: K }> | undefined)
+    ?? null;
+}
+
+export function replacePersonalScreenTimeRule(
+  settings: ScreenTimeProtectionSettings,
+  nextRule: PersonalScreenTimeRule,
+): ScreenTimeProtectionSettings {
+  const withoutRule = settings.personalRules.filter((rule) => rule.id !== nextRule.id && rule.kind !== nextRule.kind);
+  return normalizeScreenTimeProtectionSettings({
+    ...settings,
+    personalRules: [...withoutRule, nextRule].sort((left, right) => (
+      left.kind === right.kind ? left.id.localeCompare(right.id) : left.kind === 'real_step' ? -1 : 1
+    )),
+    lastUpdated: nextRule.lastUpdated ?? settings.lastUpdated,
+  });
+}
+
+export function createPersonalScreenTimeRule(params: {
+  kind: PersonalScreenTimeRuleKind;
+  selectedApps: ScreenTimeToken[];
+  selectedCategories: ScreenTimeToken[];
+  enabled?: boolean;
+  setupCompleted?: boolean;
+  nowIso?: string;
+}): PersonalScreenTimeRule {
+  const nowIso = validIsoOrNull(params.nowIso) ?? new Date().toISOString();
+  const rule = normalizePersonalRule({
+    id: params.kind === 'real_step' ? PERSONAL_REAL_STEP_RULE_ID : PERSONAL_FOCUS_RULE_ID,
+    kind: params.kind,
+    selectionId: params.kind === 'real_step' ? PERSONAL_REAL_STEP_RULE_ID : PERSONAL_FOCUS_RULE_ID,
+    selectedApps: params.selectedApps,
+    selectedCategories: params.selectedCategories,
+    enabled: params.enabled === true,
+    setupCompleted: params.setupCompleted === true,
+    temporaryOpenAllowed: true,
+    temporaryOpenMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
+    currentUnlockUntilIso: null,
+    qualifyingActions: DEFAULT_MEANINGFUL_FIRST_SETTINGS.qualifyingActions,
+    minFocusMinutes: DEFAULT_MEANINGFUL_FIRST_SETTINGS.minFocusMinutes,
+    unlockPolicy: DEFAULT_MEANINGFUL_FIRST_SETTINGS.unlockPolicy,
+    lastQualifiedAtIso: null,
+    lastPromptDismissedAtIso: null,
+    lastAppliedSessionId: null,
+    needsSelectionReview: false,
+    lastUpdated: nowIso,
+  });
+  if (!rule) throw new Error('Unable to create personal Screen Time rule');
+  return rule;
 }
 
 function startOfNextLocalDay(date: Date): Date {
@@ -325,14 +600,23 @@ export function recordMeaningfulFirstQualification(
   qualification: MeaningfulFirstQualification,
 ): ScreenTimeProtectionSettings {
   if (!qualifies(settings, qualification)) return settings;
-  return {
+  const meaningfulFirst = buildMeaningfulFirstUnlock(settings, {
+    now: qualification.occurredAt,
+    reason: 'qualified',
+  });
+  const next = normalizeScreenTimeProtectionSettings({
     ...settings,
-    meaningfulFirst: buildMeaningfulFirstUnlock(settings, {
-      now: qualification.occurredAt,
-      reason: 'qualified',
-    }),
+    meaningfulFirst,
     lastUpdated: qualification.occurredAt.toISOString(),
-  };
+  });
+  const rule = getPersonalScreenTimeRule(next, 'real_step');
+  if (!rule) return next;
+  return replacePersonalScreenTimeRule(next, {
+    ...rule,
+    currentUnlockUntilIso: meaningfulFirst.currentUnlockUntilIso,
+    lastQualifiedAtIso: meaningfulFirst.lastQualifiedAtIso,
+    lastUpdated: qualification.occurredAt.toISOString(),
+  });
 }
 
 export function recordMeaningfulFirstBypass(
@@ -340,17 +624,56 @@ export function recordMeaningfulFirstBypass(
   now: Date,
 ): ScreenTimeProtectionSettings {
   if (!settings.meaningfulFirst.enabled || !settings.meaningfulFirst.allowBypass) return settings;
-  return {
+  const meaningfulFirst = buildMeaningfulFirstUnlock(settings, { now, reason: 'bypass' });
+  const next = normalizeScreenTimeProtectionSettings({
     ...settings,
-    meaningfulFirst: buildMeaningfulFirstUnlock(settings, { now, reason: 'bypass' }),
+    meaningfulFirst,
     lastUpdated: now.toISOString(),
-  };
+  });
+  const rule = getPersonalScreenTimeRule(next, 'real_step');
+  if (!rule) return next;
+  return replacePersonalScreenTimeRule(next, {
+    ...rule,
+    currentUnlockUntilIso: meaningfulFirst.currentUnlockUntilIso,
+    lastUpdated: now.toISOString(),
+  });
+}
+
+export type ActivePersonalScreenTimeRestriction = {
+  rule: PersonalScreenTimeRule;
+  reasons: ScreenTimeRestrictionReason[];
+};
+
+export function getActivePersonalScreenTimeRestrictions(
+  settings: ScreenTimeProtectionSettings,
+  params: { now: Date; focusSessionActive: boolean },
+): ActivePersonalScreenTimeRestriction[] {
+  if (settings.authorizationStatus !== 'approved') return [];
+  const restrictions: ActivePersonalScreenTimeRestriction[] = [];
+  const orderedRules = [...settings.personalRules].sort((left, right) => (
+    left.kind === right.kind ? left.id.localeCompare(right.id) : left.kind === 'focus' ? -1 : 1
+  ));
+  orderedRules.forEach((rule) => {
+    if (!rule.enabled || !hasPersonalRuleTargets(rule)) return;
+    const unlockUntilMs = rule.currentUnlockUntilIso ? Date.parse(rule.currentUnlockUntilIso) : Number.NaN;
+    if (Number.isFinite(unlockUntilMs) && params.now.getTime() < unlockUntilMs) return;
+    if (rule.kind === 'focus') {
+      if (params.focusSessionActive) restrictions.push({ rule, reasons: ['focus_session_active'] });
+      return;
+    }
+    restrictions.push({ rule, reasons: ['meaningful_first_locked'] });
+  });
+  return restrictions;
 }
 
 export function getActiveRestrictionReasons(
   settings: ScreenTimeProtectionSettings,
   params: { now: Date; focusSessionActive: boolean },
 ): ScreenTimeRestrictionReason[] {
+  if (settings.personalRules.length > 0) {
+    return getActivePersonalScreenTimeRestrictions(settings, params)
+      .flatMap(({ reasons }) => reasons);
+  }
   if (!hasSelectedScreenTimeTargets(settings)) return [];
   if (settings.authorizationStatus !== 'approved') return [];
 

@@ -12,15 +12,10 @@ import { initialMoneyDataState, moneyDataReducer, type MoneyDataState } from './
 import { syncMoneyGlanceableState } from '../runtime/moneyGlanceableState';
 import { reconcileMoneyAppControls } from '../runtime/moneyAppControlRuntime';
 import {
-  evaluateMoneyAppControlPolicy,
   recordMoneyAppControlReview,
   type MoneyAppControlReviewOutcome,
 } from '../domain/moneyAppControl';
 import { loadMoneyAppControlSettings, saveMoneyAppControlSettings } from '../runtime/moneyAppControlStorage';
-import {
-  claimPendingMoneyReviewHandoff,
-  subscribeToMoneyReviewHandoff,
-} from '../runtime/moneyAppControlForegroundSync';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { getLivingPlanSettings } from './livingPlanRepository';
 import {
@@ -63,7 +58,6 @@ type MoneyDataContextValue = MoneyDataState & {
     budgetCents: number,
     funding?: Parameters<typeof previewLivingPlanOverride>[3],
   ) => Promise<LivingPlanOverridePreview | null>;
-  pendingAppControlReviewCategoryId: string | null;
   reviewMoneyAppControl: (categoryId: string, outcome: MoneyAppControlReviewOutcome) => Promise<void>;
 };
 
@@ -84,7 +78,6 @@ export function MoneyDataProvider({
   const [reviewingTransactionId, setReviewingTransactionId] = useState<string | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
   const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
-  const [pendingAppControlReviewCategoryId, setPendingAppControlReviewCategoryId] = useState<string | null>(null);
   const resolvedRepository = useMemo(() => repository ?? createMoneyRepository(), [repository]);
   const mutationVersionRef = useRef(0);
   const initializationVersionRef = useRef(0);
@@ -180,25 +173,6 @@ export function MoneyDataProvider({
       initializationVersionRef.current += 1;
     };
   }, [initialize]);
-
-  useEffect(() => {
-    if (!state.snapshot) return;
-    let cancelled = false;
-    const consumeHandoff = async () => {
-      if (!claimPendingMoneyReviewHandoff()) return;
-      const now = new Date();
-      const settings = await loadMoneyAppControlSettings();
-      const category = state.snapshot?.categories.find((candidate) =>
-        evaluateMoneyAppControlPolicy({ settings, snapshot: state.snapshot!, category: candidate, now }).restricted);
-      if (!cancelled && category) setPendingAppControlReviewCategoryId(category.sourceId);
-    };
-    void consumeHandoff();
-    const unsubscribe = subscribeToMoneyReviewHandoff(() => { void consumeHandoff(); });
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [state.snapshot]);
 
   const reviewBoundedTransaction = useCallback(async (
     transactionId: string,
@@ -501,7 +475,6 @@ export function MoneyDataProvider({
     const next = recordMoneyAppControlReview(current, categoryId, outcome);
     await saveMoneyAppControlSettings(next);
     await reconcileMoneyAppControls(state.snapshot, next);
-    setPendingAppControlReviewCategoryId(null);
   }, [state.snapshot]);
 
   const value = useMemo(() => ({
@@ -523,9 +496,8 @@ export function MoneyDataProvider({
     updateCategoryCover,
     updateCategoryPlan,
     previewCategoryPlanAmount,
-    pendingAppControlReviewCategoryId,
     reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, previewCategoryPlanAmount, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, previewCategoryPlanAmount, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

@@ -45,11 +45,41 @@ describe('Screen Time shield handoff bridge', () => {
     mockConsumePendingReviewRequest.mockResolvedValue({
       requestedAtMs: 1_786_291_200_000,
       reason: 'meaningful_first_locked',
+      restrictions: [{
+        restrictionId: 'personal_real_step',
+        ruleId: 'personal_real_step',
+        selectionId: 'personal_real_step',
+        reason: 'meaningful_first_locked',
+        label: 'A real step',
+        appliedAtMs: 1_786_291_100_000,
+      }],
     });
 
     await expect(consumePendingScreenTimeShieldHandoff()).resolves.toEqual({
       requestedAtMs: 1_786_291_200_000,
       reason: 'meaningful_first_locked',
+      restrictions: [{
+        restrictionId: 'personal_real_step',
+        ruleId: 'personal_real_step',
+        selectionId: 'personal_real_step',
+        reason: 'meaningful_first_locked',
+        label: 'A real step',
+        appliedAtMs: 1_786_291_100_000,
+      }],
+    });
+  });
+
+  it('drops malformed restriction entries without dropping a fresh legacy handoff', async () => {
+    mockConsumePendingReviewRequest.mockResolvedValue({
+      requestedAtMs: 1_786_291_200_000,
+      reason: 'money_review_required',
+      restrictions: [{ restrictionId: '', reason: 'money_review_required' }],
+    });
+
+    await expect(consumePendingScreenTimeShieldHandoff()).resolves.toEqual({
+      requestedAtMs: 1_786_291_200_000,
+      reason: 'money_review_required',
+      restrictions: [],
     });
   });
 

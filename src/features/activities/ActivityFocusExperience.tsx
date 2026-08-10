@@ -70,10 +70,15 @@ export function ActivityFocusExperience({
     inputRange: Array.from({ length: palette.length + 1 }, (_, index) => index),
     outputRange: [...palette, palette[0]],
   });
+  const hasScreenTimeOffer = screenTimeOffer != null;
   const snapPoints = useMemo(() => {
-    if (Platform.OS === 'ios') return controller.customExpanded ? ['92%' as const] : ['82%' as const];
-    return controller.customExpanded ? ['90%' as const] : ['78%' as const];
-  }, [controller.customExpanded]);
+    if (Platform.OS === 'ios') {
+      if (controller.customExpanded) return hasScreenTimeOffer ? ['92%' as const] : ['82%' as const];
+      return hasScreenTimeOffer ? ['82%' as const] : ['56%' as const];
+    }
+    if (controller.customExpanded) return hasScreenTimeOffer ? ['90%' as const] : ['74%' as const];
+    return hasScreenTimeOffer ? ['78%' as const] : ['54%' as const];
+  }, [controller.customExpanded, hasScreenTimeOffer]);
 
   useEffect(() => {
     if (colorAnimatingRef.current) return;
@@ -137,7 +142,6 @@ export function ActivityFocusExperience({
               setSoundscapeEnabled(nextAudio !== 'none');
               if (nextAudio !== 'none') setSoundscapeTrackId(nextAudio);
             }}
-            allowNoAudio
             portalHostName={portalHostName}
             leadingContent={(
               <VStack space="md">

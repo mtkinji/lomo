@@ -140,7 +140,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 28,
     // Create a slim gutter from the screen edge so the guide doesn't touch bezels.
-    marginHorizontal: spacing.xs,
+    // Leave enough room for the raised shadow to render instead of being clipped
+    // by the left and right edges of the portal canvas.
+    marginHorizontal: spacing.md,
     // Use roomy internal padding for the guide content.
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,

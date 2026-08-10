@@ -2,6 +2,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { useFocusSessionStore } from '../features/activities/focusSessionStore';
 import { useAppStore } from '../store/useAppStore';
 import { reconcileScreenTimeRestrictions } from './screenTimeProtectionRuntime';
+import { reconcileLatestMoneyAppControls } from '../capabilities/money/runtime/moneyAppControlRuntime';
 
 let started = false;
 let lastKnownState: AppStateStatus = AppState.currentState;
@@ -11,6 +12,7 @@ let hydrationSubscriptions: Array<() => void> = [];
 function reconcileCurrentProtectionState(): void {
   const focusSessionActive = useFocusSessionStore.getState().activeSession?.mode === 'running';
   void reconcileScreenTimeRestrictions({ focusSessionActive }).catch(() => undefined);
+  void reconcileLatestMoneyAppControls().catch(() => undefined);
 }
 
 function reconcileAfterHydration(): void {

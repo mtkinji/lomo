@@ -280,6 +280,7 @@ class KwiltScreenTimeProtection: NSObject {
   private let shieldUpdatedAtKey = "kwilt_screen_time_shield_updated_at_v1"
   private let reviewRequestedAtKey = "kwilt_screen_time_review_requested_at_v1"
   private let handoffReasonKey = "kwilt_screen_time_handoff_reason_v1"
+  private let handoffRestrictionsKey = "kwilt_screen_time_handoff_restrictions_v2"
 ${PREREQUISITE_PROPERTIES_SWIFT}
 
   @available(iOS 16.0, *)
@@ -428,8 +429,13 @@ ${PREREQUISITE_HELPERS_SWIFT}
     }
     let requestedAtMs = defaults.double(forKey: reviewRequestedAtKey)
     let reason = defaults.string(forKey: handoffReasonKey)
+    let restrictionsData = defaults.data(forKey: handoffRestrictionsKey)
+    let restrictions = restrictionsData
+      .flatMap { try? JSONDecoder().decode([KwiltRestrictionLedgerEntry].self, from: $0) }
+      ?? []
     defaults.removeObject(forKey: reviewRequestedAtKey)
     defaults.removeObject(forKey: handoffReasonKey)
+    defaults.removeObject(forKey: handoffRestrictionsKey)
     guard requestedAtMs > 0 else {
       resolve(nil)
       return
@@ -437,6 +443,16 @@ ${PREREQUISITE_HELPERS_SWIFT}
     resolve([
       "requestedAtMs": requestedAtMs,
       "reason": reason ?? "default",
+      "restrictions": restrictions.map { entry in
+        [
+          "restrictionId": entry.id,
+          "ruleId": entry.ruleId ?? entry.id,
+          "selectionId": entry.selectionId ?? entry.id,
+          "reason": entry.reason,
+          "label": entry.label ?? "",
+          "appliedAtMs": entry.appliedAtMs,
+        ]
+      },
     ])
   }
 
@@ -524,8 +540,11 @@ ${PREREQUISITE_HELPERS_SWIFT}
       let reason = saveShieldReason(from: json)
       let payload = payload(from: json)
       let restrictionLabel = (payload?["restrictionLabel"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+      let ruleId = ((payload?["ruleId"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 } ?? selectionId
       KwiltRestrictionLedger.upsert(
         id: selectionId,
+        ruleId: ruleId,
+        selectionId: selectionId,
         reason: reason,
         label: restrictionLabel?.isEmpty == false ? restrictionLabel : nil,
         applicationTokenKeys: KwiltRestrictionLedger.tokenKeys(selection.applicationTokens),
