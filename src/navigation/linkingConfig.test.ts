@@ -259,6 +259,12 @@ describe('linkingConfig', () => {
       expect(leaf?.path).toEqual(['MainTabs', 'ActivitiesTab', 'ActivitiesList']);
     });
 
+    test('kwilt://settings/screen-time opens the Screen Time controls', () => {
+      const leaf = parse('settings/screen-time');
+      expect(leaf?.name).toBe('SettingsScreenTimeProtection');
+      expect(leaf?.path).toEqual(['Settings', 'SettingsScreenTimeProtection']);
+    });
+
     test('kwilt://plan -> PlanTab', () => {
       expect(parse('plan')?.name).toBe('PlanTab');
     });

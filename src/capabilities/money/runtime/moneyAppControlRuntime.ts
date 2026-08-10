@@ -31,6 +31,7 @@ export async function reconcileMoneyAppControls(
       reasons: [evaluation.reason!],
       selectionId,
       reason: evaluation.reason!,
+      restrictionLabel: category.name,
     });
   }));
 }

@@ -10,12 +10,110 @@ function appGroupIdFor(config) {
     : 'group.com.andrewwatanabe.kwilt';
 }
 
+function buildRestrictionLedgerSwift(appGroupId) {
+  return `private struct KwiltRestrictionLedgerEntry: Codable {
+  let id: String
+  let reason: String
+  let label: String?
+  let appliedAtMs: Double
+  let applicationTokenKeys: [String]
+  let categoryTokenKeys: [String]
+  let webDomainTokenKeys: [String]
+}
+
+private enum KwiltRestrictionLedger {
+  static let appGroupIdentifier = "${appGroupId}"
+  static let entryPrefix = "kwilt_screen_time_restriction_v2."
+
+  static func defaults() -> UserDefaults? {
+    UserDefaults(suiteName: appGroupIdentifier)
+  }
+
+  static func safeIdentifier(_ value: String) -> String {
+    let allowed = value.unicodeScalars.filter {
+      CharacterSet.alphanumerics.contains($0) || $0 == "-" || $0 == "_" || $0 == "."
+    }
+    let normalized = String(String.UnicodeScalarView(allowed)).prefix(80)
+    return normalized.isEmpty ? "default" : String(normalized)
+  }
+
+  static func tokenKey<T: Encodable>(_ token: T?) -> String? {
+    guard let token, let data = try? JSONEncoder().encode(token) else { return nil }
+    return data.base64EncodedString()
+  }
+
+  static func tokenKeys<T: Encodable & Hashable>(_ tokens: Set<T>) -> [String] {
+    tokens.compactMap { tokenKey($0) }.sorted()
+  }
+
+  static func upsert(
+    id: String,
+    reason: String,
+    label: String?,
+    applicationTokenKeys: [String],
+    categoryTokenKeys: [String],
+    webDomainTokenKeys: [String]
+  ) {
+    let entry = KwiltRestrictionLedgerEntry(
+      id: id,
+      reason: reason,
+      label: label,
+      appliedAtMs: Date().timeIntervalSince1970 * 1000.0,
+      applicationTokenKeys: applicationTokenKeys,
+      categoryTokenKeys: categoryTokenKeys,
+      webDomainTokenKeys: webDomainTokenKeys
+    )
+    guard let data = try? JSONEncoder().encode(entry) else { return }
+    defaults()?.set(data, forKey: "\\(entryPrefix)\\(safeIdentifier(id))")
+  }
+
+  static func remove(id: String) {
+    defaults()?.removeObject(forKey: "\\(entryPrefix)\\(safeIdentifier(id))")
+  }
+
+  static func entries() -> [KwiltRestrictionLedgerEntry] {
+    guard let defaults = defaults() else { return [] }
+    return defaults.dictionaryRepresentation().compactMap { element in
+      let (key, value) = element
+      guard key.hasPrefix(entryPrefix), let data = value as? Data else { return nil }
+      return try? JSONDecoder().decode(KwiltRestrictionLedgerEntry.self, from: data)
+    }
+  }
+
+  static func priority(for reason: String) -> Int {
+    if reason == "focus_session_active" || reason == "focus" { return 400 }
+    if reason == "family_prerequisite" { return 300 }
+    if reason.hasPrefix("money_") { return 200 }
+    if reason.hasPrefix("meaningful_first_") { return 100 }
+    return 0
+  }
+
+  static func matchingRestrictions(
+    applicationTokenKey: String? = nil,
+    categoryTokenKey: String? = nil,
+    webDomainTokenKey: String? = nil
+  ) -> [KwiltRestrictionLedgerEntry] {
+    entries().filter { entry in
+      (applicationTokenKey.map { entry.applicationTokenKeys.contains($0) } ?? false)
+        || (categoryTokenKey.map { entry.categoryTokenKeys.contains($0) } ?? false)
+        || (webDomainTokenKey.map { entry.webDomainTokenKeys.contains($0) } ?? false)
+    }.sorted { left, right in
+      let leftPriority = priority(for: left.reason)
+      let rightPriority = priority(for: right.reason)
+      return leftPriority == rightPriority ? left.id < right.id : leftPriority > rightPriority
+    }
+  }
+}
+`;
+}
+
 function buildConfigurationSwift(appGroupId) {
   return `import Foundation
 import ManagedSettings
 import ManagedSettingsUI
 import UIKit
 
+${buildRestrictionLedgerSwift(appGroupId)}
 private enum KwiltShieldCopy {
   static let appGroupIdentifier = "${appGroupId}"
   static let reasonKey = "kwilt_screen_time_shield_reason_v1"
@@ -30,6 +128,39 @@ private enum KwiltShieldCopy {
       return "default"
     }
     return value
+  }
+
+  static func nextAction(for entry: KwiltRestrictionLedgerEntry) -> String {
+    switch entry.reason {
+    case "focus_session_active", "focus":
+      return "return to Focus in Kwilt"
+    case "family_prerequisite":
+      let value = entry.label ?? "complete the family requirement"
+      return value.prefix(1).lowercased() + String(value.dropFirst())
+    case let reason where reason.hasPrefix("money_"):
+      return "review \\(entry.label ?? "the required category") in Kwilt Money"
+    case "meaningful_first_bypass":
+      return "wait for the Kwilt pause to end"
+    default:
+      return "complete a to-do, record progress, or finish Focus in Kwilt"
+    }
+  }
+
+  static func buttonLabel(for reason: String) -> String {
+    if reason == "focus_session_active" || reason == "focus" { return "Open Focus" }
+    if reason == "family_prerequisite" { return "Open Screen Time" }
+    if reason.hasPrefix("money_") { return "Review in Money" }
+    if reason == "meaningful_first_locked" { return "Open Today" }
+    return "Open Kwilt"
+  }
+
+  static func countWord(_ count: Int) -> String {
+    switch count {
+    case 2: return "Two"
+    case 3: return "Three"
+    case 4: return "Four"
+    default: return String(count)
+    }
   }
 
   static func title(for reason: String) -> String {
@@ -81,38 +212,73 @@ private enum KwiltShieldCopy {
 final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
   private let detailColor = UIColor(white: 1.0, alpha: 0.84)
 
-  private func configuration(appName: String) -> ShieldConfiguration {
-    let reason = KwiltShieldCopy.reason()
+  private func configuration(
+    appName: String,
+    applicationTokenKey: String? = nil,
+    categoryTokenKey: String? = nil,
+    webDomainTokenKey: String? = nil
+  ) -> ShieldConfiguration {
+    let restrictions = KwiltRestrictionLedger.matchingRestrictions(
+      applicationTokenKey: applicationTokenKey,
+      categoryTokenKey: categoryTokenKey,
+      webDomainTokenKey: webDomainTokenKey
+    )
+    let reason = restrictions.first?.reason ?? KwiltShieldCopy.reason()
     let isMoney = reason.hasPrefix("money_")
     let accent = isMoney
       ? UIColor(red: 0.106, green: 0.157, blue: 0.227, alpha: 1.0)
       : UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
+    let title: String
+    let subtitle: String
+    if restrictions.count > 1, let first = restrictions.first, restrictions.indices.contains(1) {
+      title = "\\(KwiltShieldCopy.countWord(restrictions.count)) things before \\(appName)."
+      let remaining = restrictions.count - 2
+      let suffix = remaining > 0 ? " \\(remaining) more rules will still apply." : ""
+      subtitle = "First, \\(KwiltShieldCopy.nextAction(for: first)). Then \\(KwiltShieldCopy.nextAction(for: restrictions[1])).\\(suffix)"
+    } else {
+      title = KwiltShieldCopy.title(for: reason)
+      subtitle = KwiltShieldCopy.subtitle(for: reason, appName: appName)
+    }
     return ShieldConfiguration(
-      backgroundBlurStyle: .systemMaterialDark,
+      backgroundBlurStyle: isMoney ? .systemMaterialDark : .dark,
       backgroundColor: accent,
       icon: UIImage(named: "KwiltShieldAppIcon") ?? UIImage(systemName: isMoney ? "creditcard.and.123" : "app.badge.clock")?.withTintColor(UIColor.white, renderingMode: .alwaysOriginal),
-      title: ShieldConfiguration.Label(text: KwiltShieldCopy.title(for: reason), color: UIColor.white),
-      subtitle: ShieldConfiguration.Label(text: KwiltShieldCopy.subtitle(for: reason, appName: appName), color: detailColor),
-      primaryButtonLabel: ShieldConfiguration.Label(text: isMoney ? "Open Kwilt Money" : "Open Kwilt", color: accent),
+      title: ShieldConfiguration.Label(text: title, color: UIColor.white),
+      subtitle: ShieldConfiguration.Label(text: subtitle, color: detailColor),
+      primaryButtonLabel: ShieldConfiguration.Label(text: KwiltShieldCopy.buttonLabel(for: reason), color: accent),
       primaryButtonBackgroundColor: UIColor.white,
       secondaryButtonLabel: nil
     )
   }
 
   override func configuration(shielding application: Application) -> ShieldConfiguration {
-    configuration(appName: application.localizedDisplayName ?? "this app")
+    configuration(
+      appName: application.localizedDisplayName ?? "this app",
+      applicationTokenKey: KwiltRestrictionLedger.tokenKey(application.token)
+    )
   }
 
   override func configuration(shielding application: Application, in category: ActivityCategory) -> ShieldConfiguration {
-    configuration(appName: application.localizedDisplayName ?? category.localizedDisplayName ?? "this app")
+    configuration(
+      appName: application.localizedDisplayName ?? category.localizedDisplayName ?? "this app",
+      applicationTokenKey: KwiltRestrictionLedger.tokenKey(application.token),
+      categoryTokenKey: KwiltRestrictionLedger.tokenKey(category.token)
+    )
   }
 
   override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration {
-    configuration(appName: webDomain.domain ?? "this website")
+    configuration(
+      appName: webDomain.domain ?? "this website",
+      webDomainTokenKey: KwiltRestrictionLedger.tokenKey(webDomain.token)
+    )
   }
 
   override func configuration(shielding webDomain: WebDomain, in category: ActivityCategory) -> ShieldConfiguration {
-    configuration(appName: webDomain.domain ?? category.localizedDisplayName ?? "this website")
+    configuration(
+      appName: webDomain.domain ?? category.localizedDisplayName ?? "this website",
+      categoryTokenKey: KwiltRestrictionLedger.tokenKey(category.token),
+      webDomainTokenKey: KwiltRestrictionLedger.tokenKey(webDomain.token)
+    )
   }
 }
 `;
@@ -122,36 +288,67 @@ function buildActionSwift(appGroupId) {
 return `import Foundation
 import ManagedSettings
 
+${buildRestrictionLedgerSwift(appGroupId)}
 private enum KwiltReviewRequest {
   static let appGroupIdentifier = "${appGroupId}"
   static let requestedAtKey = "kwilt_screen_time_review_requested_at_v1"
+  static let reasonKey = "kwilt_screen_time_shield_reason_v1"
+  static let handoffReasonKey = "kwilt_screen_time_handoff_reason_v1"
 
-  static func record() {
-    UserDefaults(suiteName: appGroupIdentifier)?.set(
+  static func record(reason: String) {
+    guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
+    defaults.set(
       Date().timeIntervalSince1970 * 1000.0,
       forKey: requestedAtKey
     )
+    defaults.set(reason, forKey: handoffReasonKey)
+  }
+
+  static func legacyReason() -> String {
+    UserDefaults(suiteName: appGroupIdentifier)?.string(forKey: reasonKey) ?? "default"
   }
 }
 
 final class KwiltShieldActionExtension: ShieldActionDelegate {
   override func handle(action: ShieldAction, for application: ApplicationToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
-    handle(action: action, completionHandler: completionHandler)
+    handle(
+      action: action,
+      restrictions: KwiltRestrictionLedger.matchingRestrictions(
+        applicationTokenKey: KwiltRestrictionLedger.tokenKey(application)
+      ),
+      completionHandler: completionHandler
+    )
   }
 
   override func handle(action: ShieldAction, for category: ActivityCategoryToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
-    handle(action: action, completionHandler: completionHandler)
+    handle(
+      action: action,
+      restrictions: KwiltRestrictionLedger.matchingRestrictions(
+        categoryTokenKey: KwiltRestrictionLedger.tokenKey(category)
+      ),
+      completionHandler: completionHandler
+    )
   }
 
   override func handle(action: ShieldAction, for webDomain: WebDomainToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
-    handle(action: action, completionHandler: completionHandler)
+    handle(
+      action: action,
+      restrictions: KwiltRestrictionLedger.matchingRestrictions(
+        webDomainTokenKey: KwiltRestrictionLedger.tokenKey(webDomain)
+      ),
+      completionHandler: completionHandler
+    )
   }
 
-  private func handle(action: ShieldAction, completionHandler: @escaping (ShieldActionResponse) -> Void) {
+  private func handle(
+    action: ShieldAction,
+    restrictions: [KwiltRestrictionLedgerEntry],
+    completionHandler: @escaping (ShieldActionResponse) -> Void
+  ) {
     switch action {
     case .primaryButtonPressed:
       if #available(iOS 26.5, *), let openKwilt = ShieldActionResponse(rawValue: 3) {
-        KwiltReviewRequest.record()
+        KwiltReviewRequest.record(reason: restrictions.first?.reason ?? KwiltReviewRequest.legacyReason())
         completionHandler(openKwilt)
       } else {
         completionHandler(.close)
@@ -172,6 +369,7 @@ import FamilyControls
 import Foundation
 import ManagedSettings
 
+${buildRestrictionLedgerSwift(appGroupId)}
 private struct KwiltPrerequisiteMonitorConfiguration: Codable {
   let agreementId: String
   let policyVersion: Int
@@ -238,6 +436,15 @@ private enum KwiltPrerequisiteMonitorRuntime {
     shared?.set(configuration.prerequisiteLabel, forKey: prerequisiteLabelKey)
     shared?.set(configuration.targetLabel, forKey: targetLabelKey)
     shared?.set(configuration.thresholdMinutes, forKey: thresholdMinutesKey)
+    let minutes = configuration.thresholdMinutes
+    KwiltRestrictionLedger.upsert(
+      id: "prerequisite.\\(configuration.agreementId)",
+      reason: "family_prerequisite",
+      label: "Use \\(configuration.prerequisiteLabel) for \\(minutes) minute\\(minutes == 1 ? "" : "s")",
+      applicationTokenKeys: KwiltRestrictionLedger.tokenKeys(targetSelection.applicationTokens),
+      categoryTokenKeys: KwiltRestrictionLedger.tokenKeys(targetSelection.categoryTokens),
+      webDomainTokenKeys: KwiltRestrictionLedger.tokenKeys(targetSelection.webDomainTokens)
+    )
   }
 
   static func record(kind: String, configuration: KwiltPrerequisiteMonitorConfiguration) {
@@ -269,6 +476,7 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
     guard let configuration = KwiltPrerequisiteMonitorRuntime.configuration(for: activity) else { return }
     let store = KwiltPrerequisiteMonitorRuntime.store(for: configuration)
     store.clearAllSettings()
+    KwiltRestrictionLedger.remove(id: "prerequisite.\\(configuration.agreementId)")
     KwiltPrerequisiteMonitorRuntime.record(kind: "threshold_reached", configuration: configuration)
   }
 
@@ -276,6 +484,7 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
     super.intervalDidEnd(for: activity)
     guard let configuration = KwiltPrerequisiteMonitorRuntime.configuration(for: activity) else { return }
     KwiltPrerequisiteMonitorRuntime.store(for: configuration).clearAllSettings()
+    KwiltRestrictionLedger.remove(id: "prerequisite.\\(configuration.agreementId)")
     KwiltPrerequisiteMonitorRuntime.record(kind: "interval_ended", configuration: configuration)
   }
 }
@@ -421,4 +630,10 @@ function withScreenTimeShieldExtensions(config) {
   });
 }
 
-module.exports = { withScreenTimeShieldExtensions };
+module.exports = {
+  buildActionSwift,
+  buildConfigurationSwift,
+  buildDeviceActivityMonitorSwift,
+  buildRestrictionLedgerSwift,
+  withScreenTimeShieldExtensions,
+};

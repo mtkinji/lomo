@@ -127,6 +127,15 @@ const PREREQUISITE_METHODS_SWIFT = `
 
       let managedStore = prerequisiteStore(for: agreementId)
       applySelection(targetSelection, to: managedStore)
+      let minutes = configuration.thresholdMinutes
+      KwiltRestrictionLedger.upsert(
+        id: "prerequisite.\\(agreementId)",
+        reason: "family_prerequisite",
+        label: "Use \\(configuration.prerequisiteLabel) for \\(minutes) minute\\(minutes == 1 ? "" : "s")",
+        applicationTokenKeys: KwiltRestrictionLedger.tokenKeys(targetSelection.applicationTokens),
+        categoryTokenKeys: KwiltRestrictionLedger.tokenKeys(targetSelection.categoryTokens),
+        webDomainTokenKeys: KwiltRestrictionLedger.tokenKeys(targetSelection.webDomainTokens)
+      )
       let schedule = DeviceActivitySchedule(
         intervalStart: DateComponents(hour: 0, minute: 0),
         intervalEnd: DateComponents(hour: 23, minute: 59),
@@ -149,6 +158,7 @@ const PREREQUISITE_METHODS_SWIFT = `
         resolve(true)
       } catch {
         managedStore.clearAllSettings()
+        KwiltRestrictionLedger.remove(id: "prerequisite.\\(agreementId)")
         shared.removeObject(forKey: "\\(prerequisiteConfigPrefix)\\(activity.rawValue)")
         resolve(false)
       }
@@ -174,6 +184,7 @@ const PREREQUISITE_METHODS_SWIFT = `
       let activity = prerequisiteActivityName(for: agreementId)
       DeviceActivityCenter().stopMonitoring([activity])
       prerequisiteStore(for: agreementId).clearAllSettings()
+      KwiltRestrictionLedger.remove(id: "prerequisite.\\(agreementId)")
       UserDefaults(suiteName: appGroupIdentifier)?.removeObject(
         forKey: "\\(prerequisiteConfigPrefix)\\(activity.rawValue)"
       )

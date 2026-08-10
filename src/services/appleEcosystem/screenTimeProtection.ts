@@ -19,6 +19,11 @@ export type ScreenTimePrerequisiteRuleEvent = {
   occurredAtMs: number;
 };
 
+export type ScreenTimeShieldHandoff = {
+  requestedAtMs: number;
+  reason: string | null;
+};
+
 type KwiltScreenTimeProtectionNativeModule = {
   getAuthorizationStatus?: () => Promise<ScreenTimeAuthorizationStatus | string>;
   requestAuthorization?: () => Promise<ScreenTimeAuthorizationStatus | string>;
@@ -26,7 +31,7 @@ type KwiltScreenTimeProtectionNativeModule = {
   applyRestrictions?: (json: string) => Promise<boolean>;
   clearRestrictions?: () => Promise<boolean>;
   clearRestrictionsForSelection?: (json: string) => Promise<boolean>;
-  consumePendingReviewRequest?: () => Promise<number | null | undefined>;
+  consumePendingReviewRequest?: () => Promise<number | { requestedAtMs?: number; reason?: string } | null | undefined>;
   applyPrerequisiteRule?: (json: string) => Promise<boolean>;
   clearPrerequisiteRule?: (json: string) => Promise<boolean>;
   consumePrerequisiteRuleEvent?: () => Promise<unknown>;
@@ -65,10 +70,25 @@ export async function requestScreenTimeAuthorization(): Promise<ScreenTimeAuthor
 }
 
 export async function consumePendingScreenTimeReviewRequest(): Promise<number | null> {
+  return (await consumePendingScreenTimeShieldHandoff())?.requestedAtMs ?? null;
+}
+
+export async function consumePendingScreenTimeShieldHandoff(): Promise<ScreenTimeShieldHandoff | null> {
   if (Platform.OS !== 'ios' || !native?.consumePendingReviewRequest) return null;
   try {
-    const value = Number(await native.consumePendingReviewRequest());
-    return Number.isFinite(value) && value > 0 ? value : null;
+    const value = await native.consumePendingReviewRequest();
+    if (value && typeof value === 'object') {
+      const requestedAtMs = Number(value.requestedAtMs);
+      if (!Number.isFinite(requestedAtMs) || requestedAtMs <= 0) return null;
+      return {
+        requestedAtMs,
+        reason: typeof value.reason === 'string' && value.reason.trim() ? value.reason.trim() : null,
+      };
+    }
+    const requestedAtMs = Number(value);
+    return Number.isFinite(requestedAtMs) && requestedAtMs > 0
+      ? { requestedAtMs, reason: null }
+      : null;
   } catch {
     return null;
   }
@@ -100,6 +120,7 @@ export async function applyScreenTimeRestrictions(params: {
   reasons: ScreenTimeRestrictionReason[];
   selectionId?: string;
   reason?: string;
+  restrictionLabel?: string;
 }): Promise<boolean> {
   if (Platform.OS !== 'ios') return false;
   if (!native?.applyRestrictions) return false;
@@ -113,6 +134,7 @@ export async function applyScreenTimeRestrictions(params: {
           selectedCategories: normalized.selectedCategories,
           selectionId: params.selectionId,
           reason: params.reason,
+          restrictionLabel: params.restrictionLabel,
         }),
       ),
     );
