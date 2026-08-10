@@ -51,9 +51,7 @@ export function buildOpenAiLiveTranscriptionClientSecretRequest(input: {
 
 export function extractEphemeralClientSecret(value: unknown): { value: string; expiresAt: number | null } | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const record = value as Record<string, unknown>;
-  if (!record.client_secret || typeof record.client_secret !== 'object' || Array.isArray(record.client_secret)) return null;
-  const secret = record.client_secret as Record<string, unknown>;
+  const secret = value as Record<string, unknown>;
   if (typeof secret.value !== 'string' || secret.value.length < 12) return null;
   return {
     value: secret.value,
