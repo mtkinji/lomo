@@ -7,6 +7,7 @@ import { reconcileGroceryOfflineQueue } from '../data/groceryOfflineQueue';
 
 const mockOpenMenu = jest.fn();
 let mockCapabilityMenuOpen = false;
+let mockScreenFocused = true;
 const mockEnqueue = jest.fn();
 const mockAddItem = jest.fn();
 
@@ -28,10 +29,15 @@ type MockButtonProps = {
 };
 
 jest.mock('../data/groceryRepository', () => ({ createGroceryRepository: jest.fn() }));
+jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => mockScreenFocused,
+}));
 jest.mock('../data/groceryEducation', () => ({
   groceryEducation: {
     hasSeenAlreadyHave: jest.fn(),
+    hasStartedCartFlow: jest.fn(),
     markAlreadyHaveSeen: jest.fn(),
+    markCartFlowStarted: jest.fn(),
   },
 }));
 jest.mock('../data/groceryCache', () => ({
@@ -173,7 +179,9 @@ jest.mock('../components/StoreOpportunityCaptureSheet', () => ({ StoreOpportunit
 jest.mock('../components/GroceryItemProvenanceSheet', () => ({ GroceryItemProvenanceSheet: () => null }));
 
 const mockHasSeenAlreadyHave = groceryEducation.hasSeenAlreadyHave as jest.Mock;
+const mockHasStartedCartFlow = groceryEducation.hasStartedCartFlow as jest.Mock;
 const mockMarkAlreadyHaveSeen = groceryEducation.markAlreadyHaveSeen as jest.Mock;
+const mockMarkCartFlowStarted = groceryEducation.markCartFlowStarted as jest.Mock;
 
 describe('Grocery List primary capability', () => {
   const markReviewed = jest.fn().mockResolvedValue({ status: 'ready' });
@@ -181,8 +189,11 @@ describe('Grocery List primary capability', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCapabilityMenuOpen = false;
+    mockScreenFocused = true;
     mockHasSeenAlreadyHave.mockResolvedValue(false);
+    mockHasStartedCartFlow.mockResolvedValue(false);
     mockMarkAlreadyHaveSeen.mockResolvedValue(undefined);
+    mockMarkCartFlowStarted.mockResolvedValue(undefined);
     (reconcileGroceryOfflineQueue as jest.Mock).mockImplementation(async ({ lists }: { lists: unknown[] }) => ({
       lists,
       pendingCount: 0,
@@ -218,7 +229,7 @@ describe('Grocery List primary capability', () => {
     });
   });
 
-  it('teaches already-have on the first visit with groceries and remembers dismissal', async () => {
+  it('teaches already-have on the grocery list before the first online cart flow', async () => {
     const screen = render(
       <GroceryListScreen
         navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
@@ -232,6 +243,130 @@ describe('Grocery List primary capability', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Got it' }));
 
     expect(mockMarkAlreadyHaveSeen).toHaveBeenCalledWith('user-1');
+    expect(screen.queryByTestId('grocery-already-have-coachmark')).toBeNull();
+  });
+
+  it('anchors already-have education to the first still-needed grocery item', async () => {
+    (createGroceryRepository as jest.Mock).mockReturnValue({
+      list: jest.fn().mockResolvedValue([
+        {
+          id: 'list-1',
+          revision: 1,
+          status: 'ready',
+          sourceMealPlanId: 'plan-1',
+          sourceMealPlanVersion: 1,
+          items: [
+            {
+              id: 'item-1',
+              aisle: 'pantry',
+              concept: 'flour',
+              quantityMin: 2,
+              quantityMax: null,
+              unit: 'cups',
+              state: 'already_have',
+              reviewReason: null,
+            },
+            {
+              id: 'item-2',
+              aisle: 'pantry',
+              concept: 'sugar',
+              quantityMin: 1,
+              quantityMax: null,
+              unit: 'cup',
+              state: 'needed',
+              reviewReason: null,
+            },
+          ],
+        },
+      ]),
+      setItemState: jest.fn(),
+      markReviewed,
+      addItem: mockAddItem,
+    });
+
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    expect(await screen.findByText('Already have something?')).toBeTruthy();
+    expect(
+      screen.getByTestId('ingredient-coachmark-target').findByProps({
+        testID: 'ingredient-check-item-2',
+      }),
+    ).toBeTruthy();
+  });
+
+  it('removes already-have education when the grocery screen loses focus', async () => {
+    const navigation = { goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never;
+    const route = { params: { entryPoint: 'capability-menu' } } as never;
+    const screen = render(<GroceryListScreen navigation={navigation} route={route} />);
+
+    expect(await screen.findByTestId('grocery-already-have-coachmark')).toBeTruthy();
+
+    mockScreenFocused = false;
+    screen.rerender(<GroceryListScreen navigation={navigation} route={route} />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('grocery-already-have-coachmark')).toBeNull();
+    });
+  });
+
+  it('does not show already-have education after an online cart flow has started', async () => {
+    mockHasStartedCartFlow.mockResolvedValue(true);
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    await waitFor(() => expect(mockHasStartedCartFlow).toHaveBeenCalledWith('user-1'));
+    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
+    expect(screen.queryByTestId('grocery-already-have-coachmark')).toBeNull();
+  });
+
+  it('uses retailer cart evidence to suppress education on an existing install', async () => {
+    (createGroceryRepository as jest.Mock).mockReturnValue({
+      list: jest.fn().mockResolvedValue([
+        {
+          id: 'list-1',
+          revision: 1,
+          status: 'ready',
+          sourceMealPlanId: 'plan-1',
+          sourceMealPlanVersion: 1,
+          items: [{
+            id: 'item-1',
+            aisle: 'pantry',
+            concept: 'flour',
+            quantityMin: 2,
+            quantityMax: null,
+            unit: 'cups',
+            state: 'needed',
+            reviewReason: null,
+            retailerCart: {
+              provider: 'kroger',
+              retailerLabel: "Smith's",
+              locationName: null,
+              state: 'cart_add_acknowledged',
+            },
+          }],
+        },
+      ]),
+      setItemState: jest.fn(),
+      markReviewed,
+      addItem: mockAddItem,
+    });
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
     expect(screen.queryByTestId('grocery-already-have-coachmark')).toBeNull();
   });
 
@@ -305,6 +440,7 @@ describe('Grocery List primary capability', () => {
     fireEvent.press(screen.getByTestId('grocery-shop-remaining'));
 
     await waitFor(() => expect(markReviewed).toHaveBeenCalledWith('list-1', 1));
+    expect(mockMarkCartFlowStarted).toHaveBeenCalledWith('user-1');
     expect(screen.getByLabelText('Shop online · 1 item')).toBeTruthy();
     expect(navigate).toHaveBeenCalledWith('KrogerCart', { listId: 'list-1' });
   });

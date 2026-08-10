@@ -125,6 +125,7 @@ export function RecipeIngredientChecklist({
   onToggle,
   onLongPress,
   firstItemTargetRef,
+  targetItemId,
   disabled = false,
   accessibilityHint,
 }: {
@@ -133,6 +134,7 @@ export function RecipeIngredientChecklist({
   onToggle(id: string): void;
   onLongPress?(id: string): void;
   firstItemTargetRef?: RefObject<View | null>;
+  targetItemId?: string | null;
   disabled?: boolean;
   accessibilityHint?(item: RecipeIngredientChecklistItem, checked: boolean): string;
 }) {
@@ -140,6 +142,9 @@ export function RecipeIngredientChecklist({
     <View testID="ingredient-list" style={styles.list}>
       {items.map((item, index) => {
         const active = checked.has(item.id);
+        const isTarget = Boolean(
+          firstItemTargetRef && (targetItemId ? item.id === targetItemId : index === 0),
+        );
         const parts = ingredientDisplayPartsFromText(item.display);
         const showGroup =
           Boolean(item.groupLabel) &&
@@ -147,8 +152,9 @@ export function RecipeIngredientChecklist({
         return (
           <View
             key={item.id}
-            ref={index === 0 ? firstItemTargetRef : undefined}
-            collapsable={index !== 0 || !firstItemTargetRef}
+            ref={isTarget ? firstItemTargetRef : undefined}
+            collapsable={!isTarget}
+            testID={isTarget ? 'ingredient-coachmark-target' : undefined}
             style={styles.groupedLine}
           >
             {showGroup ? (

@@ -1,8 +1,14 @@
 import { fireEvent, render } from '@testing-library/react-native';
+import { createRef } from 'react';
+import type { View } from 'react-native';
 
 import { colors, fonts } from '../../../theme';
 import type { RecipeIngredientLine } from '../domain/recipeContracts';
-import { ingredientDisplayParts, RecipeIngredientList } from './RecipeIngredientList';
+import {
+  ingredientDisplayParts,
+  RecipeIngredientChecklist,
+  RecipeIngredientList,
+} from './RecipeIngredientList';
 
 const starterIngredient: RecipeIngredientLine = {
   id: 'ingredient-flour',
@@ -115,5 +121,26 @@ describe('RecipeIngredientList', () => {
     expect(screen.getByText('3 large eggs')).toBeTruthy();
     expect(screen.getByText('Warm maple syrup, for serving')).toBeTruthy();
     expect(screen.queryByText('2 cups (240 g) all-purpose flour')).toBeNull();
+  });
+
+  it('can target the first still-needed checklist row for education', () => {
+    const targetRef = createRef<View>();
+    const screen = render(
+      <RecipeIngredientChecklist
+        items={[
+          { id: 'already-have', display: 'Flour' },
+          { id: 'still-needed', display: 'Eggs' },
+        ]}
+        checked={new Set(['already-have'])}
+        onToggle={jest.fn()}
+        firstItemTargetRef={targetRef}
+        targetItemId="still-needed"
+      />,
+    );
+
+    expect(screen.getByTestId('ingredient-coachmark-target')).toHaveProp('collapsable', false);
+    expect(screen.getByTestId('ingredient-coachmark-target').findByProps({
+      accessibilityLabel: 'Eggs',
+    })).toBeTruthy();
   });
 });

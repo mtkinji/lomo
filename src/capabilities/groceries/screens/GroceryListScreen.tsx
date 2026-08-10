@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   Alert,
@@ -205,6 +206,7 @@ function GroceriesMenu({
 }
 
 export function GroceryListScreen({ navigation, route }: Props) {
+  const isFocused = useIsFocused();
   const { capture } = useAnalytics();
   const { openMenu } = useCapabilityShell();
   const capabilityMenuOpen = useCapabilityMenuOpen();
@@ -221,6 +223,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const [reviewingCovered, setReviewingCovered] = useState(false);
   const [alreadyHaveEducationLoaded, setAlreadyHaveEducationLoaded] = useState(false);
   const [alreadyHaveEducationSeen, setAlreadyHaveEducationSeen] = useState(true);
+  const [cartFlowStarted, setCartFlowStarted] = useState(true);
   const [sourcePlanMealCount, setSourcePlanMealCount] = useState(0);
   const requestedListId = route.params?.listId;
 
@@ -263,12 +266,21 @@ export function GroceryListScreen({ navigation, route }: Props) {
   useEffect(() => {
     let cancelled = false;
     setAlreadyHaveEducationLoaded(false);
-    void groceryEducation.hasSeenAlreadyHave(userId)
-      .then((seen) => {
-        if (!cancelled) setAlreadyHaveEducationSeen(seen);
+    void Promise.all([
+      groceryEducation.hasSeenAlreadyHave(userId),
+      groceryEducation.hasStartedCartFlow(userId),
+    ])
+      .then(([seen, started]) => {
+        if (!cancelled) {
+          setAlreadyHaveEducationSeen(seen);
+          setCartFlowStarted(started);
+        }
       })
       .catch(() => {
-        if (!cancelled) setAlreadyHaveEducationSeen(true);
+        if (!cancelled) {
+          setAlreadyHaveEducationSeen(true);
+          setCartFlowStarted(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setAlreadyHaveEducationLoaded(true);
@@ -419,6 +431,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
 
   const openFulfillment = async () => {
     if (!list || busy || offline || pendingCount) return;
+    setCartFlowStarted(true);
+    void groceryEducation.markCartFlowStarted(userId).catch(() => undefined);
     setBusy(true);
     try {
       const repository = createGroceryRepository();
@@ -470,13 +484,21 @@ export function GroceryListScreen({ navigation, route }: Props) {
     !list ||
     offline ||
     (list?.status !== 'stale' && fulfillment.disabled);
+  const coachmarkTargetItemId =
+    checklistItems.find((item) => !coveredIds.has(item.id))?.id ?? null;
+  const hasRetailerCartHistory = Boolean(
+    list?.items.some((item) => Boolean(item.retailerCart)),
+  );
   const showAlreadyHaveCoachmark =
+    isFocused &&
     alreadyHaveEducationLoaded &&
     !alreadyHaveEducationSeen &&
+    !cartFlowStarted &&
+    !hasRetailerCartHistory &&
     !capabilityMenuOpen &&
     !showAddDrawer &&
     list?.status !== 'stale' &&
-    checklistItems.length > 0;
+    coachmarkTargetItemId !== null;
   const dismissAlreadyHaveCoachmark = () => {
     setAlreadyHaveEducationSeen(true);
     void groceryEducation.markAlreadyHaveSeen(userId).catch(() => undefined);
@@ -537,6 +559,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
               items={checklistItems}
               checked={coveredIds}
               firstItemTargetRef={firstGroceryItemRef}
+              targetItemId={coachmarkTargetItemId}
               disabled={list.status === 'stale'}
               onToggle={(itemId) => {
                 void toggle(itemId);

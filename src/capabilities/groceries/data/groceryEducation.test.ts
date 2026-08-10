@@ -22,4 +22,13 @@ describe('groceryEducation', () => {
     await expect(groceryEducation.hasSeenAlreadyHave(null)).resolves.toBe(true);
     await expect(groceryEducation.hasSeenAlreadyHave('person-1')).resolves.toBe(false);
   });
+
+  it('remembers when a person has initiated the online cart flow', async () => {
+    await expect(groceryEducation.hasStartedCartFlow('person-1')).resolves.toBe(false);
+
+    await groceryEducation.markCartFlowStarted('person-1');
+
+    await expect(groceryEducation.hasStartedCartFlow('person-1')).resolves.toBe(true);
+    await expect(groceryEducation.hasStartedCartFlow('person-2')).resolves.toBe(false);
+  });
 });
