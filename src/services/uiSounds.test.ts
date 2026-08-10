@@ -2,6 +2,7 @@ const mockPlayers: Array<{
   volume: number;
   seekTo: jest.Mock<Promise<void>, [number]>;
   play: jest.Mock<void, []>;
+  pause: jest.Mock<void, []>;
   remove: jest.Mock<void, []>;
 }> = [];
 
@@ -10,6 +11,7 @@ const mockCreateAudioPlayer = jest.fn(() => {
     volume: 0,
     seekTo: jest.fn(async (_seconds: number) => undefined),
     play: jest.fn(),
+    pause: jest.fn(),
     remove: jest.fn(),
   };
   mockPlayers.push(player);
@@ -54,5 +56,29 @@ describe('UI sounds', () => {
     expect(mockPlayers).toHaveLength(2);
     expect(mockPlayers[0]?.remove).toHaveBeenCalledTimes(1);
     expect(mockPlayers[1]?.remove).toHaveBeenCalledTimes(1);
+  });
+
+  test('replaces an activity sound with one prominent Tiny Crowd cue', async () => {
+    const { playCompletionFeedbackSound } =
+      require('./uiSounds') as typeof import('./uiSounds');
+
+    await playCompletionFeedbackSound('activity');
+    await playCompletionFeedbackSound('tinyCrowdProminent');
+
+    expect(mockPlayers).toHaveLength(2);
+    expect(mockPlayers[0]?.pause).toHaveBeenCalledTimes(1);
+    expect(mockPlayers[1]?.volume).toBeCloseTo(0.78);
+    expect(mockPlayers[1]?.play).toHaveBeenCalledTimes(1);
+  });
+
+  test('reuses Tiny Crowd at a restrained gain for an ordinary streak', async () => {
+    const { playCompletionFeedbackSound } =
+      require('./uiSounds') as typeof import('./uiSounds');
+
+    await playCompletionFeedbackSound('tinyCrowdWarm');
+
+    expect(mockPlayers).toHaveLength(1);
+    expect(mockPlayers[0]?.volume).toBeCloseTo(0.43);
+    expect(mockPlayers[0]?.play).toHaveBeenCalledTimes(1);
   });
 });

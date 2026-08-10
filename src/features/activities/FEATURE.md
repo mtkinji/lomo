@@ -19,6 +19,7 @@ briefs:
   - activity-areas
   - auto-schedule
   - calendar-export-ics
+  - completion-celebration-audio
   - due-date-reminders
   - dynamic-next-best-action
   - focus-mode-education

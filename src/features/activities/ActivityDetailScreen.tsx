@@ -104,7 +104,7 @@ import { listExecutionTargets, type ExecutionTargetRow } from '../../services/ex
 import { handoffActivityToExecutionTarget } from '../../services/executionTargets/activityHandoffs';
 import { getDestinationSupportedActivityTypes } from '../../domain/destinationCapabilities';
 import { HapticsService } from '../../services/HapticsService';
-import { playActivityDoneSound, playStepDoneSound } from '../../services/uiSounds';
+import { willCompleteAllScheduledActivitiesToday } from '../../services/completionFeedbackSoundPolicy';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { styles } from './activityDetailStyles';
 import { ActivityDetailRefresh } from './ActivityDetailRefresh';
@@ -285,6 +285,20 @@ export function ActivityDetailScreen() {
   const hasSeenFocusModeCoachmark = useAppStore((state) => state.hasSeenFocusModeCoachmark);
   const setHasSeenFocusModeCoachmark = useAppStore(
     (state) => state.setHasSeenFocusModeCoachmark,
+  );
+
+  const recordActivityCompletionShowUp = useCallback(
+    (completedActivityId: string, completedAt: string) => {
+      recordShowUpWithCelebration({
+        baseSound: 'activity',
+        allScheduledActivitiesDone: willCompleteAllScheduledActivitiesToday({
+          activities,
+          completingActivityId: completedActivityId,
+          now: new Date(completedAt),
+        }),
+      });
+    },
+    [activities],
   );
   const hasCompletedFirstTimeOnboarding = useAppStore(
     (state) => state.hasCompletedFirstTimeOnboarding,
@@ -1449,7 +1463,7 @@ export function ActivityDetailScreen() {
                 const timestamp = new Date().toISOString();
                 if (desired && !step.completedAt) {
                   // Completing a step counts as "showing up".
-                  recordShowUpWithCelebration();
+                  recordShowUpWithCelebration({ baseSound: 'step' });
                   recordScreenTimeProgress('activity_progress_recorded', new Date(timestamp));
                 }
                 updateActivity(activity.id, (prev) => {
@@ -1583,8 +1597,7 @@ export function ActivityDetailScreen() {
         } else {
           void HapticsService.trigger('outcome.bigSuccess');
         }
-        void playActivityDoneSound();
-        recordShowUpWithCelebration();
+        recordActivityCompletionShowUp(activity.id, timestamp);
         recordScreenTimeProgress('activity_completed', new Date(timestamp));
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activity_detail',
@@ -1638,13 +1651,12 @@ export function ActivityDetailScreen() {
     } else {
       void HapticsService.trigger(willComplete ? 'canvas.step.complete' : 'canvas.step.undo');
     }
-    if (willComplete) {
-      void playStepDoneSound();
-    }
     const completedAt = new Date().toISOString();
     // Marking a step complete is meaningful progress; count it as "showing up".
     if (existing && !existing.completedAt) {
-      recordShowUpWithCelebration();
+      if (!wouldFinishActivity) {
+        recordShowUpWithCelebration({ baseSound: 'step' });
+      }
       recordScreenTimeProgress('activity_progress_recorded', new Date(completedAt));
     }
     applyStepUpdate((steps) =>
@@ -1900,7 +1912,7 @@ export function ActivityDetailScreen() {
       });
       if (!wasCompleted) {
         // Toggling from not-done to done counts as "showing up" for the day.
-        recordShowUpWithCelebration();
+        recordActivityCompletionShowUp(activity.id, timestamp);
         recordScreenTimeProgress('activity_completed', new Date(timestamp));
         if (undoSnapshot) {
           showDirectCompletionUndoToast(undoSnapshot, timestamp);
@@ -1960,7 +1972,7 @@ export function ActivityDetailScreen() {
       };
     });
     if (!wasCompleted) {
-      recordShowUpWithCelebration();
+      recordActivityCompletionShowUp(activity.id, timestamp);
       recordScreenTimeProgress('activity_completed', new Date(timestamp));
       if (undoSnapshot) {
         showDirectCompletionUndoToast(undoSnapshot, timestamp);

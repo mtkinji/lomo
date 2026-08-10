@@ -3,14 +3,13 @@ import { LayoutAnimation } from 'react-native';
 import { useAppStore } from '../../../store/useAppStore';
 import {
   celebrateFirstActivity,
-  celebrateAllActivitiesDone,
   useCelebrationStore,
   recordShowUpWithCelebration,
 } from '../../../store/useCelebrationStore';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
+import { willCompleteAllScheduledActivitiesToday } from '../../../services/completionFeedbackSoundPolicy';
 import { HapticsService } from '../../../services/HapticsService';
-import { playActivityDoneSound } from '../../../services/uiSounds';
 import { createProgressSignal } from '../../../services/progressSignals';
 import { reconcileScreenTimeRestrictions } from '../../../services/screenTimeProtectionRuntime';
 import type { Activity } from '../../../domain/types';
@@ -47,7 +46,6 @@ export function useActivityActions(): UseActivityActionsReturn {
           void HapticsService.trigger(nextIsDone ? 'outcome.bigSuccess' : 'canvas.primary.confirm');
         }
         if (nextIsDone) {
-          void playActivityDoneSound();
           wasFirstCompletion = true;
           // Capture goalId for progress signal
           completedGoalId = activity.goalId ?? null;
@@ -74,8 +72,17 @@ export function useActivityActions(): UseActivityActionsReturn {
 
       // Celebration checks (run after state update settles)
       if (wasFirstCompletion) {
-        // Record the show-up (this also triggers daily streak celebration if milestone)
-        recordShowUpWithCelebration();
+        const allScheduledActivitiesDone = willCompleteAllScheduledActivitiesToday({
+          activities,
+          completingActivityId: activityId,
+          now: new Date(timestamp),
+        });
+
+        // Resolve the completion, streak, and all-done outcome into one sound.
+        recordShowUpWithCelebration({
+          baseSound: 'activity',
+          allScheduledActivitiesDone,
+        });
         useAppStore.getState().recordScreenTimeQualifyingAction({
           action: 'activity_completed',
           occurredAt: new Date(timestamp),
@@ -93,30 +100,6 @@ export function useActivityActions(): UseActivityActionsReturn {
           }
         }
 
-        // Check if all scheduled activities for today are now done
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const todayEnd = new Date(todayStart);
-        todayEnd.setDate(todayEnd.getDate() + 1);
-
-        const todayActivities = activities.filter((a) => {
-          if (!a.scheduledDate) return false;
-          const scheduled = new Date(a.scheduledDate);
-          return scheduled >= todayStart && scheduled < todayEnd;
-        });
-
-        // After this completion, all today's activities are done
-        const remainingIncomplete = todayActivities.filter(
-          (a) => a.id !== activityId && a.status !== 'done' && a.status !== 'skipped' && a.status !== 'cancelled'
-        );
-
-        if (todayActivities.length >= 3 && remainingIncomplete.length === 0) {
-          // All done for today! (only if they had 3+ activities planned)
-          const celebrationId = `all-done-${todayStart.toISOString().slice(0, 10)}`;
-          if (!hasBeenShown(celebrationId)) {
-            setTimeout(() => celebrateAllActivitiesDone(), 800);
-          }
-        }
       }
     },
     [activities, capture, updateActivity],
