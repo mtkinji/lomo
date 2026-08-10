@@ -1272,7 +1272,6 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         chatsError={chatsError}
         displayName={displayName}
         avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
-        moneyLivingLimitEnabled
         onSelectCapability={(id) => {
           const capability = resolveCapabilityNavigation(id);
           capture(AnalyticsEvent.CapabilitySelected, {

@@ -7,8 +7,10 @@ import { CAPABILITY_GROUPS, CAPABILITY_MENU_REGISTRY } from '../capabilities/reg
 import type { CapabilityGroupId, CapabilityMenuDestinationId } from '../capabilities/types';
 import { colors, fonts, spacing, typography } from '../theme';
 import { BrandLockup } from '../ui/BrandLockup';
+import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
+import { ButtonLabel } from '../ui/Typography';
 
 type CapabilityMenuProps = {
   activeCapabilityId: CapabilityMenuDestinationId | null;
@@ -29,7 +31,6 @@ type CapabilityMenuProps = {
   onOpenChat: () => void;
   sharedHomeEnabled?: boolean;
   exploreEnabled?: boolean;
-  moneyLivingLimitEnabled?: boolean;
 };
 
 export type CapabilityMenuChat = {
@@ -57,7 +58,6 @@ export function CapabilityMenu({
   onOpenChat,
   sharedHomeEnabled = false,
   exploreEnabled = false,
-  moneyLivingLimitEnabled = false,
 }: CapabilityMenuProps) {
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<CapabilityGroupId>>(
     () => new Set(CAPABILITY_GROUPS.map(({ id }) => id)),
@@ -77,7 +77,7 @@ export function CapabilityMenu({
     if (!capability || capability.availability !== 'active') return null;
     if (capability.id === 'explore' && !exploreEnabled) return null;
     const selected = activeCapabilityId === capability.id;
-    const label = capability.id === 'money-summary' && moneyLivingLimitEnabled ? 'Budget' : capability.label;
+    const label = capability.label;
 
     return (
       <Pressable
@@ -217,22 +217,23 @@ export function CapabilityMenu({
               accessibilityRole="button"
               accessibilityLabel="Ask Kwilt"
               onPress={onOpenChat}
-              style={({ pressed }) => [styles.chatButton, styles.askButtonSplit, pressed && styles.chatButtonPressed]}
+              style={({ pressed }) => [styles.askButton, styles.askButtonSplit, pressed && styles.chatButtonPressed]}
             >
               <Icon name="navAiGuide" size={17} color={colors.gray50} />
               <Text style={styles.chatButtonLabel}>Ask</Text>
             </Pressable>
           </View>
         ) : (
-          <Pressable
-            accessibilityRole="button"
+          <Button
             accessibilityLabel="Open chat"
             onPress={onOpenChat}
-            style={({ pressed }) => [styles.chatButton, pressed && styles.chatButtonPressed]}
+            variant="primary"
+            size="md"
+            style={styles.chatButton}
           >
             <Icon name="navAiGuide" size={17} color={colors.gray50} />
-            <Text style={styles.chatButtonLabel}>Chat</Text>
-          </Pressable>
+            <ButtonLabel tone="inverse">Chat</ButtonLabel>
+          </Button>
         )}
       </View>
     </View>
@@ -497,6 +498,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray200,
   },
   chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: 22,
+  },
+  askButton: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',

@@ -42,6 +42,7 @@ import { CanvasFlatListWithRef } from '../../ui/layout/CanvasFlatList';
 import type { ActivitiesStackParamList, MainTabsParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { InventoryControlGroup, InventoryControlSurface } from '../../ui/InventoryControlGroup';
 import {
   VStack,
   Heading,
@@ -3021,186 +3022,135 @@ export function ActivitiesScreen() {
                     </Button>
                   </View>
                 )}
-                <View style={styles.toolbarButtonWrapper}>
+                <InventoryControlGroup testID="e2e.activities.toolbar.inventory-controls">
                   {isPro ? (
-                    <>
-                        <Button
-                          ref={filterButtonRef}
-                          variant="outline"
-                          size="small"
-                          onPress={() => setFilterDrawerVisible(true)}
-                          testID="e2e.activities.toolbar.filter"
-                          style={[
-                            styles.toolbarIconButton,
-                            filterCount > 0 ? styles.toolbarCountButtonActive : undefined,
-                          ]}
-                          hitSlop={4}
-                          accessibilityLabel={
-                            filterCount > 0
-                              ? `Filter activities (${filterCount})`
-                              : 'Filter to-dos'
-                          }
-                        >
-                          <HStack alignItems="center" space="xs">
-                            <Icon
-                              name="funnel"
-                              size={14}
-                              color={filterCount > 0 ? colors.primaryForeground : colors.textPrimary}
-                            />
-                            {filterCount > 0 ? (
-                              <Text style={styles.toolbarCountButtonActiveText}>{filterCount}</Text>
-                            ) : null}
-                          </HStack>
-                        </Button>
-                    </>
+                    <Pressable
+                      ref={filterButtonRef}
+                      collapsable={false}
+                      testID="e2e.activities.toolbar.filter"
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        filterCount > 0
+                          ? `Filter activities (${filterCount})`
+                          : 'Filter to-dos'
+                      }
+                      onPress={() => {
+                        void HapticsService.trigger('canvas.selection');
+                        setFilterDrawerVisible(true);
+                      }}
+                      style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
+                    >
+                      <InventoryControlSurface
+                        active={filterCount > 0}
+                        count={filterCount}
+                        iconName="funnel"
+                      />
+                    </Pressable>
                   ) : (
                     <Pressable
+                      ref={filterButtonRef}
+                      collapsable={false}
                       testID="e2e.activities.toolbar.filter"
                       accessibilityRole="button"
                       accessibilityLabel="Filter to-dos (Pro)"
-                      hitSlop={4}
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' })
                       }
+                      style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
                     >
                       <View style={styles.proLockedButton}>
-                        <Button
-                          ref={filterButtonRef}
-                          collapsable={false}
-                          variant="outline"
-                          size="small"
-                          pointerEvents="none"
-                          accessible={false}
-                          style={styles.toolbarIconButton}
-                        >
-                          <Icon name="funnel" size={14} color={colors.textPrimary} />
-                        </Button>
+                        <InventoryControlSurface iconName="funnel" />
                         <View style={styles.proLockedBadge}>
-                          <Icon name="lock" size={10} color={colors.textSecondary} />
+                          <Icon name="lock" size={8} color={colors.textSecondary} />
                         </View>
                       </View>
                     </Pressable>
                   )}
-                </View>
 
-                <View style={styles.toolbarButtonWrapper}>
                   {isPro ? (
-                    <Button
-                      variant="outline"
-                      size="small"
-                      onPress={() => setGroupingDrawerVisible(true)}
+                    <Pressable
                       testID="e2e.activities.toolbar.grouping"
-                      style={[
-                        styles.toolbarIconButton,
-                        appliedGroupingCount > 0 ? styles.toolbarCountButtonActive : undefined,
-                      ]}
-                      hitSlop={4}
+                      accessibilityRole="button"
                       accessibilityLabel={
                         appliedGroupingCount > 0
                           ? `Grouping: ${getActivityGroupingLabel(activeGrouping)}`
                           : 'Group to-dos'
                       }
+                      onPress={() => {
+                        void HapticsService.trigger('canvas.selection');
+                        setGroupingDrawerVisible(true);
+                      }}
+                      style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
                     >
-                      <HStack alignItems="center" space="xs">
-                        <Icon
-                          name="layers"
-                          size={14}
-                          color={appliedGroupingCount > 0 ? colors.primaryForeground : colors.textPrimary}
-                        />
-                        {appliedGroupingCount > 0 ? (
-                          <Text style={styles.toolbarCountButtonActiveText}>1</Text>
-                        ) : null}
-                      </HStack>
-                    </Button>
+                      <InventoryControlSurface
+                        active={appliedGroupingCount > 0}
+                        count={appliedGroupingCount}
+                        iconName="layers"
+                      />
+                    </Pressable>
                   ) : (
                     <Pressable
                       testID="e2e.activities.toolbar.grouping"
                       accessibilityRole="button"
                       accessibilityLabel="Group to-dos (Pro)"
-                      hitSlop={4}
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
                       }
+                      style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
                     >
                       <View style={styles.proLockedButton}>
-                        <Button
-                          variant="outline"
-                          size="small"
-                          pointerEvents="none"
-                          accessible={false}
-                          style={styles.toolbarIconButton}
-                        >
-                          <Icon name="layers" size={14} color={colors.textPrimary} />
-                        </Button>
+                        <InventoryControlSurface iconName="layers" />
                         <View style={styles.proLockedBadge}>
-                          <Icon name="lock" size={10} color={colors.textSecondary} />
+                          <Icon name="lock" size={8} color={colors.textSecondary} />
                         </View>
                       </View>
                     </Pressable>
                   )}
-                </View>
 
-                <View style={styles.toolbarButtonWrapper}>
                   {isPro ? (
-                    <>
-                        <Button
-                          ref={sortButtonRef}
-                          variant="outline"
-                          size="small"
-                          onPress={() => setSortDrawerVisible(true)}
-                          testID="e2e.activities.toolbar.sort"
-                          style={[
-                            styles.toolbarIconButton,
-                            appliedSortCount > 0 ? styles.toolbarCountButtonActive : undefined,
-                          ]}
-                          hitSlop={4}
-                          accessibilityLabel={
-                            appliedSortCount > 0
-                              ? `Sort activities (${appliedSortCount})`
-                              : 'Sort to-dos'
-                          }
-                        >
-                          <HStack alignItems="center" space="xs">
-                            <Icon
-                              name="sort"
-                              size={14}
-                              color={appliedSortCount > 0 ? colors.primaryForeground : colors.textPrimary}
-                            />
-                            {appliedSortCount > 0 ? (
-                              <Text style={styles.toolbarCountButtonActiveText}>{appliedSortCount}</Text>
-                            ) : null}
-                          </HStack>
-                        </Button>
-                    </>
+                    <Pressable
+                      ref={sortButtonRef}
+                      collapsable={false}
+                      testID="e2e.activities.toolbar.sort"
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        appliedSortCount > 0
+                          ? `Sort activities (${appliedSortCount})`
+                          : 'Sort to-dos'
+                      }
+                      onPress={() => {
+                        void HapticsService.trigger('canvas.selection');
+                        setSortDrawerVisible(true);
+                      }}
+                      style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
+                    >
+                      <InventoryControlSurface
+                        active={appliedSortCount > 0}
+                        count={appliedSortCount}
+                        iconName="sort"
+                      />
+                    </Pressable>
                   ) : (
                     <Pressable
+                      ref={sortButtonRef}
+                      collapsable={false}
                       testID="e2e.activities.toolbar.sort"
                       accessibilityRole="button"
                       accessibilityLabel="Sort to-dos (Pro)"
-                      hitSlop={4}
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
                       }
+                      style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
                     >
                       <View style={styles.proLockedButton}>
-                        <Button
-                          ref={sortButtonRef}
-                          collapsable={false}
-                          variant="outline"
-                          size="small"
-                          pointerEvents="none"
-                          accessible={false}
-                          style={styles.toolbarIconButton}
-                        >
-                          <Icon name="sort" size={14} color={colors.textPrimary} />
-                        </Button>
+                        <InventoryControlSurface iconName="sort" />
                         <View style={styles.proLockedBadge}>
-                          <Icon name="lock" size={10} color={colors.textSecondary} />
+                          <Icon name="lock" size={8} color={colors.textSecondary} />
                         </View>
                       </View>
                     </Pressable>
                   )}
-                </View>
+                </InventoryControlGroup>
               </HStack>
             </HStack>
           </View>

@@ -67,11 +67,11 @@ describe('CapabilityMenu', () => {
     expect(getByText('GOALS & PLANS')).toBeTruthy();
     expect(getByText('Goals')).toBeTruthy();
     expect(getByText('To-dos')).toBeTruthy();
-    expect(getByText('Plan')).toBeTruthy();
+    expect(getByText('Plans')).toBeTruthy();
     expect(getByText('Arcs')).toBeTruthy();
     expect(getByText('Chapters')).toBeTruthy();
     expect(getByText('MONEY')).toBeTruthy();
-    expect(getByText('Summary')).toBeTruthy();
+    expect(getByText('Budgets')).toBeTruthy();
     expect(getByText('Transactions')).toBeTruthy();
     expect(getByText('Accounts')).toBeTruthy();
     expect(queryByLabelText('Money')).toBeNull();
@@ -96,17 +96,17 @@ describe('CapabilityMenu', () => {
       />,
     );
 
-    expect(getByLabelText('Summary').props.accessibilityState).toEqual({ selected: true });
+    expect(getByLabelText('Budgets').props.accessibilityState).toEqual({ selected: true });
     fireEvent.press(getByLabelText('Transactions'));
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('money-transactions');
   });
 
-  it('calls the Money summary destination Budget only when the living-limit answer is enabled', () => {
-    const enabled = render(
-      <CapabilityMenu activeCapabilityId="money-summary" displayName="Andy" chats={chats} moneyLivingLimitEnabled {...handlers} />,
+  it('uses the user-facing Budgets name for the Money home destination', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId="money-summary" displayName="Andy" chats={chats} {...handlers} />,
     );
-    expect(enabled.getByLabelText('Budget').props.accessibilityState).toEqual({ selected: true });
-    expect(enabled.queryByLabelText('Summary')).toBeNull();
+    expect(menu.getByLabelText('Budgets').props.accessibilityState).toEqual({ selected: true });
+    expect(menu.queryByLabelText('Summary')).toBeNull();
   });
 
   it('shows Explore only when its feature flag is enabled', () => {
@@ -173,7 +173,7 @@ describe('CapabilityMenu', () => {
     );
 
     expect(getByLabelText('To-dos').props.accessibilityState).toEqual({ selected: true });
-    fireEvent.press(getByLabelText('Plan'));
+    fireEvent.press(getByLabelText('Plans'));
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('plan');
   });
 
@@ -188,6 +188,12 @@ describe('CapabilityMenu', () => {
     expect(StyleSheet.flatten(getByLabelText('Open chat').props.style)?.backgroundColor).toBe(
       colors.sumi900,
     );
+    expect(StyleSheet.flatten(getByLabelText('Open chat').props.style)).toMatchObject({
+      minHeight: 44,
+      paddingHorizontal: 20,
+      gap: 8,
+      borderRadius: 22,
+    });
   });
 
   it('reuses global search and settings and opens durable Chat', () => {

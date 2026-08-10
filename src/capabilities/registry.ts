@@ -11,9 +11,9 @@ import { exploreCapabilityDefinition } from './explore/definition';
 import { gamesCapabilityDefinition } from './games/definition';
 
 export const CAPABILITY_GROUPS = [
-  { id: 'goals-plans', label: 'Goals & Plans' },
   { id: 'money', label: 'Money' },
   { id: 'food', label: 'Food' },
+  { id: 'goals-plans', label: 'Goals & Plans' },
   { id: 'fun', label: 'Fun' },
 ] as const satisfies readonly CapabilityGroupDefinition[];
 
@@ -97,12 +97,13 @@ export const CAPABILITY_REGISTRY = [
 
 function currentCapabilityMenuDestination(
   id: Exclude<CapabilityId, 'money'>,
+  labelOverride?: string,
 ): CapabilityMenuDestinationDefinition {
   const capability = getCapability(id);
   return {
     id,
     ownerId: id,
-    label: capability.label,
+    label: labelOverride ?? capability.label,
     group: capability.group,
     icon: capability.icon,
     availability: capability.availability,
@@ -111,13 +112,13 @@ function currentCapabilityMenuDestination(
 }
 
 export const CAPABILITY_MENU_REGISTRY = [
-  ...(['goals', 'todos', 'plan', 'arcs', 'chapters', 'recipes', 'groceries', 'explore', 'games'] as const).map(
-    currentCapabilityMenuDestination,
+  ...(['arcs', 'goals', 'todos', 'plan', 'chapters', 'recipes', 'groceries', 'explore', 'games'] as const).map(
+    (id) => currentCapabilityMenuDestination(id, id === 'plan' ? 'Plans' : undefined),
   ),
   {
     id: 'money-summary',
     ownerId: 'money',
-    label: 'Summary',
+    label: 'Budgets',
     group: 'money',
     icon: 'gauge',
     availability: 'active',

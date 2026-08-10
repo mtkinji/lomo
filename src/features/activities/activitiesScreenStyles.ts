@@ -114,29 +114,19 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 12,
   },
-  toolbarCountButtonActive: {
-    // "Applied" state for Filter/Sort buttons: whole control goes pine700 and
-    // the count is rendered inside the button (no floating badge).
-    backgroundColor: colors.pine700,
-    borderColor: colors.pine700,
-  },
-  toolbarCountButtonActiveText: {
-    fontSize: 12,
-    lineHeight: 14,
-    fontFamily: fonts.semibold,
-    color: colors.primaryForeground,
-    textAlign: 'center',
+  inventoryControlPressed: {
+    opacity: 0.72,
   },
   proLockedButton: {
     position: 'relative',
   },
   proLockedBadge: {
     position: 'absolute',
-    right: -4,
-    top: -4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    right: 2,
+    top: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: colors.canvas,
     borderWidth: 1,
     borderColor: colors.border,
