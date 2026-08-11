@@ -13,7 +13,7 @@ import { loadPlanAgentContext } from '../../services/plan/loadPlanAgentContext';
 import { getKwiltCalendarBlocksForDay } from '../../services/plan/kwiltCalendarBlocks';
 import type { MoneySnapshot } from '../../capabilities/money/data/moneySnapshot';
 import type { UnifiedChatTurnContract } from './turnContract';
-import { getUnifiedChatProgressCopy } from './chatProgress';
+import { getEvidenceProgressCopy, getUnifiedChatProgressCopy } from './chatProgress';
 
 type ContextRepository = Pick<
   UnifiedChatRepository,
@@ -193,6 +193,7 @@ export async function authorizeUnifiedChatContextPhase(
     sources,
     explicitContextObjectIds: input.activeContext.map((item) => item.objectId),
     actionContract: input.turnContract.action,
+    evidenceScope: input.turnContract.evidenceScope,
   });
 
   await input.repository.appendRunEvents({
@@ -219,7 +220,7 @@ export async function authorizeUnifiedChatContextPhase(
         label: input.turnAttachments.length > 0
           ? `Inspected ${input.turnAttachments.length} attached ${input.turnAttachments.length === 1 ? 'item' : 'items'}`
           : input.requestPolicy.usePrivateContext
-            ? `Checked ${context.coverage.includedCount} relevant Kwilt ${context.coverage.includedCount === 1 ? 'record' : 'records'}`
+            ? getEvidenceProgressCopy(context.evidence)
             : 'No personal records needed',
         detail: input.turnAttachments.length > 0
           ? [
@@ -236,7 +237,7 @@ export async function authorizeUnifiedChatContextPhase(
         status: 'active',
         visibility: 'user',
         label: getUnifiedChatProgressCopy({
-          phase: 'drafting',
+          phase: input.turnContract.responseContract === 'evidence_linked' ? 'analyzing' : 'drafting',
           participatingCapabilities: input.requestPolicy.participatingCapabilities,
         }),
       },

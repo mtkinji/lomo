@@ -19,6 +19,9 @@ const dentistJudgment: AgentJudgment = {
   participatingCapabilities: ['todos'],
   usePrivateContext: false,
   informationNeed: 'stable',
+  authorization: 'explicit_request',
+  evidenceScope: 'none',
+  responseContract: 'direct',
   executionMode: 'single_tool',
   constraints: [
     { kind: 'title', sourceText: 'Call the dentist', normalizedValue: 'Call the dentist' },
@@ -64,7 +67,7 @@ describe('planUnifiedChatTurnPhase agent judgment', () => {
     });
     expect(result.judgmentSource).toBe('model');
     expect(result.turnContract).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       userJob: 'Remember to call the dentist on the requested date',
       desiredOutcome: 'A dated call Activity exists',
       constraints: ['Call the dentist', 'August 5'],
@@ -116,6 +119,64 @@ describe('planUnifiedChatTurnPhase agent judgment', () => {
 
     expect(result.judgmentSource).toBe('model');
     expect(routeRequest).not.toHaveBeenCalled();
+  });
+
+  it('uses one bounded budget across judgment and semantic fallback', async () => {
+    const requestJudgment = jest.fn(({ signal }: { signal?: AbortSignal }) =>
+      new Promise<null>((resolve) => signal?.addEventListener('abort', () => resolve(null), { once: true })));
+    const routeRequest = jest.fn(async () => null);
+
+    const result = await plan({
+      prompt: 'What should I work on tomorrow?',
+      planningBudgetMs: 10,
+      requestJudgment,
+      routeRequest,
+    });
+
+    expect(requestJudgment).toHaveBeenCalledTimes(1);
+    expect(routeRequest).not.toHaveBeenCalled();
+    expect(result.judgmentSource).toBe('deterministic_fallback');
+    expect(result.requestPolicy).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['plan'],
+    });
+  });
+
+  it('lets a coherent read-only judgment override an action-like lexical Money guess', async () => {
+    const prompt = 'Look into my budgets and transactions. What additional budgets or changes to my existing budgets might I make for a better budget system?';
+    const moneyReviewJudgment: AgentJudgment = {
+      ...dentistJudgment,
+      userJob: 'Assess whether the current budget system fits the user’s spending patterns',
+      desiredOutcome: 'Evidence-linked recommendations without changing Money records',
+      requestClass: 'capability_question',
+      participatingCapabilities: ['money'],
+      usePrivateContext: true,
+      authorization: 'none',
+      evidenceScope: 'broad',
+      responseContract: 'evidence_linked',
+      executionMode: 'single_tool',
+      constraints: [],
+      steps: [{ sequence: 1, objective: 'Read the current Money system', toolId: 'money.read', dependsOn: null }],
+      reason: 'The user requested analysis and recommendations, not a mutation.',
+    };
+
+    const result = await plan({ prompt, requestJudgment: async () => moneyReviewJudgment });
+
+    expect(result.judgmentSource).toBe('model');
+    expect(result.requestPolicy).toMatchObject({
+      requestClass: 'capability_question', participatingCapabilities: ['money'], usePrivateContext: true,
+    });
+    expect(result.turnContract).toMatchObject({
+      authorization: 'none', evidenceScope: 'broad', responseContract: 'evidence_linked', action: null,
+    });
+  });
+
+  it('rejects a write plan that has no interpreted action authority', async () => {
+    const unauthorized = { ...dentistJudgment, authorization: 'none' as const };
+    const result = await plan({ requestJudgment: async () => unauthorized });
+
+    expect(result.agentJudgment).toBeNull();
+    expect(result.judgmentSource).not.toBe('model');
   });
 
   it('rejects an action judgment whose plan contains no write tool', async () => {

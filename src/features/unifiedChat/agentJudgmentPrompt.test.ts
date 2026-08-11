@@ -57,6 +57,10 @@ describe('buildAgentJudgmentPrompt', () => {
       'Preserve every explicit date, time, recurrence, amount, title, and named target as a constraint.',
       'Ask one question only when a missing answer blocks safe progress.',
       'Treat clear acceptance of concrete suggestions from the recent dialogue as an action request.',
+      'Questions, recommendations, hypotheticals, reviews, and suggestions have authorization=none and must use only read tools.',
+      'Use authorization=explicit_request only for an explicit instruction to change something.',
+      'Use evidenceScope=broad for a system review or pattern comparison that needs more than a few matching records.',
+      'Use responseContract=evidence_linked whenever private evidence materially supports the answer.',
       'Do not claim or perform an action.',
     ];
     const prompt = buildAgentJudgmentPrompt({

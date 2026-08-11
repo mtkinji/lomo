@@ -190,6 +190,7 @@ type BottomDrawerProps = {
 
 type BottomDrawerContextValue = {
   scrollY: SharedValue<number>;
+  expansionProgress: SharedValue<number>;
   setScrollableGesture: (gesture: ReturnType<typeof Gesture.Native> | null) => void;
 };
 
@@ -201,6 +202,61 @@ function useBottomDrawerContext() {
     throw new Error('BottomDrawerScrollView/FlatList must be used inside BottomDrawer.');
   }
   return ctx;
+}
+
+export function getBottomDrawerExpansionOpacity({
+  progress,
+  from,
+  to,
+  minimumOpacity = 0,
+}: {
+  progress: number;
+  from: number;
+  to: number;
+  minimumOpacity?: number;
+}): number {
+  'worklet';
+  const floor = Math.min(1, Math.max(0, minimumOpacity));
+  if (to <= from) return progress >= to ? 1 : floor;
+  const revealProgress = Math.min(1, Math.max(0, (progress - from) / (to - from)));
+  return floor + revealProgress * (1 - floor);
+}
+
+export function BottomDrawerExpansionFade({
+  children,
+  hidden = false,
+  from = 0.09,
+  to = 0.28,
+  minimumOpacity = 0,
+  style,
+}: {
+  children: ReactNode;
+  hidden?: boolean;
+  from?: number;
+  to?: number;
+  minimumOpacity?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const { expansionProgress } = useBottomDrawerContext();
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: getBottomDrawerExpansionOpacity({
+      progress: expansionProgress.value,
+      from,
+      to,
+      minimumOpacity,
+    }),
+  }), [from, minimumOpacity, to]);
+
+  return (
+    <Animated.View
+      pointerEvents={hidden ? 'none' : 'auto'}
+      accessibilityElementsHidden={hidden}
+      importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
+      style={[style, animatedStyle]}
+    >
+      {children}
+    </Animated.View>
+  );
 }
 
 const DEFAULT_SNAP_POINTS: BottomDrawerSnapPoint[] = ['85%'];
@@ -331,6 +387,10 @@ export function BottomDrawer({
   // Height drives snap points. The drawer itself is bottom-anchored; we avoid
   // animating to absolute "screen Y" positions which can be fragile when layout changes.
   const sheetHeight = useSharedValue(0);
+  const expansionProgress = useDerivedValue(() => {
+    const range = Math.max(maxSnapHeight - minSnapHeight, 1);
+    return clamp((sheetHeight.value - minSnapHeight) / range, 0, 1);
+  }, [maxSnapHeight, minSnapHeight]);
   // translateY is used only for the close animation (slide down off-screen).
   const translateY = useSharedValue(0);
   const isAnimating = useSharedValue(false);
@@ -717,7 +777,7 @@ export function BottomDrawer({
   // Keyboard behavior guidance:
   // - `docs/keyboard-input-safety-implementation.md`
   const body = (
-    <BottomDrawerContext.Provider value={{ scrollY, setScrollableGesture }}>
+    <BottomDrawerContext.Provider value={{ scrollY, expansionProgress, setScrollableGesture }}>
       {shouldLiftAboveKeyboard ? (
         <KeyboardAvoidingView
           // Important: BottomDrawer hosts inputs inside a modal-like overlay.

@@ -7,6 +7,7 @@ import type {
 } from './capabilityContracts';
 import type { UnifiedChatRequestPolicy } from './requestPolicy';
 import type { UnifiedChatTurnActionContract } from './turnContract';
+import type { AgentJudgmentEvidenceScope } from './agentJudgment';
 
 const STOP_WORDS = new Set([
   'and',
@@ -71,6 +72,7 @@ export function buildRunContext({
   sources,
   explicitContextObjectIds = [],
   actionContract,
+  evidenceScope = policy.usePrivateContext ? 'focused' : 'none',
   maxEvidence,
   maxPerCapability,
   now = new Date(),
@@ -80,6 +82,7 @@ export function buildRunContext({
   sources: readonly CapabilityEvidenceSource[];
   explicitContextObjectIds?: readonly string[];
   actionContract?: UnifiedChatTurnActionContract | null;
+  evidenceScope?: AgentJudgmentEvidenceScope;
   maxEvidence?: number;
   maxPerCapability?: number;
   now?: Date;
@@ -104,6 +107,7 @@ export function buildRunContext({
   const isAllMatching =
     policy.requestClass === 'capability_action' &&
     actionContract?.targetScope === 'all_matching';
+  const isBroadReview = evidenceScope === 'broad' && !isAllMatching;
   const participatingSources = sources.filter((source) => participating.has(source.capabilityId));
   const targetQueryTokens = tokens(actionContract?.targetQuery ?? prompt);
   const typeOverlap = new Map<string, number>();
@@ -137,8 +141,12 @@ export function buildRunContext({
       : contentMatches.length > 0
         ? contentMatches
         : participatingSources;
-  const evidenceBudget = maxEvidence ?? (isAllMatching ? considered.length : 6);
-  const perCapabilityBudget = maxPerCapability ?? (isAllMatching ? considered.length : 3);
+  const evidenceBudget = maxEvidence ?? (isAllMatching ? considered.length : isBroadReview ? 120 : 6);
+  const perCapabilityBudget = maxPerCapability ?? (isAllMatching
+    ? considered.length
+    : isBroadReview
+      ? Math.max(12, Math.ceil(120 / Math.max(1, participating.size)))
+      : 3);
   const ranked = considered.map((source) => {
     const isExplicit = explicit.has(source.object.id);
     const overlap = overlapCount(promptTokens, source);
@@ -165,7 +173,7 @@ export function buildRunContext({
   for (const candidate of ranked) {
     const { source } = candidate;
     const capabilityCount = perCapability.get(source.capabilityId) ?? 0;
-    if (!candidate.isExplicit && candidate.overlap === 0 && !isAllMatching) {
+    if (!candidate.isExplicit && candidate.overlap === 0 && !isAllMatching && !isBroadReview) {
       omissions.push({
         capabilityId: source.capabilityId,
         objectType: source.object.type,
@@ -218,6 +226,8 @@ export function buildRunContext({
         ? 'Visible context explicitly attached to this request.'
         : isAllMatching
           ? 'Included in the complete matching target set.'
+          : isBroadReview
+            ? 'Included in the authorized broad capability review.'
         : `Matched ${candidate.overlap} material request ${candidate.overlap === 1 ? 'term' : 'terms'}.`,
       sufficient: true,
     });

@@ -2,7 +2,7 @@ id: unified-chat
 brief: docs/feature-briefs/unified-chat.md
 job_flow: job-flow-nina-trust-ai-with-my-life-system
 job_flow_source: docs/job-flows/nina-trust-ai-with-my-life-system.md
-last_reviewed: 2026-08-01
+last_reviewed: 2026-08-11
 scale:
   1: mostly absent or represented only by strategy
   2: partial local behavior without the durable trust contract
@@ -32,7 +32,7 @@ steps:
   - id: 2
     name: Express intent in ordinary language
     score: 3
-    gap: A bounded Luna judgment layer now preserves job, outcome, constraints, tool choice, and plan shape in source tests. A durable Turn Contract additionally preserves capability, generic target scope and query, constraints, and correction or retry referents. Cross-capability tests prove all-matching composition without bulk-action registration. Dogfood still records an ignored date and unreliable generation; live Luna, deployed proxy, signed simulator, and physical-device date, correction, retry, and multi-tool proof remain open.
+    gap: A bounded Luna judgment layer now preserves job, outcome, constraints, action authority, tool choice, evidence scope, response contract, and plan shape in source tests. A durable Turn Contract additionally preserves those decisions with capability, generic target scope and query, constraints, and correction or retry referents. Behavioral families replace one-off incident routing, while cross-capability tests prove all-matching composition without bulk-action registration. Dogfood still records ignored intent and unreliable generation; live Luna, deployed proxy, signed Simulator, and physical-device analysis/action, date, correction, retry, broad-evidence, and multi-tool proof remain open.
     code:
       - src/features/unifiedChat/runUnifiedChatTurn.ts
       - src/features/unifiedChat/agentJudgment.ts
@@ -58,6 +58,7 @@ steps:
       - src/features/unifiedChat/requestAgentJudgment.test.ts
       - src/features/unifiedChat/turnPlanningPhase.test.ts
       - src/features/unifiedChat/agentJudgmentEvalCases.test.ts
+      - src/features/unifiedChat/unifiedChatBehaviorEvalCases.test.ts
       - src/features/unifiedChat/requestPolicy.test.ts
       - src/features/unifiedChat/requestRoutingEvalCases.test.ts
       - src/features/unifiedChat/typedTurnControl.test.ts

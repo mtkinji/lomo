@@ -7,13 +7,16 @@ import type { BuiltRunContext } from './capabilityContracts';
 import type { UnifiedChatTurnContract } from './turnContract';
 
 const contract: UnifiedChatTurnContract = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   userJob: 'Rename every Money category',
   desiredOutcome: 'Every category name begins with an emoji',
   constraints: ['emoji at the beginning'],
   requestClass: 'capability_action',
   participatingCapabilities: ['money'],
   usePrivateContext: true,
+  authorization: 'explicit_request',
+  evidenceScope: 'broad',
+  responseContract: 'evidence_linked',
   action: {
     operationIds: ['money.category.rename'], targetScope: 'all_matching',
     targetQuery: 'Add an emoji to every category.',

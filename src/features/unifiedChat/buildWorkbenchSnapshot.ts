@@ -515,6 +515,9 @@ export function buildWorkbenchSnapshot(
       (proposal) => !compactCreateProposals.has(proposal.id),
     ).map((proposal) => {
       const { expectedUpdatedAt: _expectedUpdatedAt, ...fields } = proposal.operation.payload as Record<string, unknown>;
+      const currentTargetLabel = proposal.operation.targetId
+        ? visibleEvidence.find((item) => item.objectId === proposal.operation.targetId)?.label
+        : null;
       const visibleFields = proposal.capabilityId === 'screenTime'
         ? proposal.operation.type === 'create_family_screen_time_prerequisite_agreement'
           ? {
@@ -528,7 +531,9 @@ export function buildWorkbenchSnapshot(
               targetCount: proposal.operation.payload.targets.length,
             }
         : proposal.capabilityId !== 'plan'
-        ? fields
+        ? proposal.operation.type === 'update_activity' && currentTargetLabel
+          ? { ...fields, currentTitle: currentTargetLabel }
+          : fields
         : proposal.operation.type === 'remove_activity_from_plan'
           ? {
               action: 'remove',

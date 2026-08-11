@@ -6,6 +6,8 @@ import {
   getTimelineScrollOffsetToFocusSlot,
   getTimelineScrollOffsetForSlot,
   getTimelineScrollOffsetToRevealSlot,
+  getTimelineEdgeAutoScrollDelta,
+  getEffectiveSlotDragTranslation,
   minutesForTimelineTranslation,
   snapMinutesToStep,
 } from './planSlotDraft';
@@ -180,6 +182,39 @@ describe('planSlotDraft', () => {
         margin: 24,
       }),
     ).toBeNull();
+  });
+
+  it('scrolls the timeline when a drag reaches an uncovered viewport edge', () => {
+    expect(getTimelineEdgeAutoScrollDelta({
+      pointerY: 680,
+      viewportTop: 100,
+      viewportHeight: 700,
+      bottomOverlayInset: 120,
+      edgeThreshold: 48,
+      step: 12,
+    })).toBe(12);
+    expect(getTimelineEdgeAutoScrollDelta({
+      pointerY: 120,
+      viewportTop: 100,
+      viewportHeight: 700,
+      bottomOverlayInset: 120,
+      edgeThreshold: 48,
+      step: 12,
+    })).toBe(-12);
+    expect(getTimelineEdgeAutoScrollDelta({
+      pointerY: 400,
+      viewportTop: 100,
+      viewportHeight: 700,
+      bottomOverlayInset: 120,
+    })).toBe(0);
+  });
+
+  it('keeps a dragged slot under the finger when edge scrolling moves the timeline', () => {
+    expect(getEffectiveSlotDragTranslation({
+      translationY: 80,
+      scrollOffsetAtStart: 200,
+      currentScrollOffset: 248,
+    })).toBe(128);
   });
 
   it('does not move the timeline when the slot is already uncovered', () => {

@@ -113,6 +113,9 @@ describe('agent judgment execution', () => {
     participatingCapabilities: ['todos' as const],
     usePrivateContext: false,
     informationNeed: 'stable' as const,
+    authorization: 'explicit_request' as const,
+    evidenceScope: 'none' as const,
+    responseContract: 'direct' as const,
     executionMode: 'single_tool' as const,
     constraints: [
       { kind: 'title' as const, sourceText: 'Call the dentist', normalizedValue: 'Call the dentist' },
@@ -977,7 +980,7 @@ describe('runUnifiedChatTurn', () => {
     expect(assistantInsert?.body).not.toContain('most leverage');
   });
 
-  test('persists one atomic Plan proposal for every placed recommendation', async () => {
+  test('keeps placed Plan recommendations informational until an explicit follow-up', async () => {
     const { repository, send } = dependencies(jest.fn(async () => structuredGroundedAnswer));
     const writeCalendarRef = { provider: 'google' as const, accountId: 'account-1', calendarId: 'primary' };
     const loadCapabilitySnapshots = jest.fn(async () => ({
@@ -1010,14 +1013,10 @@ describe('runUnifiedChatTurn', () => {
       { repository: repository as never, sendCoachChat: send as never, loadCapabilitySnapshots },
     );
 
-    expect(repository.createProposal).toHaveBeenCalledTimes(2);
-    expect(repository.createProposal).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      capabilityId: 'plan', title: 'Call the school',
-      operation: expect.objectContaining({
-        type: 'schedule_activity', targetId: 'activity-school',
-        idempotencyKey: 'unified-chat:run-1:plan:activity-school',
-        payload: expect.objectContaining({ writeCalendarRef, targetDateKey: '2026-07-24' }),
-      }),
+    expect(repository.createProposal).not.toHaveBeenCalled();
+    expect(repository.insertMessage).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'assistant',
+      body: expect.stringContaining('If you want, I can prepare these placements for review.'),
     }));
   });
 
@@ -1846,6 +1845,59 @@ describe('runUnifiedChatTurn', () => {
       runId: 'run-1', fromStatus: 'active', toStatus: 'stopped', expectedVersion: 1,
       errorCode: null, errorMessage: null,
       stopRequestedAt: expect.any(String),
+    }));
+  });
+
+  test('durably stops during planning even when the judgment request ignores its signal', async () => {
+    const controller = new AbortController();
+    const requestJudgment = jest.fn(() => {
+      controller.abort();
+      return new Promise<never>(() => undefined);
+    });
+    const { repository, send } = dependencies();
+
+    await expect(runUnifiedChatTurn(
+      {
+        aggregate: startingAggregate,
+        prompt: 'Review my priorities and suggest what I should do tomorrow.',
+        signal: controller.signal,
+      },
+      { repository: repository as never, sendCoachChat: send as never, requestJudgment },
+    )).rejects.toThrow('Response stopped.');
+
+    expect(repository.transitionRunStatus).toHaveBeenCalledWith(expect.objectContaining({
+      runId: 'run-1', fromStatus: 'active', toStatus: 'stopped', expectedVersion: 1,
+      errorCode: null, errorMessage: null,
+      stopRequestedAt: expect.any(String),
+    }));
+  });
+
+  test('durably records a steer that interrupts planning', async () => {
+    const controller = new AbortController();
+    const requestJudgment = jest.fn(async ({ signal }: { signal?: AbortSignal }) => {
+      controller.abort();
+      expect(signal?.aborted).toBe(true);
+      throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    });
+    const { repository, send } = dependencies();
+
+    await expect(runUnifiedChatTurn(
+      {
+        aggregate: startingAggregate,
+        prompt: 'Review my priorities and suggest what I should do tomorrow.',
+        signal: controller.signal,
+        abortDisposition: () => ({ type: 'steer', prompt: 'Only consider Friday.' }),
+      },
+      { repository: repository as never, sendCoachChat: send as never, requestJudgment },
+    )).rejects.toThrow('Response steered.');
+
+    expect(repository.transitionRunStatus).toHaveBeenCalledWith(expect.objectContaining({
+      runId: 'run-1', fromStatus: 'active', toStatus: 'steered', expectedVersion: 1,
+      steerCount: 1,
+      event: expect.objectContaining({
+        type: 'instruction', label: 'Direction updated',
+        payload: { prompt: 'Only consider Friday.' },
+      }),
     }));
   });
 

@@ -13,6 +13,7 @@ import { useToastStore } from '../../store/useToastStore';
 import { ActivityEventPeek } from './ActivityEventPeek';
 
 const mockCapture = jest.fn();
+const mockExpansionFadeProps: Array<Record<string, unknown>> = [];
 
 jest.mock('../../services/analytics/useAnalytics', () => ({
   useAnalytics: () => ({ capture: mockCapture }),
@@ -34,8 +35,24 @@ jest.mock('../activities/ActivityPeekFields', () => {
   const React = require('react');
   const { Text, View } = require('react-native');
   return {
-    ActivityPeekSteps: ({ activity }: { activity: { steps?: unknown[] | null } }) =>
-      React.createElement(View, null, React.createElement(Text, null, `${activity.steps?.length ?? 0} steps`)),
+    ActivityPeekSteps: ({
+      activity,
+      maxItems,
+      incompleteOnly,
+    }: {
+      activity: { steps?: Array<{ id: string; title: string; completedAt?: string | null }> | null };
+      maxItems?: number;
+      incompleteOnly?: boolean;
+    }) => {
+      const steps = (activity.steps ?? [])
+        .filter((step) => !incompleteOnly || !step.completedAt)
+        .slice(0, maxItems);
+      return React.createElement(
+        View,
+        null,
+        ...steps.map((step) => React.createElement(Text, { key: step.id }, step.title)),
+      );
+    },
     ActivityPeekNotes: () => null,
     ActivityPeekTags: () => null,
   };
@@ -43,15 +60,20 @@ jest.mock('../activities/ActivityPeekFields', () => {
 
 jest.mock('../../ui/BottomDrawer', () => {
   const React = require('react');
-  const { ScrollView } = require('react-native');
+  const { ScrollView, View } = require('react-native');
   return {
     BottomDrawerScrollView: ({ children, ...rest }: { children?: React.ReactNode } & Record<string, unknown>) =>
       React.createElement(ScrollView, rest, children),
+    BottomDrawerExpansionFade: ({ children, ...props }: { children?: React.ReactNode } & Record<string, unknown>) => {
+      mockExpansionFadeProps.push(props);
+      return React.createElement(View, null, children);
+    },
   };
 });
 
 const baseProps = {
   activityId: 'act-1',
+  sessionId: 'session-1',
   start: new Date('2026-07-09T06:00:00.000-06:00'),
   end: new Date('2026-07-09T06:30:00.000-06:00'),
   onOpenFocus: jest.fn(),
@@ -66,6 +88,7 @@ describe('ActivityEventPeek completion action', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockExpansionFadeProps.length = 0;
     resetAllStores();
   });
 
@@ -75,7 +98,10 @@ describe('ActivityEventPeek completion action', () => {
       activities: [activityFixture({ id: 'act-1', title: 'Test', status: 'planned' })],
     });
 
-    const { getByText } = renderWithProviders(<ActivityEventPeek {...baseProps} />);
+    const { getByText, queryByText, queryByLabelText } = renderWithProviders(<ActivityEventPeek {...baseProps} />);
+
+    expect(queryByText('Scheduled')).toBeNull();
+    expect(queryByLabelText('Close')).toBeNull();
 
     expect(getByText('Close this block')).toBeTruthy();
     fireEvent.press(getByText('Mark complete'));
@@ -101,6 +127,42 @@ describe('ActivityEventPeek completion action', () => {
     expect(restored?.status).toBe('planned');
     expect(restored?.completedAt).toBeNull();
     expect(baseProps.onOpenFullActivity).not.toHaveBeenCalled();
+  });
+
+  it('removes duplicated identity and move chrome when embedded below the session peek', () => {
+    seedDomain({
+      goals: [goalFixture()],
+      activities: [activityFixture({ id: 'act-1', title: 'Test', status: 'planned' })],
+    });
+
+    const { queryByText, getByText } = renderWithProviders(
+      <ActivityEventPeek {...baseProps} embedded />,
+    );
+
+    expect(queryByText('Test')).toBeNull();
+    expect(queryByText('6:00 AM - 6:30 AM')).toBeNull();
+    expect(queryByText('Move')).toBeNull();
+    expect(getByText('Start Focus')).toBeTruthy();
+  });
+
+  it('renders one continuous embedded drawer with focus before management actions', () => {
+    seedDomain({
+      goals: [goalFixture()],
+      activities: [activityFixture({ id: 'act-1', title: 'Test', status: 'planned' })],
+    });
+
+    const { getByText } = renderWithProviders(
+      <ActivityEventPeek {...baseProps} embedded />,
+    );
+
+    expect(getByText('Open')).toBeTruthy();
+    expect(getByText('Mark complete')).toBeTruthy();
+    expect(getByText('Unschedule')).toBeTruthy();
+    expect(mockExpansionFadeProps.at(-1)).toMatchObject({
+      from: 0.17,
+      to: 0.34,
+      minimumOpacity: 0.1,
+    });
   });
 
   it('finishes remaining steps from the scheduled activity drawer', () => {

@@ -2,6 +2,7 @@ import type { AgentJudgment } from './agentJudgment';
 import {
   buildUnifiedChatTurnContract,
   classifyTurnReference,
+  parseUnifiedChatTurnContract,
   resolveLatestTurnContract,
 } from './turnContract';
 import type { UnifiedChatThreadAggregate } from './types';
@@ -14,6 +15,9 @@ const moneyJudgment: AgentJudgment = {
   participatingCapabilities: ['money'],
   usePrivateContext: true,
   informationNeed: 'stable',
+  authorization: 'explicit_request',
+  evidenceScope: 'broad',
+  responseContract: 'evidence_linked',
   executionMode: 'single_tool',
   constraints: [{
     kind: 'other', sourceText: 'emoji at the beginning', normalizedValue: 'emoji_prefix',
@@ -42,13 +46,16 @@ describe('Unified Chat Turn Contract', () => {
       agentJudgment: moneyJudgment,
       previous: null,
     })).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       userJob: 'Give every Money category a recognizable emoji',
       desiredOutcome: 'Every category name begins with a suitable emoji',
       constraints: ['emoji at the beginning'],
       requestClass: 'capability_action',
       participatingCapabilities: ['money'],
       usePrivateContext: true,
+      authorization: 'explicit_request',
+      evidenceScope: 'broad',
+      responseContract: 'evidence_linked',
       action: {
         operationIds: ['money.category.rename'],
         targetScope: 'all_matching',
@@ -56,6 +63,48 @@ describe('Unified Chat Turn Contract', () => {
       },
       referent: null,
     });
+  });
+
+  test('reads a version-one contract with safe analysis defaults', () => {
+    expect(parseUnifiedChatTurnContract({
+      schemaVersion: 1,
+      userJob: 'Review my current plan',
+      desiredOutcome: 'Explain what needs attention',
+      constraints: [],
+      requestClass: 'capability_question',
+      participatingCapabilities: ['plan'],
+      usePrivateContext: true,
+      action: null,
+      referent: null,
+    })).toMatchObject({
+      schemaVersion: 2,
+      authorization: 'none',
+      evidenceScope: 'focused',
+      responseContract: 'evidence_linked',
+    });
+  });
+
+  test.each([
+    ['read-only turn with action authority', { authorization: 'explicit_request' }],
+    ['action turn without authority', { authorization: 'none' }],
+    ['private turn without evidence', { evidenceScope: 'none' }],
+    ['private turn with a direct response', { responseContract: 'direct' }],
+  ])('rejects an incoherent version-two contract: %s', (_label, override) => {
+    const base = buildUnifiedChatTurnContract({
+      prompt: 'Add an emoji to every Money category.',
+      requestPolicy: moneyPolicy,
+      agentJudgment: moneyJudgment,
+      previous: null,
+    });
+    const candidate = {
+      ...base,
+      ...override,
+      ...('authorization' in override && override.authorization === 'explicit_request'
+        ? { requestClass: 'capability_question', action: null }
+        : {}),
+    };
+
+    expect(parseUnifiedChatTurnContract(candidate)).toBeNull();
   });
 
   test.each([

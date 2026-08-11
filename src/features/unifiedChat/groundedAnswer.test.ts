@@ -1,4 +1,5 @@
 import { formatGroundedAnswer, GROUNDED_ANSWER_RESPONSE_FORMAT, parseGroundedAnswer } from './groundedAnswer';
+import { buildTurnResponseGrounding } from './turnExecutionPhase';
 
 test('uses the Chat Completions JSON-schema envelope expected by the Kwilt proxy', () => {
   expect(GROUNDED_ANSWER_RESPONSE_FORMAT).toEqual(expect.objectContaining({
@@ -28,4 +29,14 @@ test('rejects malformed or internal-only grounded answers', () => {
   expect(parseGroundedAnswer(JSON.stringify({
     answer: '<think>secret</think>', facts: ['Known'], inference: null, uncertainty: 'Limited',
   }))).toBeNull();
+});
+
+test('grounds an evidence-linked review in explanation without authorizing a mutation', () => {
+  const grounding = buildTurnResponseGrounding({
+    authorization: 'none', evidenceScope: 'broad', responseContract: 'evidence_linked',
+  });
+
+  expect(grounding).toContain('material observations');
+  expect(grounding).toContain('observation from inference');
+  expect(grounding).toContain('no action authority');
 });

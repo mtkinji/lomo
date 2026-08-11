@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, type TextInput } from 'react-native';
 import {
   BottomDrawer,
@@ -10,14 +10,24 @@ import { PlanRecsPage, type PlanUnplacedPriorityItem } from './PlanRecsPage';
 import { PlanSlotCapturePage, type PlanSlotCaptureModel } from './PlanSlotCapturePage';
 import { ActivityEventPeek, type ActivityEventPeekModel } from './ActivityEventPeek';
 import { ExternalEventPeek, type ExternalEventPeekModel } from './ExternalEventPeek';
+import { PlanSessionEditPage, type PlanSessionEditModel } from './PlanSessionEditPage';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import type { QuickAddAiAction } from '../activities/useQuickAddDockController';
 
-export type PlanDrawerMode = 'recs' | 'activity' | 'external' | 'slotCapture';
+export type PlanDrawerMode = 'recs' | 'activity' | 'external' | 'slotCapture' | 'sessionEdit';
 
 const PLAN_SLOT_DRAWER_COMPACT_SNAP_POINT: BottomDrawerSnapPoint = '56%';
+const PLAN_SLOT_DRAWER_DRAG_SNAP_POINT: BottomDrawerSnapPoint = '18%';
 export const PLAN_SLOT_DRAWER_COMPACT_HEIGHT_RATIO =
   Number.parseFloat(PLAN_SLOT_DRAWER_COMPACT_SNAP_POINT) / 100;
+export const PLAN_SLOT_DRAWER_DRAG_HEIGHT_RATIO =
+  Number.parseFloat(PLAN_SLOT_DRAWER_DRAG_SNAP_POINT) / 100;
+const PLAN_SESSION_EDIT_DRAWER_COMPACT_SNAP_POINT: BottomDrawerSnapPoint = '25%';
+const PLAN_SESSION_EDIT_DRAWER_DRAG_SNAP_POINT: BottomDrawerSnapPoint = '14%';
+export const PLAN_SESSION_EDIT_DRAWER_COMPACT_HEIGHT_RATIO =
+  Number.parseFloat(PLAN_SESSION_EDIT_DRAWER_COMPACT_SNAP_POINT) / 100;
+export const PLAN_SESSION_EDIT_DRAWER_DRAG_HEIGHT_RATIO =
+  Number.parseFloat(PLAN_SESSION_EDIT_DRAWER_DRAG_SNAP_POINT) / 100;
 
 type PlanRecommendationsModel = {
   recommendationCount: number;
@@ -94,6 +104,8 @@ export function PlanEventPeekDrawerHost({
   slotCapture,
   activityPeek,
   externalPeek,
+  sessionEdit,
+  slotAdjustmentActive = false,
 }: {
   visible: boolean;
   mode: PlanDrawerMode;
@@ -102,19 +114,32 @@ export function PlanEventPeekDrawerHost({
   slotCapture?: PlanSlotCaptureModel;
   activityPeek?: ActivityEventPeekModel;
   externalPeek?: ExternalEventPeekModel;
+  sessionEdit?: PlanSessionEditModel;
+  slotAdjustmentActive?: boolean;
 }) {
+  const [sessionSnapIndex, setSessionSnapIndex] = useState(1);
   const snapPoints = useMemo<BottomDrawerSnapPoint[]>(() => {
     if (mode === 'recs') return ['85%'];
     return ['42%', '85%'];
   }, [mode]);
+
+  useEffect(() => {
+    if (mode === 'sessionEdit') setSessionSnapIndex(1);
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== 'sessionEdit') return;
+    setSessionSnapIndex((current) => slotAdjustmentActive ? 0 : current === 0 ? 1 : current);
+  }, [mode, slotAdjustmentActive]);
 
   if (mode === 'slotCapture' && slotCapture) {
     return (
       <BottomDrawer
         visible={visible}
         onClose={onClose}
-        snapPoints={[PLAN_SLOT_DRAWER_COMPACT_SNAP_POINT, '82%']}
-        initialSnapIndex={0}
+        snapPoints={[PLAN_SLOT_DRAWER_DRAG_SNAP_POINT, PLAN_SLOT_DRAWER_COMPACT_SNAP_POINT, '82%']}
+        initialSnapIndex={1}
+        snapIndex={slotAdjustmentActive ? 0 : 1}
         presentation="inline"
         hideBackdrop
         dismissable
@@ -134,6 +159,39 @@ export function PlanEventPeekDrawerHost({
             containerStyle={styles.slotHeader}
           />
           <PlanSlotCapturePage {...slotCapture} />
+        </View>
+      </BottomDrawer>
+    );
+  }
+
+  if (mode === 'sessionEdit' && sessionEdit) {
+    return (
+      <BottomDrawer
+        visible={visible}
+        onClose={onClose}
+        snapPoints={[
+          PLAN_SESSION_EDIT_DRAWER_DRAG_SNAP_POINT,
+          PLAN_SESSION_EDIT_DRAWER_COMPACT_SNAP_POINT,
+          '85%',
+        ]}
+        initialSnapIndex={1}
+        snapIndex={sessionSnapIndex}
+        onSnapIndexChange={setSessionSnapIndex}
+        presentation="inline"
+        hideBackdrop={sessionSnapIndex < 2}
+        dismissable
+        dismissOnBackdropPress={sessionSnapIndex === 2}
+        enableContentPanningGesture
+        contentExtendsIntoBottomSafeArea
+        sheetStyle={[styles.sheet, styles.slotSheet]}
+        handleContainerStyle={styles.sessionHandleContainer}
+        handleStyle={styles.handle}
+      >
+        <View style={styles.sessionEditContent}>
+          <PlanSessionEditPage {...sessionEdit} />
+          {activityPeek
+            ? <ActivityEventPeek {...activityPeek} embedded managementHidden={sessionSnapIndex < 2} />
+            : null}
         </View>
       </BottomDrawer>
     );
@@ -222,9 +280,18 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
   },
+  sessionEditContent: {
+    flex: 1,
+    minHeight: 0,
+    paddingHorizontal: spacing.lg,
+  },
   slotHandleContainer: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
+  },
+  sessionHandleContainer: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
   },
   handleContainer: {
     paddingTop: spacing.sm,

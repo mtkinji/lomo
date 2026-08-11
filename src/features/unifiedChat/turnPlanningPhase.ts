@@ -39,6 +39,9 @@ import {
   resolveConversationProgressFamily,
   type ConversationProgressCueId,
 } from '../liveConversation/conversationProgressCue';
+import { runWithPlanningBudget } from './planningBudget';
+
+const DEFAULT_PLANNING_BUDGET_MS = 5_000;
 
 export type PlanUnifiedChatTurnPhaseInput = {
   prompt: string;
@@ -58,6 +61,7 @@ export type PlanUnifiedChatTurnPhaseInput = {
   now: Date;
   timeZone: string;
   signal?: AbortSignal;
+  planningBudgetMs?: number;
 };
 
 export type PlannedUnifiedChatTurn = {
@@ -104,13 +108,16 @@ function hasCoherentExecutionPlan(judgment: AgentJudgment): boolean {
   if (selectedTools.some((tool) => !judgment.participatingCapabilities.includes(
     tool.capabilityId as UnifiedChatRequestPolicy['participatingCapabilities'][number],
   ))) return false;
+  if (judgment.usePrivateContext !== (judgment.evidenceScope !== 'none')) return false;
+  if (judgment.usePrivateContext && judgment.responseContract !== 'evidence_linked') return false;
+  if (judgment.requestClass !== 'capability_action' && judgment.authorization !== 'none') return false;
   if (judgment.requestClass === 'capability_action') {
-    return selectedTools.some((tool) => tool.effect === 'write');
+    return judgment.authorization !== 'none' && selectedTools.some((tool) => tool.effect === 'write');
   }
   if (judgment.requestClass === 'capability_question') {
-    return selectedTools.every((tool) => tool.effect === 'read');
+    return judgment.authorization === 'none' && selectedTools.every((tool) => tool.effect === 'read');
   }
-  return true;
+  return judgment.authorization === 'none' && selectedTools.every((tool) => tool.effect === 'read');
 }
 
 export async function planUnifiedChatTurnPhase(
@@ -164,22 +171,27 @@ export async function planUnifiedChatTurnPhase(
     role: message.role,
     content: message.body,
   }));
+  const planningDeadline = Date.now() + (input.planningBudgetMs ?? DEFAULT_PLANNING_BUDGET_MS);
+  const remainingPlanningMs = () => Math.max(0, planningDeadline - Date.now());
   const requestedAgentJudgment = planningStrategy === 'fast_direct'
     ? null
     : shouldAttemptAgentJudgment(deterministicPolicy)
-    ? await input.requestJudgment({
-        prompt: buildAgentJudgmentPrompt({
-          prompt: input.prompt,
-          now: input.now,
-          timeZone: input.timeZone,
-          visibleContext,
-          recentTurns,
-          pendingWorkSummary: currentPendingWorkSummary,
-          tools: UNIFIED_CHAT_TOOL_CATALOG,
+    ? await runWithPlanningBudget(
+        (signal) => input.requestJudgment({
+          prompt: buildAgentJudgmentPrompt({
+            prompt: input.prompt,
+            now: input.now,
+            timeZone: input.timeZone,
+            visibleContext,
+            recentTurns,
+            pendingWorkSummary: currentPendingWorkSummary,
+            tools: UNIFIED_CHAT_TOOL_CATALOG,
+          }),
+          allowedToolIds: new Set(UNIFIED_CHAT_TOOL_CATALOG.map((tool) => tool.id)),
+          signal,
         }),
-        allowedToolIds: new Set(UNIFIED_CHAT_TOOL_CATALOG.map((tool) => tool.id)),
-        signal: input.signal,
-      })
+        { timeoutMs: remainingPlanningMs(), fallback: null, parentSignal: input.signal },
+      )
     : null;
   const agentJudgment = requestedAgentJudgment && hasCoherentExecutionPlan(requestedAgentJudgment)
     ? requestedAgentJudgment
@@ -190,11 +202,15 @@ export async function planUnifiedChatTurnPhase(
     prompt: input.prompt,
     deterministicPolicy,
   })
-    ? await input.routeRequest({
-        prompt: input.prompt,
-        visibleContext,
-        recentTurns,
-      })
+    ? await runWithPlanningBudget(
+        (signal) => input.routeRequest({
+          prompt: input.prompt,
+          visibleContext,
+          recentTurns,
+          signal,
+        }),
+        { timeoutMs: remainingPlanningMs(), fallback: null, parentSignal: input.signal },
+      )
     : null;
   const previousRun = input.aggregate.runs.at(-1);
   const previousTurnContract = resolveLatestTurnContract(input.aggregate);

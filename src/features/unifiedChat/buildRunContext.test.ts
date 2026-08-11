@@ -144,6 +144,36 @@ describe('buildRunContext', () => {
     expect(result.coverage.note).toMatch(/did not find relevant evidence/i);
   });
 
+  test('uses semantic broad scope to review an inventory without prompt-term matching', () => {
+    const inventory: CapabilityEvidenceSource[] = Array.from({ length: 130 }, (_, index) => ({
+      capabilityId: 'money',
+      object: {
+        type: index < 20 ? 'money_category' : 'money_transaction',
+        id: `money-${index + 1}`,
+        label: index < 20 ? `Budget ${index + 1}` : `Merchant ${index + 1}`,
+      },
+      searchableText: index < 20 ? 'monthly allocation' : 'merchant purchase',
+      summary: 'Current authoritative Money evidence.',
+      authority: 'authoritative',
+      observedAt: '2026-08-11T12:00:00.000Z',
+    }));
+
+    const result = buildRunContext({
+      prompt: 'Help me understand whether this system fits my life.',
+      policy: {
+        requestClass: 'capability_question', participatingCapabilities: ['money'],
+        usePrivateContext: true, clarification: null, policyReason: 'semantic-route:system review',
+      },
+      sources: inventory,
+      evidenceScope: 'broad',
+    });
+
+    expect(result.evidence).toHaveLength(120);
+    expect(result.omissions).toHaveLength(10);
+    expect(result.evidence[0]?.includedBecause).toBe('Included in the authorized broad capability review.');
+    expect(result.coverage).toMatchObject({ consideredCount: 130, includedCount: 120, omittedCount: 10 });
+  });
+
   test('grounds a bulk Money category action in the complete bounded category inventory', () => {
     const categorySources: CapabilityEvidenceSource[] = [
       'Dress and Grooming',

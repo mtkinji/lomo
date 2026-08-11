@@ -4,6 +4,7 @@ import {
   buildActionTargetGrounding,
   buildTodoActionGrounding,
   buildCreateCalendarContinuation,
+  buildTurnResponseGrounding,
   selectAgentJudgmentTools,
 } from './turnExecutionPhase';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
@@ -16,6 +17,9 @@ const judgment: AgentJudgment = {
   participatingCapabilities: ['todos', 'plan'],
   usePrivateContext: true,
   informationNeed: 'stable',
+  authorization: 'explicit_request',
+  evidenceScope: 'focused',
+  responseContract: 'evidence_linked',
   executionMode: 'multi_tool',
   constraints: [
     { kind: 'date', sourceText: 'next week', normalizedValue: '2026-08-03/2026-08-09' },
@@ -36,6 +40,9 @@ test('grounds the job and exposes only judgment-selected tools', () => {
     'User job: Make room for a dentist appointment and remember the prerequisite call.',
     'Desired outcome: A call To-do exists and the appointment can be placed next week.',
     'Required constraints: next week; call first.',
+    'Action authority: explicit_request.',
+    'Evidence scope: focused.',
+    'Response contract: evidence_linked.',
     'Execution mode: multi_tool.',
     'Planned steps:',
     '1. Read next week\'s Plan.',
@@ -47,6 +54,22 @@ test('grounds the job and exposes only judgment-selected tools', () => {
     'activities.capture',
     'plan.schedule_activity',
   ]);
+});
+
+test('grounds evidence-linked reasoning and no-change truth without capability-specific wording', () => {
+  const grounding = buildTurnResponseGrounding({
+    authorization: 'none', evidenceScope: 'broad', responseContract: 'evidence_linked',
+  });
+  for (const line of [
+    'Lead with the useful conclusion.',
+    'Name the material observations that support it.',
+    'Distinguish observation from inference and state meaningful coverage limits.',
+    'Do not prepare, imply, or claim a change; this turn has no action authority.',
+  ]) expect(grounding).toContain(line);
+
+  expect(buildTurnResponseGrounding({
+    authorization: 'explicit_request', evidenceScope: 'focused', responseContract: 'evidence_linked',
+  })).not.toContain('this turn has no action authority');
 });
 
 test('grounds all-matching semantics without naming a capability-specific bulk action', () => {

@@ -298,21 +298,25 @@ export async function runUnifiedChatTurn(
       messages: retryMessage ? aggregate.messages : [...aggregate.messages, userMessage],
       runs: [...aggregate.runs, failedPlanningRun],
     });
-    captureTelemetry(
-      AnalyticsEvent.UnifiedChatAgentPlanOutcome,
-      buildUnifiedChatAgentPlanOutcomeTelemetry(
-        null,
-        'deterministic_fallback',
-        'terminal_failure',
-        'planning_failed',
-        { requestClass: 'general', participatingCapabilities: [] },
-        { attemptNumber, recoveryAttempted: false, terminalFailure: true },
-      ),
-    );
+    if (!input.signal?.aborted) {
+      captureTelemetry(
+        AnalyticsEvent.UnifiedChatAgentPlanOutcome,
+        buildUnifiedChatAgentPlanOutcomeTelemetry(
+          null,
+          'deterministic_fallback',
+          'terminal_failure',
+          'planning_failed',
+          { requestClass: 'general', participatingCapabilities: [] },
+          { attemptNumber, recoveryAttempted: false, terminalFailure: true },
+        ),
+      );
+    }
     return finalizeUnifiedChatTurnFailurePhase({
       run: failedPlanningRun,
       repository,
       failureCode: 'planning_failed',
+      signal: input.signal,
+      abortDisposition: input.abortDisposition,
       error: (message) => new UnifiedChatTurnError(message),
       publicErrorMessage: 'Kwilt could not plan that response.',
     });

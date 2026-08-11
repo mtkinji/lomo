@@ -88,6 +88,28 @@ describe('buildPlanSlotInventory', () => {
     ).toEqual(['available']);
   });
 
+  it('keeps scheduled to-dos out of recommendations but includes them in explicit search', () => {
+    const scheduled = activity('scheduled', {
+      title: 'Draft family story center',
+      scheduledAt: '2026-08-11T19:00:00.000Z',
+    });
+
+    const recommended = buildPlanSlotInventory({
+      activities: [scheduled],
+      goals: [],
+      scheduledProposalIds: new Set(),
+    });
+    const searched = buildPlanSlotInventory({
+      activities: [scheduled],
+      goals: [],
+      scheduledProposalIds: new Set(),
+      query: 'family story',
+    });
+
+    expect(recommended.items).toEqual([]);
+    expect(searched.items.map((item) => item.id)).toEqual(['scheduled']);
+  });
+
   it('reuses To-dos filtering, sorting, searching, and grouping contracts', () => {
     const goals = [
       { id: 'home', title: 'Home', priority: 1 },

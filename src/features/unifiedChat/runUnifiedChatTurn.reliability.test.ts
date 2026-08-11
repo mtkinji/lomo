@@ -25,6 +25,9 @@ const judgment = {
   participatingCapabilities: ['goals' as const],
   usePrivateContext: true,
   informationNeed: 'stable' as const,
+  authorization: 'explicit_request' as const,
+  evidenceScope: 'focused' as const,
+  responseContract: 'evidence_linked' as const,
   executionMode: 'single_tool' as const,
   constraints: [{
     kind: 'title' as const,

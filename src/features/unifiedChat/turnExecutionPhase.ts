@@ -80,6 +80,9 @@ export function buildAgentJudgmentGrounding(agentJudgment: AgentJudgment | null)
     `User job: ${agentJudgment.userJob}.`,
     `Desired outcome: ${agentJudgment.desiredOutcome}.`,
     `Required constraints: ${constraints}.`,
+    `Action authority: ${agentJudgment.authorization}.`,
+    `Evidence scope: ${agentJudgment.evidenceScope}.`,
+    `Response contract: ${agentJudgment.responseContract}.`,
     `Execution mode: ${agentJudgment.executionMode}.`,
     `Planned steps:\n${steps}`,
     'Treat this as bounded guidance, not proof of work. Use only the actual tool schemas below, preserve every required constraint in tool arguments, and let capability validation, confirmation, proposals, native handoffs, and receipts remain authoritative.',
@@ -139,6 +142,25 @@ export function buildCreateCalendarContinuation({
   return 'After it’s created, tell me the time and duration you want. I’ll use the new To-do’s authoritative record to prepare its reminder and calendar placement in Plan.';
 }
 
+export function buildTurnResponseGrounding({
+  authorization,
+  evidenceScope,
+  responseContract,
+}: Pick<UnifiedChatTurnContract, 'authorization' | 'evidenceScope' | 'responseContract'>): string | null {
+  if (responseContract !== 'evidence_linked') return null;
+  return [
+    'Lead with the useful conclusion.',
+    'Name the material observations that support it.',
+    'Distinguish observation from inference and state meaningful coverage limits.',
+    evidenceScope === 'broad'
+      ? 'Compare the authorized evidence as a system or pattern review; do not reduce the answer to a few lexical matches.'
+      : 'Stay focused on the authorized records that materially answer the request.',
+    authorization === 'none'
+      ? 'Do not prepare, imply, or claim a change; this turn has no action authority.'
+      : 'Describe proposed or applied work only from authoritative tools, proposals, handoffs, and receipts.',
+  ].join(' ');
+}
+
 function groundingSummary(
   requestPolicy: UnifiedChatRequestPolicy,
   agentJudgment: AgentJudgment | null,
@@ -151,6 +173,12 @@ function groundingSummary(
 ): string {
   const { requestClass, participatingCapabilities, usePrivateContext } = requestPolicy;
   const parts = [`Launch source: unifiedChat. Request class: ${requestClass}.`];
+  const responseGrounding = buildTurnResponseGrounding(turnContract ?? {
+    authorization: requestClass === 'capability_action' ? 'explicit_request' : 'none',
+    evidenceScope: usePrivateContext ? 'focused' : 'none',
+    responseContract: usePrivateContext ? 'evidence_linked' : 'direct',
+  });
+  if (responseGrounding) parts.push(responseGrounding);
   const judgmentGrounding = buildAgentJudgmentGrounding(agentJudgment);
   if (judgmentGrounding) parts.push(judgmentGrounding);
   const actionTargetGrounding = buildActionTargetGrounding(turnContract?.action ?? null);
@@ -725,12 +753,18 @@ export async function executeUnifiedChatTurnPhase(
     throw input.error('Kwilt could not prepare that draft safely.');
   }
   const planPriorityBody = input.requestPolicy.policyReason === 'day-plan-recommendation' && input.snapshots.plan
-    ? buildPlanPriorityChatBody(input.snapshots.plan.recommendations)
+    ? buildPlanPriorityChatBody(
+        input.snapshots.plan.recommendations,
+        'tomorrow',
+        [],
+        { canPrepareChanges: input.turnContract.authorization !== 'none' },
+      )
     : input.requestPolicy.policyReason === 'day-plan-status' && input.snapshots.plan
       ? buildPlanPriorityChatBody(
           input.snapshots.plan.recommendations,
           'tomorrow',
           input.snapshots.plan.scheduledItems ?? [],
+          { canPrepareChanges: input.turnContract.authorization !== 'none' },
         )
       : null;
   const stagedProposals = toolProvider.proposals();

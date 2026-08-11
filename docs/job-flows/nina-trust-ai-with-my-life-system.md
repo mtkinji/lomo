@@ -3,7 +3,7 @@ id: job-flow-nina-trust-ai-with-my-life-system
 audience: audience-ai-native-life-operators
 persona: Nina
 hero_jtbd: jtbd-trust-this-app-with-my-life
-last_updated: 2026-08-01
+last_updated: 2026-08-11
 ---
 
 # Nina: Trust AI With My Life System
@@ -35,8 +35,8 @@ Nina wants AI and desktop tools to help operate her life system, but only if the
 ## Current Kwilt Flow
 
 1. Standalone Unified Chat opens globally or from a Goal, To-do, or Chapter with visible removable scope and an exact native return target.
-2. Nina can type, dictate, add Kwilt context, or attach up to three bounded text documents. A fast bounded judgment pass names the practical job, desired outcome, explicit constraints, smallest tool set, and whether direct, single-tool, multi-tool, clarification, or boundary handling is appropriate; general questions do not silently pull private Kwilt context.
-3. Deterministic safety locks remain prior constraints, while Goals, To-dos, and Chapters provide bounded evidence with provenance, freshness, selection reason, and coverage limits.
+2. Nina can type, dictate, add Kwilt context, or attach up to three bounded text documents. A fast bounded judgment pass names the practical job, desired outcome, explicit constraints, action authority, smallest tool set, evidence breadth, and response contract; general questions do not silently pull private Kwilt context.
+3. Deterministic safety and authorization invariants remain prior constraints without becoming a domain phrase catalog. Participating capabilities provide focused or broad evidence with provenance, freshness, selection reason, and coverage limits.
 4. An explicit To-do create instruction auto-applies through the durable decision path, runs all available Quick Add AI enrichments, and projects the authoritative result as the standard inventory row; update operations retain reviewed proposals.
 5. Row tap opens native detail, Back returns to the same Chat thread, and swipe-left exposes Delete. Apply still uses an atomic decision and receipt-first idempotent path with crash recovery behind the surface.
 6. Threads, runs, evidence, decisions, receipts, feedback, and text-document attachments are durable and owner-scoped in production.
@@ -74,7 +74,7 @@ Nina wants AI and desktop tools to help operate her life system, but only if the
 
 ## Gaps
 
-- The earlier name-only signed-in simulator matrix did not exercise date preservation or the new judgment path. Step 2 is therefore scored 3 until the live Luna corpus and signed date/multi-tool matrix contradict the dogfood failure; the other scores retain their existing evidence boundaries rather than borrowing this implementation as runtime proof.
+- Step 2 remains scored 3 until the live Luna operation and behavior corpora plus signed date, multi-tool, analysis/action-authority, and broad-evidence matrices contradict the dogfood failures. The other scores retain their existing evidence boundaries rather than borrowing this source implementation as runtime proof.
 - Stop, steer, correction editing, retry, background/foreground, microphone interaction, and physical-device behavior remain explicit runtime checks. The Turn Contract and Money incident replay are source-tested only and do not replace those gates.
 - Goals and Chapters remain read-only in this slice; To-dos prove the reviewed mutation contract.
 - Binary and image attachments remain unsupported until Chat can inspect their contents truthfully.

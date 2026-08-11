@@ -279,6 +279,79 @@ test('outcome phase converts completion-looking action prose into a durable clar
   });
 });
 
+test('analysis-only Plan recommendations never become pending changes', async () => {
+  const { repository } = harness();
+  const run = await repository.createRun();
+
+  const result = await materializeUnifiedChatOutcomePhase({
+    threadId: 'thread-1',
+    run,
+    visibleBody: 'Here is the priority order I recommend for tomorrow.',
+    actionResponse: null,
+    toolProvider: { proposals: () => [], clientActions: () => [] } as never,
+    runtimeToolEvents: [],
+    requestPolicy: {
+      requestClass: 'capability_question',
+      participatingCapabilities: ['plan'],
+      usePrivateContext: true,
+      policyReason: 'day-plan-recommendation',
+      clarification: null,
+    },
+    snapshots: {
+      goals: { goals: [] },
+      todos: { activities: [], goals: [] },
+      chapters: { chapters: [] },
+      profile: { profile: null },
+      plan: {
+        targetDate: '2026-08-12T18:00:00.000Z',
+        scheduledItems: [],
+        recommendations: [{
+          activityId: 'activity-1',
+          expectedUpdatedAt: '2026-08-11T16:00:00.000Z',
+          title: 'Prepare the family plan',
+          goalTitle: 'Family systems',
+          priorityPosition: 0,
+          placement: {
+            status: 'placed',
+            startDate: '2026-08-12T15:00:00.000Z',
+            endDate: '2026-08-12T16:00:00.000Z',
+            calendarId: 'primary',
+          },
+        }],
+        writeCalendarRef: {
+          provider: 'google',
+          accountId: 'account-1',
+          calendarId: 'primary',
+        },
+        limitation: null,
+      },
+    },
+    planConversationReferent: null,
+    turnContract: {
+      schemaVersion: 2,
+      userJob: 'Review priorities and suggest what to do tomorrow',
+      desiredOutcome: 'A recommendation without changing anything',
+      constraints: ['Do not change anything'],
+      requestClass: 'capability_question',
+      participatingCapabilities: ['plan'],
+      usePrivateContext: true,
+      authorization: 'none',
+      evidenceScope: 'focused',
+      responseContract: 'evidence_linked',
+      action: null,
+      referent: null,
+    },
+    repository: repository as never,
+    setFailureCode: jest.fn(),
+  });
+
+  expect(repository.createProposal).not.toHaveBeenCalled();
+  expect(result.appControlOutcome).toEqual({
+    type: 'answer',
+    text: 'Here is the priority order I recommend for tomorrow.',
+  });
+});
+
 test('outcome phase persists an ordered typed referent for every staged proposal', async () => {
   const { repository } = harness();
   repository.createProposal
@@ -314,7 +387,8 @@ test('outcome phase persists an ordered typed referent for every staged proposal
     agentJudgment: {
       schemaVersion: 1, userJob: 'Capture two ordered errands', desiredOutcome: 'Both are ready for review',
       requestClass: 'capability_action', participatingCapabilities: ['todos'], usePrivateContext: true,
-      informationNeed: 'stable', executionMode: 'multi_tool', constraints: [],
+      informationNeed: 'stable', authorization: 'explicit_request', evidenceScope: 'focused',
+      responseContract: 'evidence_linked', executionMode: 'multi_tool', constraints: [],
       steps: [
         { sequence: 1, objective: 'Read existing activities', toolId: 'activities.read', dependsOn: null },
         { sequence: 2, objective: 'Capture milk', toolId: 'activities.capture', dependsOn: 1 },

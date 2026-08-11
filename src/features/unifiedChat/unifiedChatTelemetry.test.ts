@@ -186,6 +186,9 @@ test('agent judgment telemetry contains only bounded classifications', () => {
     participatingCapabilities: ['todos' as const, 'plan' as const],
     usePrivateContext: true,
     informationNeed: 'stable' as const,
+    authorization: 'explicit_request' as const,
+    evidenceScope: 'focused' as const,
+    responseContract: 'evidence_linked' as const,
     executionMode: 'multi_tool' as const,
     constraints: [
       { kind: 'title' as const, sourceText: 'Call private person', normalizedValue: 'Call private person' },
@@ -209,11 +212,15 @@ test('agent judgment telemetry contains only bounded classifications', () => {
     tool_ids: 'plan.read_day_context,activities.capture',
     step_count: 2,
     constraint_kinds: 'title,date',
+    authorization: 'explicit_request',
+    evidence_scope: 'focused',
+    response_contract: 'evidence_linked',
     confidence_bucket: 'high',
   });
   expect(Object.keys(selected)).toEqual(expect.arrayContaining([
     'judgment_source', 'request_class', 'execution_mode', 'capability_ids', 'tool_ids',
-    'step_count', 'constraint_kinds', 'confidence_bucket',
+    'step_count', 'constraint_kinds', 'authorization', 'evidence_scope',
+    'response_contract', 'confidence_bucket',
   ]));
   expect(JSON.stringify(selected)).not.toMatch(/private|2026-08-05|August 5|reason|argument/i);
 
@@ -244,6 +251,9 @@ test('agent judgment fallback telemetry omits all user and model content', () =>
     tool_ids: '',
     step_count: 0,
     constraint_kinds: '',
+    authorization: null,
+    evidence_scope: null,
+    response_contract: null,
     confidence_bucket: null,
   });
 });
@@ -251,9 +261,10 @@ test('agent judgment fallback telemetry omits all user and model content', () =>
 test('operational telemetry contains contract and outcome enums and counts without life data', () => {
   const record = buildUnifiedChatOperationalTelemetry({
     turnContract: {
-      schemaVersion: 1, userJob: 'private job', desiredOutcome: 'private outcome',
+      schemaVersion: 2, userJob: 'private job', desiredOutcome: 'private outcome',
       constraints: ['private constraint'], requestClass: 'capability_action',
       participatingCapabilities: ['money'], usePrivateContext: true,
+      authorization: 'explicit_request', evidenceScope: 'broad', responseContract: 'evidence_linked',
       action: {
         operationIds: ['money.category.rename'], targetScope: 'all_matching',
         targetQuery: 'private target query',
@@ -272,10 +283,11 @@ test('operational telemetry contains contract and outcome enums and counts witho
   });
 
   expect(record).toEqual({
-    turn_contract_version: 1, request_class: 'capability_action', capability_ids: 'money',
+    turn_contract_version: 2, request_class: 'capability_action', capability_ids: 'money',
+    authorization: 'explicit_request', evidence_scope: 'broad', response_contract: 'evidence_linked',
     target_scope: 'all_matching', referent_kind: 'correction', considered_count: 9,
     included_count: 9, omitted_count: 0, prepared_change_count: 9, failed_tool_count: 0,
     invariant_codes: '', outcome_state: 'prepared',
   });
-  expect(JSON.stringify(record)).not.toMatch(/private|run-id|constraint|response|note/i);
+  expect(JSON.stringify(record)).not.toMatch(/private|run-id|private constraint|private note/i);
 });

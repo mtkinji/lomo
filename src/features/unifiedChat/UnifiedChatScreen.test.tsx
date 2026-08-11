@@ -66,10 +66,12 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('hideKeyboardAccessoryView');
   });
 
-  test('reloads the embedded surface when a transient load error is tapped', () => {
+  test('replaces the technical WebView failure with one calm retry state', () => {
     expect(screenSource).toContain('const retrySurface = useCallback');
     expect(screenSource).toContain('webViewRef.current?.reload()');
-    expect(screenSource).toContain('surfaceLoadFailed ? retrySurface');
+    expect(screenSource).toContain('title="Chat couldn’t open"');
+    expect(screenSource).toContain('actionLabel="Try again"');
+    expect(screenSource).toContain('surfaceLoadFailed ? (');
   });
 
   test('handles workbench feedback through the native repository', () => {
