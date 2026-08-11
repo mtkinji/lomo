@@ -121,6 +121,27 @@ describe('planUnifiedChatTurnPhase agent judgment', () => {
     expect(routeRequest).not.toHaveBeenCalled();
   });
 
+  it('uses one bounded budget across judgment and semantic fallback', async () => {
+    const requestJudgment = jest.fn(({ signal }: { signal?: AbortSignal }) =>
+      new Promise<null>((resolve) => signal?.addEventListener('abort', () => resolve(null), { once: true })));
+    const routeRequest = jest.fn(async () => null);
+
+    const result = await plan({
+      prompt: 'What should I work on tomorrow?',
+      planningBudgetMs: 10,
+      requestJudgment,
+      routeRequest,
+    });
+
+    expect(requestJudgment).toHaveBeenCalledTimes(1);
+    expect(routeRequest).not.toHaveBeenCalled();
+    expect(result.judgmentSource).toBe('deterministic_fallback');
+    expect(result.requestPolicy).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['plan'],
+    });
+  });
+
   it('lets a coherent read-only judgment override an action-like lexical Money guess', async () => {
     const prompt = 'Look into my budgets and transactions. What additional budgets or changes to my existing budgets might I make for a better budget system?';
     const moneyReviewJudgment: AgentJudgment = {

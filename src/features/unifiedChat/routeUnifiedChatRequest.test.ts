@@ -52,6 +52,23 @@ describe('routeUnifiedChatRequest', () => {
     expect(call[1].launchContextSummary).toContain('Do not answer the user');
   });
 
+  it('passes the active turn signal through semantic routing so Stop can cancel it', async () => {
+    const controller = new AbortController();
+    const sendCoachChat = jest.fn(async () => JSON.stringify({
+      requestClass: 'general', participatingCapabilities: [], usePrivateContext: false,
+      informationNeed: 'stable', confidence: 0.9, reason: 'General request.',
+    }));
+
+    await routeUnifiedChatRequest({
+      prompt: 'Help me think.', visibleContext: [], recentTurns: [], signal: controller.signal,
+    }, { sendCoachChat: sendCoachChat as never });
+
+    expect(sendCoachChat).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
   it('describes Money as the owner of current income-limit answers', async () => {
     const sendCoachChat = jest.fn(async () => JSON.stringify({
       requestClass: 'capability_question', participatingCapabilities: ['money'],

@@ -1614,17 +1614,24 @@ export function UnifiedChatScreen({
         />
       )}
 
-      {error ? (
+      {error && !surfaceLoadFailed ? (
         <Pressable
           accessibilityRole="button"
-          onPress={surfaceLoadFailed ? retrySurface : () => setError(null)}
+          onPress={() => setError(null)}
           style={styles.errorBar}
         >
           <Text style={styles.errorText}>{error}</Text>
         </Pressable>
       ) : null}
 
-      {loading ? (
+      {surfaceLoadFailed ? (
+        <CenteredState
+          title="Chat couldn’t open"
+          body="Check your connection, then try again. Your conversation is still here."
+          actionLabel="Try again"
+          onAction={retrySurface}
+        />
+      ) : loading ? (
         <CenteredState title="Opening Chat…" />
       ) : (aggregate && !freshEntry) || freshEntry ? (
         <WebView

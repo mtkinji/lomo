@@ -46,6 +46,7 @@ export type RouteUnifiedChatRequestInput = {
   prompt: string;
   visibleContext: readonly SemanticRouterVisibleContext[];
   recentTurns: readonly CoachChatTurn[];
+  signal?: AbortSignal;
 };
 
 export async function routeUnifiedChatRequest(
@@ -68,6 +69,7 @@ export async function routeUnifiedChatRequest(
         responseFormat: { ...SEMANTIC_REQUEST_ROUTE_RESPONSE_FORMAT },
         launchContextSummary,
         paywallSource: 'unknown',
+        signal: input.signal,
       },
     );
     return parseSemanticRequestRoute(response);

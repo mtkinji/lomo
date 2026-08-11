@@ -9,6 +9,7 @@ export function buildPlanPriorityChatBody(
   recommendations: readonly PlanRecommendationResult['recommendations'][number][],
   dayLabel = 'tomorrow',
   scheduledItems: readonly PlanScheduledItem[] = [],
+  options: { canPrepareChanges: boolean } = { canPrepareChanges: false },
 ): string | null {
   if (recommendations.length === 0 && scheduledItems.length === 0) {
     return `Nothing is officially on your Plan for ${dayLabel} yet.`;
@@ -20,7 +21,7 @@ export function buildPlanPriorityChatBody(
   const lines = priorityItems.map((item, index) => {
     const recommendation = item.kind === 'scheduled' ? item.recommendation : item.priority;
     const placement = recommendation.placement.status === 'placed'
-      ? `Ready to add at ${formatTimeRange(
+      ? `${options.canPrepareChanges ? 'Ready to add at' : 'Suggested window:'} ${formatTimeRange(
           new Date(recommendation.placement.startDate),
           new Date(recommendation.placement.endDate),
         )}.`
@@ -52,7 +53,11 @@ export function buildPlanPriorityChatBody(
       '',
       'This is the same order used by Plan. A task that fits more easily does not outrank an earlier priority.',
     );
-    if (ready) sections.push('The items with times are ready to review below.');
+    if (ready) {
+      sections.push(options.canPrepareChanges
+        ? 'The items with times are ready to review below.'
+        : 'If you want, I can prepare these placements for review.');
+    }
     if (needsTime) sections.push('For an item that still needs time, tell me the duration or window and I’ll prepare the placement.');
   }
   return sections.join('\n').trim();

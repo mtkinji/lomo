@@ -80,7 +80,12 @@ export type MaterializedUnifiedChatOutcome = {
 export async function materializeUnifiedChatOutcomePhase(
   input: MaterializeUnifiedChatOutcomePhaseInput,
 ): Promise<MaterializedUnifiedChatOutcome> {
-  const acceptsStagedWork = input.actionOutcomeTruth?.state !== 'failed';
+  const hasActionAuthority = input.turnContract
+    ? input.turnContract.authorization !== 'none' ||
+      input.turnContract.requestClass === 'native_control'
+    : input.requestPolicy.requestClass === 'capability_action' ||
+      input.requestPolicy.requestClass === 'native_control';
+  const acceptsStagedWork = hasActionAuthority && input.actionOutcomeTruth?.state !== 'failed';
   const stagedToolProposals = acceptsStagedWork ? input.toolProvider.proposals() : [];
   const stagedClientActions = acceptsStagedWork ? input.toolProvider.clientActions() : [];
   const hasAuthoritativeNextStep = Boolean(acceptsStagedWork && input.actionResponse?.proposal) ||

@@ -36,15 +36,17 @@ export const COMPRESSION_METADATA_RESPONSE_FORMAT = {
 
 const QUOTED_TITLE = /^["'\u2018\u2019\u201c\u201d].*["'\u2018\u2019\u201c\u201d]$/;
 const GENERIC_TITLE = /^(new\s+chat|chat|conversation|discussion|untitled)(\b|\s+about\b)/i;
+const MAX_THREAD_TITLE_CHARACTERS = 36;
 
 export function normalizeSuggestedThreadTitle(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const title = value.replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '').trim();
-  if (!title || title.length > 72 || QUOTED_TITLE.test(title) || GENERIC_TITLE.test(title)) {
+  if (!title || title.length > MAX_THREAD_TITLE_CHARACTERS ||
+      QUOTED_TITLE.test(title) || GENERIC_TITLE.test(title)) {
     return null;
   }
   const words = title.split(' ').filter(Boolean);
-  return words.length >= 3 && words.length <= 7 ? title : null;
+  return words.length >= 3 && words.length <= 6 ? title : null;
 }
 
 function transcript(turns: readonly ThreadTitleTurn[]): string {
@@ -59,7 +61,7 @@ export function buildOpeningTitleMessages(turns: readonly ThreadTitleTurn[]): Th
     {
       role: 'system',
       content:
-        'Name this conversation from its opening exchange. Return a specific 3–7 word title in JSON. ' +
+        'Name this conversation from its opening exchange. Return a specific 3–6 word title under 36 characters in JSON. ' +
         'Do not use sensitive details, names, dates, quotes, or generic labels such as New chat or Conversation about. ' +
         'Describe the practical subject, not the act of chatting.',
     },
@@ -88,7 +90,7 @@ export function buildCompressionMetadataMessages(input: {
         'Maintain a compact durable memory summary and a stable title for an ongoing coaching conversation. ' +
         'Return JSON with summary and title. The summary must use 8–16 short bullet points, stay under 1200 characters, ' +
         'and preserve stable facts, preferences, constraints, goals, decisions, and commitments without speculation. ' +
-        'The title must be a specific 3–7 word title reflecting the conversation’s current durable subject. ' +
+        'The title must be a specific 3–6 word title under 36 characters reflecting the conversation’s current durable subject. ' +
         'Do not use sensitive details, names, dates, quotes, or generic chat labels.',
     },
     {

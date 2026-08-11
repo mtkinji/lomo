@@ -753,12 +753,18 @@ export async function executeUnifiedChatTurnPhase(
     throw input.error('Kwilt could not prepare that draft safely.');
   }
   const planPriorityBody = input.requestPolicy.policyReason === 'day-plan-recommendation' && input.snapshots.plan
-    ? buildPlanPriorityChatBody(input.snapshots.plan.recommendations)
+    ? buildPlanPriorityChatBody(
+        input.snapshots.plan.recommendations,
+        'tomorrow',
+        [],
+        { canPrepareChanges: input.turnContract.authorization !== 'none' },
+      )
     : input.requestPolicy.policyReason === 'day-plan-status' && input.snapshots.plan
       ? buildPlanPriorityChatBody(
           input.snapshots.plan.recommendations,
           'tomorrow',
           input.snapshots.plan.scheduledItems ?? [],
+          { canPrepareChanges: input.turnContract.authorization !== 'none' },
         )
       : null;
   const stagedProposals = toolProvider.proposals();
