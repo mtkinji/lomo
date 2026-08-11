@@ -1,0 +1,28 @@
+import type { ConversationProgressCueId } from './conversationProgressCue';
+
+export const CONVERSATION_PROGRESS_ASSETS: Record<ConversationProgressCueId, number> = {
+  current_lookup_01: require('../../../assets/audio/conversation/current-lookup-01.mp3'),
+  current_lookup_02: require('../../../assets/audio/conversation/current-lookup-02.mp3'),
+  current_lookup_03: require('../../../assets/audio/conversation/current-lookup-03.mp3'),
+  kwilt_lookup_01: require('../../../assets/audio/conversation/kwilt-lookup-01.mp3'),
+  kwilt_lookup_02: require('../../../assets/audio/conversation/kwilt-lookup-02.mp3'),
+  kwilt_lookup_03: require('../../../assets/audio/conversation/kwilt-lookup-03.mp3'),
+  multi_source_01: require('../../../assets/audio/conversation/multi-source-01.mp3'),
+  multi_source_02: require('../../../assets/audio/conversation/multi-source-02.mp3'),
+  multi_source_03: require('../../../assets/audio/conversation/multi-source-03.mp3'),
+  prepare_review_01: require('../../../assets/audio/conversation/prepare-review-01.mp3'),
+  prepare_review_02: require('../../../assets/audio/conversation/prepare-review-02.mp3'),
+  prepare_review_03: require('../../../assets/audio/conversation/prepare-review-03.mp3'),
+  compare_or_calculate_01: require('../../../assets/audio/conversation/compare-calculate-01.mp3'),
+  compare_or_calculate_02: require('../../../assets/audio/conversation/compare-calculate-02.mp3'),
+  compare_or_calculate_03: require('../../../assets/audio/conversation/compare-calculate-03.mp3'),
+  thoughtful_reasoning_01: require('../../../assets/audio/conversation/thoughtful-reasoning-01.mp3'),
+  thoughtful_reasoning_02: require('../../../assets/audio/conversation/thoughtful-reasoning-02.mp3'),
+  thoughtful_reasoning_03: require('../../../assets/audio/conversation/thoughtful-reasoning-03.mp3'),
+  retry_or_recover_01: require('../../../assets/audio/conversation/retry-recover-01.mp3'),
+  retry_or_recover_02: require('../../../assets/audio/conversation/retry-recover-02.mp3'),
+  retry_or_recover_03: require('../../../assets/audio/conversation/retry-recover-03.mp3'),
+  general_work_01: require('../../../assets/audio/conversation/general-work-01.mp3'),
+  general_work_02: require('../../../assets/audio/conversation/general-work-02.mp3'),
+  general_work_03: require('../../../assets/audio/conversation/general-work-03.mp3'),
+};

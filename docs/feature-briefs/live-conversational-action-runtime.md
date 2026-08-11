@@ -9,7 +9,7 @@ job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life, jtbd-get-help-without-retelling-my-life, jtbd-stay-in-control-of-ai-actions]
 related_briefs: [brief-unified-chat, brief-kwilt-phone-agent]
 owner: andrew
-last_updated: 2026-08-08
+last_updated: 2026-08-10
 ---
 
 # Kwilt Live — Reusable Hands-Free Conversational Action Runtime
@@ -116,12 +116,27 @@ command lane and complete touch controls. This cost-conscious cascaded path is
 accepted only if signed-device measurements satisfy the response and barge-in
 gates; otherwise a full speech-to-speech Realtime transport remains an option.
 
-For ordinary conversational turns, the target from end-of-speech to first useful
-spoken response is a median below one second and p95 below two seconds on a signed
-device and representative network. A quick status sound, animation, or generic
-acknowledgement does not count as a useful response. For longer tool work, Kwilt
-may acknowledge progress quickly but must not claim success before an
-authoritative capability receipt exists.
+For stable ordinary conversation turns that require neither private Kwilt
+context nor tools, the staged target from end-of-speech to first useful audio is
+p50 at or below three seconds and p90 at or below six seconds on a signed device
+and representative network. Agent turn start to persisted answer must be p50 at
+or below two seconds and p90 at or below four seconds for that class. A status
+sound, animation, or generic acknowledgement does not count as a useful
+response. Complex tool turns may take longer but must expose an honest working
+state and must not claim success before an authoritative capability receipt.
+When deterministic classification shows that a turn will use the full path,
+Kwilt may immediately play one fixed Marin phrase naming the work that started;
+progress-audio targets are p50 at or below 750 ms and p90 at or below 1,250 ms
+and remain separate from useful-answer latency.
+
+The accepted speech delivery path streams the authenticated Speech API response
+to native playback after the assistant message is durably persisted. The stream
+resolves text by owner-scoped assistant message id, sends no message text in a
+URL, sets `Cache-Control: no-store`, and creates no durable audio object. The
+existing full-file path remains a temporary fallback until signed-device stream
+proof passes. Qualifying longer turns may concurrently play one bundled,
+non-personal Marin progress phrase selected from deterministic work state. Fast
+direct turns remain silent so an acknowledgement cannot delay the answer.
 
 ## Design
 

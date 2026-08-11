@@ -33,6 +33,8 @@ const dentistJudgment: AgentJudgment = {
 function plan(overrides: Partial<Parameters<typeof planUnifiedChatTurnPhase>[0]> = {}) {
   return planUnifiedChatTurnPhase({
     prompt: 'Add Call the dentist on August 5.',
+    interactionMode: 'text',
+    attachmentCount: 0,
     aggregate: emptyAggregate,
     activeContext: [],
     requestJudgment: async () => dentistJudgment,

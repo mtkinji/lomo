@@ -5,6 +5,7 @@ import {
   buildOpenAiLiveTranscriptionClientSecretRequest,
   extractEphemeralClientSecret,
   parseLiveConversationSessionRequest,
+  summarizeOpenAiError,
 } from '../_shared/liveConversationSession.ts';
 
 const corsHeaders: Record<string, string> = {
@@ -53,7 +54,18 @@ serve(async (req) => {
   const upstreamBody: unknown = await upstream.json().catch(() => null);
   const clientSecret = extractEphemeralClientSecret(upstreamBody);
   if (!upstream.ok || !clientSecret) {
-    return json(upstream.ok ? 502 : upstream.status, { error: { code: 'provider_unavailable', message: 'Conversation mode is unavailable.' } });
+    const diagnostic = summarizeOpenAiError(upstreamBody);
+    console.error('OpenAI live transcription session rejected', {
+      status: upstream.status,
+      ...diagnostic,
+    });
+    return json(upstream.ok ? 502 : upstream.status, {
+      error: {
+        code: 'provider_unavailable',
+        message: 'Conversation mode is unavailable.',
+        diagnostic,
+      },
+    });
   }
   return json(200, { clientSecret: clientSecret.value, expiresAt: clientSecret.expiresAt, model });
 });

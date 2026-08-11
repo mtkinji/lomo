@@ -10,6 +10,7 @@ import {
   type CookVoiceSpeechAudio,
 } from './cookVoiceNaturalSpeechResponse';
 import type { CookVoiceSpeechPath } from './cookVoiceSpeechPolicy';
+import { sweepLegacyCookVoiceCacheOnce } from './cookVoiceCacheCleanup';
 
 async function requestCookVoiceSpeech(text: string): Promise<CookVoiceSpeechAudio> {
   const token = (await getAccessToken())?.trim();
@@ -70,6 +71,7 @@ async function stopNaturalSpeech(): Promise<void> {
 export const cookVoiceNaturalSpeech: CookVoiceSpeechPath = {
   async speak(text, onStart) {
     await stopNaturalSpeech();
+    await sweepLegacyCookVoiceCacheOnce();
     const audio = await requestCookVoiceSpeech(text);
     const file = new File(Paths.cache, `kwilt-cook-voice-${Date.now()}${audio.extension}`);
     file.create({ overwrite: true, intermediates: true });

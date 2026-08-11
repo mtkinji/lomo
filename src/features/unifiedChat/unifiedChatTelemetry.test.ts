@@ -1,5 +1,6 @@
 import type { AgentToolLoopEvent } from '@kwilt/agent-runtime';
 import {
+  buildUnifiedChatConversationLatencyTelemetry,
   buildUnifiedChatReconciliationTelemetry,
   buildUnifiedChatRouteTelemetry,
   buildUnifiedChatToolTelemetry,
@@ -31,6 +32,58 @@ test('route telemetry contains only bounded routing metadata', () => {
   expect(Object.keys(record)).toEqual(expect.not.arrayContaining([
     'prompt', 'message', 'messages', 'text', 'title', 'notes', 'arguments',
   ]));
+});
+
+test('conversation latency telemetry buckets timings without content or identifiers', () => {
+  const record = buildUnifiedChatConversationLatencyTelemetry({
+    outcome: 'completed',
+    planningStrategy: 'fast_direct',
+    requestClass: 'general',
+    timings: {
+      transcript_final_ms: 480,
+      planning_complete_ms: 1_250,
+      context_ready_ms: 2_100,
+      answer_ready_ms: 2_950,
+      first_progress_audio_ms: 720,
+      first_audio_ms: 4_500,
+    },
+    interrupted: false,
+    fallbackUsed: true,
+  });
+
+  expect(record).toEqual({
+    outcome: 'completed',
+    planning_strategy: 'fast_direct',
+    request_class: 'general',
+    transcript_final_bucket: 'under_1s',
+    planning_complete_bucket: '1_2s',
+    context_ready_bucket: '2_3s',
+    answer_ready_bucket: '2_3s',
+    first_progress_audio_bucket: 'under_1s',
+    first_audio_bucket: '3_6s',
+    interrupted: false,
+    fallback_used: true,
+  });
+  expect(Object.keys(record)).toEqual(expect.not.arrayContaining([
+    'prompt', 'message', 'text', 'transcript', 'object_id', 'thread_id', 'run_id',
+  ]));
+});
+
+test('conversation latency telemetry omits unavailable timing stages', () => {
+  expect(buildUnifiedChatConversationLatencyTelemetry({
+    outcome: 'interrupted',
+    planningStrategy: 'full',
+    requestClass: 'capability_question',
+    timings: {},
+    interrupted: true,
+    fallbackUsed: false,
+  })).toEqual({
+    outcome: 'interrupted',
+    planning_strategy: 'full',
+    request_class: 'capability_question',
+    interrupted: true,
+    fallback_used: false,
+  });
 });
 
 test('tool telemetry records tool choice and outcome without arguments', () => {

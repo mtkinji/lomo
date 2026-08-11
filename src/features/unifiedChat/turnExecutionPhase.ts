@@ -44,6 +44,7 @@ import {
   projectActionOutcomeTruth,
   type UnifiedChatActionOutcomeTruth,
 } from './turnOutcomeTruth';
+import { conversationResponseContract } from '../liveConversation/conversationTurnProfile';
 
 type ExecutionRepository = Pick<
   UnifiedChatRepository,
@@ -249,6 +250,7 @@ function groundingSummary(
 
 export type ExecuteUnifiedChatTurnPhaseInput = {
   prompt: string;
+  interactionMode: 'text' | 'conversation';
   aggregate: UnifiedChatThreadAggregate;
   run: UnifiedChatRun;
   userMessage: UnifiedChatMessage;
@@ -510,7 +512,19 @@ export async function executeUnifiedChatTurnPhase(
       expectsArtifactResponse
         ? 'The user requested editable output. Return the requested editable content in the artifact field with the best matching supported kind; do not leave artifact null. Keep the answer field to a brief introduction.'
         : null,
+      input.interactionMode === 'conversation'
+        ? conversationResponseContract.instruction
+        : null,
     ].filter((item): item is string => Boolean(item)).join('\n\n'),
+    ...(input.interactionMode === 'conversation' &&
+      !usesRuntimeToolLoop &&
+      !expectsActivityProposal &&
+      !expectsGroundedAnswer &&
+      !expectsArtifactResponse &&
+      input.requiresWebSearch !== true &&
+      !input.retryMessage
+      ? { maxOutputTokens: conversationResponseContract.maxOutputTokens }
+      : {}),
     paywallSource: 'unknown',
     conversationTitlePolicy: {
       suggestFromOpening,

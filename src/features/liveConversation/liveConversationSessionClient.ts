@@ -36,6 +36,9 @@ async function requestEphemeralSession(locale?: string): Promise<EphemeralSessio
         return { clientSecret: body.clientSecret };
       }
       const error = body?.error && typeof body.error === 'object' ? body.error as Record<string, unknown> : null;
+      if (error?.diagnostic && typeof error.diagnostic === 'object') {
+        console.warn('[live-conversation] Provider session rejected', error.diagnostic);
+      }
       lastError = new Error(typeof error?.message === 'string' ? error.message : lastError.message);
       if (response.status !== 404) break;
     } catch (error) {
