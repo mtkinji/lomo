@@ -55,6 +55,7 @@ import {
   finalizeUnifiedChatTurnFailurePhase,
   finalizeUnifiedChatTurnPhase,
 } from './turnFinalizationPhase';
+import type { ConversationProgressCueId } from '../liveConversation/conversationProgressCue';
 
 export class UnifiedChatTurnError extends Error {
   constructor(message: string) {
@@ -86,6 +87,16 @@ type SendCoachChat = typeof defaultSendCoachChat;
 export type RunUnifiedChatTurnInput = {
   aggregate: UnifiedChatThreadAggregate;
   prompt: string;
+  interactionMode?: 'text' | 'conversation';
+  onLatencyMilestone?: (
+    milestone: 'turn_started' | 'planning_complete' | 'context_ready' | 'answer_ready',
+  ) => void;
+  onConversationClassification?: (classification: {
+    planningStrategy: 'fast_direct' | 'full';
+    requestClass: NonNullable<UnifiedChatThreadAggregate['runs'][number]['requestClass']>;
+  }) => void;
+  recentProgressCueIds?: readonly ConversationProgressCueId[];
+  onProgressCue?: (cueId: ConversationProgressCueId) => void;
   clientRequestId?: string;
   signal?: AbortSignal;
   abortDisposition?: () =>
@@ -126,6 +137,7 @@ export async function runUnifiedChatTurn(
   input: RunUnifiedChatTurnInput,
   dependencies?: RunUnifiedChatTurnDependencies,
 ): Promise<UnifiedChatThreadAggregate> {
+  input.onLatencyMilestone?.('turn_started');
   const repository = dependencies?.repository ?? createUnifiedChatRepository();
   const sendCoachChat = dependencies?.sendCoachChat ?? defaultSendCoachChat;
   // A supplied dependency object is a test/custom harness; semantic routing is
@@ -255,6 +267,11 @@ export async function runUnifiedChatTurn(
   try {
     plannedTurn = await planUnifiedChatTurnPhase({
       prompt,
+      interactionMode: input.interactionMode ?? 'text',
+      attachmentCount: turnAttachments.length,
+      turnId: userMessage.id,
+      recentProgressCueIds: input.recentProgressCueIds,
+      onProgressCue: input.onProgressCue,
       aggregate,
       activeContext,
       routeRequest,
@@ -263,6 +280,7 @@ export async function runUnifiedChatTurn(
       timeZone: dependencies?.timeZone?.() ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
       signal: input.signal,
     });
+    input.onLatencyMilestone?.('planning_complete');
   } catch {
     const failedPlanningRun = await repository.createRun({
       threadId: aggregate.thread.id,
@@ -302,6 +320,10 @@ export async function runUnifiedChatTurn(
   const {
     requestPolicy, requiresWebSearch, planConversationReferent, activityClarification, turnContract,
   } = plannedTurn;
+  input.onConversationClassification?.({
+    planningStrategy: plannedTurn.planningStrategy,
+    requestClass: requestPolicy.requestClass,
+  });
   captureTelemetry(
     plannedTurn.agentJudgment
       ? AnalyticsEvent.UnifiedChatAgentJudgmentSelected
@@ -361,6 +383,7 @@ export async function runUnifiedChatTurn(
       repository,
       loadCapabilitySnapshots,
     });
+    input.onLatencyMilestone?.('context_ready');
     if (input.onRunProgress) {
       try {
         input.onRunProgress(await repository.loadThread(aggregate.thread.id));
@@ -387,6 +410,7 @@ export async function runUnifiedChatTurn(
           payload: { outcomeType: 'clarification' },
         },
       });
+      input.onLatencyMilestone?.('answer_ready');
       captureTelemetry(
         AnalyticsEvent.UnifiedChatAgentPlanOutcome,
         buildUnifiedChatAgentPlanOutcomeTelemetry(
@@ -405,6 +429,7 @@ export async function runUnifiedChatTurn(
     }
     const executionResult = await executeUnifiedChatTurnPhase({
       prompt,
+      interactionMode: input.interactionMode ?? 'text',
       aggregate,
       run,
       userMessage,
@@ -435,6 +460,7 @@ export async function runUnifiedChatTurn(
       error: (message) => new UnifiedChatTurnError(message),
     });
     if (executionResult.kind === 'completed_early') {
+      input.onLatencyMilestone?.('answer_ready');
       captureTelemetry(
         AnalyticsEvent.UnifiedChatAgentPlanOutcome,
         buildUnifiedChatAgentPlanOutcomeTelemetry(
@@ -486,6 +512,7 @@ export async function runUnifiedChatTurn(
       outcome: appControlOutcome,
       repository,
     });
+    input.onLatencyMilestone?.('answer_ready');
     captureTelemetry(
       AnalyticsEvent.UnifiedChatAgentPlanOutcome,
       buildUnifiedChatAgentPlanOutcomeTelemetry(

@@ -3,6 +3,7 @@ import {
   buildOpenAiLiveTranscriptionClientSecretRequest,
   extractEphemeralClientSecret,
   parseLiveConversationSessionRequest,
+  summarizeOpenAiError,
 } from '../liveConversationSession.ts';
 
 Deno.test('live conversation request is bounded to Chat', () => {
@@ -15,7 +16,10 @@ Deno.test('OpenAI session uses dedicated live transcription so Chat remains auth
   const request = buildOpenAiLiveTranscriptionClientSecretRequest({ model: 'gpt-live-transcribe', locale: 'en-US' });
   if (request.session.type !== 'transcription') throw new Error('session can create competing responses');
   if (request.session.audio.input.transcription.model !== 'gpt-live-transcribe') throw new Error('expensive realtime model retained');
-  if (request.session.audio.input.transcription.language !== 'en') throw new Error('locale not normalized');
+  const transcription = request.session.audio.input.transcription as Record<string, unknown>;
+  if ((transcription.languages as string[] | undefined)?.[0] !== 'en') throw new Error('locale not normalized');
+  if ('language' in transcription) throw new Error('unsupported singular language retained');
+  if ('turn_detection' in request.session.audio.input) throw new Error('provider-rejected custom VAD retained');
 });
 
 Deno.test('ephemeral response exposes only the bounded client credential', () => {
@@ -28,4 +32,19 @@ Deno.test('safety identifier is stable and does not expose the user id', async (
   const first = await buildLiveConversationSafetyIdentifier('user-123', 'server-secret');
   const second = await buildLiveConversationSafetyIdentifier('user-123', 'server-secret');
   if (first !== second || first.includes('user-123')) throw new Error('unsafe identifier');
+});
+
+Deno.test('OpenAI failures are reduced to safe diagnostic fields', () => {
+  const summary = summarizeOpenAiError({
+    error: {
+      code: 'invalid_value',
+      type: 'invalid_request_error',
+      param: 'session.audio.input.transcription.model',
+      message: 'Sensitive provider detail',
+    },
+  });
+  if (summary.code !== 'invalid_value') throw new Error('provider code omitted');
+  if (summary.type !== 'invalid_request_error') throw new Error('provider type omitted');
+  if (summary.param !== 'session.audio.input.transcription.model') throw new Error('provider parameter omitted');
+  if ('message' in summary) throw new Error('provider message leaked');
 });

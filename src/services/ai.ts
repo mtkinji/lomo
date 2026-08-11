@@ -812,6 +812,8 @@ export type CoachChatOptions = {
   webSearch?: boolean;
   /** Internal structured-output contract used by native-owned workflows. */
   responseFormat?: Record<string, unknown>;
+  /** Bounded response ceiling for short conversational turns. */
+  maxOutputTokens?: number;
   signal?: AbortSignal;
   aiJob?: KwiltAiJob;
   /**
@@ -840,6 +842,11 @@ export type CoachChatOptions = {
     onSuggestedTitle: (title: string, source: 'opening' | 'summary') => void | Promise<void>;
   };
 };
+
+export function resolveCoachChatMaxOutputTokens(value: number | undefined): number | undefined {
+  if (value === undefined || !Number.isFinite(value)) return undefined;
+  return Math.max(32, Math.min(1_200, Math.floor(value)));
+}
 
 type KwiltAiJob =
   | 'arc_generation'
@@ -2856,6 +2863,11 @@ export async function sendCoachChat(
     temperature,
     messages: openAiMessages,
   };
+
+  const maxOutputTokens = resolveCoachChatMaxOutputTokens(options?.maxOutputTokens);
+  if (maxOutputTokens !== undefined) {
+    body.max_tokens = maxOutputTokens;
+  }
 
   if (options?.responseFormat) {
     body.response_format = options.responseFormat;

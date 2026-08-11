@@ -126,6 +126,7 @@ export const AnalyticsEvent = {
   UnifiedChatAgentPlanOutcome: 'unified_chat_agent_plan_outcome',
   UnifiedChatFreshEntryOutcome: 'unified_chat_fresh_entry_outcome',
   UnifiedChatOperationalOutcome: 'unified_chat_operational_outcome',
+  UnifiedChatConversationLatency: 'unified_chat_conversation_latency',
   FamilyScreenTimeChatProposalDecided: 'family_screen_time_chat_proposal_decided',
   FamilyScreenTimeChatPolicyOutcome: 'family_screen_time_chat_policy_outcome',
   ScreenTimeGuideShown: 'screen_time_guide_shown',

@@ -30,9 +30,23 @@ import {
   resolveLatestTurnContract,
   type UnifiedChatTurnContract,
 } from './turnContract';
+import {
+  resolveConversationPlanningStrategy,
+  type ConversationPlanningStrategy,
+} from '../liveConversation/conversationTurnProfile';
+import {
+  chooseConversationProgressCue,
+  resolveConversationProgressFamily,
+  type ConversationProgressCueId,
+} from '../liveConversation/conversationProgressCue';
 
 export type PlanUnifiedChatTurnPhaseInput = {
   prompt: string;
+  interactionMode: 'text' | 'conversation';
+  attachmentCount: number;
+  turnId?: string;
+  recentProgressCueIds?: readonly ConversationProgressCueId[];
+  onProgressCue?: (cueId: ConversationProgressCueId) => void;
   aggregate: UnifiedChatThreadAggregate;
   activeContext: UnifiedChatContextRef[];
   routeRequest: (
@@ -47,6 +61,7 @@ export type PlanUnifiedChatTurnPhaseInput = {
 };
 
 export type PlannedUnifiedChatTurn = {
+  planningStrategy: ConversationPlanningStrategy;
   requestPolicy: UnifiedChatRequestPolicy;
   agentJudgment: AgentJudgment | null;
   judgmentSource: 'model' | 'semantic_fallback' | 'deterministic_fallback';
@@ -109,6 +124,36 @@ export async function planUnifiedChatTurnPhase(
       objectId: context.objectId,
     })),
   });
+  const informationNeed = classifyCurrentInformationNeed(input.prompt);
+  const currentPendingWorkSummary = pendingWorkSummary(input.aggregate);
+  const planningStrategy = resolveConversationPlanningStrategy({
+    interactionMode: input.interactionMode,
+    requestClass: deterministicPolicy.requestClass,
+    usePrivateContext: deterministicPolicy.usePrivateContext,
+    participatingCapabilityCount: deterministicPolicy.participatingCapabilities.length,
+    informationNeed,
+    attachmentCount: input.attachmentCount,
+    activeContextCount: input.activeContext.length,
+    hasPendingWork: currentPendingWorkSummary !== null,
+  });
+  if (input.interactionMode === 'conversation') {
+    const progressFamily = resolveConversationProgressFamily({
+      planningStrategy,
+      requestClass: deterministicPolicy.requestClass,
+      capabilityIds: deterministicPolicy.participatingCapabilities,
+      informationNeed,
+      ...(input.aggregate.runs.at(-1)?.status === 'failed'
+        ? { recoveryKind: 'retry' as const }
+        : {}),
+    });
+    if (progressFamily) {
+      input.onProgressCue?.(chooseConversationProgressCue({
+        family: progressFamily,
+        turnId: input.turnId ?? input.aggregate.thread.id,
+        recentCueIds: input.recentProgressCueIds ?? [],
+      }));
+    }
+  }
   const visibleContext = input.activeContext.map((context) => ({
     capabilityId: context.capabilityId,
     objectType: context.objectType,
@@ -119,7 +164,9 @@ export async function planUnifiedChatTurnPhase(
     role: message.role,
     content: message.body,
   }));
-  const requestedAgentJudgment = shouldAttemptAgentJudgment(deterministicPolicy)
+  const requestedAgentJudgment = planningStrategy === 'fast_direct'
+    ? null
+    : shouldAttemptAgentJudgment(deterministicPolicy)
     ? await input.requestJudgment({
         prompt: buildAgentJudgmentPrompt({
           prompt: input.prompt,
@@ -127,7 +174,7 @@ export async function planUnifiedChatTurnPhase(
           timeZone: input.timeZone,
           visibleContext,
           recentTurns,
-          pendingWorkSummary: pendingWorkSummary(input.aggregate),
+          pendingWorkSummary: currentPendingWorkSummary,
           tools: UNIFIED_CHAT_TOOL_CATALOG,
         }),
         allowedToolIds: new Set(UNIFIED_CHAT_TOOL_CATALOG.map((tool) => tool.id)),
@@ -137,7 +184,9 @@ export async function planUnifiedChatTurnPhase(
   const agentJudgment = requestedAgentJudgment && hasCoherentExecutionPlan(requestedAgentJudgment)
     ? requestedAgentJudgment
     : null;
-  const semanticRoute = !agentJudgment && shouldAttemptSemanticRouting({
+  const semanticRoute = planningStrategy === 'fast_direct'
+    ? null
+    : !agentJudgment && shouldAttemptSemanticRouting({
     prompt: input.prompt,
     deterministicPolicy,
   })
@@ -184,11 +233,12 @@ export async function planUnifiedChatTurnPhase(
   });
 
   return {
+    planningStrategy,
     requestPolicy,
     agentJudgment,
     judgmentSource,
     requiresWebSearch: requestPolicy.requestClass === 'general' &&
-      (agentJudgment?.informationNeed ?? classifyCurrentInformationNeed(input.prompt)) === 'current',
+      (agentJudgment?.informationNeed ?? informationNeed) === 'current',
     planConversationReferent: requestPolicy.policyReason === 'conversation-follow-up:plan'
       ? resolvePlanPlacementReferent(input.aggregate)
       : null,

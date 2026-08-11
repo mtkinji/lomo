@@ -15,6 +15,54 @@ export type UnifiedChatTelemetryProperties = Record<
 
 export type UnifiedChatJudgmentSource = 'model' | 'semantic_fallback' | 'deterministic_fallback';
 
+export type UnifiedChatLatencyBucket =
+  | 'under_1s'
+  | '1_2s'
+  | '2_3s'
+  | '3_6s'
+  | '6_10s'
+  | 'over_10s';
+
+function latencyBucket(milliseconds: number): UnifiedChatLatencyBucket {
+  if (milliseconds < 1_000) return 'under_1s';
+  if (milliseconds < 2_000) return '1_2s';
+  if (milliseconds < 3_000) return '2_3s';
+  if (milliseconds < 6_000) return '3_6s';
+  if (milliseconds < 10_000) return '6_10s';
+  return 'over_10s';
+}
+
+export function buildUnifiedChatConversationLatencyTelemetry(input: {
+  outcome: 'completed' | 'interrupted' | 'failed';
+  planningStrategy: 'fast_direct' | 'full';
+  requestClass: UnifiedChatRequestClass;
+  timings: Readonly<Record<string, number>>;
+  interrupted: boolean;
+  fallbackUsed: boolean;
+}): UnifiedChatTelemetryProperties {
+  const timingKeys = [
+    ['transcript_final_ms', 'transcript_final_bucket'],
+    ['planning_complete_ms', 'planning_complete_bucket'],
+    ['context_ready_ms', 'context_ready_bucket'],
+    ['answer_ready_ms', 'answer_ready_bucket'],
+    ['first_progress_audio_ms', 'first_progress_audio_bucket'],
+    ['first_audio_ms', 'first_audio_bucket'],
+  ] as const;
+  return timingKeys.reduce<UnifiedChatTelemetryProperties>((result, [inputKey, outputKey]) => {
+    const value = input.timings[inputKey];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      result[outputKey] = latencyBucket(Math.max(0, value));
+    }
+    return result;
+  }, {
+    outcome: input.outcome,
+    planning_strategy: input.planningStrategy,
+    request_class: input.requestClass,
+    interrupted: input.interrupted,
+    fallback_used: input.fallbackUsed,
+  });
+}
+
 function confidenceBucket(confidence: number): 'low' | 'medium' | 'high' {
   if (confidence < 0.5) return 'low';
   if (confidence < 0.8) return 'medium';

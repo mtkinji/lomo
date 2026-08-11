@@ -153,6 +153,92 @@ describe('runUnifiedChatTurn phase failure contracts', () => {
   });
 });
 
+test('conversation turns expose privacy-safe phase milestones in order', async () => {
+  const { repository, sendCoachChat } = harness();
+  const milestones: string[] = [];
+  const classifications: Array<{ planningStrategy: string; requestClass: string }> = [];
+  const progressCues: string[] = [];
+  const requestJudgment = jest.fn(async () => null);
+  const routeRequest = jest.fn(async () => null);
+
+  await runUnifiedChatTurn(
+    {
+      aggregate,
+      prompt: 'Why do leaves change color?',
+      interactionMode: 'conversation',
+      onLatencyMilestone: (milestone) => milestones.push(milestone),
+      onConversationClassification: (classification) => classifications.push(classification),
+      onProgressCue: (cueId) => progressCues.push(cueId),
+    },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      requestJudgment,
+      routeRequest,
+    },
+  );
+
+  expect(milestones).toEqual([
+    'turn_started',
+    'planning_complete',
+    'context_ready',
+    'answer_ready',
+  ]);
+  expect(classifications).toEqual([{ planningStrategy: 'fast_direct', requestClass: 'general' }]);
+  expect(sendCoachChat).toHaveBeenCalledWith(
+    expect.any(Array),
+    expect.objectContaining({
+      maxOutputTokens: 96,
+      launchContextSummary: expect.stringContaining('Conversation mode: answer first'),
+    }),
+  );
+  expect(requestJudgment).not.toHaveBeenCalled();
+  expect(routeRequest).not.toHaveBeenCalled();
+  expect(progressCues).toEqual([]);
+});
+
+test('a longer conversation turn emits one fixed progress cue before planning completes', async () => {
+  const { repository, sendCoachChat } = harness();
+  const order: string[] = [];
+
+  await runUnifiedChatTurn(
+    {
+      aggregate,
+      prompt: 'What is the weather today?',
+      interactionMode: 'conversation',
+      recentProgressCueIds: ['current_lookup_01', 'current_lookup_02'],
+      onProgressCue: (cueId) => order.push(`cue:${cueId}`),
+      onLatencyMilestone: (milestone) => order.push(milestone),
+    },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      requestJudgment: async () => null,
+      routeRequest: async () => null,
+    },
+  );
+
+  expect(order).toContain('cue:current_lookup_03');
+  expect(order.indexOf('cue:current_lookup_03')).toBeLessThan(order.indexOf('planning_complete'));
+});
+
+test('text turns keep the existing response ceiling and prompt', async () => {
+  const { repository, sendCoachChat } = harness();
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Why do leaves change color?', interactionMode: 'text' },
+    { repository: repository as never, sendCoachChat: sendCoachChat as never },
+  );
+
+  const calls = sendCoachChat.mock.calls as unknown as Array<[unknown, {
+    maxOutputTokens?: number;
+    launchContextSummary?: string;
+  }]>;
+  const options = calls[0]?.[1] ?? {};
+  expect(options.maxOutputTokens).toBeUndefined();
+  expect(options.launchContextSummary).not.toContain('Conversation mode:');
+});
+
 test('outcome phase converts completion-looking action prose into a durable clarification', async () => {
   const { repository } = harness();
   const setFailureCode = jest.fn();

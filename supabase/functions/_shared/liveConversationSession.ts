@@ -35,13 +35,7 @@ export function buildOpenAiLiveTranscriptionClientSecretRequest(input: {
         input: {
           transcription: {
             model: input.model,
-            ...(input.locale ? { language: input.locale.split('-')[0].toLowerCase() } : {}),
-          },
-          turn_detection: {
-            type: 'server_vad',
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 350,
+            ...(input.locale ? { languages: [input.locale.split('-')[0].toLowerCase()] } : {}),
           },
         },
       },
@@ -58,5 +52,23 @@ export function extractEphemeralClientSecret(value: unknown): { value: string; e
     expiresAt: typeof secret.expires_at === 'number' && Number.isFinite(secret.expires_at)
       ? secret.expires_at
       : null,
+  };
+}
+
+export function summarizeOpenAiError(value: unknown): {
+  code: string | null;
+  type: string | null;
+  param: string | null;
+} {
+  const error = value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>).error
+    : null;
+  const record = error && typeof error === 'object' && !Array.isArray(error)
+    ? error as Record<string, unknown>
+    : {};
+  return {
+    code: typeof record.code === 'string' ? record.code : null,
+    type: typeof record.type === 'string' ? record.type : null,
+    param: typeof record.param === 'string' ? record.param : null,
   };
 }

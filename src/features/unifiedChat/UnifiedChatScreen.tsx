@@ -102,12 +102,16 @@ import { track } from '../../services/analytics/analytics';
 import { posthogClient } from '../../services/analytics/posthogClient';
 import {
   buildFamilyScreenTimeDecisionTelemetry,
+  buildUnifiedChatConversationLatencyTelemetry,
   buildUnifiedChatFreshEntryTelemetry,
   buildUnifiedChatReconciliationTelemetry,
 } from './unifiedChatTelemetry';
 import { appendUnifiedChatVoiceLevel } from './unifiedChatVoiceMetering';
 import { startLiveConversationSession, type LiveConversationConnection } from '../liveConversation/liveConversationSessionClient';
-import { cookVoiceSpeech } from '../../capabilities/recipes/voice/cookVoiceSpeech';
+import { sweepLegacyCookVoiceCacheOnce } from '../../capabilities/recipes/voice/cookVoiceCacheCleanup';
+import { conversationProgressSpeech, liveConversationSpeech } from '../liveConversation/conversationSpeechRuntime';
+import type { ConversationProgressCueId } from '../liveConversation/conversationProgressCue';
+import { createConversationLatencyTracker, type ActiveConversationLatency } from '../liveConversation/conversationLatency';
 import {
   insertUnifiedChatTranscriptAtSelection,
   type UnifiedChatVoiceInsertion,
@@ -229,6 +233,9 @@ export function UnifiedChatScreen({
   const liveConversation = useRef<LiveConversationConnection | null>(null);
   const conversationAutoStartRef = useRef(false);
   const conversationAssistantCountRef = useRef(0);
+  const conversationLatencyRef = useRef<ActiveConversationLatency | null>(null);
+  const conversationProgressHistoryRef = useRef<ConversationProgressCueId[]>([]);
+  const conversationResponseGenerationRef = useRef(0);
   const [threads, setThreads] = useState<UnifiedChatThread[]>([]);
   const [aggregate, setAggregate] = useState<UnifiedChatThreadAggregate | null>(null);
   const aggregateRef = useRef<UnifiedChatThreadAggregate | null>(null);
@@ -255,6 +262,27 @@ export function UnifiedChatScreen({
   const clearVoiceTimer = useCallback(() => {
     if (voiceTimer.current) clearInterval(voiceTimer.current);
     voiceTimer.current = null;
+  }, []);
+
+  const publishConversationLatency = useCallback((
+    outcome: 'completed' | 'interrupted' | 'failed',
+    interrupted: boolean,
+  ) => {
+    const active = conversationLatencyRef.current;
+    if (!active || active.published) return;
+    active.published = true;
+    track(
+      posthogClient,
+      AnalyticsEvent.UnifiedChatConversationLatency,
+      buildUnifiedChatConversationLatencyTelemetry({
+        outcome,
+        planningStrategy: active.planningStrategy,
+        requestClass: active.requestClass,
+        timings: active.tracker.snapshot(),
+        interrupted,
+        fallbackUsed: active.fallbackUsed,
+      }),
+    );
   }, []);
 
   useEffect(() => { aggregateRef.current = aggregate; }, [aggregate]);
@@ -461,20 +489,27 @@ export function UnifiedChatScreen({
     void cancelUnifiedChatVoiceRecording();
     void liveConversation.current?.stop();
     liveConversation.current = null;
-    void cookVoiceSpeech.stop();
+    conversationProgressSpeech.stop();
+    void liveConversationSpeech.stop();
   }, [clearVoiceTimer]);
 
   const stopConversation = useCallback(async () => {
     clearVoiceTimer();
     const current = liveConversation.current;
     liveConversation.current = null;
-    await Promise.all([current?.stop(), cookVoiceSpeech.stop()]);
+    conversationResponseGenerationRef.current += 1;
+    conversationProgressHistoryRef.current = [];
+    conversationProgressSpeech.stop();
+    publishConversationLatency('interrupted', true);
+    await Promise.all([current?.stop(), liveConversationSpeech.stop()]);
     setVoice({ state: 'idle', elapsedSeconds: 0, levels: [] });
-  }, [clearVoiceTimer]);
+  }, [clearVoiceTimer, publishConversationLatency]);
 
   const startConversation = useCallback(async () => {
     if (liveConversation.current || voice.state === 'connecting') return;
     await cancelUnifiedChatVoiceRecording();
+    await sweepLegacyCookVoiceCacheOnce();
+    conversationProgressHistoryRef.current = [];
     clearVoiceTimer();
     setVoice({ state: 'connecting', elapsedSeconds: 0, levels: [], message: 'Connecting…' });
     try {
@@ -489,15 +524,32 @@ export function UnifiedChatScreen({
         },
         onEvent: (event) => {
           if (event.type === 'speech_started') {
-            void cookVoiceSpeech.stop();
+            conversationResponseGenerationRef.current += 1;
+            conversationProgressSpeech.stop();
+            void liveConversationSpeech.stop();
+            publishConversationLatency('interrupted', true);
             setVoice((current) => ({ ...current, state: 'listening', provisionalTranscript: '',
               finalizedUtterance: undefined, message: 'Listening' }));
           } else if (event.type === 'speech_stopped') {
+            conversationResponseGenerationRef.current += 1;
+            const tracker = createConversationLatencyTracker();
+            tracker.mark('speech_stopped');
+            conversationLatencyRef.current = {
+              tracker,
+              planningStrategy: 'full',
+              requestClass: 'general',
+              fallbackUsed: false,
+              published: false,
+            };
             setVoice((current) => ({ ...current, state: 'thinking', message: 'Thinking…' }));
           } else if (event.type === 'transcript_delta') {
             setVoice((current) => ({ ...current, state: 'listening',
               provisionalTranscript: `${current.provisionalTranscript ?? ''}${event.delta}` }));
           } else if (event.type === 'transcript_final') {
+            const activeLatency = conversationLatencyRef.current;
+            if (activeLatency && !activeLatency.published) {
+              activeLatency.tracker.mark('transcript_final');
+            }
             conversationAssistantCountRef.current = aggregateRef.current?.messages.filter((item) => item.role === 'assistant').length ?? 0;
             setVoice((current) => ({ ...current, state: 'thinking', provisionalTranscript: '',
               finalizedUtterance: { id: event.itemId, text: event.transcript }, message: 'Thinking…' }));
@@ -513,7 +565,7 @@ export function UnifiedChatScreen({
       setVoice({ state: 'error', elapsedSeconds: 0, levels: [],
         message: conversationError instanceof Error ? conversationError.message : 'Conversation mode is unavailable.' });
     }
-  }, [clearVoiceTimer, voice.state]);
+  }, [clearVoiceTimer, publishConversationLatency, voice.state]);
 
   useEffect(() => {
     if (routeParams?.mode !== 'conversation' || !surfaceReady || conversationAutoStartRef.current) return;
@@ -525,17 +577,35 @@ export function UnifiedChatScreen({
     if (voice.state !== 'thinking' || !aggregate) return;
     const assistantMessages = aggregate.messages.filter((item) => item.role === 'assistant');
     if (assistantMessages.length <= conversationAssistantCountRef.current) return;
-    const response = assistantMessages.at(-1)?.body.trim();
-    if (!response) return;
+    const responseMessage = assistantMessages.at(-1);
+    const response = responseMessage?.body.trim();
+    if (!responseMessage || !response) return;
     conversationAssistantCountRef.current = assistantMessages.length;
+    const responseGeneration = conversationResponseGenerationRef.current;
     setVoice((current) => ({ ...current,
-      state: 'speaking', finalizedUtterance: undefined, message: 'Speaking' }));
-    void cookVoiceSpeech.speak(response).catch(() => undefined).finally(() => {
+      state: 'thinking', finalizedUtterance: undefined, message: 'Preparing voice…' }));
+    conversationLatencyRef.current?.tracker.mark('speech_request_started');
+    void (async () => {
+      await conversationProgressSpeech.finishBeforeFinalAnswer();
+      if (responseGeneration !== conversationResponseGenerationRef.current || !liveConversation.current) return;
+      await liveConversationSpeech.speakMessage(responseMessage, {
+      onFallback: () => {
+        if (conversationLatencyRef.current) conversationLatencyRef.current.fallbackUsed = true;
+      },
+      onStart: () => {
+        conversationLatencyRef.current?.tracker.mark('playback_started');
+        setVoice((current) => ({ ...current, state: 'speaking', message: 'Speaking' }));
+        publishConversationLatency('completed', false);
+      },
+      });
+    })().catch(() => {
+      publishConversationLatency('failed', false);
+    }).finally(() => {
       setVoice((current) => liveConversation.current
         ? { ...current, state: 'listening', message: 'Listening' }
         : current);
     });
-  }, [aggregate, voice.state]);
+  }, [aggregate, publishConversationLatency, voice.state]);
 
   useEffect(() => {
     if (!freshEntry || freshEntrySource !== 'widget') return undefined;
@@ -1341,9 +1411,36 @@ export function UnifiedChatScreen({
           // captured when the workbench message handler was created. This keeps a
           // short answer attached to the assistant question that prompted it.
           turnAggregate = await loadThreadWithRecovery(turnAggregate.thread.id);
+          const isConversationTurn = liveConversation.current !== null;
           refreshedAggregate = await runUnifiedChatTurn({
             aggregate: turnAggregate,
             prompt: turnPrompt,
+            interactionMode: isConversationTurn ? 'conversation' : 'text',
+            recentProgressCueIds: isConversationTurn
+              ? conversationProgressHistoryRef.current
+              : undefined,
+            onProgressCue: isConversationTurn
+              ? (cueId) => {
+                conversationProgressHistoryRef.current = [
+                  ...conversationProgressHistoryRef.current,
+                  cueId,
+                ].slice(-16);
+                void conversationProgressSpeech.start(cueId, () => {
+                  conversationLatencyRef.current?.tracker.mark('progress_audio_started');
+                });
+              }
+              : undefined,
+            onLatencyMilestone: isConversationTurn
+              ? (milestone) => conversationLatencyRef.current?.tracker.mark(milestone)
+              : undefined,
+            onConversationClassification: isConversationTurn
+              ? (classification) => {
+                const activeLatency = conversationLatencyRef.current;
+                if (!activeLatency || activeLatency.published) return;
+                activeLatency.planningStrategy = classification.planningStrategy;
+                activeLatency.requestClass = classification.requestClass;
+              }
+              : undefined,
             clientRequestId: turnRequestId,
             signal: controller.signal,
             abortDisposition: () => turnState.disposition.type === 'steer'
