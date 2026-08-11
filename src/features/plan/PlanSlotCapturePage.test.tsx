@@ -95,7 +95,11 @@ jest.mock('../../ui/BottomDrawer', () => ({
   }) => {
     const React = require('react');
     const { View } = require('react-native');
-    if (data.length === 0 && ListEmptyComponent) return <ListEmptyComponent />;
+    if (data.length === 0 && ListEmptyComponent) {
+      return React.isValidElement(ListEmptyComponent)
+        ? <View>{ListEmptyComponent}</View>
+        : <ListEmptyComponent />;
+    }
     return (
       <View>
         {ListHeaderComponent}
@@ -239,7 +243,7 @@ describe('PlanSlotCapturePage', () => {
   it('selects an existing to-do and commits it', () => {
     const onSelectActivity = jest.fn();
     const onCommitExisting = jest.fn();
-    const { getByText, queryByText, rerender } = renderWithProviders(
+    const { getByText, getAllByText, queryByText, rerender } = renderWithProviders(
       <PlanSlotCapturePage
         {...defaultProps}
         onSelectActivity={onSelectActivity}
@@ -260,7 +264,8 @@ describe('PlanSlotCapturePage', () => {
       />,
     );
 
-    expect(getByText('Selected: Buy lumber')).toBeTruthy();
+    expect(getByText('Selected')).toBeTruthy();
+    expect(getAllByText('Buy lumber')).toHaveLength(2);
     expect(queryByText('Save without time')).toBeNull();
 
     fireEvent.press(getByText('Add to calendar'));
@@ -270,18 +275,39 @@ describe('PlanSlotCapturePage', () => {
 
   it('commits a newly created to-do through the same primary action', () => {
     const onCommitNew = jest.fn();
-    const { getByText } = renderWithProviders(
+    const created = activity('activity-new', 'Draft family story center', 60);
+    const { getByText, queryByText } = renderWithProviders(
       <PlanSlotCapturePage
         {...defaultProps}
+        activities={[...defaultProps.activities, created]}
         createdActivityId="activity-new"
         selectedActivityId="activity-new"
         onCommitNew={onCommitNew}
       />,
     );
 
+    expect(getByText('Created')).toBeTruthy();
+    expect(getByText('Draft family story center')).toBeTruthy();
+    expect(queryByText('New to-do ready')).toBeNull();
+
     fireEvent.press(getByText('Add to calendar'));
 
     expect(onCommitNew).toHaveBeenCalledTimes(1);
+  });
+
+  it('labels the primary action as another session for a scheduled to-do', () => {
+    const scheduled = activity('activity-scheduled', 'Draft family story center', 60);
+    scheduled.scheduledAt = '2026-08-11T19:00:00.000Z';
+    const { getByText } = renderWithProviders(
+      <PlanSlotCapturePage
+        {...defaultProps}
+        activities={[scheduled, activity('available', 'Buy groceries', 30)]}
+        selectedActivityId="activity-scheduled"
+      />,
+    );
+
+    expect(getByText('1 session')).toBeTruthy();
+    expect(getByText('Add another session')).toBeTruthy();
   });
 
   it('passes the slot-specific quick add model into the composer', () => {

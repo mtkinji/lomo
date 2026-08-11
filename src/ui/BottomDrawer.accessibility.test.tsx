@@ -3,6 +3,7 @@ import { StyleSheet, Text } from 'react-native';
 import { renderWithProviders } from '../test/renderWithProviders';
 import {
   BottomDrawer,
+  getBottomDrawerExpansionOpacity,
   isBottomDrawerAccessibilityModal,
   shouldDismissKeyboardOnSnapChange,
 } from './BottomDrawer';
@@ -38,6 +39,33 @@ describe('BottomDrawer accessibility contract', () => {
     expect(shouldDismissKeyboardOnSnapChange({ previousIndex: 1, nextIndex: 0, enabled: true })).toBe(true);
     expect(shouldDismissKeyboardOnSnapChange({ previousIndex: 0, nextIndex: 1, enabled: true })).toBe(false);
     expect(shouldDismissKeyboardOnSnapChange({ previousIndex: 1, nextIndex: 0, enabled: false })).toBe(false);
+  });
+
+  it('maps drawer expansion to a bounded reveal opacity', () => {
+    expect(getBottomDrawerExpansionOpacity({ progress: 0.05, from: 0.08, to: 0.26 })).toBe(0);
+    expect(getBottomDrawerExpansionOpacity({ progress: 0.17, from: 0.08, to: 0.26 })).toBeCloseTo(0.5);
+    expect(getBottomDrawerExpansionOpacity({ progress: 0.4, from: 0.08, to: 0.26 })).toBe(1);
+  });
+
+  it('can preserve a subtle continuation cue and linearly reveal it on expansion', () => {
+    expect(getBottomDrawerExpansionOpacity({
+      progress: 0.15,
+      from: 0.17,
+      to: 0.34,
+      minimumOpacity: 0.1,
+    })).toBe(0.1);
+    expect(getBottomDrawerExpansionOpacity({
+      progress: 0.255,
+      from: 0.17,
+      to: 0.34,
+      minimumOpacity: 0.1,
+    })).toBeCloseTo(0.55);
+    expect(getBottomDrawerExpansionOpacity({
+      progress: 0.4,
+      from: 0.17,
+      to: 0.34,
+      minimumOpacity: 0.1,
+    })).toBe(1);
   });
 
   it('provides opt-in immersive chrome and a safe-area-owning bottom accessory', () => {

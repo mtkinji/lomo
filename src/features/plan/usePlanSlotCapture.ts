@@ -14,6 +14,7 @@ import {
 } from '../activities/useQuickAddDockController';
 import type { PlanSlotCaptureModel } from './PlanSlotCapturePage';
 import type { PlanSlotDraft } from './planSlotDraft';
+import { findMatchingActivityScheduleSessionInCalendar } from '../../services/plan/activityScheduleSessions';
 
 type ToastPayload = {
   message: string;
@@ -251,6 +252,14 @@ export function usePlanSlotCapture(params: {
       if (!activityId) return;
       const activity = activities.find((candidate) => candidate.id === activityId) ?? null;
       if (!activity) return;
+      if (slotDraft && writeCalendarId && findMatchingActivityScheduleSessionInCalendar(activity, {
+        start: slotDraft.start.toISOString(),
+        end: slotDraft.end.toISOString(),
+        calendarId: writeCalendarId,
+      })) {
+        Alert.alert('Already scheduled there', 'Choose a different time to add another session.');
+        return;
+      }
       const validation = validateSlot(activity);
       if (!validation) return;
       if (validation.conflicts) {
@@ -269,7 +278,7 @@ export function usePlanSlotCapture(params: {
       }
       await commitValidatedProposal(activity, validation.proposal);
     },
-    [activities, commitValidatedProposal, validateSlot],
+    [activities, commitValidatedProposal, slotDraft, validateSlot, writeCalendarId],
   );
 
   if (!slotDraft) return null;

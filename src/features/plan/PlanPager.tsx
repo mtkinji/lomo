@@ -16,6 +16,9 @@ import { useAppStore } from '../../store/useAppStore';
 import { PlanCalendarLensPage } from './PlanCalendarLensPage';
 import {
   PLAN_SLOT_DRAWER_COMPACT_HEIGHT_RATIO,
+  PLAN_SLOT_DRAWER_DRAG_HEIGHT_RATIO,
+  PLAN_SESSION_EDIT_DRAWER_COMPACT_HEIGHT_RATIO,
+  PLAN_SESSION_EDIT_DRAWER_DRAG_HEIGHT_RATIO,
   PlanEventPeekDrawerHost,
   type PlanDrawerMode,
 } from './PlanEventPeekDrawerHost';
@@ -54,7 +57,6 @@ import { reconcilePlanCalendarEvents } from '../../services/plan/planCalendarRec
 import { getBlockingPlanBusyIntervals, getPlanConflictActivityIds } from '../../services/plan/planConflictDetection';
 import { getKwiltCalendarBlocksForDay } from '../../services/plan/kwiltCalendarBlocks';
 import { deleteManagedEvent } from '../../services/calendar/managedEvents';
-import { moveManagedEvent } from '../../services/calendar/managedEvents';
 import {
   getCalendarCommitAlertForError,
   hasBindableCalendarEventRef,
@@ -64,6 +66,13 @@ import {
 import { usePlanRecommendationsQuickAdd } from './usePlanRecommendationsQuickAdd';
 import { usePlanSlotCapture } from './usePlanSlotCapture';
 import { usePlanRecommendationFunnel } from './usePlanRecommendationFunnel';
+import type { ActivityScheduleSession } from '../../domain/types';
+import {
+  cancelActivityScheduleSession,
+  findMatchingActivityScheduleSession,
+  upsertActivityScheduleSession,
+} from '../../services/plan/activityScheduleSessions';
+import { usePlanSessionEditor } from './usePlanSessionEditor';
 
 export type PlanPagerInsetMode = 'screen' | 'drawer';
 export type PlanPagerEntryPoint = 'manual' | 'kickoff';
@@ -147,7 +156,7 @@ export function PlanPager({
   const [commitSuccessGuideVisible, setCommitSuccessGuideVisible] = useState(false);
   const [peekSelection, setPeekSelection] = useState<
     | null
-    | { kind: 'activity'; activityId: string }
+    | { kind: 'activity'; activityId: string; sessionId: string }
     | {
         kind: 'external';
         event: { title: string; start: Date; end: Date; calendarLabel?: string | null; color?: string | null };
@@ -776,26 +785,32 @@ export function PlanPager({
     const timestamp = new Date().toISOString();
     try {
       const hasBindableEventRef = hasBindableCalendarEventRef(args.eventRef);
-      updateActivity(args.activityId, (prev) => ({
-        ...prev,
-        // Credibility invariant: only set scheduledAt when we have a durable binding.
-        scheduledAt: hasBindableEventRef ? args.proposal.startDate : prev.scheduledAt ?? null,
-        calendarBinding: hasBindableEventRef
-          ? {
-              kind: 'provider',
-              provider: args.eventRef!.provider,
-              accountId: args.eventRef!.accountId,
-              calendarId: args.eventRef!.calendarId,
-              eventId: args.eventRef!.eventId,
-              createdBy: 'plan',
-            }
-          : prev.calendarBinding ?? null,
-        scheduledProvider: args.eventRef?.provider ?? prev.scheduledProvider,
-        scheduledProviderAccountId: args.eventRef?.accountId ?? prev.scheduledProviderAccountId,
-        scheduledProviderCalendarId: args.eventRef?.calendarId ?? prev.scheduledProviderCalendarId,
-        scheduledProviderEventId: args.eventRef?.eventId ?? prev.scheduledProviderEventId,
-        updatedAt: timestamp,
-      }));
+      updateActivity(args.activityId, (prev) => {
+        if (!hasBindableEventRef) return { ...prev, updatedAt: timestamp };
+        const binding = {
+          kind: 'provider' as const,
+          provider: args.eventRef!.provider,
+          accountId: args.eventRef!.accountId,
+          calendarId: args.eventRef!.calendarId,
+          eventId: args.eventRef!.eventId,
+          createdBy: 'plan' as const,
+        };
+        const session: ActivityScheduleSession = {
+          id: `session:${binding.provider}:${binding.accountId}:${binding.calendarId}:${binding.eventId}`,
+          activityId: args.activityId,
+          start: args.proposal.startDate,
+          end: args.proposal.endDate,
+          calendarBinding: binding,
+          source: 'plan',
+          status: 'scheduled',
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        return {
+          ...upsertActivityScheduleSession(prev, session, new Date(timestamp)),
+          updatedAt: timestamp,
+        };
+      });
       addDailyPlanCommitment(dateKey, args.activityId);
       setSheetCreatedProposals((prev) => prev.filter((p) => p.activityId !== args.activityId));
       setSheetCreatedUnscheduledIds((prev) => prev.filter((id) => id !== args.activityId));
@@ -830,6 +845,23 @@ export function PlanPager({
       return false;
     }
     if (committingActivityId) return false;
+
+    const duplicate = findMatchingActivityScheduleSession(activity, {
+      start: proposal.startDate,
+      end: proposal.endDate,
+      calendarBinding: {
+        kind: 'provider',
+        provider: writeRef.provider,
+        accountId: writeRef.accountId,
+        calendarId: writeRef.calendarId,
+        eventId: '__candidate__',
+        createdBy: 'plan',
+      },
+    });
+    if (duplicate) {
+      Alert.alert('Already scheduled there', 'Choose a different time to add another session.');
+      return false;
+    }
 
     try {
       setCommittingActivityId(activityId);
@@ -928,6 +960,34 @@ export function PlanPager({
     },
     [dayAvailability, targetDate],
   );
+
+  const handleSessionEditBegin = useCallback(() => {
+    setSlotDraft(null);
+    setPeekSelection(null);
+    setSlotFocusRequestId((current) => current + 1);
+  }, []);
+  const {
+    edit: sessionEdit,
+    model: sessionEditModel,
+    isAdjusting: slotAdjustmentActive,
+    setIsAdjusting: setSlotAdjustmentActive,
+    begin: beginSessionEdit,
+    cancel: cancelSessionEdit,
+    reset: resetSessionEdit,
+    changeDraft: handleSessionEditDraftChange,
+    changeBlockDraft: handleSessionBlockDraftChange,
+    commitDraft: commitSessionEditDraft,
+    updateScheduledCommitment,
+  } = usePlanSessionEditor({
+    blocks: kwiltBlocks,
+    busyIntervals: externalBusyIntervals,
+    getPlanMode: getPlanModeForActivity,
+    isWithinWindows,
+    onBegin: handleSessionEditBegin,
+    onCalendarAccessStatusChange: setCalendarAccessStatus,
+  });
+
+  useEffect(() => resetSessionEdit(), [dateKey, resetSessionEdit]);
 
   const getCandidateStartSlotsForRecommendation = useCallback(
     (activityId: string): string[] => {
@@ -1035,101 +1095,32 @@ export function PlanPager({
     );
   };
 
-  const handleMoveCommitment = async (activityId: string, newStart: Date) => {
-    const block = kwiltBlocks.find((b) => b.activity.id === activityId);
+  const handleMoveCommitment = async (activityId: string, sessionId: string, newStart: Date) => {
+    const block = kwiltBlocks.find((b) => b.activity.id === activityId && b.sessionId === sessionId);
     if (!block) return;
-    const activity = block.activity;
-    const duration = Math.max(10, activity.estimateMinutes ?? 30);
+    const duration = Math.max(10, Math.round((block.end.getTime() - block.start.getTime()) / 60_000));
     const newEnd = new Date(newStart.getTime() + duration * 60000);
-    const mode = getPlanModeForActivity(activity);
-    if (!isWithinWindows(mode, newStart, newEnd)) {
-      Alert.alert('Outside availability', 'Pick a time within your availability windows.');
-      return;
-    }
-    const conflicts = externalBusyIntervals.some((b) => b.start < newEnd && newStart < b.end);
-    if (conflicts) {
-      Alert.alert('Time conflict', 'That time conflicts with your calendar.');
-      return;
-    }
-    const binding = activity.calendarBinding ?? null;
-    if (!binding) {
-      Alert.alert('Unable to move', 'This block is not linked to a calendar event Kwilt can manage.');
-      return;
-    }
-    try {
-      await ensureSignedInWithPrompt('plan');
-      await moveManagedEvent({ binding, start: newStart, end: newEnd });
-      const timestamp = new Date().toISOString();
-      updateActivity(activityId, (prev) => ({
-        ...prev,
-        scheduledAt: newStart.toISOString(),
-        updatedAt: timestamp,
-      }));
-    } catch {
-      const provider = binding.kind === 'device' ? null : binding.provider;
-      Alert.alert(
-        'Unable to move',
-        binding.kind === 'device'
-          ? 'Kwilt needs Calendar permission to update this event.'
-          : 'Kwilt needs refreshed calendar access to update this event.',
-        [
-          { text: 'OK' },
-          ...(binding.kind === 'device'
-            ? [
-                {
-                  text: 'Open Settings',
-                  onPress: () => {
-                    try {
-                      Linking.openSettings();
-                    } catch {
-                      // no-op
-                    }
-                  },
-                },
-              ]
-            : provider
-              ? [
-                  {
-                    text: 'Reconnect',
-                    onPress: async () => {
-                      try {
-                        setCalendarAccessStatus('refreshing');
-                        await ensureSignedInWithPrompt('plan');
-                        const { authUrl } = await startCalendarConnect(provider);
-                        await Linking.openURL(authUrl);
-                      } catch {
-                        setCalendarAccessStatus('expired');
-                      }
-                    },
-                  },
-                ]
-              : []),
-        ],
-      );
-    }
+    await updateScheduledCommitment(activityId, sessionId, newStart, newEnd);
   };
 
-  const handleUnscheduleCommitment = async (activityId: string) => {
-    const block = kwiltBlocks.find((b) => b.activity.id === activityId);
+  const handleUnscheduleCommitment = async (activityId: string, sessionId: string) => {
+    const block = kwiltBlocks.find((b) => b.activity.id === activityId && b.sessionId === sessionId);
     if (!block) return;
     const activity = block.activity;
-    const binding = activity.calendarBinding ?? null;
+    const binding = block.binding;
 
     const localUnschedule = () => {
       const timestamp = new Date().toISOString();
       updateActivity(activityId, (prev) => ({
-        ...prev,
-        scheduledAt: null,
-        calendarBinding: null,
-        scheduledProvider: null,
-        scheduledProviderAccountId: null,
-        scheduledProviderCalendarId: null,
-        scheduledProviderEventId: null,
+        ...cancelActivityScheduleSession(prev, sessionId, timestamp, new Date(timestamp)),
         updatedAt: timestamp,
       }));
       // Remove from the day’s commitment record (best-effort).
-      const dayKey = activity.scheduledAt ? toLocalDateKey(new Date(activity.scheduledAt)) : dateKey;
-      removeDailyPlanCommitment(dayKey, activityId);
+      const dayKey = toLocalDateKey(block.start);
+      const hasAnotherSessionThatDay = kwiltBlocks.some((candidate) =>
+        candidate.activity.id === activityId && candidate.sessionId !== sessionId,
+      );
+      if (!hasAnotherSessionThatDay) removeDailyPlanCommitment(dayKey, activityId);
       showToast({ message: 'Removed from plan.', variant: 'light' });
       setPeekSelection(null);
     };
@@ -1388,7 +1379,11 @@ export function PlanPager({
   });
 
   const swipeGesture = useMemo(() => {
-    const enabled = typeof onNavigateDay === 'function' && !recommendationsDrawerVisible && !peekSelection && !slotDraft;
+    const enabled = typeof onNavigateDay === 'function'
+      && !recommendationsDrawerVisible
+      && !peekSelection
+      && !slotDraft
+      && !sessionEdit;
     if (!enabled) {
       return Gesture.Pan().enabled(false);
     }
@@ -1432,7 +1427,7 @@ export function PlanPager({
           );
         })
     );
-  }, [onNavigateDay, recommendationsDrawerVisible, peekSelection, slotDraft, canvasTranslateX, canvasWidth, isDayTransitionAnimating]);
+  }, [onNavigateDay, recommendationsDrawerVisible, peekSelection, sessionEdit, slotDraft, canvasTranslateX, canvasWidth, isDayTransitionAnimating]);
 
   const handleOpenFocus = useCallback((activityId: string) => {
     if (!rootNavigationRef.isReady()) return;
@@ -1452,9 +1447,13 @@ export function PlanPager({
     } as any);
   }, [canOpenActivityDetail]);
 
-  const drawerMode: PlanDrawerMode | null = peekSelection
+  const drawerMode: PlanDrawerMode | null = sessionEdit
+    ? 'sessionEdit'
+    : peekSelection
     ? peekSelection.kind === 'activity'
-      ? kwiltBlocks.some((b) => b.activity.id === peekSelection.activityId)
+      ? kwiltBlocks.some((b) =>
+          b.activity.id === peekSelection.activityId && b.sessionId === peekSelection.sessionId,
+        )
         ? 'activity'
         : null
       : 'external'
@@ -1465,6 +1464,10 @@ export function PlanPager({
       : null;
 
   const handleDrawerClose = useCallback(() => {
+    if (sessionEdit) {
+      cancelSessionEdit();
+      return;
+    }
     if (peekSelection) {
       setPeekSelection(null);
       return;
@@ -1474,15 +1477,23 @@ export function PlanPager({
       return;
     }
     setSheetSnapIndex(0);
-  }, [peekSelection, setSheetSnapIndex, slotDraft]);
+  }, [cancelSessionEdit, peekSelection, sessionEdit, setSheetSnapIndex, slotDraft]);
 
   const activityPeekModel = useMemo(() => {
-    if (!peekSelection || peekSelection.kind !== 'activity') return null;
-    const block = kwiltBlocks.find((b) => b.activity.id === peekSelection.activityId) ?? null;
+    const identity = peekSelection?.kind === 'activity'
+      ? peekSelection
+      : sessionEdit
+        ? { kind: 'activity' as const, activityId: sessionEdit.activityId, sessionId: sessionEdit.sessionId }
+        : null;
+    if (!identity) return null;
+    const block = kwiltBlocks.find((b) =>
+      b.activity.id === identity.activityId && b.sessionId === identity.sessionId,
+    ) ?? null;
     if (!block) return null;
-    const conflict = conflicts.includes(peekSelection.activityId);
+    const conflict = conflicts.includes(identity.activityId);
     return {
-      activityId: peekSelection.activityId,
+      activityId: identity.activityId,
+      sessionId: identity.sessionId,
       start: block.start,
       end: block.end,
       conflict,
@@ -1490,7 +1501,7 @@ export function PlanPager({
       onOpenFullActivity: handleOpenFullActivity,
       onMoveCommitment: handleMoveCommitment,
       onUnscheduleCommitment: handleUnscheduleCommitment,
-      onRequestClose: () => setPeekSelection(null),
+      onRequestClose: sessionEdit ? cancelSessionEdit : () => setPeekSelection(null),
     };
   }, [
     conflicts,
@@ -1500,6 +1511,8 @@ export function PlanPager({
     handleOpenFullActivity,
     kwiltBlocks,
     peekSelection,
+    sessionEdit,
+    cancelSessionEdit,
   ]);
 
   const externalPeekModel = useMemo(() => {
@@ -1521,8 +1534,18 @@ export function PlanPager({
           <PlanCalendarLensPage
             contentPadding={pagePadding}
             bottomOverlayInset={
-              slotDraft
-                ? Math.max(screenHeight - insets.top, 0) * PLAN_SLOT_DRAWER_COMPACT_HEIGHT_RATIO
+              sessionEdit
+                ? Math.max(screenHeight - insets.top, 0) * (
+                    slotAdjustmentActive
+                      ? PLAN_SESSION_EDIT_DRAWER_DRAG_HEIGHT_RATIO
+                      : PLAN_SESSION_EDIT_DRAWER_COMPACT_HEIGHT_RATIO
+                  )
+                : slotDraft
+                ? Math.max(screenHeight - insets.top, 0) * (
+                    slotAdjustmentActive
+                      ? PLAN_SLOT_DRAWER_DRAG_HEIGHT_RATIO
+                      : PLAN_SLOT_DRAWER_COMPACT_HEIGHT_RATIO
+                  )
                 : 0
             }
             slotFocusRequestId={slotFocusRequestId}
@@ -1534,7 +1557,7 @@ export function PlanPager({
             // Don't paint recommendations onto the calendar canvas when the drawer is closed.
             // Otherwise they read like real scheduled blocks and visually "repeat" on every day.
             proposedBlocks={
-              recommendationsDrawerVisible || Boolean(slotDraft)
+              recommendationsDrawerVisible || Boolean(slotDraft) || Boolean(sessionEdit)
                 ? scheduleProposals.map((p) => ({
                     title: p.title,
                     start: new Date(p.startDate),
@@ -1542,7 +1565,12 @@ export function PlanPager({
                   }))
                 : []
             }
-            slotDraft={slotDraft}
+            slotDraft={sessionEdit?.draft ?? slotDraft}
+            slotDraftTitle={sessionEditModel?.title ?? null}
+            editingKwiltBlock={sessionEdit ? {
+              activityId: sessionEdit.activityId,
+              sessionId: sessionEdit.sessionId,
+            } : null}
             kwiltBlocks={kwiltBlocks}
             conflictActivityIds={conflicts}
             calendarStatus={calendarStatus}
@@ -1551,15 +1579,23 @@ export function PlanPager({
                 rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
               }
             }}
-            onMoveCommitment={handleMoveCommitment}
-            onPressKwiltBlock={(activityId) => {
+            onPressKwiltBlock={(activityId, sessionId) => {
               if (recommendationsDrawerVisible) setSheetSnapIndex(0);
-              if (slotDraft) setSlotDraft(null);
-              setPeekSelection({ kind: 'activity', activityId });
+              const block = kwiltBlocks.find((candidate) =>
+                candidate.activity.id === activityId && candidate.sessionId === sessionId,
+              );
+              if (!block) return;
+              beginSessionEdit({ activityId, sessionId, start: block.start, end: block.end });
+            }}
+            onBeginKwiltBlockAdjustment={beginSessionEdit}
+            onKwiltBlockAdjustmentChange={handleSessionBlockDraftChange}
+            onKwiltBlockAdjustmentComplete={({ draft }) => {
+              void commitSessionEditDraft(draft);
             }}
             onPressExternalEvent={(event) => {
               if (recommendationsDrawerVisible) setSheetSnapIndex(0);
               if (slotDraft) setSlotDraft(null);
+              resetSessionEdit();
               setPeekSelection({ kind: 'external', event });
             }}
             onPressEmptyTime={({ date }) => {
@@ -1571,12 +1607,24 @@ export function PlanPager({
                 durationMinutes: 60,
               });
               setSlotDraft(nextSlot);
+              resetSessionEdit();
               setSlotFocusRequestId((current) => current + 1);
               setPeekSelection(null);
               setSheetSnapIndex(0);
             }}
-            onSlotDraftChange={setSlotDraft}
+            onSlotDraftChange={(draft) => {
+              if (sessionEdit && draft) {
+                handleSessionEditDraftChange(draft);
+                return;
+              }
+              setSlotDraft(draft);
+            }}
+            onSlotAdjustmentActiveChange={setSlotAdjustmentActive}
             onSlotDraftComplete={(slot) => {
+              if (sessionEdit) {
+                void commitSessionEditDraft(slot);
+                return;
+              }
               setSlotDraft(slot);
               setPeekSelection(null);
               setSheetSnapIndex(0);
@@ -1657,8 +1705,14 @@ export function PlanPager({
                 }
               : undefined
           }
-          activityPeek={drawerMode === 'activity' ? (activityPeekModel ?? undefined) : undefined}
+          activityPeek={
+            drawerMode === 'activity' || drawerMode === 'sessionEdit'
+              ? (activityPeekModel ?? undefined)
+              : undefined
+          }
           externalPeek={drawerMode === 'external' ? (externalPeekModel ?? undefined) : undefined}
+          sessionEdit={drawerMode === 'sessionEdit' ? (sessionEditModel ?? undefined) : undefined}
+          slotAdjustmentActive={slotAdjustmentActive}
         />
       ) : null}
 

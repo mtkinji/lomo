@@ -40,16 +40,16 @@ describe('kwiltCalendarBlocks', () => {
     );
 
     expect(result.map((block) => block.activity.id)).toEqual(['first', 'second']);
-    expect(result[0]).toEqual({
+    expect(result[0]).toEqual(expect.objectContaining({
       activity: first,
       start: firstStart,
       end: new Date(firstStart.getTime() + 45 * 60_000),
-    });
-    expect(result[1]).toEqual({
+    }));
+    expect(result[1]).toEqual(expect.objectContaining({
       activity: second,
       start: secondStart,
       end: new Date(secondStart.getTime() + 20 * 60_000),
-    });
+    }));
   });
 
   it('uses the default duration and minimum duration rule from scheduling screens', () => {
@@ -72,5 +72,34 @@ describe('kwiltCalendarBlocks', () => {
       { id: 'default-duration', minutes: 30 },
       { id: 'minimum-duration', minutes: 10 },
     ]);
+  });
+
+  it('renders multiple active schedule sessions for one to-do', () => {
+    const targetDate = new Date(2026, 6, 8, 12, 0);
+    const firstStart = new Date(2026, 6, 8, 9, 0);
+    const secondStart = new Date(2026, 6, 8, 14, 0);
+    const scheduled = activity({
+      scheduledAt: firstStart.toISOString(),
+      scheduleSessions: [
+        {
+          id: 'session-1', activityId: 'activity-1', start: firstStart.toISOString(),
+          end: new Date(2026, 6, 8, 10, 0).toISOString(),
+          calendarBinding: { kind: 'provider', provider: 'google', accountId: 'account-1', calendarId: 'calendar-1', eventId: 'event-1', createdBy: 'plan' },
+          source: 'plan', status: 'scheduled', createdAt: '2026-07-08T12:00:00.000Z', updatedAt: '2026-07-08T12:00:00.000Z',
+        },
+        {
+          id: 'session-2', activityId: 'activity-1', start: secondStart.toISOString(),
+          end: new Date(2026, 6, 8, 15, 30).toISOString(),
+          calendarBinding: { kind: 'provider', provider: 'google', accountId: 'account-1', calendarId: 'calendar-1', eventId: 'event-2', createdBy: 'plan' },
+          source: 'plan', status: 'scheduled', createdAt: '2026-07-08T12:00:00.000Z', updatedAt: '2026-07-08T12:00:00.000Z',
+        },
+      ],
+    });
+
+    const result = getKwiltCalendarBlocksForDay([scheduled], targetDate);
+
+    expect(result.map((block) => block.sessionId)).toEqual(['session-1', 'session-2']);
+    expect(result.map((block) => block.activity)).toEqual([scheduled, scheduled]);
+    expect(result.map((block) => block.end.getTime() - block.start.getTime())).toEqual([60 * 60_000, 90 * 60_000]);
   });
 });

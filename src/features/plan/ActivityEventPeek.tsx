@@ -2,17 +2,16 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
-import { HStack, Heading, Text, VStack } from '../../ui/primitives';
+import { ButtonLabel, HStack, Heading, Text, VStack } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { GoalPill } from '../../ui/GoalPill';
 import { formatTimeRange } from '../../services/plan/planDates';
 import { useAppStore } from '../../store/useAppStore';
 import { useToastStore } from '../../store/useToastStore';
-import { KeyActionsRow } from '../../ui/KeyActionsRow';
+import { KeyActionsRow, type KeyActionItem } from '../../ui/KeyActionsRow';
 import { Icon } from '../../ui/Icon';
 import { Badge } from '../../ui/Badge';
-import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
-import { BottomDrawerHeader, BottomDrawerHeaderClose } from '../../ui/layout/BottomDrawerHeader';
+import { BottomDrawerExpansionFade, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { ActivityPeekNotes, ActivityPeekSteps, ActivityPeekTags } from '../activities/ActivityPeekFields';
 import { deriveStatusFromSteps } from '../activities/activityStepStatus';
 import {
@@ -31,20 +30,28 @@ import {
   getPlanActivityCompletionAction,
 } from './planActivityCompletion';
 
+const SESSION_MANAGEMENT_FADE_START = 0.17;
+const SESSION_MANAGEMENT_FADE_END = 0.34;
+const SESSION_MANAGEMENT_REST_OPACITY = 0.1;
+
 export type ActivityEventPeekModel = {
   activityId: string;
+  sessionId: string;
   start: Date;
   end: Date;
   conflict?: boolean;
   onOpenFocus: (activityId: string) => void;
   onOpenFullActivity: (activityId: string) => void;
-  onMoveCommitment: (activityId: string, newStart: Date) => void;
-  onUnscheduleCommitment: (activityId: string) => void;
+  onMoveCommitment: (activityId: string, sessionId: string, newStart: Date) => void;
+  onUnscheduleCommitment: (activityId: string, sessionId: string) => void;
   onRequestClose: () => void;
+  embedded?: boolean;
+  managementHidden?: boolean;
 };
 
 export function ActivityEventPeek({
   activityId,
+  sessionId,
   start,
   end,
   conflict,
@@ -53,6 +60,8 @@ export function ActivityEventPeek({
   onMoveCommitment,
   onUnscheduleCommitment,
   onRequestClose,
+  embedded = false,
+  managementHidden = false,
 }: ActivityEventPeekModel) {
   const activity = useAppStore((s) => s.activities.find((a) => a.id === activityId) ?? null);
   const goalTitle = useAppStore((s) => {
@@ -153,7 +162,7 @@ export function ActivityEventPeek({
     // Android picker is a modal; apply immediately and close.
     if (Platform.OS !== 'ios') {
       setPickerVisible(false);
-      onMoveCommitment(activityId, next);
+      onMoveCommitment(activityId, sessionId, next);
     }
   };
 
@@ -164,7 +173,7 @@ export function ActivityEventPeek({
 
   const handleMoveDone = () => {
     if (pendingMoveDate) {
-      onMoveCommitment(activityId, pendingMoveDate);
+      onMoveCommitment(activityId, sessionId, pendingMoveDate);
     }
     setPickerVisible(false);
   };
@@ -258,15 +267,56 @@ export function ActivityEventPeek({
   if (!activity) {
     return (
       <View style={styles.container}>
-        <BottomDrawerHeader
-          title="Scheduled"
-          rightAction={<BottomDrawerHeaderClose onPress={onRequestClose} />}
-          titleStyle={styles.headerTitle}
-        />
         <Text style={styles.bodyText}>This to-do can’t be found.</Text>
       </View>
     );
   }
+  const resolvedCompletionAction = completionAction ?? getPlanActivityCompletionAction(activity);
+
+  const moveAction: KeyActionItem = {
+    id: 'move',
+    icon: 'moveTime',
+    label: 'Move',
+    onPress: handleMovePress,
+    accessibilityHint: 'Change the scheduled time for this to-do.',
+    tileBackgroundColor: colors.canvas,
+    tileBorderColor: colors.border,
+  };
+  const openAction: KeyActionItem = {
+    id: 'open',
+    icon: 'externalLink',
+    label: 'Open',
+    onPress: () => {
+      onRequestClose();
+      onOpenFullActivity(activityId);
+    },
+    accessibilityHint: 'Open the full to-do details.',
+    tileBackgroundColor: colors.canvas,
+    tileBorderColor: colors.border,
+  };
+  const unscheduleAction: KeyActionItem = {
+    id: 'unschedule',
+    icon: 'unschedule',
+    label: 'Unschedule',
+    onPress: () => onUnscheduleCommitment(activityId, sessionId),
+    accessibilityHint: 'Remove this to-do from your plan.',
+    tileBackgroundColor: colors.canvas,
+    tileBorderColor: colors.border,
+  };
+  const completionKeyAction: KeyActionItem = {
+    id: 'complete',
+    icon: resolvedCompletionAction.isDone ? 'refresh' : 'checkCircle',
+    label: resolvedCompletionAction.label,
+    onPress: handlePlanCompletePress,
+    accessibilityHint: resolvedCompletionAction.meta,
+    tileBackgroundColor: colors.canvas,
+    tileBorderColor: colors.border,
+  };
+  const keyActions = embedded
+    ? [openAction, completionKeyAction, unscheduleAction]
+    : conflict
+      ? [moveAction, unscheduleAction, openAction]
+      : [openAction, moveAction, unscheduleAction];
 
   return (
     <BottomDrawerScrollView
@@ -275,14 +325,8 @@ export function ActivityEventPeek({
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <BottomDrawerHeader
-        title="Scheduled"
-        rightAction={<BottomDrawerHeaderClose onPress={onRequestClose} />}
-        titleStyle={styles.headerTitle}
-      />
-
-      <VStack space={spacing.md}>
-        <View style={styles.summaryCard}>
+      <VStack space={spacing.md} style={embedded ? styles.embeddedDetails : null}>
+        {!embedded ? <View style={styles.summaryCard}>
           <VStack space={spacing.xs}>
             <Heading variant="md" style={styles.activityTitle}>
               {activity.title}
@@ -298,7 +342,7 @@ export function ActivityEventPeek({
             </HStack>
             {conflict ? <Text style={styles.conflictHint}>Conflicts with your calendar.</Text> : null}
           </VStack>
-        </View>
+        </View> : null}
 
         <Button
           variant="primary"
@@ -308,10 +352,13 @@ export function ActivityEventPeek({
             onOpenFocus(activityId);
           }}
         >
-          Start Focus
+          <HStack space={spacing.sm} alignItems="center">
+            <Icon name="focus" size={18} color={colors.primaryForeground} />
+            <ButtonLabel tone="inverse">Start Focus</ButtonLabel>
+          </HStack>
         </Button>
 
-        {completionAction ? (
+        {!embedded && completionAction ? (
           <View style={styles.completionRow}>
             <HStack space={spacing.sm} alignItems="center" style={styles.completionTextWrap}>
               <View style={[styles.completionIcon, completionAction.isDone ? styles.completionIconDone : null]}>
@@ -339,89 +386,44 @@ export function ActivityEventPeek({
           </View>
         ) : null}
 
-        <KeyActionsRow
-          size="md"
-          items={[
-            ...(conflict
-              ? ([
-                  {
-                    id: 'move',
-                    icon: 'moveTime',
-                    label: 'Move',
-                    onPress: handleMovePress,
-                    accessibilityHint: 'Change the scheduled time for this to-do.',
-                    tileBackgroundColor: colors.canvas,
-                    tileBorderColor: colors.border,
-                  },
-                  {
-                    id: 'unschedule',
-                    icon: 'unschedule',
-                    label: 'Unschedule',
-                    onPress: () => onUnscheduleCommitment(activityId),
-                    accessibilityHint: 'Remove this to-do from your plan.',
-                    tileBackgroundColor: colors.canvas,
-                    tileBorderColor: colors.border,
-                  },
-                  {
-                    id: 'open',
-                    icon: 'externalLink',
-                    label: 'Open',
-                    onPress: () => {
-                      onRequestClose();
-                      onOpenFullActivity(activityId);
-                    },
-                    accessibilityHint: 'Open the full to-do details.',
-                    tileBackgroundColor: colors.canvas,
-                    tileBorderColor: colors.border,
-                  },
-                ] as const)
-              : ([
-                  {
-                    id: 'open',
-                    icon: 'externalLink',
-                    label: 'Open',
-                    onPress: () => {
-                      onRequestClose();
-                      onOpenFullActivity(activityId);
-                    },
-                    accessibilityHint: 'Open the full to-do details.',
-                    tileBackgroundColor: colors.canvas,
-                    tileBorderColor: colors.border,
-                  },
-                  {
-                    id: 'move',
-                    icon: 'moveTime',
-                    label: 'Move',
-                    onPress: handleMovePress,
-                    accessibilityHint: 'Change the scheduled time for this to-do.',
-                    tileBackgroundColor: colors.canvas,
-                    tileBorderColor: colors.border,
-                  },
-                  {
-                    id: 'unschedule',
-                    icon: 'unschedule',
-                    label: 'Unschedule',
-                    onPress: () => onUnscheduleCommitment(activityId),
-                    accessibilityHint: 'Remove this to-do from your plan.',
-                    tileBackgroundColor: colors.canvas,
-                    tileBorderColor: colors.border,
-                  },
-                ] as const)),
-          ]}
-        />
-
-        <ActivityPeekSteps
-          activity={activity as any}
-          linkedActivityById={linkedActivityById as any}
-          onToggleStepComplete={handleToggleStepComplete}
-          onOpenLinkedActivity={(linkedId) => {
-            onRequestClose();
-            onOpenFullActivity(linkedId);
-          }}
-        />
-
-        <ActivityPeekNotes notes={activity.notes} />
-        <ActivityPeekTags tags={activity.tags} />
+        {embedded ? (
+          <BottomDrawerExpansionFade
+            hidden={managementHidden}
+            from={SESSION_MANAGEMENT_FADE_START}
+            to={SESSION_MANAGEMENT_FADE_END}
+            minimumOpacity={SESSION_MANAGEMENT_REST_OPACITY}
+          >
+            <VStack space={spacing.md}>
+              <KeyActionsRow size="md" items={keyActions} />
+              <ActivityPeekSteps
+                activity={activity}
+                linkedActivityById={linkedActivityById}
+                onToggleStepComplete={handleToggleStepComplete}
+                onOpenLinkedActivity={(linkedId) => {
+                  onRequestClose();
+                  onOpenFullActivity(linkedId);
+                }}
+              />
+              <ActivityPeekNotes notes={activity.notes} />
+              <ActivityPeekTags tags={activity.tags} />
+            </VStack>
+          </BottomDrawerExpansionFade>
+        ) : (
+          <>
+            <KeyActionsRow size="md" items={keyActions} />
+            <ActivityPeekSteps
+              activity={activity}
+              linkedActivityById={linkedActivityById}
+              onToggleStepComplete={handleToggleStepComplete}
+              onOpenLinkedActivity={(linkedId) => {
+                onRequestClose();
+                onOpenFullActivity(linkedId);
+              }}
+            />
+            <ActivityPeekNotes notes={activity.notes} />
+            <ActivityPeekTags tags={activity.tags} />
+          </>
+        )}
 
         {pickerVisible && pendingMoveDate ? (
           <View style={styles.pickerContainer}>
@@ -466,8 +468,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing['2xl'],
   },
-  headerTitle: {
-    textAlign: 'left',
+  embeddedDetails: {
+    paddingTop: spacing.lg,
   },
   summaryCard: {
     ...cardSurfaceStyle,

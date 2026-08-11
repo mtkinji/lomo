@@ -45,6 +45,10 @@ describe('usePlanSlotSelectionState', () => {
 });
 
 describe('usePlanSlotCapture', () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('lets the user add an appointment after warning about a calendar conflict', async () => {
     const slotDraft: PlanSlotDraft = {
       start: new Date('2026-07-20T09:00:00.000-06:00'),
@@ -120,5 +124,35 @@ describe('usePlanSlotCapture', () => {
       }),
     );
     expect(clearSlotDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks an exact duplicate session before offering the generic conflict override', async () => {
+    const slotDraft: PlanSlotDraft = {
+      start: new Date('2026-07-20T09:00:00.000-06:00'),
+      end: new Date('2026-07-20T09:30:00.000-06:00'),
+    };
+    const activity: Activity = {
+      id: 'activity-1', goalId: null, title: 'Draft family story center', type: 'task', tags: [],
+      status: 'planned', forceActual: {}, createdAt: '2026-07-20T14:00:00.000Z', updatedAt: '2026-07-20T14:00:00.000Z',
+      scheduleSessions: [{
+        id: 'session-1', activityId: 'activity-1', start: slotDraft.start.toISOString(), end: slotDraft.end.toISOString(),
+        calendarBinding: { kind: 'provider', provider: 'google', accountId: 'account-1', calendarId: 'calendar-1', eventId: 'event-1', createdBy: 'plan' },
+        source: 'plan', status: 'scheduled', createdAt: '2026-07-20T14:00:00.000Z', updatedAt: '2026-07-20T14:00:00.000Z',
+      }],
+    };
+    const commitProposal = jest.fn(async () => true);
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const { result } = renderHook(() => usePlanSlotCapture({
+      slotDraft, activities: [activity], goals: [], arcs: [], dateKey: '2026-07-20', busyIntervals: [],
+      scheduleProposals: [], writeCalendarId: 'calendar-1', getPlanModeForActivity: () => 'personal',
+      isWithinWindows: () => true, quickAddAiActions: [], setQuickAddAiActions: jest.fn(), addActivity: jest.fn(),
+      updateActivity: jest.fn(), recordShowUp: jest.fn(), showToast: jest.fn(), commitProposal, clearSlotDraft: jest.fn(),
+    }));
+
+    act(() => result.current?.onSelectActivity(activity.id));
+    await act(async () => result.current?.onCommitExisting());
+
+    expect(alertSpy).toHaveBeenCalledWith('Already scheduled there', 'Choose a different time to add another session.');
+    expect(commitProposal).not.toHaveBeenCalled();
   });
 });

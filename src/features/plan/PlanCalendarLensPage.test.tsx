@@ -13,7 +13,6 @@ const baseProps = {
   conflictActivityIds: [],
   calendarStatus: 'connected' as const,
   onOpenCalendarSettings: jest.fn(),
-  onMoveCommitment: jest.fn(),
 };
 
 describe('PlanCalendarLensPage', () => {
@@ -71,5 +70,75 @@ describe('PlanCalendarLensPage', () => {
       start: slotStart,
       end: new Date(2026, 6, 8, 11, 15),
     });
+  });
+
+  it('replaces a selected persisted session with the titled editable overlay', () => {
+    const slotStart = new Date(2026, 6, 8, 13);
+    const slotEnd = new Date(2026, 6, 8, 17);
+    const scheduledBlock = {
+      activity: {
+        id: 'activity-1',
+        goalId: null,
+        title: 'Work on Adobe presentation',
+        type: 'task' as const,
+        tags: [],
+        status: 'planned' as const,
+        forceActual: {},
+        createdAt: '2026-07-08T12:00:00.000Z',
+        updatedAt: '2026-07-08T12:00:00.000Z',
+      },
+      sessionId: 'session-1',
+      start: slotStart,
+      end: slotEnd,
+    };
+
+    const { getByLabelText, queryByText } = renderWithProviders(
+      <PlanCalendarLensPage
+        {...baseProps}
+        kwiltBlocks={[scheduledBlock]}
+        editingKwiltBlock={{ activityId: 'activity-1', sessionId: 'session-1' }}
+        slotDraft={{ start: slotStart, end: slotEnd }}
+        slotDraftTitle="Work on Adobe presentation"
+        onSlotDraftChange={jest.fn()}
+        onSlotDraftComplete={jest.fn()}
+      />,
+    );
+
+    expect(queryByText(/Hold to move/)).toBeNull();
+    expect(getByLabelText('Move Work on Adobe presentation, 1:00 PM - 5:00 PM')).toBeTruthy();
+    expect(getByLabelText('Change start time')).toBeTruthy();
+    expect(getByLabelText('Change end time')).toBeTruthy();
+  });
+
+  it('selects a persisted session with a single tap', () => {
+    const onPressKwiltBlock = jest.fn();
+    const scheduledBlock = {
+      activity: {
+        id: 'activity-1',
+        goalId: null,
+        title: 'Work on Adobe presentation',
+        type: 'task' as const,
+        tags: [],
+        status: 'planned' as const,
+        forceActual: {},
+        createdAt: '2026-07-08T12:00:00.000Z',
+        updatedAt: '2026-07-08T12:00:00.000Z',
+      },
+      sessionId: 'session-1',
+      start: new Date(2026, 6, 8, 13),
+      end: new Date(2026, 6, 8, 17),
+    };
+
+    const { getByLabelText } = renderWithProviders(
+      <PlanCalendarLensPage
+        {...baseProps}
+        kwiltBlocks={[scheduledBlock]}
+        onPressKwiltBlock={onPressKwiltBlock}
+      />,
+    );
+
+    fireEvent.press(getByLabelText('Adjust Work on Adobe presentation'));
+
+    expect(onPressKwiltBlock).toHaveBeenCalledWith('activity-1', 'session-1');
   });
 });

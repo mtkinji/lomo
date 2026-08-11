@@ -219,7 +219,6 @@ export function ActivityScheduleSheet({
                       close();
                       onOpenCalendarSettings();
                     }}
-                    onMoveCommitment={() => undefined}
                     onPressEmptyTime={selectManualTime}
                   />
                 </View>

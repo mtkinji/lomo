@@ -14,7 +14,7 @@ import {
   InventoryControlSurface,
 } from '../../ui/InventoryControlGroup';
 import { SortDrawer } from '../../ui/SortDrawer';
-import { HStack, Text } from '../../ui/primitives';
+import { HStack, Text, VStack } from '../../ui/primitives';
 import { QuickAddDock } from '../activities/QuickAddDock';
 import { GroupingDrawer } from '../activities/GroupingDrawer';
 import { buildPriorityIndicator } from '../activities/activityPriorityIndicator';
@@ -31,6 +31,7 @@ import type {
 } from '../../domain/types';
 import type { PlanRecommendationsQuickAddModel } from './usePlanRecommendationsQuickAdd';
 import { buildPlanSlotInventory } from './planSlotInventory';
+import { getActivityScheduleSessionCount } from '../../services/plan/activityScheduleSessions';
 
 export type PlanSlotCaptureModel = {
   start: Date;
@@ -76,18 +77,18 @@ export function PlanSlotCapturePage({
     [end, start],
   );
   const canCommit = Boolean(selectedActivityId);
-  const selectedCreatedActivity = Boolean(
-    createdActivityId && selectedActivityId === createdActivityId,
-  );
-  const selectedExistingTitle = selectedCreatedActivity
-    ? null
-    : activities.find((activity) => activity.id === selectedActivityId)?.title ?? null;
+  const selectedCreatedActivity = Boolean(createdActivityId && selectedActivityId === createdActivityId);
+  const selectedActivity = activities.find((activity) => activity.id === selectedActivityId) ?? null;
+  const selectedSessionCount = selectedActivity ? getActivityScheduleSessionCount(selectedActivity) : 0;
   const isCommitting = Boolean(committingActivityId);
-  const selectedLabel = selectedCreatedActivity
-    ? 'New to-do ready'
-    : selectedExistingTitle
-      ? `Selected: ${selectedExistingTitle}`
-      : null;
+  const selectedStatus = selectedCreatedActivity
+    ? 'Created'
+    : selectedSessionCount > 0
+      ? `${selectedSessionCount} ${selectedSessionCount === 1 ? 'session' : 'sessions'}`
+      : selectedActivity
+        ? 'Selected'
+        : null;
+  const commitLabel = selectedSessionCount > 0 ? 'Add another session' : 'Add to calendar';
   const dockBottomOffset = Math.max(insets.bottom, spacing.sm);
   const filterCount = filters.reduce((count, group) => count + group.conditions.length, 0);
   const groupingCount = grouping.field === 'none' ? 0 : 1;
@@ -167,16 +168,24 @@ export function PlanSlotCapturePage({
         </InventoryControlGroup>
       </HStack>
 
-      {selectedLabel ? (
+      {selectedStatus && selectedActivity ? (
         <HStack space={spacing.sm} style={styles.selectionRow}>
-          <Text numberOfLines={1} style={styles.selectedCopy}>{selectedLabel}</Text>
+          {selectedCreatedActivity ? (
+            <View accessible={false} style={styles.createdIcon}>
+              <Icon name="check" size={15} color={colors.textSecondary} />
+            </View>
+          ) : null}
+          <VStack space={2} style={styles.selectionIdentity}>
+            <Text style={styles.selectionStatus}>{selectedStatus}</Text>
+            <Text numberOfLines={2} style={styles.selectedCopy}>{selectedActivity.title}</Text>
+          </VStack>
           <Button
             variant="primary"
             size="sm"
             disabled={!canCommit || isCommitting}
             onPress={selectedCreatedActivity ? onCommitNew : onCommitExisting}
           >
-            {isCommitting ? 'Adding...' : 'Add to calendar'}
+            {isCommitting ? 'Adding...' : commitLabel}
           </Button>
         </HStack>
       ) : null}
@@ -202,6 +211,7 @@ export function PlanSlotCapturePage({
           }
           const activity = row.activity;
           const selected = selectedActivityId === activity.id;
+          const sessionCount = getActivityScheduleSessionCount(activity);
           const meta = buildActivityListMeta({ activity });
           const priorityRank = inventory.priorityRankByActivityId.get(activity.id);
           return (
@@ -221,6 +231,10 @@ export function PlanSlotCapturePage({
                     <View accessible accessibilityLabel="Selected" style={styles.selectedAccessory}>
                       <Icon name="check" size={16} color={colors.pine700} />
                     </View>
+                  ) : sessionCount > 0 ? (
+                    <Text style={styles.sessionCount}>
+                      {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}
+                    </Text>
                   ) : undefined
                 }
                 onPress={() => onSelectActivity(activity.id)}
@@ -309,10 +323,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  selectedCopy: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+  selectionIdentity: {
     flex: 1,
+    minWidth: 0,
+  },
+  selectionStatus: {
+    ...typography.label,
+    color: colors.textSecondary,
+  },
+  selectedCopy: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  createdIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.shellAlt,
+  },
+  sessionCount: {
+    ...typography.label,
+    color: colors.textSecondary,
   },
   inventory: {
     flex: 1,

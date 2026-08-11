@@ -268,6 +268,18 @@ export type ActivityCalendarBinding =
 
 export type ActivityCalendarBindingHealth = 'healthy' | 'degraded' | 'broken';
 
+export type ActivityScheduleSession = {
+  id: string;
+  activityId: string;
+  start: string;
+  end: string;
+  calendarBinding: ActivityCalendarBinding;
+  source: 'activity_detail' | 'plan' | 'recommendation';
+  status: 'scheduled' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ActivityCalendarChunkBinding = {
   groupId: string;
   chunkId: string;
@@ -751,6 +763,8 @@ export interface Activity {
    * set when this binding exists.
    */
   calendarBinding?: ActivityCalendarBinding | null;
+  /** Independently managed calendar commitments owned by this Activity. */
+  scheduleSessions?: ActivityScheduleSession[];
   /** Independently managed provider events created when one Activity is split into Plan chunks. */
   calendarChunkBindings?: ActivityCalendarChunkBinding[];
   /**

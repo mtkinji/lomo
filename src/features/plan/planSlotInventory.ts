@@ -51,19 +51,19 @@ export function buildPlanSlotInventory({
   query = '',
   now = new Date(),
 }: PlanSlotInventoryInput): PlanSlotInventoryResult {
-  const available = activities.filter((activity) => {
-    if (CLOSED_STATUSES.has(activity.status)) return false;
-    if (activity.scheduledAt) return false;
-    if (scheduledProposalIds.has(activity.id)) return false;
-    return Boolean(activity.title.trim());
-  });
-
   const inventoryMode = Boolean(
     query.trim() ||
     filters.length > 0 ||
     sorts.length > 0 ||
     grouping.field !== 'none',
   );
+  const explicitSearch = Boolean(query.trim());
+  const available = activities.filter((activity) => {
+    if (CLOSED_STATUSES.has(activity.status)) return false;
+    if (activity.scheduledAt && !explicitSearch) return false;
+    if (scheduledProposalIds.has(activity.id)) return false;
+    return Boolean(activity.title.trim());
+  });
 
   if (!inventoryMode) {
     const recommendations = getRecommendedPriorityActivities({

@@ -83,6 +83,31 @@ export function getTimelineScrollOffsetForSlot(params: {
   return getTimelineScrollOffsetToRevealSlot(params);
 }
 
+export function getTimelineEdgeAutoScrollDelta(params: {
+  pointerY: number;
+  viewportTop: number;
+  viewportHeight: number;
+  bottomOverlayInset: number;
+  edgeThreshold?: number;
+  step?: number;
+}): number {
+  const edgeThreshold = Math.max(1, params.edgeThreshold ?? 48);
+  const step = Math.max(1, params.step ?? 10);
+  const visibleTop = params.viewportTop;
+  const visibleBottom = params.viewportTop + Math.max(0, params.viewportHeight - params.bottomOverlayInset);
+  if (params.pointerY <= visibleTop + edgeThreshold) return -step;
+  if (params.pointerY >= visibleBottom - edgeThreshold) return step;
+  return 0;
+}
+
+export function getEffectiveSlotDragTranslation(params: {
+  translationY: number;
+  scrollOffsetAtStart: number;
+  currentScrollOffset: number;
+}): number {
+  return params.translationY + params.currentScrollOffset - params.scrollOffsetAtStart;
+}
+
 export function createDefaultSlotDraft(params: {
   tappedAt: Date;
   dayStart: Date;
