@@ -7,13 +7,9 @@ import { classifyTurnReference, type UnifiedChatTurnContract } from './turnContr
 
 export const MIN_SEMANTIC_ROUTE_CONFIDENCE = 0.75;
 
-const DETERMINISTIC_LOCK_REASONS = new Set([
+export const DETERMINISTIC_POLICY_INVARIANT_REASONS = new Set([
   'specialist-or-high-stakes-boundary',
   'native-capability-authorization-required',
-  'day-plan-recommendation',
-  'day-plan-status',
-  'bounded-relationship-memory-request',
-  'explicit-relationship-memory-mutation',
   'unsupported-consequential-effect',
   'ambiguous-action-target',
 ]);
@@ -21,7 +17,7 @@ const DETERMINISTIC_LOCK_REASONS = new Set([
 export function shouldAttemptAgentJudgment(
   deterministicPolicy: UnifiedChatRequestPolicy,
 ): boolean {
-  return !DETERMINISTIC_LOCK_REASONS.has(deterministicPolicy.policyReason);
+  return !DETERMINISTIC_POLICY_INVARIANT_REASONS.has(deterministicPolicy.policyReason);
 }
 
 type PreviousConversationPolicy = Pick<
@@ -127,7 +123,7 @@ export function shouldAttemptSemanticRouting({
   prompt: string;
   deterministicPolicy: UnifiedChatRequestPolicy;
 }): boolean {
-  if (DETERMINISTIC_LOCK_REASONS.has(deterministicPolicy.policyReason)) return false;
+  if (DETERMINISTIC_POLICY_INVARIANT_REASONS.has(deterministicPolicy.policyReason)) return false;
   if (
     deterministicPolicy.requestClass === 'capability_action' &&
     deterministicPolicy.participatingCapabilities.length === 1 &&
@@ -175,7 +171,7 @@ export function resolveHybridRequestPolicy({
   if (
     deterministicPolicy.requestClass === 'capability_question' &&
     semanticRoute.requestClass === 'capability_action' &&
-    (DETERMINISTIC_LOCK_REASONS.has(deterministicPolicy.policyReason) ||
+    (DETERMINISTIC_POLICY_INVARIANT_REASONS.has(deterministicPolicy.policyReason) ||
       (deterministicPolicy.participatingCapabilities.length === 1 &&
         deterministicPolicy.participatingCapabilities[0] === 'plan'))
   ) {
@@ -193,6 +189,7 @@ export function resolveHybridRequestPolicy({
     return deterministicPolicy;
   }
   if (
+    !allowAdditionalCapabilities &&
     deterministicPolicy.requestClass === 'capability_action' &&
     deterministicPolicy.participatingCapabilities.length > 0 &&
     (

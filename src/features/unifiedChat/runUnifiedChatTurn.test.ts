@@ -113,6 +113,9 @@ describe('agent judgment execution', () => {
     participatingCapabilities: ['todos' as const],
     usePrivateContext: false,
     informationNeed: 'stable' as const,
+    authorization: 'explicit_request' as const,
+    evidenceScope: 'none' as const,
+    responseContract: 'direct' as const,
     executionMode: 'single_tool' as const,
     constraints: [
       { kind: 'title' as const, sourceText: 'Call the dentist', normalizedValue: 'Call the dentist' },

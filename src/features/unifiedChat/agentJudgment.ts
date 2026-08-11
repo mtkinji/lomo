@@ -12,6 +12,15 @@ export type AgentJudgmentExecutionMode =
   | 'clarify'
   | 'boundary';
 
+export type AgentJudgmentAuthorization =
+  | 'none'
+  | 'explicit_request'
+  | 'accepted_prior_suggestion';
+
+export type AgentJudgmentEvidenceScope = 'none' | 'focused' | 'broad';
+
+export type AgentJudgmentResponseContract = 'direct' | 'evidence_linked';
+
 export type AgentJudgmentConstraint = {
   kind: 'title' | 'date' | 'time' | 'timezone' | 'recurrence' | 'person' | 'amount' | 'other';
   sourceText: string;
@@ -33,6 +42,9 @@ export type AgentJudgment = {
   participatingCapabilities: UnifiedChatCapabilityId[];
   usePrivateContext: boolean;
   informationNeed: 'stable' | 'current';
+  authorization: AgentJudgmentAuthorization;
+  evidenceScope: AgentJudgmentEvidenceScope;
+  responseContract: AgentJudgmentResponseContract;
   executionMode: AgentJudgmentExecutionMode;
   constraints: AgentJudgmentConstraint[];
   steps: AgentJudgmentStep[];
@@ -56,6 +68,11 @@ const EXECUTION_MODES: readonly AgentJudgmentExecutionMode[] = [
   'clarify',
   'boundary',
 ];
+const AUTHORIZATIONS: readonly AgentJudgmentAuthorization[] = [
+  'none', 'explicit_request', 'accepted_prior_suggestion',
+];
+const EVIDENCE_SCOPES: readonly AgentJudgmentEvidenceScope[] = ['none', 'focused', 'broad'];
+const RESPONSE_CONTRACTS: readonly AgentJudgmentResponseContract[] = ['direct', 'evidence_linked'];
 const CONSTRAINT_KINDS: readonly AgentJudgmentConstraint['kind'][] = [
   'title',
   'date',
@@ -74,6 +91,9 @@ const ARTIFACT_KEYS = [
   'participatingCapabilities',
   'usePrivateContext',
   'informationNeed',
+  'authorization',
+  'evidenceScope',
+  'responseContract',
   'executionMode',
   'constraints',
   'steps',
@@ -100,6 +120,9 @@ const AGENT_JUDGMENT_SCHEMA = {
     },
     usePrivateContext: { type: 'boolean' },
     informationNeed: { type: 'string', enum: ['stable', 'current'] },
+    authorization: { type: 'string', enum: [...AUTHORIZATIONS] },
+    evidenceScope: { type: 'string', enum: [...EVIDENCE_SCOPES] },
+    responseContract: { type: 'string', enum: [...RESPONSE_CONTRACTS] },
     executionMode: { type: 'string', enum: [...EXECUTION_MODES] },
     constraints: {
       type: 'array',
@@ -193,6 +216,9 @@ export function parseAgentJudgment(
   if (parsed.participatingCapabilities.length > UNIFIED_CHAT_CAPABILITY_IDS.length) return null;
   if (typeof parsed.usePrivateContext !== 'boolean') return null;
   if (parsed.informationNeed !== 'stable' && parsed.informationNeed !== 'current') return null;
+  if (!AUTHORIZATIONS.includes(parsed.authorization as AgentJudgmentAuthorization)) return null;
+  if (!EVIDENCE_SCOPES.includes(parsed.evidenceScope as AgentJudgmentEvidenceScope)) return null;
+  if (!RESPONSE_CONTRACTS.includes(parsed.responseContract as AgentJudgmentResponseContract)) return null;
   if (!EXECUTION_MODES.includes(parsed.executionMode as AgentJudgmentExecutionMode)) return null;
   if (typeof parsed.confidence !== 'number' || !Number.isFinite(parsed.confidence)) return null;
   if (parsed.confidence < 0 || parsed.confidence > 1) return null;
@@ -244,6 +270,15 @@ export function parseAgentJudgment(
   if (executionMode === 'boundary' && steps.length > 0) return null;
   if (executionMode !== 'clarify' && clarificationQuestion !== null) return null;
   if (parsed.usePrivateContext && parsed.participatingCapabilities.length === 0) return null;
+  const authorization = parsed.authorization as AgentJudgmentAuthorization;
+  const evidenceScope = parsed.evidenceScope as AgentJudgmentEvidenceScope;
+  const responseContract = parsed.responseContract as AgentJudgmentResponseContract;
+  if (parsed.requestClass === 'capability_action' && authorization === 'none') return null;
+  if (parsed.requestClass !== 'capability_action' && authorization !== 'none') return null;
+  if (parsed.usePrivateContext && evidenceScope === 'none') return null;
+  if (!parsed.usePrivateContext && evidenceScope !== 'none') return null;
+  if (executionMode === 'direct_answer' && responseContract !== 'direct') return null;
+  if (parsed.usePrivateContext && responseContract !== 'evidence_linked') return null;
 
   return {
     schemaVersion: 1,
@@ -253,6 +288,9 @@ export function parseAgentJudgment(
     participatingCapabilities: parsed.participatingCapabilities as UnifiedChatCapabilityId[],
     usePrivateContext: parsed.usePrivateContext,
     informationNeed: parsed.informationNeed,
+    authorization,
+    evidenceScope,
+    responseContract,
     executionMode,
     constraints,
     steps,

@@ -102,6 +102,9 @@ export function buildUnifiedChatAgentJudgmentTelemetry(
     tool_ids: toolIds.join(','),
     step_count: judgment?.steps.length ?? 0,
     constraint_kinds: constraintKinds.join(','),
+    authorization: judgment?.authorization ?? null,
+    evidence_scope: judgment?.evidenceScope ?? null,
+    response_contract: judgment?.responseContract ?? null,
     confidence_bucket: judgment ? confidenceBucket(judgment.confidence) : null,
   };
 }
@@ -180,6 +183,9 @@ export function buildUnifiedChatOperationalTelemetry({
     turn_contract_version: turnContract.schemaVersion,
     request_class: turnContract.requestClass,
     capability_ids: turnContract.participatingCapabilities.join(','),
+    authorization: turnContract.authorization,
+    evidence_scope: turnContract.evidenceScope,
+    response_contract: turnContract.responseContract,
     target_scope: turnContract.action?.targetScope ?? null,
     referent_kind: turnContract.referent?.kind ?? null,
     considered_count: context.coverage.consideredCount,

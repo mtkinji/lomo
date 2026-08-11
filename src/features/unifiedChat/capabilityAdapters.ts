@@ -424,6 +424,43 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
       authority: 'authoritative' as const,
       observedAt: snapshot.lastSyncedAt ?? snapshot.generatedAt,
       })),
+      ...snapshot.transactions.map((transaction): CapabilityEvidenceSource => {
+        const transactionDate = new Date(`${transaction.date}T12:00:00.000Z`);
+        const dateLabel = Number.isNaN(transactionDate.getTime())
+          ? transaction.date
+          : new Intl.DateTimeFormat('en-US', {
+              month: 'short', day: 'numeric', timeZone: 'UTC',
+            }).format(transactionDate);
+        const amount = `${transaction.direction === 'inflow' ? '+' : ''}${formatMoney(transaction.amountCents)}`;
+        return {
+          capabilityId: 'money',
+          object: {
+            type: 'money_transaction',
+            id: transaction.id,
+            label: transaction.merchantName,
+            secondaryLabel: compact([dateLabel, amount, transaction.categoryName]),
+          },
+          searchableText: compact([
+            'money budget transaction spending merchant account current',
+            transaction.merchantName,
+            transaction.originalDescription,
+            transaction.categoryName,
+            transaction.accountName,
+            transaction.reviewState,
+            transaction.moneyMeaning,
+          ]),
+          summary: compact([
+            `Date: ${transaction.date}`,
+            `Amount: ${amount}`,
+            `Category: ${transaction.categoryName}`,
+            `Account: ${transaction.accountName}`,
+            `Review: ${sentenceCase(transaction.reviewState)}`,
+            transaction.pending ? 'Pending' : null,
+          ]),
+          authority: 'authoritative',
+          observedAt: Number.isNaN(transactionDate.getTime()) ? snapshot.lastSyncedAt : transactionDate.toISOString(),
+        };
+      }),
     ],
   },
   proposal: { operationKinds: ['create_money_category', 'rename_money_category'] },
@@ -438,6 +475,9 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
       route: object.type === 'money_plan_limit' ? {
         name: 'Money',
         params: { screen: 'MoneySummary' },
+      } : object.type === 'money_transaction' ? {
+        name: 'Money',
+        params: { screen: 'MoneyTransactionDetail', params: { transactionId: object.id } },
       } : {
         name: 'Money',
         params: { screen: 'MoneyCategoryDetail', params: { categoryId: object.id } },
@@ -697,6 +737,7 @@ export function resolveUnifiedChatObjectReturn(
   if (object.type === 'chapter') return chaptersChatAdapter.return.targetFor(object);
   if (object.type === 'profile') return profileChatAdapter.return.targetFor(object);
   if (object.type === 'money_category') return moneyChatAdapter.return.targetFor(object);
+  if (object.type === 'money_transaction') return moneyChatAdapter.return.targetFor(object);
   if (object.type === 'family_screen_time_child') return screenTimeChatAdapter.return.targetFor(object);
   return null;
 }

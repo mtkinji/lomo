@@ -314,7 +314,8 @@ test('outcome phase persists an ordered typed referent for every staged proposal
     agentJudgment: {
       schemaVersion: 1, userJob: 'Capture two ordered errands', desiredOutcome: 'Both are ready for review',
       requestClass: 'capability_action', participatingCapabilities: ['todos'], usePrivateContext: true,
-      informationNeed: 'stable', executionMode: 'multi_tool', constraints: [],
+      informationNeed: 'stable', authorization: 'explicit_request', evidenceScope: 'focused',
+      responseContract: 'evidence_linked', executionMode: 'multi_tool', constraints: [],
       steps: [
         { sequence: 1, objective: 'Read existing activities', toolId: 'activities.read', dependsOn: null },
         { sequence: 2, objective: 'Capture milk', toolId: 'activities.capture', dependsOn: 1 },

@@ -3,6 +3,11 @@ import {
   type CapabilityManifestEntry,
 } from '@kwilt/agent-runtime';
 import type { AgentJudgment } from './agentJudgment';
+import type {
+  AgentJudgmentAuthorization,
+  AgentJudgmentEvidenceScope,
+  AgentJudgmentResponseContract,
+} from './agentJudgment';
 import {
   isUnifiedChatCapabilityId,
   type UnifiedChatCapabilityId,
@@ -20,13 +25,16 @@ export type UnifiedChatTurnActionContract = {
 };
 
 export type UnifiedChatTurnContract = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   userJob: string;
   desiredOutcome: string;
   constraints: string[];
   requestClass: UnifiedChatRequestClass;
   participatingCapabilities: UnifiedChatCapabilityId[];
   usePrivateContext: boolean;
+  authorization: AgentJudgmentAuthorization;
+  evidenceScope: AgentJudgmentEvidenceScope;
+  responseContract: AgentJudgmentResponseContract;
   action: UnifiedChatTurnActionContract | null;
   referent: { runId: string; kind: UnifiedChatTurnReferenceKind } | null;
 };
@@ -115,7 +123,7 @@ export function buildUnifiedChatTurnContract({
   const priorConstraints = preservesPrevious ? previous?.contract.constraints ?? [] : [];
   const judgmentConstraints = agentJudgment?.constraints.map((constraint) => constraint.sourceText) ?? [];
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     userJob: agentJudgment?.userJob ?? (preservesPrevious ? previous?.contract.userJob : null) ?? prompt.trim(),
     desiredOutcome: agentJudgment?.desiredOutcome ??
       (preservesPrevious ? previous?.contract.desiredOutcome : null) ??
@@ -126,6 +134,15 @@ export function buildUnifiedChatTurnContract({
     requestClass: requestPolicy.requestClass,
     participatingCapabilities: [...requestPolicy.participatingCapabilities],
     usePrivateContext: requestPolicy.usePrivateContext,
+    authorization: agentJudgment?.authorization ??
+      (preservesPrevious ? previous?.contract.authorization : null) ??
+      (requestPolicy.requestClass === 'capability_action' ? 'explicit_request' : 'none'),
+    evidenceScope: agentJudgment?.evidenceScope ??
+      (preservesPrevious ? previous?.contract.evidenceScope : null) ??
+      (requestPolicy.usePrivateContext ? 'focused' : 'none'),
+    responseContract: agentJudgment?.responseContract ??
+      (preservesPrevious ? previous?.contract.responseContract : null) ??
+      (requestPolicy.usePrivateContext ? 'evidence_linked' : 'direct'),
     action,
     referent: referenceKind && previous
       ? { runId: previous.runId, kind: referenceKind }
@@ -134,7 +151,7 @@ export function buildUnifiedChatTurnContract({
 }
 
 export function parseUnifiedChatTurnContract(value: unknown): UnifiedChatTurnContract | null {
-  if (!isRecord(value) || value.schemaVersion !== 1) return null;
+  if (!isRecord(value) || (value.schemaVersion !== 1 && value.schemaVersion !== 2)) return null;
   const userJob = nonEmptyText(value.userJob);
   const desiredOutcome = nonEmptyText(value.desiredOutcome);
   if (!userJob || !desiredOutcome || !Array.isArray(value.constraints) ||
@@ -145,6 +162,15 @@ export function parseUnifiedChatTurnContract(value: unknown): UnifiedChatTurnCon
       !Array.isArray(value.participatingCapabilities) ||
       !value.participatingCapabilities.every(isUnifiedChatCapabilityId) ||
       typeof value.usePrivateContext !== 'boolean') return null;
+  const authorization = value.schemaVersion === 2 ? value.authorization :
+    value.requestClass === 'capability_action' ? 'explicit_request' : 'none';
+  const evidenceScope = value.schemaVersion === 2 ? value.evidenceScope :
+    value.usePrivateContext ? 'focused' : 'none';
+  const responseContract = value.schemaVersion === 2 ? value.responseContract :
+    value.usePrivateContext ? 'evidence_linked' : 'direct';
+  if (!['none', 'explicit_request', 'accepted_prior_suggestion'].includes(String(authorization)) ||
+      !['none', 'focused', 'broad'].includes(String(evidenceScope)) ||
+      !['direct', 'evidence_linked'].includes(String(responseContract))) return null;
   let action: UnifiedChatTurnActionContract | null = null;
   if (value.action !== null) {
     if (!isRecord(value.action) || !Array.isArray(value.action.operationIds) ||
@@ -157,6 +183,14 @@ export function parseUnifiedChatTurnContract(value: unknown): UnifiedChatTurnCon
       targetQuery: (value.action.targetQuery as string).trim(),
     };
   }
+  const isAction = value.requestClass === 'capability_action';
+  if (isAction ? authorization === 'none' || action === null : authorization !== 'none' || action !== null) {
+    return null;
+  }
+  if (value.usePrivateContext !== (evidenceScope !== 'none')) return null;
+  if (value.usePrivateContext
+    ? responseContract !== 'evidence_linked'
+    : responseContract !== 'direct') return null;
   let referent: UnifiedChatTurnContract['referent'] = null;
   if (value.referent !== null) {
     if (!isRecord(value.referent) || !nonEmptyText(value.referent.runId, 120) ||
@@ -164,13 +198,16 @@ export function parseUnifiedChatTurnContract(value: unknown): UnifiedChatTurnCon
     referent = { runId: value.referent.runId as string, kind: value.referent.kind };
   }
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     userJob,
     desiredOutcome,
     constraints: uniqueStrings(value.constraints as string[]),
     requestClass: value.requestClass as UnifiedChatRequestClass,
     participatingCapabilities: [...value.participatingCapabilities] as UnifiedChatCapabilityId[],
     usePrivateContext: value.usePrivateContext,
+    authorization: authorization as AgentJudgmentAuthorization,
+    evidenceScope: evidenceScope as AgentJudgmentEvidenceScope,
+    responseContract: responseContract as AgentJudgmentResponseContract,
     action,
     referent,
   };

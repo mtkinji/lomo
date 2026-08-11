@@ -104,13 +104,16 @@ function hasCoherentExecutionPlan(judgment: AgentJudgment): boolean {
   if (selectedTools.some((tool) => !judgment.participatingCapabilities.includes(
     tool.capabilityId as UnifiedChatRequestPolicy['participatingCapabilities'][number],
   ))) return false;
+  if (judgment.usePrivateContext !== (judgment.evidenceScope !== 'none')) return false;
+  if (judgment.usePrivateContext && judgment.responseContract !== 'evidence_linked') return false;
+  if (judgment.requestClass !== 'capability_action' && judgment.authorization !== 'none') return false;
   if (judgment.requestClass === 'capability_action') {
-    return selectedTools.some((tool) => tool.effect === 'write');
+    return judgment.authorization !== 'none' && selectedTools.some((tool) => tool.effect === 'write');
   }
   if (judgment.requestClass === 'capability_question') {
-    return selectedTools.every((tool) => tool.effect === 'read');
+    return judgment.authorization === 'none' && selectedTools.every((tool) => tool.effect === 'read');
   }
-  return true;
+  return judgment.authorization === 'none' && selectedTools.every((tool) => tool.effect === 'read');
 }
 
 export async function planUnifiedChatTurnPhase(

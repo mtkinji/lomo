@@ -270,8 +270,8 @@ describe('buildWorkbenchSnapshot', () => {
       }],
       evidence: [{
         id: 'evidence-1', threadId: 'thread-1', runId: 'run-1', sequence: 1,
-        capabilityId: 'goals', objectType: 'goal', objectId: 'goal-reading',
-        label: 'Read together every evening', selectionStatus: 'included',
+        capabilityId: 'todos', objectType: 'activity', objectId: 'activity-library',
+        label: 'Visit the library', selectionStatus: 'included',
         authority: 'authoritative', freshness: 'current',
         selectionReason: 'Matched 2 material request terms.', sufficient: true,
         coverageNote: 'Selected 1 of 1 bounded records.',
@@ -283,7 +283,10 @@ describe('buildWorkbenchSnapshot', () => {
         operation: {
           id: 'operation-1', proposalId: 'proposal-1', capabilityId: 'todos',
           type: 'update_activity', targetId: 'activity-library', summary: 'Move library visit',
-          payload: { scheduledDate: '2026-07-25', expectedUpdatedAt: '2026-07-21T13:00:00.000Z' },
+          payload: {
+            title: 'Visit the library Saturday', scheduledDate: '2026-07-25',
+            expectedUpdatedAt: '2026-07-21T13:00:00.000Z',
+          },
           idempotencyKey: 'unified-chat:run-1:1', sequence: 1,
         },
       }],
@@ -304,10 +307,15 @@ describe('buildWorkbenchSnapshot', () => {
     });
 
     expect(snapshot.runs[0]?.events).toEqual([expect.objectContaining({ label: 'Checked 1 relevant Goal' })]);
-    expect(snapshot.evidence[0]).toMatchObject({ object: { id: 'goal-reading' }, authority: 'authoritative' });
+    expect(snapshot.evidence[0]).toMatchObject({ object: { id: 'activity-library' }, authority: 'authoritative' });
     expect(snapshot.proposals[0]).toMatchObject({
       status: 'pending', version: 1,
-      operation: { type: 'update_activity', fields: { scheduledDate: '2026-07-25' } },
+      operation: {
+        type: 'update_activity',
+        fields: {
+          currentTitle: 'Visit the library', title: 'Visit the library Saturday', scheduledDate: '2026-07-25',
+        },
+      },
     });
     expect(JSON.stringify(snapshot.proposals[0])).not.toContain('expectedUpdatedAt');
     expect(snapshot.receipts[0]).toMatchObject({ canUndo: true, object: { id: 'activity-library' } });

@@ -73,7 +73,7 @@ const chapter = (overrides: Partial<ChapterRow> = {}): ChapterRow => ({
 });
 
 describe('Unified Chat capability adapters', () => {
-  test('Money exposes category aggregates without transaction merchants and returns to native detail', () => {
+  test('Money exposes budget aggregates and inspectable transactions with native returns', () => {
     const sources = moneyChatAdapter.evidence.list({
       periodLabel: 'July 2026', generatedAt: '2026-07-23T18:00:00.000Z', lastSyncedAt: '2026-07-23T17:00:00.000Z',
       totals: { plannedCents: 80000, spentCents: 10000, remainingCents: 70000, needsReviewCount: 1 },
@@ -127,8 +127,17 @@ describe('Unified Chat capability adapters', () => {
       authority: 'authoritative', observedAt: '2026-07-23T17:00:00.000Z',
       summary: expect.stringContaining('Projected: $300'),
       }),
+      expect.objectContaining({
+        capabilityId: 'money',
+        object: {
+          type: 'money_transaction', id: 'transaction-private', label: 'Private merchant',
+          secondaryLabel: 'Jul 20 · $100 · Groceries',
+        },
+        authority: 'authoritative',
+        observedAt: '2026-07-20T12:00:00.000Z',
+        summary: expect.stringContaining('Account: Checking'),
+      }),
     ]);
-    expect(JSON.stringify(sources)).not.toContain('Private merchant');
     expect(moneyChatAdapter.return.targetFor(sources[0].object)).toMatchObject({
       capabilityId: 'money',
       route: { name: 'Money', params: { screen: 'MoneySummary' } },
@@ -136,6 +145,10 @@ describe('Unified Chat capability adapters', () => {
     expect(moneyChatAdapter.return.targetFor(sources[1].object)).toMatchObject({
       capabilityId: 'money',
       route: { name: 'Money', params: { screen: 'MoneyCategoryDetail', params: { categoryId: 'groceries' } } },
+    });
+    expect(moneyChatAdapter.return.targetFor(sources[2].object)).toMatchObject({
+      capabilityId: 'money',
+      route: { name: 'Money', params: { screen: 'MoneyTransactionDetail', params: { transactionId: 'transaction-private' } } },
     });
   });
 

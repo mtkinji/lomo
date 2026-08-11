@@ -52,6 +52,14 @@ export function buildAgentJudgmentPrompt(input: {
     'Preserve every explicit date, time, recurrence, amount, title, and named target as a constraint.',
     'Ask one question only when a missing answer blocks safe progress.',
     'Treat clear acceptance of concrete suggestions from the recent dialogue as an action request.',
+    'Questions, recommendations, hypotheticals, reviews, and suggestions have authorization=none and must use only read tools.',
+    'Use authorization=explicit_request only for an explicit instruction to change something.',
+    'Use authorization=accepted_prior_suggestion only when the recent dialogue contains a concrete suggestion that the user clearly accepts.',
+    'Use evidenceScope=none without private context and evidenceScope=focused for a specific object or narrow question.',
+    'Use evidenceScope=broad for a system review or pattern comparison that needs more than a few matching records.',
+    'Use responseContract=evidence_linked whenever private evidence materially supports the answer.',
+    'Use responseContract=direct when private evidence does not materially support the answer.',
+    'Expose conclusions, material observations, inference, and limits in the answer, never private scratchpad or chain-of-thought.',
     'Do not claim or perform an action.',
   ].join('\n');
   const context = input.visibleContext

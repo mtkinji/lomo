@@ -20,10 +20,12 @@ related_briefs:
   - brief-background-agents-weekly-planning
   - brief-unified-chat-operational-control-plane
 owner: andrew
-last_updated: 2026-08-01
+last_updated: 2026-08-11
 ---
 
 # Kwilt Chat
+
+Canonical behavior contract: [`docs/product/unified-chat-behavior-contract.md`](../product/unified-chat-behavior-contract.md). It governs ordinary-language interpretation, action authority, tool choice, evidence sufficiency, customer-visible rationale, behavioral evaluation, and release proof when older fixtures or implementation notes disagree.
 
 ## Product goal and request behavior contract
 
@@ -39,7 +41,7 @@ Kwilt customers and their jobs come first. General-purpose competence is a trust
 | **Current-information** | Search reliable current sources and cite them when freshness, verification, recommendations, or unfamiliar facts matter. The HTTPS-citation-required search path is implemented in source but remains unaccepted until proxy deployment and signed-simulator source inspection are separately proven; until then, state the boundary instead of presenting stale knowledge as current. |
 | **Bounded** | For unsupported, specialist, consequential, or high-stakes requests, state the exact boundary and still provide the safest useful assistance available. |
 
-The standing executable matrix in `src/features/unifiedChat/requestRoutingEvalCases.ts` records, for every regression case, its expected product behavior, allowed context, allowed tool classes, required outcome, and forbidden trust failures. Its product expectations are the target contract; the separate routing and operation expectations record what the current implementation does.
+The standing executable matrices in `src/features/unifiedChat/requestRoutingEvalCases.ts`, `agentJudgmentEvalCases.ts`, and `unifiedChatBehaviorEvalCases.ts` record expected product behavior, authority, evidence scope, tools, outcomes, and forbidden trust failures. Incident transcripts are evaluation evidence, never production routing rules.
 
 ### Agent judgment learning-release contract
 
@@ -54,9 +56,9 @@ interpret the user's job
 → verify the authoritative outcome against the desired outcome
 ```
 
-The judgment pass uses the server-routed `gpt-5.6-luna` model at low reasoning effort. It is deliberately probabilistic: it may interpret the request, retain explicit constraints, and propose an ordered tool plan, but it cannot authorize or prove an effect. Deterministic high-stakes and native-authorization locks remain prior constraints. Actual tool schemas, validation, permissions, confirmation, proposals, mutations, native handoffs, receipts, recovery, and undo remain capability-owned. A missing or malformed judgment falls back to the existing semantic and deterministic route instead of failing the whole turn.
+The judgment pass uses the server-routed `gpt-5.6-luna` model at low reasoning effort. It is deliberately probabilistic: it interprets the request, retains explicit constraints, proposes an ordered tool plan, identifies evidence breadth, and reports whether the conversation contains action authority. Deterministic policy independently constrains that interpretation and retains only specialist/safety, unsupported consequential-effect, native-authorization, and unresolved referential-target locks. Actual tool schemas, validation, permissions, confirmation, proposals, mutations, native handoffs, receipts, recovery, and undo remain capability-owned. A missing or malformed judgment falls back to the existing semantic and deterministic route instead of failing the whole turn.
 
-The first release is gated by the 60-case corpus in `agentJudgmentEvalCases.ts`, the explicit-date regression, a live redacted Luna evaluation, and separate signed simulator and physical-device proof. Source completion alone does not establish production reliability.
+The first release is gated by the standing 60-case operation corpus plus the analysis/action behavior families in `unifiedChatBehaviorEvalCases.ts`, a live redacted Luna evaluation, and separate signed Simulator and physical-device proof. Source completion alone does not establish production reliability.
 
 ## MVP reset — conversational app control
 

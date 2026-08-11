@@ -122,7 +122,7 @@ const REQUEST_ROUTING_ROUTE_CASES = [
     id: 'context-enhanced-general',
     prompt: 'Given what this week looks like, what is a realistic rainy-day plan?',
     semanticRoute: semantic('capability_question', ['plan'], 'The broader answer materially benefits from bounded Plan context.'),
-    expected: { requestClass: 'capability_question', participatingCapabilities: ['plan'], source: 'deterministic', executionExpectation: 'answer' },
+    expected: { requestClass: 'capability_question', participatingCapabilities: ['plan'], source: 'semantic', executionExpectation: 'answer' },
   },
   {
     id: 'current-information',
@@ -134,7 +134,7 @@ const REQUEST_ROUTING_ROUTE_CASES = [
     id: 'plan-paraphrase',
     prompt: 'Could tomorrow feel less crowded?',
     semanticRoute: semantic('capability_question', ['plan'], 'The user wants help shaping tomorrow.'),
-    expected: { requestClass: 'capability_question', participatingCapabilities: ['plan'], source: 'deterministic', executionExpectation: 'answer' },
+    expected: { requestClass: 'capability_question', participatingCapabilities: ['plan'], source: 'semantic', executionExpectation: 'answer' },
   },
   {
     id: 'activity-plan-action',

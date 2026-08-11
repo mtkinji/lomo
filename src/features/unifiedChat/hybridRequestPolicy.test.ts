@@ -1,5 +1,10 @@
 import { classifyUnifiedChatRequest } from './requestPolicy';
-import { resolveHybridRequestPolicy, shouldAttemptSemanticRouting } from './hybridRequestPolicy';
+import {
+  DETERMINISTIC_POLICY_INVARIANT_REASONS,
+  resolveHybridRequestPolicy,
+  shouldAttemptAgentJudgment,
+  shouldAttemptSemanticRouting,
+} from './hybridRequestPolicy';
 import type { SemanticRequestRoute } from './semanticRequestRouter';
 
 function route(overrides: Partial<SemanticRequestRoute>): SemanticRequestRoute {
@@ -14,6 +19,15 @@ function route(overrides: Partial<SemanticRequestRoute>): SemanticRequestRoute {
 }
 
 describe('resolveHybridRequestPolicy', () => {
+  it('locks only prior safety and authorization invariants', () => {
+    expect([...DETERMINISTIC_POLICY_INVARIANT_REASONS]).toEqual([
+      'specialist-or-high-stakes-boundary',
+      'native-capability-authorization-required',
+      'unsupported-consequential-effect',
+      'ambiguous-action-target',
+    ]);
+  });
+
   it.each([
     ['Can you diagnose this chest pain?', 'specialist-or-high-stakes-boundary'],
     ['Block games for my child tonight', 'native-capability-authorization-required'],
@@ -57,6 +71,29 @@ describe('resolveHybridRequestPolicy', () => {
         participatingCapabilities: ['plan'],
       }),
     })).toEqual(deterministicPolicy);
+  });
+
+  it('lets semantic planning interpret a Money recommendation without granting action authority', () => {
+    const prompt = 'Review how my spending maps to my budgets and recommend a simpler structure.';
+    const deterministicPolicy = classifyUnifiedChatRequest({ prompt });
+
+    expect(shouldAttemptAgentJudgment(deterministicPolicy)).toBe(true);
+    expect(shouldAttemptSemanticRouting({ prompt, deterministicPolicy })).toBe(true);
+    expect(resolveHybridRequestPolicy({
+      prompt,
+      deterministicPolicy,
+      semanticRoute: route({
+        requestClass: 'capability_question',
+        participatingCapabilities: ['money'],
+        usePrivateContext: true,
+        reason: 'The user wants a read-only review of their Money system.',
+      }),
+      allowAdditionalCapabilities: true,
+    })).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['money'],
+      policyReason: 'semantic-route:The user wants a read-only review of their Money system.',
+    });
   });
 
   it('does not let an ambiguous short Plan request become an unauthorized mutation', () => {
@@ -133,13 +170,14 @@ describe('resolveHybridRequestPolicy', () => {
       deterministicPolicy,
       semanticRoute: null,
       previousTurnContract: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         userJob: 'Add recognizable emojis to current Money categories',
         desiredOutcome: 'Every selected category begins with an emoji',
         constraints: [],
         requestClass: 'capability_action',
         participatingCapabilities: ['money'],
         usePrivateContext: true,
+        authorization: 'explicit_request', evidenceScope: 'broad', responseContract: 'evidence_linked',
         action: {
           operationIds: ['money.category.rename'], targetScope: 'all_matching',
           targetQuery: 'Add an emoji to every category.',

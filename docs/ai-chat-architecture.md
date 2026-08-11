@@ -2,6 +2,8 @@
 
 Status: current product architecture as of 2026-07-24. The fixed-mode bottom-sheet design described in earlier versions of this document is a legacy contextual-workflow architecture, not the architecture of standalone Unified Chat.
 
+The canonical product and engineering rules for interpreting jobs, determining action authority, selecting tools and evidence, exposing rationale, and evaluating behavior live in [`docs/product/unified-chat-behavior-contract.md`](product/unified-chat-behavior-contract.md). This architecture implements that contract; prompt fixtures and phrase classifiers cannot redefine it.
+
 ## Architectural intent
 
 Kwilt Chat is a durable conversational channel into Kwilt and a competent general-purpose assistant. It is not the owner of capability truth. The mobile app hosts a standalone Chat destination and loads a credential-free shared workbench; authenticated native code owns user identity, persistence, private context, capability providers, mutations, and bridge authorization.
@@ -59,7 +61,7 @@ The coordinator follows the target pipeline:
 `runUnifiedChatTurn` coordinates that pipeline through focused phase modules:
 
 - `turnPersistencePhase` hydrates the durable aggregate, validates retries and attachments, inserts the user message idempotently, and handles typed pending-work cancellation.
-- `turnPlanningPhase` combines deterministic and semantic routing into one request policy and resolves typed follow-up referents.
+- `turnPlanningPhase` uses one bounded semantic judgment as the primary job, authority, tool, evidence-scope, and response contract. Deterministic policy validates prior safety and authorization invariants; the older semantic router remains an availability fallback.
 - `turnContextPhase` authorizes capability snapshots, selects bounded evidence, and persists visible scope plus evidence records.
 - `turnExecutionPhase` owns discovered tools, provider execution, prompt grounding, title maintenance, and validated visible model output.
 - `turnOutcomePhase` materializes assistant messages, proposals, client actions, tool events, and conversation referents. Completion-looking action prose without an authoritative proposal or handoff is rejected before it becomes a visible assistant message.
