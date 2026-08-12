@@ -381,8 +381,11 @@ export const styles = StyleSheet.create({
   planDrawerTitle: { minWidth: 0 },
   planPeopleTrigger: { minHeight: 32, alignSelf: "flex-start", justifyContent: "center", borderRadius: 999, paddingHorizontal: spacing.xs },
   planPeopleMenu: { width: 240, gap: 2 },
-  planReactionPill: { minHeight: 32, borderRadius: 999, paddingHorizontal: spacing.sm },
+  planReactionPill: { minHeight: 32, alignItems: "center", justifyContent: "center", borderRadius: 999, borderWidth: 1, paddingHorizontal: spacing.sm },
+  planReactionPillIdle: { backgroundColor: colors.canvas, borderColor: colors.border },
+  planReactionPillSelected: { backgroundColor: colors.secondary, borderColor: colors.border },
   planReactionPillContent: { flexDirection: "row", alignItems: "center", gap: 6 },
+  planReactionEmoji: { fontSize: 16, lineHeight: 20 },
   planDrawerEmpty: {
     flex: 1,
     justifyContent: "center",

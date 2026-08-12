@@ -437,7 +437,7 @@ describe('Recipe library', () => {
     );
     expect(drawer.queryByText('Open for ideas')).toBeNull();
     expect(drawer.queryByText(/Everyone can add/)).toBeNull();
-    expect(drawer.getByText('Ideas')).toBeTruthy();
+    expect(drawer.queryByText('Ideas')).toBeNull();
     fireEvent.press(drawer.getByRole('button', { name: 'Send to Groceries' }));
     fireEvent.press(drawer.getByRole('checkbox', { name: 'Send Tacos to Groceries' }));
     fireEvent.press(drawer.getByRole('button', { name: 'Send 1 recipe to Groceries' }));
@@ -465,11 +465,11 @@ describe('Recipe library', () => {
     );
 
     expect(drawer.queryByText('Added by Sam')).toBeNull();
-    const people = drawer.getByLabelText('People supporting Tacos');
-    fireEvent.press(people);
-    expect(drawer.getByLabelText('People supporting Tacos').props.accessibilityState).toMatchObject({ expanded: true });
+    const reaction = drawer.getByLabelText('Thumbs up Tacos, 2');
+    expect(drawer.getByText('👍')).toBeTruthy();
+    fireEvent.press(reaction);
+    expect(drawer.getByLabelText('Thumbs up Tacos, 2').props.accessibilityState).toMatchObject({ expanded: true, selected: false });
     expect(drawer.getAllByText('2')).toHaveLength(1);
-    fireEvent.press(drawer.getByLabelText('Plus one Tacos'));
     expect(onReact).toHaveBeenCalledWith('candidate-1', true);
   });
 

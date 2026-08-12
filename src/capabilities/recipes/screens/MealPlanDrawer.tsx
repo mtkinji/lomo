@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { colors } from "../../../theme";
+import { HapticsService } from "../../../services/HapticsService";
 import { BottomDrawer, BottomDrawerScrollView } from "../../../ui/BottomDrawer";
 import { Button, IconButton } from "../../../ui/Button";
 import {
@@ -14,7 +15,6 @@ import {
 import { Icon } from "../../../ui/Icon";
 import { EmptyState } from "../../../ui/EmptyState";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
-import { OverlappingAvatarStack } from "../../../ui/OverlappingAvatarStack";
 import { Heading, Text } from "../../../ui/Typography";
 import { getPlanLifecycleSignature, reconcilePlanCandidateOrder, type PlanLifecycle } from "../../meal-planning/domain/planLifecycle";
 import { RecipeArtwork } from "../components/RecipeArtwork";
@@ -42,35 +42,49 @@ export type MealPlanTrayItem = {
   canMarkMade?: boolean;
 };
 
-function PlanPeopleMenu({ item }: { item: MealPlanTrayItem }) {
+function PlanReactionMenu({
+  item,
+  onReact,
+  reacting,
+}: {
+  item: MealPlanTrayItem;
+  onReact?(candidateId: string, reacted: boolean): void;
+  reacting: boolean;
+}) {
   if (!item.contributor) return null;
   const people = new Map<string, PlanPerson>();
   people.set(item.contributor.personId, item.contributor);
   item.supporters?.forEach((supporter) => people.set(supporter.personId, supporter));
-  const avatars = [...people.values()];
-  const otherSupporters = avatars.filter((person) => person.personId !== item.contributor?.personId);
+  const otherSupporters = [...people.values()].filter((person) => person.personId !== item.contributor?.personId);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`People supporting ${item.title}`}
-          accessibilityHint="Shows who added and supported this recipe"
-          hitSlop={8}
-          style={({ pressed }) => [styles.planPeopleTrigger, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.planReactionPill,
+            item.viewerReacted ? styles.planReactionPillSelected : styles.planReactionPillIdle,
+            pressed && styles.pressed,
+          ]}
+          accessibilityLabel={`Thumbs up ${item.title}, ${item.voteCount}`}
+          accessibilityHint={item.canReact && onReact ? "Adds or removes your support and shows who supports this recipe" : "Shows who supports this recipe"}
+          accessibilityState={{ selected: item.viewerReacted }}
+          accessibilityValue={{ text: `${item.voteCount} ${item.voteCount === 1 ? "thumbs up" : "thumbs up reactions"}` }}
+          disabled={reacting}
+          onPress={item.canReact && onReact ? () => {
+            void HapticsService.trigger(item.viewerReacted ? "canvas.toggle.off" : "canvas.toggle.on");
+            onReact(item.candidateId, !item.viewerReacted);
+          } : undefined}
         >
-          <OverlappingAvatarStack
-            avatars={avatars.map((person) => ({ id: person.personId, name: person.displayName, avatarUrl: person.avatarUrl }))}
-            size={22}
-            maxVisible={4}
-            overlapPx={7}
-          />
+          <View style={styles.planReactionPillContent}>
+            <Text style={styles.planReactionEmoji}>👍</Text>
+            <Text variant="label">{item.voteCount}</Text>
+          </View>
         </Pressable>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" align="start" sideOffset={6} style={styles.planPeopleMenu}>
         <Text variant="label">Added by {item.contributor.displayName}</Text>
         <Text tone="secondary">
-          {otherSupporters.length ? `+1 from ${otherSupporters.map((person) => person.displayName).join(", ")}` : "No other +1s yet"}
+          {otherSupporters.length ? `Also supported by ${otherSupporters.map((person) => person.displayName).join(", ")}` : "No other support yet"}
         </Text>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -186,10 +200,12 @@ export function MealPlanDrawer({
         <BottomDrawerScrollView contentContainerStyle={styles.planDrawerContent}>
           {items.length ? groups.map((group) => (
             <View key={group.lifecycle} style={styles.planLifecycleGroup}>
-              <View style={styles.planLifecycleHeading}>
-                <Text variant="label" tone="secondary">{groupLabel[group.lifecycle]}</Text>
-                {group.lifecycle === "sent" && onOpenGroceries ? <Button size="xs" variant="ghost" onPress={onOpenGroceries}>View groceries</Button> : null}
-              </View>
+              {group.lifecycle !== "idea" ? (
+                <View style={styles.planLifecycleHeading}>
+                  <Text variant="label" tone="secondary">{groupLabel[group.lifecycle]}</Text>
+                  {group.lifecycle === "sent" && onOpenGroceries ? <Button size="xs" variant="ghost" onPress={onOpenGroceries}>View groceries</Button> : null}
+                </View>
+              ) : null}
               <View style={styles.planDrawerList}>
                 {group.items.map((item) => {
                   const selectable = selecting && item.lifecycle === "idea";
@@ -225,25 +241,7 @@ export function MealPlanDrawer({
                         ) : null}
                       </View>
                       <View style={[styles.planDrawerReactionRow, selecting && styles.planDrawerReactionRowSelecting]}>
-                        <PlanPeopleMenu item={item} />
-                        {item.canReact && onReact ? (
-                          <Button
-                            size="xs"
-                            variant={item.viewerReacted ? "secondary" : "outline"}
-                            style={styles.planReactionPill}
-                            accessibilityLabel={`${item.viewerReacted ? "Remove your plus one from" : "Plus one"} ${item.title}`}
-                            accessibilityState={{ selected: item.viewerReacted }}
-                            accessibilityValue={{ text: `${item.voteCount} ${item.voteCount === 1 ? "plus one" : "plus ones"}` }}
-                            disabled={reactingCandidateIds?.has(item.candidateId)}
-                            haptic={item.viewerReacted ? "canvas.toggle.off" : "canvas.toggle.on"}
-                            onPress={() => onReact(item.candidateId, !item.viewerReacted)}
-                          >
-                            <View style={styles.planReactionPillContent}>
-                              <Icon name="thumbsUp" size={15} color={colors.textPrimary} />
-                              <Text variant="label">{item.voteCount}</Text>
-                            </View>
-                          </Button>
-                        ) : null}
+                        <PlanReactionMenu item={item} onReact={onReact} reacting={Boolean(reactingCandidateIds?.has(item.candidateId))} />
                         {item.lifecycle === "sent" && item.missingItemCount !== null && item.missingItemCount > 0 ? <Text tone="secondary" style={styles.planMissingItems}>Missing {item.missingItemCount} {item.missingItemCount === 1 ? "item" : "items"}</Text> : null}
                         {item.canMarkMade && onMarkMade ? <Button size="xs" variant="ghost" onPress={() => onMarkMade(item.candidateId)}>Made</Button> : null}
                       </View>
