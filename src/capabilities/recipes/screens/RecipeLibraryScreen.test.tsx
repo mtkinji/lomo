@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 jest.mock('../../../features/unifiedChat/UnifiedChatDrawer', () => ({
@@ -421,12 +421,14 @@ describe('Recipe library', () => {
       alignItems: 'flex-start',
     });
     expect(StyleSheet.flatten(drawer.getByTestId('plan-title-candidate-long').props.style)).toMatchObject({
-      flex: 1,
       minWidth: 0,
       fontFamily: fonts.semibold,
       fontSize: 15,
       lineHeight: 22,
     });
+    expect(within(drawer.getByTestId('plan-copy-candidate-long')).getByTestId(
+      'plan-reaction-row-candidate-long',
+    )).toBeTruthy();
     expect(drawer.getByLabelText(`More actions for ${title}`)).toBeTruthy();
   });
 
@@ -527,10 +529,12 @@ describe('Recipe library', () => {
     );
 
     expect(drawer.queryByText('👍')).toBeNull();
-    fireEvent.press(drawer.getByLabelText('Add a reaction to Tacos'));
-    expect(drawer.getByText('React to Tacos')).toBeTruthy();
-    expect(drawer.getAllByRole('button').filter((button) => /^React with /.test(button.props.accessibilityLabel ?? ''))).toHaveLength(5);
-    fireEvent.press(drawer.getByLabelText('React with Yum'));
+    expect(drawer.queryByText('☺')).toBeNull();
+    expect(drawer.getAllByTestId('plan-upvote-icon-candidate-1').length).toBeGreaterThan(0);
+    fireEvent.press(drawer.getByLabelText('Upvote Tacos'));
+    expect(drawer.getByText('Upvote Tacos')).toBeTruthy();
+    expect(drawer.getAllByRole('button').filter((button) => /^Upvote with /.test(button.props.accessibilityLabel ?? ''))).toHaveLength(5);
+    fireEvent.press(drawer.getByLabelText('Upvote with Yum'));
     expect(onReact).toHaveBeenCalledWith('candidate-1', 'yum');
   });
 

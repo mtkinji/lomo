@@ -118,14 +118,14 @@ function PlanReactionBar({
       {!item.viewerReaction && item.canReact && onReact ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Add a reaction to ${item.title}`}
-          accessibilityHint="Choose a positive reaction"
+          accessibilityLabel={`Upvote ${item.title}`}
+          accessibilityHint="Choose how to upvote"
           disabled={reacting}
           onPress={() => onAdd(item)}
+          hitSlop={8}
           style={({ pressed }) => [styles.planAddReaction, pressed && styles.pressed]}
         >
-          <Text style={styles.planAddReactionFace}>☺</Text>
-          <Icon name="plus" size={11} color={colors.textSecondary} />
+          <Icon testID={`plan-upvote-icon-${item.candidateId}`} name="arrowUp" size={16} color={colors.textSecondary} strokeWidth={2.5} />
         </Pressable>
       ) : null}
     </View>
@@ -270,7 +270,19 @@ export function MealPlanDrawer({
                         <View style={styles.planDrawerArtworkFrame}>
                           <RecipeArtwork storageRef={item.storageRef} accessibilityLabel={item.title} style={styles.planDrawerArtwork} />
                         </View>
-                        <Text testID={`plan-title-${item.candidateId}`} style={styles.planDrawerTitle}>{item.title}</Text>
+                        <View testID={`plan-copy-${item.candidateId}`} style={styles.planDrawerMealCopy}>
+                          <Text testID={`plan-title-${item.candidateId}`} style={styles.planDrawerTitle}>{item.title}</Text>
+                          <View testID={`plan-reaction-row-${item.candidateId}`} style={styles.planDrawerReactionRow}>
+                            <PlanReactionBar
+                              item={item}
+                              onReact={onReact}
+                              onAdd={setReactionPickerItem}
+                              reacting={Boolean(reactingCandidateIds?.has(item.candidateId))}
+                            />
+                            {item.lifecycle === "sent" && item.missingItemCount !== null && item.missingItemCount > 0 ? <Text tone="secondary" style={styles.planMissingItems}>Missing {item.missingItemCount} {item.missingItemCount === 1 ? "item" : "items"}</Text> : null}
+                            {item.canMarkMade && onMarkMade ? <Button size="xs" variant="ghost" onPress={() => onMarkMade(item.candidateId)}>Made</Button> : null}
+                          </View>
+                        </View>
                         {canManage && item.canRemove ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -283,16 +295,6 @@ export function MealPlanDrawer({
                             </DropdownMenuContent>
                           </DropdownMenu>
                         ) : null}
-                      </View>
-                      <View style={[styles.planDrawerReactionRow, selecting && styles.planDrawerReactionRowSelecting]}>
-                        <PlanReactionBar
-                          item={item}
-                          onReact={onReact}
-                          onAdd={setReactionPickerItem}
-                          reacting={Boolean(reactingCandidateIds?.has(item.candidateId))}
-                        />
-                        {item.lifecycle === "sent" && item.missingItemCount !== null && item.missingItemCount > 0 ? <Text tone="secondary" style={styles.planMissingItems}>Missing {item.missingItemCount} {item.missingItemCount === 1 ? "item" : "items"}</Text> : null}
-                        {item.canMarkMade && onMarkMade ? <Button size="xs" variant="ghost" onPress={() => onMarkMade(item.candidateId)}>Made</Button> : null}
                       </View>
                     </View>
                   );
@@ -322,7 +324,7 @@ export function MealPlanDrawer({
             <BottomDrawerHeader
               variant="withClose"
               titleVariant="sm"
-              title={`React to ${reactionPickerItem.title}`}
+              title={`Upvote ${reactionPickerItem.title}`}
               onClose={() => setReactionPickerItem(null)}
               closeAccessibilityLabel="Close reactions"
             />
@@ -331,7 +333,7 @@ export function MealPlanDrawer({
                 <Pressable
                   key={reaction.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`React with ${reaction.label}`}
+                  accessibilityLabel={`Upvote with ${reaction.label}`}
                   onPress={() => {
                     void HapticsService.trigger("canvas.toggle.on");
                     onReact?.(reactionPickerItem.candidateId, reaction.id);
