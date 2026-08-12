@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import {
@@ -125,6 +132,7 @@ import {
   MealsOverflowMenu,
   RecipeLibraryView,
 } from "./RecipeLibraryPresentation";
+import { styles } from "./RecipeLibraryScreen.styles";
 
 export {
   buildVisibleRecipeInventory,
@@ -166,6 +174,8 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const [filters, setFilters] = useState<RecipeInventoryFilters>(
     DEFAULT_RECIPE_INVENTORY_FILTERS,
   );
+  const deferredFilters = useDeferredValue(filters);
+  const filterUpdating = deferredFilters !== filters;
   const [sort, setSort] = useState<RecipeInventorySortMode>("featured");
   const [browseMode, setBrowseMode] = useState<"shelves" | "results">(
     "shelves",
@@ -249,8 +259,12 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           favoriteRecipeIds.includes(projection.recipe.id),
         )
       : visibleInventory;
-    return filterRecipeInventory(inventoryForView, { query: "", filters, sort });
-  }, [favoriteRecipeIds, filters, likedOnly, sort, visibleInventory]);
+    return filterRecipeInventory(inventoryForView, {
+      query: "",
+      filters: deferredFilters,
+      sort,
+    });
+  }, [deferredFilters, favoriteRecipeIds, likedOnly, sort, visibleInventory]);
   const editorialPlacements = useMemo(
     () => getMealEditorialEdition().placements,
     [],
@@ -457,39 +471,41 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     setBrowseMode("shelves");
   };
   return (
-    <AppShell>
-      <PageHeader
-        title="Recipes"
-        onPressMenu={openMenu}
-        moreMenu={
-          <MealsOverflowMenu
-            hiddenCount={hiddenRecipes.length}
-            defaultServings={defaultServings}
-            foodNeedsCount={mealPreferences?.foodNeeds.length ?? 0}
-            onOpenHidden={() => setHiddenDrawerVisible(true)}
-            onChangeDefaultServings={(servings) =>
-              updateUserProfile((current) => ({
-                ...current,
-                preferences: {
-                  ...current.preferences,
-                  meals: {
-                    ...current.preferences?.meals,
-                    defaultServings: servings,
+    <AppShell fullBleedHorizontal>
+      <View style={styles.appShellHeaderInset}>
+        <PageHeader
+          title="Recipes"
+          onPressMenu={openMenu}
+          moreMenu={
+            <MealsOverflowMenu
+              hiddenCount={hiddenRecipes.length}
+              defaultServings={defaultServings}
+              foodNeedsCount={mealPreferences?.foodNeeds.length ?? 0}
+              onOpenHidden={() => setHiddenDrawerVisible(true)}
+              onChangeDefaultServings={(servings) =>
+                updateUserProfile((current) => ({
+                  ...current,
+                  preferences: {
+                    ...current.preferences,
+                    meals: {
+                      ...current.preferences?.meals,
+                      defaultServings: servings,
+                    },
                   },
-                },
-              }))
-            }
-            onOpenFoodNeeds={() => setPreferenceDrawer("food_needs")}
-          />
-        }
-        rightElement={
-          <MealPlanHeaderAction
-            ref={planHeaderRef}
-            count={planHeaderCount}
-            onPress={() => setPlanBrowsing(true)}
-          />
-        }
-      />
+                }))
+              }
+              onOpenFoodNeeds={() => setPreferenceDrawer("food_needs")}
+            />
+          }
+          rightElement={
+            <MealPlanHeaderAction
+              ref={planHeaderRef}
+              count={planHeaderCount}
+              onPress={() => setPlanBrowsing(true)}
+            />
+          }
+        />
+      </View>
       <RecipeLibraryView
         recipes={filtered}
         onOpen={(recipeId) => navigation.navigate("RecipeHome", { recipeId })}
@@ -603,11 +619,11 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       <RecipeFilterDrawer
         visible={filterDrawerVisible}
         value={filters}
+        updating={filterUpdating}
         onClose={() => setFilterDrawerVisible(false)}
-        onApply={(next) => {
+        onChange={(next) => {
           setFilters(next);
           setBrowseMode(resolveRecipeBrowseMode(next, likedOnly, sort));
-          setFilterDrawerVisible(false);
         }}
       />
       <RecipeSortDrawer

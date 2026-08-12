@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
 import { colors } from "../../../theme";
@@ -43,6 +43,19 @@ export { MealPlanDrawer, type MealPlanTrayItem } from "./MealPlanDrawer";
 const RECIPE_CATEGORIES: readonly StarterRecipeMetadata["category"][] =
   STARTER_RECIPE_CATEGORIES;
 type FilterKey = keyof RecipeInventoryFilters;
+
+function useDelayedFilterProgress(updating: boolean, delayMs = 180): boolean {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!updating) {
+      setVisible(false);
+      return;
+    }
+    const timeout = setTimeout(() => setVisible(true), delayMs);
+    return () => clearTimeout(timeout);
+  }, [delayMs, updating]);
+  return visible;
+}
 
 const CATEGORY_FILTER_ICONS: Record<
   StarterRecipeMetadata["category"],
@@ -128,23 +141,22 @@ function FilterChoice({
 export function RecipeFilterDrawer({
   visible,
   value,
+  updating = false,
   onClose,
-  onApply,
+  onChange,
 }: {
   visible: boolean;
   value: RecipeInventoryFilters;
+  updating?: boolean;
   onClose(): void;
-  onApply(value: RecipeInventoryFilters): void;
+  onChange(value: RecipeInventoryFilters): void;
 }) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => {
-    if (visible) setDraft(value);
-  }, [value, visible]);
+  const showProgress = useDelayedFilterProgress(updating);
   const update = <Key extends FilterKey>(
     key: Key,
     next: RecipeInventoryFilters[Key],
   ) => {
-    setDraft((current) => ({ ...current, [key]: next }));
+    onChange({ ...value, [key]: next });
   };
   return (
     <BottomDrawer
@@ -160,6 +172,19 @@ export function RecipeFilterDrawer({
           variant="withClose"
           onClose={onClose}
         />
+        {showProgress ? (
+          <View
+            testID="recipe-filter-progress"
+            accessibilityRole="progressbar"
+            accessibilityLabel="Updating meals"
+            style={styles.filterProgress}
+          >
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+            <Text variant="label" tone="secondary">
+              Updating meals…
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.filterSection}>
           <Text variant="label" tone="secondary">
             SOURCE
@@ -168,13 +193,13 @@ export function RecipeFilterDrawer({
             <FilterChoice
               icon="recipeLibrary"
               label="All recipes"
-              selected={draft.source === "all"}
+              selected={value.source === "all"}
               onPress={() => update("source", "all")}
             />
             <FilterChoice
               icon="identity"
               label="Yours"
-              selected={draft.source === "yours"}
+              selected={value.source === "yours"}
               onPress={() => update("source", "yours")}
             />
           </View>
@@ -187,13 +212,13 @@ export function RecipeFilterDrawer({
             <FilterChoice
               icon="clock"
               label="Any time"
-              selected={draft.maxMinutes === null}
+              selected={value.maxMinutes === null}
               onPress={() => update("maxMinutes", null)}
             />
             <FilterChoice
               icon="timer"
               label="30 min or less"
-              selected={draft.maxMinutes === 30}
+              selected={value.maxMinutes === 30}
               onPress={() => update("maxMinutes", 30)}
             />
           </View>
@@ -206,7 +231,7 @@ export function RecipeFilterDrawer({
             <FilterChoice
               icon="meal"
               label="Any meal"
-              selected={draft.category === null}
+              selected={value.category === null}
               onPress={() => update("category", null)}
             />
             {RECIPE_CATEGORIES.map((category) => (
@@ -214,7 +239,7 @@ export function RecipeFilterDrawer({
                 key={category}
                 icon={CATEGORY_FILTER_ICONS[category]}
                 label={category}
-                selected={draft.category === category}
+                selected={value.category === category}
                 onPress={() => update("category", category)}
               />
             ))}
@@ -228,7 +253,7 @@ export function RecipeFilterDrawer({
             <FilterChoice
               icon="globe"
               label="Any cuisine"
-              selected={draft.cuisine === null}
+              selected={value.cuisine === null}
               onPress={() => update("cuisine", null)}
             />
             {CUISINE_FAMILIES.map((cuisine) => (
@@ -236,25 +261,18 @@ export function RecipeFilterDrawer({
                 key={cuisine.id}
                 icon={CUISINE_FILTER_ICONS[cuisine.id]}
                 label={cuisine.label}
-                selected={draft.cuisine === cuisine.label}
+                selected={value.cuisine === cuisine.label}
                 onPress={() => update("cuisine", cuisine.label)}
               />
             ))}
           </View>
         </View>
-        <View style={styles.drawerActions}>
-          <Button
-            variant="ghost"
-            onPress={() => setDraft(DEFAULT_RECIPE_INVENTORY_FILTERS)}
-          >
-            Reset
-          </Button>
-          <View style={styles.drawerApply}>
-            <Button fullWidth variant="primary" onPress={() => onApply(draft)}>
-              Show meals
-            </Button>
-          </View>
-        </View>
+        <Button
+          variant="ghost"
+          onPress={() => onChange(DEFAULT_RECIPE_INVENTORY_FILTERS)}
+        >
+          Reset filters
+        </Button>
       </BottomDrawerScrollView>
     </BottomDrawer>
   );

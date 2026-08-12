@@ -1,4 +1,4 @@
-import { fireEvent, render, within } from '@testing-library/react-native';
+import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 jest.mock('../../../features/unifiedChat/UnifiedChatDrawer', () => ({
@@ -136,6 +136,13 @@ describe('Recipe library', () => {
 
     expect(screen.getByTestId('cuisine-family-row')).toBeTruthy();
     expect(screen.getByText('American')).toBeTruthy();
+    expect(screen.getByText('Vietnamese').props.numberOfLines).toBe(1);
+    expect(StyleSheet.flatten(screen.getByText('Vietnamese').props.style)).toMatchObject({
+      fontSize: 10,
+    });
+    expect(StyleSheet.flatten(screen.getByLabelText('Browse Vietnamese meals').props.style)).toMatchObject({
+      width: 88,
+    });
     fireEvent.press(screen.getByLabelText('Browse French meals'));
 
     expect(onSeeAll).toHaveBeenCalledWith({
@@ -152,6 +159,26 @@ describe('Recipe library', () => {
     expect(screen.getByTestId('recipe-discovery-navigation')).toBeTruthy();
     expect(screen.getByTestId('cuisine-family-row')).toBeTruthy();
     expect(screen.getByTestId('recipe-shelf-recommended')).toBeTruthy();
+  });
+
+  it('lets cuisine and recipe rails scroll through the full screen width', () => {
+    const recipes = buildRecipeLibraryInventory([]);
+    const screen = render(
+      <RecipeLibraryView {...viewProps} recipes={recipes} isFavorite={() => true} />,
+    );
+
+    expect(StyleSheet.flatten(screen.getByTestId('cuisine-family-scroll').props.style)).toMatchObject({
+      marginHorizontal: -20,
+    });
+    expect(StyleSheet.flatten(screen.getByTestId('cuisine-family-scroll').props.contentContainerStyle)).toMatchObject({
+      paddingHorizontal: 20,
+    });
+    expect(StyleSheet.flatten(screen.getByTestId('recipe-shelf-scroll-recommended').props.style)).toMatchObject({
+      marginHorizontal: -20,
+    });
+    expect(StyleSheet.flatten(screen.getByTestId('recipe-shelf-scroll-recommended').props.contentContainerStyle)).toMatchObject({
+      paddingHorizontal: 20,
+    });
   });
 
   it('keeps regional cuisine refinements in the single filter rail above results', () => {
@@ -207,7 +234,7 @@ describe('Recipe library', () => {
     });
     expect(StyleSheet.flatten(
       screen.getByTestId('recipe-filter-pill-cuisine-proven-al-french').props.style,
-    )).toMatchObject({ minHeight: 38, backgroundColor: colors.sumi900 });
+    )).toMatchObject({ height: 34, paddingHorizontal: 12, backgroundColor: colors.sumi900 });
   });
 
   it('keeps liked meals in the quick-filter rail instead of a full discovery shelf', () => {
@@ -298,7 +325,7 @@ describe('Recipe library', () => {
     const shelvesStyle = StyleSheet.flatten(
       shelvesScreen.getByTestId('recipe-discovery-shelves').props.contentContainerStyle,
     );
-    expect(shelvesStyle.paddingHorizontal).toBe(spacing.md);
+    expect(shelvesStyle.paddingHorizontal).toBe(spacing.sm + spacing.md);
     shelvesScreen.unmount();
 
     const resultsScreen = render(
@@ -307,7 +334,7 @@ describe('Recipe library', () => {
     const resultsStyle = StyleSheet.flatten(
       resultsScreen.getByTestId('recipe-results-grid').props.contentContainerStyle,
     );
-    expect(resultsStyle.paddingHorizontal).toBe(spacing.md);
+    expect(resultsStyle.paddingHorizontal).toBe(spacing.sm + spacing.md);
   });
 
   it('places at most two benefit-led editorial invitations through the shelves', () => {
@@ -413,7 +440,8 @@ describe('Recipe library', () => {
       backgroundColor: colors.sumi900,
     });
     expect(StyleSheet.flatten(screen.getByTestId('recipe-filter-pill-cuisine-all').props.style)).toMatchObject({
-      minHeight: 38,
+      height: 34,
+      paddingHorizontal: 12,
       backgroundColor: colors.sumi900,
     });
   });
@@ -424,7 +452,7 @@ describe('Recipe library', () => {
         visible
         value={DEFAULT_RECIPE_INVENTORY_FILTERS}
         onClose={jest.fn()}
-        onApply={jest.fn()}
+        onChange={jest.fn()}
       />,
     );
     const icons = screen.getAllByTestId(/^recipe-filter-choice-icon-/, {
@@ -434,6 +462,50 @@ describe('Recipe library', () => {
 
     expect(icons).toHaveLength(35);
     expect(new Set(iconIds).size).toBe(iconIds.length);
+  });
+
+  it('applies drawer filters immediately and stays open until explicitly closed', () => {
+    const onChange = jest.fn();
+    const onClose = jest.fn();
+    const screen = render(
+      <RecipeFilterDrawer
+        visible
+        value={DEFAULT_RECIPE_INVENTORY_FILTERS}
+        onClose={onClose}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.press(screen.getByText('Yours'));
+
+    expect(onChange).toHaveBeenCalledWith({
+      ...DEFAULT_RECIPE_INVENTORY_FILTERS,
+      source: 'yours',
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByText('Show meals')).toBeNull();
+  });
+
+  it('shows filter progress only when an update remains pending', () => {
+    jest.useFakeTimers();
+    try {
+      const screen = render(
+        <RecipeFilterDrawer
+          visible
+          value={DEFAULT_RECIPE_INVENTORY_FILTERS}
+          updating
+          onClose={jest.fn()}
+          onChange={jest.fn()}
+        />,
+      );
+
+      expect(screen.queryByText('Updating meals…')).toBeNull();
+      act(() => jest.advanceTimersByTime(200));
+      expect(screen.getByText('Updating meals…')).toBeTruthy();
+      expect(screen.getByLabelText('Updating meals')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('keeps capture, Search, and AI as separate bottom dock actions', () => {

@@ -290,8 +290,10 @@ export function RecommendedRecipeRow({
         <Heading variant="sm">Recommended</Heading>
       </View>
       <ScrollView
+        testID="recipe-shelf-scroll-recommended"
         horizontal
         nestedScrollEnabled
+        style={styles.edgeToEdgeRail}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.shelfContent}
       >
@@ -341,8 +343,10 @@ export function RecipeShelfRow({
         )}
       </View>
       <ScrollView
+        testID={`recipe-shelf-scroll-${section.id}`}
         horizontal
         nestedScrollEnabled
+        style={styles.edgeToEdgeRail}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.shelfContent}
       >
@@ -455,9 +459,11 @@ export function CuisineFamilyRow({
     ? getCuisineFamilyForFilterValue(activeCuisine)
     : null;
   return (
-    <View testID="cuisine-family-row" style={styles.cuisineSection}>
+    <View testID="cuisine-family-row">
       <ScrollView
+        testID="cuisine-family-scroll"
         horizontal
+        style={styles.edgeToEdgeRail}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.cuisineRow}
       >
@@ -474,12 +480,7 @@ export function CuisineFamilyRow({
               pressed && styles.cuisineCardPressed,
             ]}
           >
-            <View
-              style={[
-                styles.cuisineAvatar,
-                activeFamily?.id === item.id && styles.cuisineAvatarSelected,
-              ]}
-            >
+            <View style={styles.cuisineAvatar}>
               <Image
                 accessible={false}
                 source={CUISINE_ARTWORK[item.id]}
@@ -487,7 +488,7 @@ export function CuisineFamilyRow({
                 style={styles.cuisineArtwork}
               />
             </View>
-            <Text numberOfLines={2} variant="label" style={styles.cuisineLabel}>
+            <Text numberOfLines={1} variant="label" style={styles.cuisineLabel}>
               {item.shortLabel}
             </Text>
           </Pressable>
@@ -518,6 +519,7 @@ function QuickFilter({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ selected }}
+      hitSlop={{ top: 5, bottom: 5 }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.quickFilter,
@@ -589,6 +591,7 @@ export function RecipeQuickFilterRow({
     <ScrollView
       testID="recipe-filter-rail"
       horizontal
+      style={styles.quickFilterRail}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.quickFilterRow}
     >

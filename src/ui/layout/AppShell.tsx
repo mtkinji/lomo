@@ -13,12 +13,15 @@ interface AppShellProps {
    * Those screens should provide their own internal padding where needed.
    */
   fullBleedCanvas?: boolean;
+  /** Removes only the horizontal canvas inset while preserving safe-area top padding. */
+  fullBleedHorizontal?: boolean;
 }
 
 export function AppShell({
   children,
   backgroundVariant = 'default',
   fullBleedCanvas = false,
+  fullBleedHorizontal = false,
 }: AppShellProps) {
   const insets = useSafeAreaInsets();
 
@@ -33,6 +36,7 @@ export function AppShell({
         />
       ) : null}
       <View
+        testID="app-shell-container"
         style={[
           styles.container,
           {
@@ -42,7 +46,7 @@ export function AppShell({
             // or by explicit bottom UI (e.g., a composer) so content can scroll into the bottom space
             // rather than being clipped.
             paddingBottom: 0,
-            paddingHorizontal: fullBleedCanvas ? 0 : spacing.sm,
+            paddingHorizontal: fullBleedCanvas || fullBleedHorizontal ? 0 : spacing.sm,
             // For gradient variants, let the underlying shell/gradient show through.
             backgroundColor: backgroundVariant === 'arcGradient'
               ? 'transparent'
@@ -72,4 +76,3 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
 });
-

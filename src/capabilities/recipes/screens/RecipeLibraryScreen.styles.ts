@@ -7,9 +7,11 @@ import {
   RESTING_COMPOSER_HORIZONTAL_INSET_PX,
 } from "../../../ui/layout/restingComposerMetrics";
 
+const recipeCanvasHorizontalInset = spacing.sm + spacing.md;
+
 export const styles = StyleSheet.create({
   list: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: recipeCanvasHorizontalInset,
     paddingBottom:
       RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX +
       RESTING_COMPOSER_HEIGHT_PX +
@@ -22,7 +24,7 @@ export const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   discoveryList: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: recipeCanvasHorizontalInset,
     paddingTop: spacing.xs,
     paddingBottom:
       RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX +
@@ -31,6 +33,7 @@ export const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   inventoryControls: { gap: spacing.sm },
+  appShellHeaderInset: { paddingHorizontal: spacing.sm },
   discoveryNavigation: { gap: spacing.md },
   controlRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   resultCount: { marginLeft: "auto", flexShrink: 0 },
@@ -85,13 +88,14 @@ export const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 12,
   },
+  quickFilterRail: { marginTop: -spacing.xs },
   quickFilterRow: { gap: spacing.xs, paddingRight: spacing.md },
   quickFilter: {
-    minHeight: 38,
+    height: 34,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.pill,
@@ -102,30 +106,26 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.sumi900,
   },
   quickFilterTextSelected: { color: colors.primaryForeground },
-  cuisineSection: { marginHorizontal: -spacing.md },
+  edgeToEdgeRail: { marginHorizontal: -recipeCanvasHorizontalInset },
   cuisineRow: {
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: recipeCanvasHorizontalInset,
     paddingRight: spacing.xl,
   },
-  cuisineCard: { width: 76, alignItems: "center", gap: spacing.xs },
+  cuisineCard: { width: 88, alignItems: "center", gap: spacing.xs },
   cuisineCardPressed: { opacity: 0.82, transform: [{ scale: 0.98 }] },
   cuisineAvatar: {
     width: 72,
     height: 72,
-    padding: 2,
     borderRadius: 36,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
+    overflow: "hidden",
   },
-  cuisineAvatarSelected: { borderWidth: 2, borderColor: colors.sumi900 },
   cuisineArtwork: {
     width: "100%",
     height: "100%",
     borderRadius: 34,
   },
-  cuisineLabel: { minHeight: 30, textAlign: "center", fontSize: 11, lineHeight: 14 },
+  cuisineLabel: { textAlign: "center", fontSize: 10, lineHeight: 13 },
   editorialOffer: {
     width: "100%",
     height: 104,
@@ -220,7 +220,10 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  shelfContent: { gap: spacing.sm, paddingRight: spacing.md },
+  shelfContent: {
+    gap: spacing.sm,
+    paddingHorizontal: recipeCanvasHorizontalInset,
+  },
   pressed: { opacity: 0.76, transform: [{ scale: 0.985 }] },
   empty: {
     alignItems: "center",
@@ -234,6 +237,13 @@ export const styles = StyleSheet.create({
     gap: spacing.md,
   },
   filterSection: { gap: spacing.sm },
+  filterProgress: {
+    minHeight: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: -spacing.sm,
+  },
   choiceWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   filterChoice: {
     minHeight: 38,
@@ -252,13 +262,6 @@ export const styles = StyleSheet.create({
     borderColor: colors.sumi900,
   },
   filterChoiceTextSelected: { color: colors.canvas },
-  drawerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
-  },
-  drawerApply: { flex: 1 },
   optionRow: {
     minHeight: 62,
     flexDirection: "row",
