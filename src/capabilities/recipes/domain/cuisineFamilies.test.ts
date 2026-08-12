@@ -22,11 +22,29 @@ describe("cuisine families", () => {
   });
 
   it("features a smaller complete illustration rail", () => {
-    expect(FEATURED_CUISINE_FAMILY_IDS).toHaveLength(12);
+    expect(FEATURED_CUISINE_FAMILY_IDS).toHaveLength(13);
     for (const id of FEATURED_CUISINE_FAMILY_IDS) {
       expect(getCuisineFamily(id)?.featured).toBe(true);
       expect(getSubcuisinesForFamily(id).length).toBeGreaterThan(0);
     }
+  });
+
+  it("keeps featured cuisine families in alphabetical label order", () => {
+    const labels = FEATURED_CUISINE_FAMILY_IDS.map(
+      (id) => getCuisineFamily(id)?.shortLabel,
+    );
+
+    expect(labels).toEqual(
+      [...labels].sort((a, b) => (a ?? "").localeCompare(b ?? "")),
+    );
+  });
+
+  it("presents the North American family as American in compact navigation", () => {
+    expect(getCuisineFamily("north-american")).toMatchObject({
+      label: "North American",
+      shortLabel: "American",
+      featured: true,
+    });
   });
 
   it("preserves regional specificity beneath broad navigation families", () => {

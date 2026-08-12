@@ -25,8 +25,8 @@ export function UnifiedChatDrawerHeader({ title }: { title: string }) {
 
 const styles = StyleSheet.create({
   titleRailCompact: {
-    minHeight: 48,
-    paddingTop: spacing.sm,
+    minHeight: 40,
+    paddingTop: 0,
     paddingRight: '48%',
   },
   titleRailLong: {

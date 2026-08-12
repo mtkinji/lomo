@@ -5,7 +5,8 @@ import {
 } from "../data/starterRecipeCatalog";
 
 export type RecipeRecommendationReason =
-  | { id: "editorial"; label: "Kwilt pick"; icon: "sparkles" }
+  | { id: "liked"; label: "You liked this"; icon: "heart" }
+  | { id: "familiar"; label: "Familiar favorite"; icon: "sparkles" }
   | { id: "quick"; label: "Quick to make"; icon: "clock" }
   | { id: "quicker"; label: "Quicker tonight"; icon: "clock" }
   | { id: "same_category"; label: string; icon: "meal" }
@@ -24,6 +25,7 @@ function minutesFor(projection: RecipeProjection): number {
 export function buildRecipeRecommendations(
   recipes: readonly RecipeProjection[],
   limit = 6,
+  favoriteRecipeIds: ReadonlySet<string> = new Set(),
 ): RecipeRecommendation[] {
   const safeLimit = Math.max(0, limit);
   const editorialLimit = Math.ceil(safeLimit / 2);
@@ -32,11 +34,22 @@ export function buildRecipeRecommendations(
 
   for (const projection of recipes) {
     if (recommendations.length >= editorialLimit) break;
+    if (!favoriteRecipeIds.has(projection.recipe.id)) continue;
+    selectedIds.add(projection.recipe.id);
+    recommendations.push({
+      projection,
+      reason: { id: "liked", label: "You liked this", icon: "heart" },
+    });
+  }
+
+  for (const projection of recipes) {
+    if (recommendations.length >= editorialLimit) break;
+    if (selectedIds.has(projection.recipe.id)) continue;
     if (!getStarterRecipeMetadata(projection.recipe.id)?.featured) continue;
     selectedIds.add(projection.recipe.id);
     recommendations.push({
       projection,
-      reason: { id: "editorial", label: "Kwilt pick", icon: "sparkles" },
+      reason: { id: "familiar", label: "Familiar favorite", icon: "sparkles" },
     });
   }
 
@@ -144,7 +157,7 @@ function contextualReason(
   }
 
   if (candidateMetadata?.featured) {
-    return { id: "editorial", label: "Kwilt pick", icon: "sparkles" };
+    return { id: "familiar", label: "Familiar favorite", icon: "sparkles" };
   }
   return null;
 }

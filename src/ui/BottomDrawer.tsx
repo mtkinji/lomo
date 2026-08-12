@@ -36,11 +36,12 @@ import {
   getAccessibleAnimationDuration,
   useAccessibilityPreferences,
 } from './hooks/useAccessibilityPreferences';
+import { bottomDrawerChromeTokens } from './drawerTokens';
 
 export type BottomDrawerSnapPoint = number | `${number}%`;
 
 type Presentation = 'modal' | 'inline';
-type BottomDrawerChrome = 'standard' | 'immersive';
+type BottomDrawerContentLayout = 'inset' | 'edgeToEdge';
 
 export type BottomDrawerSnapChange = {
   previousIndex: number | null;
@@ -149,8 +150,11 @@ type BottomDrawerProps = {
    */
   presentation?: Presentation;
 
-  /** Opt-in full-width chrome for conversation-like drawers. */
-  chrome?: BottomDrawerChrome;
+  /**
+   * Controls only the horizontal content gutter. Edge-to-edge content keeps
+   * the standard rounded sheet and in-flow handle anatomy.
+   */
+  contentLayout?: BottomDrawerContentLayout;
 
   /**
    * Visual overrides for the drawer surface and handle region.
@@ -260,6 +264,7 @@ export function BottomDrawerExpansionFade({
 }
 
 const DEFAULT_SNAP_POINTS: BottomDrawerSnapPoint[] = ['85%'];
+const standardChrome = bottomDrawerChromeTokens.standard;
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
 function parseSnapPoint(args: {
@@ -314,7 +319,7 @@ export function BottomDrawer({
   backdropMaxOpacity,
   scrimToken = 'default',
   presentation = 'modal',
-  chrome = 'standard',
+  contentLayout = 'inset',
   sheetStyle,
   handleContainerStyle,
   handleStyle,
@@ -825,7 +830,7 @@ export function BottomDrawer({
                 },
                 sheetAnimatedStyle,
                 webSheetStaticStyle,
-                chrome === 'immersive' ? styles.immersiveSheet : null,
+                contentLayout === 'edgeToEdge' ? styles.edgeToEdgeSheet : null,
                 sheetStyle,
               ]}
             >
@@ -837,7 +842,6 @@ export function BottomDrawer({
                   importantForAccessibility="no"
                   style={[
                     styles.handleGrabRegion,
-                    chrome === 'immersive' ? styles.immersiveHandleGrabRegion : null,
                     handleContainerStyle,
                   ]}
                 >
@@ -845,7 +849,6 @@ export function BottomDrawer({
                     testID="bottom-drawer.handle"
                     style={[
                       styles.handle,
-                      chrome === 'immersive' ? styles.immersiveHandle : null,
                       handleStyle,
                     ]}
                   />
@@ -895,7 +898,7 @@ export function BottomDrawer({
                 },
                 sheetAnimatedStyle,
                 webSheetStaticStyle,
-                chrome === 'immersive' ? styles.immersiveSheet : null,
+                contentLayout === 'edgeToEdge' ? styles.edgeToEdgeSheet : null,
                 sheetStyle,
               ]}
             >
@@ -907,7 +910,6 @@ export function BottomDrawer({
                   importantForAccessibility="no"
                   style={[
                     styles.handleGrabRegion,
-                    chrome === 'immersive' ? styles.immersiveHandleGrabRegion : null,
                     handleContainerStyle,
                   ]}
                 >
@@ -915,7 +917,6 @@ export function BottomDrawer({
                     testID="bottom-drawer.handle"
                     style={[
                       styles.handle,
-                      chrome === 'immersive' ? styles.immersiveHandle : null,
                       handleStyle,
                     ]}
                   />
@@ -1039,7 +1040,7 @@ const styles = StyleSheet.create({
     // visually bleed past the corner radii in normal layouts.
     overflow: 'visible',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: standardChrome.surfacePaddingTop,
     // Elevate the drawer above the canvas.
     shadowColor: '#0F172A',
     shadowOpacity: 0.18,
@@ -1048,32 +1049,19 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   handleGrabRegion: {
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
+    position: 'relative',
+    paddingTop: standardChrome.handleRegionPaddingTop,
+    paddingBottom: standardChrome.handleRegionPaddingBottom,
   },
   handle: {
     backgroundColor: colors.border,
-    width: 64,
-    height: 5,
-    borderRadius: 999,
+    width: standardChrome.handleWidth,
+    height: standardChrome.handleHeight,
+    borderRadius: standardChrome.handleRadius,
     alignSelf: 'center',
   },
-  immersiveSheet: {
+  edgeToEdgeSheet: {
     paddingHorizontal: 0,
-    paddingBottom: spacing.lg,
-  },
-  immersiveHandleGrabRegion: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
-  },
-  immersiveHandle: {
-    width: 64,
-    height: 4,
   },
   accessoryLayout: {
     flex: 1,

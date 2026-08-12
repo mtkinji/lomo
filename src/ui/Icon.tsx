@@ -12,6 +12,9 @@ import ArrowDownZA from 'lucide-react-native/dist/cjs/icons/arrow-down-z-a';
 import ArrowLeft from 'lucide-react-native/dist/cjs/icons/arrow-left';
 import ArrowRight from 'lucide-react-native/dist/cjs/icons/arrow-right';
 import ArrowUp from 'lucide-react-native/dist/cjs/icons/arrow-up';
+import Banana from 'lucide-react-native/dist/cjs/icons/banana';
+import Bean from 'lucide-react-native/dist/cjs/icons/bean';
+import Beef from 'lucide-react-native/dist/cjs/icons/beef';
 import Bell from 'lucide-react-native/dist/cjs/icons/bell';
 import Bold from 'lucide-react-native/dist/cjs/icons/bold';
 import BookOpen from 'lucide-react-native/dist/cjs/icons/book-open';
@@ -21,6 +24,8 @@ import Calendar from 'lucide-react-native/dist/cjs/icons/calendar';
 import CalendarDays from 'lucide-react-native/dist/cjs/icons/calendar-days';
 import CalendarX from 'lucide-react-native/dist/cjs/icons/calendar-x';
 import Camera from 'lucide-react-native/dist/cjs/icons/camera';
+import CakeSlice from 'lucide-react-native/dist/cjs/icons/cake-slice';
+import Carrot from 'lucide-react-native/dist/cjs/icons/carrot';
 import ChartNoAxesColumnIncreasing from 'lucide-react-native/dist/cjs/icons/chart-no-axes-column-increasing';
 import Check from 'lucide-react-native/dist/cjs/icons/check';
 import ChevronDown from 'lucide-react-native/dist/cjs/icons/chevron-down';
@@ -31,13 +36,19 @@ import ChevronsUpDown from 'lucide-react-native/dist/cjs/icons/chevrons-up-down'
 import Circle from 'lucide-react-native/dist/cjs/icons/circle';
 import CircleCheck from 'lucide-react-native/dist/cjs/icons/circle-check';
 import CircleQuestionMark from 'lucide-react-native/dist/cjs/icons/circle-question-mark';
+import Citrus from 'lucide-react-native/dist/cjs/icons/citrus';
 import Clipboard from 'lucide-react-native/dist/cjs/icons/clipboard';
 import Clock from 'lucide-react-native/dist/cjs/icons/clock';
+import Coffee from 'lucide-react-native/dist/cjs/icons/coffee';
 import Code from 'lucide-react-native/dist/cjs/icons/code';
 import Columns3 from 'lucide-react-native/dist/cjs/icons/columns-3';
 import Compass from 'lucide-react-native/dist/cjs/icons/compass';
 import Crosshair from 'lucide-react-native/dist/cjs/icons/crosshair';
+import CookingPot from 'lucide-react-native/dist/cjs/icons/cooking-pot';
+import Croissant from 'lucide-react-native/dist/cjs/icons/croissant';
+import CupSoda from 'lucide-react-native/dist/cjs/icons/cup-soda';
 import Dices from 'lucide-react-native/dist/cjs/icons/dices';
+import Drumstick from 'lucide-react-native/dist/cjs/icons/drumstick';
 import CreditCard from 'lucide-react-native/dist/cjs/icons/credit-card';
 import Ellipsis from 'lucide-react-native/dist/cjs/icons/ellipsis';
 import ExternalLink from 'lucide-react-native/dist/cjs/icons/external-link';
@@ -45,9 +56,13 @@ import Eye from 'lucide-react-native/dist/cjs/icons/eye';
 import EyeOff from 'lucide-react-native/dist/cjs/icons/eye-off';
 import FileText from 'lucide-react-native/dist/cjs/icons/file-text';
 import Flame from 'lucide-react-native/dist/cjs/icons/flame';
+import Fish from 'lucide-react-native/dist/cjs/icons/fish';
+import Flower2 from 'lucide-react-native/dist/cjs/icons/flower-2';
 import FlagTriangleRight from 'lucide-react-native/dist/cjs/icons/flag-triangle-right';
 import Funnel from 'lucide-react-native/dist/cjs/icons/funnel';
 import Gauge from 'lucide-react-native/dist/cjs/icons/gauge';
+import Globe from 'lucide-react-native/dist/cjs/icons/globe';
+import Grape from 'lucide-react-native/dist/cjs/icons/grape';
 import Heart from 'lucide-react-native/dist/cjs/icons/heart';
 import House from 'lucide-react-native/dist/cjs/icons/house';
 import Hourglass from 'lucide-react-native/dist/cjs/icons/hourglass';
@@ -56,6 +71,7 @@ import Info from 'lucide-react-native/dist/cjs/icons/info';
 import Inbox from 'lucide-react-native/dist/cjs/icons/inbox';
 import Italic from 'lucide-react-native/dist/cjs/icons/italic';
 import Layers from 'lucide-react-native/dist/cjs/icons/layers';
+import LeafyGreen from 'lucide-react-native/dist/cjs/icons/leafy-green';
 import Landmark from 'lucide-react-native/dist/cjs/icons/landmark';
 import LayoutList from 'lucide-react-native/dist/cjs/icons/layout-list';
 import Link2 from 'lucide-react-native/dist/cjs/icons/link-2';
@@ -63,9 +79,11 @@ import List from 'lucide-react-native/dist/cjs/icons/list';
 import ListChecks from 'lucide-react-native/dist/cjs/icons/list-checks';
 import ListFilter from 'lucide-react-native/dist/cjs/icons/list-filter';
 import ListOrdered from 'lucide-react-native/dist/cjs/icons/list-ordered';
+import Library from 'lucide-react-native/dist/cjs/icons/library';
 import Lock from 'lucide-react-native/dist/cjs/icons/lock';
 import Mail from 'lucide-react-native/dist/cjs/icons/mail';
 import MapPin from 'lucide-react-native/dist/cjs/icons/map-pin';
+import MapPinHouse from 'lucide-react-native/dist/cjs/icons/map-pin-house';
 import MapIcon from 'lucide-react-native/dist/cjs/icons/map';
 import Maximize2 from 'lucide-react-native/dist/cjs/icons/maximize-2';
 import Menu from 'lucide-react-native/dist/cjs/icons/menu';
@@ -74,6 +92,7 @@ import MessageSquare from 'lucide-react-native/dist/cjs/icons/message-square';
 import MessagesSquare from 'lucide-react-native/dist/cjs/icons/messages-square';
 import Mic from 'lucide-react-native/dist/cjs/icons/mic';
 import Minimize2 from 'lucide-react-native/dist/cjs/icons/minimize-2';
+import Nut from 'lucide-react-native/dist/cjs/icons/nut';
 import OctagonAlert from 'lucide-react-native/dist/cjs/icons/octagon-alert';
 import Orbit from 'lucide-react-native/dist/cjs/icons/orbit';
 import PackageOpen from 'lucide-react-native/dist/cjs/icons/package-open';
@@ -82,34 +101,45 @@ import Paperclip from 'lucide-react-native/dist/cjs/icons/paperclip';
 import Pause from 'lucide-react-native/dist/cjs/icons/pause';
 import Phone from 'lucide-react-native/dist/cjs/icons/phone';
 import Play from 'lucide-react-native/dist/cjs/icons/play';
+import Pizza from 'lucide-react-native/dist/cjs/icons/pizza';
+import Popcorn from 'lucide-react-native/dist/cjs/icons/popcorn';
 import Plus from 'lucide-react-native/dist/cjs/icons/plus';
 import RefreshCw from 'lucide-react-native/dist/cjs/icons/refresh-cw';
 import ReceiptText from 'lucide-react-native/dist/cjs/icons/receipt-text';
 import RotateCcw from 'lucide-react-native/dist/cjs/icons/rotate-ccw';
 import RotateCw from 'lucide-react-native/dist/cjs/icons/rotate-cw';
 import Search from 'lucide-react-native/dist/cjs/icons/search';
+import Salad from 'lucide-react-native/dist/cjs/icons/salad';
+import Sandwich from 'lucide-react-native/dist/cjs/icons/sandwich';
 import Send from 'lucide-react-native/dist/cjs/icons/send';
 import Settings from 'lucide-react-native/dist/cjs/icons/settings';
 import Share2 from 'lucide-react-native/dist/cjs/icons/share-2';
 import Shield from 'lucide-react-native/dist/cjs/icons/shield';
 import ShoppingCart from 'lucide-react-native/dist/cjs/icons/shopping-cart';
+import Shell from 'lucide-react-native/dist/cjs/icons/shell';
+import Shrimp from 'lucide-react-native/dist/cjs/icons/shrimp';
 import SlidersHorizontal from 'lucide-react-native/dist/cjs/icons/sliders-horizontal';
 import Smartphone from 'lucide-react-native/dist/cjs/icons/smartphone';
 import Sparkles from 'lucide-react-native/dist/cjs/icons/sparkles';
 import Square from 'lucide-react-native/dist/cjs/icons/square';
 import SquareCheck from 'lucide-react-native/dist/cjs/icons/square-check';
 import SquarePen from 'lucide-react-native/dist/cjs/icons/square-pen';
+import Soup from 'lucide-react-native/dist/cjs/icons/soup';
+import Sprout from 'lucide-react-native/dist/cjs/icons/sprout';
 import Star from 'lucide-react-native/dist/cjs/icons/star';
 import Tag from 'lucide-react-native/dist/cjs/icons/tag';
 import Target from 'lucide-react-native/dist/cjs/icons/target';
 import ThumbsDown from 'lucide-react-native/dist/cjs/icons/thumbs-down';
 import ThumbsUp from 'lucide-react-native/dist/cjs/icons/thumbs-up';
+import Timer from 'lucide-react-native/dist/cjs/icons/timer';
 import Trash2 from 'lucide-react-native/dist/cjs/icons/trash-2';
 import TrendingDown from 'lucide-react-native/dist/cjs/icons/trending-down';
 import TrendingUp from 'lucide-react-native/dist/cjs/icons/trending-up';
 import TriangleAlert from 'lucide-react-native/dist/cjs/icons/triangle-alert';
 import Underline from 'lucide-react-native/dist/cjs/icons/underline';
 import Utensils from 'lucide-react-native/dist/cjs/icons/utensils';
+import Waves from 'lucide-react-native/dist/cjs/icons/waves';
+import Wheat from 'lucide-react-native/dist/cjs/icons/wheat';
 import User from 'lucide-react-native/dist/cjs/icons/user';
 import UserMinus from 'lucide-react-native/dist/cjs/icons/user-minus';
 import UserPlus from 'lucide-react-native/dist/cjs/icons/user-plus';
@@ -208,6 +238,36 @@ const iconMap = {
   plan: { library: 'lucide', icon: Calendar },
   navPlan: { library: 'lucide', icon: Calendar },
   meal: { library: 'lucide', icon: Utensils },
+  recipeLibrary: { library: 'lucide', icon: Library },
+  timer: { library: 'lucide', icon: Timer },
+  coffee: { library: 'lucide', icon: Coffee },
+  sandwich: { library: 'lucide', icon: Sandwich },
+  drumstick: { library: 'lucide', icon: Drumstick },
+  soup: { library: 'lucide', icon: Soup },
+  salad: { library: 'lucide', icon: Salad },
+  popcorn: { library: 'lucide', icon: Popcorn },
+  carrot: { library: 'lucide', icon: Carrot },
+  croissant: { library: 'lucide', icon: Croissant },
+  cakeSlice: { library: 'lucide', icon: CakeSlice },
+  globe: { library: 'lucide', icon: Globe },
+  mapPinHouse: { library: 'lucide', icon: MapPinHouse },
+  citrus: { library: 'lucide', icon: Citrus },
+  banana: { library: 'lucide', icon: Banana },
+  waves: { library: 'lucide', icon: Waves },
+  bean: { library: 'lucide', icon: Bean },
+  beef: { library: 'lucide', icon: Beef },
+  pizza: { library: 'lucide', icon: Pizza },
+  grape: { library: 'lucide', icon: Grape },
+  wheat: { library: 'lucide', icon: Wheat },
+  nut: { library: 'lucide', icon: Nut },
+  sprout: { library: 'lucide', icon: Sprout },
+  cookingPot: { library: 'lucide', icon: CookingPot },
+  cupSoda: { library: 'lucide', icon: CupSoda },
+  fish: { library: 'lucide', icon: Fish },
+  leafyGreen: { library: 'lucide', icon: LeafyGreen },
+  flower: { library: 'lucide', icon: Flower2 },
+  shrimp: { library: 'lucide', icon: Shrimp },
+  shell: { library: 'lucide', icon: Shell },
   focus: { library: 'kwilt', name: 'focus' },
   sendTo: { library: 'lucide', icon: Send },
   sendToCalendar: { library: 'kwilt', name: 'sendToCalendar' },

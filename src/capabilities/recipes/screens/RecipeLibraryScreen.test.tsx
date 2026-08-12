@@ -39,8 +39,9 @@ import {
   buildVisibleRecipeInventory,
   buildRecipeDiscoverySections,
   buildRecipeShelves,
+  resolveRecipeBrowseMode,
 } from './RecipeLibraryScreen';
-import { RecipeCaptureDrawer } from './RecipeLibraryDrawers';
+import { RecipeCaptureDrawer, RecipeFilterDrawer } from './RecipeLibraryDrawers';
 
 const editorialPlacements = getMealEditorialEdition(new Date('2026-08-06T12:00:00.000Z')).placements;
 
@@ -54,6 +55,8 @@ const viewProps = {
   onOpenFilters: jest.fn(),
   onOpenSort: jest.fn(),
   onClearFilter: jest.fn(),
+  likedOnly: false,
+  onToggleLiked: jest.fn(),
   onReset: jest.fn(),
   browseMode: 'shelves' as const,
   onSeeAll: jest.fn(),
@@ -67,6 +70,15 @@ const viewProps = {
 
 describe('Recipe library', () => {
   beforeEach(() => jest.clearAllMocks());
+
+  it('returns to discovery when the final quick filter is cleared', () => {
+    expect(resolveRecipeBrowseMode(DEFAULT_RECIPE_INVENTORY_FILTERS, false)).toBe('shelves');
+    expect(resolveRecipeBrowseMode(
+      { ...DEFAULT_RECIPE_INVENTORY_FILTERS, maxMinutes: 30 },
+      false,
+    )).toBe('results');
+    expect(resolveRecipeBrowseMode(DEFAULT_RECIPE_INVENTORY_FILTERS, true)).toBe('results');
+  });
 
   it('offers one clear recovery action when filters are empty', () => {
     const onReset = jest.fn();
@@ -122,7 +134,8 @@ describe('Recipe library', () => {
       <RecipeLibraryView {...viewProps} recipes={recipes} onSeeAll={onSeeAll} />,
     );
 
-    expect(screen.getByText('Explore cuisines')).toBeTruthy();
+    expect(screen.getByTestId('cuisine-family-row')).toBeTruthy();
+    expect(screen.getByText('American')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Browse French meals'));
 
     expect(onSeeAll).toHaveBeenCalledWith({
@@ -131,7 +144,17 @@ describe('Recipe library', () => {
     });
   });
 
-  it('reveals regional cuisine refinements inside a family result', () => {
+  it('groups compact cuisine navigation with discovery controls', () => {
+    const recipes = buildRecipeLibraryInventory([]);
+    const screen = render(
+      <RecipeLibraryView {...viewProps} recipes={recipes} isFavorite={() => true} />,
+    );
+    expect(screen.getByTestId('recipe-discovery-navigation')).toBeTruthy();
+    expect(screen.getByTestId('cuisine-family-row')).toBeTruthy();
+    expect(screen.getByTestId('recipe-shelf-recommended')).toBeTruthy();
+  });
+
+  it('keeps regional cuisine refinements in the single filter rail above results', () => {
     const onSeeAll = jest.fn();
     const filters = {
       ...DEFAULT_RECIPE_INVENTORY_FILTERS,
@@ -148,6 +171,10 @@ describe('Recipe library', () => {
       />,
     );
 
+    expect(screen.getAllByTestId('recipe-filter-rail')).toHaveLength(1);
+    expect(screen.queryByText('Explore French')).toBeNull();
+    expect(screen.queryByTestId('cuisine-refinement-row')).toBeNull();
+    expect(screen.queryByTestId('cuisine-family-row')).toBeNull();
     fireEvent.press(screen.getByLabelText('Show Provençal French meals'));
 
     expect(onSeeAll).toHaveBeenCalledWith({
@@ -156,17 +183,97 @@ describe('Recipe library', () => {
     });
   });
 
-  it('puts liked meals first without turning them into a new inventory', () => {
+  it('removes an active regional refinement by tapping its selected pill', () => {
+    const onSeeAll = jest.fn();
+    const filters = {
+      ...DEFAULT_RECIPE_INVENTORY_FILTERS,
+      cuisine: 'Provençal French',
+    };
+    const screen = render(
+      <RecipeLibraryView
+        {...viewProps}
+        browseMode="results"
+        filters={filters}
+        recipes={buildRecipeLibraryInventory([])}
+        onSeeAll={onSeeAll}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Show Provençal French meals'));
+
+    expect(onSeeAll).toHaveBeenCalledWith({
+      ...filters,
+      cuisine: 'French',
+    });
+    expect(StyleSheet.flatten(
+      screen.getByTestId('recipe-filter-pill-cuisine-proven-al-french').props.style,
+    )).toMatchObject({ minHeight: 38, backgroundColor: colors.sumi900 });
+  });
+
+  it('keeps liked meals in the quick-filter rail instead of a full discovery shelf', () => {
     const recipes = buildRecipeLibraryInventory([]);
     const favoriteIds = new Set([recipes[2].recipe.id, recipes[5].recipe.id]);
-    const shelves = buildRecipeShelves(recipes, favoriteIds);
+    const onToggleLiked = jest.fn();
+    const screen = render(
+      <RecipeLibraryView
+        {...viewProps}
+        recipes={recipes}
+        isFavorite={(recipe) => favoriteIds.has(recipe.recipe.id)}
+        onToggleLiked={onToggleLiked}
+      />,
+    );
 
-    expect(shelves[0]).toMatchObject({ id: 'favorites', title: 'Liked meals' });
-    expect(shelves[0].recipes.map((recipe) => recipe.recipe.id)).toEqual([
-      recipes[2].recipe.id,
-      recipes[5].recipe.id,
-    ]);
-    expect(buildRecipeShelves(recipes, new Set())[0].id).not.toBe('favorites');
+    expect(screen.queryByTestId('recipe-shelf-favorites')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Show liked meals'));
+    expect(onToggleLiked).toHaveBeenCalled();
+  });
+
+  it('offers practical quick filters with unique icons', () => {
+    const onSeeAll = jest.fn();
+    const recipes = buildRecipeLibraryInventory([]);
+    const screen = render(
+      <RecipeLibraryView {...viewProps} recipes={recipes} onSeeAll={onSeeAll} />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Show meals ready in 30 minutes'));
+    expect(onSeeAll).toHaveBeenCalledWith({
+      ...DEFAULT_RECIPE_INVENTORY_FILTERS,
+      maxMinutes: 30,
+    });
+    fireEvent.press(screen.getByLabelText('Show breakfast and brunch meals'));
+    expect(onSeeAll).toHaveBeenCalledWith({
+      ...DEFAULT_RECIPE_INVENTORY_FILTERS,
+      category: 'Breakfast & brunch',
+    });
+    expect(screen.getAllByTestId('recipe-quick-filter-liked-icon').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('recipe-quick-filter-quick-icon').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('recipe-quick-filter-breakfast-icon').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('recipe-quick-filter-dinner-icon').length).toBeGreaterThan(0);
+  });
+
+  it('composes a quick filter with drawer-applied filters', () => {
+    const onSeeAll = jest.fn();
+    const filters = {
+      ...DEFAULT_RECIPE_INVENTORY_FILTERS,
+      category: 'Desserts' as const,
+    };
+    const recipes = buildRecipeLibraryInventory([]);
+    const screen = render(
+      <RecipeLibraryView
+        {...viewProps}
+        browseMode="results"
+        filters={filters}
+        recipes={recipes}
+        onSeeAll={onSeeAll}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Show meals ready in 30 minutes'));
+
+    expect(onSeeAll).toHaveBeenCalledWith({
+      ...filters,
+      maxMinutes: 30,
+    });
   });
 
   it('removes hidden meals before any discovery surface is derived', () => {
@@ -246,33 +353,40 @@ describe('Recipe library', () => {
   });
 
   it('uses the canonical compact inventory controls without duplicating Search', () => {
+    const onOpenFilters = jest.fn();
     const screen = render(
       <RecipeInventoryControls
-        filters={DEFAULT_RECIPE_INVENTORY_FILTERS}
         sort="featured"
         resultCount={100}
         totalCount={100}
-        onOpenFilters={jest.fn()}
+        filterCount={2}
+        onOpenFilters={onOpenFilters}
         onOpenSort={jest.fn()}
-        onClearFilter={jest.fn()}
       />,
     );
 
     expect(screen.queryByLabelText('Search recipes')).toBeNull();
     expect(screen.getByText('100 meals')).toBeTruthy();
-    const filterStyle = StyleSheet.flatten(screen.getByTestId('recipe-funnel-control-surface').props.style);
-    expect(filterStyle).toMatchObject({ minWidth: 40, height: 34 });
+    fireEvent.press(screen.getByLabelText('Filter meals, 2 active'));
+    expect(onOpenFilters).toHaveBeenCalled();
+    expect(screen.getByTestId('recipe-inventory-control-group')).toBeTruthy();
+    expect(screen.getByTestId('recipe-funnel-control-surface')).toBeTruthy();
+    const sortStyle = StyleSheet.flatten(screen.getByTestId('recipe-sort-control-surface').props.style);
+    expect(sortStyle).toMatchObject({ minWidth: 40, height: 34 });
   });
 
-  it('shows the active filter count and makes each filter directly removable', () => {
+  it('uses one selected-pill grammar for quick and drawer-applied filters', () => {
     const onOpenFilters = jest.fn();
     const onClearFilter = jest.fn();
     const filters = { ...DEFAULT_RECIPE_INVENTORY_FILTERS, maxMinutes: 30, cuisine: 'Mexican' };
+    const recipes = buildRecipeLibraryInventory([]);
     const screen = render(
-      <RecipeInventoryControls
+      <RecipeLibraryView
+        {...viewProps}
+        browseMode="results"
+        recipes={recipes}
         filters={filters}
         sort="quickest"
-        resultCount={4}
         totalCount={100}
         onOpenFilters={onOpenFilters}
         onOpenSort={jest.fn()}
@@ -284,7 +398,42 @@ describe('Recipe library', () => {
     expect(onOpenFilters).toHaveBeenCalled();
     fireEvent.press(screen.getByLabelText('Remove Mexican filter'));
     expect(onClearFilter).toHaveBeenCalledWith('cuisine');
-    expect(screen.getByText('4 of 100')).toBeTruthy();
+    expect(screen.queryByText('Filters · 2')).toBeNull();
+    expect(screen.queryByTestId('recipe-filter-pill-filters')).toBeNull();
+    expect(screen.queryByTestId(/applied-filter/)).toBeNull();
+    const filterRailLabels = screen
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel)
+      .filter((label) => typeof label === 'string');
+    expect(filterRailLabels.indexOf('Remove Mexican filter')).toBeLessThan(
+      filterRailLabels.indexOf('Show liked meals'),
+    );
+    expect(StyleSheet.flatten(screen.getByTestId('recipe-funnel-control-surface').props.style)).toMatchObject({
+      height: 34,
+      backgroundColor: colors.pine700,
+    });
+    expect(StyleSheet.flatten(screen.getByTestId('recipe-filter-pill-cuisine-all').props.style)).toMatchObject({
+      minHeight: 38,
+      backgroundColor: colors.sumi900,
+    });
+  });
+
+  it('gives every quick filter a distinct leading icon', () => {
+    const screen = render(
+      <RecipeFilterDrawer
+        visible
+        value={DEFAULT_RECIPE_INVENTORY_FILTERS}
+        onClose={jest.fn()}
+        onApply={jest.fn()}
+      />,
+    );
+    const icons = screen.getAllByTestId(/^recipe-filter-choice-icon-/, {
+      includeHiddenElements: true,
+    });
+    const iconIds = icons.map((icon) => icon.props.testID);
+
+    expect(icons).toHaveLength(35);
+    expect(new Set(iconIds).size).toBe(iconIds.length);
   });
 
   it('keeps capture, Search, and AI as separate bottom dock actions', () => {

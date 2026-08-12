@@ -6,24 +6,40 @@ import { buildRecipeLibraryInventory } from '../data/starterRecipeCatalog';
 import { recipeContractFixture, recipeVersionContractFixture } from './recipeContractFixtures';
 
 describe('recipe recommendations', () => {
-  it('uses only defensible editorial and cook-time reasons', () => {
+  it('uses only reasons that name the factor that materially affected ranking', () => {
     const recommendations = buildRecipeRecommendations(buildRecipeLibraryInventory([]), 6);
 
     expect(recommendations).toHaveLength(6);
     expect(recommendations.every(({ reason }) =>
-      reason.id === 'quick' || reason.id === 'editorial',
+      reason.id === 'quick' || reason.id === 'familiar',
     )).toBe(true);
     expect(recommendations.some(({ reason }) => reason.id === 'quick')).toBe(true);
-    expect(recommendations.some(({ reason }) => reason.id === 'editorial')).toBe(true);
+    expect(recommendations.some(({ reason }) => reason.id === 'familiar')).toBe(true);
+    expect(recommendations.some(({ reason }) => reason.label === 'Kwilt pick')).toBe(false);
   });
 
-  it('keeps editorial picks first, caps the result, and does not duplicate recipes', () => {
+  it('keeps familiar household anchors first, caps the result, and does not duplicate recipes', () => {
     const recipes = buildRecipeLibraryInventory([]);
     const recommendations = buildRecipeRecommendations(recipes, 4);
 
     expect(recommendations).toHaveLength(4);
     expect(new Set(recommendations.map(({ projection }) => projection.recipe.id)).size).toBe(4);
-    expect(recommendations[0]?.reason.id).toBe('editorial');
+    expect(recommendations[0]?.reason.id).toBe('familiar');
+  });
+
+  it('uses an actual liked state as the reason when it changes recommendation rank', () => {
+    const recipes = buildRecipeLibraryInventory([]);
+    const liked = recipes[20];
+    const recommendations = buildRecipeRecommendations(
+      recipes,
+      4,
+      new Set([liked.recipe.id]),
+    );
+
+    expect(recommendations[0]).toMatchObject({
+      projection: { recipe: { id: liked.recipe.id } },
+      reason: { id: 'liked', label: 'You liked this' },
+    });
   });
 
   it('builds bounded alternatives that exclude the open, hidden, and unavailable Recipes', () => {
@@ -58,7 +74,7 @@ describe('recipe recommendations', () => {
     expect(result.map(({ projection }) => projection.recipe.id)).not.toContain(hiddenId);
     expect(result.map(({ projection }) => projection.recipe.id)).not.toContain(unavailable.recipe.id);
     expect(result.every(({ reason }) =>
-      ['quicker', 'same_category', 'same_cuisine', 'similar_ingredients', 'editorial'].includes(reason.id),
+      ['quicker', 'same_category', 'same_cuisine', 'similar_ingredients', 'familiar'].includes(reason.id),
     )).toBe(true);
   });
 

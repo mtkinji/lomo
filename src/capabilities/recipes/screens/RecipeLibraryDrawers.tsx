@@ -26,7 +26,10 @@ import {
   type RecipeInventorySortMode,
   type StarterRecipeMetadata,
 } from "../data/starterRecipeCatalog";
-import { CUISINE_FAMILIES } from "../domain/cuisineFamilies";
+import {
+  CUISINE_FAMILIES,
+  type CuisineFamilyId,
+} from "../domain/cuisineFamilies";
 import { styles } from "./RecipeLibraryScreen.styles";
 import {
   formatMealTiming,
@@ -39,14 +42,53 @@ export { MealPlanDrawer, type MealPlanTrayItem } from "./MealPlanDrawer";
 
 const RECIPE_CATEGORIES: readonly StarterRecipeMetadata["category"][] =
   STARTER_RECIPE_CATEGORIES;
-const RECIPE_CUISINES = CUISINE_FAMILIES.map(({ label }) => label);
 type FilterKey = keyof RecipeInventoryFilters;
 
+const CATEGORY_FILTER_ICONS: Record<
+  StarterRecipeMetadata["category"],
+  IconName
+> = {
+  "Breakfast & brunch": "coffee",
+  "Lunch & handhelds": "sandwich",
+  Dinner: "drumstick",
+  "Soups & stews": "soup",
+  "Salads & bowls": "salad",
+  "Appetizers & snacks": "popcorn",
+  Sides: "carrot",
+  "Breads & baking": "wheat",
+  Desserts: "cakeSlice",
+};
+
+const CUISINE_FILTER_ICONS: Record<CuisineFamilyId, IconName> = {
+  "north-american": "mapPinHouse",
+  mexican: "citrus",
+  "latin-american": "banana",
+  caribbean: "waves",
+  french: "croissant",
+  italian: "pizza",
+  "british-irish": "beef",
+  european: "landmark",
+  mediterranean: "grape",
+  "middle-eastern": "bean",
+  african: "nut",
+  "indian-south-asian": "sprout",
+  chinese: "cookingPot",
+  taiwanese: "cupSoda",
+  japanese: "fish",
+  korean: "flame",
+  thai: "leafyGreen",
+  vietnamese: "flower",
+  "southeast-asian": "shrimp",
+  australian: "shell",
+};
+
 function FilterChoice({
+  icon,
   label,
   selected,
   onPress,
 }: {
+  icon: IconName;
   label: string;
   selected: boolean;
   onPress(): void;
@@ -63,6 +105,17 @@ function FilterChoice({
         pressed && styles.pressed,
       ]}
     >
+      <View
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        testID={`recipe-filter-choice-icon-${icon}`}
+      >
+        <Icon
+          name={icon}
+          size={15}
+          color={selected ? colors.canvas : colors.textSecondary}
+        />
+      </View>
       <Text
         variant="label"
         style={selected ? styles.filterChoiceTextSelected : undefined}
@@ -113,11 +166,13 @@ export function RecipeFilterDrawer({
           </Text>
           <View style={styles.choiceWrap}>
             <FilterChoice
+              icon="recipeLibrary"
               label="All recipes"
               selected={draft.source === "all"}
               onPress={() => update("source", "all")}
             />
             <FilterChoice
+              icon="identity"
               label="Yours"
               selected={draft.source === "yours"}
               onPress={() => update("source", "yours")}
@@ -130,11 +185,13 @@ export function RecipeFilterDrawer({
           </Text>
           <View style={styles.choiceWrap}>
             <FilterChoice
+              icon="clock"
               label="Any time"
               selected={draft.maxMinutes === null}
               onPress={() => update("maxMinutes", null)}
             />
             <FilterChoice
+              icon="timer"
               label="30 min or less"
               selected={draft.maxMinutes === 30}
               onPress={() => update("maxMinutes", 30)}
@@ -147,6 +204,7 @@ export function RecipeFilterDrawer({
           </Text>
           <View style={styles.choiceWrap}>
             <FilterChoice
+              icon="meal"
               label="Any meal"
               selected={draft.category === null}
               onPress={() => update("category", null)}
@@ -154,6 +212,7 @@ export function RecipeFilterDrawer({
             {RECIPE_CATEGORIES.map((category) => (
               <FilterChoice
                 key={category}
+                icon={CATEGORY_FILTER_ICONS[category]}
                 label={category}
                 selected={draft.category === category}
                 onPress={() => update("category", category)}
@@ -167,16 +226,18 @@ export function RecipeFilterDrawer({
           </Text>
           <View style={styles.choiceWrap}>
             <FilterChoice
+              icon="globe"
               label="Any cuisine"
               selected={draft.cuisine === null}
               onPress={() => update("cuisine", null)}
             />
-            {RECIPE_CUISINES.map((cuisine) => (
+            {CUISINE_FAMILIES.map((cuisine) => (
               <FilterChoice
-                key={cuisine}
-                label={cuisine}
-                selected={draft.cuisine === cuisine}
-                onPress={() => update("cuisine", cuisine)}
+                key={cuisine.id}
+                icon={CUISINE_FILTER_ICONS[cuisine.id]}
+                label={cuisine.label}
+                selected={draft.cuisine === cuisine.label}
+                onPress={() => update("cuisine", cuisine.label)}
               />
             ))}
           </View>

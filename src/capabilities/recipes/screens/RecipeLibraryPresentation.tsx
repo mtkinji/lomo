@@ -37,11 +37,11 @@ import {
   buildRecipeDiscoverySections,
   buildRecipeShelves,
   CuisineFamilyRow,
-  CuisineRefinementRow,
   EditorialCollectionOffer,
   RecommendedRecipeRow,
   RecipeCard,
   RecipeInventoryControls,
+  RecipeQuickFilterRow,
   RecipeShelfRow,
   type FilterKey,
 } from "./RecipeLibraryDiscovery";
@@ -66,6 +66,8 @@ export function RecipeLibraryView({
   onAddToPlan,
   isInPlan,
   isFavorite,
+  likedOnly,
+  onToggleLiked,
   totalCount,
 }: {
   recipes: RecipeProjection[];
@@ -86,6 +88,8 @@ export function RecipeLibraryView({
   onAddToPlan(projection: RecipeProjection): void;
   isInPlan(projection: RecipeProjection): boolean;
   isFavorite(projection: RecipeProjection): boolean;
+  likedOnly: boolean;
+  onToggleLiked(): void;
   totalCount: number;
 }) {
   const hasFilters = countActiveRecipeInventoryFilters(filters) > 0;
@@ -95,29 +99,30 @@ export function RecipeLibraryView({
     !hasFilters &&
     recipes.length > 0;
   const recommendations = useMemo(
-    () => (showShelves ? buildRecipeRecommendations(recipes) : []),
-    [recipes, showShelves],
-  );
-  const favoriteRecipeIds = useMemo(
     () =>
-      new Set(
-        recipes.filter(isFavorite).map((projection) => projection.recipe.id),
-      ),
-    [isFavorite, recipes],
+      showShelves
+        ? buildRecipeRecommendations(
+            recipes,
+            6,
+            new Set(
+              recipes
+                .filter(isFavorite)
+                .map((projection) => projection.recipe.id),
+            ),
+          )
+        : [],
+    [isFavorite, recipes, showShelves],
   );
-  const shelves = showShelves
-    ? buildRecipeShelves(recipes, favoriteRecipeIds)
-    : [];
+  const shelves = showShelves ? buildRecipeShelves(recipes) : [];
 
   const controls = (
     <RecipeInventoryControls
-      filters={filters}
       sort={sort}
       resultCount={recipes.length}
       totalCount={totalCount}
+      filterCount={countActiveRecipeInventoryFilters(filters)}
       onOpenFilters={onOpenFilters}
       onOpenSort={onOpenSort}
-      onClearFilter={onClearFilter}
     />
   );
 
@@ -137,19 +142,28 @@ export function RecipeLibraryView({
             Your saved recipes are here while Kwilt refreshes.
           </Text>
         ) : null}
+        <View testID="recipe-discovery-navigation" style={styles.discoveryNavigation}>
+          <RecipeQuickFilterRow
+            filters={filters}
+            likedOnly={likedOnly}
+            onClearFilter={onClearFilter}
+            onToggleLiked={onToggleLiked}
+            onSelect={onSeeAll}
+          />
+          <CuisineFamilyRow
+            onOpen={(family) =>
+              onSeeAll({
+                ...DEFAULT_RECIPE_INVENTORY_FILTERS,
+                cuisine: family.shortLabel,
+              })
+            }
+          />
+        </View>
         <RecommendedRecipeRow
           recommendations={recommendations}
           onOpen={onOpen}
           onAddToPlan={onAddToPlan}
           isInPlan={isInPlan}
-        />
-        <CuisineFamilyRow
-          onOpen={(family) =>
-            onSeeAll({
-              ...DEFAULT_RECIPE_INVENTORY_FILTERS,
-              cuisine: family.label,
-            })
-          }
         />
         {buildRecipeDiscoverySections(shelves, editorialPlacements).map(
           (section) => {
@@ -205,10 +219,16 @@ export function RecipeLibraryView({
               Your saved recipes are here while Kwilt refreshes.
             </Text>
           ) : null}
+          <RecipeQuickFilterRow
+            filters={filters}
+            likedOnly={likedOnly}
+            onClearFilter={onClearFilter}
+            onToggleLiked={onToggleLiked}
+            onSelect={onSeeAll}
+          />
           <Heading variant="md">
-            {hasFilters ? "Matching meals" : "All meals"}
+            {likedOnly ? "Liked meals" : hasFilters ? "Matching meals" : "All meals"}
           </Heading>
-          <CuisineRefinementRow filters={filters} onChange={onSeeAll} />
         </View>
       }
       ListEmptyComponent={

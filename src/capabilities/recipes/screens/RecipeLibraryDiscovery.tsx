@@ -7,6 +7,7 @@ import {
 } from "react-native";
 
 import { colors } from "../../../theme";
+import { Badge } from "../../../ui/Badge";
 import { HeaderActionPill } from "../../../ui/layout/ObjectPageHeader";
 import { Icon, type IconName } from "../../../ui/Icon";
 import { Heading, Text } from "../../../ui/Typography";
@@ -57,6 +58,7 @@ const SORT_LABELS: Record<RecipeInventorySortMode, string> = {
 const CUISINE_ARTWORK: Partial<
   Record<CuisineFamilyId, ImageSourcePropType>
 > = {
+  "north-american": require("../../../../assets/illustrations/cuisines/north-american.png"),
   mexican: require("../../../../assets/illustrations/cuisines/mexican.png"),
   "latin-american": require("../../../../assets/illustrations/cuisines/latin-american.png"),
   caribbean: require("../../../../assets/illustrations/cuisines/caribbean.png"),
@@ -85,6 +87,18 @@ export type RecipeShelf = {
   canSeeAll?: boolean;
 };
 
+export function resolveRecipeBrowseMode(
+  filters: RecipeInventoryFilters,
+  likedOnly: boolean,
+  sort: RecipeInventorySortMode = "featured",
+): "shelves" | "results" {
+  return likedOnly ||
+    sort !== "featured" ||
+    countActiveRecipeInventoryFilters(filters) > 0
+    ? "results"
+    : "shelves";
+}
+
 function totalMinutes(projection: RecipeProjection): string {
   const minutes = getRecipeElapsedMinutes(projection);
   return minutes > 0 ? `${minutes} min` : "Anytime";
@@ -104,7 +118,12 @@ function activeFilterLabels(
   if (filters.category !== null)
     labels.push({ key: "category", label: filters.category });
   if (filters.cuisine !== null)
-    labels.push({ key: "cuisine", label: filters.cuisine });
+    labels.push({
+      key: "cuisine",
+      label:
+        getCuisineFamilyForFilterValue(filters.cuisine)?.shortLabel ??
+        filters.cuisine,
+    });
   return labels;
 }
 
@@ -163,12 +182,9 @@ const RECIPE_SHELF_DEFINITIONS: ReadonlyArray<{
 
 export function buildRecipeShelves(
   recipes: RecipeProjection[],
-  favoriteRecipeIds: ReadonlySet<string> = new Set(),
+  _favoriteRecipeIds: ReadonlySet<string> = new Set(),
 ): RecipeShelf[] {
-  const favorites = recipes.filter((projection) =>
-    favoriteRecipeIds.has(projection.recipe.id),
-  );
-  const standardShelves = RECIPE_SHELF_DEFINITIONS.map((definition) => ({
+  return RECIPE_SHELF_DEFINITIONS.map((definition) => ({
     ...definition,
     recipes: filterRecipeInventory(recipes, {
       query: "",
@@ -176,18 +192,6 @@ export function buildRecipeShelves(
       sort: "featured",
     }),
   })).filter((section) => section.recipes.length > 0);
-  return favorites.length
-    ? [
-        {
-          id: "favorites",
-          title: "Liked meals",
-          filters: DEFAULT_RECIPE_INVENTORY_FILTERS,
-          recipes: favorites,
-          canSeeAll: false,
-        },
-        ...standardShelves,
-      ]
-    : standardShelves;
 }
 
 export function buildVisibleRecipeInventory(
@@ -251,16 +255,14 @@ export function RecipeCard({
         {recommendationReason ? (
           <View
             testID={`recommendation-reason-${projection.recipe.id}`}
-            style={styles.recommendationReason}
           >
-            <Icon
-              name={recommendationReason.icon}
-              size={13}
-              color={colors.pine700}
-            />
-            <Text variant="label" style={styles.recommendationReasonText}>
+            <Badge
+              variant="secondary"
+              style={styles.recommendationReason}
+              textStyle={styles.recommendationReasonText}
+            >
               {recommendationReason.label}
-            </Text>
+            </Badge>
           </View>
         ) : null}
         <Text tone="secondary" style={styles.cardMeta}>
@@ -443,13 +445,17 @@ export function EditorialCollectionOffer({
 }
 
 export function CuisineFamilyRow({
+  activeCuisine = null,
   onOpen,
 }: {
+  activeCuisine?: string | null;
   onOpen(family: CuisineFamily): void;
 }) {
+  const activeFamily = activeCuisine
+    ? getCuisineFamilyForFilterValue(activeCuisine)
+    : null;
   return (
     <View testID="cuisine-family-row" style={styles.cuisineSection}>
-      <Heading variant="md">Explore cuisines</Heading>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -459,20 +465,28 @@ export function CuisineFamilyRow({
           <Pressable
             key={item.id}
             accessibilityRole="button"
-            accessibilityLabel={`Browse ${item.label} meals`}
+            accessibilityLabel={`Browse ${item.shortLabel} meals`}
             accessibilityHint="Shows matching meals and regional cuisines"
+            accessibilityState={{ selected: activeFamily?.id === item.id }}
             onPress={() => onOpen(item)}
             style={({ pressed }) => [
               styles.cuisineCard,
               pressed && styles.cuisineCardPressed,
             ]}
           >
-            <Image
-              accessible={false}
-              source={CUISINE_ARTWORK[item.id]}
-              resizeMode="contain"
-              style={styles.cuisineArtwork}
-            />
+            <View
+              style={[
+                styles.cuisineAvatar,
+                activeFamily?.id === item.id && styles.cuisineAvatarSelected,
+              ]}
+            >
+              <Image
+                accessible={false}
+                source={CUISINE_ARTWORK[item.id]}
+                resizeMode="contain"
+                style={styles.cuisineArtwork}
+              />
+            </View>
             <Text numberOfLines={2} variant="label" style={styles.cuisineLabel}>
               {item.shortLabel}
             </Text>
@@ -483,64 +497,202 @@ export function CuisineFamilyRow({
   );
 }
 
-export function CuisineRefinementRow({
+function QuickFilter({
+  id,
+  icon,
+  label,
+  accessibilityLabel,
+  selected = false,
+  onPress,
+}: {
+  id: string;
+  icon?: IconName;
+  label: string;
+  accessibilityLabel: string;
+  selected?: boolean;
+  onPress(): void;
+}) {
+  return (
+    <Pressable
+      testID={`recipe-filter-pill-${id}`}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.quickFilter,
+        selected && styles.quickFilterSelected,
+        pressed && styles.pressed,
+      ]}
+    >
+      {icon ? (
+        <Icon
+          testID={`recipe-quick-filter-${id}-icon`}
+          name={icon}
+          size={15}
+          color={selected ? colors.primaryForeground : colors.textPrimary}
+        />
+      ) : null}
+      <Text
+        variant="label"
+        numberOfLines={1}
+        style={selected ? styles.quickFilterTextSelected : undefined}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+export function RecipeQuickFilterRow({
   filters,
-  onChange,
+  likedOnly,
+  onClearFilter,
+  onToggleLiked,
+  onSelect,
 }: {
   filters: RecipeInventoryFilters;
-  onChange(filters: RecipeInventoryFilters): void;
+  likedOnly: boolean;
+  onClearFilter(key: FilterKey): void;
+  onToggleLiked(): void;
+  onSelect(filters: RecipeInventoryFilters): void;
 }) {
-  const family = filters.cuisine
+  const quickSelected = filters.maxMinutes === 30;
+  const breakfastSelected = filters.category === "Breakfast & brunch";
+  const dinnerSelected = filters.category === "Dinner";
+  const cuisineFamily = filters.cuisine
     ? getCuisineFamilyForFilterValue(filters.cuisine)
     : null;
-  if (!family || family.cuisines.length <= 1) return null;
-  const regionalCuisines = family.cuisines.filter(
-    (cuisine) => cuisine !== family.label,
+  const hasCuisineScope = Boolean(
+    cuisineFamily && cuisineFamily.cuisines.length > 1,
   );
-
+  const cuisineScopeOptions = hasCuisineScope && cuisineFamily
+    ? [
+        {
+          value: cuisineFamily.label,
+          label: `All ${cuisineFamily.shortLabel}`,
+        },
+        ...cuisineFamily.cuisines
+          .filter((cuisine) => cuisine !== cuisineFamily.label)
+          .map((cuisine) => ({ value: cuisine, label: cuisine })),
+      ]
+    : [];
+  const appliedFilters = activeFilterLabels(filters).filter(({ key }) => {
+    if (key === "cuisine" && hasCuisineScope) return false;
+    if (key === "maxMinutes" && filters.maxMinutes === 30) return false;
+    return !(
+      key === "category" &&
+      (filters.category === "Breakfast & brunch" || filters.category === "Dinner")
+    );
+  });
   return (
-    <View style={styles.cuisineRefinement}>
-      <Text variant="label" tone="secondary">
-        Explore {family.shortLabel}
-      </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.cuisineRefinementRow}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Show all ${family.label} meals`}
-          accessibilityState={{ selected: filters.cuisine === family.label }}
-          onPress={() => onChange({ ...filters, cuisine: family.label })}
-          style={({ pressed }) => [
-            styles.cuisineRefinementChip,
-            filters.cuisine === family.label &&
-              styles.cuisineRefinementChipSelected,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Text variant="label">All</Text>
-        </Pressable>
-        {regionalCuisines.map((cuisine) => (
-          <Pressable
-            key={cuisine}
-            accessibilityRole="button"
-            accessibilityLabel={`Show ${cuisine} meals`}
-            accessibilityState={{ selected: filters.cuisine === cuisine }}
-            onPress={() => onChange({ ...filters, cuisine })}
-            style={({ pressed }) => [
-              styles.cuisineRefinementChip,
-              filters.cuisine === cuisine &&
-                styles.cuisineRefinementChipSelected,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text variant="label">{cuisine}</Text>
-          </Pressable>
+    <ScrollView
+      testID="recipe-filter-rail"
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.quickFilterRow}
+    >
+      {appliedFilters.map(({ key, label }) => (
+        <QuickFilter
+          key={key}
+          id={`applied-${key}`}
+          label={label}
+          accessibilityLabel={`Remove ${label} filter`}
+          selected
+          onPress={() => onClearFilter(key)}
+        />
+      ))}
+      {cuisineScopeOptions
+        .filter(({ value }) => value === filters.cuisine)
+        .map(({ value, label }) => (
+          <QuickFilter
+            key={value}
+            id={
+              value === cuisineFamily?.label
+                ? "cuisine-all"
+                : `cuisine-${value.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
+            }
+            label={label}
+            accessibilityLabel={
+              value === cuisineFamily?.label
+                ? `Remove ${value} filter`
+                : `Show ${value} meals`
+            }
+            selected
+            onPress={() =>
+              value === cuisineFamily?.label
+                ? onClearFilter("cuisine")
+                : onSelect({ ...filters, cuisine: cuisineFamily?.label ?? value })
+            }
+          />
         ))}
-      </ScrollView>
-    </View>
+      <QuickFilter
+        id="liked"
+        icon="heart"
+        label="Liked"
+        accessibilityLabel={likedOnly ? "Show all meals" : "Show liked meals"}
+        selected={likedOnly}
+        onPress={onToggleLiked}
+      />
+      <QuickFilter
+        id="quick"
+        icon="timer"
+        label="30 min"
+        accessibilityLabel="Show meals ready in 30 minutes"
+        selected={quickSelected}
+        onPress={() =>
+          onSelect({
+            ...filters,
+            maxMinutes: quickSelected ? null : 30,
+          })
+        }
+      />
+      <QuickFilter
+        id="breakfast"
+        icon="coffee"
+        label="Breakfast"
+        accessibilityLabel="Show breakfast and brunch meals"
+        selected={breakfastSelected}
+        onPress={() =>
+          onSelect({
+            ...filters,
+            category: breakfastSelected ? null : "Breakfast & brunch",
+          })
+        }
+      />
+      <QuickFilter
+        id="dinner"
+        icon="meal"
+        label="Dinner"
+        accessibilityLabel="Show dinner meals"
+        selected={dinnerSelected}
+        onPress={() =>
+          onSelect({
+            ...filters,
+            category: dinnerSelected ? null : "Dinner",
+          })
+        }
+      />
+      {cuisineScopeOptions
+        .filter(({ value }) => value !== filters.cuisine)
+        .map(({ value, label }) => (
+          <QuickFilter
+            key={value}
+            id={
+              value === cuisineFamily?.label
+                ? "cuisine-all"
+                : `cuisine-${value.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
+            }
+            label={label}
+            accessibilityLabel={
+              value === cuisineFamily?.label
+                ? `Show all ${value} meals`
+                : `Show ${value} meals`
+            }
+            onPress={() => onSelect({ ...filters, cuisine: value })}
+          />
+        ))}
+    </ScrollView>
   );
 }
 
@@ -601,24 +753,20 @@ function InventoryControlButton({
 }
 
 export function RecipeInventoryControls({
-  filters,
   sort,
   resultCount,
   totalCount,
+  filterCount,
   onOpenFilters,
   onOpenSort,
-  onClearFilter,
 }: {
-  filters: RecipeInventoryFilters;
   sort: RecipeInventorySortMode;
   resultCount: number;
   totalCount: number;
+  filterCount: number;
   onOpenFilters(): void;
   onOpenSort(): void;
-  onClearFilter(key: FilterKey): void;
 }) {
-  const activeCount = countActiveRecipeInventoryFilters(filters);
-  const filterLabels = activeFilterLabels(filters);
   const countLabel =
     resultCount === totalCount
       ? `${totalCount} meals`
@@ -630,10 +778,10 @@ export function RecipeInventoryControls({
         <InventoryControlGroup testID="recipe-inventory-control-group">
           <InventoryControlButton
             icon="funnel"
-            label={`Filter meals${activeCount ? `, ${activeCount} active` : ""}`}
+            label={`Filter meals${filterCount ? `, ${filterCount} active` : ""}`}
             onPress={onOpenFilters}
-            active={activeCount > 0}
-            count={activeCount}
+            active={filterCount > 0}
+            count={filterCount}
           />
           <InventoryControlButton
             icon="sort"
@@ -646,29 +794,6 @@ export function RecipeInventoryControls({
           {countLabel}
         </Text>
       </View>
-      {filterLabels.length ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.appliedFilters}
-        >
-          {filterLabels.map(({ key, label }) => (
-            <Pressable
-              key={key}
-              accessibilityRole="button"
-              accessibilityLabel={`Remove ${label} filter`}
-              onPress={() => onClearFilter(key)}
-              style={({ pressed }) => [
-                styles.appliedFilter,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text variant="label">{label}</Text>
-              <Icon name="close" size={13} color={colors.textSecondary} />
-            </Pressable>
-          ))}
-        </ScrollView>
-      ) : null}
     </View>
   );
 }

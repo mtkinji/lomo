@@ -67,6 +67,8 @@ Only an explicit product/design-owner decision recorded here grants Canonical st
 | Component | Strongest Source | Status | Why |
 | --- | --- | --- | --- |
 | `BottomDrawer` mechanics | `src/ui/BottomDrawer.tsx` | Canonical | Owns snap points, gesture coordination, keyboard avoidance, safe areas, scroll helpers, and modal/inline presentation. |
+| `BottomDrawer` standard chrome | `src/ui/drawerTokens.ts` | Canonical | High 64-by-5 handle with an 8-point top inset and 4-point lower inset; standard sheet content starts at the surface edge. |
+| `BottomDrawerHeader` | `src/ui/layout/BottomDrawerHeader.tsx` | Canonical | Standard drawer title anatomy uses `titleSm`, optional subtitle, close/action slots, and navbar/minimal variants. |
 | `DrawerChoicePicker` anatomy | Hybrid, leaning Kwilt Money | Candidate | Money's category picker is a strong pattern for fast classification drawers: compact title, search, dense selectable rows, selected check. Build as a shared variant with app-provided rows. |
 | Drawer task/edit surfaces | Kwilt Goals | Candidate | Goals has stronger task drawers for filters, sort, creation, AI, and multi-field edits. These should not collapse into the compact Money picker pattern. |
 | `Toast` | Kwilt Goals | Candidate | Good cross-app feedback candidate. |

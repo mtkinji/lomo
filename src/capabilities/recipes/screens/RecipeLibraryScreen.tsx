@@ -110,6 +110,7 @@ import {
   buildRecipeDiscoverySections,
   buildRecipeShelves,
   RecipeInventoryControls,
+  resolveRecipeBrowseMode,
 } from "./RecipeLibraryDiscovery";
 import {
   MealPlanDrawer,
@@ -133,6 +134,7 @@ export {
   MealPlanHeaderAction,
   MealsOverflowMenu,
   RecipeInventoryControls,
+  resolveRecipeBrowseMode,
   RecipeInventoryDock,
   RecipeLibraryView,
 };
@@ -168,6 +170,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const [browseMode, setBrowseMode] = useState<"shelves" | "results">(
     "shelves",
   );
+  const [likedOnly, setLikedOnly] = useState(false);
   const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
   const [sortDrawerVisible, setSortDrawerVisible] = useState(false);
   const [hiddenDrawerVisible, setHiddenDrawerVisible] = useState(false);
@@ -240,10 +243,14 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     const hidden = new Set(hiddenRecipeIds);
     return inventory.filter((projection) => hidden.has(projection.recipe.id));
   }, [hiddenRecipeIds, inventory]);
-  const filtered = useMemo(
-    () => filterRecipeInventory(visibleInventory, { query: "", filters, sort }),
-    [filters, sort, visibleInventory],
-  );
+  const filtered = useMemo(() => {
+    const inventoryForView = likedOnly
+      ? visibleInventory.filter((projection) =>
+          favoriteRecipeIds.includes(projection.recipe.id),
+        )
+      : visibleInventory;
+    return filterRecipeInventory(inventoryForView, { query: "", filters, sort });
+  }, [favoriteRecipeIds, filters, likedOnly, sort, visibleInventory]);
   const editorialPlacements = useMemo(
     () => getMealEditorialEdition().placements,
     [],
@@ -439,14 +446,14 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const clearFilter = (key: FilterKey) => {
     setFilters((current) => {
       const next = { ...current, [key]: DEFAULT_RECIPE_INVENTORY_FILTERS[key] };
-      if (countActiveRecipeInventoryFilters(next) === 0 && sort === "featured")
-        setBrowseMode("shelves");
+      setBrowseMode(resolveRecipeBrowseMode(next, likedOnly, sort));
       return next;
     });
   };
   const resetInventory = () => {
     setFilters(DEFAULT_RECIPE_INVENTORY_FILTERS);
     setSort("featured");
+    setLikedOnly(false);
     setBrowseMode("shelves");
   };
   return (
@@ -496,12 +503,17 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
         onOpenFilters={() => setFilterDrawerVisible(true)}
         onOpenSort={() => setSortDrawerVisible(true)}
         onClearFilter={clearFilter}
+        likedOnly={likedOnly}
+        onToggleLiked={() => {
+          const nextLikedOnly = !likedOnly;
+          setLikedOnly(nextLikedOnly);
+          setBrowseMode(resolveRecipeBrowseMode(filters, nextLikedOnly, sort));
+        }}
         onReset={resetInventory}
         browseMode={browseMode}
         onSeeAll={(next) => {
           setFilters(next);
-          setSort("featured");
-          setBrowseMode("results");
+          setBrowseMode(resolveRecipeBrowseMode(next, likedOnly, sort));
         }}
         editorialPlacements={editorialPlacements}
         onOpenCollection={(collectionId) =>
@@ -594,9 +606,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
         onClose={() => setFilterDrawerVisible(false)}
         onApply={(next) => {
           setFilters(next);
-          setBrowseMode(
-            countActiveRecipeInventoryFilters(next) ? "results" : "shelves",
-          );
+          setBrowseMode(resolveRecipeBrowseMode(next, likedOnly, sort));
           setFilterDrawerVisible(false);
         }}
       />
@@ -606,11 +616,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
         onClose={() => setSortDrawerVisible(false)}
         onChange={(next) => {
           setSort(next);
-          setBrowseMode(
-            next === "featured" && !countActiveRecipeInventoryFilters(filters)
-              ? "shelves"
-              : "results",
-          );
+          setBrowseMode(resolveRecipeBrowseMode(filters, likedOnly, next));
         }}
       />
       <HiddenMealsDrawer

@@ -56,7 +56,7 @@ export function UnifiedChatDrawer({
       snapPoints={['60%', '100%']}
       snapIndex={snapIndex}
       onSnapIndexChange={handleSnapIndexChange}
-      chrome="immersive"
+      contentLayout="edgeToEdge"
       keyboardAvoidanceEnabled={false}
       dismissable
       dismissOnBackdropPress

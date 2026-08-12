@@ -8,6 +8,7 @@ import { Icon } from '../../../src/ui/Icon';
 import { Input } from '../../../src/ui/Input';
 import { SegmentedControl } from '../../../src/ui/SegmentedControl';
 import { Heading, Text } from '../../../src/ui/Typography';
+import { bottomDrawerChromeTokens } from '../../../src/ui/drawerTokens';
 import { StoryFrame, StoryGrid, StoryStack } from './storyHelpers';
 
 const meta = {
@@ -41,7 +42,9 @@ function DrawerShell({
       </Text>
       <View style={[styles.phoneCanvas, { height }]}>
         <View style={styles.sheet}>
-          <View style={styles.handle} />
+          <View style={styles.handleRegion}>
+            <View style={styles.handle} />
+          </View>
           {children}
         </View>
       </View>
@@ -85,7 +88,7 @@ function MoneyChoicePickerSpecimen() {
     <DrawerShell label="Money-style choice picker" height={620}>
       <StoryStack>
         <View style={styles.centerTitleBlock}>
-          <Heading variant="md" style={styles.centerTitle}>
+          <Heading variant={bottomDrawerChromeTokens.standard.titleVariant} style={styles.centerTitle}>
             Choose category
           </Heading>
         </View>
@@ -230,19 +233,22 @@ const styles = {
     borderTopRightRadius: 40,
     backgroundColor: colors.shell,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: bottomDrawerChromeTokens.standard.surfacePaddingTop,
     shadowColor: '#0F172A',
     shadowOpacity: 0.18,
     shadowRadius: 28,
     shadowOffset: { width: 0, height: -8 },
   },
+  handleRegion: {
+    paddingTop: bottomDrawerChromeTokens.standard.handleRegionPaddingTop,
+    paddingBottom: bottomDrawerChromeTokens.standard.handleRegionPaddingBottom,
+  },
   handle: {
-    width: 64,
-    height: 5,
+    width: bottomDrawerChromeTokens.standard.handleWidth,
+    height: bottomDrawerChromeTokens.standard.handleHeight,
     alignSelf: 'center' as const,
-    borderRadius: radii.pill,
+    borderRadius: bottomDrawerChromeTokens.standard.handleRadius,
     backgroundColor: colors.border,
-    marginBottom: spacing.md,
   },
   centerTitleBlock: {
     alignItems: 'center' as const,
