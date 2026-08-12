@@ -7,13 +7,14 @@ jest.mock('../../../features/unifiedChat/UnifiedChatDrawer', () => ({
 jest.mock('../../../ui/BottomDrawer', () => {
   const { ScrollView, View } = require('react-native');
   return {
-    BottomDrawer: ({ visible, children, snapIndex, snapPoints }: any) => visible
+    BottomDrawer: ({ visible, children, bottomAccessory, snapIndex, snapPoints }: any) => visible
       ? (
         <View
           testID="meal-plan-drawer"
           accessibilityLabel={JSON.stringify({ snapIndex, snapPoints })}
         >
           {children}
+          {bottomAccessory}
         </View>
       )
       : null,
@@ -464,9 +465,10 @@ describe('Recipe library', () => {
     );
 
     expect(drawer.queryByText('Added by Sam')).toBeNull();
-    const people = drawer.getByLabelText('2 plus ones for Tacos');
+    const people = drawer.getByLabelText('People supporting Tacos');
     fireEvent.press(people);
-    expect(drawer.getByLabelText('2 plus ones for Tacos').props.accessibilityState).toMatchObject({ expanded: true });
+    expect(drawer.getByLabelText('People supporting Tacos').props.accessibilityState).toMatchObject({ expanded: true });
+    expect(drawer.getAllByText('2')).toHaveLength(1);
     fireEvent.press(drawer.getByLabelText('Plus one Tacos'));
     expect(onReact).toHaveBeenCalledWith('candidate-1', true);
   });

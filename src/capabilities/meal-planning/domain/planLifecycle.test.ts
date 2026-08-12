@@ -1,4 +1,4 @@
-import { groupPlanCandidates, reconcilePlanCandidateOrder, sortPlanCandidates } from './planLifecycle';
+import { getPlanLifecycleSignature, groupPlanCandidates, reconcilePlanCandidateOrder, sortPlanCandidates } from './planLifecycle';
 
 const candidate = (id: string, lifecycle: 'idea' | 'sent' | 'ready', voteCount: number, createdAt: string) => ({ id, lifecycle, voteCount, createdAt });
 
@@ -23,6 +23,16 @@ describe('household Plan lifecycle ordering', () => {
     expect(reconcilePlanCandidateOrder(current, candidates, 'lifecycle')).toEqual([
       'ready-one', 'sent-new', 'sent-one', 'idea-popular', 'idea-new',
     ]);
+  });
+
+  it('does not mistake a server vote re-sort for a lifecycle transition', () => {
+    expect(getPlanLifecycleSignature([
+      candidate('first', 'idea', 2, '2026-08-11T02:00:00Z'),
+      candidate('second', 'idea', 1, '2026-08-11T01:00:00Z'),
+    ])).toBe(getPlanLifecycleSignature([
+      candidate('second', 'idea', 2, '2026-08-11T01:00:00Z'),
+      candidate('first', 'idea', 1, '2026-08-11T02:00:00Z'),
+    ]));
   });
 
   it('groups candidates without inventing a partial-ready state', () => {

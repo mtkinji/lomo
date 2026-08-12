@@ -39,6 +39,24 @@ export type SharedMealCartProjection = {
   candidates: SharedMealCartCandidate[];
 };
 
+export function optimisticallySetSharedMealReaction(
+  cart: SharedMealCartProjection,
+  candidateId: string,
+  reacted: boolean,
+): SharedMealCartProjection {
+  return {
+    ...cart,
+    candidates: cart.candidates.map((candidate) => {
+      if (candidate.id !== candidateId || candidate.viewerReacted === reacted) return candidate;
+      return {
+        ...candidate,
+        viewerReacted: reacted,
+        voteCount: Math.max(0, candidate.voteCount + (reacted ? 1 : -1)),
+      };
+    }),
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

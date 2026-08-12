@@ -9,6 +9,15 @@ type PlanOrderCandidate = {
 
 const lifecycleRank: Record<PlanLifecycle, number> = { ready: 0, sent: 1, idea: 2 };
 
+export function getPlanLifecycleSignature<T extends Pick<PlanOrderCandidate, 'id' | 'lifecycle'>>(
+  candidates: readonly T[],
+): string {
+  return candidates
+    .map((candidate) => `${candidate.id}:${candidate.lifecycle}`)
+    .sort()
+    .join('|');
+}
+
 export function sortPlanCandidates<T extends PlanOrderCandidate>(candidates: readonly T[]): T[] {
   return [...candidates].sort((left, right) =>
     lifecycleRank[left.lifecycle] - lifecycleRank[right.lifecycle]

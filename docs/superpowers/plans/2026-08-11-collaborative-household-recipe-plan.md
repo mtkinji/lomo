@@ -8,6 +8,8 @@
 
 **Tech Stack:** Expo 55, React Native, TypeScript, Jest, Supabase Postgres/RLS/Realtime, Deno Edge Functions, `@kwilt/food-core`.
 
+**Status (2026-08-11):** Implemented and exercised against the live Supabase project from the iPhone 17 Pro Simulator. The active proof covers reversible reactions, subset grocery compilation, manual readiness, return-path education, Made history, and sent-recipe grocery reconciliation. Multi-account signed-device and Kroger fulfillment-result observation remain release-proof gates, not missing Plan behavior.
+
 ---
 
 ### Task 1: Replace the bounded-round product contract
@@ -102,11 +104,11 @@
 ### Task 7: Verify the full household story
 
 **Files:**
-- Modify: `docs/job-flows/job-flow-maya-feed-household-with-less-work.md`
+- Modify: `docs/job-flows/maya-feed-household-with-less-work.md`
 - Modify: `docs/feature-briefs/live-family-meal-board.md`
 
-- [x] Run focused Jest, Deno, product, and architecture tests. The SQL contract test passes; applying the migration locally remains blocked because Docker is not running.
-- [x] Run `npm run verify:changed -- --run`; expect exit 0 or document exact external/runtime blocker.
-- [ ] In the iPhone 17 Pro Simulator, enter through Recipes, add/react, send a subset, manually satisfy groceries, return through Plan, mark Made, and remove a shared-source recipe.
-- [ ] Capture screenshots of Ideas, selection, Sent, Ready, and first removal confirmation.
-- [x] Run the reductive critic on the live empty Plan and the populated component states: job clarity, hierarchy, action count, system fit, interaction, and long-title resilience pass. Populated end-to-end Simulator and Dynamic Type proof remain follow-up gates after the migration is applied.
+- [x] Run focused Jest, Deno, product, and architecture tests. Apply both Plan migrations to the live project and verify the Plan-aware `grocery-compile` deployment.
+- [x] Run `npm run verify:changed -- --run`; expect exit 0 or document the exact blocker.
+- [x] In the iPhone 17 Pro Simulator, enter through Recipes, reverse and restore a reaction, send a subset, manually satisfy groceries, return through Plan, mark Made, and remove a sent recipe with grocery reconciliation.
+- [x] Capture live evidence of Ideas, selection, Sent, Ready, first-time removal confirmation, and the reconciled empty grocery state.
+- [x] Run the reductive critic on the populated live Plan: job clarity, hierarchy, action count, system fit, interaction stability, lifecycle states, and long-title resilience pass. Dynamic Type, two-account household participation, signed-device haptics, and actual Kroger fulfillment-result proof remain release gates.

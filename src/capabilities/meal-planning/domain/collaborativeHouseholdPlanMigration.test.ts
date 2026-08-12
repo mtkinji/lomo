@@ -5,6 +5,10 @@ const sql = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260812012700_collaborative_household_recipe_plan.sql'),
   'utf8',
 ).toLowerCase();
+const contributorReactionSql = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260812025828_allow_plan_contributor_reaction_reversal.sql'),
+  'utf8',
+).toLowerCase();
 
 describe('collaborative household Recipe Plan migration contract', () => {
   it('keeps one persistent Plan occurrence with explicit non-calendar lifecycle history', () => {
@@ -18,7 +22,9 @@ describe('collaborative household Recipe Plan migration contract', () => {
 
   it('keeps reactions collaborative while adult roles own commitment and resolution', () => {
     expect(sql).toContain("actor.role in ('owner','caregiver')");
-    expect(sql).toContain('cannot_remove_contributor_support');
+    expect(contributorReactionSql).toContain('create or replace function public.set_kwilt_shared_meal_reaction');
+    expect(contributorReactionSql).not.toContain('cannot_remove_contributor_support');
+    expect(contributorReactionSql).toContain('delete from public.kwilt_meal_candidate_reactions');
     expect(sql).toContain('shared_meal_candidate_remove_forbidden');
     expect(sql).toContain('shared_meal_candidate_resolve_forbidden');
     expect(sql).toContain("grant execute on function public.remove_kwilt_sent_plan_candidate_keep_groceries");

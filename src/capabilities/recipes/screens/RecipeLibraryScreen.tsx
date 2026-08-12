@@ -55,7 +55,10 @@ import { RecipeArtwork } from "../components/RecipeArtwork";
 import { RecipeArtworkGallery } from "../components/RecipeArtworkGallery";
 import { useAppStore } from "../../../store/useAppStore";
 import { createMealPlanningRepository } from "../../meal-planning/data/mealPlanningRepository";
-import type { SharedMealCartProjection } from "../../meal-planning/domain/sharedMealCart";
+import {
+  optimisticallySetSharedMealReaction,
+  type SharedMealCartProjection,
+} from "../../meal-planning/domain/sharedMealCart";
 import { HiddenMealsDrawer } from "../components/HiddenMealsDrawer";
 import {
   sharedMealCartContainsRecipeVersion,
@@ -176,6 +179,8 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const [sharedCart, setSharedCart] = useState<SharedMealCartProjection | null>(null);
   const [planBrowsing, setPlanBrowsing] = useState(false);
   const [planMutationBusy, setPlanMutationBusy] = useState(false);
+  const [reactingCandidateIds, setReactingCandidateIds] = useState<Set<string>>(new Set());
+  const reactingCandidateIdsRef = useRef<Set<string>>(new Set());
   const [pendingRemoval, setPendingRemoval] = useState<MealPlanTrayItem | null>(null);
   const [planEducationLoaded, setPlanEducationLoaded] = useState(false);
   const [hasSeenSentRemoval, setHasSeenSentRemoval] = useState(false);
@@ -384,17 +389,21 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     }
   }, [planMutationBusy, reloadSharedCart, sharedCart]);
   const setCandidateReaction = useCallback(async (candidateId: string, reacted: boolean) => {
-    if (planMutationBusy) return;
-    setPlanMutationBusy(true);
+    if (reactingCandidateIdsRef.current.has(candidateId)) return;
+    reactingCandidateIdsRef.current.add(candidateId);
+    setReactingCandidateIds(new Set(reactingCandidateIdsRef.current));
+    setSharedCart((current) => current ? optimisticallySetSharedMealReaction(current, candidateId, reacted) : current);
     try {
       await createMealPlanningRepository().setSharedReaction(candidateId, reacted);
       await reloadSharedCart();
     } catch (caught) {
+      setSharedCart((current) => current ? optimisticallySetSharedMealReaction(current, candidateId, !reacted) : current);
       Alert.alert("Plan not updated", caught instanceof Error ? caught.message : "Try again in a moment.");
     } finally {
-      setPlanMutationBusy(false);
+      reactingCandidateIdsRef.current.delete(candidateId);
+      setReactingCandidateIds(new Set(reactingCandidateIdsRef.current));
     }
-  }, [planMutationBusy, reloadSharedCart]);
+  }, [reloadSharedCart]);
   const sendToGroceries = useCallback(async (candidateIds: string[]) => {
     if (!sharedCart?.planId || !sharedCart.version || planMutationBusy || !candidateIds.length) return;
     setPlanMutationBusy(true);
@@ -519,6 +528,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
             else setPendingRemoval(item);
           }}
           onReact={(candidateId, reacted) => { void setCandidateReaction(candidateId, reacted); }}
+          reactingCandidateIds={reactingCandidateIds}
           onSendToGroceries={(candidateIds) => { void sendToGroceries(candidateIds); }}
           onMarkMade={(candidateId) => { void markCandidateMade(candidateId); }}
           onOpenGroceries={() => {

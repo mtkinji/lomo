@@ -16,7 +16,7 @@ import { EmptyState } from "../../../ui/EmptyState";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
 import { OverlappingAvatarStack } from "../../../ui/OverlappingAvatarStack";
 import { Heading, Text } from "../../../ui/Typography";
-import { reconcilePlanCandidateOrder, type PlanLifecycle } from "../../meal-planning/domain/planLifecycle";
+import { getPlanLifecycleSignature, reconcilePlanCandidateOrder, type PlanLifecycle } from "../../meal-planning/domain/planLifecycle";
 import { RecipeArtwork } from "../components/RecipeArtwork";
 import { styles } from "./RecipeLibraryScreen.styles";
 
@@ -54,19 +54,17 @@ function PlanPeopleMenu({ item }: { item: MealPlanTrayItem }) {
       <DropdownMenuTrigger asChild>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${item.voteCount} plus ${item.voteCount === 1 ? "one" : "ones"} for ${item.title}`}
+          accessibilityLabel={`People supporting ${item.title}`}
           accessibilityHint="Shows who added and supported this recipe"
           hitSlop={8}
           style={({ pressed }) => [styles.planPeopleTrigger, pressed && styles.pressed]}
         >
-          <Icon name="thumbsUp" size={14} color={colors.textSecondary} />
           <OverlappingAvatarStack
             avatars={avatars.map((person) => ({ id: person.personId, name: person.displayName, avatarUrl: person.avatarUrl }))}
             size={22}
             maxVisible={4}
             overlapPx={7}
           />
-          <Text variant="label" tone="secondary">{item.voteCount}</Text>
         </Pressable>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" align="start" sideOffset={6} style={styles.planPeopleMenu}>
@@ -89,6 +87,7 @@ export function MealPlanDrawer({
   onSendToGroceries,
   onMarkMade,
   onOpenGroceries,
+  reactingCandidateIds,
 }: {
   visible: boolean;
   items: MealPlanTrayItem[];
@@ -99,6 +98,7 @@ export function MealPlanDrawer({
   onSendToGroceries?(candidateIds: string[]): void;
   onMarkMade?(candidateId: string): void;
   onOpenGroceries?(): void;
+  reactingCandidateIds?: ReadonlySet<string>;
 }) {
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -114,7 +114,7 @@ export function MealPlanDrawer({
       setSelectedIds(new Set());
       return;
     }
-    const lifecycleSignature = items.map((item) => `${item.id}:${item.lifecycle}`).join("|");
+    const lifecycleSignature = getPlanLifecycleSignature(items);
     const reason = !wasVisibleRef.current ? "open" : lifecycleSignatureRef.current !== lifecycleSignature ? "lifecycle" : "reaction";
     setDisplayIds((current) => reconcilePlanCandidateOrder(current, items, reason));
     lifecycleSignatureRef.current = lifecycleSignature;
@@ -136,6 +136,22 @@ export function MealPlanDrawer({
     if (next.has(candidateId)) next.delete(candidateId); else next.add(candidateId);
     return next;
   });
+  const planAction = selecting ? (
+    <View style={styles.planSelectionActions}>
+      <Button variant="ghost" onPress={() => { setSelecting(false); setSelectedIds(new Set()); }}>Cancel</Button>
+      <Button
+        variant="primary"
+        style={styles.planSelectionConfirm}
+        disabled={selectedIds.size === 0}
+        accessibilityLabel={`Send ${selectedIds.size} ${selectedIds.size === 1 ? "recipe" : "recipes"} to Groceries`}
+        onPress={() => { onSendToGroceries?.([...selectedIds]); setSelecting(false); setSelectedIds(new Set()); }}
+      >
+        {`Send${selectedIds.size ? ` ${selectedIds.size}` : ""} to Groceries`}
+      </Button>
+    </View>
+  ) : canManage && ideas.length && onSendToGroceries ? (
+    <Button variant="primary" fullWidth onPress={() => setSelecting(true)}>Send to Groceries</Button>
+  ) : null;
 
   return (
     <BottomDrawer
@@ -147,6 +163,8 @@ export function MealPlanDrawer({
       presentation="inline"
       enableContentPanningGesture
       contentExtendsIntoBottomSafeArea
+      bottomAccessory={planAction}
+      bottomAccessoryStyle={styles.planDrawerBottomAction}
       sheetStyle={styles.planDrawerSheet}
       handleContainerStyle={styles.planDrawerHandleRegion}
     >
@@ -210,14 +228,20 @@ export function MealPlanDrawer({
                         <PlanPeopleMenu item={item} />
                         {item.canReact && onReact ? (
                           <Button
-                            size="icon"
-                            iconButtonSize={32}
-                            variant={item.viewerReacted ? "secondary" : "ghost"}
+                            size="xs"
+                            variant={item.viewerReacted ? "secondary" : "outline"}
+                            style={styles.planReactionPill}
                             accessibilityLabel={`${item.viewerReacted ? "Remove your plus one from" : "Plus one"} ${item.title}`}
                             accessibilityState={{ selected: item.viewerReacted }}
+                            accessibilityValue={{ text: `${item.voteCount} ${item.voteCount === 1 ? "plus one" : "plus ones"}` }}
+                            disabled={reactingCandidateIds?.has(item.candidateId)}
+                            haptic={item.viewerReacted ? "canvas.toggle.off" : "canvas.toggle.on"}
                             onPress={() => onReact(item.candidateId, !item.viewerReacted)}
                           >
-                            <Icon name={item.viewerReacted ? "thumbsUp" : "plus"} size={15} color={colors.textPrimary} />
+                            <View style={styles.planReactionPillContent}>
+                              <Icon name="thumbsUp" size={15} color={colors.textPrimary} />
+                              <Text variant="label">{item.voteCount}</Text>
+                            </View>
                           </Button>
                         ) : null}
                         {item.lifecycle === "sent" && item.missingItemCount !== null && item.missingItemCount > 0 ? <Text tone="secondary" style={styles.planMissingItems}>Missing {item.missingItemCount} {item.missingItemCount === 1 ? "item" : "items"}</Text> : null}
@@ -236,22 +260,6 @@ export function MealPlanDrawer({
               style={styles.planDrawerEmpty}
             />
           )}
-          {selecting ? (
-            <View style={styles.planSelectionActions}>
-              <Button variant="ghost" onPress={() => { setSelecting(false); setSelectedIds(new Set()); }}>Cancel</Button>
-              <Button
-                variant="primary"
-                style={styles.planSelectionConfirm}
-                disabled={selectedIds.size === 0}
-                accessibilityLabel={`Send ${selectedIds.size} ${selectedIds.size === 1 ? "recipe" : "recipes"} to Groceries`}
-                onPress={() => { onSendToGroceries?.([...selectedIds]); setSelecting(false); setSelectedIds(new Set()); }}
-              >
-                Send {selectedIds.size || ""} to Groceries
-              </Button>
-            </View>
-          ) : canManage && ideas.length && onSendToGroceries ? (
-            <Button variant="primary" fullWidth onPress={() => setSelecting(true)}>Send to Groceries</Button>
-          ) : null}
         </BottomDrawerScrollView>
       </View>
     </BottomDrawer>
