@@ -68,16 +68,25 @@ opens the existing drawer. `N` is the number of active recipe occurrences.
 The Plan is one household-scoped, persistent, open-horizon object. Adding a
 recipe creates an **Idea** without automatically reacting for the contributor.
 Each eligible member may leave one response: one of five constrained positive
-emoji reactions, one visible downvote, or no response. The paired arrow
-affordance is compact and the chosen emoji/count stays directly beneath the
-title. Tapping a reaction reveals the household members behind it; identity is
-not repeated as permanent provenance copy.
+emoji reactions, one of five **Not for me** reactions, one **Hard pass**, or no
+response. One compact smile-plus control opens a floating bottom guide containing
+five emoji-only options under **Upvote**, five under **Not for me**, and an isolated
+🚫 under **Hard pass**. The idle
+row never shows a thumbs-down, because that could resemble recorded negative
+feedback. After the viewer responds, the smile-plus disappears and their chosen
+emoji/count becomes the only response control. Tapping that selected pill removes
+their response. Tapping another person's reaction reveals the household members
+behind it; identity is not repeated as permanent provenance copy.
 
-Positive support and downvotes remain separate household signals. A downvote
-means “not for me”; it is not anonymous, does not veto the recipe, does not
-remove it, and does not prevent an adult from sending it to Groceries. The UI
-must never collapse the two signals into a net score. Changing response replaces
-the viewer's prior response, preserving one response per person.
+Positive support and “not for me” reactions remain separate household signals.
+Ordinary negative reactions are not anonymous, do not veto the recipe, and do
+not remove it. A Hard pass is a distinct review gate: it prevents the ordinary
+Grocery handoff until an owner or caregiver explicitly chooses **Include anyway**.
+The optional reason is household-visible context, not a required category or
+profile update. A new Hard pass after an override reopens the review gate. The UI
+must never collapse the two signals into a net score. To choose differently, the
+viewer first removes their current response and then reacts again, preserving one
+active response per person.
 
 Adults can enter contextual selection mode and **Send to Groceries** for one,
 some, or all Ideas. Sent recipes remain in Plan and appear above Ideas. Each
@@ -142,10 +151,13 @@ reset, planning deadline, anonymous vote, veto, winner, or second personal Plan.
   missing requirement count.
 - **Secondary information:** separate positive/downvote counts, people behind
   reactions, and low-frequency actions.
-- **Reveal later:** selection controls, contributor names, Remove consequence.
+- **Reveal later:** balanced emoji-only Upvote and Not for me groups, an isolated
+  Hard pass whose optional reason field expands in place, contributor names,
+  the lead-only Grocery acknowledgement, and Remove consequence.
 - **Scan order:** Plan count → Ready → Sent → Ideas → contextual action.
 - **Must not add:** calendar periods, workflow stepper, permanent checkboxes,
-  verbose provenance, net scoring, downvote reasons, or a second Plan destination.
+  verbose provenance, preset reason taxonomy, permanent veto, net scoring, or a
+  second Plan destination.
 - **Reuse map:** `BottomDrawer`, `BottomDrawerHeader`, `Button`, `DropdownMenu`,
   `AlertDialog`, `OverlappingAvatarStack`, `Coachmark`, Recipe artwork.
 - **Nearest precedent:** Candidate Inventory/list composition localized inside

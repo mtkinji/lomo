@@ -74,6 +74,19 @@ export function buildHouseholdInviteUrl(code: string): string {
   return `https://go.kwilt.app/open/household/${encodeURIComponent(code.trim().toUpperCase())}`;
 }
 
+export function buildHouseholdPlanInviteMessage(input: {
+  inviterName: string;
+  householdName: string;
+  code: string;
+}): string {
+  const inviterName = input.inviterName.trim() || 'Someone';
+  const householdName = input.householdName.trim() || 'their Household';
+  const code = input.code.trim().toUpperCase();
+  return `${inviterName} invited you to join ${householdName} in Kwilt and weigh in on the family Plan.\n\n`
+    + 'You’ll review what joining shares before you accept.\n\n'
+    + buildHouseholdInviteUrl(code);
+}
+
 function parseSnapshot(value: unknown): HouseholdSnapshot {
   if (!value || typeof value !== 'object') throw new Error('Invalid Household snapshot');
   const candidate = value as Partial<HouseholdSnapshot>;

@@ -16,7 +16,8 @@ import {
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
-import { IconButton } from '../../ui/Button';
+import { Button, IconButton } from '../../ui/Button';
+import { EmptyState } from '../../ui/EmptyState';
 import { Icon } from '../../ui/Icon';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Text } from '../../ui/Typography';
@@ -120,11 +121,13 @@ import { buildUnifiedChatTranscript } from './chatTranscript';
 import { createMoneyRepository } from '../../capabilities/money/data/moneyRepository';
 import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProposalDecision';
 import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
-import { buildFreshDrawerContext, getFreshDrawerCopy } from './contextualChatPresentation';
+import { buildFreshDrawerContext, getFreshDrawerCopy, getFreshDrawerOffers } from './contextualChatPresentation';
 import { UnifiedChatDrawerHeader } from './UnifiedChatDrawerHeader';
 import type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
 
 export type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
+
+const CHAT_RECOVERY_ILLUSTRATION = require('../../../assets/illustrations/recovery-broken-chain.png');
 
 const activityStoreBoundary = {
   getActivities: () => useAppStore.getState().activities,
@@ -366,6 +369,7 @@ export function UnifiedChatScreen({
           ...(isDrawer ? {
             placeholder: getFreshDrawerCopy(launchContext)?.placeholder ?? 'Ask, search or chat…',
             context: freshWorkbenchContext,
+            offers: getFreshDrawerOffers(launchContext),
           } : {}),
         }),
       );
@@ -1625,11 +1629,13 @@ export function UnifiedChatScreen({
       ) : null}
 
       {surfaceLoadFailed ? (
-        <CenteredState
+        <EmptyState
+          variant="screen"
+          illustration={CHAT_RECOVERY_ILLUSTRATION}
           title="Chat couldn’t open"
-          body="Check your connection, then try again. Your conversation is still here."
-          actionLabel="Try again"
-          onAction={retrySurface}
+          instructions="Check your connection, then try again. Your conversation is still here."
+          actions={<Button variant="primary" onPress={retrySurface}>Try again</Button>}
+          style={styles.recoveryState}
         />
       ) : loading ? (
         <CenteredState title="Opening Chat…" />
@@ -1778,9 +1784,7 @@ function CenteredState({
       <Text style={styles.stateTitle}>{title}</Text>
       {body ? <Text style={styles.stateBody}>{body}</Text> : null}
       {actionLabel && onAction ? (
-        <Pressable accessibilityRole="button" onPress={onAction} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>{actionLabel}</Text>
-        </Pressable>
+        <Button variant="primary" onPress={onAction}>{actionLabel}</Button>
       ) : null}
     </View>
   );
@@ -1803,10 +1807,9 @@ const styles = StyleSheet.create({
   errorBar: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.scheduleYellow },
   errorText: { ...typography.bodySm, color: colors.textPrimary },
   centeredState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing['2xl'], gap: spacing.md },
+  recoveryState: { flex: 1, justifyContent: 'center', marginTop: 0, padding: spacing['2xl'] },
   stateTitle: { ...typography.titleMd, color: colors.textPrimary, textAlign: 'center' },
   stateBody: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
-  primaryButton: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  primaryButtonText: { ...typography.label, color: colors.primaryForeground },
   picker: { flex: 1, backgroundColor: colors.canvas },
   pickerHeader: { minHeight: 58, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   contextPickerTitle: { ...typography.titleSm, color: colors.textPrimary },

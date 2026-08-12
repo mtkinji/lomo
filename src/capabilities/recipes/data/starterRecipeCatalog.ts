@@ -6,6 +6,7 @@ import type {
 import type { RecipeProjection } from "./recipeCache";
 import { STARTER_EDITORIAL_RECIPE_CATALOG } from "./starterEditorialRecipeCatalog";
 import { getCuisineFamilyForFilterValue } from "../domain/cuisineFamilies";
+import { applyHostedCatalogMedia } from "./catalogMediaOverlay";
 
 export type StarterRecipeMetadata = {
   category: EditorialRecipeCategory;
@@ -88,7 +89,7 @@ export function buildRecipeLibraryInventory(
     ...personalRecipes,
     ...STARTER_RECIPE_PROJECTIONS.filter(
       ({ recipe }) => !personalIds.has(recipe.id),
-    ),
+    ).map(applyHostedCatalogMedia),
   ];
 }
 

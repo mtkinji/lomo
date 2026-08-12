@@ -198,12 +198,10 @@ export const useExploreStore = create<ExploreStore>()(
       },
       setSessionPathReconstruction: (sessionId, reconstructedSegments) => {
         set((state) => {
-          const next = dataFromStore(state);
-          const sessions = next.sessions.map((session) => session.id === sessionId
+          const sessions = state.sessions.map((session) => session.id === sessionId
             ? { ...session, reconstructedSegments }
             : session);
-          const rebuilt = rebuildExploreTerritory({ ...next, sessions });
-          return { ...rebuilt, lastPointDecision: state.lastPointDecision };
+          return { sessions };
         });
       },
       markRecapSeen: (sessionId) => {

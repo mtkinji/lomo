@@ -538,11 +538,10 @@ export function ArcBannerSheet({
                         <View style={styles.heroModalActionRow}>
                           <View style={styles.heroModalAction}>
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="icon"
                               disabled={!showRefreshAction || loading}
                               onPress={onGenerate}
-                              style={styles.heroModalActionButton}
                               accessibilityLabel="Generate banner image"
                             >
                               {loading ? (
@@ -566,11 +565,10 @@ export function ArcBannerSheet({
                           </View>
                           <View style={styles.heroModalAction}>
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="icon"
                               disabled={!hasHero || loading}
                               onPress={handleRemove}
-                              style={styles.heroModalActionButton}
                               accessibilityLabel="Remove image"
                             >
                               <Icon
@@ -610,11 +608,10 @@ export function ArcBannerSheet({
                     {sourceTab !== 'upload' && hasHero ? (
                       <View style={styles.heroModalAction}>
                         <Button
-                          variant="ghost"
+                          variant="secondary"
                           size="icon"
                           disabled={loading}
                           onPress={handleRemove}
-                          style={styles.heroModalActionButton}
                           accessibilityLabel="Remove image"
                         >
                           <Icon name="trash" size={20} color={colors.destructive} />
@@ -890,11 +887,6 @@ const styles = StyleSheet.create({
   heroModalAction: {
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  heroModalActionButton: {
-    backgroundColor: colors.shellAlt,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   heroModalActionLabel: {
     ...typography.bodySm,

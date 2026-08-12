@@ -55,4 +55,30 @@ describe('Explore store persistence', () => {
     expect(useExploreStore.getState().sync.historyResetAt).toBeTruthy();
     expect(useExploreStore.getState().sync.deletedPlaceIds).toEqual({});
   });
+
+  it('stores presentation reconstruction without rebuilding earned territory', () => {
+    const state = completeExploreSession(
+      beginExploreSession(
+        createEmptyExploreData(),
+        'recorded-path',
+        '2026-08-01T12:00:00.000Z',
+        'adventure',
+      ),
+      '2026-08-01T12:30:00.000Z',
+    );
+    useExploreStore.setState({ ...state, lastPointDecision: null });
+    const exploredCells = useExploreStore.getState().exploredCells;
+    const segments = [{
+      fromPointId: 'from',
+      toPointId: 'to',
+      coordinates: [{ latitude: 40.5, longitude: -105.1 }, { latitude: 40.6, longitude: -105.2 }],
+      source: 'apple-directions' as const,
+      routeDistanceM: 100,
+    }];
+
+    useExploreStore.getState().setSessionPathReconstruction('recorded-path', segments);
+
+    expect(useExploreStore.getState().exploredCells).toBe(exploredCells);
+    expect(useExploreStore.getState().sessions[0].reconstructedSegments).toEqual(segments);
+  });
 });

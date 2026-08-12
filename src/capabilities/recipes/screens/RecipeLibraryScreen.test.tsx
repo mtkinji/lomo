@@ -1,27 +1,69 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
+
+type MockBottomDrawerProps = {
+  visible: boolean;
+  children?: ReactNode;
+  bottomAccessory?: ReactNode;
+  snapIndex?: number;
+  snapPoints?: Array<number | string>;
+  dismissable?: boolean;
+  dismissOnBackdropPress?: boolean;
+  hideBackdrop?: boolean;
+  dynamicSizing?: boolean;
+  presentation?: string;
+  animateOnHide?: boolean;
+  keyboardBehavior?: 'lift' | 'extend';
+  keyboardAvoidanceEnabled?: boolean;
+  contentLayout?: 'inset' | 'edgeToEdge';
+};
+
+const mockBottomDrawerProps: MockBottomDrawerProps[] = [];
 
 jest.mock('../../../features/unifiedChat/UnifiedChatDrawer', () => ({
   UnifiedChatDrawer: () => null,
 }));
+jest.mock('../../../ui/hooks/useAccessibilityPreferences', () => ({
+  useAccessibilityPreferences: () => ({ reduceMotionEnabled: false, screenReaderEnabled: false }),
+}));
+jest.mock('../../../ui/AlertDialog', () => ({
+  AlertDialog: ({ visible, title, description, cancelLabel, actionLabel, onCancel, onAction }: Record<string, unknown>) => {
+    if (!visible) return null;
+    const React = require('react');
+    const { Pressable, Text, View } = require('react-native');
+    return (
+      <View>
+        <Text>{title as ReactNode}</Text>
+        <Text>{description as ReactNode}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={cancelLabel as string} onPress={onCancel as () => void}><Text>{cancelLabel as string}</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={actionLabel as string} onPress={onAction as () => void}><Text>{actionLabel as string}</Text></Pressable>
+      </View>
+    );
+  },
+}));
 jest.mock('../../../ui/BottomDrawer', () => {
   const { ScrollView, View } = require('react-native');
   return {
-    BottomDrawer: ({ visible, children, bottomAccessory, snapIndex, snapPoints }: any) => visible
-      ? (
-        <View
-          testID="meal-plan-drawer"
-          accessibilityLabel={JSON.stringify({ snapIndex, snapPoints })}
-        >
-          {children}
-          {bottomAccessory}
-        </View>
-      )
-      : null,
+    BottomDrawer: (props: MockBottomDrawerProps) => {
+      mockBottomDrawerProps.push(props);
+      const { visible, children, bottomAccessory, snapIndex, snapPoints } = props;
+      return visible
+        ? (
+          <View
+            testID="meal-plan-drawer"
+            accessibilityLabel={JSON.stringify({ snapIndex, snapPoints })}
+          >
+            {children}
+            {bottomAccessory}
+          </View>
+        )
+        : null;
+    },
     BottomDrawerScrollView: ScrollView,
   };
 });
-import { colors, fonts, radii, spacing } from '../../../theme';
+import { colors, fonts, radii, spacing, typography } from '../../../theme';
 import { recipeContractFixture, recipeVersionContractFixture } from '../domain/recipeContractFixtures';
 import { buildRecipeLibraryInventory, DEFAULT_RECIPE_INVENTORY_FILTERS } from '../data/starterRecipeCatalog';
 import { EDITORIAL_MEAL_COLLECTIONS, getMealEditorialEdition } from '../data/editorialMealCollections';
@@ -49,7 +91,6 @@ const viewProps = {
   onOpen: jest.fn(),
   onRefresh: jest.fn(),
   refreshing: false,
-  cached: false,
   filters: DEFAULT_RECIPE_INVENTORY_FILTERS,
   sort: 'featured' as const,
   onOpenFilters: jest.fn(),
@@ -69,7 +110,10 @@ const viewProps = {
 };
 
 describe('Recipe library', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockBottomDrawerProps.length = 0;
+  });
 
   it('returns to discovery when the final quick filter is cleared', () => {
     expect(resolveRecipeBrowseMode(DEFAULT_RECIPE_INVENTORY_FILTERS, false)).toBe('shelves');
@@ -88,11 +132,11 @@ describe('Recipe library', () => {
     expect(onReset).toHaveBeenCalled();
   });
 
-  it('shows a cached recipe and opens it', () => {
+  it('keeps cached recipes stationary while background data refreshes', () => {
     const onOpen = jest.fn();
     const projection = { recipe: recipeContractFixture(), currentVersion: recipeVersionContractFixture() };
-    const screen = render(<RecipeLibraryView {...viewProps} recipes={[projection]} onOpen={onOpen} cached />);
-    expect(screen.getByText('Your saved recipes are here while Kwilt refreshes.')).toBeTruthy();
+    const screen = render(<RecipeLibraryView {...viewProps} recipes={[projection]} onOpen={onOpen} />);
+    expect(screen.queryByText('Your saved recipes are here while Kwilt refreshes.')).toBeNull();
     fireEvent.press(screen.getByLabelText("Open Grandma Ruth's Cake"));
     expect(onOpen).toHaveBeenCalledWith(projection.recipe.id);
   });
@@ -613,11 +657,47 @@ describe('Recipe library', () => {
 
     expect(drawer.getByText('Plan')).toBeTruthy();
     expect(drawer.getByLabelText('Plan, 6 recipes')).toBeTruthy();
+    expect(drawer.queryByTestId('meal-plan-drawer-count')).toBeNull();
     expect(drawer.queryByTestId('meal-plan-drawer-thumbnail')).toBeNull();
     expect(drawer.queryByLabelText('Search meals')).toBeNull();
     expect(drawer.getByText('Meal 6')).toBeTruthy();
-    expect(drawer.getByLabelText('More actions for Meal 1')).toBeTruthy();
-    expect(onRemove).not.toHaveBeenCalled();
+    expect(drawer.queryByLabelText('More actions for Meal 1')).toBeNull();
+    fireEvent.press(drawer.getByRole('button', { name: 'Remove Meal 1 from Plan' }));
+    expect(onRemove).toHaveBeenCalledWith(items[0]);
+  });
+
+  it('gives the Plan a large header with a labeled right-anchored share button', () => {
+    const onRequestFeedback = jest.fn();
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[{
+          id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
+          lifecycle: 'idea', createdAt: '2026-08-12T12:00:00.000Z', sentAt: null,
+          voteCount: 0, missingItemCount: null, canRemove: true,
+        }]}
+        canManage
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+        onRequestFeedback={onRequestFeedback}
+      />,
+    );
+
+    expect(StyleSheet.flatten(drawer.getByText('Plan').props.style)).toMatchObject({
+      fontFamily: typography.titleLg.fontFamily,
+      fontSize: typography.titleLg.fontSize,
+    });
+    expect(drawer.getByText('Share')).toBeTruthy();
+    expect(drawer.getAllByTestId('plan-drawer-header-icon').length).toBeGreaterThan(0);
+    expect(drawer.queryByTestId('meal-plan-drawer-count')).toBeNull();
+    const shareButton = drawer.getByRole('button', { name: 'Share Plan' });
+    expect(StyleSheet.flatten(shareButton.props.style)).toMatchObject({
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+    });
+    expect(drawer.getByTestId('plan-share-icon')).toBeTruthy();
+    fireEvent.press(shareButton);
+    expect(onRequestFeedback).toHaveBeenCalledTimes(1);
   });
 
   it('bounds long Plan titles beside a top-aligned thumbnail and anchored actions', () => {
@@ -650,7 +730,32 @@ describe('Recipe library', () => {
     expect(within(drawer.getByTestId('plan-copy-candidate-long')).getByTestId(
       'plan-reaction-row-candidate-long',
     )).toBeTruthy();
-    expect(drawer.getByLabelText(`More actions for ${title}`)).toBeTruthy();
+    expect(drawer.getByRole('button', { name: `Remove ${title} from Plan` })).toBeTruthy();
+  });
+
+  it('keeps one two-row thumbnail height when a Plan title wraps to a third row', () => {
+    const shortTitle = 'Tacos';
+    const longTitle = 'Tex-Mex scrambled eggs with tortilla strips (Migas)';
+    const item = (candidateId: string, title: string) => ({
+      id: candidateId, candidateId, title, storageRef: null,
+      lifecycle: 'idea' as const, createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
+      voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 }, missingItemCount: null,
+      contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null }, supporters: [],
+      viewerReaction: null, canReact: true, canRemove: false, canMarkMade: false,
+    });
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[item('short', shortTitle), item('long', longTitle)]}
+        canManage={false}
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+        onReact={jest.fn()}
+      />,
+    );
+
+    expect(StyleSheet.flatten(drawer.getByLabelText(shortTitle).props.style)).toMatchObject({ width: 56, height: 56 });
+    expect(StyleSheet.flatten(drawer.getByLabelText(longTitle).props.style)).toMatchObject({ width: 56, height: 56 });
   });
 
   it('reuses the household food illustration to invite recipes into an empty Plan', () => {
@@ -667,6 +772,30 @@ describe('Recipe library', () => {
     expect(drawer.getByText('Add recipes to your Plan')).toBeTruthy();
     expect(drawer.queryByText('Nothing in Plan yet')).toBeNull();
     expect(drawer.queryByText('Add any recipe you might want to make.')).toBeNull();
+  });
+
+  it('uses standard drawer dismissal without a redundant close button', () => {
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[]}
+        canManage
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+      />,
+    );
+
+    const planDrawerProps = mockBottomDrawerProps.find((props) => props.visible);
+    expect(planDrawerProps).toMatchObject({
+      snapPoints: ['100%'],
+      snapIndex: 0,
+      keyboardAvoidanceEnabled: false,
+    });
+    expect(planDrawerProps?.dismissable).not.toBe(false);
+    expect(planDrawerProps?.dismissOnBackdropPress).not.toBe(false);
+    expect(drawer.queryByRole('button', { name: 'Close Plan' })).toBeNull();
+    expect(StyleSheet.flatten(drawer.getByLabelText('Plan, 0 recipes').props.style).flex).toBeUndefined();
+    expect(drawer.queryByTestId('meal-plan-drawer-count')).toBeNull();
   });
 
   it('groups the persistent Plan by readiness and keeps grocery commitment primary', () => {
@@ -687,7 +816,7 @@ describe('Recipe library', () => {
     );
 
     expect(drawer.getByTestId('meal-plan-drawer').props.accessibilityLabel).toBe(
-      JSON.stringify({ snapIndex: 0, snapPoints: ['88%'] }),
+      JSON.stringify({ snapIndex: 0, snapPoints: ['100%'] }),
     );
     expect(drawer.queryByText('Open for ideas')).toBeNull();
     expect(drawer.queryByText(/Everyone can add/)).toBeNull();
@@ -720,8 +849,18 @@ describe('Recipe library', () => {
 
     expect(drawer.getByText('👍')).toBeTruthy();
     expect(drawer.getByText('❤️')).toBeTruthy();
-    expect(drawer.queryByLabelText('Add a reaction to Tacos')).toBeNull();
-    expect(drawer.getByLabelText('Downvote Tacos')).toBeTruthy();
+    expect(StyleSheet.flatten(drawer.getByLabelText('Thumbs up Tacos, 1').props.style)).toMatchObject({
+      minHeight: 32,
+      paddingHorizontal: 8,
+    });
+    expect(drawer.getByLabelText('Thumbs up Tacos, 1').props.hitSlop).toBe(6);
+    expect(StyleSheet.flatten(drawer.getByText('👍').props.style)).toMatchObject({
+      fontSize: 16,
+      lineHeight: 22,
+      transform: [{ translateY: 1 }],
+    });
+    expect(drawer.queryByLabelText('React to Tacos')).toBeNull();
+    expect(drawer.queryByLabelText('Not for me: Tacos')).toBeNull();
 
     fireEvent.press(drawer.getByLabelText('Thumbs up Tacos, 1'));
     expect(drawer.getByLabelText('Thumbs up Tacos, 1').props.accessibilityState).toMatchObject({ expanded: true, selected: false });
@@ -730,11 +869,10 @@ describe('Recipe library', () => {
     fireEvent.press(drawer.getByLabelText('Love Tacos, 1'));
     expect(onReact).toHaveBeenCalledWith('candidate-1', null);
 
-    fireEvent.press(drawer.getByLabelText('Downvote Tacos'));
-    expect(onReact).toHaveBeenCalledWith('candidate-1', 'downvote');
   });
 
-  it('offers paired upvote and downvote affordances until the viewer responds', () => {
+  it('keeps ordinary reactions and the Hard Pass reason inside one keyboard-safe drawer', () => {
+    jest.useFakeTimers();
     const onReact = jest.fn();
     const drawer = render(
       <MealPlanDrawer
@@ -755,19 +893,140 @@ describe('Recipe library', () => {
 
     expect(drawer.queryByText('👍')).toBeNull();
     expect(drawer.queryByText('☺')).toBeNull();
-    expect(drawer.getAllByTestId('plan-upvote-icon-candidate-1').length).toBeGreaterThan(0);
-    expect(drawer.getAllByTestId('plan-downvote-icon-candidate-1').length).toBeGreaterThan(0);
-    fireEvent.press(drawer.getByLabelText('Upvote Tacos'));
-    expect(drawer.getByText('Upvote Tacos')).toBeTruthy();
-    expect(drawer.getAllByRole('button').filter((button) => /^Upvote with /.test(button.props.accessibilityLabel ?? ''))).toHaveLength(5);
-    fireEvent.press(drawer.getByLabelText('Upvote with Yum'));
+    expect(drawer.getAllByTestId('plan-positive-reaction-icon-candidate-1').length).toBeGreaterThan(0);
+    expect(drawer.queryByTestId('plan-not-for-me-icon-candidate-1')).toBeNull();
+    expect(StyleSheet.flatten(drawer.getByLabelText('React to Tacos').props.style)).toMatchObject({
+      width: 32,
+      height: 32,
+      backgroundColor: colors.secondary,
+    });
+    fireEvent.press(drawer.getByLabelText('React to Tacos'));
+    expect(drawer.getByText('React to Tacos')).toBeTruthy();
+    expect(drawer.getByText('Upvote')).toBeTruthy();
+    expect(drawer.getByText('Not for me')).toBeTruthy();
+    expect(drawer.getByText('Hard pass')).toBeTruthy();
+    expect(drawer.queryByText('Yum')).toBeNull();
+    expect(drawer.queryByText('Thumbs up')).toBeNull();
+    expect(drawer.getAllByRole('button').filter((button) => /^React with /.test(button.props.accessibilityLabel ?? ''))).toHaveLength(11);
+    const reactionDrawerProps = mockBottomDrawerProps.findLast(
+      (props) => props.visible && props.presentation === 'modal',
+    );
+    expect(reactionDrawerProps).toMatchObject({
+      presentation: 'modal',
+      contentLayout: 'edgeToEdge',
+      snapPoints: ['46%', '62%', '85%'],
+      snapIndex: 0,
+      keyboardBehavior: 'extend',
+    });
+
+    fireEvent.press(drawer.getByLabelText('React with Yum'));
+    expect(drawer.getByLabelText('React with Yum').props.accessibilityState).toMatchObject({ selected: true });
+    expect(onReact).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(180));
     expect(onReact).toHaveBeenCalledWith('candidate-1', 'yum');
 
-    fireEvent.press(drawer.getByLabelText('Downvote Tacos'));
-    expect(onReact).toHaveBeenCalledWith('candidate-1', 'downvote');
+    fireEvent.press(drawer.getByLabelText('React to Tacos'));
+    fireEvent.press(drawer.getByLabelText('React with Hard pass'));
+    expect(drawer.getByLabelText('React with Hard pass').props.accessibilityState).toMatchObject({ selected: true });
+    const hardPassDrawerProps = mockBottomDrawerProps.findLast(
+      (props) => props.visible && props.presentation === 'modal',
+    );
+    expect(drawer.getAllByTestId('meal-plan-drawer')).toHaveLength(2);
+    expect(hardPassDrawerProps).toMatchObject({
+      contentLayout: 'edgeToEdge',
+      snapPoints: ['46%', '62%', '85%'],
+      snapIndex: 1,
+      keyboardBehavior: 'extend',
+      presentation: 'modal',
+    });
+    expect(drawer.getByTestId('plan-hard-pass-composer')).toBeTruthy();
+    expect(drawer.queryByText('Upvote')).toBeNull();
+    expect(drawer.queryByText('Not for me')).toBeNull();
+    expect(StyleSheet.flatten(drawer.getByLabelText('React with Hard pass').props.style)).toMatchObject({
+      minHeight: 36,
+    });
+    expect(drawer.getAllByRole('radio')).toHaveLength(6);
+    expect(drawer.getByLabelText('Allergy')).toBeTruthy();
+    expect(drawer.getByLabelText('Dietary need')).toBeTruthy();
+    expect(drawer.getByLabelText("Don't like it")).toBeTruthy();
+    expect(drawer.getByLabelText('Too spicy')).toBeTruthy();
+    expect(drawer.getByLabelText('Texture')).toBeTruthy();
+    expect(drawer.getByLabelText('Other')).toBeTruthy();
+    expect(drawer.queryByLabelText('Why is this a hard pass?')).toBeNull();
+    expect(hardPassDrawerProps).toMatchObject({ snapIndex: 1 });
+    expect(hardPassDrawerProps?.bottomAccessory).toBeTruthy();
+
+    fireEvent.press(drawer.getByLabelText('Texture'));
+    expect(drawer.getByLabelText('Texture').props.accessibilityState).toMatchObject({ selected: true });
+    fireEvent.press(drawer.getByLabelText('Save hard pass reason'));
+    expect(onReact).toHaveBeenCalledWith('candidate-1', 'hard_pass', 'Texture');
+
+    fireEvent.press(drawer.getByLabelText('React to Tacos'));
+    fireEvent.press(drawer.getByLabelText('React with Hard pass'));
+    fireEvent.press(drawer.getByLabelText('Other'));
+    const textarea = drawer.getByLabelText('Why is this a hard pass?');
+    expect(textarea.props.multiline).toBe(true);
+    expect(textarea.props.autoFocus).toBe(true);
+    expect(textarea.props.placeholder).toBe('Say why (optional)');
+    expect(mockBottomDrawerProps.findLast(
+      (props) => props.visible && props.presentation === 'modal',
+    )).toMatchObject({ snapIndex: 2 });
+
+    fireEvent.press(drawer.getByLabelText('React with Hard pass'));
+    expect(drawer.queryByLabelText('Why is this a hard pass?')).toBeNull();
+    expect(drawer.getByText('Upvote')).toBeTruthy();
+
+    fireEvent.press(drawer.getByLabelText('React with Hard pass'));
+    fireEvent.press(drawer.getByLabelText('Other'));
+    fireEvent.changeText(drawer.getByLabelText('Why is this a hard pass?'), 'Mushrooms');
+    fireEvent.press(drawer.getByLabelText('Save hard pass reason'));
+    expect(onReact).toHaveBeenCalledWith('candidate-1', 'hard_pass', 'Mushrooms');
+
+    fireEvent.press(drawer.getByLabelText('React to Tacos'));
+    fireEvent.press(drawer.getByLabelText('React with Hard pass'));
+    fireEvent.press(drawer.getByLabelText('React with Hard pass'));
+    expect(drawer.queryByLabelText('Why is this a hard pass?')).toBeNull();
+    expect(drawer.getByText('Upvote')).toBeTruthy();
+    expect(mockBottomDrawerProps.findLast(
+      (props) => props.visible && props.presentation === 'modal',
+    )).toMatchObject({ snapIndex: 0 });
+    expect(onReact).toHaveBeenCalledTimes(3);
+    jest.useRealTimers();
   });
 
-  it('shows who downvoted and lets the viewer remove or replace their one response', () => {
+  it('requires a lead to acknowledge a hard pass before sending that recipe to Groceries', () => {
+    const onSendToGroceries = jest.fn();
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[{
+          id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
+          lifecycle: 'idea', createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
+          voteCount: 0, downvoteCount: 0, hardPassCount: 1, requiresHardPassReview: true,
+          reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0, hard_pass: 1 }, missingItemCount: null,
+          contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
+          supporters: [{ personId: 'person-child', displayName: 'Alex', avatarUrl: null, reaction: 'hard_pass', reason: 'Mushrooms' }],
+          viewerReaction: null, viewerReactionReason: null, canReact: true, canRemove: false, canMarkMade: false,
+        }]}
+        canManage
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+        onSendToGroceries={onSendToGroceries}
+      />,
+    );
+
+    fireEvent.press(drawer.getByText('Send to Groceries'));
+    fireEvent.press(drawer.getByLabelText('Send Tacos to Groceries'));
+    fireEvent.press(drawer.getByLabelText('Send 1 recipe to Groceries'));
+
+    expect(onSendToGroceries).not.toHaveBeenCalled();
+    expect(drawer.getByText('Tacos has a hard pass')).toBeTruthy();
+    expect(drawer.getByText(/Alex: “Mushrooms”/)).toBeTruthy();
+    fireEvent.press(drawer.getByLabelText('Include anyway'));
+    expect(onSendToGroceries).toHaveBeenCalledWith(['candidate-1'], { acknowledgeHardPasses: true });
+  });
+
+  it('shows who downvoted and makes the selected pill the only removal control', () => {
     const onReact = jest.fn();
     const item = {
       id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
@@ -789,15 +1048,12 @@ describe('Recipe library', () => {
       />,
     );
 
-    expect(drawer.getByLabelText('Downvote Tacos, 2')).toBeTruthy();
-    expect(drawer.getByLabelText('Upvote Tacos')).toBeTruthy();
-    expect(drawer.queryByLabelText('Downvote Tacos')).toBeNull();
-    fireEvent.press(drawer.getByLabelText('Downvote Tacos, 2'));
+    expect(drawer.getByLabelText('Thumbs down Tacos, 2')).toBeTruthy();
+    expect(drawer.queryByLabelText('React to Tacos')).toBeNull();
+    expect(drawer.queryByLabelText('Not for me: Tacos')).toBeNull();
+    fireEvent.press(drawer.getByLabelText('Thumbs down Tacos, 2'));
     expect(onReact).toHaveBeenCalledWith('candidate-1', null);
 
-    fireEvent.press(drawer.getByLabelText('Upvote Tacos'));
-    fireEvent.press(drawer.getByLabelText('Upvote with Love'));
-    expect(onReact).toHaveBeenCalledWith('candidate-1', 'heart');
   });
 
   it('keeps the familiar Plan icon and meal counter', () => {
@@ -814,7 +1070,9 @@ describe('Recipe library', () => {
     expect(countStyle).toMatchObject({
       minWidth: 18,
       height: 18,
-      backgroundColor: colors.sumi900,
+      borderRadius: 999,
+      alignSelf: 'center',
+      backgroundColor: colors.actionAttention,
     });
     expect(countStyle).not.toHaveProperty('position');
     fireEvent.press(screen.getByLabelText('Plan, 5 meals'));
@@ -843,6 +1101,8 @@ describe('Recipe library', () => {
     expect(drawer.getByText('Sent to groceries')).toBeTruthy();
     expect(drawer.getByText('Tacos')).toBeTruthy();
     expect(drawer.getByText('Missing 1 item')).toBeTruthy();
+    expect(drawer.getByLabelText('More actions for Tacos')).toBeTruthy();
+    expect(drawer.queryByRole('button', { name: 'Remove Tacos from Plan' })).toBeNull();
     fireEvent.press(drawer.getAllByRole('button', { name: 'Made' })[0]);
     expect(onMarkMade).toHaveBeenCalledWith('ready');
     fireEvent.press(drawer.getByRole('button', { name: 'View groceries' }));

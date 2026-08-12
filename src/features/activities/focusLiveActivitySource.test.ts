@@ -28,4 +28,15 @@ describe('Focus Live Activity timer source', () => {
     expect(source).not.toContain('Circle()\n            .fill(KwiltPalette.pineSoft)');
     expect(source).not.toContain('proxy.size.width * 0.24');
   });
+
+  test('keeps the lock-screen countdown in a stable trailing-aligned lane', () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'plugins/withAppleEcosystemIntegrations.js'),
+      'utf8',
+    );
+
+    expect(source).toContain('.fixedSize(horizontal: true, vertical: false)');
+    expect(source).toContain('.frame(minWidth: 88, alignment: .trailing)');
+    expect(source).toContain('.frame(maxWidth: .infinity, alignment: .leading)');
+  });
 });

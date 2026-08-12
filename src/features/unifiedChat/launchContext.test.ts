@@ -1,5 +1,6 @@
 import type { Activity, Goal } from '../../domain/types';
 import type { ChapterRow } from '../../services/chapters';
+import { recipeContractFixture, recipeVersionContractFixture } from '../../capabilities/recipes/domain/recipeContractFixtures';
 import { buildUnifiedChatAttachableContexts, resolveUnifiedChatLaunchAttachment } from './launchContext';
 
 const goal = {
@@ -16,7 +17,11 @@ const chapter = {
   user_note_updated_at: null, updated_at: '2026-07-20T12:00:00.000Z',
 } as ChapterRow;
 
-const snapshots = { goals: [goal], activities: [activity], chapters: [chapter] };
+const recipe = {
+  recipe: recipeContractFixture(),
+  currentVersion: recipeVersionContractFixture(),
+};
+const snapshots = { goals: [goal], activities: [activity], chapters: [chapter], recipes: [recipe] };
 const returnTarget = { name: 'MainTabs', params: { screen: 'GoalsTab' } };
 
 describe('resolveUnifiedChatLaunchAttachment', () => {
@@ -51,6 +56,20 @@ describe('resolveUnifiedChatLaunchAttachment', () => {
     expect(resolveUnifiedChatLaunchAttachment({
       capabilityId: 'goals', surface: 'detail', object: { type: 'goal', id: 'missing' }, returnTarget,
     }, snapshots)).toBeNull();
+  });
+
+  test('projects the exact Recipe detail as visible context', () => {
+    expect(resolveUnifiedChatLaunchAttachment({
+      capabilityId: 'recipes',
+      surface: 'detail',
+      object: { type: 'recipe', id: recipe.recipe.id },
+      returnTarget: { name: 'Food', params: { screen: 'RecipeHome' } },
+    }, snapshots)).toMatchObject({
+      capabilityId: 'recipes',
+      objectType: 'recipe',
+      objectId: recipe.recipe.id,
+      label: recipe.currentVersion.title,
+    });
   });
 });
 

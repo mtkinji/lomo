@@ -1,4 +1,4 @@
-import { getFreshDrawerCopy } from './contextualChatPresentation';
+import { getFreshDrawerCopy, getFreshDrawerOffers } from './contextualChatPresentation';
 
 describe('contextual Chat presentation', () => {
   test('uses inventory language for the Goals list', () => {
@@ -33,5 +33,26 @@ describe('contextual Chat presentation', () => {
       title: 'Plan this week',
       placeholder: 'What should this plan account for?',
     });
+  });
+
+  test('offers editable recipe-specific ways into a fresh Recipe detail chat', () => {
+    const launchContext = {
+      capabilityId: 'recipes' as const,
+      surface: 'detail' as const,
+      object: { type: 'recipe' as const, id: 'recipe-1' },
+      returnTarget: { name: 'Food', params: { screen: 'RecipeHome' } },
+    };
+
+    expect(getFreshDrawerCopy(launchContext)).toEqual({
+      title: 'Chat about this meal',
+      placeholder: 'Ask about this meal',
+    });
+    expect(getFreshDrawerOffers(launchContext)).toEqual([
+      expect.objectContaining({ id: 'recipe-swap', title: 'Swap an ingredient' }),
+      expect.objectContaining({ id: 'recipe-revise', title: 'Make it ours' }),
+      expect.objectContaining({ id: 'recipe-fit', title: 'Fit tonight' }),
+      expect.objectContaining({ id: 'recipe-pantry', title: 'Use what we have' }),
+    ]);
+    expect(getFreshDrawerOffers(launchContext).every((offer) => offer.prompt.includes('this recipe'))).toBe(true);
   });
 });

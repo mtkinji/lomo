@@ -76,6 +76,8 @@ import {
   type RecipeNextAction,
   type RecipeNextActionId,
 } from "../domain/recipeNextAction";
+import { UnifiedChatDrawer } from "../../../features/unifiedChat/UnifiedChatDrawer";
+import type { UnifiedChatLaunchContext } from "../../../features/unifiedChat/launchContext";
 
 type HideToast = {
   message: string;
@@ -185,6 +187,7 @@ export function RecipeHomeView({
   onToggleIngredient = () => undefined,
   onDockAction,
   onMore,
+  onChat = () => undefined,
   onOpenRecipe = () => undefined,
 }: {
   projection: RecipeProjection;
@@ -201,6 +204,7 @@ export function RecipeHomeView({
   onToggleIngredient?(id: string): void;
   onDockAction(actionId: RecipeNextActionId, source: "primary" | "menu"): void;
   onMore(): void;
+  onChat?(): void;
   onOpenRecipe?(recipeId: string): void;
 }) {
   const { recipe, currentVersion: version } = projection;
@@ -354,6 +358,13 @@ export function RecipeHomeView({
         primaryTestID="recipe-next-action-primary"
         menuTriggerTestID="recipe-next-action-menu"
         getMenuTestID={(actionId) => `recipe-next-action-${actionId}`}
+        rightItem={{
+          id: "recipe-chat",
+          icon: "navAiGuide",
+          accessibilityLabel: "Chat about this meal",
+          onPress: onChat,
+          testID: "recipe-contextual-chat",
+        }}
       />
     </View>
   );
@@ -385,6 +396,8 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   const [servings, setServings] = useState(defaultServings);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
   const [showMore, setShowMore] = useState(false);
+  const [mealChatVisible, setMealChatVisible] = useState(false);
+  const [mealChatThreadId, setMealChatThreadId] = useState<string | null>(null);
   const [activePlan, setActivePlan] = useState<MealPlanProjection | null>(null);
   const [sharedCart, setSharedCart] = useState<SharedMealCartProjection | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -393,6 +406,18 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     useState<RecipeCookRecordProjection | null>(null);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const { capture } = useAnalytics();
+  const mealChatLaunchContext = useMemo<UnifiedChatLaunchContext>(
+    () => ({
+      capabilityId: "recipes",
+      surface: "detail",
+      object: { type: "recipe", id: route.params.recipeId },
+      returnTarget: {
+        name: "Food",
+        params: { screen: "RecipeHome", params: { recipeId: route.params.recipeId } },
+      },
+    }),
+    [route.params.recipeId],
+  );
   const recommendations = useMemo(
     () =>
       projection
@@ -685,6 +710,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         }
         onDockAction={handleDockAction}
         onMore={() => setShowMore(true)}
+        onChat={() => setMealChatVisible(true)}
         onOpenRecipe={(recipeId) =>
           navigation.push("RecipeHome", { recipeId })
         }
@@ -700,6 +726,15 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
           setShowMore(false);
           confirmDelete();
         }}
+      />
+      <UnifiedChatDrawer
+        visible={mealChatVisible}
+        onClose={() => setMealChatVisible(false)}
+        launchContext={mealChatLaunchContext}
+        scopeLabel={projection.currentVersion.title}
+        source="recipe_detail_contextual_drawer"
+        threadId={mealChatThreadId}
+        onThreadIdChange={setMealChatThreadId}
       />
     </AppShell>
   );

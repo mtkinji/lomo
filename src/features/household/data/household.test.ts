@@ -4,6 +4,7 @@ import {
   acceptHouseholdMemberInvite,
   addDependentChild,
   buildHouseholdInviteUrl,
+  buildHouseholdPlanInviteMessage,
   createCaregiverInvite,
   createHouseholdMemberInvite,
   getHouseholdSnapshot,
@@ -34,6 +35,18 @@ function clientReturning(data: unknown = snapshot, error: unknown = null) {
 describe('Household data boundary', () => {
   it('builds a normalized installed-app invitation link', () => {
     expect(buildHouseholdInviteUrl(' child12 ')).toBe('https://go.kwilt.app/open/household/CHILD12');
+  });
+
+  it('builds a truthful Plan invitation message without implying automatic access', () => {
+    expect(buildHouseholdPlanInviteMessage({
+      inviterName: 'Andrew',
+      householdName: 'Watanabe household',
+      code: ' child12 ',
+    })).toBe(
+      'Andrew invited you to join Watanabe household in Kwilt and weigh in on the family Plan.\n\n'
+      + 'You’ll review what joining shares before you accept.\n\n'
+      + 'https://go.kwilt.app/open/household/CHILD12',
+    );
   });
 
   it('loads and parses a Household snapshot', async () => {

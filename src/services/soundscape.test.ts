@@ -28,6 +28,12 @@ describe('Focus soundscape sources', () => {
     expect(resolveAudioAssetMock).not.toHaveBeenCalled();
   });
 
+  test('keeps the prototype stream audio bundled and independent from video playback', async () => {
+    const source = await resolveSoundscapeSource('canyonSpring');
+    expect(typeof source).toBe('number');
+    expect(resolveAudioAssetMock).not.toHaveBeenCalled();
+  });
+
   test('resolves existing and approved Focus tracks through remote cache delivery', async () => {
     resolveAudioAssetMock.mockResolvedValue({ uri: 'file:///cache/track.mp3', sourceKind: 'cache' });
 
@@ -46,9 +52,6 @@ describe('Focus soundscape sources', () => {
     await expect(resolveSoundscapeSource('quietRain')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
     expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.quiet-rain');
 
-    await expect(resolveSoundscapeSource('forestStream')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
-    expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.forest-stream');
-
     await expect(resolveSoundscapeSource('oceanWaves')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
     expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.ocean-waves');
 
@@ -59,7 +62,7 @@ describe('Focus soundscape sources', () => {
     expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.night-meadow');
   });
 
-  test('offers the repaired music choices and five nature choices plus the bundled fallback', () => {
+  test('offers one flat soundscape list without Forest Stream', () => {
     expect(SOUND_SCAPES.map((item) => item.id)).toEqual([
       'default',
       'copacabanaFocus',
@@ -69,7 +72,7 @@ describe('Focus soundscape sources', () => {
       'cedarWorkshop',
       'rainlitLibrary',
       'quietRain',
-      'forestStream',
+      'canyonSpring',
       'oceanWaves',
       'fireplace',
       'nightMeadow',
@@ -83,7 +86,7 @@ describe('Focus soundscape sources', () => {
       'Cedar Workshop',
       'Rainlit Library',
       'Quiet Rain',
-      'Forest Stream',
+      'Canyon Spring',
       'Ocean Waves',
       'Fireplace',
       'Night Meadow',

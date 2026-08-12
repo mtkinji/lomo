@@ -1,6 +1,7 @@
 import type { UnifiedChatCapabilityId } from './requestPolicy';
 import type { Activity, Goal } from '../../domain/types';
 import type { ChapterRow } from '../../services/chapters';
+import type { RecipeProjection } from '../../capabilities/recipes/data/recipeCache';
 import {
   collectCapabilityEvidence,
   chaptersChatAdapter,
@@ -10,9 +11,9 @@ import {
 import type { AttachUnifiedChatContextInput } from './types';
 
 export type UnifiedChatLaunchContext = {
-  capabilityId: Extract<UnifiedChatCapabilityId, 'goals' | 'todos' | 'chapters' | 'meal_planning'>;
+  capabilityId: Extract<UnifiedChatCapabilityId, 'goals' | 'todos' | 'chapters' | 'meal_planning' | 'recipes'>;
   surface: 'inventory' | 'detail';
-  object?: { type: 'goal' | 'activity' | 'chapter'; id: string };
+  object?: { type: 'goal' | 'activity' | 'chapter' | 'recipe'; id: string };
   returnTarget: Record<string, unknown>;
 };
 
@@ -30,11 +31,12 @@ export type UnifiedChatLaunchSnapshots = {
   goals: readonly Goal[];
   activities: readonly Activity[];
   chapters: readonly ChapterRow[];
+  recipes?: readonly RecipeProjection[];
 };
 
 export type UnifiedChatAttachableContext = {
   capabilityId: UnifiedChatLaunchContext['capabilityId'];
-  objectType: 'goal' | 'activity' | 'chapter';
+  objectType: 'goal' | 'activity' | 'chapter' | 'recipe';
   objectId: string;
   label: string;
   secondaryLabel: string | null;
@@ -48,6 +50,7 @@ const CAPABILITY_LABELS: Record<UnifiedChatLaunchContext['capabilityId'], string
   todos: 'To-dos',
   chapters: 'Chapters',
   meal_planning: 'Meals',
+  recipes: 'Recipes',
 };
 
 /**
@@ -70,6 +73,19 @@ export function resolveUnifiedChatLaunchAttachment(
   }
 
   if (launch.capabilityId === 'meal_planning') return null;
+
+  if (launch.capabilityId === 'recipes') {
+    const matched = snapshots.recipes?.find((item) => item.recipe.id === launch.object?.id);
+    if (!matched) return null;
+    return {
+      capabilityId: launch.capabilityId,
+      objectType: 'recipe',
+      objectId: matched.recipe.id,
+      label: matched.currentVersion.title,
+      secondaryLabel: `Version ${matched.currentVersion.version}`,
+      returnTarget: launch.returnTarget,
+    };
+  }
 
   const evidence = launch.capabilityId === 'goals'
     ? goalsChatAdapter.evidence.list({ goals: snapshots.goals })
@@ -94,10 +110,16 @@ export function resolveUnifiedChatLaunchAttachment(
 export async function loadUnifiedChatLaunchAttachment(
   launch: UnifiedChatLaunchContext,
 ): Promise<LaunchAttachment | null> {
-  const [{ useAppStore }, chapterService] = await Promise.all([
+  const [{ useAppStore }, chapterService, recipeStoreModule, recipeCatalogModule] = await Promise.all([
     import('../../store/useAppStore'),
     launch.capabilityId === 'chapters'
       ? import('../../services/chapters')
+      : Promise.resolve(null),
+    launch.capabilityId === 'recipes'
+      ? import('../../capabilities/recipes/runtime/useRecipeStore')
+      : Promise.resolve(null),
+    launch.capabilityId === 'recipes'
+      ? import('../../capabilities/recipes/data/starterRecipeCatalog')
       : Promise.resolve(null),
   ]);
   const state = useAppStore.getState();
@@ -108,6 +130,9 @@ export async function loadUnifiedChatLaunchAttachment(
     goals: state.goals,
     activities: state.activities,
     chapters: chapter ? [chapter] : [],
+    recipes: recipeStoreModule && recipeCatalogModule
+      ? recipeCatalogModule.buildRecipeLibraryInventory(recipeStoreModule.useRecipeStore.getState().recipes)
+      : [],
   });
 }
 

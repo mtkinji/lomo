@@ -17,6 +17,10 @@ const visibleDownvoteSql = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260812122846_plan_visible_downvotes.sql'),
   'utf8',
 ).toLowerCase();
+const hardPassSql = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260812170120_plan_hard_pass_reactions.sql'),
+  'utf8',
+).toLowerCase();
 
 describe('collaborative household Recipe Plan migration contract', () => {
   it('keeps one persistent Plan occurrence with explicit non-calendar lifecycle history', () => {
@@ -57,6 +61,16 @@ describe('collaborative household Recipe Plan migration contract', () => {
     expect(visibleDownvoteSql).toContain('vote_count desc,downvote_count,created_at desc');
     expect(visibleDownvoteSql).not.toContain('vote_count - downvote_count');
     expect(visibleDownvoteSql).not.toContain('shared_meal_candidate_downvote_forbidden');
+  });
+
+  it('stores optional hard-pass reasons and requires a lead acknowledgement before grocery commitment', () => {
+    expect(hardPassSql).toContain("reaction in ('thumbs_up','heart','yum','excited','fire','downvote','uneasy','gross','nope','dislike','hard_pass')");
+    expect(hardPassSql).toContain('reason text');
+    expect(hardPassSql).toContain('char_length(p_reason)>140');
+    expect(hardPassSql).toContain("reaction.reaction = 'hard_pass'");
+    expect(hardPassSql).toContain("v_actor.role not in ('owner','caregiver')");
+    expect(hardPassSql).toContain('hard_pass_review_required');
+    expect(hardPassSql).toContain('p_acknowledge_hard_passes boolean default false');
   });
 
   it('adds household Plan grocery scope and source-level contribution quantities', () => {

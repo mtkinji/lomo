@@ -13,6 +13,7 @@ import type { CalendarRef } from '../../services/plan/calendarApi';
 import { formatMoney, type MoneySnapshot } from '../../capabilities/money/data/moneySnapshot';
 import { formatMoneyPlanLimitAnswer } from '../../capabilities/money/domain/moneyPlanLimitAnswer';
 import type { FamilyScreenTimeSnapshot } from '../household/screenTime/data/familyScreenTime';
+import type { RecipeProjection } from '../../capabilities/recipes/data/recipeCache';
 
 export type GoalsChatSnapshot = { goals: readonly Goal[]; arcIds?: readonly string[] };
 export type ArcsChatSnapshot = { arcs: readonly Arc[] };
@@ -41,6 +42,7 @@ export type ScreenTimeChatSnapshot = {
     policy: FamilyScreenTimeSnapshot;
   }>;
 };
+export type RecipesChatSnapshot = { recipes: readonly RecipeProjection[] };
 
 export type UnifiedChatCapabilitySnapshots = {
   arcs?: ArcsChatSnapshot;
@@ -52,6 +54,7 @@ export type UnifiedChatCapabilitySnapshots = {
   account?: AccountChatSnapshot;
   money?: MoneyChatSnapshot;
   screenTime?: ScreenTimeChatSnapshot;
+  recipes?: RecipesChatSnapshot;
 };
 
 const GOAL_OPERATIONS = ['create_goal', 'update_goal', 'delete_goal'] as const;
@@ -682,6 +685,62 @@ export const profileChatAdapter: CapabilityChatAdapter<ProfileChatSnapshot> = {
   },
 };
 
+function recipeEvidence(projection: RecipeProjection): CapabilityEvidenceSource {
+  const { recipe, currentVersion } = projection;
+  const effort = compact([
+    currentVersion.prepMinutes == null ? null : `Prep ${currentVersion.prepMinutes} min`,
+    currentVersion.cookMinutes == null ? null : `Cook ${currentVersion.cookMinutes} min`,
+    currentVersion.yieldQuantity == null
+      ? null
+      : `Makes ${currentVersion.yieldQuantity}${currentVersion.yieldUnit ? ` ${currentVersion.yieldUnit}` : ''}`,
+  ]);
+  const ingredients = currentVersion.ingredients.map((line) => line.originalText).join('\n');
+  const instructions = currentVersion.instructions.map((step) => step.text).join('\n');
+  return {
+    capabilityId: 'recipes',
+    object: {
+      type: 'recipe',
+      id: recipe.id,
+      label: currentVersion.title,
+      secondaryLabel: effort || `Version ${currentVersion.version}`,
+    },
+    searchableText: compact([
+      currentVersion.title,
+      currentVersion.description,
+      ingredients,
+      instructions,
+      currentVersion.notes,
+    ]),
+    summary: [
+      currentVersion.description,
+      effort,
+      ingredients ? `Ingredients:\n${ingredients}` : null,
+      instructions ? `Instructions:\n${instructions}` : null,
+      currentVersion.notes ? `Notes: ${currentVersion.notes}` : null,
+    ].filter((value): value is string => Boolean(value)).join('\n\n'),
+    authority: 'authoritative',
+    observedAt: recipe.updatedAt,
+  };
+}
+
+export const recipesChatAdapter: CapabilityChatAdapter<RecipesChatSnapshot> = {
+  capabilityId: 'recipes',
+  context: { dataClassification: 'private_kwilt_data', readOnly: true },
+  evidence: { list: ({ recipes }) => recipes.map(recipeEvidence) },
+  proposal: { operationKinds: [] },
+  apply: { operationKinds: [] },
+  receipt: { reloadAuthoritativeObject: false },
+  undo: { operationKinds: [] },
+  return: {
+    targetFor: (object) => ({
+      capabilityId: 'recipes',
+      object: { type: object.type, id: object.id },
+      label: object.label,
+      route: { name: 'Food', params: { screen: 'RecipeHome', params: { recipeId: object.id } } },
+    }),
+  },
+};
+
 export function collectCapabilityEvidence({
   participatingCapabilities,
   snapshots,
@@ -707,6 +766,9 @@ export function collectCapabilityEvidence({
     ...(selected.has('money') && snapshots.money ? moneyChatAdapter.evidence.list(snapshots.money) : []),
     ...(selected.has('screenTime') && snapshots.screenTime
       ? screenTimeChatAdapter.evidence.list(snapshots.screenTime)
+      : []),
+    ...(selected.has('recipes') && snapshots.recipes
+      ? recipesChatAdapter.evidence.list(snapshots.recipes)
       : []),
     ...(selected.has('account') && snapshots.account ? [{
       capabilityId: 'account' as const,
@@ -739,5 +801,6 @@ export function resolveUnifiedChatObjectReturn(
   if (object.type === 'money_category') return moneyChatAdapter.return.targetFor(object);
   if (object.type === 'money_transaction') return moneyChatAdapter.return.targetFor(object);
   if (object.type === 'family_screen_time_child') return screenTimeChatAdapter.return.targetFor(object);
+  if (object.type === 'recipe') return recipesChatAdapter.return.targetFor(object);
   return null;
 }

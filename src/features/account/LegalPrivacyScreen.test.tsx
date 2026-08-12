@@ -76,4 +76,11 @@ describe('LegalPrivacyScreen', () => {
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsProfile');
     expect(openManageSubscription).toHaveBeenCalledTimes(1);
   });
+
+  it('summarizes the unified Tools for Life privacy scope', () => {
+    const { getByText } = render(<LegalPrivacyScreen />);
+
+    expect(getByText(/Money, Explore, meals and groceries, Games/)).toBeTruthy();
+    expect(getByText(/AI and voice, calendar, Health, family sharing, and subscriptions/)).toBeTruthy();
+  });
 });

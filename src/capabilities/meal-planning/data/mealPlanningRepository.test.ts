@@ -42,8 +42,9 @@ describe('Meal Planning repository', () => {
     expect(await repository.getSharedCart('household-1')).toMatchObject({ householdId: 'household-1', candidates: [] });
     await repository.addSharedCandidate('household-1', { id: 'candidate-1', kind: 'meal_note', title: 'Tacos', recipeSnapshot: null });
     await repository.withdrawSharedCandidate('candidate-1');
-    await repository.setSharedReaction('candidate-1', 'yum');
-    await repository.sendSharedCandidates('plan-1', 2, ['candidate-1']);
+    await repository.setSharedReaction('candidate-1', null);
+    await repository.setSharedReaction('candidate-1', 'hard_pass', 'Mushrooms');
+    await repository.sendSharedCandidates('plan-1', 2, ['candidate-1'], { acknowledgeHardPasses: true });
     await repository.removeSentSharedCandidate('plan-1', 3, 'candidate-1');
     await repository.keepGroceriesAndRemoveSharedCandidate('candidate-2', 4);
     await repository.markSharedCandidateMade('candidate-3', 5);
@@ -52,12 +53,13 @@ describe('Meal Planning repository', () => {
       ['get_kwilt_shared_meal_cart', { p_household_id: 'household-1' }],
       ['add_kwilt_shared_meal_candidate', { p_household_id: 'household-1', p_candidate_id: 'candidate-1', p_candidate: { id: 'candidate-1', kind: 'meal_note', title: 'Tacos', recipeSnapshot: null } }],
       ['withdraw_kwilt_shared_meal_candidate', { p_candidate_id: 'candidate-1' }],
-      ['set_kwilt_shared_meal_reaction', { p_candidate_id: 'candidate-1', p_reaction: 'yum' }],
+      ['set_kwilt_shared_meal_reaction', { p_candidate_id: 'candidate-1', p_reaction: null }],
+      ['set_kwilt_shared_meal_reaction', { p_candidate_id: 'candidate-1', p_reaction: 'hard_pass', p_reason: 'Mushrooms' }],
       ['remove_kwilt_sent_plan_candidate_keep_groceries', { p_candidate_id: 'candidate-2', p_expected_version: 4 }],
       ['mark_kwilt_plan_candidate_made', { p_candidate_id: 'candidate-3', p_expected_version: 5 }],
     ]);
     expect(invoke.mock.calls).toEqual([
-      ['grocery-compile', { body: { planAction: 'send', planId: 'plan-1', expectedVersion: 2, candidateIds: ['candidate-1'] } }],
+      ['grocery-compile', { body: { planAction: 'send', planId: 'plan-1', expectedVersion: 2, candidateIds: ['candidate-1'], acknowledgeHardPasses: true } }],
       ['grocery-compile', { body: { planAction: 'remove', planId: 'plan-1', expectedVersion: 3, candidateIds: ['candidate-1'] } }],
     ]);
   });
@@ -79,6 +81,22 @@ describe('Meal Planning repository', () => {
       p_content_hash: expect.stringMatching(/^fnv1a32:/),
       p_occasions: occasions,
     }));
+  });
+
+  it('creates and revokes a purpose-limited guest feedback invitation', async () => {
+    const rpc = jest.fn()
+      .mockResolvedValueOnce({ data: { inviteId: 'invite-1', token: 'secret-token', expiresAt: '2026-08-19T00:00:00Z' }, error: null })
+      .mockResolvedValueOnce({ data: { inviteId: 'invite-1', state: 'revoked' }, error: null });
+    const repository = createMealPlanningRepository({ rpc } as never);
+
+    await expect(repository.createGuestFeedbackInvite({ planId: 'plan-1', expectedVersion: 3, expiresAt: null }))
+      .resolves.toEqual({ inviteId: 'invite-1', token: 'secret-token', expiresAt: '2026-08-19T00:00:00Z' });
+    await repository.revokeGuestFeedbackInvite('invite-1');
+
+    expect(rpc.mock.calls).toEqual([
+      ['create_kwilt_guest_meal_feedback_invite', { p_plan_id: 'plan-1', p_expected_version: 3, p_expires_at: null }],
+      ['revoke_kwilt_guest_meal_feedback_invite', { p_invite_id: 'invite-1' }],
+    ]);
   });
 
   it('never queues a response when offline', async () => {

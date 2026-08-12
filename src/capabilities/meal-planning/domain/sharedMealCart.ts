@@ -12,13 +12,27 @@ export const PLAN_POSITIVE_REACTION_OPTIONS = [
   { id: 'fire', emoji: '🔥', label: 'Fire' },
 ] as const;
 
-export const PLAN_DOWNVOTE_REACTION = { id: 'downvote', emoji: '👎', label: 'Downvote' } as const;
-export const PLAN_REACTION_OPTIONS = [...PLAN_POSITIVE_REACTION_OPTIONS, PLAN_DOWNVOTE_REACTION] as const;
+export const PLAN_NEGATIVE_REACTION_OPTIONS = [
+  { id: 'downvote', emoji: '👎', label: 'Thumbs down' },
+  { id: 'uneasy', emoji: '😬', label: 'Not sure' },
+  { id: 'gross', emoji: '🤢', label: 'Gross' },
+  { id: 'nope', emoji: '🙅', label: 'Nope' },
+  { id: 'dislike', emoji: '😖', label: 'Really not for me' },
+] as const;
+
+export const PLAN_HARD_PASS_REACTION = { id: 'hard_pass', emoji: '🚫', label: 'Hard pass' } as const;
+export const PLAN_REACTION_OPTIONS = [
+  ...PLAN_POSITIVE_REACTION_OPTIONS,
+  ...PLAN_NEGATIVE_REACTION_OPTIONS,
+  PLAN_HARD_PASS_REACTION,
+] as const;
 
 export type PlanPositiveReaction = typeof PLAN_POSITIVE_REACTION_OPTIONS[number]['id'];
+export type PlanNegativeReaction = typeof PLAN_NEGATIVE_REACTION_OPTIONS[number]['id'];
 export type PlanReaction = typeof PLAN_REACTION_OPTIONS[number]['id'];
-export type PlanReactionCounts = Record<PlanReaction, number>;
-export type SharedMealCartSupporter = SharedMealCartPerson & { reaction: PlanReaction };
+export type PlanReactionCounts = Record<PlanPositiveReaction, number>
+  & Partial<Record<PlanNegativeReaction | typeof PLAN_HARD_PASS_REACTION.id, number>>;
+export type SharedMealCartSupporter = SharedMealCartPerson & { reaction: PlanReaction; reason?: string | null };
 
 const PLAN_REACTION_IDS = new Set<string>(PLAN_REACTION_OPTIONS.map((reaction) => reaction.id));
 
@@ -27,11 +41,33 @@ export function isPlanReaction(value: unknown): value is PlanReaction {
 }
 
 function emptyPlanReactionCounts(): PlanReactionCounts {
-  return { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 };
+  return {
+    thumbs_up: 0,
+    heart: 0,
+    yum: 0,
+    excited: 0,
+    fire: 0,
+    downvote: 0,
+    uneasy: 0,
+    gross: 0,
+    nope: 0,
+    dislike: 0,
+    hard_pass: 0,
+  };
 }
 
 function isPositiveReaction(reaction: PlanReaction | null): reaction is PlanPositiveReaction {
-  return reaction !== null && reaction !== 'downvote';
+  return PLAN_POSITIVE_REACTION_OPTIONS.some((option) => option.id === reaction);
+}
+
+function isNegativeReaction(reaction: PlanReaction | null): reaction is PlanNegativeReaction {
+  return PLAN_NEGATIVE_REACTION_OPTIONS.some((option) => option.id === reaction);
+}
+
+function normalizeReactionReason(reaction: PlanReaction | null, reason?: string | null) {
+  if (reaction !== PLAN_HARD_PASS_REACTION.id) return null;
+  const normalized = reason?.trim().slice(0, 140) ?? '';
+  return normalized || null;
 }
 
 export type SharedMealCartCandidate = {
@@ -46,10 +82,13 @@ export type SharedMealCartCandidate = {
   missingItemCount: number | null;
   voteCount: number;
   downvoteCount: number;
+  hardPassCount: number;
+  requiresHardPassReview: boolean;
   reactionCounts: PlanReactionCounts;
   contributor: SharedMealCartPerson;
   supporters: SharedMealCartSupporter[];
   viewerReaction: PlanReaction | null;
+  viewerReactionReason: string | null;
   canReact: boolean;
   canRemove: boolean;
   canMarkMade: boolean;
@@ -75,22 +114,37 @@ export function optimisticallySetSharedMealReaction(
   cart: SharedMealCartProjection,
   candidateId: string,
   reaction: PlanReaction | null,
+  reason?: string | null,
 ): SharedMealCartProjection {
+  const normalizedReason = normalizeReactionReason(reaction, reason);
   return {
     ...cart,
     candidates: cart.candidates.map((candidate) => {
-      if (candidate.id !== candidateId || candidate.viewerReaction === reaction) return candidate;
+      if (candidate.id !== candidateId) return candidate;
+      if (candidate.viewerReaction === reaction && candidate.viewerReactionReason === normalizedReason) return candidate;
       const reactionCounts = { ...candidate.reactionCounts };
-      if (candidate.viewerReaction) reactionCounts[candidate.viewerReaction] = Math.max(0, reactionCounts[candidate.viewerReaction] - 1);
-      if (reaction) reactionCounts[reaction] += 1;
+      const reactionChanged = candidate.viewerReaction !== reaction;
+      if (reactionChanged && candidate.viewerReaction) {
+        reactionCounts[candidate.viewerReaction] = Math.max(0, (reactionCounts[candidate.viewerReaction] ?? 0) - 1);
+      }
+      if (reactionChanged && reaction) reactionCounts[reaction] = (reactionCounts[reaction] ?? 0) + 1;
       const positiveDelta = Number(isPositiveReaction(reaction)) - Number(isPositiveReaction(candidate.viewerReaction));
-      const downvoteDelta = Number(reaction === 'downvote') - Number(candidate.viewerReaction === 'downvote');
+      const downvoteDelta = Number(isNegativeReaction(reaction)) - Number(isNegativeReaction(candidate.viewerReaction));
+      const hardPassDelta = Number(reaction === 'hard_pass') - Number(candidate.viewerReaction === 'hard_pass');
+      const hardPassCount = Math.max(0, candidate.hardPassCount + hardPassDelta);
       return {
         ...candidate,
         viewerReaction: reaction,
         reactionCounts,
         voteCount: Math.max(0, candidate.voteCount + positiveDelta),
         downvoteCount: Math.max(0, candidate.downvoteCount + downvoteDelta),
+        hardPassCount,
+        requiresHardPassReview: reaction === 'hard_pass'
+          ? true
+          : hardPassCount === 0
+            ? false
+            : candidate.requiresHardPassReview,
+        viewerReactionReason: normalizedReason,
       };
     }),
   };
@@ -116,7 +170,11 @@ function parseSupporter(value: unknown): SharedMealCartSupporter {
   if (!isRecord(value) || !isPlanReaction(value.reaction)) {
     throw new Error('Invalid shared Meal Cart projection.');
   }
-  return { ...person, reaction: value.reaction };
+  return {
+    ...person,
+    reaction: value.reaction,
+    reason: typeof value.reason === 'string' ? value.reason : null,
+  };
 }
 
 function parseReactionCounts(value: unknown): PlanReactionCounts {
@@ -124,6 +182,10 @@ function parseReactionCounts(value: unknown): PlanReactionCounts {
   const counts = emptyPlanReactionCounts();
   for (const reaction of PLAN_REACTION_OPTIONS) {
     const count = value[reaction.id];
+    if (count === undefined) {
+      counts[reaction.id] = 0;
+      continue;
+    }
     if (!Number.isInteger(count) || Number(count) < 0) throw new Error('Invalid shared Meal Cart projection.');
     counts[reaction.id] = Number(count);
   }
@@ -175,10 +237,15 @@ export function parseSharedMealCartProjection(value: unknown): SharedMealCartPro
       missingItemCount: Number.isInteger(candidateValue.missingItemCount) ? Number(candidateValue.missingItemCount) : null,
       voteCount: Number(candidateValue.voteCount),
       downvoteCount: Number(candidateValue.downvoteCount),
+      hardPassCount: Number.isInteger(candidateValue.hardPassCount) ? Number(candidateValue.hardPassCount) : 0,
+      requiresHardPassReview: candidateValue.requiresHardPassReview === true,
       reactionCounts: parseReactionCounts(candidateValue.reactionCounts),
       contributor: parsePerson(candidateValue.contributor),
       supporters,
       viewerReaction,
+      viewerReactionReason: typeof candidateValue.viewerReactionReason === 'string'
+        ? candidateValue.viewerReactionReason
+        : null,
       canReact: Boolean(candidateValue.canReact) && state === 'draft' && Boolean(viewer.canAdd),
       canRemove: candidateValue.canRemove,
       canMarkMade: candidateValue.canMarkMade,

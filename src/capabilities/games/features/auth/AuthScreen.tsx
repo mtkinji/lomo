@@ -14,9 +14,7 @@ import { useGamePlayerProfile } from '@/src/capabilities/games/players/useGamePl
 import { normalizePlayerIdentity, playerColor, playerColorText } from '@/src/capabilities/games/players/playerIdentity';
 import { PlayerIdentityEditor } from '@/src/capabilities/games/players/PlayerIdentityEditor';
 import { useGameFeedback } from '@/src/capabilities/games/audio/useGameFeedback';
-
-const TERMS = 'https://kwilt.app/terms';
-const PRIVACY = 'https://kwilt.app/privacy';
+import { KWILT_PRIVACY_URL, KWILT_TERMS_URL } from '@/src/features/paywall/SubscriptionLegalLinks';
 
 export function AuthScreen() {
   const { source, profileName, colorId, successSoundId, failureSoundId } = useLocalSearchParams<{
@@ -96,7 +94,7 @@ export function AuthScreen() {
                 <GameButton tone="paper" disabled={!!loading} onPress={() => void connect('google')} icon={<Ionicons name="logo-google" size={19} color={gamesTheme.colors.ink} />}>{loading === 'google' ? 'Connecting…' : 'Continue with Google'}</GameButton>
                 <GameButton tone="ghost" onPress={() => router.back()}>Keep playing as a guest</GameButton>
               </View>
-              <Text style={styles.legal}>By continuing, you agree to our <Text style={styles.link} onPress={() => void Linking.openURL(TERMS)}>Terms</Text> and <Text style={styles.link} onPress={() => void Linking.openURL(PRIVACY)}>Privacy Policy</Text>.</Text>
+              <Text style={styles.legal}>By continuing, you agree to our <Text style={styles.link} onPress={() => void Linking.openURL(KWILT_TERMS_URL)}>Terms</Text> and <Text style={styles.link} onPress={() => void Linking.openURL(KWILT_PRIVACY_URL)}>Privacy Policy</Text>.</Text>
             </>
           )}
         </ScrollView>

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">Kwilt square lead comparison</title>
+  <desc id="desc">The Thread Path and Nested K lead marks rebuilt in equal square optical fields, with large, 64 pixel, 32 pixel, 24 pixel, and 16 pixel comparisons.</desc>
+  <rect width="1200" height="720" fill="#F7F2E8"/>
+  <style>
+    .heading { fill:#171817; font:700 24px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .caption { fill:#625F58; font:500 16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .guide { fill:none; stroke:#D9D2C6; stroke-width:1; stroke-dasharray:5 5; }
+    .mark { fill:#315545; }
+  </style>
+  <defs>
+    <symbol id="thread" viewBox="0 0 256 256">
+      <g class="mark">
+        <rect x="44" y="47" width="44" height="26" rx="13" transform="rotate(-45 66 60)"/>
+        <rect x="105" y="46" width="68" height="26" rx="13" transform="rotate(-45 139 59)"/>
+        <rect x="179" y="45" width="34" height="26" rx="13" transform="rotate(-45 196 58)"/>
+        <rect x="34" y="108" width="42" height="26" rx="13" transform="rotate(-45 55 121)"/>
+        <rect x="93" y="108" width="58" height="26" rx="13" transform="rotate(-45 122 121)"/>
+        <rect x="169" y="106" width="48" height="26" rx="13" transform="rotate(-45 193 119)"/>
+        <rect x="35" y="170" width="48" height="26" rx="13" transform="rotate(-45 59 183)"/>
+        <rect x="98" y="168" width="66" height="26" rx="13" transform="rotate(-45 131 181)"/>
+        <rect x="180" y="172" width="32" height="26" rx="13" transform="rotate(-45 196 185)"/>
+      </g>
+    </symbol>
+    <symbol id="nested-k" viewBox="0 0 256 256">
+      <g class="mark">
+        <path d="M32 48C32 39.163 39.163 32 48 32H78C86.837 32 94 39.163 94 48V176C94 202.51 72.51 224 46 224H32V48Z"/>
+        <path d="M120 32H176C202.51 32 224 53.49 224 80C224 101.248 212.714 119.708 194 132L130 174C122.018 179.239 112 173.514 112 163.964V112C112 96.737 118.704 82.246 130.337 72.363L180 32H120Z"/>
+        <path d="M132 136H176C202.51 136 224 157.49 224 184C224 206.091 206.091 224 184 224H120C112.268 224 106 217.732 106 210C106 183.499 114.584 159.386 132 136Z"/>
+      </g>
+    </symbol>
+  </defs>
+
+  <text class="heading" x="330" y="64" text-anchor="middle">Thread Path · T2 lead</text>
+  <text class="heading" x="870" y="64" text-anchor="middle">Nested K · K3 lead</text>
+  <text class="caption" x="330" y="92" text-anchor="middle">square rhythm · three interrupted paths</text>
+  <text class="caption" x="870" y="92" text-anchor="middle">square construction · exactly three pieces</text>
+
+  <rect class="guide" x="202" y="128" width="256" height="256"/>
+  <rect class="guide" x="742" y="128" width="256" height="256"/>
+  <use href="#thread" x="202" y="128" width="256" height="256"/>
+  <use href="#nested-k" x="742" y="128" width="256" height="256"/>
+
+  <text class="caption" x="330" y="426" text-anchor="middle">1:1 viewBox · 192 × 192 optical bounds</text>
+  <text class="caption" x="870" y="426" text-anchor="middle">1:1 viewBox · 192 × 192 optical bounds</text>
+
+  <text class="caption" x="600" y="492" text-anchor="middle">64 px</text>
+  <use href="#thread" x="390" y="498" width="64" height="64"/>
+  <use href="#nested-k" x="746" y="498" width="64" height="64"/>
+
+  <text class="caption" x="600" y="580" text-anchor="middle">32 · 24 · 16 px</text>
+  <use href="#thread" x="430" y="590" width="32" height="32"/>
+  <use href="#thread" x="486" y="594" width="24" height="24"/>
+  <use href="#thread" x="534" y="598" width="16" height="16"/>
+  <use href="#nested-k" x="710" y="590" width="32" height="32"/>
+  <use href="#nested-k" x="766" y="594" width="24" height="24"/>
+  <use href="#nested-k" x="814" y="598" width="16" height="16"/>
+</svg>

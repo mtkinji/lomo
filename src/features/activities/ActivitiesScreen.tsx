@@ -3520,8 +3520,8 @@ export function ActivitiesScreen() {
             <ButtonLabel size="md">Not now</ButtonLabel>
           </Button>
           <Button
+            variant="turmeric"
             onPress={handleRefreshView}
-            style={{ backgroundColor: colors.turmeric700, borderColor: colors.turmeric800 }}
           >
             <ButtonLabel size="md" tone="inverse">
               Refresh view

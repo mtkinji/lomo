@@ -160,6 +160,13 @@ export type AgentWorkbenchArtifact = {
   editable: true;
 };
 
+export type AgentWorkbenchOffer = {
+  id: string;
+  title: string;
+  cue: string;
+  prompt: string;
+};
+
 export type AgentWorkbenchSnapshot = {
   product: {
     id: string;
@@ -184,6 +191,7 @@ export type AgentWorkbenchSnapshot = {
   receipts: AgentWorkbenchReceipt[];
   clientActions: AgentWorkbenchClientAction[];
   artifacts: AgentWorkbenchArtifact[];
+  offers?: AgentWorkbenchOffer[];
   /** Optional so protocol-v2 hosts can adopt coherent turns without breaking older surfaces. */
   timeline?: AgentWorkbenchTurn[];
   composer: {

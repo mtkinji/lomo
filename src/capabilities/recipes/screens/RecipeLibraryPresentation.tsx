@@ -52,7 +52,6 @@ export function RecipeLibraryView({
   onOpen,
   onRefresh,
   refreshing,
-  cached,
   filters,
   sort,
   onOpenFilters,
@@ -74,7 +73,6 @@ export function RecipeLibraryView({
   onOpen(recipeId: string): void;
   onRefresh(): void;
   refreshing: boolean;
-  cached: boolean;
   filters: RecipeInventoryFilters;
   sort: RecipeInventorySortMode;
   onOpenFilters(): void;
@@ -137,11 +135,6 @@ export function RecipeLibraryView({
         showsVerticalScrollIndicator={false}
       >
         {controls}
-        {cached ? (
-          <Text tone="secondary">
-            Your saved recipes are here while Kwilt refreshes.
-          </Text>
-        ) : null}
         <View testID="recipe-discovery-navigation" style={styles.discoveryNavigation}>
           <RecipeQuickFilterRow
             filters={filters}
@@ -214,11 +207,6 @@ export function RecipeLibraryView({
       ListHeaderComponent={
         <View style={styles.libraryHeader}>
           {controls}
-          {cached ? (
-            <Text tone="secondary">
-              Your saved recipes are here while Kwilt refreshes.
-            </Text>
-          ) : null}
           <RecipeQuickFilterRow
             filters={filters}
             likedOnly={likedOnly}

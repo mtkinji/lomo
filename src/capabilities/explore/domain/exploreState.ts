@@ -127,7 +127,11 @@ export function finalizeExploreRecap(
   return {
     ...state,
     sessions: state.sessions.map((session) => session.id === sessionId
-      ? { ...session, discoveredPlaceIds: [...new Set(discoveredPlaceIds)], recapStatus: 'ready' as const }
+      ? {
+        ...session,
+        discoveredPlaceIds: [...new Set(discoveredPlaceIds)],
+        recapStatus: session.recapStatus === 'seen' ? 'seen' as const : 'ready' as const,
+      }
       : session),
   };
 }

@@ -21,8 +21,9 @@ briefs:
   - global-recipe-catalog
   - object-detail-media-shell
   - compound-recipe-instructions
+  - contextual-recipe-chat
 status: draft
-last_reviewed: 2026-08-07
+last_reviewed: 2026-08-12
 ---
 
 # Recipes

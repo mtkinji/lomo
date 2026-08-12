@@ -113,12 +113,12 @@ import Salad from 'lucide-react-native/dist/cjs/icons/salad';
 import Sandwich from 'lucide-react-native/dist/cjs/icons/sandwich';
 import Send from 'lucide-react-native/dist/cjs/icons/send';
 import Settings from 'lucide-react-native/dist/cjs/icons/settings';
-import Share2 from 'lucide-react-native/dist/cjs/icons/share-2';
 import Shield from 'lucide-react-native/dist/cjs/icons/shield';
 import ShoppingCart from 'lucide-react-native/dist/cjs/icons/shopping-cart';
 import Shell from 'lucide-react-native/dist/cjs/icons/shell';
 import Shrimp from 'lucide-react-native/dist/cjs/icons/shrimp';
 import SlidersHorizontal from 'lucide-react-native/dist/cjs/icons/sliders-horizontal';
+import SmilePlus from 'lucide-react-native/dist/cjs/icons/smile-plus';
 import Smartphone from 'lucide-react-native/dist/cjs/icons/smartphone';
 import Sparkles from 'lucide-react-native/dist/cjs/icons/sparkles';
 import Square from 'lucide-react-native/dist/cjs/icons/square';
@@ -192,7 +192,9 @@ const iconMap = {
   menu: { library: 'lucide', icon: Menu },
   briefcase: { library: 'lucide', icon: Briefcase },
   paperclip: { library: 'lucide', icon: Paperclip },
-  share: { library: 'lucide', icon: Share2 },
+  // iOS-familiar square with an upward arrow. Keep every product share action
+  // on this semantic mapping rather than choosing surface-specific glyphs.
+  share: { library: 'ion', name: 'share-outline' },
   camera: { library: 'lucide', icon: Camera },
   image: { library: 'lucide', icon: ImageIcon },
   mic: { library: 'lucide', icon: Mic },
@@ -294,6 +296,7 @@ const iconMap = {
   sort: { library: 'lucide', icon: SlidersHorizontal },
   thumbsDown: { library: 'lucide', icon: ThumbsDown },
   thumbsUp: { library: 'lucide', icon: ThumbsUp },
+  smilePlus: { library: 'lucide', icon: SmilePlus },
   sound: { library: 'lucide', icon: Volume2 },
   soundOff: { library: 'lucide', icon: VolumeX },
   haptics: { library: 'lucide', icon: Smartphone },

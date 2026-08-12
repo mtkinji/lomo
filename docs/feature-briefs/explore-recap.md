@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-capture-and-find-meaning, jtbd-trust-this-app-with-my-life]
 related_briefs: [explore-capability, geolocation-activity-offers]
 owner: andrew
-last_updated: 2026-07-28
+last_updated: 2026-08-12
 ---
 
 # Exploration Recap
@@ -51,9 +51,9 @@ Exploration Recap extends the existing Explore session and canonical Place relat
 - Job: When an outing ends, understand what was newly discovered without reviewing every GPS event.
 - Primary action: Done.
 - Must show: outing context and newly collected Place names in route order.
-- Reveal later: correction/removal, recording mode, and notification preference.
+- Reveal later: explicit recap review with correction/removal, recording mode, and notification preference.
 - Must not add: inbox, dashboard, points, badges, per-place alerts, forced confirmation, or public sharing.
-- Reuse map: Explore MapView, BottomDrawer, BottomDrawerHeader, Button, Icon, Typography, and SettingRow.
+- Reuse map: Explore MapView, nonmodal BottomGuide, explicit review BottomDrawer, Button, Icon, Typography, and SettingRow.
 - Behavior sources: one recap, first-visit dedupe, hidden lock-screen names, and family opt-in are explicit user decisions.
 - Required states: resolving, multiple Places, no credible Places, known-place dedupe, notification denied, background unavailable, and persisted pending recap.
 - Proof path: deterministic preview recap in Simulator; fresh signed native build for background location and notification proof.
@@ -64,11 +64,12 @@ Exploration Recap extends the existing Explore session and canonical Place relat
 2. Both modes continue through screen lock. Starting manually or choosing Always Exploring is the explicit action that requests background permission after foreground permission.
 3. Always Exploring adapts its location profile to motion and accuracy, sleeps after credible stillness, splits outings after a later movement gap, and can be paused from the main Explore action.
 4. Recording mode never changes family sharing. Location remains private unless the user separately shares it.
-5. On completion, Kwilt samples at most twelve well-spaced route points and reverse geocodes them sequentially in the foreground.
+5. On completion, Kwilt immediately presents a nonmodal saved-path receipt. Place enrichment samples at most twelve well-spaced route points, reverse geocodes at most three concurrently, and stops waiting after a bounded timeout.
 6. Only distinctive named parks, trails, overlooks, summits, and landmarks become candidates; street-address-like results are ignored.
 7. Canonical Place ids are normalized and spatially bounded. Previously visited Places do not reappear as discoveries.
 8. Unseen automatic outings combine into one recap. A background completion may schedule one generic local notification until that recap is seen, never one notification per Place or outing.
 9. Tapping a recap notification opens Explore, where the persisted pending recap appears.
+10. The receipt never blocks the map. Dismissing it while Place enrichment continues does not make it reappear when enrichment finishes.
 
 ### Adaptive GPS policy
 

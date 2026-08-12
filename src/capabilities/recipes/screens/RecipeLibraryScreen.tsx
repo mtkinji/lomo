@@ -62,6 +62,7 @@ import { RecipeArtwork } from "../components/RecipeArtwork";
 import { RecipeArtworkGallery } from "../components/RecipeArtworkGallery";
 import { useAppStore } from "../../../store/useAppStore";
 import { createMealPlanningRepository } from "../../meal-planning/data/mealPlanningRepository";
+import { MealPlanShareDrawer } from "../../meal-planning/components/MealPlanShareDrawer";
 import {
   optimisticallySetSharedMealReaction,
   type PlanReaction,
@@ -154,7 +155,6 @@ type Props = NativeStackScreenProps<FoodStackParamList, "RecipeLibrary">;
 export function RecipeLibraryScreen({ navigation, route }: Props) {
   const { openMenu } = useCapabilityShell();
   const personalRecipes = useRecipeStore((state) => state.recipes);
-  const status = useRecipeStore((state) => state.status);
   const refresh = useRecipeStore((state) => state.refresh);
   const favoriteRecipeIds = useRecipeFavoriteStore((state) => state.recipeIds);
   const hiddenRecipeIds = useHiddenRecipeStore((state) => state.recipeIds);
@@ -181,6 +181,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     "shelves",
   );
   const [likedOnly, setLikedOnly] = useState(false);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
   const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
   const [sortDrawerVisible, setSortDrawerVisible] = useState(false);
   const [hiddenDrawerVisible, setHiddenDrawerVisible] = useState(false);
@@ -192,6 +193,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const [mealChatThreadId, setMealChatThreadId] = useState<string | null>(null);
   const [sharedCart, setSharedCart] = useState<SharedMealCartProjection | null>(null);
   const [planBrowsing, setPlanBrowsing] = useState(false);
+  const [planShareVisible, setPlanShareVisible] = useState(false);
   const [planMutationBusy, setPlanMutationBusy] = useState(false);
   const [reactingCandidateIds, setReactingCandidateIds] = useState<Set<string>>(new Set());
   const reactingCandidateIdsRef = useRef<Set<string>>(new Set());
@@ -286,6 +288,12 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     },
     [],
   );
+  const refreshFromPull = useCallback(() => {
+    setPullRefreshing(true);
+    void refresh().finally(() => {
+      setPullRefreshing(false);
+    });
+  }, [refresh]);
   const planHeaderCount = sharedCart?.activeCount ?? 0;
   const planPersonId = sharedCart?.viewer.personId ?? null;
   const hasReadyRecipe = Boolean(sharedCart?.candidates.some((candidate) => candidate.lifecycle === "ready"));
@@ -338,11 +346,14 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
         sentAt: candidate.sentAt,
         voteCount: candidate.voteCount,
         downvoteCount: candidate.downvoteCount,
+        hardPassCount: candidate.hardPassCount,
+        requiresHardPassReview: candidate.requiresHardPassReview,
         reactionCounts: candidate.reactionCounts,
         missingItemCount: candidate.missingItemCount,
         contributor: candidate.contributor,
         supporters: candidate.supporters,
         viewerReaction: candidate.viewerReaction,
+        viewerReactionReason: candidate.viewerReactionReason,
         canReact: candidate.canReact,
         canRemove: candidate.canRemove,
         canMarkMade: candidate.canMarkMade,
@@ -412,28 +423,43 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       setPendingRemoval(null);
     }
   }, [planMutationBusy, reloadSharedCart, sharedCart]);
-  const setCandidateReaction = useCallback(async (candidateId: string, reaction: PlanReaction | null) => {
+  const setCandidateReaction = useCallback(async (
+    candidateId: string,
+    reaction: PlanReaction | null,
+    reason: string | null = null,
+  ) => {
     if (reactingCandidateIdsRef.current.has(candidateId)) return;
     reactingCandidateIdsRef.current.add(candidateId);
     setReactingCandidateIds(new Set(reactingCandidateIdsRef.current));
     const previousReaction = sharedCart?.candidates.find((candidate) => candidate.id === candidateId)?.viewerReaction ?? null;
-    setSharedCart((current) => current ? optimisticallySetSharedMealReaction(current, candidateId, reaction) : current);
+    const previousReason = sharedCart?.candidates.find((candidate) => candidate.id === candidateId)?.viewerReactionReason ?? null;
+    setSharedCart((current) => current ? optimisticallySetSharedMealReaction(current, candidateId, reaction, reason) : current);
     try {
-      await createMealPlanningRepository().setSharedReaction(candidateId, reaction);
+      await createMealPlanningRepository().setSharedReaction(candidateId, reaction, reason);
       await reloadSharedCart();
     } catch (caught) {
-      setSharedCart((current) => current ? optimisticallySetSharedMealReaction(current, candidateId, previousReaction) : current);
+      setSharedCart((current) => current
+        ? optimisticallySetSharedMealReaction(current, candidateId, previousReaction, previousReason)
+        : current);
       Alert.alert("Plan not updated", caught instanceof Error ? caught.message : "Try again in a moment.");
     } finally {
       reactingCandidateIdsRef.current.delete(candidateId);
       setReactingCandidateIds(new Set(reactingCandidateIdsRef.current));
     }
   }, [reloadSharedCart, sharedCart]);
-  const sendToGroceries = useCallback(async (candidateIds: string[]) => {
+  const sendToGroceries = useCallback(async (
+    candidateIds: string[],
+    options?: { acknowledgeHardPasses?: boolean },
+  ) => {
     if (!sharedCart?.planId || !sharedCart.version || planMutationBusy || !candidateIds.length) return;
     setPlanMutationBusy(true);
     try {
-      await createMealPlanningRepository().sendSharedCandidates(sharedCart.planId, sharedCart.version, candidateIds);
+      await createMealPlanningRepository().sendSharedCandidates(
+        sharedCart.planId,
+        sharedCart.version,
+        candidateIds,
+        options,
+      );
       await reloadSharedCart();
     } catch (caught) {
       Alert.alert("Recipes not sent", caught instanceof Error ? caught.message : "Try again in a moment.");
@@ -509,11 +535,8 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       <RecipeLibraryView
         recipes={filtered}
         onOpen={(recipeId) => navigation.navigate("RecipeHome", { recipeId })}
-        onRefresh={() => {
-          void refresh();
-        }}
-        refreshing={status === "refreshing"}
-        cached={status === "cached" || status === "refreshing"}
+        onRefresh={refreshFromPull}
+        refreshing={pullRefreshing}
         filters={filters}
         sort={sort}
         onOpenFilters={() => setFilterDrawerVisible(true)}
@@ -559,9 +582,15 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
             else if (planEducationLoaded && hasSeenSentRemoval) void removeCandidate(item);
             else setPendingRemoval(item);
           }}
-          onReact={(candidateId, reaction) => { void setCandidateReaction(candidateId, reaction); }}
+          onReact={(candidateId, reaction, reason) => { void setCandidateReaction(candidateId, reaction, reason); }}
           reactingCandidateIds={reactingCandidateIds}
-          onSendToGroceries={(candidateIds) => { void sendToGroceries(candidateIds); }}
+          onRequestFeedback={sharedCart?.planId && sharedCart.version != null && sharedCart.viewer.canManage && sharedCart.candidates.length
+            ? () => {
+              setMealChatVisible(false);
+              setPlanShareVisible(true);
+            }
+            : undefined}
+          onSendToGroceries={(candidateIds, options) => { void sendToGroceries(candidateIds, options); }}
           onMarkMade={(candidateId) => { void markCandidateMade(candidateId); }}
           onOpenGroceries={() => {
             if (!sharedCart?.groceryListId) return;
@@ -576,8 +605,18 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           onAsk={() => setMealChatVisible(true)}
         />
       )}
+      {sharedCart?.planId && sharedCart.version != null ? (
+        <MealPlanShareDrawer
+          visible={planShareVisible}
+          planId={sharedCart.planId}
+          planVersion={sharedCart.version}
+          onClose={() => {
+            setPlanShareVisible(false);
+          }}
+        />
+      ) : null}
       <Coachmark
-        visible={planEducationLoaded && hasReadyRecipe && !hasSeenReadyPlan && !planBrowsing && pendingRemoval === null}
+        visible={planEducationLoaded && hasReadyRecipe && !hasSeenReadyPlan && !planBrowsing && !planShareVisible && pendingRemoval === null}
         targetRef={planHeaderRef}
         title={<Text style={{ fontWeight: "700" }}>Your recipes are ready</Text>}
         body={<Text tone="secondary">Find what you planned here when you’re ready to cook.</Text>}

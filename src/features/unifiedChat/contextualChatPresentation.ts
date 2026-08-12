@@ -1,5 +1,5 @@
 import type { UnifiedChatLaunchContext } from './launchContext';
-import type { AgentWorkbenchContextRef } from './workbenchProtocol';
+import type { AgentWorkbenchContextRef, AgentWorkbenchOffer } from './workbenchProtocol';
 
 const FRESH_LAUNCH_CONTEXT_ID = 'fresh-launch-context';
 
@@ -23,7 +23,38 @@ const DRAWER_COPY: Record<
     inventory: { title: 'Plan this week', placeholder: 'What should this plan account for?' },
     detail: { title: 'Chat about this meal plan', placeholder: 'Ask about this meal plan' },
   },
+  recipes: {
+    inventory: { title: 'Chat about recipes', placeholder: 'Ask about these recipes' },
+    detail: { title: 'Chat about this meal', placeholder: 'Ask about this meal' },
+  },
 };
+
+const RECIPE_DETAIL_OFFERS: AgentWorkbenchOffer[] = [
+  {
+    id: 'recipe-swap',
+    title: 'Swap an ingredient',
+    cue: 'Keep the recipe working',
+    prompt: 'Help me substitute an ingredient in this recipe. Ask which ingredient and what constraint matters before recommending a swap.',
+  },
+  {
+    id: 'recipe-revise',
+    title: 'Make it ours',
+    cue: 'Shape a personal version',
+    prompt: 'Help me create a personal variation of this recipe. Talk through the changes with me and show the revision before anything is saved.',
+  },
+  {
+    id: 'recipe-fit',
+    title: 'Fit tonight',
+    cue: 'Adjust time or servings',
+    prompt: 'Help me adapt this recipe for tonight. Ask about the time, servings, and equipment I have before suggesting changes.',
+  },
+  {
+    id: 'recipe-pantry',
+    title: 'Use what we have',
+    cue: 'Work from the kitchen',
+    prompt: 'Help me make this recipe with what we have. Ask what is already in the kitchen, then separate workable swaps from what we still need.',
+  },
+];
 
 export function buildFreshDrawerContext(
   launchContext: UnifiedChatLaunchContext | null | undefined,
@@ -46,4 +77,12 @@ export function buildFreshDrawerContext(
 
 export function getFreshDrawerCopy(launchContext: UnifiedChatLaunchContext | null | undefined) {
   return launchContext ? DRAWER_COPY[launchContext.capabilityId][launchContext.surface] : null;
+}
+
+export function getFreshDrawerOffers(
+  launchContext: UnifiedChatLaunchContext | null | undefined,
+): AgentWorkbenchOffer[] {
+  return launchContext?.capabilityId === 'recipes' && launchContext.surface === 'detail'
+    ? RECIPE_DETAIL_OFFERS
+    : [];
 }

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Kwilt Thread Path circle</title>
+  <desc id="desc">A circular field crossed by three staggered diagonal channels that alternately surface and disappear.</desc>
+  <defs>
+    <mask id="thread-path-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <rect width="256" height="256" fill="black"/>
+      <circle cx="128" cy="128" r="96" fill="white"/>
+
+      <!-- Three mathematically parallel channels. -->
+      <g transform="rotate(-45 128 128)">
+        <rect x="-24" y="58" width="304" height="20" rx="10" fill="black"/>
+        <rect x="-24" y="118" width="304" height="20" rx="10" fill="black"/>
+        <rect x="-24" y="178" width="304" height="20" rx="10" fill="black"/>
+
+        <!-- Staggered bridges make each path disappear behind the field. -->
+        <rect x="62" y="55" width="42" height="26" rx="13" fill="white"/>
+        <rect x="139" y="115" width="42" height="26" rx="13" fill="white"/>
+        <rect x="88" y="175" width="42" height="26" rx="13" fill="white"/>
+      </g>
+    </mask>
+  </defs>
+
+  <rect width="256" height="256" fill="#315545" mask="url(#thread-path-mask)"/>
+</svg>

@@ -18,8 +18,9 @@ briefs:
   - shared-meal-cart
   - progressive-meal-commitment
   - live-family-meal-board
+  - guest-meal-plan-feedback
 status: draft
-last_reviewed: 2026-08-11
+last_reviewed: 2026-08-12
 ---
 
 # Meal Planning

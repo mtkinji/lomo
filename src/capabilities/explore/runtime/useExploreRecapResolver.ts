@@ -1,8 +1,55 @@
 import { useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
+import type { LocationGeocodedAddress } from 'expo-location';
 import { candidatePlaceFromPlacemark, sampleRouteForDiscovery } from '../domain/exploreDiscovery';
-import { reconstructExploreRecordedPath } from './explorePathReconstruction';
+import type { ExplorePoint, Place } from '../domain/types';
 import { useExploreStore } from './useExploreStore';
+
+const PLACEMARK_CONCURRENCY = 3;
+const PLACEMARK_TIMEOUT_MS = 4_000;
+
+type ReverseGeocode = (point: Pick<ExplorePoint, 'latitude' | 'longitude'>) => Promise<LocationGeocodedAddress[]>;
+
+export async function resolveExplorePlaceCandidates(
+  points: ExplorePoint[],
+  reverseGeocode: ReverseGeocode = Location.reverseGeocodeAsync,
+): Promise<Place[]> {
+  const sampled = sampleRouteForDiscovery(points);
+  const results: Array<Place | null> = Array(sampled.length).fill(null);
+  let nextIndex = 0;
+  let stopped = false;
+  const worker = async () => {
+    while (!stopped && nextIndex < sampled.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      const point = sampled[index];
+      try {
+        const [placemark] = await reverseGeocode(point);
+        results[index] = placemark ? candidatePlaceFromPlacemark(placemark, point) : null;
+      } catch {
+        // One unavailable placemark must not discard the rest of the route receipt.
+      }
+    }
+  };
+  const workers = Promise.all(Array.from(
+    { length: Math.min(PLACEMARK_CONCURRENCY, sampled.length) },
+    () => worker(),
+  ));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    workers,
+    new Promise<void>((resolve) => {
+      timer = setTimeout(() => {
+        stopped = true;
+        resolve();
+      }, PLACEMARK_TIMEOUT_MS);
+    }),
+  ]);
+  if (timer) clearTimeout(timer);
+  return [...new Map(results
+    .filter((place): place is Place => Boolean(place))
+    .map((place) => [place.name.trim().toLocaleLowerCase(), place])).values()];
+}
 
 export function useExploreRecapResolver(userId: string): void {
   const resolvingSession = useExploreStore((state) =>
@@ -15,25 +62,7 @@ export function useExploreRecapResolver(userId: string): void {
     resolvingRef.current = resolvingSession.id;
     let cancelled = false;
     const resolve = async () => {
-      const reconstructedSegments = await reconstructExploreRecordedPath(resolvingSession.points);
-      if (!cancelled && reconstructedSegments.length) {
-        useExploreStore.getState().setSessionPathReconstruction(resolvingSession.id, reconstructedSegments);
-      }
-      const candidates = [];
-      const namesSeen = new Set<string>();
-      for (const point of sampleRouteForDiscovery(resolvingSession.points)) {
-        try {
-          const [placemark] = await Location.reverseGeocodeAsync(point);
-          const place = placemark ? candidatePlaceFromPlacemark(placemark, point) : null;
-          const nameKey = place?.name.trim().toLocaleLowerCase();
-          if (place && nameKey && !namesSeen.has(nameKey)) {
-            namesSeen.add(nameKey);
-            candidates.push(place);
-          }
-        } catch {
-          // A recap still resolves to its route when one Apple placemark lookup fails.
-        }
-      }
+      const candidates = await resolveExplorePlaceCandidates(resolvingSession.points);
       if (!cancelled) {
         useExploreStore.getState().resolveSessionPlaces(resolvingSession.id, candidates, userId);
       }

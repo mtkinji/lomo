@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { CapabilityMenu } from './CapabilityMenu';
-import { colors } from '../theme';
+import { colors, radii } from '../theme';
 
 type MockSwipeableProps = {
   children: import('react').ReactNode;
@@ -192,7 +192,7 @@ describe('CapabilityMenu', () => {
       minHeight: 44,
       paddingHorizontal: 20,
       gap: 8,
-      borderRadius: 22,
+      borderRadius: radii.pill,
     });
   });
 

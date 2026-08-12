@@ -23,6 +23,7 @@ import { Logo } from '../../ui/Logo';
 import { signInWithProvider, deriveAuthIdentityFromSession } from '../../services/backend/auth';
 import { checkUserHasSyncedData } from '../../services/sync/domainSync';
 import { AUTH_SIGNIN_WALLPAPERS } from '../../assets/authSignInWallpapers';
+import { KWILT_PRIVACY_URL, KWILT_TERMS_URL } from '../paywall/SubscriptionLegalLinks';
 
 export type SignInResult = {
   isReturningUser: boolean;
@@ -31,9 +32,6 @@ export type SignInResult = {
 interface SignInInterstitialProps {
   onSignInComplete: (result: SignInResult) => void;
 }
-
-const TERMS_URL = 'https://kwilt.app/terms';
-const PRIVACY_URL = 'https://kwilt.app/privacy';
 
 const CATCH_MESSAGES = [
   'Make room for\nwhat matters.',
@@ -383,9 +381,9 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
                       ) : null}
 
                       <Button
+                        variant="outline"
                         fullWidth
                         disabled={busy}
-                        style={styles.appleButton}
                         onPress={() => handleSignIn('apple')}
                         accessibilityLabel="Continue with Apple"
                       >
@@ -401,7 +399,6 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
                         variant="outline"
                         fullWidth
                         disabled={busy}
-                        style={styles.googleButton}
                         onPress={() => handleSignIn('google')}
                         accessibilityLabel="Continue with Google"
                       >
@@ -422,7 +419,7 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
                 <Text
                   accessibilityRole="link"
                   style={[styles.disclaimer, styles.legalLink]}
-                  onPress={() => openUrl(TERMS_URL)}
+                  onPress={() => openUrl(KWILT_TERMS_URL)}
                   suppressHighlighting
                 >
                   Terms of Service
@@ -431,7 +428,7 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
                 <Text
                   accessibilityRole="link"
                   style={[styles.disclaimer, styles.legalLink]}
-                  onPress={() => openUrl(PRIVACY_URL)}
+                  onPress={() => openUrl(KWILT_PRIVACY_URL)}
                   suppressHighlighting
                 >
                   Privacy Policy
@@ -510,18 +507,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
   },
-  appleButton: {
-    backgroundColor: colors.canvas,
-    borderColor: colors.border,
-  },
   appleButtonLabel: {
     ...typography.body,
     color: colors.textPrimary,
     fontWeight: '600',
-  },
-  googleButton: {
-    backgroundColor: colors.canvas,
-    borderColor: colors.border,
   },
   googleButtonLabel: {
     ...typography.body,

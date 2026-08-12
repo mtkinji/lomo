@@ -1,12 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
+import { useKeepAwake } from 'expo-keep-awake';
 import * as Notifications from 'expo-notifications';
 import { HapticsService } from '../../services/HapticsService';
 import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
 import { endLiveActivity, syncLiveActivity } from '../../services/appleEcosystem/liveActivity';
 import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
-import { startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
+import {
+  SOUNDSCAPE_FADE_DURATION_MS,
+  startSoundscapeLoop,
+  stopSoundscapeLoop,
+} from '../../services/soundscape';
 import { useAppStore } from '../../store/useAppStore';
 import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
 import {
@@ -15,6 +20,13 @@ import {
 } from './focusSessionLifecycle';
 import { focusOverlayColorKeyForIndex } from './focusOverlayPalette';
 import { useFocusSessionStore } from './focusSessionStore';
+
+const FOCUS_KEEP_AWAKE_TAG = 'kwilt-focus-session';
+
+function RunningFocusWakeLock() {
+  useKeepAwake(FOCUS_KEEP_AWAKE_TAG);
+  return null;
+}
 
 async function cancelFocusNotification(notificationId: string | null | undefined) {
   if (!notificationId) return;
@@ -151,7 +163,10 @@ export function FocusSessionRuntimeHost() {
 
     if (activeSession.mode === 'running') {
       if (soundscapeEnabled) {
-        void startSoundscapeLoop({ fadeInMs: 250, soundscapeId: soundscapeTrackId }).catch(() => undefined);
+        void startSoundscapeLoop({
+          fadeInMs: SOUNDSCAPE_FADE_DURATION_MS,
+          soundscapeId: soundscapeTrackId,
+        }).catch(() => undefined);
       } else {
         void stopSoundscapeLoop().catch(() => undefined);
       }
@@ -208,5 +223,8 @@ export function FocusSessionRuntimeHost() {
     });
   }, [activeSession, focusOverlayColorKey]);
 
-  return null;
+  const shouldKeepDisplayAwake =
+    activeSession?.mode === 'running' && !isRunningFocusSessionExpired(activeSession);
+
+  return shouldKeepDisplayAwake ? <RunningFocusWakeLock /> : null;
 }

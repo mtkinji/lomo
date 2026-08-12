@@ -164,16 +164,15 @@ never adds, removes, replaces, or finalizes a Meal Plan item.
 
 ### Recipe Home next-action dock
 
-Recipe Home reuses the complete To-do Detail dock geometry and split-action
-grammar rather than only sharing the outer `ActionDock` shell. Before a Cook
-Session exists, the dock treats ingredient readiness as the dominant next job:
+Recipe Home reuses the complete left-anchored To-do Detail dock geometry and
+split-action grammar rather than only sharing its inner content. Before a Cook
+Session exists, the dock treats durable Meal Plan membership as the dominant
+next job:
 
-- a Meal outside the Meal Plan defaults to **Get ingredients** for this Meal;
-- a Meal in a finalized Meal Plan defaults to **Get ingredients** for the whole
-  reviewed plan, with this-Meal-only scope available in the menu;
-- a Meal in an unfinished plan keeps this-Meal ingredient review available and
-  offers the Meal Plan as a separate review path rather than compiling an
-  unfinalized plan;
+- a Meal outside the Meal Plan defaults to **Add to Meal Plan**;
+- a Meal already in the Plan defaults to **Open Meal Plan**;
+- **Get ingredients** for this Meal remains in the menu, and a Meal in a
+  finalized Plan also offers the whole-Plan ingredient scope there;
 - **Start cooking**, **Continue cooking**, and explicit Meal Plan membership
   remain available according to current state, but a plus/check icon is never
   the only explanation of plan membership;
@@ -197,8 +196,8 @@ belongs to Cook Mode.
 - **Three-second read:** Meal image or intentional artwork, title and
   description, then the effort it requires.
 - **Primary action:** the state-derived next action in the shared split
-  `ActionDock`: normally **Get ingredients** before cooking and **Continue
-  cooking** during an active Cook Session.
+  `ActionDock`: normally **Add to Meal Plan**, then **Open Meal Plan** after
+  membership, and **Continue cooking** during an active Cook Session.
 - **Primary information:** title, description, time/yield facts, Ingredients,
   and Instructions.
 - **Secondary information:** private Cook learning, notes, provenance, Reviews,
@@ -262,9 +261,9 @@ without visibility or relationship leakage.
   screen-specific parallax formula remains.
 - Recipe Home uses the same `ActionDock` horizontal and bottom placement as
   To-do Detail and the same split primary/menu anatomy.
-- Before cooking, Recipe Home offers a one-Meal ingredient review without
-  silently adding the Meal to the Meal Plan; a finalized active plan also
-  offers all-plan ingredient review.
+- Before cooking, Recipe Home makes explicit Meal Plan membership primary while
+  retaining one-Meal ingredient review in the menu; a finalized active plan
+  also offers all-plan ingredient review there.
 - The batch Already-have review produces a Grocery list containing only the
   remaining needed items and preserves Recipe or Meal Plan provenance.
 - Recipe Home displays zero, one, and all active media states; a single image

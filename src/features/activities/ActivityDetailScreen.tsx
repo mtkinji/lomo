@@ -267,6 +267,8 @@ export function ActivityDetailScreen() {
   const setSoundscapeEnabled = useAppStore((state) => state.setSoundscapeEnabled);
   const soundscapeTrackId = useAppStore((state) => state.soundscapeTrackId);
   const setSoundscapeTrackId = useAppStore((state) => state.setSoundscapeTrackId);
+  const focusVideoEnvironmentId = useAppStore((state) => state.focusVideoEnvironmentId);
+  const setFocusVideoEnvironmentId = useAppStore((state) => state.setFocusVideoEnvironmentId);
   const hasShownFocusSoundscapeVolumeHint = useAppStore(
     (state) => state.hasShownFocusSoundscapeVolumeHint,
   );
@@ -2980,9 +2982,11 @@ export function ActivityDetailScreen() {
         screenTimeOffer={focusScreenTimeOfferCard}
         soundscapeEnabled={soundscapeEnabled}
         soundscapeTrackId={soundscapeTrackId}
+        focusVideoEnvironmentId={focusVideoEnvironmentId}
         overlayColorIndex={focusOverlayColorIndex}
         setSoundscapeEnabled={setSoundscapeEnabled}
         setSoundscapeTrackId={setSoundscapeTrackId}
+        setFocusVideoEnvironmentId={setFocusVideoEnvironmentId}
         setOverlayColorIndex={setFocusOverlayColorIndex}
       />
       <ActivityScheduleSheet

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Kwilt Thread Path square lead</title>
+  <desc id="desc">Three mathematically aligned diagonal paths surface and disappear within a square optical field.</desc>
+  <g fill="#315545">
+    <!-- Each diagonal is one continuous path interrupted only where the
+         imagined thread passes behind the fabric. -->
+    <path d="M32 69V45C32 37.82 37.82 32 45 32H83L58 57C49 66 41 71 32 69Z"/>
+    <path d="M32 143V116L112 36C118 30 126 28 134 32L146 38L56 128C48 136 40 141 32 143Z"/>
+    <path d="M32 224V197L111 118C119 110 127 106 136 109L150 114L64 200C52 212 42 220 32 224Z"/>
+
+    <path d="M77 224H109L224 109V77L77 224Z"/>
+    <path d="M153 224H181L224 181V149L153 220C151 222 151 224 153 224Z"/>
+    <path d="M202 224H224V202L202 224Z"/>
+  </g>
+</svg>

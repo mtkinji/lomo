@@ -44,9 +44,9 @@ When Maya chooses to record an outing, help her preserve what actually happened 
 
 ## Design
 
-For one completed Recorded Path, the existing recap makes the continuous route the visual hero, supported by a compact elevation-by-distance profile and a single Replay/Pause control. Replay progressively projects the same presentation path onto the existing map and fog renderer; a marker and profile cursor advance together. Direct chart manipulation selects the corresponding playback progress, and map manipulation pauses playback. Missing altitude breaks the profile. Reduced Motion suppresses timed animation while retaining static and adjustable inspection.
+For one completed Recorded Path, the nonmodal recap receipt offers an explicit Review action. Review opens the continuous route and makes it the visual hero, supported by a compact elevation-by-distance profile and a single Replay/Pause control. Replay progressively projects the same presentation path onto the existing map and fog renderer; a marker and profile cursor advance together. Direct chart manipulation selects the corresponding playback progress, and map manipulation pauses playback. Missing altitude breaks the profile. Reduced Motion suppresses timed animation while retaining static and adjustable inspection.
 
-Raw location samples remain private source evidence. Adjacent samples within roughly a quarter mile may be presented continuously when time, speed, and accuracy make the movement plausible. At recap resolution, bounded Apple Maps directions may replace the straight presentation segment with a validated road- or path-following reconstruction. The reconstruction is stored separately and never overwrites the recorded endpoints.
+Raw location samples remain private source evidence. Adjacent samples within roughly a quarter mile may be presented continuously when time, speed, and accuracy make the movement plausible. Only after explicit Review, bounded Apple Maps directions may replace the straight presentation segment with a validated road- or path-following reconstruction. The reconstruction is stored separately, never overwrites the recorded endpoints, and never rebuilds earned territory.
 
 The learning slice is recap-only. Combined ambient recaps, all-time playback, workout statistics, route matching, speed controls, sharing, and a session library are excluded.
 
@@ -57,11 +57,11 @@ The learning slice is recap-only. Combined ambient recaps, all-time playback, wo
 - Must show: completed route state, compact elevation profile when trustworthy, current playback position, Done.
 - Reveal later: all-time playback, Place annotations, durable Recorded Paths history.
 - Must not add: a new tab, setting, dashboard, score, speed selector, visible repair workflow, or fitness framing.
-- Reuse map: existing `MapView`, fog geometry, altitude colors, recap drawer, `Button`, `Icon`, typography, and tokens.
+- Reuse map: existing `MapView`, fog geometry, altitude colors, recap guide plus explicit review drawer, `Button`, `Icon`, typography, and tokens.
 - Behavior sources: timestamped session points; user-approved Replay plus chart scrubbing; existing recap completion semantics.
 - Unresolved decisions: none that block the learning slice; durable post-recap access is intentionally deferred.
 - Required states: completed, playing, paused/scrubbed, missing elevation, Reduce Motion, combined/non-deliberate recap, Apple reconstruction unavailable.
-- Proof path: Record a Path on a signed iPhone, lock the screen for part of the route, then Stop Recording → recap → Replay/Pause/scrub/pan/Done.
+- Proof path: Record a Path on a signed iPhone, lock the screen for part of the route, then Stop Recording → nonmodal receipt → Review → Replay/Pause/scrub/pan/Close.
 
 ## Acceptance criteria
 

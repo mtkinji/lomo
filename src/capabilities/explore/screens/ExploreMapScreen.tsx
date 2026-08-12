@@ -56,13 +56,14 @@ import {
   explorePlaybackDurationMs,
 } from '../domain/explorePlayback';
 import { displayPointsForExploreSession } from '../domain/explorePathReconstruction';
-import { pendingExploreRecap } from '../domain/exploreRecap';
+import { pendingExploreRecap, type ExploreRecap } from '../domain/exploreRecap';
 import type { ExplorePoint, ExplorePreferences, ExploreSession, Place } from '../domain/types';
 import type { ExploreStackParamList } from '../navigation/types';
 import { useExploreRecorder } from '../runtime/useExploreRecorder';
 import { useExploreNearbyPlaces } from '../runtime/useExploreNearbyPlaces';
 import { useExploreRecapResolver } from '../runtime/useExploreRecapResolver';
 import { useExploreStore } from '../runtime/useExploreStore';
+import { reconstructExploreRecordedPath } from '../runtime/explorePathReconstruction';
 
 const DEFAULT_REGION: Region = {
   latitude: 39.5,
@@ -149,9 +150,27 @@ export function ExploreMapScreen() {
   const [collectingPlace, setCollectingPlace] = useState(false);
   const [placeName, setPlaceName] = useState('');
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [reviewRecap, setReviewRecap] = useState<ExploreRecap | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(1);
   const [playbackPlaying, setPlaybackPlaying] = useState(false);
-  const playbackSessionIdRef = useRef(recapAdventureSession?.id ?? null);
+  const reconstructionSessionIdRef = useRef<string | null>(null);
+  const reviewAdventureSession = useMemo(() => {
+    if (reviewRecap?.sessionIds.length !== 1) return null;
+    const session = sessions.find((candidate) => candidate.id === reviewRecap.sessionIds[0]);
+    return session?.trackingPolicy === 'adventure' && session.points.length >= 2 ? session : null;
+  }, [reviewRecap, sessions]);
+  const reviewPlaces = useMemo(() => {
+    if (!reviewRecap) return [];
+    const selectedSessionIds = new Set(reviewRecap.sessionIds);
+    const placeIds = sessions
+      .filter((session) => selectedSessionIds.has(session.id))
+      .flatMap((session) => session.discoveredPlaceIds);
+    return [...new Map(placeIds
+      .map((placeId) => places[placeId])
+      .filter((place): place is Place => Boolean(place))
+      .map((place) => [place.id, place])).values()];
+  }, [places, reviewRecap, sessions]);
+  const playbackSessionIdRef = useRef(reviewAdventureSession?.id ?? null);
 
   const pointGroups = useMemo(
     () => pointGroupsInDisplayOrder(sessions, activeSession),
@@ -160,25 +179,25 @@ export function ExploreMapScreen() {
   const points = useMemo(() => pointGroups.flat(), [pointGroups]);
   const latestPoint = points[points.length - 1] ?? null;
   const recapRecordedPathPoints = useMemo(
-    () => recapAdventureSession ? displayPointsForExploreSession(recapAdventureSession) : [],
-    [recapAdventureSession],
+    () => reviewAdventureSession ? displayPointsForExploreSession(reviewAdventureSession) : [],
+    [reviewAdventureSession],
   );
   const playbackFrame = useMemo(
-    () => recapAdventureSession
+    () => reviewAdventureSession
       ? buildExplorePlaybackFrame(recapRecordedPathPoints, playbackProgress)
       : null,
-    [playbackProgress, recapAdventureSession, recapRecordedPathPoints],
+    [playbackProgress, recapRecordedPathPoints, reviewAdventureSession],
   );
-  const playbackActive = Boolean(recapAdventureSession && playbackFrame && playbackProgress < 1);
+  const playbackActive = Boolean(reviewAdventureSession && playbackFrame && playbackProgress < 1);
   const displayedPointGroups = useMemo(
     () => pointGroupsInDisplayOrder(
       sessions,
       activeSession,
-      playbackActive && recapAdventureSession && playbackFrame
-        ? { sessionId: recapAdventureSession.id, visiblePointCount: playbackFrame.visiblePointCount }
+      playbackActive && reviewAdventureSession && playbackFrame
+        ? { sessionId: reviewAdventureSession.id, visiblePointCount: playbackFrame.visiblePointCount }
         : null,
     ),
-    [activeSession, playbackActive, playbackFrame, recapAdventureSession, sessions],
+    [activeSession, playbackActive, playbackFrame, reviewAdventureSession, sessions],
   );
   const playbackCutoffMs = playbackActive && playbackFrame?.cutoffAt
     ? Date.parse(playbackFrame.cutoffAt)
@@ -302,22 +321,22 @@ export function ExploreMapScreen() {
   }, [controlsProgress, needsOnboarding, reduceMotion]);
 
   useEffect(() => {
-    const nextSessionId = recapAdventureSession?.id ?? null;
+    const nextSessionId = reviewAdventureSession?.id ?? null;
     if (playbackSessionIdRef.current === nextSessionId) return;
     playbackSessionIdRef.current = nextSessionId;
     if (playbackProgress !== 1) setPlaybackProgress(1);
     if (playbackPlaying) setPlaybackPlaying(false);
-  }, [playbackPlaying, playbackProgress, recapAdventureSession?.id]);
+  }, [playbackPlaying, playbackProgress, reviewAdventureSession?.id]);
 
   useEffect(() => {
-    if (!playbackPlaying || !recapAdventureSession || reduceMotion) return undefined;
+    if (!playbackPlaying || !reviewAdventureSession || reduceMotion) return undefined;
     const tickMs = 80;
-    const durationMs = explorePlaybackDurationMs(recapAdventureSession.points.length);
+    const durationMs = explorePlaybackDurationMs(reviewAdventureSession.points.length);
     const timer = setInterval(() => {
       setPlaybackProgress((current) => Math.min(1, current + tickMs / durationMs));
     }, tickMs);
     return () => clearInterval(timer);
-  }, [playbackPlaying, recapAdventureSession, reduceMotion]);
+  }, [playbackPlaying, reduceMotion, reviewAdventureSession]);
 
   useEffect(() => {
     if (playbackProgress >= 1 && playbackPlaying) setPlaybackPlaying(false);
@@ -426,7 +445,7 @@ export function ExploreMapScreen() {
   };
 
   const toggleAdventurePlayback = () => {
-    if (!recapAdventureSession || reduceMotion) return;
+    if (!reviewAdventureSession || reduceMotion) return;
     if (playbackPlaying) {
       setPlaybackPlaying(false);
       return;
@@ -444,6 +463,30 @@ export function ExploreMapScreen() {
   const scrubAdventurePlayback = (progress: number) => {
     setPlaybackPlaying(false);
     setPlaybackProgress(progress);
+  };
+
+  const openRecapReview = () => {
+    if (!recap) return;
+    const adventureSession = recapAdventureSession;
+    setReviewRecap(recap);
+    markRecapsSeen(recap.sessionIds);
+    if (
+      !adventureSession ||
+      adventureSession.reconstructedSegments?.length ||
+      reconstructionSessionIdRef.current === adventureSession.id
+    ) return;
+    reconstructionSessionIdRef.current = adventureSession.id;
+    void reconstructExploreRecordedPath(adventureSession.points)
+      .then((segments) => {
+        if (segments.length) {
+          useExploreStore.getState().setSessionPathReconstruction(adventureSession.id, segments);
+        }
+      })
+      .finally(() => {
+        if (reconstructionSessionIdRef.current === adventureSession.id) {
+          reconstructionSessionIdRef.current = null;
+        }
+      });
   };
 
   return (
@@ -975,28 +1018,47 @@ export function ExploreMapScreen() {
         </BottomDrawerScrollView>
       </BottomDrawer>
 
-      <BottomDrawer
+      <BottomGuide
         visible={Boolean(recap)}
         onClose={() => recap && markRecapsSeen(recap.sessionIds)}
-        snapPoints={['58%']}
-        hideBackdrop
+        scrim="none"
+        dynamicSizing
       >
         {recap ? (
+          <View testID="explore.recap.guide" style={styles.recapGuideContent}>
+            <View style={styles.recapHero}>
+              <Text style={styles.recapEyebrow}>Explore Recap</Text>
+              <Text style={styles.recapTitle}>Path saved to your map.</Text>
+              <Text style={styles.recapDetail}>{formatRecapDuration(recap.startedAt, recap.endedAt)}</Text>
+            </View>
+            <Text style={styles.recapStatus}>
+              {recap.resolving
+                ? 'Finding Places along your path…'
+                : recap.places.length
+                  ? formatRecapPlaces(recap.places)
+                  : 'No confidently named Place was found along this path.'}
+            </Text>
+            <View style={styles.recapGuideActions}>
+              {!recap.resolving && (recap.places.length > 0 || recapAdventureSession) ? (
+                <Button variant="ghost" size="sm" onPress={openRecapReview}>Review</Button>
+              ) : null}
+              <Button testID="explore.recap.done" size="sm" onPress={() => markRecapsSeen(recap.sessionIds)}>Done</Button>
+            </View>
+          </View>
+        ) : null}
+      </BottomGuide>
+
+      <BottomDrawer
+        visible={Boolean(reviewRecap)}
+        onClose={() => setReviewRecap(null)}
+        snapPoints={['58%']}
+      >
+        {reviewRecap ? (
           <BottomDrawerScrollView
             contentContainerStyle={[styles.recapContent, { paddingBottom: insets.bottom + spacing.lg }]}
           >
             <BottomDrawerHeader title="Explore Recap" variant="minimal" />
-            <View style={styles.recapHero}>
-              <Text style={styles.recapTitle}>
-                {recap.places.length
-                  ? `You uncovered ${recap.places.length} new ${recap.places.length === 1 ? 'Place' : 'Places'}.`
-                  : 'Your recorded path is part of the map.'}
-              </Text>
-              <Text style={styles.recapDetail}>
-                {recap.pointCount} route points · {formatRecapDuration(recap.startedAt, recap.endedAt)}
-              </Text>
-            </View>
-            {recapAdventureSession ? (
+            {reviewAdventureSession ? (
               <ExploreAdventureRecap
                 points={recapRecordedPathPoints}
                 progress={playbackProgress}
@@ -1006,9 +1068,9 @@ export function ExploreMapScreen() {
                 onProgressChange={scrubAdventurePlayback}
               />
             ) : null}
-            {recap.places.length ? (
+            {reviewPlaces.length ? (
               <View style={styles.recapPlaces}>
-                {recap.places.map((place, index) => (
+                {reviewPlaces.map((place, index) => (
                   <View key={place.id} style={styles.recapPlaceRow}>
                     <View style={styles.recapPlaceNumber}><Text style={styles.recapPlaceNumberText}>{index + 1}</Text></View>
                     <Text style={styles.recapPlaceName}>{place.name}</Text>
@@ -1016,7 +1078,7 @@ export function ExploreMapScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`Remove ${place.name} from this recap`}
                       hitSlop={8}
-                      onPress={() => removeDiscoveredPlaceFromRecaps(recap.sessionIds, place.id, localUserId)}
+                      onPress={() => removeDiscoveredPlaceFromRecaps(reviewRecap.sessionIds, place.id, localUserId)}
                       style={({ pressed }) => pressed ? styles.pressed : null}
                     >
                       <Icon name="close" size={18} color={colors.textSecondary} />
@@ -1024,22 +1086,10 @@ export function ExploreMapScreen() {
                   </View>
                 ))}
               </View>
-            ) : (
-              <Text style={styles.recapEmpty}>No confidently named Place was found along this path.</Text>
-            )}
-            <Button testID="explore.recap.done" size="lg" onPress={() => markRecapsSeen(recap.sessionIds)}>Done</Button>
+            ) : null}
+            <Button size="lg" onPress={() => setReviewRecap(null)}>Close</Button>
           </BottomDrawerScrollView>
         ) : null}
-      </BottomDrawer>
-
-      <BottomDrawer visible={Boolean(resolvingSession) && !recap} onClose={() => undefined} snapPoints={['32%']}>
-        <View style={[styles.resolvingContent, { paddingBottom: insets.bottom + spacing.lg }]}>
-          <View style={styles.recapIcon}>
-            <Icon name="pin" size={24} color={colors.pine800} />
-          </View>
-          <Text style={styles.recapTitle}>Finishing your recap…</Text>
-          <Text style={styles.recapEmpty}>Checking a few points on your route for confidently named Places.</Text>
-        </View>
       </BottomDrawer>
     </View>
   );
@@ -1051,6 +1101,14 @@ function formatRecapDuration(startedAt: string, endedAt: string): string {
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`;
+}
+
+function formatRecapPlaces(places: Place[]): string {
+  const visibleNames = places.slice(0, 3).map((place) => place.name);
+  const remainingCount = places.length - visibleNames.length;
+  return remainingCount > 0
+    ? `${visibleNames.join(' · ')} · +${remainingCount} more`
+    : visibleNames.join(' · ');
 }
 
 function formatNearbyDistance(distanceM: number): string {
@@ -1301,15 +1359,16 @@ const styles = StyleSheet.create({
   placeInput: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.fieldFill, color: colors.textPrimary, paddingHorizontal: spacing.md, ...typography.bodySm },
   collectActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
   recapContent: { paddingHorizontal: spacing.lg, gap: spacing.md },
+  recapGuideContent: { gap: spacing.md, paddingBottom: spacing.lg },
   recapHero: { alignItems: 'flex-start' },
-  recapIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pine50 },
+  recapEyebrow: { ...typography.bodyXs, fontFamily: fonts.medium, color: colors.textSecondary },
   recapTitle: { ...typography.titleSm, color: colors.textPrimary },
   recapDetail: { ...typography.bodySm, color: colors.textSecondary, marginTop: spacing.xs },
+  recapStatus: { ...typography.bodySm, color: colors.textSecondary, lineHeight: 21 },
+  recapGuideActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
   recapPlaces: { gap: spacing.xs },
   recapPlaceRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   recapPlaceNumber: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.turmeric100 },
   recapPlaceNumberText: { ...typography.bodyXs, fontFamily: fonts.medium, color: colors.sumi900 },
   recapPlaceName: { ...typography.body, flex: 1, color: colors.textPrimary },
-  recapEmpty: { ...typography.bodySm, color: colors.textSecondary, textAlign: 'center', lineHeight: 21 },
-  resolvingContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, alignItems: 'center', gap: spacing.sm },
 });

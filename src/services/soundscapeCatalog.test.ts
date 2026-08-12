@@ -1,21 +1,25 @@
-import { SOUND_SCAPES, soundscapesByKind } from './soundscapeCatalog';
+import {
+  SOUND_SCAPES,
+  normalizeFocusVideoEnvironmentId,
+  normalizeSoundscapeId,
+} from './soundscapeCatalog';
 
 describe('Focus soundscape catalog', () => {
-  it('groups every soundscape into the stable Music and Nature sections', () => {
-    expect(soundscapesByKind()).toEqual(
-      [
-        { kind: 'music', title: 'Music' },
-        { kind: 'nature', title: 'Nature' },
-      ]
-        .map((section) => ({
-          ...section,
-          soundscapes: SOUND_SCAPES.filter((soundscape) => soundscape.kind === section.kind),
-        }))
-        .filter((section) => section.soundscapes.length > 0),
-    );
+  it('offers one flat list without Forest Stream', () => {
+    expect(SOUND_SCAPES.map((soundscape) => soundscape.title)).not.toContain('Forest Stream');
+    expect(SOUND_SCAPES).toContainEqual({ id: 'canyonSpring', title: 'Canyon Spring' });
+    expect(SOUND_SCAPES.every((soundscape) => !('kind' in soundscape))).toBe(true);
   });
 
-  it('does not return empty sections while the catalog is rolling out', () => {
-    expect(soundscapesByKind().every((section) => section.soundscapes.length > 0)).toBe(true);
+  it('moves a retired Forest Stream preference to Quiet Rain', () => {
+    expect(normalizeSoundscapeId('forestStream')).toBe('quietRain');
+    expect(normalizeSoundscapeId('oceanWaves')).toBe('oceanWaves');
+    expect(normalizeSoundscapeId('not-a-track')).toBe('default');
+  });
+
+  it('keeps video-environment identity independent from audio mute state', () => {
+    expect(normalizeFocusVideoEnvironmentId('canyonSpring')).toBe('canyonSpring');
+    expect(normalizeFocusVideoEnvironmentId('quietRain')).toBeNull();
+    expect(normalizeFocusVideoEnvironmentId(null)).toBeNull();
   });
 });

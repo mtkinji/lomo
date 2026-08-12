@@ -29,16 +29,11 @@ export function sortPlanCandidates<T extends PlanOrderCandidate>(candidates: rea
 }
 
 export function reconcilePlanCandidateOrder<T extends PlanOrderCandidate>(
-  currentIds: readonly string[],
+  _currentIds: readonly string[],
   candidates: readonly T[],
-  reason: 'open' | 'lifecycle' | 'reaction',
+  _reason: 'open' | 'lifecycle' | 'reaction',
 ): string[] {
-  const sortedIds = sortPlanCandidates(candidates).map((candidate) => candidate.id);
-  if (reason !== 'reaction' || currentIds.length === 0) return sortedIds;
-  const available = new Set(sortedIds);
-  const retained = currentIds.filter((id) => available.has(id));
-  const retainedSet = new Set(retained);
-  return [...retained, ...sortedIds.filter((id) => !retainedSet.has(id))];
+  return sortPlanCandidates(candidates).map((candidate) => candidate.id);
 }
 
 export function groupPlanCandidates<T extends PlanOrderCandidate>(candidates: readonly T[]) {

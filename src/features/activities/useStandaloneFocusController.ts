@@ -59,6 +59,11 @@ export function useStandaloneFocusController(params: {
       useAppStore.getState().setSoundscapeEnabled(true);
       useAppStore.getState().setSoundscapeTrackId(audio);
     }
+    if (audio !== undefined) {
+      useAppStore.getState().setFocusVideoEnvironmentId(
+        audio === 'canyonSpring' ? 'canyonSpring' : null,
+      );
+    }
     const replaced = useFocusSessionStore.getState().endSession();
     await cancelNotification(replaced?.notificationId);
     if (audio !== 'none') {

@@ -67,6 +67,17 @@ describe('buildWorkbenchSnapshot', () => {
     })]);
   });
 
+  test('projects contextual offers into a fresh drawer snapshot', () => {
+    const offers = [{
+      id: 'recipe-swap',
+      title: 'Swap an ingredient',
+      cue: 'Keep the recipe working',
+      prompt: 'Help me substitute an ingredient in this recipe.',
+    }];
+
+    expect(buildFreshWorkbenchSnapshot('', { offers }).offers).toEqual(offers);
+  });
+
   test('projects a calm Kwilt configuration with an ordered transcript', () => {
     const snapshot = buildWorkbenchSnapshot(aggregate, 'draft text');
 

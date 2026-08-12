@@ -13,6 +13,21 @@ Kwilt Goals and Kwilt Money currently use different drawer patterns because they
 
 Share the drawer mechanics. Vary the drawer anatomy by job.
 
+Standard task, choice, action, detail, and progressive drawers share one
+canonical top frame:
+
+- The sheet itself has no top padding before the handle region.
+- The grab handle sits `spacing.sm` below the sheet edge and
+  `spacing.xs` above the header or body.
+- The standard handle is 64 by 5 points with the pill radius token.
+- `BottomDrawerHeader` uses `typography.titleSm` for the drawer title.
+- One layer owns each horizontal gutter; callers must not stack sheet padding
+  and body padding to approximate the standard frame.
+
+The compact title is the drawer header, not a limit on expressive content.
+Interstitial content may still contain a larger message heading below its
+intentional brand-aware frame.
+
 The shared package should eventually own:
 
 - `BottomDrawer` mechanics: snap points, scrim, keyboard avoidance, safe-area handling, drag-to-dismiss, scroll gesture coordination.
@@ -26,6 +41,26 @@ Apps should keep local:
 - Domain-specific rows such as transaction category options, rule suggestions, goal/activity pickers, and forecast explanations.
 - Domain-specific copy tone and ordering.
 - Whole workflow composition when the drawer is tied to a product object.
+
+## Explicit Exceptions
+
+Exceptions should be selected by anatomy, not recreated with incidental local
+padding:
+
+- Conversation drawers, such as Chat, may use edge-to-edge body content while
+  retaining the standard rounded frame and in-flow high handle.
+- Branded interstitials and Games surfaces may localize color and expressive
+  typography while retaining shared mechanics.
+- Keyboard docks and inline composers may intentionally hide the handle when
+  they are manipulated through their owning input surface.
+- Compact floating guides with an explicit `BottomDrawerHeader` close action
+  may hide drag chrome through `BottomGuide.showDragHandle={false}`; dismissal
+  remains owned by the header instead of a second, redundant affordance.
+- Full-screen setup flows may replace the standard header with progress and
+  policy controls when that is the actual interaction model.
+
+Ordinary drawers should not override handle-region spacing or promote the
+header to `titleMd` or `titleLg`.
 
 ## Drawer Types
 
@@ -75,11 +110,14 @@ Goals should keep the heavier task-drawer pattern for surfaces like filters, sor
 
 Do not force Money's compact picker anatomy onto these task surfaces.
 
-## Open Decision
+## Canonical Direction
 
-The likely canonical path is:
+The product-owner decision is:
 
-1. Promote `BottomDrawer` mechanics from Goals.
+1. Keep `BottomDrawer` mechanics canonical and make the high-handle frame its
+   standard chrome.
 2. Add a shared `DrawerChoicePicker` variant informed by Money.
 3. Keep product-specific row rendering local through slots.
-4. Add Storybook examples for each drawer type before migrating app code.
+4. Use the shared compact `BottomDrawerHeader` for ordinary drawers.
+5. Keep Storybook examples tied to the production drawer chrome tokens while
+   migrating remaining manual headers and raw modal sheets.

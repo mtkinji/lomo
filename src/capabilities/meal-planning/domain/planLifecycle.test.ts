@@ -18,9 +18,11 @@ describe('household Plan lifecycle ordering', () => {
     ]);
   });
 
-  it('keeps the tapped row stable for reaction-only changes', () => {
+  it('accepts the server-ranked order after a reaction changes relative support', () => {
     const current = ['ready-one', 'sent-one', 'sent-new', 'idea-popular', 'idea-new', 'idea-downvoted'];
-    expect(reconcilePlanCandidateOrder(current, candidates, 'reaction')).toEqual(current);
+    expect(reconcilePlanCandidateOrder(current, candidates, 'reaction')).toEqual([
+      'ready-one', 'sent-new', 'sent-one', 'idea-popular', 'idea-new', 'idea-downvoted',
+    ]);
     expect(reconcilePlanCandidateOrder(current, candidates, 'lifecycle')).toEqual([
       'ready-one', 'sent-new', 'sent-one', 'idea-popular', 'idea-new', 'idea-downvoted',
     ]);

@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { createStore, type StateCreator } from 'zustand/vanilla';
 
 import { recipeCache, type RecipeCache, type RecipeProjection } from '../data/recipeCache';
+import { catalogMediaCache, type CatalogMediaCache } from '../data/catalogMediaCache';
+import { createCatalogMediaRepository, type CatalogMediaRepository } from '../data/catalogMediaRepository';
+import { replaceHostedCatalogMedia } from '../data/catalogMediaOverlay';
 import {
   applyPendingRecipeVersions,
   recipeOfflineQueue,
@@ -33,7 +36,14 @@ function shouldQueueRecipeSave(error: unknown): boolean {
   return /offline|network|fetch|timeout|connection/i.test(message);
 }
 
-function initializer(repository: RecipeRepository, cache: RecipeCache, queue: RecipeOfflineQueue): StateCreator<RecipeStoreState> {
+type HostedMediaDependencies = { repository: CatalogMediaRepository; cache: CatalogMediaCache };
+
+function initializer(
+  repository: RecipeRepository,
+  cache: RecipeCache,
+  queue: RecipeOfflineQueue,
+  hostedMedia: HostedMediaDependencies | null = null,
+): StateCreator<RecipeStoreState> {
   return (set, get) => ({
     userId: null,
     recipes: [],
@@ -42,10 +52,16 @@ function initializer(repository: RecipeRepository, cache: RecipeCache, queue: Re
     pendingCount: 0,
     pendingRecipeIds: [],
     async setIdentity(userId) {
+      replaceHostedCatalogMedia([], { allowEmpty: true });
       set({ userId, recipes: [], status: 'idle', error: null, pendingCount: 0, pendingRecipeIds: [] });
       if (!userId) return;
-      const [cached, pending] = await Promise.all([cache.read(userId), queue.read(userId)]);
+      const [cached, pending, hosted] = await Promise.all([
+        cache.read(userId),
+        queue.read(userId),
+        hostedMedia?.cache.read(userId) ?? Promise.resolve([]),
+      ]);
       if (get().userId !== userId) return;
+      replaceHostedCatalogMedia(hosted);
       const available = applyPendingRecipeVersions(cached, pending);
       set({
         recipes: available,
@@ -62,7 +78,14 @@ function initializer(repository: RecipeRepository, cache: RecipeCache, queue: Re
       set({ status: hasCached ? 'refreshing' : 'idle', error: null });
       try {
         const sync = await reconcileRecipeOfflineQueue({ userId, queue, save: repository.save });
-        const canonical = await repository.list();
+        const [canonical, hostedResult] = await Promise.all([
+          repository.list(),
+          hostedMedia?.repository.list().catch(() => []) ?? Promise.resolve([]),
+        ]);
+        if (hostedResult.length) {
+          replaceHostedCatalogMedia(hostedResult);
+          await hostedMedia?.cache.write(userId, hostedResult);
+        }
         const pending = await queue.read(userId);
         const recipes = applyPendingRecipeVersions(canonical, pending);
         if (get().userId !== userId) return;
@@ -129,8 +152,13 @@ function initializer(repository: RecipeRepository, cache: RecipeCache, queue: Re
   });
 }
 
-export function createRecipeStore(repository: RecipeRepository, cache: RecipeCache, queue: RecipeOfflineQueue = recipeOfflineQueue) {
-  return createStore<RecipeStoreState>(initializer(repository, cache, queue));
+export function createRecipeStore(
+  repository: RecipeRepository,
+  cache: RecipeCache,
+  queue: RecipeOfflineQueue = recipeOfflineQueue,
+  hostedMedia: HostedMediaDependencies | null = null,
+) {
+  return createStore<RecipeStoreState>(initializer(repository, cache, queue, hostedMedia));
 }
 
 const lazyRecipeRepository: RecipeRepository = {
@@ -139,4 +167,11 @@ const lazyRecipeRepository: RecipeRepository = {
   delete: (recipeId, expectedVersion) => createRecipeRepository().delete(recipeId, expectedVersion),
 };
 
-export const useRecipeStore = create<RecipeStoreState>(initializer(lazyRecipeRepository, recipeCache, recipeOfflineQueue));
+const hostedMediaDependencies: HostedMediaDependencies = {
+  repository: { list: () => createCatalogMediaRepository().list() },
+  cache: catalogMediaCache,
+};
+
+export const useRecipeStore = create<RecipeStoreState>(
+  initializer(lazyRecipeRepository, recipeCache, recipeOfflineQueue, hostedMediaDependencies),
+);

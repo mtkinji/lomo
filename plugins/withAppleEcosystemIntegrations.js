@@ -2541,6 +2541,8 @@ struct KwiltFocusLiveActivityView: View {
 
         Spacer(minLength: 8)
         KwiltFocusTimerLabel(context: context, palette: palette)
+          .fixedSize(horizontal: true, vertical: false)
+          .frame(minWidth: 88, alignment: .trailing)
           .layoutPriority(1)
       }
 
@@ -2561,6 +2563,7 @@ struct KwiltFocusLiveActivityView: View {
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 12)
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 }
 

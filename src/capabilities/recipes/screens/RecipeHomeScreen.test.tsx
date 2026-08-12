@@ -10,6 +10,10 @@ import {
 } from "./RecipeHomeScreen";
 import { deriveRecipeNextActions } from "../domain/recipeNextAction";
 
+jest.mock("../../../features/unifiedChat/UnifiedChatDrawer", () => ({
+  UnifiedChatDrawer: () => null,
+}));
+
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
@@ -99,7 +103,25 @@ describe("Recipe Home", () => {
     expect(onShare).toHaveBeenCalledTimes(1);
   });
 
-  it("makes ingredient preparation the next action and keeps recipe ingredients checkable", () => {
+  it('keeps contextual Chat in the Action Dock instead of crowding the object header', () => {
+    const screen = render(
+      <RecipeHomeView
+        projection={{
+          recipe: recipeContractFixture(),
+          currentVersion: recipeVersionContractFixture(),
+        }}
+        servings={4}
+        {...defaultRecipeHomeDockProps}
+        onServingsChange={jest.fn()}
+        onMore={jest.fn()}
+        onChat={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Chat about this meal')).toBeTruthy();
+  });
+
+  it("makes Meal Plan membership the next action and keeps recipe ingredients checkable", () => {
     const onDockAction = jest.fn();
     const actions = deriveRecipeNextActions({ activeCook: false, isInPlan: false, planState: null });
     const screen = render(
@@ -117,8 +139,8 @@ describe("Recipe Home", () => {
         onMore={jest.fn()}
       />,
     );
-    fireEvent.press(screen.getByText("Get ingredients"));
-    expect(onDockAction).toHaveBeenCalledWith("get_this_meal", "primary");
+    fireEvent.press(screen.getByText("Add to Meal Plan"));
+    expect(onDockAction).toHaveBeenCalledWith("add_to_plan", "primary");
     expect(screen.queryByTestId("recipe-plan-toggle")).toBeNull();
     expect(screen.getByText("What this recipe takes")).toBeTruthy();
     expect(screen.getByText("Total")).toBeTruthy();

@@ -41,6 +41,24 @@ export type MealPlanProjection = {
   updatedAt: string;
 };
 
+export type GuestMealFeedbackSummary = {
+  candidates: Array<{ id: string; title: string }>;
+  invites: Array<{
+    id: string;
+    state: 'active' | 'expired' | 'revoked';
+    expiresAt: string;
+    responseCount: number;
+    responses: Array<{
+      id: string;
+      displayName: string | null;
+      selectedCandidateIds: string[];
+      pass: boolean;
+      suggestion: string | null;
+      updatedAt: string;
+    }>;
+  }>;
+};
+
 type VersionedMealPlanRow = {
   plan_version?: unknown;
   position?: unknown;
@@ -130,11 +148,28 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
     withdrawSharedCandidate(candidateId: string) {
       return rpc(client, 'withdraw_kwilt_shared_meal_candidate', { p_candidate_id: candidateId });
     },
-    setSharedReaction(candidateId: string, reaction: PlanReaction | null) {
-      return rpc(client, 'set_kwilt_shared_meal_reaction', { p_candidate_id: candidateId, p_reaction: reaction });
+    setSharedReaction(candidateId: string, reaction: PlanReaction | null, reason: string | null = null) {
+      return rpc(client, 'set_kwilt_shared_meal_reaction', {
+        p_candidate_id: candidateId,
+        p_reaction: reaction,
+        ...(reason === null ? {} : { p_reason: reason }),
+      });
     },
-    async sendSharedCandidates(planId: string, expectedVersion: number, candidateIds: string[]) {
-      const { data, error } = await client.functions.invoke('grocery-compile', { body: { planAction: 'send', planId, expectedVersion, candidateIds } });
+    async sendSharedCandidates(
+      planId: string,
+      expectedVersion: number,
+      candidateIds: string[],
+      options?: { acknowledgeHardPasses?: boolean },
+    ) {
+      const { data, error } = await client.functions.invoke('grocery-compile', {
+        body: {
+          planAction: 'send',
+          planId,
+          expectedVersion,
+          candidateIds,
+          ...(options?.acknowledgeHardPasses ? { acknowledgeHardPasses: true } : {}),
+        },
+      });
       if (error) throw new Error(error.message);
       return (data as { receipt: { planId: string; version: number; groceryListId: string; revision: number } }).receipt;
     },
@@ -162,6 +197,19 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
     },
     openRound(input: { planId: string; expectedVersion: number; participantMembershipIds: string[]; closesAt: string | null }) {
       return rpc(client, 'open_kwilt_meal_choice_round', { p_plan_id: input.planId, p_expected_version: input.expectedVersion, p_participant_membership_ids: input.participantMembershipIds, p_closes_at: input.closesAt });
+    },
+    async createGuestFeedbackInvite(input: { planId: string; expectedVersion: number; expiresAt: string | null }): Promise<{ inviteId: string; token: string; expiresAt: string }> {
+      return await rpc(client, 'create_kwilt_guest_meal_feedback_invite', {
+        p_plan_id: input.planId,
+        p_expected_version: input.expectedVersion,
+        p_expires_at: input.expiresAt,
+      }) as { inviteId: string; token: string; expiresAt: string };
+    },
+    revokeGuestFeedbackInvite(inviteId: string) {
+      return rpc(client, 'revoke_kwilt_guest_meal_feedback_invite', { p_invite_id: inviteId });
+    },
+    async getGuestFeedbackSummary(planId: string): Promise<GuestMealFeedbackSummary> {
+      return await rpc(client, 'get_kwilt_guest_meal_feedback_summary', { p_plan_id: planId }) as GuestMealFeedbackSummary;
     },
     projection(roundId: string) { return rpc(client, 'get_kwilt_meal_choice_projection', { p_round_id: roundId }); },
     submitResponse(input: { roundId: string; expectedRoundVersion: number; selectedCandidateIds: string[]; pass: boolean; suggestion: string | null; availableCandidateIds?: string[]; selectionLimit?: number }) {

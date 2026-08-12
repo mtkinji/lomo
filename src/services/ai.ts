@@ -2119,14 +2119,9 @@ export async function generateArcHeroImage(
   });
   devLog('heroImage:apiKey', describeKey(apiKey));
 
-  const fallbackUrl = `https://picsum.photos/seed/${encodeURIComponent(
-    params.arcName || 'arc'
-  )}/1200/800`;
-
   if (!apiKey) {
-    console.warn('OPENAI_API_KEY missing – using placeholder hero image.');
     devLog('heroImage:fallback-no-key', { reason: 'missing_api_key' });
-    return fallbackUrl;
+    throw new Error('Arc image generation is unavailable.');
   }
 
   try {
@@ -2134,13 +2129,13 @@ export async function generateArcHeroImage(
     devLog('heroImage:success', { urlPreview: previewText(url) });
     return url;
   } catch (err) {
-    console.warn('OpenAI hero image request failed, using placeholder.', err);
+    console.warn('OpenAI hero image request failed.', err);
     logNetworkErrorDetails('images', err);
     devLog('heroImage:error', {
       message: err instanceof Error ? err.message : String(err),
       name: err instanceof Error ? err.name : undefined,
     });
-    return fallbackUrl;
+    throw new Error('Arc image generation is unavailable.');
   }
 }
 

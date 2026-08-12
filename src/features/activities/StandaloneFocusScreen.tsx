@@ -35,6 +35,7 @@ export function StandaloneFocusScreen() {
   const soundscapeTrackId = useAppStore((state) => state.soundscapeTrackId);
   const setSoundscapeEnabled = useAppStore((state) => state.setSoundscapeEnabled);
   const setSoundscapeTrackId = useAppStore((state) => state.setSoundscapeTrackId);
+  const focusVideoEnvironmentId = useAppStore((state) => state.focusVideoEnvironmentId);
   const controller = useStandaloneFocusController({ maxMinutes, soundscapeTrackId });
   const [minutes, setMinutes] = useState(25);
   const [customExpanded, setCustomExpanded] = useState(false);
@@ -46,9 +47,9 @@ export function StandaloneFocusScreen() {
   useEffect(() => {
     setMinutes(clampFocusMinutes(lastFocusMinutes ?? 25, maxMinutes));
     setCustomExpanded(false);
-    setAudio(soundscapeEnabled ? soundscapeTrackId : 'none');
+    setAudio(focusVideoEnvironmentId ?? (soundscapeEnabled ? soundscapeTrackId : 'none'));
     setStarting(false);
-  }, [lastFocusMinutes, maxMinutes, soundscapeEnabled, soundscapeTrackId]);
+  }, [focusVideoEnvironmentId, lastFocusMinutes, maxMinutes, soundscapeEnabled, soundscapeTrackId]);
 
   const close = () => {
     if (navigation.canGoBack()) {
@@ -80,7 +81,7 @@ export function StandaloneFocusScreen() {
       </HStack>
       <VStack space="xs" style={pageStyles.intro}>
         <Text style={pageStyles.title}>Focus</Text>
-        <Text style={pageStyles.description}>Choose how long and what you want to hear.</Text>
+        <Text style={pageStyles.description}>Choose how long and where you want to focus.</Text>
       </VStack>
       <FocusSetupContent
         minutes={minutes}

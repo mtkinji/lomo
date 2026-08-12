@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { colors, spacing } from '../../../theme';
+import { colors, radii, spacing } from '../../../theme';
 import { Icon } from '../../../ui/Icon';
 import { Text } from '../../../ui/Typography';
 import { MealPlanAttentionBadge } from './MealPlanAttentionBadge';

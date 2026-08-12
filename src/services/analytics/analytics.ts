@@ -10,33 +10,44 @@ export type AnalyticsProps = Record<
 
 type PosthogProps = Record<string, string | number | boolean | null>;
 
-const REDACT_KEYS = new Set([
-  'prompt',
-  'message',
-  'messages',
-  'text',
-  'description',
-  'narrative',
-  'notes',
-  'coachContextRaw',
-  'coachContextSummary',
-  'identitySummary',
-  'email',
-  'fullName',
-]);
+const SENSITIVE_KEY = /(?:^|_)(?:access_?token|audio|balance|calendar|coordinate|description|email|error|grocery|health|ingredient|invite_(?:code|token)|latitude|location|longitude|merchant|message|narrative|notes?|path|prompt|recipe|secret|text|title|transaction|transcript)(?:$|_)/i;
+const SENSITIVE_CAMEL_KEY = /(?:accessToken|calendarEvent|coachContext|fullName|groceryItem|healthSummary|inviteCode|inviteToken|messageBody|precisePath|recipeText)/;
+const SENSITIVE_AMOUNT_KEY = /(?:amount|income|expense)(?:_|[A-Z]|$)/;
 
-function sanitizeProps(props: AnalyticsProps | undefined): PosthogProps | undefined {
+const SAFE_STRING_KEY = /^(?:action|app_env|capability|capability_id|channel|code|error_code|event_name|job_intent|kind|method|mode|next_status|outcome|platform|product_id|provider|reason|route_name|source|source_kind|source_type|sourceType|state|status|store|surface|target_route|trigger|type|variant|visibilityContract|visibility_contract)$/;
+const SAFE_IDENTIFIER_KEY = /(?:_id|Id)$/;
+const SAFE_HASH_KEY = /(?:_hash|Hash)$/;
+
+function isSensitiveAnalyticsKey(key: string): boolean {
+  if (key === 'error_code') return false;
+
+  return (
+    SENSITIVE_KEY.test(key) ||
+    SENSITIVE_CAMEL_KEY.test(key) ||
+    SENSITIVE_AMOUNT_KEY.test(key)
+  );
+}
+
+export function sanitizeAnalyticsProps(
+  props: AnalyticsProps | undefined,
+): PosthogProps | undefined {
   if (!props) return undefined;
   const next: PosthogProps = {};
 
   for (const [key, value] of Object.entries(props)) {
     if (!key) continue;
-    if (REDACT_KEYS.has(key)) continue;
+    if (isSensitiveAnalyticsKey(key)) continue;
     if (value === undefined) continue;
 
     if (typeof value === 'string') {
-      // Avoid shipping user-entered free-form text. Keep only short identifiers.
       if (value.length > 120) continue;
+      if (
+        !SAFE_STRING_KEY.test(key) &&
+        !SAFE_IDENTIFIER_KEY.test(key) &&
+        !SAFE_HASH_KEY.test(key)
+      ) {
+        continue;
+      }
       next[key] = value;
       continue;
     }
@@ -63,7 +74,7 @@ export function track(
   try {
     posthog.capture(event, {
       ...baseProps,
-      ...(sanitizeProps(props) ?? {}),
+      ...(sanitizeAnalyticsProps(props) ?? {}),
     });
   } catch (error) {
     if (__DEV__) {
@@ -80,12 +91,10 @@ export function identify(
   if (!posthog) return;
 
   try {
-    posthog.identify(distinctId, sanitizeProps(props));
+    posthog.identify(distinctId, sanitizeAnalyticsProps(props));
   } catch (error) {
     if (__DEV__) {
       console.warn('[analytics] posthog identify failed', error);
     }
   }
 }
-
-

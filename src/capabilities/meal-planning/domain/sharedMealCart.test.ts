@@ -1,4 +1,6 @@
 import {
+  PLAN_HARD_PASS_REACTION,
+  PLAN_NEGATIVE_REACTION_OPTIONS,
   PLAN_POSITIVE_REACTION_OPTIONS,
   PLAN_REACTION_OPTIONS,
   optimisticallySetSharedMealReaction,
@@ -35,9 +37,11 @@ describe('shared household Plan projection', () => {
     expect(() => parseSharedMealCartProjection({ householdId: 'household-1', activeCount: 1, viewer: {}, candidates: [{ id: 'candidate-1', voteCount: 4 }] })).toThrow('Invalid shared Meal Cart projection.');
   });
 
-  it('offers five positive reactions plus one visible downvote and optimistically keeps one response per person', () => {
+  it('offers balanced positive and negative reactions plus one reasoned hard pass', () => {
     expect(PLAN_POSITIVE_REACTION_OPTIONS.map((reaction) => reaction.id)).toEqual(['thumbs_up', 'heart', 'yum', 'excited', 'fire']);
-    expect(PLAN_REACTION_OPTIONS.map((reaction) => reaction.id)).toEqual(['thumbs_up', 'heart', 'yum', 'excited', 'fire', 'downvote']);
+    expect(PLAN_NEGATIVE_REACTION_OPTIONS.map((reaction) => reaction.id)).toEqual(['downvote', 'uneasy', 'gross', 'nope', 'dislike']);
+    expect(PLAN_HARD_PASS_REACTION).toMatchObject({ id: 'hard_pass', emoji: '🚫' });
+    expect(PLAN_REACTION_OPTIONS).toHaveLength(11);
     const cart = parseSharedMealCartProjection({
       planId: 'plan-1', householdId: 'household-1', version: 3, state: 'draft', activeCount: 2, groceryListId: null,
       viewer: { personId: 'person-owner', role: 'owner', canAdd: true, canManage: true },
@@ -66,5 +70,23 @@ describe('shared household Plan projection', () => {
 
     const switchedNegative = optimisticallySetSharedMealReaction(switchedPositive, 'candidate-1', 'downvote');
     expect(switchedNegative.candidates[0]).toMatchObject({ voteCount: 0, downvoteCount: 1, viewerReaction: 'downvote', reactionCounts: { thumbs_up: 0, downvote: 1 } });
+
+    const hardPassed = optimisticallySetSharedMealReaction(switchedNegative, 'candidate-1', 'hard_pass', '  Mushrooms  ');
+    expect(hardPassed.candidates[0]).toMatchObject({
+      voteCount: 0,
+      downvoteCount: 0,
+      hardPassCount: 1,
+      requiresHardPassReview: true,
+      viewerReaction: 'hard_pass',
+      viewerReactionReason: 'Mushrooms',
+      reactionCounts: { downvote: 0, hard_pass: 1 },
+    });
+
+    const reasonChanged = optimisticallySetSharedMealReaction(hardPassed, 'candidate-1', 'hard_pass', 'Texture');
+    expect(reasonChanged.candidates[0]).toMatchObject({
+      hardPassCount: 1,
+      viewerReactionReason: 'Texture',
+      reactionCounts: { hard_pass: 1 },
+    });
   });
 });
