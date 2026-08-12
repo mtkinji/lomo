@@ -1,4 +1,5 @@
 import {
+  PLAN_REACTION_OPTIONS,
   optimisticallySetSharedMealReaction,
   parseSharedMealCartProjection,
 } from './sharedMealCart';
@@ -9,13 +10,14 @@ describe('shared household Plan projection', () => {
       planId: 'plan-1', householdId: 'household-1', version: 3, state: 'draft', activeCount: 2, groceryListId: 'list-1',
       viewer: { personId: 'person-owner', role: 'owner', canAdd: true, canManage: true },
       candidates: [
-        { id: 'candidate-2', kind: 'meal_note', title: 'Second', recipeSnapshot: null, position: 1, createdAt: '2026-08-11T02:00:00Z', lifecycle: 'sent', sentAt: '2026-08-11T03:00:00Z', missingItemCount: 1, voteCount: 2, contributor: { personId: 'person-owner', displayName: 'Maya' }, supporters: [{ personId: 'person-owner', displayName: 'Maya' }, { personId: 'person-2', displayName: 'Sam' }], viewerReacted: true, canReact: true, canRemove: true, canMarkMade: true },
-        { id: 'candidate-1', kind: 'recipe', title: 'First', recipeSnapshot: {}, position: 0, createdAt: '2026-08-11T01:00:00Z', lifecycle: 'idea', sentAt: null, missingItemCount: null, voteCount: 1, contributor: { personId: 'person-2', displayName: 'Sam' }, supporters: [{ personId: 'person-2', displayName: 'Sam' }], viewerReacted: false, canReact: true, canRemove: true, canMarkMade: false },
+        { id: 'candidate-2', kind: 'meal_note', title: 'Second', recipeSnapshot: null, position: 1, createdAt: '2026-08-11T02:00:00Z', lifecycle: 'sent', sentAt: '2026-08-11T03:00:00Z', missingItemCount: 1, voteCount: 2, reactionCounts: { thumbs_up: 1, heart: 1, yum: 0, excited: 0, fire: 0 }, contributor: { personId: 'person-owner', displayName: 'Maya' }, supporters: [{ personId: 'person-owner', displayName: 'Maya', reaction: 'heart' }, { personId: 'person-2', displayName: 'Sam', reaction: 'thumbs_up' }], viewerReaction: 'heart', canReact: true, canRemove: true, canMarkMade: true },
+        { id: 'candidate-1', kind: 'recipe', title: 'First', recipeSnapshot: {}, position: 0, createdAt: '2026-08-11T01:00:00Z', lifecycle: 'idea', sentAt: null, missingItemCount: null, voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 }, contributor: { personId: 'person-2', displayName: 'Sam' }, supporters: [], viewerReaction: null, canReact: true, canRemove: true, canMarkMade: false },
       ],
     });
 
     expect(cart?.candidates.map((candidate) => candidate.title)).toEqual(['Second', 'First']);
-    expect(cart?.candidates[0]).toMatchObject({ lifecycle: 'sent', voteCount: 2, canMarkMade: true, viewerReacted: true });
+    expect(cart?.candidates[0]).toMatchObject({ lifecycle: 'sent', voteCount: 2, canMarkMade: true, viewerReaction: 'heart' });
+    expect(cart?.candidates[1]).toMatchObject({ voteCount: 0, viewerReaction: null });
     expect(cart?.viewer.canManage).toBe(true);
     expect(cart?.activeCount).toBe(2);
   });
@@ -32,24 +34,26 @@ describe('shared household Plan projection', () => {
     expect(() => parseSharedMealCartProjection({ householdId: 'household-1', activeCount: 1, viewer: {}, candidates: [{ id: 'candidate-1', voteCount: 4 }] })).toThrow('Invalid shared Meal Cart projection.');
   });
 
-  it('optimistically joins and leaves a reaction without disturbing candidate order', () => {
+  it('offers a constrained positive set and optimistically keeps one reaction per person without disturbing order', () => {
+    expect(PLAN_REACTION_OPTIONS.map((reaction) => reaction.id)).toEqual(['thumbs_up', 'heart', 'yum', 'excited', 'fire']);
     const cart = parseSharedMealCartProjection({
       planId: 'plan-1', householdId: 'household-1', version: 3, state: 'draft', activeCount: 2, groceryListId: null,
       viewer: { personId: 'person-owner', role: 'owner', canAdd: true, canManage: true },
       candidates: [
-        { id: 'candidate-1', kind: 'recipe', title: 'Tacos', recipeSnapshot: {}, position: 0, createdAt: '2026-08-11T01:00:00Z', lifecycle: 'idea', sentAt: null, missingItemCount: null, voteCount: 1, contributor: { personId: 'person-2', displayName: 'Sam' }, supporters: [{ personId: 'person-2', displayName: 'Sam' }], viewerReacted: false, canReact: true, canRemove: true, canMarkMade: false },
-        { id: 'candidate-2', kind: 'recipe', title: 'Soup', recipeSnapshot: {}, position: 1, createdAt: '2026-08-11T00:00:00Z', lifecycle: 'idea', sentAt: null, missingItemCount: null, voteCount: 1, contributor: { personId: 'person-owner', displayName: 'Maya' }, supporters: [{ personId: 'person-owner', displayName: 'Maya' }], viewerReacted: true, canReact: true, canRemove: true, canMarkMade: false },
+        { id: 'candidate-1', kind: 'recipe', title: 'Tacos', recipeSnapshot: {}, position: 0, createdAt: '2026-08-11T01:00:00Z', lifecycle: 'idea', sentAt: null, missingItemCount: null, voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 }, contributor: { personId: 'person-2', displayName: 'Sam' }, supporters: [], viewerReaction: null, canReact: true, canRemove: true, canMarkMade: false },
+        { id: 'candidate-2', kind: 'recipe', title: 'Soup', recipeSnapshot: {}, position: 1, createdAt: '2026-08-11T00:00:00Z', lifecycle: 'idea', sentAt: null, missingItemCount: null, voteCount: 1, reactionCounts: { thumbs_up: 0, heart: 1, yum: 0, excited: 0, fire: 0 }, contributor: { personId: 'person-owner', displayName: 'Maya' }, supporters: [{ personId: 'person-owner', displayName: 'Maya', reaction: 'heart' }], viewerReaction: 'heart', canReact: true, canRemove: true, canMarkMade: false },
       ],
     });
     if (!cart) throw new Error('Expected cart');
 
-    const joined = optimisticallySetSharedMealReaction(cart, 'candidate-1', true);
+    const joined = optimisticallySetSharedMealReaction(cart, 'candidate-1', 'yum');
     expect(joined.candidates.map((candidate) => candidate.id)).toEqual(['candidate-1', 'candidate-2']);
-    expect(joined.candidates[0]).toMatchObject({ voteCount: 2, viewerReacted: true });
-    expect(joined.candidates[0].supporters.map((person) => person.personId)).toEqual(['person-2']);
+    expect(joined.candidates[0]).toMatchObject({ voteCount: 1, viewerReaction: 'yum', reactionCounts: { yum: 1 } });
 
-    const contributorLeft = optimisticallySetSharedMealReaction(joined, 'candidate-2', false);
-    expect(contributorLeft.candidates[1]).toMatchObject({ voteCount: 0, viewerReacted: false });
-    expect(contributorLeft.candidates[1].supporters.map((person) => person.personId)).toEqual(['person-owner']);
+    const changed = optimisticallySetSharedMealReaction(joined, 'candidate-1', 'fire');
+    expect(changed.candidates[0]).toMatchObject({ voteCount: 1, viewerReaction: 'fire', reactionCounts: { yum: 0, fire: 1 } });
+
+    const removed = optimisticallySetSharedMealReaction(changed, 'candidate-1', null);
+    expect(removed.candidates[0]).toMatchObject({ voteCount: 0, viewerReaction: null, reactionCounts: { fire: 0 } });
   });
 });

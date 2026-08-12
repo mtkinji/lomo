@@ -21,7 +21,7 @@ jest.mock('../../../ui/BottomDrawer', () => {
     BottomDrawerScrollView: ScrollView,
   };
 });
-import { colors, radii, spacing } from '../../../theme';
+import { colors, fonts, radii, spacing } from '../../../theme';
 import { recipeContractFixture, recipeVersionContractFixture } from '../domain/recipeContractFixtures';
 import { buildRecipeLibraryInventory, DEFAULT_RECIPE_INVENTORY_FILTERS } from '../data/starterRecipeCatalog';
 import { EDITORIAL_MEAL_COLLECTIONS, getMealEditorialEdition } from '../data/editorialMealCollections';
@@ -399,6 +399,37 @@ describe('Recipe library', () => {
     expect(onRemove).not.toHaveBeenCalled();
   });
 
+  it('bounds long Plan titles beside a top-aligned thumbnail and anchored actions', () => {
+    const title = 'Open-faced bean and cheese rolls with roasted peppers and a very long family recipe name';
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[{
+          id: 'meal-long', candidateId: 'candidate-long', title, storageRef: null,
+          lifecycle: 'idea', createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
+          voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 }, missingItemCount: null,
+          contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null }, supporters: [],
+          viewerReaction: null, canReact: true, canRemove: true, canMarkMade: false,
+        }]}
+        canManage
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+      />,
+    );
+
+    expect(StyleSheet.flatten(drawer.getByTestId('plan-row-candidate-long').props.style)).toMatchObject({
+      alignItems: 'flex-start',
+    });
+    expect(StyleSheet.flatten(drawer.getByTestId('plan-title-candidate-long').props.style)).toMatchObject({
+      flex: 1,
+      minWidth: 0,
+      fontFamily: fonts.semibold,
+      fontSize: 15,
+      lineHeight: 22,
+    });
+    expect(drawer.getByLabelText(`More actions for ${title}`)).toBeTruthy();
+  });
+
   it('reuses the household food illustration to invite recipes into an empty Plan', () => {
     const drawer = render(
       <MealPlanDrawer
@@ -421,9 +452,9 @@ describe('Recipe library', () => {
     const item = {
       id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
       lifecycle: 'idea' as const, createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
-      voteCount: 1, missingItemCount: null,
+      voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 }, missingItemCount: null,
       contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
-      supporters: [], viewerReacted: false, canReact: false, canRemove: true, canMarkMade: false,
+      supporters: [], viewerReaction: null, canReact: false, canRemove: true, canMarkMade: false,
     };
     const drawer = render(
       <MealPlanDrawer
@@ -444,18 +475,18 @@ describe('Recipe library', () => {
     expect(onSendToGroceries).toHaveBeenCalledWith(['candidate-1']);
   });
 
-  it('keeps household support compact and directly tappable', () => {
+  it('shows existing positive reactions, reveals their people, and allows only one viewer reaction', () => {
     const onReact = jest.fn();
     const item = {
       id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
       lifecycle: 'idea' as const, createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
-      voteCount: 2, missingItemCount: null,
+      voteCount: 2, reactionCounts: { thumbs_up: 1, heart: 1, yum: 0, excited: 0, fire: 0 }, missingItemCount: null,
       contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
       supporters: [
-        { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
-        { personId: 'person-3', displayName: 'Alex', avatarUrl: null },
+        { personId: 'person-2', displayName: 'Sam', avatarUrl: null, reaction: 'thumbs_up' as const },
+        { personId: 'person-3', displayName: 'Alex', avatarUrl: null, reaction: 'heart' as const },
       ],
-      viewerReacted: false, canReact: true, canRemove: false, canMarkMade: false,
+      viewerReaction: 'heart' as const, canReact: true, canRemove: false, canMarkMade: false,
     };
     const drawer = render(
       <MealPlanDrawer
@@ -464,13 +495,43 @@ describe('Recipe library', () => {
       />,
     );
 
-    expect(drawer.queryByText('Added by Sam')).toBeNull();
-    const reaction = drawer.getByLabelText('Thumbs up Tacos, 2');
     expect(drawer.getByText('👍')).toBeTruthy();
-    fireEvent.press(reaction);
-    expect(drawer.getByLabelText('Thumbs up Tacos, 2').props.accessibilityState).toMatchObject({ expanded: true, selected: false });
-    expect(drawer.getAllByText('2')).toHaveLength(1);
-    expect(onReact).toHaveBeenCalledWith('candidate-1', true);
+    expect(drawer.getByText('❤️')).toBeTruthy();
+    expect(drawer.queryByLabelText('Add a reaction to Tacos')).toBeNull();
+
+    fireEvent.press(drawer.getByLabelText('Thumbs up Tacos, 1'));
+    expect(drawer.getByLabelText('Thumbs up Tacos, 1').props.accessibilityState).toMatchObject({ expanded: true, selected: false });
+    expect(onReact).not.toHaveBeenCalled();
+
+    fireEvent.press(drawer.getByLabelText('Love Tacos, 1'));
+    expect(onReact).toHaveBeenCalledWith('candidate-1', null);
+  });
+
+  it('shows only an add-reaction affordance until somebody reacts', () => {
+    const onReact = jest.fn();
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[{
+          id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
+          lifecycle: 'idea', createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
+          voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 }, missingItemCount: null,
+          contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null }, supporters: [],
+          viewerReaction: null, canReact: true, canRemove: false, canMarkMade: false,
+        }]}
+        canManage={false}
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+        onReact={onReact}
+      />,
+    );
+
+    expect(drawer.queryByText('👍')).toBeNull();
+    fireEvent.press(drawer.getByLabelText('Add a reaction to Tacos'));
+    expect(drawer.getByText('React to Tacos')).toBeTruthy();
+    expect(drawer.getAllByRole('button').filter((button) => /^React with /.test(button.props.accessibilityLabel ?? ''))).toHaveLength(5);
+    fireEvent.press(drawer.getByLabelText('React with Yum'));
+    expect(onReact).toHaveBeenCalledWith('candidate-1', 'yum');
   });
 
   it('keeps the familiar Plan icon and meal counter', () => {

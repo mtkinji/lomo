@@ -5,7 +5,7 @@ import { validateMealPlanHorizon } from '../domain/mealPlanLifecycle';
 import type { MealPeriod, MealPlanHorizon, MealTimingIntent } from '../domain/mealPlanContracts';
 import { aggregateMealChoices } from '../domain/mealChoiceAggregate';
 import { stableContentHash } from '@kwilt/food-core';
-import { parseSharedMealCartProjection, type SharedMealCartProjection } from '../domain/sharedMealCart';
+import { parseSharedMealCartProjection, type PlanReaction, type SharedMealCartProjection } from '../domain/sharedMealCart';
 
 let mealPlanningSubscriptionSequence = 0;
 
@@ -130,8 +130,8 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
     withdrawSharedCandidate(candidateId: string) {
       return rpc(client, 'withdraw_kwilt_shared_meal_candidate', { p_candidate_id: candidateId });
     },
-    setSharedReaction(candidateId: string, reacted: boolean) {
-      return rpc(client, 'set_kwilt_shared_meal_reaction', { p_candidate_id: candidateId, p_reacted: reacted });
+    setSharedReaction(candidateId: string, reaction: PlanReaction | null) {
+      return rpc(client, 'set_kwilt_shared_meal_reaction', { p_candidate_id: candidateId, p_reaction: reaction });
     },
     async sendSharedCandidates(planId: string, expectedVersion: number, candidateIds: string[]) {
       const { data, error } = await client.functions.invoke('grocery-compile', { body: { planAction: 'send', planId, expectedVersion, candidateIds } });

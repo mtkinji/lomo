@@ -16,6 +16,11 @@ import { Icon } from "../../../ui/Icon";
 import { EmptyState } from "../../../ui/EmptyState";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
 import { Heading, Text } from "../../../ui/Typography";
+import {
+  PLAN_REACTION_OPTIONS,
+  type PlanReaction,
+  type PlanReactionCounts,
+} from "../../meal-planning/domain/sharedMealCart";
 import { getPlanLifecycleSignature, reconcilePlanCandidateOrder, type PlanLifecycle } from "../../meal-planning/domain/planLifecycle";
 import { RecipeArtwork } from "../components/RecipeArtwork";
 import { styles } from "./RecipeLibraryScreen.styles";
@@ -23,6 +28,7 @@ import { styles } from "./RecipeLibraryScreen.styles";
 const HOUSEHOLD_FOOD_EMPTY_ILLUSTRATION = require("../../../../assets/illustrations/groceries-empty.png");
 
 type PlanPerson = { personId: string; displayName: string; avatarUrl: string | null };
+type PlanSupporter = PlanPerson & { reaction: PlanReaction };
 
 export type MealPlanTrayItem = {
   id: string;
@@ -35,59 +41,94 @@ export type MealPlanTrayItem = {
   voteCount: number;
   missingItemCount: number | null;
   contributor?: PlanPerson;
-  supporters?: PlanPerson[];
-  viewerReacted?: boolean;
+  supporters?: PlanSupporter[];
+  reactionCounts?: PlanReactionCounts;
+  viewerReaction?: PlanReaction | null;
   canReact?: boolean;
   canRemove?: boolean;
   canMarkMade?: boolean;
 };
 
-function PlanReactionMenu({
+function PlanReactionPill({
   item,
+  reaction,
   onReact,
   reacting,
 }: {
   item: MealPlanTrayItem;
-  onReact?(candidateId: string, reacted: boolean): void;
+  reaction: typeof PLAN_REACTION_OPTIONS[number];
+  onReact?(candidateId: string, reaction: PlanReaction | null): void;
   reacting: boolean;
 }) {
-  if (!item.contributor) return null;
-  const people = new Map<string, PlanPerson>();
-  people.set(item.contributor.personId, item.contributor);
-  item.supporters?.forEach((supporter) => people.set(supporter.personId, supporter));
-  const otherSupporters = [...people.values()].filter((person) => person.personId !== item.contributor?.personId);
+  const count = item.reactionCounts?.[reaction.id] ?? 0;
+  if (count === 0) return null;
+  const selected = item.viewerReaction === reaction.id;
+  const people = item.supporters?.filter((supporter) => supporter.reaction === reaction.id) ?? [];
+  const trigger = (
+    <Pressable
+      style={({ pressed }) => [
+        styles.planReactionPill,
+        selected ? styles.planReactionPillSelected : styles.planReactionPillIdle,
+        pressed && styles.pressed,
+      ]}
+      accessibilityLabel={`${reaction.label} ${item.title}, ${count}`}
+      accessibilityHint={selected ? "Removes your reaction" : "Shows who reacted"}
+      accessibilityState={{ selected }}
+      accessibilityValue={{ text: `${count} ${reaction.label.toLowerCase()} ${count === 1 ? "reaction" : "reactions"}` }}
+      disabled={reacting}
+      onPress={selected && item.canReact && onReact ? () => {
+        void HapticsService.trigger("canvas.toggle.off");
+        onReact(item.candidateId, null);
+      } : undefined}
+    >
+      <View style={styles.planReactionPillContent}>
+        <Text style={styles.planReactionEmoji}>{reaction.emoji}</Text>
+        <Text variant="label">{count}</Text>
+      </View>
+    </Pressable>
+  );
+  if (selected) return trigger;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Pressable
-          style={({ pressed }) => [
-            styles.planReactionPill,
-            item.viewerReacted ? styles.planReactionPillSelected : styles.planReactionPillIdle,
-            pressed && styles.pressed,
-          ]}
-          accessibilityLabel={`Thumbs up ${item.title}, ${item.voteCount}`}
-          accessibilityHint={item.canReact && onReact ? "Adds or removes your support and shows who supports this recipe" : "Shows who supports this recipe"}
-          accessibilityState={{ selected: item.viewerReacted }}
-          accessibilityValue={{ text: `${item.voteCount} ${item.voteCount === 1 ? "thumbs up" : "thumbs up reactions"}` }}
-          disabled={reacting}
-          onPress={item.canReact && onReact ? () => {
-            void HapticsService.trigger(item.viewerReacted ? "canvas.toggle.off" : "canvas.toggle.on");
-            onReact(item.candidateId, !item.viewerReacted);
-          } : undefined}
-        >
-          <View style={styles.planReactionPillContent}>
-            <Text style={styles.planReactionEmoji}>👍</Text>
-            <Text variant="label">{item.voteCount}</Text>
-          </View>
-        </Pressable>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" align="start" sideOffset={6} style={styles.planPeopleMenu}>
-        <Text variant="label">Added by {item.contributor.displayName}</Text>
-        <Text tone="secondary">
-          {otherSupporters.length ? `Also supported by ${otherSupporters.map((person) => person.displayName).join(", ")}` : "No other support yet"}
-        </Text>
+        <Text variant="label">{reaction.emoji} {reaction.label}</Text>
+        {people.map((person) => <Text key={person.personId} tone="secondary">{person.displayName}</Text>)}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function PlanReactionBar({
+  item,
+  onReact,
+  onAdd,
+  reacting,
+}: {
+  item: MealPlanTrayItem;
+  onReact?(candidateId: string, reaction: PlanReaction | null): void;
+  onAdd(item: MealPlanTrayItem): void;
+  reacting: boolean;
+}) {
+  return (
+    <View style={styles.planReactionBar}>
+      {PLAN_REACTION_OPTIONS.map((reaction) => (
+        <PlanReactionPill key={reaction.id} item={item} reaction={reaction} onReact={onReact} reacting={reacting} />
+      ))}
+      {!item.viewerReaction && item.canReact && onReact ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Add a reaction to ${item.title}`}
+          accessibilityHint="Choose a positive reaction"
+          disabled={reacting}
+          onPress={() => onAdd(item)}
+          style={({ pressed }) => [styles.planAddReaction, pressed && styles.pressed]}
+        >
+          <Text style={styles.planAddReactionFace}>☺</Text>
+          <Icon name="plus" size={11} color={colors.textSecondary} />
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -108,7 +149,7 @@ export function MealPlanDrawer({
   canManage: boolean;
   onClose(): void;
   onRemove(item: MealPlanTrayItem): void;
-  onReact?(candidateId: string, reacted: boolean): void;
+  onReact?(candidateId: string, reaction: PlanReaction | null): void;
   onSendToGroceries?(candidateIds: string[]): void;
   onMarkMade?(candidateId: string): void;
   onOpenGroceries?(): void;
@@ -117,6 +158,7 @@ export function MealPlanDrawer({
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [displayIds, setDisplayIds] = useState<string[]>([]);
+  const [reactionPickerItem, setReactionPickerItem] = useState<MealPlanTrayItem | null>(null);
   const wasVisibleRef = useRef(false);
   const lifecycleSignatureRef = useRef("");
 
@@ -126,6 +168,7 @@ export function MealPlanDrawer({
       lifecycleSignatureRef.current = "";
       setSelecting(false);
       setSelectedIds(new Set());
+      setReactionPickerItem(null);
       return;
     }
     const lifecycleSignature = getPlanLifecycleSignature(items);
@@ -168,7 +211,8 @@ export function MealPlanDrawer({
   ) : null;
 
   return (
-    <BottomDrawer
+    <>
+      <BottomDrawer
       visible={visible}
       onClose={onClose}
       snapPoints={["88%"]}
@@ -211,7 +255,7 @@ export function MealPlanDrawer({
                   const selectable = selecting && item.lifecycle === "idea";
                   return (
                     <View key={item.id} style={styles.planDrawerItem}>
-                      <View style={styles.planDrawerMainRow}>
+                      <View testID={`plan-row-${item.candidateId}`} style={styles.planDrawerMainRow}>
                         {selectable ? (
                           <Pressable
                             accessibilityRole="checkbox"
@@ -226,11 +270,11 @@ export function MealPlanDrawer({
                         <View style={styles.planDrawerArtworkFrame}>
                           <RecipeArtwork storageRef={item.storageRef} accessibilityLabel={item.title} style={styles.planDrawerArtwork} />
                         </View>
-                        <Text style={styles.planDrawerTitle}>{item.title}</Text>
+                        <Text testID={`plan-title-${item.candidateId}`} style={styles.planDrawerTitle}>{item.title}</Text>
                         {canManage && item.canRemove ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <IconButton accessibilityLabel={`More actions for ${item.title}`} variant="ghost"><Icon name="more" size={18} color={colors.textSecondary} /></IconButton>
+                              <IconButton accessibilityLabel={`More actions for ${item.title}`} variant="ghost" style={styles.planDrawerMore}><Icon name="more" size={18} color={colors.textSecondary} /></IconButton>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent side="bottom" align="end">
                               {item.canMarkMade && onMarkMade ? <DropdownMenuItem label="Made" icon="checkCircle" onPress={() => onMarkMade(item.candidateId)} /> : null}
@@ -241,7 +285,12 @@ export function MealPlanDrawer({
                         ) : null}
                       </View>
                       <View style={[styles.planDrawerReactionRow, selecting && styles.planDrawerReactionRowSelecting]}>
-                        <PlanReactionMenu item={item} onReact={onReact} reacting={Boolean(reactingCandidateIds?.has(item.candidateId))} />
+                        <PlanReactionBar
+                          item={item}
+                          onReact={onReact}
+                          onAdd={setReactionPickerItem}
+                          reacting={Boolean(reactingCandidateIds?.has(item.candidateId))}
+                        />
                         {item.lifecycle === "sent" && item.missingItemCount !== null && item.missingItemCount > 0 ? <Text tone="secondary" style={styles.planMissingItems}>Missing {item.missingItemCount} {item.missingItemCount === 1 ? "item" : "items"}</Text> : null}
                         {item.canMarkMade && onMarkMade ? <Button size="xs" variant="ghost" onPress={() => onMarkMade(item.candidateId)}>Made</Button> : null}
                       </View>
@@ -260,6 +309,44 @@ export function MealPlanDrawer({
           )}
         </BottomDrawerScrollView>
       </View>
-    </BottomDrawer>
+      </BottomDrawer>
+      <BottomDrawer
+        visible={reactionPickerItem !== null}
+        onClose={() => setReactionPickerItem(null)}
+        snapPoints={[240]}
+        presentation="modal"
+        dynamicSizing
+      >
+        {reactionPickerItem ? (
+          <View style={styles.planReactionPicker}>
+            <BottomDrawerHeader
+              variant="withClose"
+              titleVariant="sm"
+              title={`React to ${reactionPickerItem.title}`}
+              onClose={() => setReactionPickerItem(null)}
+              closeAccessibilityLabel="Close reactions"
+            />
+            <View style={styles.planReactionChoices}>
+              {PLAN_REACTION_OPTIONS.map((reaction) => (
+                <Pressable
+                  key={reaction.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`React with ${reaction.label}`}
+                  onPress={() => {
+                    void HapticsService.trigger("canvas.toggle.on");
+                    onReact?.(reactionPickerItem.candidateId, reaction.id);
+                    setReactionPickerItem(null);
+                  }}
+                  style={({ pressed }) => [styles.planReactionChoice, pressed && styles.pressed]}
+                >
+                  <Text style={styles.planReactionChoiceEmoji}>{reaction.emoji}</Text>
+                  <Text variant="label">{reaction.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+      </BottomDrawer>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native";
 
-import { colors, radii, spacing, typography } from "../../../theme";
+import { colors, fonts, radii, spacing, typography } from "../../../theme";
 import {
   RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
   RESTING_COMPOSER_HEIGHT_PX,
@@ -372,20 +372,29 @@ export const styles = StyleSheet.create({
   planDrawerArtworkFrame: {
     width: 48,
     height: 48,
+    flexShrink: 0,
     borderRadius: 14,
     overflow: "hidden",
     backgroundColor: colors.secondary,
   },
   planDrawerArtwork: { width: 48, height: 48, borderRadius: 14 },
   planDrawerMealCopy: { flex: 1, minWidth: 0, gap: 2 },
-  planDrawerTitle: { minWidth: 0 },
+  planDrawerTitle: { ...typography.body, flex: 1, minWidth: 0, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22 },
+  planDrawerMore: { alignSelf: "flex-start", marginTop: -6, flexShrink: 0 },
   planPeopleTrigger: { minHeight: 32, alignSelf: "flex-start", justifyContent: "center", borderRadius: 999, paddingHorizontal: spacing.xs },
   planPeopleMenu: { width: 240, gap: 2 },
-  planReactionPill: { minHeight: 32, alignItems: "center", justifyContent: "center", borderRadius: 999, borderWidth: 1, paddingHorizontal: spacing.sm },
+  planReactionBar: { minWidth: 0, flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4 },
+  planReactionPill: { minHeight: 28, alignItems: "center", justifyContent: "center", borderRadius: 999, borderWidth: 1, paddingHorizontal: spacing.xs },
   planReactionPillIdle: { backgroundColor: colors.canvas, borderColor: colors.border },
   planReactionPillSelected: { backgroundColor: colors.secondary, borderColor: colors.border },
-  planReactionPillContent: { flexDirection: "row", alignItems: "center", gap: 6 },
-  planReactionEmoji: { fontSize: 16, lineHeight: 20 },
+  planReactionPillContent: { flexDirection: "row", alignItems: "center", gap: 4 },
+  planReactionEmoji: { fontSize: 14, lineHeight: 18 },
+  planAddReaction: { minWidth: 38, minHeight: 28, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.canvas },
+  planAddReactionFace: { fontSize: 15, lineHeight: 18, color: colors.textSecondary },
+  planReactionPicker: { gap: spacing.sm, paddingBottom: spacing.lg },
+  planReactionChoices: { flexDirection: "row", justifyContent: "space-around", gap: spacing.xs, paddingHorizontal: spacing.md },
+  planReactionChoice: { minWidth: 58, minHeight: 72, alignItems: "center", justifyContent: "center", gap: 4, borderRadius: radii.input, backgroundColor: colors.fieldFill },
+  planReactionChoiceEmoji: { fontSize: 26, lineHeight: 32 },
   planDrawerEmpty: {
     flex: 1,
     justifyContent: "center",
@@ -396,8 +405,8 @@ export const styles = StyleSheet.create({
   planDrawerPlacementIntro: { gap: spacing.xs, paddingBottom: spacing.xs },
   planLifecycleGroup: { gap: spacing.xs },
   planLifecycleHeading: { minHeight: 36, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  planDrawerMainRow: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  planDrawerReactionRow: { minHeight: 36, marginLeft: 56, flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingBottom: spacing.xs },
+  planDrawerMainRow: { minHeight: 54, flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, paddingTop: 3 },
+  planDrawerReactionRow: { minHeight: 30, marginTop: -3, marginLeft: 56, flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingBottom: spacing.xs },
   planDrawerReactionRowSelecting: { marginLeft: 88 },
   planMissingItems: { marginLeft: "auto" },
   planSelectionActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },

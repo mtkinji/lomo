@@ -9,6 +9,10 @@ const contributorReactionSql = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260812025828_allow_plan_contributor_reaction_reversal.sql'),
   'utf8',
 ).toLowerCase();
+const positiveReactionSql = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260812040825_plan_positive_reactions.sql'),
+  'utf8',
+).toLowerCase();
 
 describe('collaborative household Recipe Plan migration contract', () => {
   it('keeps one persistent Plan occurrence with explicit non-calendar lifecycle history', () => {
@@ -28,6 +32,16 @@ describe('collaborative household Recipe Plan migration contract', () => {
     expect(sql).toContain('shared_meal_candidate_remove_forbidden');
     expect(sql).toContain('shared_meal_candidate_resolve_forbidden');
     expect(sql).toContain("grant execute on function public.remove_kwilt_sent_plan_candidate_keep_groceries");
+  });
+
+  it('does not react for the nominator and stores one constrained positive reaction per person', () => {
+    expect(positiveReactionSql).toContain('delete from public.kwilt_meal_candidate_reactions reaction');
+    expect(positiveReactionSql).toContain('candidate.suggested_by_person_id = reaction.person_id');
+    expect(positiveReactionSql).toContain("reaction in ('thumbs_up','heart','yum','excited','fire')");
+    expect(positiveReactionSql).not.toContain('insert into public.kwilt_meal_candidate_reactions(candidate_id,person_id) values(p_candidate_id,v_actor.person_id)');
+    expect(positiveReactionSql).toContain('p_reaction text');
+    expect(positiveReactionSql).toContain("'viewerreaction',reaction_data.viewer_reaction");
+    expect(positiveReactionSql).toContain("'reactioncounts',reaction_data.reaction_counts");
   });
 
   it('adds household Plan grocery scope and source-level contribution quantities', () => {

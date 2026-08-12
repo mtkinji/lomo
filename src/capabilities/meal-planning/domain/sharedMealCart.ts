@@ -4,6 +4,28 @@ export type SharedMealCartPerson = {
   avatarUrl: string | null;
 };
 
+export const PLAN_REACTION_OPTIONS = [
+  { id: 'thumbs_up', emoji: '👍', label: 'Thumbs up' },
+  { id: 'heart', emoji: '❤️', label: 'Love' },
+  { id: 'yum', emoji: '😋', label: 'Yum' },
+  { id: 'excited', emoji: '🤩', label: 'Excited' },
+  { id: 'fire', emoji: '🔥', label: 'Fire' },
+] as const;
+
+export type PlanReaction = typeof PLAN_REACTION_OPTIONS[number]['id'];
+export type PlanReactionCounts = Record<PlanReaction, number>;
+export type SharedMealCartSupporter = SharedMealCartPerson & { reaction: PlanReaction };
+
+const PLAN_REACTION_IDS = new Set<string>(PLAN_REACTION_OPTIONS.map((reaction) => reaction.id));
+
+export function isPlanReaction(value: unknown): value is PlanReaction {
+  return typeof value === 'string' && PLAN_REACTION_IDS.has(value);
+}
+
+function emptyPlanReactionCounts(): PlanReactionCounts {
+  return { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 };
+}
+
 export type SharedMealCartCandidate = {
   id: string;
   kind: 'recipe' | 'meal_note';
@@ -15,9 +37,10 @@ export type SharedMealCartCandidate = {
   sentAt: string | null;
   missingItemCount: number | null;
   voteCount: number;
+  reactionCounts: PlanReactionCounts;
   contributor: SharedMealCartPerson;
-  supporters: SharedMealCartPerson[];
-  viewerReacted: boolean;
+  supporters: SharedMealCartSupporter[];
+  viewerReaction: PlanReaction | null;
   canReact: boolean;
   canRemove: boolean;
   canMarkMade: boolean;
@@ -42,16 +65,25 @@ export type SharedMealCartProjection = {
 export function optimisticallySetSharedMealReaction(
   cart: SharedMealCartProjection,
   candidateId: string,
-  reacted: boolean,
+  reaction: PlanReaction | null,
 ): SharedMealCartProjection {
   return {
     ...cart,
     candidates: cart.candidates.map((candidate) => {
-      if (candidate.id !== candidateId || candidate.viewerReacted === reacted) return candidate;
+      if (candidate.id !== candidateId || candidate.viewerReaction === reaction) return candidate;
+      const reactionCounts = { ...candidate.reactionCounts };
+      if (candidate.viewerReaction) reactionCounts[candidate.viewerReaction] = Math.max(0, reactionCounts[candidate.viewerReaction] - 1);
+      if (reaction) reactionCounts[reaction] += 1;
+      const countDelta = candidate.viewerReaction === null && reaction !== null
+        ? 1
+        : candidate.viewerReaction !== null && reaction === null
+          ? -1
+          : 0;
       return {
         ...candidate,
-        viewerReacted: reacted,
-        voteCount: Math.max(0, candidate.voteCount + (reacted ? 1 : -1)),
+        viewerReaction: reaction,
+        reactionCounts,
+        voteCount: Math.max(0, candidate.voteCount + countDelta),
       };
     }),
   };
@@ -70,6 +102,25 @@ function parsePerson(value: unknown): SharedMealCartPerson {
     displayName: value.displayName,
     avatarUrl: typeof value.avatarUrl === 'string' ? value.avatarUrl : null,
   };
+}
+
+function parseSupporter(value: unknown): SharedMealCartSupporter {
+  const person = parsePerson(value);
+  if (!isRecord(value) || !isPlanReaction(value.reaction)) {
+    throw new Error('Invalid shared Meal Cart projection.');
+  }
+  return { ...person, reaction: value.reaction };
+}
+
+function parseReactionCounts(value: unknown): PlanReactionCounts {
+  if (!isRecord(value)) throw new Error('Invalid shared Meal Cart projection.');
+  const counts = emptyPlanReactionCounts();
+  for (const reaction of PLAN_REACTION_OPTIONS) {
+    const count = value[reaction.id];
+    if (!Number.isInteger(count) || Number(count) < 0) throw new Error('Invalid shared Meal Cart projection.');
+    counts[reaction.id] = Number(count);
+  }
+  return counts;
 }
 
 export function parseSharedMealCartProjection(value: unknown): SharedMealCartProjection | null {
@@ -97,7 +148,13 @@ export function parseSharedMealCartProjection(value: unknown): SharedMealCartPro
       || typeof candidateValue.canMarkMade !== 'boolean' || !Number.isInteger(candidateValue.voteCount)) {
       throw new Error('Invalid shared Meal Cart projection.');
     }
-    const supporters = candidateValue.supporters.map(parsePerson);
+    const supporters = candidateValue.supporters.map(parseSupporter);
+    const viewerReaction = candidateValue.viewerReaction === null
+      ? null
+      : isPlanReaction(candidateValue.viewerReaction)
+        ? candidateValue.viewerReaction
+        : undefined;
+    if (viewerReaction === undefined) throw new Error('Invalid shared Meal Cart projection.');
     return {
       id: candidateValue.id,
       kind: candidateValue.kind as SharedMealCartCandidate['kind'],
@@ -109,9 +166,10 @@ export function parseSharedMealCartProjection(value: unknown): SharedMealCartPro
       sentAt: typeof candidateValue.sentAt === 'string' ? candidateValue.sentAt : null,
       missingItemCount: Number.isInteger(candidateValue.missingItemCount) ? Number(candidateValue.missingItemCount) : null,
       voteCount: Number(candidateValue.voteCount),
+      reactionCounts: parseReactionCounts(candidateValue.reactionCounts),
       contributor: parsePerson(candidateValue.contributor),
       supporters,
-      viewerReacted: typeof candidateValue.viewerReacted === 'boolean' ? candidateValue.viewerReacted : supporters.some((person) => person.personId === viewer.personId),
+      viewerReaction,
       canReact: Boolean(candidateValue.canReact) && state === 'draft' && Boolean(viewer.canAdd),
       canRemove: candidateValue.canRemove,
       canMarkMade: candidateValue.canMarkMade,
