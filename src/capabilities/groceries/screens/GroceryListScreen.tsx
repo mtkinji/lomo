@@ -331,6 +331,13 @@ export function GroceryListScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    if (list?.sourceKind === 'household_plan') {
+      const candidateIds = new Set(
+        list.items.flatMap((item) => item.sources.map((source) => source.planCandidateId).filter(Boolean)),
+      );
+      setSourcePlanMealCount(candidateIds.size);
+      return () => { cancelled = true; };
+    }
     if (!list?.sourceMealPlanId) {
       setSourcePlanMealCount(0);
       return () => {
@@ -354,7 +361,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [list?.sourceMealPlanId, list?.sourceMealPlanVersion]);
+  }, [list?.items, list?.sourceKind, list?.sourceMealPlanId, list?.sourceMealPlanVersion]);
 
   const fulfillment = groceryFulfillmentSummary(list?.items ?? []);
   const coveredIds = useMemo(
@@ -523,7 +530,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
         rightElement={
           <MealPlanHeaderAction
             count={sourcePlanMealCount}
-            onPress={() => navigation.navigate('NextMeals')}
+            onPress={() => navigation.navigate('RecipeLibrary', { openPlan: true })}
           />
         }
       />

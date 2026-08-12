@@ -22,6 +22,10 @@ describe('food-core conservative compiler', () => {
     expect(result.items).toHaveLength(3);
     expect(result.items[0]).toEqual(expect.objectContaining({ concept: 'carrots', quantityMin: 1.5, unit: 'cup', preparation: 'chopped' }));
     expect(result.items[0].sources).toHaveLength(2);
+    expect(result.items[0].sources).toEqual([
+      expect.objectContaining({ recipeVersionId: 'r1', quantityMin: 1, quantityMax: null, unit: 'cup', optional: false }),
+      expect.objectContaining({ recipeVersionId: 'r2', quantityMin: 0.5, quantityMax: null, unit: 'cup', optional: false }),
+    ]);
     expect(result.items.find((item) => item.preparation === 'whole')).toEqual(expect.objectContaining({ quantityMin: 1 }));
     expect(result.items.find((item) => item.concept === 'salt')).toEqual(expect.objectContaining({ quantityMin: null, reviewReason: 'Quantity needs review' }));
   });

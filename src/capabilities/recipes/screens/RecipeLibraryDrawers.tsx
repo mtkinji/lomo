@@ -7,6 +7,11 @@ import { BottomDrawer, BottomDrawerScrollView } from "../../../ui/BottomDrawer";
 import { Button, IconButton } from "../../../ui/Button";
 import { Icon, type IconName } from "../../../ui/Icon";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "../../../ui/DropdownMenu";
 import { RESTING_COMPOSER_HEIGHT_PX } from "../../../ui/layout/restingComposerMetrics";
 import { Heading, Text } from "../../../ui/Typography";
 import { FloatingControlSurface } from "../../../features/activities/FloatingControlSurface";
@@ -29,6 +34,8 @@ import {
 } from "../../meal-planning/domain/mealCommitments";
 import type { MealPeriod, MealTimingIntent } from "../../meal-planning/domain/mealPlanContracts";
 import type { CommittedMealPreview, GroceryPlanAction } from "../domain/mealPlanAffordance";
+
+export { MealPlanDrawer, type MealPlanTrayItem } from "./MealPlanDrawer";
 
 const RECIPE_CATEGORIES: readonly StarterRecipeMetadata["category"][] =
   STARTER_RECIPE_CATEGORIES;
@@ -387,7 +394,7 @@ export function RecipeInventoryDock({
   );
 }
 
-export type MealPlanTrayItem = {
+type LegacyMealPlanTrayItem = {
   id: string;
   candidateId: string;
   title: string;
@@ -400,7 +407,52 @@ export type MealPlanTrayItem = {
   selected?: boolean;
 };
 
-export function MealPlanDrawer({
+function MealPeopleMenu({ item }: { item: LegacyMealPlanTrayItem }) {
+  if (!item.contributor) return null;
+  const people = new Map<string, NonNullable<LegacyMealPlanTrayItem["contributor"]>>();
+  people.set(item.contributor.personId, item.contributor);
+  item.supporters?.forEach((supporter) => people.set(supporter.personId, supporter));
+  const avatars = [...people.values()];
+  const otherSupporters = avatars.filter((person) => person.personId !== item.contributor?.personId);
+  const peopleAccessibilityLabel = [
+    `People for ${item.title}`,
+    `Added by ${item.contributor.displayName}`,
+    otherSupporters.length
+      ? `Liked by ${otherSupporters.map((person) => person.displayName).join(", ")}`
+      : "No other likes yet",
+  ].join(". ");
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={peopleAccessibilityLabel}
+          accessibilityHint="Shows who added and liked this meal"
+          hitSlop={8}
+          style={({ pressed }) => [styles.planPeopleTrigger, pressed && styles.pressed]}
+        >
+          <OverlappingAvatarStack
+            avatars={avatars.map((person) => ({ id: person.personId, name: person.displayName, avatarUrl: person.avatarUrl }))}
+            size={22}
+            maxVisible={4}
+            overlapPx={7}
+          />
+        </Pressable>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="bottom" align="start" sideOffset={6} style={styles.planPeopleMenu}>
+        <Text variant="label">Added by {item.contributor.displayName}</Text>
+        <Text tone="secondary">
+          {otherSupporters.length
+            ? `Liked by ${otherSupporters.map((person) => person.displayName).join(", ")}`
+            : "No other likes yet"}
+        </Text>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function LegacyMealPlanDrawer({
   visible,
   items,
   committedMeals = [],
@@ -416,7 +468,7 @@ export function MealPlanDrawer({
   onOpenGroceries,
 }: {
   visible: boolean;
-  items: MealPlanTrayItem[];
+  items: LegacyMealPlanTrayItem[];
   committedMeals?: CommittedMealPreview[];
   committedMealCount?: number;
   groceryAction?: GroceryPlanAction | null;
@@ -453,10 +505,12 @@ export function MealPlanDrawer({
     setPhase("place");
   };
   const count = items.length;
+  const visiblePlanCount = committedMealCount + count;
   const planLabel = [
     committedMealCount === 1 ? "1 committed meal" : committedMealCount ? `${committedMealCount} committed meals` : null,
     count === 1 ? "1 idea waiting" : count ? `${count} ideas waiting` : null,
   ].filter(Boolean).join(", ") || "empty";
+  const confirmLabel = `Confirm ${selectedItems.length} ${selectedItems.length === 1 ? "meal" : "meals"}`;
   return (
     <BottomDrawer
         visible={visible}
@@ -471,38 +525,32 @@ export function MealPlanDrawer({
         handleContainerStyle={styles.planDrawerHandleRegion}
       >
         <View style={styles.planDrawerViewport}>
-          <View style={styles.planDrawerHeader}>
-            <View
-              accessible
-              accessibilityRole="header"
-              accessibilityLabel={`Meal Plan, ${planLabel}`}
-              style={styles.planDrawerHeaderMain}
-            >
-              <Icon name="meal" size={16} color={colors.textPrimary} />
-              <Text variant="label">Plan</Text>
-              {count ? <Text variant="label" tone="secondary">{count}</Text> : null}
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close Meal Plan"
-              hitSlop={8}
-              onPress={onClose}
-              style={({ pressed }) => [
-                styles.planDrawerClose,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Icon name="close" size={17} color={colors.textSecondary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            variant="withClose"
+            titleVariant="sm"
+            onClose={onClose}
+            closeAccessibilityLabel="Close Meal Plan"
+            containerStyle={styles.planDrawerHeader}
+            title={(
+              <View
+                accessible
+                accessibilityRole="header"
+                accessibilityLabel={`Meal Plan, ${planLabel}`}
+                style={styles.planDrawerHeaderMain}
+              >
+                <Icon name="meal" size={16} color={colors.textPrimary} />
+                <Heading variant="sm">Plan</Heading>
+                {visiblePlanCount ? <Text tone="secondary">{visiblePlanCount}</Text> : null}
+              </View>
+            )}
+          />
           <BottomDrawerScrollView
             contentContainerStyle={styles.planDrawerContent}
           >
             {phase === "cart" && committedMeals.length ? (
               <View style={styles.committedPlanSection}>
                 <View style={styles.committedPlanHeading}>
-                  <Heading variant="sm">Ready when you are</Heading>
-                  <Text tone="secondary">{committedMealCount} {committedMealCount === 1 ? "meal" : "meals"}</Text>
+                  <Heading variant="sm">{committedMealCount} {committedMealCount === 1 ? "meal" : "meals"} decided</Heading>
                 </View>
                 <View style={styles.committedMealList}>
                   {committedMeals.map((meal) => (
@@ -521,10 +569,10 @@ export function MealPlanDrawer({
                 ) : null}
               </View>
             ) : null}
-            {phase === "cart" && committedMeals.length && items.length ? (
-              <View style={styles.planIdeasHeading}>
-                <Text variant="label" tone="secondary">IDEAS WAITING</Text>
-                <Text tone="secondary">Keep adding, or choose another batch.</Text>
+            {phase === "choose" ? (
+              <View style={styles.planDrawerPlacementIntro}>
+                <Heading variant="sm">Decide the next meals</Heading>
+                <Text tone="secondary">Family support stays visible. Nothing reaches Groceries until you confirm.</Text>
               </View>
             ) : null}
             {phase === "place" ? (
@@ -564,21 +612,20 @@ export function MealPlanDrawer({
                       <View style={styles.planDrawerMealCopy}>
                         <Text style={styles.planDrawerTitle} numberOfLines={2}>{item.title}</Text>
                         {phase === "place" ? <Text tone="secondary">{formatMealTiming(timingByCandidateId[item.candidateId] ?? { kind: "flexible" })}</Text> : null}
-                        {phase !== "place" && item.contributor ? <Text tone="secondary">Added by {item.contributor.displayName}</Text> : null}
-                        {phase !== "place" && item.supporters?.length ? (
-                          <View style={styles.planDrawerSupporters}>
-                            <OverlappingAvatarStack avatars={item.supporters.map((person) => ({ id: person.personId, name: person.displayName, avatarUrl: person.avatarUrl }))} size={20} maxVisible={3} overlapPx={7} />
-                            <Text tone="secondary">{item.supporters.map((person) => person.displayName).join(", ")}</Text>
-                          </View>
-                        ) : null}
+                        {phase !== "place" ? <MealPeopleMenu item={item} /> : null}
                       </View>
                       {phase === "cart" && item.canReact && onReact ? (
                         <Button
-                          size="sm"
+                          size="icon"
+                          iconButtonSize={34}
                           variant={item.viewerReacted ? "secondary" : "ghost"}
-                          accessibilityLabel={`${item.viewerReacted ? "Remove" : "Add"} Sounds good for ${item.title}`}
+                          accessibilityLabel={`${item.viewerReacted ? "Unlike" : "Like"} ${item.title}`}
+                          accessibilityHint="Updates your Sounds good response"
+                          accessibilityState={{ selected: item.viewerReacted }}
                           onPress={() => onReact(item.candidateId, !item.viewerReacted)}
-                        >Sounds good</Button>
+                        >
+                          <Icon name="thumbsUp" size={17} color={colors.textPrimary} />
+                        </Button>
                       ) : null}
                       {phase === "cart" && canEdit && (item.canWithdraw ?? true) ? (
                         <IconButton
@@ -620,22 +667,23 @@ export function MealPlanDrawer({
                 style={selectedIds.size === 0 ? styles.planDrawerSettlementDisabled : undefined}
                 onPress={startPlacement}
               >
-                Continue
+                Review timing
               </Button>
             ) : items.length && phase === "cart" && canSettle ? (
               <Button variant="secondary" fullWidth onPress={() => { setPhase("choose"); setSelectedIds(new Set()); }}>
-                Choose next meals
+                Decide meals
               </Button>
             ) : phase === "place" ? (
               <Button
                 variant="primary"
                 fullWidth
+                accessibilityLabel={confirmLabel}
                 onPress={() => onSettle?.(selectedItems.map((item) => ({
                   candidateId: item.candidateId,
                   timing: timingByCandidateId[item.candidateId] ?? { kind: "flexible" },
                 })))}
               >
-                Use these meals
+                {confirmLabel}
               </Button>
             ) : items.length && !onSettle ? (
               <Button variant="primary" fullWidth onPress={onContinue}>Review Meal Plan</Button>

@@ -10,12 +10,17 @@ export type SharedMealCartCandidate = {
   title: string;
   recipeSnapshot: Record<string, unknown> | null;
   position: number;
-  selected: boolean;
+  createdAt: string;
+  lifecycle: 'idea' | 'sent' | 'ready';
+  sentAt: string | null;
+  missingItemCount: number | null;
+  voteCount: number;
   contributor: SharedMealCartPerson;
   supporters: SharedMealCartPerson[];
   viewerReacted: boolean;
   canReact: boolean;
-  canWithdraw: boolean;
+  canRemove: boolean;
+  canMarkMade: boolean;
 };
 
 export type SharedMealCartProjection = {
@@ -23,11 +28,13 @@ export type SharedMealCartProjection = {
   householdId: string;
   version: number | null;
   state: 'draft' | 'finalized' | null;
+  activeCount: number;
+  groceryListId: string | null;
   viewer: {
     personId: string;
     role: 'owner' | 'caregiver' | 'child';
     canAdd: boolean;
-    canSettle: boolean;
+    canManage: boolean;
   };
   candidates: SharedMealCartCandidate[];
 };
@@ -59,15 +66,17 @@ export function parseSharedMealCartProjection(value: unknown): SharedMealCartPro
   const role = viewer.role;
   if (planId === undefined || version === undefined || state === undefined || typeof value.householdId !== 'string'
     || typeof viewer.personId !== 'string' || !['owner', 'caregiver', 'child'].includes(String(role))
-    || typeof viewer.canAdd !== 'boolean' || typeof viewer.canSettle !== 'boolean') {
+    || typeof viewer.canAdd !== 'boolean' || typeof viewer.canManage !== 'boolean'
+    || !Number.isInteger(value.activeCount)) {
     throw new Error('Invalid shared Meal Cart projection.');
   }
   const candidates = value.candidates.map((candidateValue) => {
     if (!isRecord(candidateValue) || typeof candidateValue.id !== 'string'
       || !['recipe', 'meal_note'].includes(String(candidateValue.kind))
       || typeof candidateValue.title !== 'string' || !Number.isInteger(candidateValue.position)
-      || !Array.isArray(candidateValue.supporters) || typeof candidateValue.canWithdraw !== 'boolean'
-      || 'voteCount' in candidateValue || 'rank' in candidateValue) {
+      || typeof candidateValue.createdAt !== 'string' || !['idea', 'sent', 'ready'].includes(String(candidateValue.lifecycle))
+      || !Array.isArray(candidateValue.supporters) || typeof candidateValue.canRemove !== 'boolean'
+      || typeof candidateValue.canMarkMade !== 'boolean' || !Number.isInteger(candidateValue.voteCount)) {
       throw new Error('Invalid shared Meal Cart projection.');
     }
     const supporters = candidateValue.supporters.map(parsePerson);
@@ -77,24 +86,31 @@ export function parseSharedMealCartProjection(value: unknown): SharedMealCartPro
       title: candidateValue.title,
       recipeSnapshot: isRecord(candidateValue.recipeSnapshot) ? candidateValue.recipeSnapshot : null,
       position: Number(candidateValue.position),
-      selected: typeof candidateValue.selected === 'boolean' ? candidateValue.selected : state === 'draft',
+      createdAt: candidateValue.createdAt,
+      lifecycle: candidateValue.lifecycle as SharedMealCartCandidate['lifecycle'],
+      sentAt: typeof candidateValue.sentAt === 'string' ? candidateValue.sentAt : null,
+      missingItemCount: Number.isInteger(candidateValue.missingItemCount) ? Number(candidateValue.missingItemCount) : null,
+      voteCount: Number(candidateValue.voteCount),
       contributor: parsePerson(candidateValue.contributor),
       supporters,
-      viewerReacted: supporters.some((person) => person.personId === viewer.personId),
-      canReact: state === 'draft' && Boolean(viewer.canAdd),
-      canWithdraw: candidateValue.canWithdraw,
+      viewerReacted: typeof candidateValue.viewerReacted === 'boolean' ? candidateValue.viewerReacted : supporters.some((person) => person.personId === viewer.personId),
+      canReact: Boolean(candidateValue.canReact) && state === 'draft' && Boolean(viewer.canAdd),
+      canRemove: candidateValue.canRemove,
+      canMarkMade: candidateValue.canMarkMade,
     };
-  }).sort((a, b) => a.position - b.position);
+  });
   return {
     planId,
     householdId: value.householdId,
     version,
     state,
+    activeCount: Number(value.activeCount),
+    groceryListId: typeof value.groceryListId === 'string' ? value.groceryListId : null,
     viewer: {
       personId: viewer.personId,
       role: role as SharedMealCartProjection['viewer']['role'],
       canAdd: viewer.canAdd,
-      canSettle: viewer.canSettle,
+      canManage: viewer.canManage,
     },
     candidates,
   };

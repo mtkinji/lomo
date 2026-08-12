@@ -75,7 +75,15 @@ export type CompiledGroceryItem = {
   optional: boolean;
   aisle: Aisle;
   originalDisplayTexts: string[];
-  sources: Array<{ recipeVersionId: string; ingredientLineId: string; planEntryId: string }>;
+  sources: Array<{
+    recipeVersionId: string;
+    ingredientLineId: string;
+    planEntryId: string;
+    quantityMin: number | null;
+    quantityMax: number | null;
+    unit: string | null;
+    optional: boolean;
+  }>;
   reviewReason: string | null;
 };
 
@@ -150,8 +158,9 @@ export function buildGroceryCompilation(lines:GroceryCompilerLine[]):{items:Comp
     const quantityMin=parsed.quantityMin===null?null:Math.round(parsed.quantityMin*factor*1e9)/1e9; const quantityMax=parsed.quantityMax===null?null:Math.round(parsed.quantityMax*factor*1e9)/1e9;
     const mergeable=quantityMin!==null&&parsed.unit!==null&&!['to taste','for garnish','divided'].includes(parsed.preparation??'');
     const existing=mergeable?items.find((item)=>item.concept===parsed.concept&&item.preparation===parsed.preparation&&item.optional===line.optional&&item.packageQuantity===parsed.packageQuantity&&item.packageUnit===parsed.packageUnit&&compatible(item.unit,parsed.unit)):undefined;
-    const source={recipeVersionId:line.recipeVersionId,ingredientLineId:line.ingredientLineId,planEntryId:line.planEntryId};
-    if(existing){existing.quantityMin=(existing.quantityMin??0)+(convert(quantityMin,parsed.unit,existing.unit)??0);existing.quantityMax=existing.quantityMax===null&&quantityMax===null?null:(existing.quantityMax??existing.quantityMin??0)+(convert(quantityMax,parsed.unit,existing.unit)??0);existing.originalDisplayTexts.push(line.originalText);existing.sources.push(source);continue;}
+    const sourceForUnit=(unit:string|null)=>({recipeVersionId:line.recipeVersionId,ingredientLineId:line.ingredientLineId,planEntryId:line.planEntryId,quantityMin:convert(quantityMin,parsed.unit,unit),quantityMax:convert(quantityMax,parsed.unit,unit),unit,optional:line.optional});
+    if(existing){existing.quantityMin=(existing.quantityMin??0)+(convert(quantityMin,parsed.unit,existing.unit)??0);existing.quantityMax=existing.quantityMax===null&&quantityMax===null?null:(existing.quantityMax??existing.quantityMin??0)+(convert(quantityMax,parsed.unit,existing.unit)??0);existing.originalDisplayTexts.push(line.originalText);existing.sources.push(sourceForUnit(existing.unit));continue;}
+    const source=sourceForUnit(parsed.unit);
     items.push({id:`grocery-${items.length+1}`,concept:parsed.concept||line.originalText.toLowerCase(),quantityMin,quantityMax,unit:parsed.unit,packageQuantity:parsed.packageQuantity,packageUnit:parsed.packageUnit,preparation:parsed.preparation,optional:line.optional,aisle:assignAisle(parsed.concept),originalDisplayTexts:[line.originalText],sources:[source],reviewReason:quantityMin===null?'Quantity needs review':!parsed.concept?'Ingredient needs review':null});
   }
   return{items};

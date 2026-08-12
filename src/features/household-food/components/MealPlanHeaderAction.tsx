@@ -1,19 +1,21 @@
+import { forwardRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { colors, radii, spacing } from '../../../theme';
 import { Icon } from '../../../ui/Icon';
 import { Text } from '../../../ui/Typography';
 
-export function MealPlanHeaderAction({
-  count,
-  onPress,
-}: {
+export const MealPlanHeaderAction = forwardRef<View, {
   count: number;
   onPress(): void;
-}) {
+}>(function MealPlanHeaderAction({
+  count,
+  onPress,
+}, ref) {
   const countLabel = count > 99 ? '99+' : String(count);
   return (
     <Pressable
+      ref={ref}
       testID="meal-plan-header-action"
       accessibilityRole="button"
       accessibilityLabel={count ? `Plan, ${count} meals` : 'Plan'}
@@ -33,7 +35,7 @@ export function MealPlanHeaderAction({
       ) : null}
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   action: {

@@ -22,6 +22,7 @@ describe('AlertDialog', () => {
 
   it('requires an explicit safe cancel or consequential action', () => {
     const onClose = jest.fn();
+    const onCancel = jest.fn();
     const onAction = jest.fn();
     const { getByLabelText, getByTestId, getByText } = renderAlertDialog(
       <AlertDialog
@@ -31,6 +32,7 @@ describe('AlertDialog', () => {
         cancelLabel="Keep view"
         actionLabel="Delete view"
         onClose={onClose}
+        onCancel={onCancel}
         onAction={onAction}
       />,
     );
@@ -42,6 +44,7 @@ describe('AlertDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
 
     fireEvent.press(getByLabelText('Keep view'));
+    expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
 
     fireEvent.press(getByLabelText('Delete view'));

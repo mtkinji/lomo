@@ -366,92 +366,93 @@ describe('Recipe library', () => {
 
   it('opens one complete Meal Plan drawer from the durable header affordance', () => {
     const onClose = jest.fn();
-    const onContinue = jest.fn();
     const onRemove = jest.fn();
     const items = Array.from({ length: 6 }, (_, index) => ({
       id: `meal-${index + 1}`,
       candidateId: `candidate-${index + 1}`,
       title: `Meal ${index + 1}`,
       storageRef: `bundle://household-recipe-atlas/${index + 1}`,
+      lifecycle: 'idea' as const,
+      createdAt: `2026-08-1${index + 1}T12:00:00.000Z`,
+      sentAt: null,
+      voteCount: 1,
+      missingItemCount: null,
+      canRemove: true,
     }));
     const drawer = render(
       <MealPlanDrawer
         visible
         items={items}
-        canEdit
+        canManage
         onClose={onClose}
-        onContinue={onContinue}
         onRemove={onRemove}
       />,
     );
 
     expect(drawer.getByText('Plan')).toBeTruthy();
-    expect(drawer.getByLabelText('Meal Plan, 6 ideas waiting')).toBeTruthy();
+    expect(drawer.getByLabelText('Plan, 6 recipes')).toBeTruthy();
     expect(drawer.queryByTestId('meal-plan-drawer-thumbnail')).toBeNull();
     expect(drawer.queryByLabelText('Search meals')).toBeNull();
     expect(drawer.getByText('Meal 6')).toBeTruthy();
-    fireEvent.press(drawer.getByLabelText('Remove Meal 1 from Meal Plan'));
-    fireEvent.press(drawer.getByRole('button', { name: 'Review Meal Plan' }));
-    expect(onRemove).toHaveBeenCalledWith('candidate-1');
-    expect(onContinue).toHaveBeenCalledTimes(1);
+    expect(drawer.getByLabelText('More actions for Meal 1')).toBeTruthy();
+    expect(onRemove).not.toHaveBeenCalled();
   });
 
-  it('opens the Meal Plan as one full drawer without green cart actions', () => {
+  it('groups the persistent Plan by readiness and keeps grocery commitment primary', () => {
+    const onSendToGroceries = jest.fn();
+    const onOpenGroceries = jest.fn();
     const item = {
       id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
+      lifecycle: 'idea' as const, createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
+      voteCount: 1, missingItemCount: null,
       contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
-      supporters: [], viewerReacted: false, canReact: false, canWithdraw: false, selected: true,
+      supporters: [], viewerReacted: false, canReact: false, canRemove: true, canMarkMade: false,
     };
     const drawer = render(
       <MealPlanDrawer
-        visible items={[item]} canEdit canSettle onClose={jest.fn()}
-        onContinue={jest.fn()} onRemove={jest.fn()} onSettle={jest.fn()}
+        visible items={[item]} canManage onClose={jest.fn()}
+        onRemove={jest.fn()} onSendToGroceries={onSendToGroceries} onOpenGroceries={onOpenGroceries}
       />,
     );
 
     expect(drawer.getByTestId('meal-plan-drawer').props.accessibilityLabel).toBe(
       JSON.stringify({ snapIndex: 0, snapPoints: ['88%'] }),
     );
-    const chooseStyle = StyleSheet.flatten(
-      drawer.getByRole('button', { name: 'Choose next meals' }).props.style,
-    );
-    expect(chooseStyle).toMatchObject({ backgroundColor: colors.shellAlt });
-    expect(chooseStyle).not.toMatchObject({ backgroundColor: colors.accent });
-
-    fireEvent.press(drawer.getByRole('button', { name: 'Choose next meals' }));
-    const continueButton = drawer.getByRole('button', { name: 'Continue' });
-    const continueStyle = StyleSheet.flatten(continueButton.props.style);
-    expect(continueStyle).toMatchObject({ backgroundColor: colors.primary, opacity: 0.4 });
-    expect(continueStyle).not.toMatchObject({ backgroundColor: colors.accent });
+    expect(drawer.queryByText('Open for ideas')).toBeNull();
+    expect(drawer.queryByText(/Everyone can add/)).toBeNull();
+    expect(drawer.getByText('Ideas')).toBeTruthy();
+    fireEvent.press(drawer.getByRole('button', { name: 'Send to Groceries' }));
+    fireEvent.press(drawer.getByRole('checkbox', { name: 'Send Tacos to Groceries' }));
+    fireEvent.press(drawer.getByRole('button', { name: 'Send 1 recipe to Groceries' }));
+    expect(onSendToGroceries).toHaveBeenCalledWith(['candidate-1']);
   });
 
-  it('keeps support lightweight and requires the organizer to choose meals explicitly', () => {
+  it('keeps household support compact and directly tappable', () => {
     const onReact = jest.fn();
-    const onSettle = jest.fn();
     const item = {
       id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
+      lifecycle: 'idea' as const, createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
+      voteCount: 2, missingItemCount: null,
       contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
-      supporters: [{ personId: 'person-2', displayName: 'Sam', avatarUrl: null }],
-      viewerReacted: false, canReact: true, canWithdraw: false, selected: true,
+      supporters: [
+        { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
+        { personId: 'person-3', displayName: 'Alex', avatarUrl: null },
+      ],
+      viewerReacted: false, canReact: true, canRemove: false, canMarkMade: false,
     };
     const drawer = render(
       <MealPlanDrawer
-        visible items={[item]} canEdit canSettle onClose={jest.fn()}
-        onContinue={jest.fn()} onRemove={jest.fn()} onReact={onReact} onSettle={onSettle}
+        visible items={[item]} canManage={false} onClose={jest.fn()}
+        onRemove={jest.fn()} onReact={onReact}
       />,
     );
 
-    expect(drawer.getByText('Added by Sam')).toBeTruthy();
-    fireEvent.press(drawer.getByLabelText('Add Sounds good for Tacos'));
+    expect(drawer.queryByText('Added by Sam')).toBeNull();
+    const people = drawer.getByLabelText('2 plus ones for Tacos');
+    fireEvent.press(people);
+    expect(drawer.getByLabelText('2 plus ones for Tacos').props.accessibilityState).toMatchObject({ expanded: true });
+    fireEvent.press(drawer.getByLabelText('Plus one Tacos'));
     expect(onReact).toHaveBeenCalledWith('candidate-1', true);
-    fireEvent.press(drawer.getByRole('button', { name: 'Choose next meals' }));
-    expect(drawer.getByRole('button', { name: 'Continue' }).props.accessibilityState).toMatchObject({ disabled: true });
-    fireEvent.press(drawer.getByRole('checkbox', { name: 'Use Tacos' }));
-    fireEvent.press(drawer.getByRole('button', { name: 'Continue' }));
-    expect(drawer.getByText('Place any meals whose timing matters.')).toBeTruthy();
-    expect(drawer.getByText('Flexible')).toBeTruthy();
-    fireEvent.press(drawer.getByRole('button', { name: 'Use these meals' }));
-    expect(onSettle).toHaveBeenCalledWith([{ candidateId: 'candidate-1', timing: { kind: 'flexible' } }]);
   });
 
   it('keeps the familiar Plan icon and meal counter', () => {
@@ -475,29 +476,31 @@ describe('Recipe library', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('leads the Plan drawer with decided meals and a truthful grocery action', () => {
+  it('leads with ready recipes, keeps sent recipes visible, and resolves Made explicitly', () => {
     const onOpenGroceries = jest.fn();
+    const onMarkMade = jest.fn();
     const drawer = render(
       <MealPlanDrawer
         visible
-        items={[]}
-        committedMeals={[{ id: 'meal-1', title: 'Tacos', storageRef: null, timingLabel: 'Flexible', detail: '2 people · 4 servings' }]}
-        groceryAction={{ label: 'Make grocery list', params: { planId: 'plan-1', planVersion: 4 } }}
-        canEdit
+        items={[
+          { id: 'ready', candidateId: 'ready', title: 'Tacos', storageRef: null, lifecycle: 'ready', createdAt: '2026-08-10T12:00:00.000Z', sentAt: '2026-08-11T12:00:00.000Z', voteCount: 3, missingItemCount: 0, canRemove: true, canMarkMade: true },
+          { id: 'sent', candidateId: 'sent', title: 'Soup', storageRef: null, lifecycle: 'sent', createdAt: '2026-08-11T12:00:00.000Z', sentAt: '2026-08-11T13:00:00.000Z', voteCount: 1, missingItemCount: 1, canRemove: true, canMarkMade: true },
+        ]}
+        canManage
         onClose={jest.fn()}
-        onContinue={jest.fn()}
         onRemove={jest.fn()}
         onOpenGroceries={onOpenGroceries}
+        onMarkMade={onMarkMade}
       />,
     );
 
-    expect(drawer.queryByText('MEALS DECIDED')).toBeNull();
-    expect(drawer.getByText('Ready when you are')).toBeTruthy();
+    expect(drawer.getByText('Ready to cook')).toBeTruthy();
+    expect(drawer.getByText('Sent to groceries')).toBeTruthy();
     expect(drawer.getByText('Tacos')).toBeTruthy();
-    expect(drawer.getByText('Flexible')).toBeTruthy();
-    expect(drawer.getByText('2 people · 4 servings')).toBeTruthy();
-    expect(drawer.queryByText('Choose what sounds good.')).toBeNull();
-    fireEvent.press(drawer.getByRole('button', { name: 'Make grocery list' }));
+    expect(drawer.getByText('Missing 1 item')).toBeTruthy();
+    fireEvent.press(drawer.getAllByRole('button', { name: 'Made' })[0]);
+    expect(onMarkMade).toHaveBeenCalledWith('ready');
+    fireEvent.press(drawer.getByRole('button', { name: 'View groceries' }));
     expect(onOpenGroceries).toHaveBeenCalledTimes(1);
   });
 

@@ -310,10 +310,8 @@ export const styles = StyleSheet.create({
   planDrawerViewport: { flex: 1, minHeight: 0, overflow: "hidden" },
   planDrawerHeader: {
     minHeight: 64,
-    flexDirection: "row",
-    alignItems: "center",
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+    justifyContent: "center",
   },
   planDrawerHeaderMain: {
     flex: 1,
@@ -321,12 +319,6 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
-  },
-  planDrawerClose: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
   },
   planDrawerContent: {
     paddingHorizontal: spacing.lg,
@@ -351,7 +343,6 @@ export const styles = StyleSheet.create({
   committedMealArtwork: { width: 64, height: 64, borderRadius: 14 },
   committedMealCopy: { flex: 1, minWidth: 0, gap: 2 },
   committedMealTitle: { ...typography.titleSm, minWidth: 0 },
-  planIdeasHeading: { gap: 2, paddingTop: spacing.sm },
   planDrawerList: { gap: spacing.xs },
   planDrawerItem: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   planDrawerRow: {
@@ -380,10 +371,19 @@ export const styles = StyleSheet.create({
   planDrawerArtwork: { width: 48, height: 48, borderRadius: 14 },
   planDrawerMealCopy: { flex: 1, minWidth: 0, gap: 2 },
   planDrawerTitle: { minWidth: 0 },
-  planDrawerSupporters: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  planPeopleTrigger: { minHeight: 32, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: spacing.xs, borderRadius: 999, paddingHorizontal: spacing.xs },
+  planPeopleMenu: { width: 240, gap: 2 },
   planDrawerEmpty: { gap: spacing.xs, paddingVertical: spacing.md },
   planDrawerSettlementDisabled: { opacity: 0.4 },
   planDrawerPlacementIntro: { gap: spacing.xs, paddingBottom: spacing.xs },
+  planLifecycleGroup: { gap: spacing.xs },
+  planLifecycleHeading: { minHeight: 36, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  planDrawerMainRow: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  planDrawerReactionRow: { minHeight: 36, marginLeft: 56, flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingBottom: spacing.xs },
+  planDrawerReactionRowSelecting: { marginLeft: 88 },
+  planMissingItems: { marginLeft: "auto" },
+  planSelectionActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  planSelectionConfirm: { flex: 1 },
   planTimingEditor: { width: "100%", gap: spacing.sm, paddingBottom: spacing.md },
   planTimingChoices: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   planTimingChoice: {

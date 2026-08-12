@@ -35,7 +35,7 @@ import {
 
 export type FoodStackParamList = {
   FoodHome: undefined;
-  RecipeLibrary: undefined;
+  RecipeLibrary: { openPlan?: boolean } | undefined;
   EditorialMealCollection: { collectionId: string };
   RecipeEdit: { recipeId?: string };
   RecipeHome: { recipeId: string };

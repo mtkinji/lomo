@@ -126,6 +126,22 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
     setSharedReaction(candidateId: string, reacted: boolean) {
       return rpc(client, 'set_kwilt_shared_meal_reaction', { p_candidate_id: candidateId, p_reacted: reacted });
     },
+    async sendSharedCandidates(planId: string, expectedVersion: number, candidateIds: string[]) {
+      const { data, error } = await client.functions.invoke('grocery-compile', { body: { planAction: 'send', planId, expectedVersion, candidateIds } });
+      if (error) throw new Error(error.message);
+      return (data as { receipt: { planId: string; version: number; groceryListId: string; revision: number } }).receipt;
+    },
+    async removeSentSharedCandidate(planId: string, expectedVersion: number, candidateId: string) {
+      const { data, error } = await client.functions.invoke('grocery-compile', { body: { planAction: 'remove', planId, expectedVersion, candidateIds: [candidateId] } });
+      if (error) throw new Error(error.message);
+      return (data as { receipt: { planId: string; version: number; groceryListId: string; revision: number } }).receipt;
+    },
+    keepGroceriesAndRemoveSharedCandidate(candidateId: string, expectedVersion: number) {
+      return rpc(client, 'remove_kwilt_sent_plan_candidate_keep_groceries', { p_candidate_id: candidateId, p_expected_version: expectedVersion });
+    },
+    markSharedCandidateMade(candidateId: string, expectedVersion: number) {
+      return rpc(client, 'mark_kwilt_plan_candidate_made', { p_candidate_id: candidateId, p_expected_version: expectedVersion });
+    },
     async list(): Promise<MealPlanProjection[]> {
       const { data, error } = await client.from('kwilt_meal_plans').select('*,candidates:kwilt_meal_plan_candidates(*),entries:kwilt_meal_plan_entries(*),occasions:kwilt_meal_plan_occasions(*),rounds:kwilt_meal_choice_rounds(*)').order('updated_at', { ascending: false });
       if (error) throw new Error(error.message);
@@ -187,6 +203,9 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_candidate_reactions' }, onInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plan_entries' }, onInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plan_occasions' }, onInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_grocery_lists' }, onInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_grocery_items' }, onInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_grocery_item_sources' }, onInvalidate)
         .subscribe();
       return () => { void client.removeChannel(channel); };
     },

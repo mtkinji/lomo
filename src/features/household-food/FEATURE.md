@@ -17,8 +17,9 @@ briefs:
   - household-food-loop
   - shared-meal-cart
   - progressive-meal-commitment
+  - live-family-meal-board
 status: draft
-last_reviewed: 2026-08-08
+last_reviewed: 2026-08-11
 ---
 
 # Household food
@@ -28,9 +29,11 @@ Groceries while keeping each capability's data, permissions, mutations, and
 receipts separate.
 
 Recipes owns reusable food knowledge and personal discovery controls. Meal
-Planning owns usual diners, person-scoped fit checks, occasions, dish
-assignments, quantities, and finalization. Groceries consumes each finalized
-dish exactly once with Recipe and serving provenance, without private diner or
-food-need context. Recorded food needs are user-provided guidance, not medical
-or safety guarantees; reminders are optional Activities offered only after a
-successful plan.
+Planning owns usual diners, person-scoped fit checks, persistent recipe
+occurrences, household reactions, grocery commitment, and Made/Removed
+outcomes. Groceries consumes each sent occurrence with Recipe, ingredient,
+scaled-quantity, and candidate provenance; its completion states derive Plan
+readiness without exposing private diner or food-need context. Legacy finalized
+plans remain supported, but the Recipes Plan does not require finalization,
+dates, or a planning cadence. Recorded food needs are user-provided guidance,
+not medical or safety guarantees.

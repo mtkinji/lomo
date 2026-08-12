@@ -95,6 +95,7 @@ type AlertDialogProps = {
   cancelLabel: string;
   actionLabel: string;
   onClose: () => void;
+  onCancel?: () => void;
   onAction: () => void;
   actionVariant?: 'destructive' | 'primary';
   disabled?: boolean;
@@ -109,6 +110,7 @@ function AlertDialog({
   cancelLabel,
   actionLabel,
   onClose,
+  onCancel,
   onAction,
   actionVariant = 'destructive',
   disabled = false,
@@ -154,6 +156,7 @@ function AlertDialog({
               variant="outline"
               accessibilityLabel={cancelLabel}
               disabled={disabled}
+              onPress={onCancel}
               style={styles.actionButton}
             >
               {cancelLabel}

@@ -7,8 +7,21 @@ const projection = { recipe: recipeContractFixture(), currentVersion: recipeVers
 function cart(candidates: SharedMealCartProjection['candidates'] = []): SharedMealCartProjection {
   return {
     planId: 'plan-1', householdId: 'household-1', version: 2, state: 'draft',
-    viewer: { personId: 'person-1', role: 'owner', canAdd: true, canSettle: true },
+    activeCount: candidates.length, groceryListId: null,
+    viewer: { personId: 'person-1', role: 'owner', canAdd: true, canManage: true },
     candidates,
+  };
+}
+
+function candidate(overrides: Partial<SharedMealCartProjection['candidates'][number]> = {}) {
+  return {
+    id: 'candidate-1', kind: 'recipe' as const, title: projection.currentVersion.title,
+    recipeSnapshot: { recipeVersionId: projection.currentVersion.id }, position: 0,
+    createdAt: '2026-08-11T12:00:00.000Z', lifecycle: 'idea' as const, sentAt: null,
+    missingItemCount: null, voteCount: 1,
+    contributor: { personId: 'person-1', displayName: 'Maya', avatarUrl: null }, supporters: [],
+    viewerReacted: true, canReact: true, canRemove: true, canMarkMade: false,
+    ...overrides,
   };
 }
 
@@ -26,16 +39,11 @@ describe('shared Meal Cart recipe selection', () => {
   });
 
   it('withdraws only the selected candidate when the actor is authorized', async () => {
-    const candidate = {
-      id: 'candidate-1', kind: 'recipe' as const, title: projection.currentVersion.title,
-      recipeSnapshot: { recipeVersionId: projection.currentVersion.id }, position: 0, selected: true,
-      contributor: { personId: 'person-1', displayName: 'Maya', avatarUrl: null }, supporters: [],
-      viewerReacted: true, canReact: true, canWithdraw: true,
-    };
+    const selectedCandidate = candidate();
     const next = cart();
     const repository = { addSharedCandidate: jest.fn(), withdrawSharedCandidate: jest.fn() };
     const result = await toggleRecipeInSharedMealCart({
-      cart: cart([candidate]), householdId: 'household-1', projection, servings: 4, candidateId: 'unused',
+      cart: cart([selectedCandidate]), householdId: 'household-1', projection, servings: 4, candidateId: 'unused',
       repository, reloadCart: jest.fn().mockResolvedValue(next),
     });
     expect(repository.withdrawSharedCandidate).toHaveBeenCalledWith('candidate-1');
@@ -43,13 +51,15 @@ describe('shared Meal Cart recipe selection', () => {
     expect(result).toEqual({ cart: next, selected: false });
   });
 
-  it('does not treat an unselected historical candidate as in the current plan', () => {
-    const historical = {
-      id: 'candidate-1', kind: 'recipe' as const, title: projection.currentVersion.title,
-      recipeSnapshot: { recipeVersionId: projection.currentVersion.id }, position: 0, selected: false,
-      contributor: { personId: 'person-1', displayName: 'Maya', avatarUrl: null }, supporters: [],
-      viewerReacted: true, canReact: false, canWithdraw: false,
-    };
-    expect(sharedMealCartContainsRecipeVersion({ ...cart([historical]), state: 'finalized' }, projection)).toBe(false);
+  it('keeps a sent recipe in the active Plan and directs removal through the drawer', async () => {
+    const sent = candidate({ lifecycle: 'sent', sentAt: '2026-08-11T13:00:00.000Z', canMarkMade: true });
+    const repository = { addSharedCandidate: jest.fn(), withdrawSharedCandidate: jest.fn() };
+
+    expect(sharedMealCartContainsRecipeVersion(cart([sent]), projection)).toBe(true);
+    await expect(toggleRecipeInSharedMealCart({
+      cart: cart([sent]), householdId: 'household-1', projection, servings: 4, candidateId: 'unused',
+      repository, reloadCart: jest.fn(),
+    })).rejects.toThrow('Open Plan');
+    expect(repository.withdrawSharedCandidate).not.toHaveBeenCalled();
   });
 });

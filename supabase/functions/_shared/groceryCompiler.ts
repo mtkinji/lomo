@@ -21,6 +21,19 @@ export type RecipeGrocerySource = {
   ingredients: Array<{ id: string; originalText: string; optional: boolean }>;
 };
 
+export type HouseholdPlanGroceryAuthorityInput = {
+  plan: { id: string; version: number; state: string };
+  expectedVersion: number;
+  actorRole: string;
+  candidates: Array<{
+    id: string;
+    lifecycleState: 'sent' | 'removed';
+    removedGroceryBehavior: 'kept' | null;
+    recipeSnapshot: Record<string, unknown> | null;
+  }>;
+  ingredientsByVersionId: Record<string, IngredientAuthority[]>;
+};
+
 function catalogIngredients(snapshot: Record<string, unknown>, recipeVersionId: string): IngredientAuthority[] | null {
   if (snapshot.sourceType !== 'catalog'
     || !/^kwilt-recipe-[a-z0-9-]+-v\d+$/.test(recipeVersionId)
@@ -108,6 +121,58 @@ export function compileRecipeGroceryAuthority(input: {
         kind,
         scope: 'recipe_version' as const,
         originalText: originalByIngredientId.get(source.ingredientLineId) ?? null,
+      })),
+    })),
+  };
+}
+
+export function compileHouseholdPlanGroceryAuthority(input: HouseholdPlanGroceryAuthorityInput) {
+  if (!['owner', 'caregiver'].includes(input.actorRole)) throw new Error('household_plan_grocery_manage_forbidden');
+  if (input.plan.state !== 'draft' || input.plan.version !== input.expectedVersion) throw new Error('stale_household_plan');
+  const lines: GroceryCompilerLine[] = [];
+  const catalogVersionIds = new Set<string>();
+  const originalBySource = new Map<string, string>();
+  for (const candidate of input.candidates) {
+    const contributes = candidate.lifecycleState === 'sent'
+      || (candidate.lifecycleState === 'removed' && candidate.removedGroceryBehavior === 'kept');
+    if (!contributes || !candidate.recipeSnapshot) continue;
+    const recipeVersionId = typeof candidate.recipeSnapshot.recipeVersionId === 'string'
+      ? candidate.recipeSnapshot.recipeVersionId
+      : '';
+    const fromYield = typeof candidate.recipeSnapshot.yieldQuantity === 'number'
+      ? candidate.recipeSnapshot.yieldQuantity
+      : null;
+    const selectedServings = typeof candidate.recipeSnapshot.selectedServings === 'number'
+      && Number.isFinite(candidate.recipeSnapshot.selectedServings)
+      && candidate.recipeSnapshot.selectedServings > 0
+      ? candidate.recipeSnapshot.selectedServings
+      : fromYield;
+    const ingredients = input.ingredientsByVersionId[recipeVersionId]
+      ?? catalogIngredients(candidate.recipeSnapshot, recipeVersionId);
+    if (!recipeVersionId || !ingredients) throw new Error('missing_recipe_version');
+    if (!input.ingredientsByVersionId[recipeVersionId]) catalogVersionIds.add(recipeVersionId);
+    for (const ingredient of ingredients) {
+      lines.push({
+        originalText: ingredient.original_text,
+        recipeVersionId,
+        ingredientLineId: ingredient.id,
+        planEntryId: candidate.id,
+        fromYield,
+        toYield: selectedServings,
+        optional: ingredient.optional,
+      });
+      originalBySource.set(`${recipeVersionId}:${ingredient.id}:${candidate.id}`, ingredient.original_text);
+    }
+  }
+  const compiled = buildGroceryCompilation(lines);
+  return {
+    items: compiled.items.map((item) => ({
+      ...item,
+      sources: item.sources.map(({ planEntryId, ...source }) => ({
+        ...source,
+        planCandidateId: planEntryId,
+        kind: catalogVersionIds.has(source.recipeVersionId) ? 'catalog_recipe_ingredient' : 'recipe_ingredient',
+        originalText: originalBySource.get(`${source.recipeVersionId}:${source.ingredientLineId}:${planEntryId}`) ?? null,
       })),
     })),
   };
