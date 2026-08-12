@@ -12,12 +12,15 @@ import {
   DropdownMenuTrigger,
 } from "../../../ui/DropdownMenu";
 import { Icon } from "../../../ui/Icon";
+import { EmptyState } from "../../../ui/EmptyState";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
 import { OverlappingAvatarStack } from "../../../ui/OverlappingAvatarStack";
 import { Heading, Text } from "../../../ui/Typography";
 import { reconcilePlanCandidateOrder, type PlanLifecycle } from "../../meal-planning/domain/planLifecycle";
 import { RecipeArtwork } from "../components/RecipeArtwork";
 import { styles } from "./RecipeLibraryScreen.styles";
+
+const HOUSEHOLD_FOOD_EMPTY_ILLUSTRATION = require("../../../../assets/illustrations/groceries-empty.png");
 
 type PlanPerson = { personId: string; displayName: string; avatarUrl: string | null };
 
@@ -226,10 +229,12 @@ export function MealPlanDrawer({
               </View>
             </View>
           )) : (
-            <View style={styles.planDrawerEmpty}>
-              <Heading variant="sm">Nothing in Plan yet</Heading>
-              <Text tone="secondary">Add any recipe you might want to make.</Text>
-            </View>
+            <EmptyState
+              variant="screen"
+              illustration={HOUSEHOLD_FOOD_EMPTY_ILLUSTRATION}
+              title="Add recipes to your Plan"
+              style={styles.planDrawerEmpty}
+            />
           )}
           {selecting ? (
             <View style={styles.planSelectionActions}>

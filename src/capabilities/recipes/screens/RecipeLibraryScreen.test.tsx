@@ -398,6 +398,22 @@ describe('Recipe library', () => {
     expect(onRemove).not.toHaveBeenCalled();
   });
 
+  it('reuses the household food illustration to invite recipes into an empty Plan', () => {
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[]}
+        canManage
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+      />,
+    );
+
+    expect(drawer.getByText('Add recipes to your Plan')).toBeTruthy();
+    expect(drawer.queryByText('Nothing in Plan yet')).toBeNull();
+    expect(drawer.queryByText('Add any recipe you might want to make.')).toBeNull();
+  });
+
   it('groups the persistent Plan by readiness and keeps grocery commitment primary', () => {
     const onSendToGroceries = jest.fn();
     const onOpenGroceries = jest.fn();

@@ -321,6 +321,7 @@ export const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   planDrawerContent: {
+    flexGrow: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl * 2,
@@ -373,7 +374,12 @@ export const styles = StyleSheet.create({
   planDrawerTitle: { minWidth: 0 },
   planPeopleTrigger: { minHeight: 32, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: spacing.xs, borderRadius: 999, paddingHorizontal: spacing.xs },
   planPeopleMenu: { width: 240, gap: 2 },
-  planDrawerEmpty: { gap: spacing.xs, paddingVertical: spacing.md },
+  planDrawerEmpty: {
+    flex: 1,
+    justifyContent: "center",
+    marginTop: 0,
+    paddingBottom: spacing["3xl"],
+  },
   planDrawerSettlementDisabled: { opacity: 0.4 },
   planDrawerPlacementIntro: { gap: spacing.xs, paddingBottom: spacing.xs },
   planLifecycleGroup: { gap: spacing.xs },
