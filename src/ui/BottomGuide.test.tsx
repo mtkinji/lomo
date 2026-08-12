@@ -43,9 +43,9 @@ describe('BottomGuide interaction semantics', () => {
     expect(mockBottomDrawerProps.at(-1)?.dismissOnBackdropPress).toBe(false);
   });
 
-  it('can float with equal clearance from the left, right, and bottom edges', () => {
+  it('floats by default with equal clearance from the left, right, and bottom edges', () => {
     renderWithProviders(
-      <BottomGuide visible layout="floating" onClose={jest.fn()}>
+      <BottomGuide visible onClose={jest.fn()}>
         <Text>Guidance</Text>
       </BottomGuide>,
     );
@@ -56,5 +56,20 @@ describe('BottomGuide interaction semantics', () => {
       marginHorizontal: spacing.md,
       marginBottom: spacing.md,
     });
+  });
+
+  it('keeps drawer-like guides anchored when inset layout is explicit', () => {
+    renderWithProviders(
+      <BottomGuide visible layout="inset" onClose={jest.fn()}>
+        <Text>Guidance</Text>
+      </BottomGuide>,
+    );
+
+    const sheetStyle = StyleSheet.flatten(mockBottomDrawerProps.at(-1)?.sheetStyle as object);
+    expect(sheetStyle).toMatchObject({
+      borderRadius: radii.sheet,
+      marginHorizontal: spacing.md,
+    });
+    expect(sheetStyle).not.toHaveProperty('marginBottom');
   });
 });

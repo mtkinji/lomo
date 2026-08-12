@@ -1,9 +1,10 @@
 import { View } from 'react-native';
 import { colors, spacing } from '../../../theme';
-import { BottomGuide } from '../../../ui/BottomGuide';
+import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { HStack, VStack } from '../../../ui/Stack';
-import { Heading, Text } from '../../../ui/Typography';
+import { Text } from '../../../ui/Typography';
 import type { ScreenTimeGuideActions } from '../domain/screenTimeGuideActions';
 import type { ScreenTimeRule } from '../domain/screenTimeRule';
 import type { TemporaryOpenResult } from '../runtime/openScreenTimeRulesTemporarily';
@@ -40,19 +41,22 @@ export function ScreenTimeUnlockGuide(props: {
       : 'You can do what the rule asks, or an authorized adult can make a short exception.';
 
   return (
-    <BottomGuide
+    <BottomDrawer
       visible={props.visible}
       onClose={props.onDismiss}
-      scrim="none"
-      layout="inset"
       snapPoints={['55%']}
       dynamicSizing
+      enableContentPanningGesture
+      scrimToken="pineSubtle"
     >
-      <VStack space={spacing.md}>
-        <VStack space={spacing.xs}>
-          <Heading variant="sm">{title}</Heading>
-          <Text tone="secondary">{body}</Text>
-        </VStack>
+      <BottomDrawerScrollView contentContainerStyle={styles.content}>
+        <BottomDrawerHeader
+          variant="withClose"
+          title={title}
+          subtitle={body}
+          onClose={props.onDismiss}
+          closeAccessibilityLabel="Close Screen Time guide"
+        />
 
         {!opened ? (
           <VStack space={spacing.sm}>
@@ -98,12 +102,16 @@ export function ScreenTimeUnlockGuide(props: {
             </>
           )}
         </HStack>
-      </VStack>
-    </BottomGuide>
+      </BottomDrawerScrollView>
+    </BottomDrawer>
   );
 }
 
 const styles = {
+  content: {
+    gap: spacing.md,
+    paddingBottom: spacing.xl,
+  },
   ruleCard: {
     backgroundColor: colors.card,
     borderColor: colors.border,

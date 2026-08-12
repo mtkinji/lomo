@@ -30,8 +30,8 @@ interface BottomGuideProps {
   scrim?: 'none' | 'light';
   /**
    * Layout style for the guide surface.
-   * - 'inset' (default): small horizontal gutter so the guide reads like a card.
-   * - 'floating': equal left, right, and bottom clearance from the screen edge.
+   * - 'floating' (default): equal left, right, and bottom clearance for compact guides.
+   * - 'inset': bottom-anchored treatment for tall, drawer-like guide content.
    * - 'fullWidth': edge-to-edge drawer surface.
    */
   layout?: 'inset' | 'floating' | 'fullWidth';
@@ -70,7 +70,7 @@ export function BottomGuide({
   keyboardAvoidanceEnabled = true,
   snapPoints,
   scrim = 'none',
-  layout = 'inset',
+  layout = 'floating',
   guideColor,
   onClose,
   children,

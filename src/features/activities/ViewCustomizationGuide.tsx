@@ -5,21 +5,16 @@ import {
   StyleSheet,
   Keyboard,
   ActivityIndicator,
-  ScrollView,
-  Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HStack, VStack, Text, Textarea } from '../../ui/primitives';
 import { Icon, type IconName } from '../../ui/Icon';
-import { Button } from '../../ui/Button';
-import { ButtonLabel } from '../../ui/Typography';
-import { BottomGuide } from '../../ui/BottomGuide';
+import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { HapticsService } from '../../services/HapticsService';
 import type { ActivityView, FilterGroup, SortCondition } from '../../domain/types';
-import { useKeyboardHeight } from '../../ui/hooks/useKeyboardHeight';
 
 export type ViewPreset = {
   id: string;
@@ -153,12 +148,6 @@ export function ViewCustomizationGuide({
   isAiLoading = false,
 }: ViewCustomizationGuideProps) {
   const [aiPrompt, setAiPrompt] = useState('');
-  const insets = useSafeAreaInsets();
-  const { keyboardHeight } = useKeyboardHeight();
-
-  // iOS keyboard height typically includes bottom safe area; BottomDrawer already accounts for insets.
-  const adjustedKeyboardHeight =
-    Platform.OS === 'ios' ? Math.max(0, keyboardHeight - insets.bottom) : keyboardHeight;
 
   const handleSelectPreset = useCallback(
     (preset: ViewPreset) => {
@@ -186,29 +175,25 @@ export function ViewCustomizationGuide({
   if (!view) return null;
 
   return (
-    <BottomGuide
+    <BottomDrawer
       visible={visible}
       onClose={onClose}
-      // This guide manages keyboard space via snap points + internal padding.
-      // Avoid BottomDrawer's keyboard avoidance to prevent double lifting.
-      keyboardAvoidanceEnabled={false}
-      snapPoints={adjustedKeyboardHeight > 0 ? ['92%'] : ['75%']}
-      scrim="light"
+      snapPoints={['62%']}
+      scrimToken="pineSubtle"
+      enableContentPanningGesture
     >
-      <ScrollView
+      <BottomDrawerScrollView
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.container,
-          // Ensure the bottom portion can scroll above the keyboard.
-          { paddingBottom: spacing.lg + adjustedKeyboardHeight },
-        ]}
+        contentContainerStyle={styles.container}
       >
+        <BottomDrawerHeader
+          variant="withClose"
+          title="Add filters or sorting"
+          onClose={onClose}
+          closeAccessibilityLabel="Close view customization"
+        />
         <VStack space="lg">
-          <VStack space="xs">
-            <Text style={styles.title}>Add filters or sorting</Text>
-          </VStack>
-
           {/* Quick picks */}
           <VStack space="sm">
             <Text style={styles.sectionLabel}>Quick picks</Text>
@@ -255,34 +240,19 @@ export function ViewCustomizationGuide({
               />
             </VStack>
           )}
-
-          {/* Continue button */}
-          <Button
-            variant="ghost"
-            size="small"
-            onPress={onClose}
-            style={styles.continueButton}
-          >
-            <ButtonLabel size="md">Done</ButtonLabel>
-          </Button>
         </VStack>
-      </ScrollView>
-    </BottomGuide>
+      </BottomDrawerScrollView>
+    </BottomDrawer>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xl,
   },
   kicker: {
     ...typography.label,
     color: colors.muted,
-  },
-  title: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
   },
   subtitle: {
     ...typography.bodySm,
@@ -323,8 +293,5 @@ const styles = StyleSheet.create({
   aiHint: {
     ...typography.caption,
     color: colors.muted,
-  },
-  continueButton: {
-    alignSelf: 'center',
   },
 });

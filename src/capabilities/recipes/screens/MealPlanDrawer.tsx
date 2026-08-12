@@ -4,6 +4,7 @@ import { Pressable, View } from "react-native";
 import { colors } from "../../../theme";
 import { HapticsService } from "../../../services/HapticsService";
 import { BottomDrawer, BottomDrawerScrollView } from "../../../ui/BottomDrawer";
+import { BottomGuide } from "../../../ui/BottomGuide";
 import { Button, IconButton } from "../../../ui/Button";
 import {
   DropdownMenu,
@@ -334,11 +335,10 @@ export function MealPlanDrawer({
         </BottomDrawerScrollView>
       </View>
       </BottomDrawer>
-      <BottomDrawer
+      <BottomGuide
         visible={reactionPickerItem !== null}
         onClose={() => setReactionPickerItem(null)}
-        snapPoints={[240]}
-        presentation="modal"
+        scrim="light"
         dynamicSizing
       >
         {reactionPickerItem ? (
@@ -370,7 +370,7 @@ export function MealPlanDrawer({
             </View>
           </View>
         ) : null}
-      </BottomDrawer>
+      </BottomGuide>
     </>
   );
 }
