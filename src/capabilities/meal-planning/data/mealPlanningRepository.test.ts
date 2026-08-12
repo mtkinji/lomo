@@ -1,6 +1,34 @@
 import { createMealPlanningRepository, mapMealPlanRow } from './mealPlanningRepository';
 
 describe('Meal Planning repository', () => {
+  it('does not reuse a subscribed Realtime topic during an async React remount cleanup', () => {
+    const channels = new Map<string, { subscribed: boolean; on: jest.Mock; subscribe: jest.Mock }>();
+    const channel = jest.fn((topic: string) => {
+      const existing = channels.get(topic);
+      if (existing) return existing;
+      const created = {
+        subscribed: false,
+        on: jest.fn(function on(this: { subscribed: boolean }) {
+          if (this.subscribed) throw new Error('cannot add `postgres_changes` callbacks after `subscribe()`.');
+          return this;
+        }),
+        subscribe: jest.fn(function subscribe(this: { subscribed: boolean }) {
+          this.subscribed = true;
+          return this;
+        }),
+      };
+      channels.set(topic, created);
+      return created;
+    });
+    const client = { channel, removeChannel: jest.fn(() => new Promise(() => undefined)) };
+
+    const firstCleanup = createMealPlanningRepository(client as never).subscribe(jest.fn());
+    firstCleanup();
+
+    expect(() => createMealPlanningRepository(client as never).subscribe(jest.fn())).not.toThrow();
+    expect(channel.mock.calls[0][0]).not.toBe(channel.mock.calls[1][0]);
+  });
+
   it('reads and mutates the shared cart only through actor-aware RPCs', async () => {
     const rpc = jest.fn()
       .mockResolvedValueOnce({ data: {

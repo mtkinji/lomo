@@ -7,6 +7,13 @@ import { aggregateMealChoices } from '../domain/mealChoiceAggregate';
 import { stableContentHash } from '@kwilt/food-core';
 import { parseSharedMealCartProjection, type SharedMealCartProjection } from '../domain/sharedMealCart';
 
+let mealPlanningSubscriptionSequence = 0;
+
+function nextMealPlanningSubscriptionTopic(): string {
+  mealPlanningSubscriptionSequence += 1;
+  return `meal-planning-invalidation:${Date.now().toString(36)}:${mealPlanningSubscriptionSequence.toString(36)}`;
+}
+
 export type MealPlanCandidateDraft = {
   id: string;
   kind: 'recipe' | 'meal_note';
@@ -197,7 +204,7 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
     },
     revise(planId: string, expectedVersion: number) { return rpc(client, 'revise_kwilt_meal_plan', { p_plan_id: planId, p_expected_version: expectedVersion }); },
     subscribe(onInvalidate: () => void): () => void {
-      const channel = client.channel('meal-planning-invalidation')
+      const channel = client.channel(nextMealPlanningSubscriptionTopic())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plans' }, onInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plan_candidates' }, onInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_candidate_reactions' }, onInvalidate)
