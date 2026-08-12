@@ -70,7 +70,9 @@ const styles = StyleSheet.create({
     gap: 5,
     backgroundColor: colors.canvas,
   },
-  controlSurfaceActive: { backgroundColor: colors.pine700 },
+  // Inventory state is functional, not a brand moment. Keep active filter,
+  // grouping, and sort controls neutral anywhere this shared pattern appears.
+  controlSurfaceActive: { backgroundColor: colors.sumi900 },
   controlCount: {
     fontSize: 12,
     lineHeight: 14,

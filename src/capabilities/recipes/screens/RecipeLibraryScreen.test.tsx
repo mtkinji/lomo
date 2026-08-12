@@ -410,7 +410,7 @@ describe('Recipe library', () => {
     );
     expect(StyleSheet.flatten(screen.getByTestId('recipe-funnel-control-surface').props.style)).toMatchObject({
       height: 34,
-      backgroundColor: colors.pine700,
+      backgroundColor: colors.sumi900,
     });
     expect(StyleSheet.flatten(screen.getByTestId('recipe-filter-pill-cuisine-all').props.style)).toMatchObject({
       minHeight: 38,
