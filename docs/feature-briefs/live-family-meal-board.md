@@ -9,7 +9,7 @@ job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [household-food-loop, shared-meal-cart, progressive-meal-commitment]
 owner: andrew
-last_updated: 2026-08-11
+last_updated: 2026-08-12
 ---
 
 # Collaborative Household Recipe Plan
@@ -66,10 +66,18 @@ Recipes remains the library. `Plan · N` remains its upper-right entry point and
 opens the existing drawer. `N` is the number of active recipe occurrences.
 
 The Plan is one household-scoped, persistent, open-horizon object. Adding a
-recipe creates an **Idea** and implicitly records the contributor's +1. Other
-eligible members can add or remove their own +1 through a compact reaction on
-the row's second line. Contributor and supporter identity is available from
-the reaction control, not permanent provenance copy.
+recipe creates an **Idea** without automatically reacting for the contributor.
+Each eligible member may leave one response: one of five constrained positive
+emoji reactions, one visible downvote, or no response. The paired arrow
+affordance is compact and the chosen emoji/count stays directly beneath the
+title. Tapping a reaction reveals the household members behind it; identity is
+not repeated as permanent provenance copy.
+
+Positive support and downvotes remain separate household signals. A downvote
+means “not for me”; it is not anonymous, does not veto the recipe, does not
+remove it, and does not prevent an adult from sending it to Groceries. The UI
+must never collapse the two signals into a net score. Changing response replaces
+the viewer's prior response, preserving one response per person.
 
 Adults can enter contextual selection mode and **Send to Groceries** for one,
 some, or all Ideas. Sent recipes remain in Plan and appear above Ideas. Each
@@ -103,10 +111,10 @@ active count, preserves reactions and timestamps, and never reverses grocery
 purchases. It may later link to Cook Session evidence but does not require Cook
 Mode.
 
-Active ordering is group first, then support count descending, then most
-recently added. Counts update immediately while physical resorting is deferred
-until drawer open, refresh, or a lifecycle transition so the tapped row does
-not jump.
+Active ordering is group first, then positive support count descending, then
+downvote count ascending, then most recently added. Counts update immediately
+while physical resorting is deferred until drawer open, refresh, or a lifecycle
+transition so the tapped row does not jump.
 
 Eligible members can view, add, and react. Existing owner/caregiver roles can
 send, remove, and mark Made. Child access continues to require Meal Planning
@@ -118,7 +126,7 @@ Plan control and offer **View Plan**. Kroger cart acknowledgement is not order
 or fulfillment proof and must never trigger this education or readiness.
 
 There is no required date, cadence, target count, lock, publish step, weekly
-reset, planning deadline, negative vote, winner, or second personal Plan.
+reset, planning deadline, anonymous vote, veto, winner, or second personal Plan.
 
 ## UI contract
 
@@ -127,32 +135,35 @@ reset, planning deadline, negative vote, winner, or second personal Plan.
 - **Authority chain:** explicit product contract → iOS/accessibility → Kwilt UI
   Constitution and tokens → Candidate Inventory/list and BottomDrawer patterns
   → RNR component anatomy.
-- **Three-second read:** Ready to cook, Sent to groceries, Ideas.
+- **Three-second read:** recipe title, household response, grocery readiness.
 - **Primary action:** contextual `Send to Groceries` when Ideas exist and the
   viewer is an adult.
 - **Primary information:** recipe title, lifecycle group, household support,
   missing requirement count.
-- **Secondary information:** people behind reactions and low-frequency actions.
+- **Secondary information:** separate positive/downvote counts, people behind
+  reactions, and low-frequency actions.
 - **Reveal later:** selection controls, contributor names, Remove consequence.
 - **Scan order:** Plan count → Ready → Sent → Ideas → contextual action.
 - **Must not add:** calendar periods, workflow stepper, permanent checkboxes,
-  verbose provenance, or a second Plan destination.
+  verbose provenance, net scoring, downvote reasons, or a second Plan destination.
 - **Reuse map:** `BottomDrawer`, `BottomDrawerHeader`, `Button`, `DropdownMenu`,
   `AlertDialog`, `OverlappingAvatarStack`, `Coachmark`, Recipe artwork.
 - **Nearest precedent:** Candidate Inventory/list composition localized inside
   the existing Plan drawer; unlike a general inventory, lifecycle grouping
   owns the hierarchy and creation remains in Recipes.
-- **External exemplar ledger:** Slack reactions only — preserve compact social
-  feedback; translate into Kwilt avatars/tokens; reject Slack chrome, channels,
-  emoji catalogue, and message layout.
+- **External exemplar ledger:** Slack reactions and Reddit's paired vote cue only
+  — preserve compact, familiar participation and visible attribution; translate
+  into Kwilt icons, emoji, tokens, and one-response semantics; reject anonymous
+  voting, net score, Slack chrome/channels/catalogue, and Reddit ranking behavior.
 
 ## Success signal
 
-A household can use the same Plan casually for several weeks, send changing
-subsets to Groceries, remove one recipe without corrupting shared quantities,
-and return to recipes that are actually ready without once managing a planning
-period. A single user completes the identical add → send → satisfy → Made loop
-without collaboration copy feeling required.
+A household can use the same Plan casually for several weeks, register both
+enthusiasm and “not for me” without hiding who responded, send changing subsets
+to Groceries, remove one recipe without corrupting shared quantities, and return
+to recipes that are actually ready without once managing a planning period. A
+single user completes the identical add → send → satisfy → Made loop without
+collaboration copy feeling required.
 
 ## Open questions
 

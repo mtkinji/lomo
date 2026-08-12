@@ -389,6 +389,7 @@ export const styles = StyleSheet.create({
   planReactionPillSelected: { backgroundColor: colors.secondary, borderColor: colors.border },
   planReactionPillContent: { flexDirection: "row", alignItems: "center", gap: 4 },
   planReactionEmoji: { fontSize: 14, lineHeight: 18 },
+  planVoteActions: { flexDirection: "row", alignItems: "center", gap: 2 },
   planAddReaction: { width: 28, height: 28, alignItems: "center", justifyContent: "center", borderRadius: 999 },
   planReactionPicker: { gap: spacing.sm, paddingBottom: spacing.lg },
   planReactionChoices: { flexDirection: "row", justifyContent: "space-around", gap: spacing.xs, paddingHorizontal: spacing.md },

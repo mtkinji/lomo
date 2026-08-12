@@ -4,7 +4,7 @@ export type SharedMealCartPerson = {
   avatarUrl: string | null;
 };
 
-export const PLAN_REACTION_OPTIONS = [
+export const PLAN_POSITIVE_REACTION_OPTIONS = [
   { id: 'thumbs_up', emoji: '👍', label: 'Thumbs up' },
   { id: 'heart', emoji: '❤️', label: 'Love' },
   { id: 'yum', emoji: '😋', label: 'Yum' },
@@ -12,6 +12,10 @@ export const PLAN_REACTION_OPTIONS = [
   { id: 'fire', emoji: '🔥', label: 'Fire' },
 ] as const;
 
+export const PLAN_DOWNVOTE_REACTION = { id: 'downvote', emoji: '👎', label: 'Downvote' } as const;
+export const PLAN_REACTION_OPTIONS = [...PLAN_POSITIVE_REACTION_OPTIONS, PLAN_DOWNVOTE_REACTION] as const;
+
+export type PlanPositiveReaction = typeof PLAN_POSITIVE_REACTION_OPTIONS[number]['id'];
 export type PlanReaction = typeof PLAN_REACTION_OPTIONS[number]['id'];
 export type PlanReactionCounts = Record<PlanReaction, number>;
 export type SharedMealCartSupporter = SharedMealCartPerson & { reaction: PlanReaction };
@@ -23,7 +27,11 @@ export function isPlanReaction(value: unknown): value is PlanReaction {
 }
 
 function emptyPlanReactionCounts(): PlanReactionCounts {
-  return { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 };
+  return { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 };
+}
+
+function isPositiveReaction(reaction: PlanReaction | null): reaction is PlanPositiveReaction {
+  return reaction !== null && reaction !== 'downvote';
 }
 
 export type SharedMealCartCandidate = {
@@ -37,6 +45,7 @@ export type SharedMealCartCandidate = {
   sentAt: string | null;
   missingItemCount: number | null;
   voteCount: number;
+  downvoteCount: number;
   reactionCounts: PlanReactionCounts;
   contributor: SharedMealCartPerson;
   supporters: SharedMealCartSupporter[];
@@ -74,16 +83,14 @@ export function optimisticallySetSharedMealReaction(
       const reactionCounts = { ...candidate.reactionCounts };
       if (candidate.viewerReaction) reactionCounts[candidate.viewerReaction] = Math.max(0, reactionCounts[candidate.viewerReaction] - 1);
       if (reaction) reactionCounts[reaction] += 1;
-      const countDelta = candidate.viewerReaction === null && reaction !== null
-        ? 1
-        : candidate.viewerReaction !== null && reaction === null
-          ? -1
-          : 0;
+      const positiveDelta = Number(isPositiveReaction(reaction)) - Number(isPositiveReaction(candidate.viewerReaction));
+      const downvoteDelta = Number(reaction === 'downvote') - Number(candidate.viewerReaction === 'downvote');
       return {
         ...candidate,
         viewerReaction: reaction,
         reactionCounts,
-        voteCount: Math.max(0, candidate.voteCount + countDelta),
+        voteCount: Math.max(0, candidate.voteCount + positiveDelta),
+        downvoteCount: Math.max(0, candidate.downvoteCount + downvoteDelta),
       };
     }),
   };
@@ -145,7 +152,8 @@ export function parseSharedMealCartProjection(value: unknown): SharedMealCartPro
       || typeof candidateValue.title !== 'string' || !Number.isInteger(candidateValue.position)
       || typeof candidateValue.createdAt !== 'string' || !['idea', 'sent', 'ready'].includes(String(candidateValue.lifecycle))
       || !Array.isArray(candidateValue.supporters) || typeof candidateValue.canRemove !== 'boolean'
-      || typeof candidateValue.canMarkMade !== 'boolean' || !Number.isInteger(candidateValue.voteCount)) {
+      || typeof candidateValue.canMarkMade !== 'boolean' || !Number.isInteger(candidateValue.voteCount)
+      || !Number.isInteger(candidateValue.downvoteCount)) {
       throw new Error('Invalid shared Meal Cart projection.');
     }
     const supporters = candidateValue.supporters.map(parseSupporter);
@@ -166,6 +174,7 @@ export function parseSharedMealCartProjection(value: unknown): SharedMealCartPro
       sentAt: typeof candidateValue.sentAt === 'string' ? candidateValue.sentAt : null,
       missingItemCount: Number.isInteger(candidateValue.missingItemCount) ? Number(candidateValue.missingItemCount) : null,
       voteCount: Number(candidateValue.voteCount),
+      downvoteCount: Number(candidateValue.downvoteCount),
       reactionCounts: parseReactionCounts(candidateValue.reactionCounts),
       contributor: parsePerson(candidateValue.contributor),
       supporters,

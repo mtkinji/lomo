@@ -4,6 +4,7 @@ type PlanOrderCandidate = {
   id: string;
   lifecycle: PlanLifecycle;
   voteCount: number;
+  downvoteCount?: number;
   createdAt: string;
 };
 
@@ -22,6 +23,7 @@ export function sortPlanCandidates<T extends PlanOrderCandidate>(candidates: rea
   return [...candidates].sort((left, right) =>
     lifecycleRank[left.lifecycle] - lifecycleRank[right.lifecycle]
     || right.voteCount - left.voteCount
+    || (left.downvoteCount ?? 0) - (right.downvoteCount ?? 0)
     || Date.parse(right.createdAt) - Date.parse(left.createdAt),
   );
 }

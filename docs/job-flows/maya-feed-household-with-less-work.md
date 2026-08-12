@@ -3,7 +3,7 @@ id: job-flow-maya-feed-household-with-less-work
 audience: audience-aspirational-family-organizers
 persona: Maya
 hero_jtbd: jtbd-move-the-few-things-that-matter
-last_updated: 2026-08-05
+last_updated: 2026-08-12
 ---
 
 # Maya: Feed the Household With Less Work
@@ -58,8 +58,8 @@ become a rigid weekly-calendar chore.
 ### Give the household a voice
 
 When other people will eat the food, let each invited person weigh in quickly
-and privately, so they feel heard without making me chase responses or surrender
-the final decision to a vote.
+and visibly within the household, so they feel heard without making me chase
+responses or surrender the final decision to a vote.
 
 ### Plan to the money that is really available
 
@@ -121,7 +121,7 @@ signed-device haptics, and actual Kroger fulfillment results remain separate gat
 | 5 | **Bring in the spending boundary.** “What can this shop reasonably use?” | Maya sees authorized Food-category reality from Money, its period/freshness, and chooses a distinct trip target; manual target remains available without Money setup. | Money can expose category plan/spend/remaining truth, while Food proposals can reference authorized Money evidence. No Food-specific projection or trip-target contract exists. | 1 | Add a purpose-limited `FoodBudgetEnvelope`, trip-target ownership, remaining-shop assumptions, and copy/tests distinguishing category room, target, estimate, paid total, and cash-safe evidence. |
 | 6 | **Confirm the food that matters.** “What can we make with what is already here?” | A quick review distinguishes confirmed, likely, and check-first stock; recipes show Make now, Almost there, and Use soon when evidence supports it. | Already-have is an ephemeral list review; no durable confidence-aware stock observation or stock-to-recipe query exists. | 1 | Add progressive photo/voice/receipt/manual observations, cautious confidence decay, correction/depletion, quantity ranges, safety boundaries, and proof that upkeep removes more work than it adds. |
 | 7 | **Prepare a plausible short list.** “What should we actually consider?” | AI prepares explained candidates from authorized recipes, family preferences, budget target, confirmed/likely stock, recent meals, time, and current price opportunities; Maya edits freely. | Meal-plan editor, lifecycle contracts, and AI-operation design exist. | 2 | Add constraint snapshots, price coverage/freshness, pantry-first and budget-first retrieval, two or three scenario comparisons, and proposal receipts. |
-| 8 | **Gather household input.** “What will everyone actually eat?” | Household members nominate and support recipes in seconds without turning dinner into a formal vote or shaming non-response. | The shared Plan gives each recipe one compact, reversible support reaction plus tappable participant avatars; adds imply initial support. Optimistic stability is live-Simulator proven. | 3 | Prove simultaneous Realtime behavior, role boundaries, avatar disclosure, and comprehension with two household accounts and a child account on signed devices. |
+| 8 | **Gather household input.** “What will everyone actually eat?” | Household members nominate recipes and register enthusiasm or “not for me” in seconds without turning dinner into a formal vote or shaming non-response. | The shared Plan gives each person one optional, reversible, signed response: five positive emoji or a visible downvote. Positive and negative counts remain separate, adding does not imply support, and the tapped row remains stable. | 3 | Prove simultaneous Realtime behavior, role boundaries, participant disclosure, and comprehension with two household accounts and a child account on signed devices. |
 | 9 | **Make the final call.** “What are we really committing to?” | Maya can commit any useful subset to shopping while the rest stay available as ideas. | Contextual multi-select sends only chosen Ideas to Groceries; Sent and Ready groups communicate stronger intent without locking or finalizing the Plan. | 3 | Prove conflict recovery and adult/child authority with simultaneous household actors. |
 | 10 | **Compile one correct list.** “What do these recipes require?” | Ingredients merge conservatively with recipe provenance; uncertain matches remain separate; removing a recipe unwinds only its unpurchased contribution. | The live Plan compiler retains candidate-scoped quantities and source identity, merges requirements, derives readiness from actual item completion, and reconciles sent-recipe removal. The complete flow is Simulator proven. | 3 | Add signed-device and multi-recipe shared-ingredient observation, offline recovery, and actual retailer fulfillment-result proof. |
 | 11 | **Account for the household.** “What do we already have, and what else do we need?” | Already-have is an ephemeral review; staples and household requests join the durable list without corrupting recipe provenance. | Already-have and item-edit screens exist. | 2 | Add fast pantry review, household additions, list collaboration, aisle/store organization, and conflict receipts. |

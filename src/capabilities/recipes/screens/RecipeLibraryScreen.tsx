@@ -316,6 +316,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
         createdAt: candidate.createdAt,
         sentAt: candidate.sentAt,
         voteCount: candidate.voteCount,
+        downvoteCount: candidate.downvoteCount,
         reactionCounts: candidate.reactionCounts,
         missingItemCount: candidate.missingItemCount,
         contributor: candidate.contributor,

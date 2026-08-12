@@ -13,6 +13,10 @@ const positiveReactionSql = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260812040825_plan_positive_reactions.sql'),
   'utf8',
 ).toLowerCase();
+const visibleDownvoteSql = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260812122846_plan_visible_downvotes.sql'),
+  'utf8',
+).toLowerCase();
 
 describe('collaborative household Recipe Plan migration contract', () => {
   it('keeps one persistent Plan occurrence with explicit non-calendar lifecycle history', () => {
@@ -42,6 +46,17 @@ describe('collaborative household Recipe Plan migration contract', () => {
     expect(positiveReactionSql).toContain('p_reaction text');
     expect(positiveReactionSql).toContain("'viewerreaction',reaction_data.viewer_reaction");
     expect(positiveReactionSql).toContain("'reactioncounts',reaction_data.reaction_counts");
+  });
+
+  it('stores a visible signed downvote separately from positive support without creating a veto', () => {
+    expect(visibleDownvoteSql).toContain("reaction in ('thumbs_up','heart','yum','excited','fire','downvote')");
+    expect(visibleDownvoteSql).toContain("reaction.reaction <> 'downvote'");
+    expect(visibleDownvoteSql).toContain("reaction.reaction = 'downvote'");
+    expect(visibleDownvoteSql).toContain("'downvotecount',reaction_data.downvote_count");
+    expect(visibleDownvoteSql).toContain("'downvote',count(*) filter(where reaction.reaction='downvote')");
+    expect(visibleDownvoteSql).toContain('vote_count desc,downvote_count,created_at desc');
+    expect(visibleDownvoteSql).not.toContain('vote_count - downvote_count');
+    expect(visibleDownvoteSql).not.toContain('shared_meal_candidate_downvote_forbidden');
   });
 
   it('adds household Plan grocery scope and source-level contribution quantities', () => {

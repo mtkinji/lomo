@@ -407,7 +407,7 @@ describe('Recipe library', () => {
         items={[{
           id: 'meal-long', candidateId: 'candidate-long', title, storageRef: null,
           lifecycle: 'idea', createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
-          voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 }, missingItemCount: null,
+          voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 }, missingItemCount: null,
           contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null }, supporters: [],
           viewerReaction: null, canReact: true, canRemove: true, canMarkMade: false,
         }]}
@@ -454,7 +454,7 @@ describe('Recipe library', () => {
     const item = {
       id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
       lifecycle: 'idea' as const, createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
-      voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 }, missingItemCount: null,
+      voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 }, missingItemCount: null,
       contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
       supporters: [], viewerReaction: null, canReact: false, canRemove: true, canMarkMade: false,
     };
@@ -482,7 +482,7 @@ describe('Recipe library', () => {
     const item = {
       id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
       lifecycle: 'idea' as const, createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
-      voteCount: 2, reactionCounts: { thumbs_up: 1, heart: 1, yum: 0, excited: 0, fire: 0 }, missingItemCount: null,
+      voteCount: 2, reactionCounts: { thumbs_up: 1, heart: 1, yum: 0, excited: 0, fire: 0, downvote: 0 }, missingItemCount: null,
       contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
       supporters: [
         { personId: 'person-2', displayName: 'Sam', avatarUrl: null, reaction: 'thumbs_up' as const },
@@ -500,6 +500,7 @@ describe('Recipe library', () => {
     expect(drawer.getByText('👍')).toBeTruthy();
     expect(drawer.getByText('❤️')).toBeTruthy();
     expect(drawer.queryByLabelText('Add a reaction to Tacos')).toBeNull();
+    expect(drawer.getByLabelText('Downvote Tacos')).toBeTruthy();
 
     fireEvent.press(drawer.getByLabelText('Thumbs up Tacos, 1'));
     expect(drawer.getByLabelText('Thumbs up Tacos, 1').props.accessibilityState).toMatchObject({ expanded: true, selected: false });
@@ -507,9 +508,12 @@ describe('Recipe library', () => {
 
     fireEvent.press(drawer.getByLabelText('Love Tacos, 1'));
     expect(onReact).toHaveBeenCalledWith('candidate-1', null);
+
+    fireEvent.press(drawer.getByLabelText('Downvote Tacos'));
+    expect(onReact).toHaveBeenCalledWith('candidate-1', 'downvote');
   });
 
-  it('shows only an add-reaction affordance until somebody reacts', () => {
+  it('offers paired upvote and downvote affordances until the viewer responds', () => {
     const onReact = jest.fn();
     const drawer = render(
       <MealPlanDrawer
@@ -517,7 +521,7 @@ describe('Recipe library', () => {
         items={[{
           id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
           lifecycle: 'idea', createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
-          voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 }, missingItemCount: null,
+          voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 }, missingItemCount: null,
           contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null }, supporters: [],
           viewerReaction: null, canReact: true, canRemove: false, canMarkMade: false,
         }]}
@@ -531,11 +535,48 @@ describe('Recipe library', () => {
     expect(drawer.queryByText('👍')).toBeNull();
     expect(drawer.queryByText('☺')).toBeNull();
     expect(drawer.getAllByTestId('plan-upvote-icon-candidate-1').length).toBeGreaterThan(0);
+    expect(drawer.getAllByTestId('plan-downvote-icon-candidate-1').length).toBeGreaterThan(0);
     fireEvent.press(drawer.getByLabelText('Upvote Tacos'));
     expect(drawer.getByText('Upvote Tacos')).toBeTruthy();
     expect(drawer.getAllByRole('button').filter((button) => /^Upvote with /.test(button.props.accessibilityLabel ?? ''))).toHaveLength(5);
     fireEvent.press(drawer.getByLabelText('Upvote with Yum'));
     expect(onReact).toHaveBeenCalledWith('candidate-1', 'yum');
+
+    fireEvent.press(drawer.getByLabelText('Downvote Tacos'));
+    expect(onReact).toHaveBeenCalledWith('candidate-1', 'downvote');
+  });
+
+  it('shows who downvoted and lets the viewer remove or replace their one response', () => {
+    const onReact = jest.fn();
+    const item = {
+      id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
+      lifecycle: 'idea' as const, createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
+      voteCount: 1, downvoteCount: 2,
+      reactionCounts: { thumbs_up: 1, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 2 }, missingItemCount: null,
+      contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
+      supporters: [
+        { personId: 'person-2', displayName: 'Sam', avatarUrl: null, reaction: 'thumbs_up' as const },
+        { personId: 'person-3', displayName: 'Alex', avatarUrl: null, reaction: 'downvote' as const },
+        { personId: 'person-4', displayName: 'Jordan', avatarUrl: null, reaction: 'downvote' as const },
+      ],
+      viewerReaction: 'downvote' as const, canReact: true, canRemove: false, canMarkMade: false,
+    };
+    const drawer = render(
+      <MealPlanDrawer
+        visible items={[item]} canManage={false} onClose={jest.fn()}
+        onRemove={jest.fn()} onReact={onReact}
+      />,
+    );
+
+    expect(drawer.getByLabelText('Downvote Tacos, 2')).toBeTruthy();
+    expect(drawer.getByLabelText('Upvote Tacos')).toBeTruthy();
+    expect(drawer.queryByLabelText('Downvote Tacos')).toBeNull();
+    fireEvent.press(drawer.getByLabelText('Downvote Tacos, 2'));
+    expect(onReact).toHaveBeenCalledWith('candidate-1', null);
+
+    fireEvent.press(drawer.getByLabelText('Upvote Tacos'));
+    fireEvent.press(drawer.getByLabelText('Upvote with Love'));
+    expect(onReact).toHaveBeenCalledWith('candidate-1', 'heart');
   });
 
   it('keeps the familiar Plan icon and meal counter', () => {

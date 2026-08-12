@@ -17,6 +17,7 @@ import { EmptyState } from "../../../ui/EmptyState";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
 import { Heading, Text } from "../../../ui/Typography";
 import {
+  PLAN_POSITIVE_REACTION_OPTIONS,
   PLAN_REACTION_OPTIONS,
   type PlanReaction,
   type PlanReactionCounts,
@@ -39,6 +40,7 @@ export type MealPlanTrayItem = {
   createdAt: string;
   sentAt: string | null;
   voteCount: number;
+  downvoteCount?: number;
   missingItemCount: number | null;
   contributor?: PlanPerson;
   supporters?: PlanSupporter[];
@@ -115,18 +117,38 @@ function PlanReactionBar({
       {PLAN_REACTION_OPTIONS.map((reaction) => (
         <PlanReactionPill key={reaction.id} item={item} reaction={reaction} onReact={onReact} reacting={reacting} />
       ))}
-      {!item.viewerReaction && item.canReact && onReact ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Upvote ${item.title}`}
-          accessibilityHint="Choose how to upvote"
-          disabled={reacting}
-          onPress={() => onAdd(item)}
-          hitSlop={8}
-          style={({ pressed }) => [styles.planAddReaction, pressed && styles.pressed]}
-        >
-          <Icon testID={`plan-upvote-icon-${item.candidateId}`} name="arrowUp" size={16} color={colors.textSecondary} strokeWidth={2.5} />
-        </Pressable>
+      {item.canReact && onReact ? (
+        <View style={styles.planVoteActions}>
+          {(!item.viewerReaction || item.viewerReaction === 'downvote') ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Upvote ${item.title}`}
+              accessibilityHint="Choose how to upvote"
+              disabled={reacting}
+              onPress={() => onAdd(item)}
+              hitSlop={8}
+              style={({ pressed }) => [styles.planAddReaction, pressed && styles.pressed]}
+            >
+              <Icon testID={`plan-upvote-icon-${item.candidateId}`} name="arrowUp" size={16} color={colors.textSecondary} strokeWidth={2.5} />
+            </Pressable>
+          ) : null}
+          {item.viewerReaction !== 'downvote' ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Downvote ${item.title}`}
+              accessibilityHint="Marks this recipe as not for you"
+              disabled={reacting}
+              onPress={() => {
+                void HapticsService.trigger("canvas.toggle.on");
+                onReact(item.candidateId, 'downvote');
+              }}
+              hitSlop={8}
+              style={({ pressed }) => [styles.planAddReaction, pressed && styles.pressed]}
+            >
+              <Icon testID={`plan-downvote-icon-${item.candidateId}`} name="arrowDown" size={16} color={colors.textSecondary} strokeWidth={2.5} />
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );
@@ -329,7 +351,7 @@ export function MealPlanDrawer({
               closeAccessibilityLabel="Close reactions"
             />
             <View style={styles.planReactionChoices}>
-              {PLAN_REACTION_OPTIONS.map((reaction) => (
+              {PLAN_POSITIVE_REACTION_OPTIONS.map((reaction) => (
                 <Pressable
                   key={reaction.id}
                   accessibilityRole="button"
