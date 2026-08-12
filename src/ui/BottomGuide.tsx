@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { colors, spacing } from '../theme';
+import { colors, radii, spacing } from '../theme';
 import { cardElevation, cardSurfaceStyle } from '../theme/surfaces';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
 import { BottomDrawer } from './BottomDrawer';
@@ -31,9 +31,10 @@ interface BottomGuideProps {
   /**
    * Layout style for the guide surface.
    * - 'inset' (default): small horizontal gutter so the guide reads like a card.
+   * - 'floating': equal left, right, and bottom clearance from the screen edge.
    * - 'fullWidth': edge-to-edge drawer surface.
    */
-  layout?: 'inset' | 'fullWidth';
+  layout?: 'inset' | 'floating' | 'fullWidth';
   /**
    * Accent color used for guide affordances (handle). Defaults to `colors.border`.
    * This lets us unify the visual language across Coachmarks/Guides (e.g. turmeric).
@@ -120,7 +121,11 @@ export function BottomGuide({
       // Style the drawer surface itself as the guide card so it reads as a drawer
       // (clear background + border + subtle handle), while still living in the
       // canvas layer.
-      sheetStyle={[styles.sheetSurface, layout === 'fullWidth' && styles.sheetSurfaceFullWidth]}
+      sheetStyle={[
+        styles.sheetSurface,
+        layout === 'floating' && styles.sheetSurfaceFloating,
+        layout === 'fullWidth' && styles.sheetSurfaceFullWidth,
+      ]}
       handleContainerStyle={styles.handleContainer}
       handleStyle={canDismiss ? [styles.handle, { backgroundColor: accent }] : styles.handleHidden}
       // Let users swipe down anywhere on the guide card to dismiss.
@@ -138,7 +143,7 @@ const styles = StyleSheet.create({
     ...cardSurfaceStyle,
     ...cardElevation.raised,
     backgroundColor: colors.card,
-    borderRadius: 28,
+    borderRadius: radii.sheet,
     // Create a slim gutter from the screen edge so the guide doesn't touch bezels.
     // Leave enough room for the raised shadow to render instead of being clipped
     // by the left and right edges of the portal canvas.
@@ -147,11 +152,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
   },
+  sheetSurfaceFloating: {
+    borderRadius: radii.deviceSheet + spacing.xs,
+    marginBottom: spacing.md,
+  },
   sheetSurfaceFullWidth: {
     marginHorizontal: 0,
     borderRadius: 0,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
   },
   handleContainer: {
     paddingTop: spacing.md,

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { renderWithProviders } from '../test/renderWithProviders';
+import { radii, spacing } from '../theme';
 import { BottomGuide } from './BottomGuide';
 
 const mockBottomDrawerProps: Array<Record<string, unknown>> = [];
@@ -40,5 +41,20 @@ describe('BottomGuide interaction semantics', () => {
 
     expect(mockBottomDrawerProps.at(-1)?.hideBackdrop).toBe(true);
     expect(mockBottomDrawerProps.at(-1)?.dismissOnBackdropPress).toBe(false);
+  });
+
+  it('can float with equal clearance from the left, right, and bottom edges', () => {
+    renderWithProviders(
+      <BottomGuide visible layout="floating" onClose={jest.fn()}>
+        <Text>Guidance</Text>
+      </BottomGuide>,
+    );
+
+    const sheetStyle = StyleSheet.flatten(mockBottomDrawerProps.at(-1)?.sheetStyle as object);
+    expect(sheetStyle).toMatchObject({
+      borderRadius: radii.deviceSheet + spacing.xs,
+      marginHorizontal: spacing.md,
+      marginBottom: spacing.md,
+    });
   });
 });

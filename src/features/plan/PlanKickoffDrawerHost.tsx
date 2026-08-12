@@ -142,6 +142,7 @@ export function PlanKickoffDrawerHost() {
       scrim="light"
       snapPoints={['35%']}
       dynamicSizing
+      layout="floating"
     >
       <VStack space={spacing.md}>
         <VStack space={spacing.xs}>
@@ -191,4 +192,3 @@ const styles = {
     color: colors.textSecondary,
   },
 } as const;
-
