@@ -70,8 +70,12 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('const retrySurface = useCallback');
     expect(screenSource).toContain('webViewRef.current?.reload()');
     expect(screenSource).toContain('title="Chat couldn’t open"');
-    expect(screenSource).toContain('actionLabel="Try again"');
+    expect(screenSource).toContain('illustration={CHAT_RECOVERY_ILLUSTRATION}');
+    expect(screenSource).toContain('actions={<Button variant="primary" onPress={retrySurface}>Try again</Button>}');
+    expect(screenSource).toContain("require('../../../assets/illustrations/recovery-broken-chain.png')");
     expect(screenSource).toContain('surfaceLoadFailed ? (');
+    expect(screenSource).toContain('<Button variant="primary" onPress={onAction}>');
+    expect(screenSource).not.toContain('style={styles.primaryButton}');
   });
 
   test('handles workbench feedback through the native repository', () => {

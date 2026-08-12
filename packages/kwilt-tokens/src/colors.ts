@@ -92,6 +92,16 @@ export const colors = {
   destructive: '#DC2626',
   destructiveForeground: '#FEF2F2',
 
+  // Attention-bearing action affordances, such as actionable count badges.
+  // Keep separate from `destructive`: this signals "act here", not error or deletion.
+  actionAttention: '#EC2E30',
+  actionAttentionForeground: '#FFFFFF',
+
+  // Platform-familiar communication channels. These follow iOS system colors so
+  // channel identity is recognizable without turning the action into a brand surface.
+  communicationText: '#34C759',
+  communicationEmail: '#007AFF',
+
   // Default "ink" color – aligned with Sumi for a softer, less green-tinted body/heading text.
   textPrimary: '#1C1A19',
   // Secondary text should stay neutral (no pine tint) so body copy doesn't read green.

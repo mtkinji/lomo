@@ -214,10 +214,9 @@ export function ReturningUserPermissionsFlow({
               </View>
 
               <Button
-                variant="accent"
+                variant="primary"
                 fullWidth
                 disabled={isRequestingNotifications}
-                style={styles.primaryButton}
                 onPress={() => {
                   if (permissionActions.primaryAction === 'enableNotifications') {
                     void requestNotifications().then(handleComplete);
@@ -320,10 +319,6 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.sumi,
     fontWeight: '700',
-  },
-  primaryButton: {
-    backgroundColor: colors.sumi,
-    borderColor: colors.sumi,
   },
   primaryButtonLabel: {
     ...typography.body,

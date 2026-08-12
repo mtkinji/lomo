@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
 import { colors } from "../../../theme";
@@ -7,6 +7,11 @@ import { BottomDrawer, BottomDrawerScrollView } from "../../../ui/BottomDrawer";
 import { Button, IconButton } from "../../../ui/Button";
 import { Icon, type IconName } from "../../../ui/Icon";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "../../../ui/DropdownMenu";
 import { RESTING_COMPOSER_HEIGHT_PX } from "../../../ui/layout/restingComposerMetrics";
 import { Heading, Text } from "../../../ui/Typography";
 import { FloatingControlSurface } from "../../../features/activities/FloatingControlSurface";
@@ -21,7 +26,10 @@ import {
   type RecipeInventorySortMode,
   type StarterRecipeMetadata,
 } from "../data/starterRecipeCatalog";
-import { CUISINE_FAMILIES } from "../domain/cuisineFamilies";
+import {
+  CUISINE_FAMILIES,
+  type CuisineFamilyId,
+} from "../domain/cuisineFamilies";
 import { styles } from "./RecipeLibraryScreen.styles";
 import {
   formatMealTiming,
@@ -30,16 +38,70 @@ import {
 import type { MealPeriod, MealTimingIntent } from "../../meal-planning/domain/mealPlanContracts";
 import type { CommittedMealPreview, GroceryPlanAction } from "../domain/mealPlanAffordance";
 
+export { MealPlanDrawer, type MealPlanTrayItem } from "./MealPlanDrawer";
+
 const RECIPE_CATEGORIES: readonly StarterRecipeMetadata["category"][] =
   STARTER_RECIPE_CATEGORIES;
-const RECIPE_CUISINES = CUISINE_FAMILIES.map(({ label }) => label);
 type FilterKey = keyof RecipeInventoryFilters;
 
+function useDelayedFilterProgress(updating: boolean, delayMs = 180): boolean {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!updating) {
+      setVisible(false);
+      return;
+    }
+    const timeout = setTimeout(() => setVisible(true), delayMs);
+    return () => clearTimeout(timeout);
+  }, [delayMs, updating]);
+  return visible;
+}
+
+const CATEGORY_FILTER_ICONS: Record<
+  StarterRecipeMetadata["category"],
+  IconName
+> = {
+  "Breakfast & brunch": "coffee",
+  "Lunch & handhelds": "sandwich",
+  Dinner: "drumstick",
+  "Soups & stews": "soup",
+  "Salads & bowls": "salad",
+  "Appetizers & snacks": "popcorn",
+  Sides: "carrot",
+  "Breads & baking": "wheat",
+  Desserts: "cakeSlice",
+};
+
+const CUISINE_FILTER_ICONS: Record<CuisineFamilyId, IconName> = {
+  "north-american": "mapPinHouse",
+  mexican: "citrus",
+  "latin-american": "banana",
+  caribbean: "waves",
+  french: "croissant",
+  italian: "pizza",
+  "british-irish": "beef",
+  european: "landmark",
+  mediterranean: "grape",
+  "middle-eastern": "bean",
+  african: "nut",
+  "indian-south-asian": "sprout",
+  chinese: "cookingPot",
+  taiwanese: "cupSoda",
+  japanese: "fish",
+  korean: "flame",
+  thai: "leafyGreen",
+  vietnamese: "flower",
+  "southeast-asian": "shrimp",
+  australian: "shell",
+};
+
 function FilterChoice({
+  icon,
   label,
   selected,
   onPress,
 }: {
+  icon: IconName;
   label: string;
   selected: boolean;
   onPress(): void;
@@ -56,6 +118,17 @@ function FilterChoice({
         pressed && styles.pressed,
       ]}
     >
+      <View
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        testID={`recipe-filter-choice-icon-${icon}`}
+      >
+        <Icon
+          name={icon}
+          size={15}
+          color={selected ? colors.canvas : colors.textSecondary}
+        />
+      </View>
       <Text
         variant="label"
         style={selected ? styles.filterChoiceTextSelected : undefined}
@@ -68,23 +141,22 @@ function FilterChoice({
 export function RecipeFilterDrawer({
   visible,
   value,
+  updating = false,
   onClose,
-  onApply,
+  onChange,
 }: {
   visible: boolean;
   value: RecipeInventoryFilters;
+  updating?: boolean;
   onClose(): void;
-  onApply(value: RecipeInventoryFilters): void;
+  onChange(value: RecipeInventoryFilters): void;
 }) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => {
-    if (visible) setDraft(value);
-  }, [value, visible]);
+  const showProgress = useDelayedFilterProgress(updating);
   const update = <Key extends FilterKey>(
     key: Key,
     next: RecipeInventoryFilters[Key],
   ) => {
-    setDraft((current) => ({ ...current, [key]: next }));
+    onChange({ ...value, [key]: next });
   };
   return (
     <BottomDrawer
@@ -100,19 +172,34 @@ export function RecipeFilterDrawer({
           variant="withClose"
           onClose={onClose}
         />
+        {showProgress ? (
+          <View
+            testID="recipe-filter-progress"
+            accessibilityRole="progressbar"
+            accessibilityLabel="Updating meals"
+            style={styles.filterProgress}
+          >
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+            <Text variant="label" tone="secondary">
+              Updating meals…
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.filterSection}>
           <Text variant="label" tone="secondary">
             SOURCE
           </Text>
           <View style={styles.choiceWrap}>
             <FilterChoice
+              icon="recipeLibrary"
               label="All recipes"
-              selected={draft.source === "all"}
+              selected={value.source === "all"}
               onPress={() => update("source", "all")}
             />
             <FilterChoice
+              icon="identity"
               label="Yours"
-              selected={draft.source === "yours"}
+              selected={value.source === "yours"}
               onPress={() => update("source", "yours")}
             />
           </View>
@@ -123,13 +210,15 @@ export function RecipeFilterDrawer({
           </Text>
           <View style={styles.choiceWrap}>
             <FilterChoice
+              icon="clock"
               label="Any time"
-              selected={draft.maxMinutes === null}
+              selected={value.maxMinutes === null}
               onPress={() => update("maxMinutes", null)}
             />
             <FilterChoice
+              icon="timer"
               label="30 min or less"
-              selected={draft.maxMinutes === 30}
+              selected={value.maxMinutes === 30}
               onPress={() => update("maxMinutes", 30)}
             />
           </View>
@@ -140,15 +229,17 @@ export function RecipeFilterDrawer({
           </Text>
           <View style={styles.choiceWrap}>
             <FilterChoice
+              icon="meal"
               label="Any meal"
-              selected={draft.category === null}
+              selected={value.category === null}
               onPress={() => update("category", null)}
             />
             {RECIPE_CATEGORIES.map((category) => (
               <FilterChoice
                 key={category}
+                icon={CATEGORY_FILTER_ICONS[category]}
                 label={category}
-                selected={draft.category === category}
+                selected={value.category === category}
                 onPress={() => update("category", category)}
               />
             ))}
@@ -160,33 +251,28 @@ export function RecipeFilterDrawer({
           </Text>
           <View style={styles.choiceWrap}>
             <FilterChoice
+              icon="globe"
               label="Any cuisine"
-              selected={draft.cuisine === null}
+              selected={value.cuisine === null}
               onPress={() => update("cuisine", null)}
             />
-            {RECIPE_CUISINES.map((cuisine) => (
+            {CUISINE_FAMILIES.map((cuisine) => (
               <FilterChoice
-                key={cuisine}
-                label={cuisine}
-                selected={draft.cuisine === cuisine}
-                onPress={() => update("cuisine", cuisine)}
+                key={cuisine.id}
+                icon={CUISINE_FILTER_ICONS[cuisine.id]}
+                label={cuisine.label}
+                selected={value.cuisine === cuisine.label}
+                onPress={() => update("cuisine", cuisine.label)}
               />
             ))}
           </View>
         </View>
-        <View style={styles.drawerActions}>
-          <Button
-            variant="ghost"
-            onPress={() => setDraft(DEFAULT_RECIPE_INVENTORY_FILTERS)}
-          >
-            Reset
-          </Button>
-          <View style={styles.drawerApply}>
-            <Button fullWidth variant="primary" onPress={() => onApply(draft)}>
-              Show meals
-            </Button>
-          </View>
-        </View>
+        <Button
+          variant="ghost"
+          onPress={() => onChange(DEFAULT_RECIPE_INVENTORY_FILTERS)}
+        >
+          Reset filters
+        </Button>
       </BottomDrawerScrollView>
     </BottomDrawer>
   );
@@ -387,7 +473,7 @@ export function RecipeInventoryDock({
   );
 }
 
-export type MealPlanTrayItem = {
+type LegacyMealPlanTrayItem = {
   id: string;
   candidateId: string;
   title: string;
@@ -400,7 +486,52 @@ export type MealPlanTrayItem = {
   selected?: boolean;
 };
 
-export function MealPlanDrawer({
+function MealPeopleMenu({ item }: { item: LegacyMealPlanTrayItem }) {
+  if (!item.contributor) return null;
+  const people = new Map<string, NonNullable<LegacyMealPlanTrayItem["contributor"]>>();
+  people.set(item.contributor.personId, item.contributor);
+  item.supporters?.forEach((supporter) => people.set(supporter.personId, supporter));
+  const avatars = [...people.values()];
+  const otherSupporters = avatars.filter((person) => person.personId !== item.contributor?.personId);
+  const peopleAccessibilityLabel = [
+    `People for ${item.title}`,
+    `Added by ${item.contributor.displayName}`,
+    otherSupporters.length
+      ? `Liked by ${otherSupporters.map((person) => person.displayName).join(", ")}`
+      : "No other likes yet",
+  ].join(". ");
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={peopleAccessibilityLabel}
+          accessibilityHint="Shows who added and liked this meal"
+          hitSlop={8}
+          style={({ pressed }) => [styles.planPeopleTrigger, pressed && styles.pressed]}
+        >
+          <OverlappingAvatarStack
+            avatars={avatars.map((person) => ({ id: person.personId, name: person.displayName, avatarUrl: person.avatarUrl }))}
+            size={22}
+            maxVisible={4}
+            overlapPx={7}
+          />
+        </Pressable>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="bottom" align="start" sideOffset={6} style={styles.planPeopleMenu}>
+        <Text variant="label">Added by {item.contributor.displayName}</Text>
+        <Text tone="secondary">
+          {otherSupporters.length
+            ? `Liked by ${otherSupporters.map((person) => person.displayName).join(", ")}`
+            : "No other likes yet"}
+        </Text>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function LegacyMealPlanDrawer({
   visible,
   items,
   committedMeals = [],
@@ -416,7 +547,7 @@ export function MealPlanDrawer({
   onOpenGroceries,
 }: {
   visible: boolean;
-  items: MealPlanTrayItem[];
+  items: LegacyMealPlanTrayItem[];
   committedMeals?: CommittedMealPreview[];
   committedMealCount?: number;
   groceryAction?: GroceryPlanAction | null;
@@ -453,10 +584,12 @@ export function MealPlanDrawer({
     setPhase("place");
   };
   const count = items.length;
+  const visiblePlanCount = committedMealCount + count;
   const planLabel = [
     committedMealCount === 1 ? "1 committed meal" : committedMealCount ? `${committedMealCount} committed meals` : null,
     count === 1 ? "1 idea waiting" : count ? `${count} ideas waiting` : null,
   ].filter(Boolean).join(", ") || "empty";
+  const confirmLabel = `Confirm ${selectedItems.length} ${selectedItems.length === 1 ? "meal" : "meals"}`;
   return (
     <BottomDrawer
         visible={visible}
@@ -471,38 +604,32 @@ export function MealPlanDrawer({
         handleContainerStyle={styles.planDrawerHandleRegion}
       >
         <View style={styles.planDrawerViewport}>
-          <View style={styles.planDrawerHeader}>
-            <View
-              accessible
-              accessibilityRole="header"
-              accessibilityLabel={`Meal Plan, ${planLabel}`}
-              style={styles.planDrawerHeaderMain}
-            >
-              <Icon name="meal" size={16} color={colors.textPrimary} />
-              <Text variant="label">Plan</Text>
-              {count ? <Text variant="label" tone="secondary">{count}</Text> : null}
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close Meal Plan"
-              hitSlop={8}
-              onPress={onClose}
-              style={({ pressed }) => [
-                styles.planDrawerClose,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Icon name="close" size={17} color={colors.textSecondary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            variant="withClose"
+            titleVariant="sm"
+            onClose={onClose}
+            closeAccessibilityLabel="Close Meal Plan"
+            containerStyle={styles.planDrawerHeader}
+            title={(
+              <View
+                accessible
+                accessibilityRole="header"
+                accessibilityLabel={`Meal Plan, ${planLabel}`}
+                style={styles.planDrawerHeaderMain}
+              >
+                <Icon name="meal" size={16} color={colors.textPrimary} />
+                <Heading variant="sm">Plan</Heading>
+                {visiblePlanCount ? <Text tone="secondary">{visiblePlanCount}</Text> : null}
+              </View>
+            )}
+          />
           <BottomDrawerScrollView
             contentContainerStyle={styles.planDrawerContent}
           >
             {phase === "cart" && committedMeals.length ? (
               <View style={styles.committedPlanSection}>
                 <View style={styles.committedPlanHeading}>
-                  <Heading variant="sm">Ready when you are</Heading>
-                  <Text tone="secondary">{committedMealCount} {committedMealCount === 1 ? "meal" : "meals"}</Text>
+                  <Heading variant="sm">{committedMealCount} {committedMealCount === 1 ? "meal" : "meals"} decided</Heading>
                 </View>
                 <View style={styles.committedMealList}>
                   {committedMeals.map((meal) => (
@@ -521,10 +648,10 @@ export function MealPlanDrawer({
                 ) : null}
               </View>
             ) : null}
-            {phase === "cart" && committedMeals.length && items.length ? (
-              <View style={styles.planIdeasHeading}>
-                <Text variant="label" tone="secondary">IDEAS WAITING</Text>
-                <Text tone="secondary">Keep adding, or choose another batch.</Text>
+            {phase === "choose" ? (
+              <View style={styles.planDrawerPlacementIntro}>
+                <Heading variant="sm">Decide the next meals</Heading>
+                <Text tone="secondary">Family support stays visible. Nothing reaches Groceries until you confirm.</Text>
               </View>
             ) : null}
             {phase === "place" ? (
@@ -564,21 +691,20 @@ export function MealPlanDrawer({
                       <View style={styles.planDrawerMealCopy}>
                         <Text style={styles.planDrawerTitle} numberOfLines={2}>{item.title}</Text>
                         {phase === "place" ? <Text tone="secondary">{formatMealTiming(timingByCandidateId[item.candidateId] ?? { kind: "flexible" })}</Text> : null}
-                        {phase !== "place" && item.contributor ? <Text tone="secondary">Added by {item.contributor.displayName}</Text> : null}
-                        {phase !== "place" && item.supporters?.length ? (
-                          <View style={styles.planDrawerSupporters}>
-                            <OverlappingAvatarStack avatars={item.supporters.map((person) => ({ id: person.personId, name: person.displayName, avatarUrl: person.avatarUrl }))} size={20} maxVisible={3} overlapPx={7} />
-                            <Text tone="secondary">{item.supporters.map((person) => person.displayName).join(", ")}</Text>
-                          </View>
-                        ) : null}
+                        {phase !== "place" ? <MealPeopleMenu item={item} /> : null}
                       </View>
                       {phase === "cart" && item.canReact && onReact ? (
                         <Button
-                          size="sm"
+                          size="icon"
+                          iconButtonSize={34}
                           variant={item.viewerReacted ? "secondary" : "ghost"}
-                          accessibilityLabel={`${item.viewerReacted ? "Remove" : "Add"} Sounds good for ${item.title}`}
+                          accessibilityLabel={`${item.viewerReacted ? "Unlike" : "Like"} ${item.title}`}
+                          accessibilityHint="Updates your Sounds good response"
+                          accessibilityState={{ selected: item.viewerReacted }}
                           onPress={() => onReact(item.candidateId, !item.viewerReacted)}
-                        >Sounds good</Button>
+                        >
+                          <Icon name="thumbsUp" size={17} color={colors.textPrimary} />
+                        </Button>
                       ) : null}
                       {phase === "cart" && canEdit && (item.canWithdraw ?? true) ? (
                         <IconButton
@@ -620,22 +746,23 @@ export function MealPlanDrawer({
                 style={selectedIds.size === 0 ? styles.planDrawerSettlementDisabled : undefined}
                 onPress={startPlacement}
               >
-                Continue
+                Review timing
               </Button>
             ) : items.length && phase === "cart" && canSettle ? (
               <Button variant="secondary" fullWidth onPress={() => { setPhase("choose"); setSelectedIds(new Set()); }}>
-                Choose next meals
+                Decide meals
               </Button>
             ) : phase === "place" ? (
               <Button
                 variant="primary"
                 fullWidth
+                accessibilityLabel={confirmLabel}
                 onPress={() => onSettle?.(selectedItems.map((item) => ({
                   candidateId: item.candidateId,
                   timing: timingByCandidateId[item.candidateId] ?? { kind: "flexible" },
                 })))}
               >
-                Use these meals
+                {confirmLabel}
               </Button>
             ) : items.length && !onSettle ? (
               <Button variant="primary" fullWidth onPress={onContinue}>Review Meal Plan</Button>

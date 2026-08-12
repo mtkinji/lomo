@@ -35,6 +35,13 @@ describe('navigation orientation', () => {
     expect(mockUnlockAsync).not.toHaveBeenCalled();
   });
 
+  it('does not let navigation re-lock an active video Focus session to portrait', async () => {
+    await applyNavigationOrientation('Today', { focusVideoActive: true });
+
+    expect(mockUnlockAsync).toHaveBeenCalledTimes(1);
+    expect(mockLockAsync).not.toHaveBeenCalled();
+  });
+
   it('keeps orientation ownership out of the Cook Mode screen', () => {
     const source = readFileSync(
       resolve(__dirname, '../capabilities/recipes/screens/RecipeCookModeScreen.tsx'),

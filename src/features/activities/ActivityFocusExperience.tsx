@@ -5,7 +5,7 @@ import { FullWindowOverlay } from 'react-native-screens';
 import { PortalHost } from '../../ui/Portal';
 import { colors, spacing } from '../../theme';
 import { type SoundscapeId } from '../../services/soundscape';
-import { soundscapesByKind } from '../../services/soundscapeCatalog';
+import { SOUND_SCAPES, type FocusVideoEnvironmentId } from '../../services/soundscapeCatalog';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { Icon } from '../../ui/Icon';
@@ -15,7 +15,9 @@ import { HStack, VStack } from '../../ui/primitives';
 import { Text } from '../../ui/Typography';
 import { styles } from './activityDetailStyles';
 import { FocusSetupContent } from './FocusSetupContent';
+import { FocusEnvironmentBackdrop } from './FocusEnvironmentBackdrop';
 import { formatFocusTimer } from './focusSessionPresentation';
+import { useActiveFocusOrientation } from './useActiveFocusOrientation';
 import type { ActivityFocusController } from './useActivityFocusController';
 
 type ActivityFocusExperienceProps = {
@@ -28,9 +30,11 @@ type ActivityFocusExperienceProps = {
   screenTimeOffer: ReactNode;
   soundscapeEnabled: boolean;
   soundscapeTrackId: SoundscapeId;
+  focusVideoEnvironmentId: FocusVideoEnvironmentId | null;
   overlayColorIndex: number;
   setSoundscapeEnabled: (enabled: boolean) => void;
   setSoundscapeTrackId: (id: SoundscapeId) => void;
+  setFocusVideoEnvironmentId: (id: FocusVideoEnvironmentId | null) => void;
   setOverlayColorIndex: (index: number) => void;
 };
 
@@ -44,9 +48,11 @@ export function ActivityFocusExperience({
   screenTimeOffer,
   soundscapeEnabled,
   soundscapeTrackId,
+  focusVideoEnvironmentId,
   overlayColorIndex,
   setSoundscapeEnabled,
   setSoundscapeTrackId,
+  setFocusVideoEnvironmentId,
   setOverlayColorIndex,
 }: ActivityFocusExperienceProps) {
   const [soundscapeMenuOpen, setSoundscapeMenuOpen] = useState(false);
@@ -71,6 +77,8 @@ export function ActivityFocusExperience({
     outputRange: [...palette, palette[0]],
   });
   const hasScreenTimeOffer = screenTimeOffer != null;
+  const videoEnvironmentActive = focusVideoEnvironmentId != null;
+  useActiveFocusOrientation(Boolean(controller.session && videoEnvironmentActive));
   const snapPoints = useMemo(() => {
     if (Platform.OS === 'ios') {
       if (controller.customExpanded) return hasScreenTimeOffer ? ['92%' as const] : ['82%' as const];
@@ -139,6 +147,7 @@ export function ActivityFocusExperience({
             onCustomExpandedChange={controller.setCustomExpanded}
             audio={soundscapeEnabled ? soundscapeTrackId : 'none'}
             onAudioChange={(nextAudio) => {
+              setFocusVideoEnvironmentId(nextAudio === 'canyonSpring' ? 'canyonSpring' : null);
               setSoundscapeEnabled(nextAudio !== 'none');
               if (nextAudio !== 'none') setSoundscapeTrackId(nextAudio);
             }}
@@ -167,8 +176,20 @@ export function ActivityFocusExperience({
 
       {controller.session ? (
         <Modal visible transparent animationType="fade" onRequestClose={() => controller.end().catch(() => undefined)}>
-          <Pressable onPress={shiftOverlayColor} accessibilityRole="button" accessibilityLabel="Focus color" accessibilityHint="Double tap to shift focus background color" style={{ flex: 1 }}>
+          <Pressable
+            onPress={videoEnvironmentActive ? undefined : shiftOverlayColor}
+            accessibilityRole={videoEnvironmentActive ? 'image' : 'button'}
+            accessibilityLabel={videoEnvironmentActive ? 'Canyon Spring Focus environment' : 'Focus color'}
+            accessibilityHint={videoEnvironmentActive ? undefined : 'Double tap to shift focus background color'}
+            style={{ flex: 1 }}
+          >
             <Animated.View style={[styles.focusOverlay, { backgroundColor: overlayBackgroundColor, paddingTop: topInset + spacing.lg, paddingBottom: bottomInset + spacing.lg }]}>
+              {videoEnvironmentActive ? (
+                <FocusEnvironmentBackdrop
+                  soundscapeId={focusVideoEnvironmentId}
+                  running={controller.session.mode === 'running'}
+                />
+              ) : null}
               <View style={styles.focusTopBar}>
                 <BrandLockup logoSize={28} wordmarkSize="sm" logoVariant="parchment" color={colors.parchment} />
               </View>
@@ -192,29 +213,25 @@ export function ActivityFocusExperience({
                   {soundscapeMenuVisible ? (
                     <Animated.View style={[styles.focusSoundscapeQuickMenu, { opacity: menuAnimation, transform: [{ translateY: menuAnimation.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }, { scale: menuAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) }] }]}>
                       <ScrollView showsVerticalScrollIndicator={false}>
-                        {soundscapesByKind().map((section) => (
-                          <View key={section.kind}>
-                            <Text style={styles.focusSoundscapeQuickMenuLabel}>{section.title}</Text>
-                            {section.soundscapes.map((item) => {
-                              const selected = item.id === soundscapeTrackId;
-                              return (
-                                <Pressable
-                                  key={item.id}
-                                  onPress={() => {
-                                    setSoundscapeTrackId(item.id);
-                                    setSoundscapeMenuOpen(false);
-                                  }}
-                                  style={({ pressed }) => [styles.focusSoundscapeQuickMenuItem, selected && styles.focusSoundscapeQuickMenuItemActive, pressed && styles.focusSoundscapeQuickMenuItemPressed]}
-                                  accessibilityRole="button"
-                                  accessibilityLabel={`Select ${item.title} soundscape`}
-                                >
-                                  <Text style={styles.focusSoundscapeQuickMenuItemText} numberOfLines={1}>{item.title}</Text>
-                                  {selected ? <Icon name="check" size={16} color={colors.textPrimary} /> : null}
-                                </Pressable>
-                              );
-                            })}
-                          </View>
-                        ))}
+                        {SOUND_SCAPES.map((item) => {
+                          const selected = item.id === soundscapeTrackId;
+                          return (
+                            <Pressable
+                              key={item.id}
+                              onPress={() => {
+                                setFocusVideoEnvironmentId(item.id === 'canyonSpring' ? 'canyonSpring' : null);
+                                setSoundscapeTrackId(item.id);
+                                setSoundscapeMenuOpen(false);
+                              }}
+                              style={({ pressed }) => [styles.focusSoundscapeQuickMenuItem, selected && styles.focusSoundscapeQuickMenuItemActive, pressed && styles.focusSoundscapeQuickMenuItemPressed]}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Select ${item.title} soundscape`}
+                            >
+                              <Text style={styles.focusSoundscapeQuickMenuItemText} numberOfLines={1}>{item.title}</Text>
+                              {selected ? <Icon name="check" size={16} color={colors.textPrimary} /> : null}
+                            </Pressable>
+                          );
+                        })}
                       </ScrollView>
                     </Animated.View>
                   ) : null}

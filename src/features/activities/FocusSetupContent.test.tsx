@@ -20,15 +20,13 @@ jest.mock('../../ui/BottomDrawer', () => {
 });
 
 jest.mock('../../ui/DropdownMenu', () => {
-  const { Text, View } = jest.requireActual('react-native');
+  const { View } = jest.requireActual('react-native');
   return {
     DropdownMenu: ({ children }: any) => <View>{children}</View>,
     DropdownMenuTrigger: ({ children }: any) => <View>{children}</View>,
     DropdownMenuContent: ({ children, ...props }: any) => (
       <View testID="focus-audio-menu" {...props}>{children}</View>
     ),
-    DropdownMenuGroup: ({ children }: any) => <View>{children}</View>,
-    DropdownMenuLabel: ({ children }: any) => <Text>{children}</Text>,
     DropdownMenuCheckboxItem: ({ children, style, testID }: any) => (
       <View style={style} testID={testID}>{children}</View>
     ),
@@ -57,11 +55,14 @@ describe('FocusSetupContent', () => {
     );
 
     expect(getByText('Minutes')).toBeTruthy();
-    expect(getByText('Soundscape')).toBeTruthy();
-    expect(getByText('Music')).toBeTruthy();
-    expect(getByText('Nature')).toBeTruthy();
+    expect(getByText('Environment')).toBeTruthy();
+    expect(queryByText('Music')).toBeNull();
+    expect(queryByText('Nature')).toBeNull();
     expect(getAllByText('Deep Work Drift').length).toBeGreaterThan(0);
     expect(getByText('Quiet Rain')).toBeTruthy();
+    expect(getByText('Canyon Spring')).toBeTruthy();
+    expect(getByText('Quiet')).toBeTruthy();
+    expect(queryByText('Forest Stream')).toBeNull();
     expect(queryByText('No audio')).toBeNull();
     expect(getByTestId('focus-soundscape-menu-scroll')).toBeTruthy();
     expect(StyleSheet.flatten(getByTestId('focus-soundscape-option-default').props.style)).toMatchObject({

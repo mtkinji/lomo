@@ -1,5 +1,7 @@
 # App Store Update Submission Prep - 1.0.76 (76)
 
+> Historical packet for build 76. For the unified mega-app privacy answers used by 1.0.104, see [`privacy-disclosures-1.0.104.md`](privacy-disclosures-1.0.104.md). Do not reuse this packet's pre-Money/Explore/Meals/Games privacy summary for a current submission.
+
 Use this packet to prepare the next iOS App Store update submission after the TestFlight/App Store Connect upload.
 
 ## Build evidence

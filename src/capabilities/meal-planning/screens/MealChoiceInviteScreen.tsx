@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Alert, Pressable, ScrollView, StyleSheet } from "react-native";
+import { Alert, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from "react-native";
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
 import {
+  buildHouseholdPlanInviteMessage,
+  createHouseholdMemberInvite,
   getHouseholdSnapshot,
   type HouseholdMember,
+  type HouseholdSnapshot,
 } from "../../../features/household/data/household";
 import { getSupabaseClient } from "../../../services/backend/supabaseClient";
+import { useAppStore } from "../../../store/useAppStore";
 import { colors, spacing } from "../../../theme";
 import { Button } from "../../../ui/Button";
 import { AppShell } from "../../../ui/layout/AppShell";
@@ -23,9 +27,12 @@ type Props = NativeStackScreenProps<FoodStackParamList, "MealChoiceInvite">;
 
 export function MealChoiceInviteScreen({ navigation, route }: Props) {
   const [plan, setPlan] = useState<MealPlanProjection | null>(null);
+  const [household, setHousehold] = useState<HouseholdSnapshot["household"]>(null);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [invitingByText, setInvitingByText] = useState(false);
+  const authIdentity = useAppStore((state) => state.authIdentity);
   const { capture } = useAnalytics();
   useEffect(() => {
     void Promise.all([
@@ -33,6 +40,7 @@ export function MealChoiceInviteScreen({ navigation, route }: Props) {
       getHouseholdSnapshot(getSupabaseClient()),
     ]).then(([plans, household]) => {
       setPlan(plans.find((item) => item.id === route.params.planId) ?? null);
+      setHousehold(household.household);
       const activeChildren = new Set(
         household.activations
           .filter(
@@ -50,6 +58,37 @@ export function MealChoiceInviteScreen({ navigation, route }: Props) {
       );
     });
   }, [route.params.planId]);
+  const inviteAdultByText = async () => {
+    if (!household || invitingByText) return;
+    setInvitingByText(true);
+    try {
+      const invitation = await createHouseholdMemberInvite(getSupabaseClient(), {
+        householdId: household.id,
+        role: "caregiver",
+        ownerDisplayName: authIdentity?.name || "Kwilter",
+      });
+      const message = buildHouseholdPlanInviteMessage({
+        inviterName: authIdentity?.name || "Someone",
+        householdName: household.name,
+        code: invitation.code,
+      });
+      const body = encodeURIComponent(message);
+      const smsUrl = Platform.OS === "ios" ? `sms:&body=${body}` : `sms:?body=${body}`;
+      const canOpenMessages = await Linking.canOpenURL(smsUrl).catch(() => false);
+      if (canOpenMessages) {
+        await Linking.openURL(smsUrl);
+      } else {
+        await Share.share({ message });
+      }
+    } catch (error) {
+      Alert.alert(
+        "Could not create household invitation",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setInvitingByText(false);
+    }
+  };
   const invite = async () => {
     if (!plan) return;
     setBusy(true);
@@ -109,14 +148,41 @@ export function MealChoiceInviteScreen({ navigation, route }: Props) {
             No activated household members are available yet.
           </Text>
         ) : null}
-        <Button
-          disabled={!selected.length || busy}
-          onPress={() => {
-            void invite();
-          }}
-        >
-          {busy ? "Opening…" : "Open family choices"}
-        </Button>
+        <View style={styles.adultInvite}>
+          <Heading variant="sm">Someone not in Kwilt yet?</Heading>
+          <Text tone="secondary">
+            Invite an adult as a caregiver. They’ll review the Household invitation before joining.
+          </Text>
+          <Button
+            accessibilityLabel="Invite an adult by text"
+            disabled={!household}
+            loading={invitingByText}
+            loadingLabel="Preparing message…"
+            variant="secondary"
+            onPress={() => {
+              void inviteAdultByText();
+            }}
+          >
+            Invite an adult by text
+          </Button>
+        </View>
+        {members.length ? (
+          <>
+            {!selected.length ? (
+              <Text tone="secondary">Choose at least one person to continue.</Text>
+            ) : null}
+            <Button
+              disabled={!selected.length}
+              loading={busy}
+              loadingLabel="Opening…"
+              onPress={() => {
+                void invite();
+              }}
+            >
+              Open family choices
+            </Button>
+          </>
+        ) : null}
       </ScrollView>
     </AppShell>
   );
@@ -130,6 +196,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 14,
+  },
+  adultInvite: {
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
   },
   active: { backgroundColor: colors.pine50, borderColor: colors.pine700 },
 });

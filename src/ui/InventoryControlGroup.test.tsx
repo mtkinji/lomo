@@ -10,7 +10,7 @@ import {
 } from './InventoryControlGroup';
 
 describe('InventoryControlGroup', () => {
-  it('holds the canonical compact inventory-control geometry', () => {
+  it('holds the canonical compact inventory-control geometry and neutral active state', () => {
     const screen = render(
       <InventoryControlGroup testID="controls">
         <InventoryControlSurface iconName="funnel" testID="filter" />
@@ -31,8 +31,9 @@ describe('InventoryControlGroup', () => {
     expect(sortStyle).toMatchObject({
       minWidth: INVENTORY_CONTROL_MIN_WIDTH_PX,
       height: INVENTORY_CONTROL_HEIGHT_PX,
-      backgroundColor: colors.pine700,
+      backgroundColor: colors.sumi900,
     });
+    expect(sortStyle.backgroundColor).not.toBe(colors.pine700);
     expect(screen.getByText('2')).toBeTruthy();
   });
 });

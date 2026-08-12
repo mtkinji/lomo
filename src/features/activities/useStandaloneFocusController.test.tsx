@@ -27,7 +27,11 @@ describe('useStandaloneFocusController', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     useFocusSessionStore.getState().reset();
-    useAppStore.setState({ soundscapeEnabled: true, soundscapeTrackId: 'default' });
+    useAppStore.setState({
+      soundscapeEnabled: true,
+      soundscapeTrackId: 'default',
+      focusVideoEnvironmentId: null,
+    });
     jest.clearAllMocks();
   });
 
@@ -43,6 +47,25 @@ describe('useStandaloneFocusController', () => {
     expect(useAppStore.getState().soundscapeEnabled).toBe(true);
     expect(useAppStore.getState().soundscapeTrackId).toBe('rainlitLibrary');
     expect(preloadSoundscape).toHaveBeenCalledWith({ soundscapeId: 'rainlitLibrary' });
+  });
+
+  it('selects the Canyon Spring visual independently from in-session audio mute', async () => {
+    const { result } = renderHook(() =>
+      useStandaloneFocusController({ maxMinutes: 180, soundscapeTrackId: 'default' }),
+    );
+
+    await act(async () => {
+      expect(await result.current.start(25, 'canyonSpring')).toBe(true);
+    });
+
+    expect(useAppStore.getState().focusVideoEnvironmentId).toBe('canyonSpring');
+    expect(useAppStore.getState().soundscapeTrackId).toBe('canyonSpring');
+
+    await act(async () => {
+      useAppStore.getState().setSoundscapeEnabled(false);
+      await Promise.resolve();
+    });
+    expect(useAppStore.getState().focusVideoEnvironmentId).toBe('canyonSpring');
   });
 
   it('can start silently from a widget configured with no audio', async () => {

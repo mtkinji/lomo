@@ -2246,7 +2246,6 @@ export function GoalDetailScreen() {
               <Button
                 fullWidth
                 variant="outline"
-                style={styles.shareSignInOutlineButton}
                 disabled={shareSignInSheetBusy}
                 onPress={async () => {
                   if (shareSignInSheetBusy) return;
@@ -2269,7 +2268,6 @@ export function GoalDetailScreen() {
               <Button
                 fullWidth
                 variant="outline"
-                style={styles.shareSignInOutlineButton}
                 disabled={shareSignInSheetBusy}
                 onPress={async () => {
                   if (shareSignInSheetBusy) return;
@@ -4772,7 +4770,6 @@ const styles = StyleSheet.create({
   celebrationContinueButton: {
     backgroundColor: colors.quiltBlue200,
     borderColor: colors.quiltBlue200,
-    borderRadius: 18,
   },
   celebrationContinueLabel: {
     ...typography.titleSm,
@@ -4818,9 +4815,6 @@ const styles = StyleSheet.create({
   },
   shareSignInButtonGroup: {
     marginTop: spacing.lg,
-  },
-  shareSignInOutlineButton: {
-    borderRadius: 18,
   },
   shareSignInTitle: {
     ...typography.titleSm,

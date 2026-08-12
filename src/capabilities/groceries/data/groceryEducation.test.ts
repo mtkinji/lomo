@@ -31,4 +31,17 @@ describe('groceryEducation', () => {
     await expect(groceryEducation.hasStartedCartFlow('person-1')).resolves.toBe(true);
     await expect(groceryEducation.hasStartedCartFlow('person-2')).resolves.toBe(false);
   });
+
+  it('remembers Plan lifecycle education separately for each person', async () => {
+    await expect(groceryEducation.hasSeenSentRecipeRemoval('person-1')).resolves.toBe(false);
+    await expect(groceryEducation.hasSeenReadyPlan('person-1')).resolves.toBe(false);
+
+    await groceryEducation.markSentRecipeRemovalSeen('person-1');
+    await groceryEducation.markReadyPlanSeen('person-1');
+
+    await expect(groceryEducation.hasSeenSentRecipeRemoval('person-1')).resolves.toBe(true);
+    await expect(groceryEducation.hasSeenReadyPlan('person-1')).resolves.toBe(true);
+    await expect(groceryEducation.hasSeenSentRecipeRemoval('person-2')).resolves.toBe(false);
+    await expect(groceryEducation.hasSeenReadyPlan('person-2')).resolves.toBe(false);
+  });
 });

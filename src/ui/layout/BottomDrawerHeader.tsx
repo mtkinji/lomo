@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { colors, spacing } from '../../theme';
 import { Heading, Text, HStack, VStack } from '../primitives';
 import { IconButton } from '../Button';
+import { bottomDrawerChromeTokens } from '../drawerTokens';
 import { Icon } from '../Icon';
 
 type BottomDrawerHeaderVariant = 'default' | 'withClose' | 'navbar' | 'minimal' | 'immersive';
@@ -48,7 +49,7 @@ export function BottomDrawerHeader({
   rightAction,
   onClose,
   closeAccessibilityLabel = 'Close',
-  titleVariant = 'sm',
+  titleVariant = bottomDrawerChromeTokens.standard.titleVariant,
   align = 'left',
   variant = 'default',
   showDivider = false,

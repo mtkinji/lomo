@@ -44,27 +44,25 @@ const removeFromPlan: RecipeNextAction = {
 const reviewMealPlan: RecipeNextAction = {
   id: 'review_meal_plan',
   icon: 'listBulleted',
-  label: 'Review Meal Plan',
-  accessibilityLabel: 'Review the unfinished Meal Plan',
+  label: 'Open Meal Plan',
+  accessibilityLabel: 'Open the Meal Plan',
 };
 
-function thisMealAction(asPrimary: boolean): RecipeNextAction {
+function thisMealAction(scoped: boolean): RecipeNextAction {
   return {
     id: 'get_this_meal',
     icon: 'cart',
-    label: asPrimary ? 'Get ingredients' : 'This Meal only',
+    label: scoped ? 'This Meal only' : 'Get ingredients',
     accessibilityLabel: 'Get ingredients for this Meal',
   };
 }
 
-function mealPlanAction(asPrimary: boolean): RecipeNextAction {
-  return {
-    id: 'get_meal_plan',
-    icon: 'cart',
-    label: asPrimary ? 'Get ingredients' : 'All planned Meals',
-    accessibilityLabel: 'Get ingredients for all Meals in the Meal Plan',
-  };
-}
+const mealPlanAction: RecipeNextAction = {
+  id: 'get_meal_plan',
+  icon: 'cart',
+  label: 'All planned Meals',
+  accessibilityLabel: 'Get ingredients for all Meals in the Meal Plan',
+};
 
 export function deriveRecipeNextActions(input: {
   activeCook: boolean;
@@ -78,26 +76,28 @@ export function deriveRecipeNextActions(input: {
     return {
       recommendedAction: continueCooking,
       menuActions: [
-        ...(canCompilePlan ? [mealPlanAction(false)] : []),
-        thisMealAction(false),
+        ...(canCompilePlan ? [mealPlanAction] : []),
+        thisMealAction(canCompilePlan),
+        ...(input.isInPlan ? [reviewMealPlan] : []),
         planMembershipAction,
       ],
     };
   }
 
-  if (canCompilePlan) {
+  if (input.isInPlan) {
     return {
-      recommendedAction: mealPlanAction(true),
-      menuActions: [thisMealAction(false), startCooking, removeFromPlan],
+      recommendedAction: reviewMealPlan,
+      menuActions: [
+        ...(canCompilePlan ? [mealPlanAction] : []),
+        thisMealAction(canCompilePlan),
+        startCooking,
+        removeFromPlan,
+      ],
     };
   }
 
   return {
-    recommendedAction: thisMealAction(true),
-    menuActions: [
-      ...(input.isInPlan && input.planState && input.planState !== 'archived' ? [reviewMealPlan] : []),
-      startCooking,
-      planMembershipAction,
-    ],
+    recommendedAction: addToPlan,
+    menuActions: [thisMealAction(false), startCooking],
   };
 }

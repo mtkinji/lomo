@@ -1,4 +1,4 @@
-import { compileGroceryAuthority, compileRecipeGroceryAuthority } from '../groceryCompiler.ts';
+import { compileGroceryAuthority, compileHouseholdPlanGroceryAuthority, compileRecipeGroceryAuthority } from '../groceryCompiler.ts';
 
 const input = {
   plan: { id: 'plan-1', version: 3, state: 'finalized', organizer_person_id: 'person-1' }, expectedVersion: 3, actorPersonId: 'person-1',
@@ -10,6 +10,8 @@ Deno.test('compiles finalized exact-version authority and preserves provenance',
   const result = compileGroceryAuthority(input);
   if (result.items[0]?.quantityMin !== 4) throw new Error('serving scale failed');
   if (result.items[0]?.sources[0]?.ingredientLineId !== 'ingredient-1') throw new Error('provenance lost');
+  if (result.items[0]?.sources[0]?.quantityMin !== 4 || result.items[0]?.sources[0]?.unit !== 'count') throw new Error('contribution quantity lost');
+  if (result.items[0]?.sources[0]?.optional !== false) throw new Error('contribution optionality lost');
 });
 
 Deno.test('rejects stale, unfinalized, wrong-owner, and missing Recipe authority', () => {
@@ -108,4 +110,38 @@ Deno.test('compiles one immutable bundled-catalog Recipe snapshot', () => {
 
   if (result.items[0]?.quantityMin !== 4) throw new Error('catalog Recipe serving scale failed');
   if (result.items[0]?.sources[0]?.kind !== 'catalog_recipe_ingredient') throw new Error('catalog Recipe authority was not distinguished');
+});
+
+Deno.test('compiles a persistent household Plan with candidate-level quantities', () => {
+  const result = compileHouseholdPlanGroceryAuthority({
+    plan: { id: 'plan-1', version: 7, state: 'draft' },
+    expectedVersion: 7,
+    actorRole: 'caregiver',
+    candidates: [
+      { id: 'candidate-a', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { recipeVersionId: 'version-a', yieldQuantity: 4, selectedServings: 8 } },
+      { id: 'candidate-b', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { recipeVersionId: 'version-b', yieldQuantity: 4, selectedServings: 4 } },
+    ],
+    ingredientsByVersionId: {
+      'version-a': [{ id: 'cheese-a', original_text: '1 cup cheese', optional: false }],
+      'version-b': [{ id: 'cheese-b', original_text: '2 cups cheese', optional: false }],
+    },
+  });
+  if (result.items[0]?.quantityMin !== 4) throw new Error('household aggregate or serving scale incorrect');
+  const quantities = result.items[0]?.sources.map((source) => [source.planCandidateId, source.quantityMin]);
+  if (JSON.stringify(quantities) !== JSON.stringify([['candidate-a', 2], ['candidate-b', 2]])) throw new Error('candidate contributions lost');
+});
+
+Deno.test('rejects household Plan compilation without adult authority or current draft version', () => {
+  const base = {
+    plan: { id: 'plan-1', version: 7, state: 'draft' }, expectedVersion: 7, actorRole: 'owner',
+    candidates: [], ingredientsByVersionId: {},
+  };
+  for (const changed of [
+    { ...base, actorRole: 'child' },
+    { ...base, expectedVersion: 6 },
+    { ...base, plan: { ...base.plan, state: 'finalized' } },
+  ]) {
+    let failed = false; try { compileHouseholdPlanGroceryAuthority(changed); } catch { failed = true; }
+    if (!failed) throw new Error('invalid household Plan authority compiled');
+  }
 });

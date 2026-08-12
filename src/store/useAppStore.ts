@@ -41,6 +41,11 @@ import {
 } from '../domain/generativeCredits';
 import type { CelebrationKind, MediaRole } from '../services/gifs';
 import type { SoundscapeId } from '../services/soundscape';
+import {
+  normalizeFocusVideoEnvironmentId,
+  normalizeSoundscapeId,
+  type FocusVideoEnvironmentId,
+} from '../services/soundscapeCatalog';
 import { useToastStore } from './useToastStore';
 import { useCreditsInterstitialStore } from './useCreditsInterstitialStore';
 import { useCheckinNudgeStore } from './useCheckinNudgeStore';
@@ -708,6 +713,8 @@ interface AppState {
    * Whether the in-app soundscape should play during Focus sessions.
    */
   soundscapeEnabled: boolean;
+  /** Video-backed Focus environment selection, independent from audio mute. */
+  focusVideoEnvironmentId: FocusVideoEnvironmentId | null;
   /**
    * One-time hint: we can't reliably detect system volume in Expo-managed JS, so show a gentle
    * "turn up your volume if you don't hear it" toast once when Focus audio starts.
@@ -1182,6 +1189,7 @@ interface AppState {
   setLastFocusMinutes: (minutes: number) => void;
   setFocusOverlayColorIndex: (index: number) => void;
   setSoundscapeEnabled: (enabled: boolean) => void;
+  setFocusVideoEnvironmentId: (id: FocusVideoEnvironmentId | null) => void;
   setHasShownFocusSoundscapeVolumeHint: (shown: boolean) => void;
   setHapticsEnabled: (enabled: boolean) => void;
   setSoundscapeTrackId: (trackId: SoundscapeId) => void;
@@ -1621,6 +1629,7 @@ export const useAppStore = create<AppState>()(
       lastFocusMinutes: null,
       focusOverlayColorIndex: 0,
       soundscapeEnabled: true,
+      focusVideoEnvironmentId: null,
       hasShownFocusSoundscapeVolumeHint: false,
       hapticsEnabled: true,
       soundscapeTrackId: 'default',
@@ -2894,6 +2903,10 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           soundscapeEnabled: Boolean(enabled),
         })),
+      setFocusVideoEnvironmentId: (id) =>
+        set(() => ({
+          focusVideoEnvironmentId: normalizeFocusVideoEnvironmentId(id),
+        })),
       setHasShownFocusSoundscapeVolumeHint: (shown) =>
         set(() => ({
           hasShownFocusSoundscapeVolumeHint: Boolean(shown),
@@ -2904,7 +2917,7 @@ export const useAppStore = create<AppState>()(
         })),
       setSoundscapeTrackId: (trackId) =>
         set(() => ({
-          soundscapeTrackId: (trackId || 'default') as SoundscapeId,
+          soundscapeTrackId: normalizeSoundscapeId(trackId),
         })),
       setActivitySearchIncludeCompleted: (include) =>
         set(() => ({
@@ -3324,6 +3337,7 @@ export const useAppStore = create<AppState>()(
           lastFocusMinutes: null,
           focusOverlayColorIndex: 0,
           soundscapeEnabled: true,
+          focusVideoEnvironmentId: null,
           hasShownFocusSoundscapeVolumeHint: false,
           hapticsEnabled: true,
           lastOnboardingArcId: null,
@@ -3559,6 +3573,8 @@ export const useAppStore = create<AppState>()(
         ) {
           (state as any).hasShownFocusSoundscapeVolumeHint = false;
         }
+        anyState.soundscapeTrackId = normalizeSoundscapeId(anyState.soundscapeTrackId);
+        anyState.focusVideoEnvironmentId = normalizeFocusVideoEnvironmentId(anyState.focusVideoEnvironmentId);
         // Migration: Focus soundscape should be ON by default.
         // If the user has never started a Focus session (lastFocusMinutes is null) and their stored
         // preference is still the old default "false", flip it to true.

@@ -94,6 +94,15 @@ export async function loadDefaultCapabilitySnapshots(
         limitation: planCalendarContext.limitation,
       }
     : undefined;
+  const recipes = capabilities.includes('recipes')
+    ? await (async () => {
+        const [{ useRecipeStore }, { buildRecipeLibraryInventory }] = await Promise.all([
+          import('../../capabilities/recipes/runtime/useRecipeStore'),
+          import('../../capabilities/recipes/data/starterRecipeCatalog'),
+        ]);
+        return { recipes: buildRecipeLibraryInventory(useRecipeStore.getState().recipes) };
+      })()
+    : undefined;
   return {
     arcs: { arcs: state.arcs },
     goals: { goals: state.goals, arcIds: state.arcs.map((arc) => arc.id) },
@@ -112,6 +121,7 @@ export async function loadDefaultCapabilitySnapshots(
     money,
     plan,
     screenTime,
+    recipes,
   };
 }
 

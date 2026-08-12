@@ -12,8 +12,7 @@ export function sharedMealCartContainsRecipeVersion(
   cart: SharedMealCartProjection,
   projection: RecipeProjection,
 ): boolean {
-  return cart.candidates.some((candidate) => candidate.selected
-    && candidate.kind === 'recipe'
+  return cart.candidates.some((candidate) => candidate.kind === 'recipe'
     && candidate.recipeSnapshot?.recipeVersionId === projection.currentVersion.id);
 }
 
@@ -34,11 +33,11 @@ export async function toggleRecipeInSharedMealCart({
   repository: SharedCartSelectionRepository;
   reloadCart(): Promise<SharedMealCartProjection>;
 }): Promise<{ cart: SharedMealCartProjection; selected: boolean }> {
-  const existing = cart?.candidates.find((candidate) => candidate.selected
-    && candidate.kind === 'recipe'
+  const existing = cart?.candidates.find((candidate) => candidate.kind === 'recipe'
     && candidate.recipeSnapshot?.recipeVersionId === projection.currentVersion.id);
   if (existing) {
-    if (!existing.canWithdraw) throw new Error('Only the contributor or Plan organizer can remove this meal.');
+    if (existing.lifecycle !== 'idea') throw new Error('Open Plan to remove a recipe that has been sent to Groceries.');
+    if (!existing.canRemove) throw new Error('An adult can remove this recipe from Plan.');
     await repository.withdrawSharedCandidate(existing.id);
     return { cart: await reloadCart(), selected: false };
   }

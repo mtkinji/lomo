@@ -12,6 +12,7 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(source).toContain('title={`Rule for ${pendingRuleCategory?.name ?? \'category\'}`}');
     expect(source).not.toContain('styles.drawerEyebrow');
     expect(source).not.toContain('drawerEyebrow:');
+    expect(source).not.toContain('titleVariant="lg"');
   });
 
   it('does not report a restored transaction as unavailable while Money is still loading', () => {

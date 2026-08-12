@@ -763,13 +763,9 @@ export function ScreenTimeProtectionSettingsScreen() {
             ) : null}
 
             <Button
-              variant="accent"
+              variant="inverse"
               fullWidth
               disabled={setupPrimaryDisabled}
-              style={[
-                styles.ftuePrimaryButton,
-                setupPrimaryDisabled ? styles.ftuePrimaryButtonDisabled : null,
-              ]}
               onPress={handleSetupPrimaryPress}
             >
               <Text style={styles.ftuePrimaryButtonLabel}>{setupButtonLabel}</Text>
@@ -1030,13 +1026,6 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.parchment,
     opacity: 0.82,
-  },
-  ftuePrimaryButton: {
-    backgroundColor: colors.parchment,
-    borderColor: colors.parchment,
-  },
-  ftuePrimaryButtonDisabled: {
-    opacity: 0.48,
   },
   ftuePrimaryButtonLabel: {
     ...typography.body,

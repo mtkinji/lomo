@@ -178,7 +178,7 @@ export function PaywallContent(props: {
           <Text style={styles.brandSeparator}>|</Text>
           <Text style={styles.brandPro}>Pro</Text>
         </View>
-        <IconButton accessibilityLabel="Close paywall" onPress={onClose} style={styles.closeButton}>
+        <IconButton accessibilityLabel="Close paywall" variant="outline" onPress={onClose}>
           <Icon name="close" size={18} color={colors.textPrimary} />
         </IconButton>
       </View>
@@ -406,16 +406,6 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     includeFontPadding: false,
     color: colors.accent,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   heroGradient: {
     borderRadius: paywallTheme.cornerRadius,

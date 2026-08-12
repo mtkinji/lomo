@@ -89,7 +89,6 @@ export function AuthPromptDrawerHost() {
             <Button
               fullWidth
               variant="outline"
-              style={styles.outlineButton}
               disabled={busy}
               onPress={async () => {
                 if (busy) return;
@@ -114,7 +113,6 @@ export function AuthPromptDrawerHost() {
             <Button
               fullWidth
               variant="outline"
-              style={styles.outlineButton}
               disabled={busy}
               onPress={async () => {
                 if (busy) return;
@@ -183,9 +181,6 @@ const styles = StyleSheet.create({
   buttonGroup: {
     marginTop: spacing.sm,
   },
-  outlineButton: {
-    borderColor: colors.border,
-  },
   authButtonLabel: {
     ...typography.body,
     color: colors.textPrimary,
@@ -195,4 +190,3 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-

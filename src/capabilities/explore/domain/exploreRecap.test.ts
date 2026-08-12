@@ -65,9 +65,21 @@ describe('Exploration Recap', () => {
     }));
   });
 
-  it('waits for every unseen outing to finish resolving before showing the combined recap', () => {
+  it('shows the saved route immediately while Place enrichment is still resolving', () => {
     const ready = { id: 's1', trackingPolicy: 'ambient' as const, startedAt: '2026-07-28T10:00:00.000Z', endedAt: '2026-07-28T10:30:00.000Z', points: [routePoint], discoveredPlaceIds: [], recapStatus: 'ready' as const, completedReason: 'background-stillness' as const, recapNotificationSentAt: null, backgroundStillnessAnchor: null, backgroundStillSince: null };
-    const resolving = { ...ready, id: 's2', recapStatus: 'resolving' as const };
-    expect(pendingExploreRecap({ ...createEmptyExploreData(), sessions: [resolving, ready] })).toBeNull();
+    const resolving = {
+      ...ready,
+      id: 's2',
+      startedAt: '2026-07-28T12:00:00.000Z',
+      endedAt: '2026-07-28T12:15:00.000Z',
+      recapStatus: 'resolving' as const,
+    };
+    expect(pendingExploreRecap({ ...createEmptyExploreData(), sessions: [resolving, ready] })).toEqual(
+      expect.objectContaining({
+        sessionIds: ['s1', 's2'],
+        pointCount: 2,
+        resolving: true,
+      }),
+    );
   });
 });

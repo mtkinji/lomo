@@ -144,6 +144,25 @@ export function createUnifiedChatToolProvider({
     if (relationshipResult) return relationshipResult;
     const deviceResult = await deviceProvider.execute(call, tool);
     if (deviceResult) return deviceResult;
+    if (call.toolId === 'recipes.read') {
+      const recipeId = typeof call.arguments.recipeId === 'string' ? call.arguments.recipeId : '';
+      const recipeVersionId = typeof call.arguments.recipeVersionId === 'string'
+        ? call.arguments.recipeVersionId
+        : null;
+      const projection = snapshots.recipes?.recipes.find((item) => (
+        item.recipe.id === recipeId
+        && (!recipeVersionId || item.currentVersion.id === recipeVersionId)
+      ));
+      if (!projection) return failed('recipe_not_found', 'That recipe is no longer available.');
+      return {
+        status: 'completed',
+        receipt: null,
+        output: {
+          recipe: projection.recipe,
+          version: projection.currentVersion,
+        },
+      };
+    }
     if (call.toolId === 'profile.read') {
       const profile = snapshots.profile?.profile;
       return {

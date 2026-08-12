@@ -347,7 +347,6 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
             closeAccessibilityLabel="Close counts as options"
             onClose={() => setCountsAsOpen(false)}
             title="How should this count?"
-            titleVariant="lg"
             variant="withClose"
           />
           <Text style={styles.drawerCopy}>{currentCategory?.name ?? 'This category'} normally counts as {currentCategory?.planRole === 'protected' ? 'committed' : 'flexible'} spending. A change here applies only to this transaction.</Text>
@@ -375,7 +374,6 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
             closeAccessibilityLabel="Close category picker"
             onClose={() => setCategoryPickerOpen(false)}
             title="Choose a category"
-            titleVariant="lg"
             variant="withClose"
           />
           <Input
@@ -469,7 +467,6 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
             closeAccessibilityLabel="Close merchant rule"
             onClose={() => setRuleDrawerOpen(false)}
             title={`Rule for ${pendingRuleCategory?.name ?? 'category'}`}
-            titleVariant="lg"
             variant="withClose"
           />
           <Text style={styles.drawerCopy}>Apply this category across your full transaction history and to future {transaction.merchantName} charges.</Text>

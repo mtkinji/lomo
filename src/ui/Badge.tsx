@@ -33,6 +33,8 @@ type BadgeProps = {
    * as plain text.
    */
   textStyle?: StyleProp<TextStyle>;
+  /** Optional stable identifier for focused component and visual-contract tests. */
+  testID?: string;
 };
 
 const BACKGROUND_BY_VARIANT: Record<BadgeVariant, string> = {
@@ -64,6 +66,7 @@ export function Badge({
   children,
   style,
   textStyle,
+  testID,
 }: BadgeProps) {
   const containerStyle = [
     styles.base,
@@ -89,7 +92,7 @@ export function Badge({
       children
     );
 
-  return <View style={containerStyle}>{content}</View>;
+  return <View testID={testID} style={containerStyle}>{content}</View>;
 }
 
 const styles = StyleSheet.create({

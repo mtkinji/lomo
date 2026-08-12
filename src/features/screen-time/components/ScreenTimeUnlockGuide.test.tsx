@@ -5,9 +5,18 @@ import { projectScreenTimeGuideActions } from '../domain/screenTimeGuideActions'
 import type { ScreenTimeRule } from '../domain/screenTimeRule';
 import { ScreenTimeUnlockGuide } from './ScreenTimeUnlockGuide';
 
-jest.mock('../../../ui/BottomGuide', () => ({
-  BottomGuide: ({ visible, children }: { visible: boolean; children?: React.ReactNode }) => visible ? children : null,
-}));
+const mockBottomDrawerProps: Array<Record<string, unknown>> = [];
+
+jest.mock('../../../ui/BottomDrawer', () => {
+  const { ScrollView } = require('react-native');
+  return {
+    BottomDrawer: (props: { visible: boolean; children?: React.ReactNode }) => {
+      mockBottomDrawerProps.push(props as Record<string, unknown>);
+      return props.visible ? props.children : null;
+    },
+    BottomDrawerScrollView: ScrollView,
+  };
+});
 
 const familyRule: ScreenTimeRule = {
   id: 'family-a', domain: 'family', subject: { kind: 'child', membershipId: 'child-1' },
@@ -16,6 +25,20 @@ const familyRule: ScreenTimeRule = {
 };
 
 describe('ScreenTimeUnlockGuide', () => {
+  beforeEach(() => mockBottomDrawerProps.splice(0));
+
+  it('uses the standard full-width drawer chrome', () => {
+    renderWithProviders(<ScreenTimeUnlockGuide
+      visible rules={[familyRule]} unresolvedCount={0} result={null} busy={false}
+      actions={projectScreenTimeGuideActions({ actor: { kind: 'household_child', membershipId: 'child-1' }, activeRules: [familyRule] })}
+      onDismiss={jest.fn()} onDoThisFirst={jest.fn()} onOpenTemporarily={jest.fn()}
+    />);
+
+    expect(mockBottomDrawerProps.at(-1)).toMatchObject({ visible: true, snapPoints: ['55%'] });
+    expect(mockBottomDrawerProps.at(-1)).not.toHaveProperty('sheetStyle');
+    expect(screen.getByTestId('bottom-drawer.header')).toBeTruthy();
+  });
+
   it('does not render a temporary bypass for a child', () => {
     renderWithProviders(<ScreenTimeUnlockGuide
       visible rules={[familyRule]} unresolvedCount={0} result={null} busy={false}

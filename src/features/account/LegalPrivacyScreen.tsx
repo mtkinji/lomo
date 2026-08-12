@@ -59,14 +59,14 @@ export function LegalPrivacyScreen() {
       {
         id: 'privacy',
         title: 'Privacy Policy',
-        description: 'How Kwilt handles app data, AI, subscriptions, Health, and location.',
+        description: 'Money, Explore, meals and groceries, Games, planning, Chat, and account data.',
         icon: 'shield',
         onPress: () => openUrl(KWILT_PRIVACY_URL),
       },
       {
         id: 'terms',
         title: 'Terms of Use (EULA)',
-        description: 'Subscription terms, account responsibilities, AI limits, and app use.',
+        description: 'Accounts, subscriptions, sharing, connected services, and capability limits.',
         icon: 'fileText',
         onPress: () => openUrl(KWILT_TERMS_URL),
       },
@@ -105,7 +105,7 @@ export function LegalPrivacyScreen() {
   return (
     <SettingsPage title="Legal & privacy" onBack={() => navigation.goBack()}>
       <SettingsGroup
-        footer="Kwilt is local-first, with cloud services used for sign-in, sharing, AI, subscriptions, attachments, and connected tools you choose to use."
+        footer="Covers AI and voice, calendar, Health, family sharing, and subscriptions. Kwilt is local-first, not device-only."
       >
         {rows.map((row, index) => (
           <React.Fragment key={row.id}>

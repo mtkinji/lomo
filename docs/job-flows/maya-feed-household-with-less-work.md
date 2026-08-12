@@ -3,7 +3,7 @@ id: job-flow-maya-feed-household-with-less-work
 audience: audience-aspirational-family-organizers
 persona: Maya
 hero_jtbd: jtbd-move-the-few-things-that-matter
-last_updated: 2026-08-05
+last_updated: 2026-08-12
 ---
 
 # Maya: Feed the Household With Less Work
@@ -58,8 +58,8 @@ become a rigid weekly-calendar chore.
 ### Give the household a voice
 
 When other people will eat the food, let each invited person weigh in quickly
-and privately, so they feel heard without making me chase responses or surrender
-the final decision to a vote.
+and visibly within the household, so they feel heard without making me chase
+responses or surrender the final decision to a vote.
 
 ### Plan to the money that is really available
 
@@ -106,23 +106,24 @@ tracking ritual.
 
 ## End-to-end job flow
 
-The delivery scores below describe the current Food worktree and its known proof
-boundary on August 5, 2026. Source and unit-test presence are not treated as
-signed-device or backend proof. The currently configured backend has not yet
-proven the Food schema and RPCs, so no server-backed step scores above 2.
+The delivery scores below describe the current Food branch and its known proof
+boundary on August 11, 2026. Source and unit-test presence are not treated as
+signed-device proof. The collaborative Plan schema, RPCs, and grocery compiler
+are live-backend and iPhone Simulator proven; multi-account collaboration,
+signed-device haptics, and actual Kroger fulfillment results remain separate gates.
 
 | # | Job step and user question | Desired outcome | Current Kwilt offering | Score | Main gap / next evidence |
 | --- | --- | --- | --- | --- | --- |
 | 1 | **Collect what is worth keeping.** “Can I get this paper recipe, URL, voice memory, or idea into one place?” | A fast import starts from the source already in hand. | Recipe library, manual entry, and import-review foundations exist; contracts cover photo, scan, URL, text, voice, email, copy, and catalog provenance. | 2 | Complete real extraction paths, evidence display, and a 50-source quality corpus; prove photo capture on a signed device. |
 | 2 | **Make the recipe trustworthy.** “Did Kwilt understand this correctly, and can I fix it?” | Uncertain fields are obvious; approval produces a durable private recipe with attribution. | Evidence-backed import-draft and immutable Recipe-version contracts exist, with review UI. | 2 | Prove storage/RLS, field-to-evidence review, retries, full deletion, and private media retention behavior against the intended backend. |
 | 3 | **Recognize whether it fits tonight.** “Does this look good, how long will it take, and can I make enough?” | A visually compelling Recipe Home answers appetite, time, yield, source, and readiness before showing dense detail. | Current cooking screen exposes title, yield scaling, ingredients, directions, notes, source, edit, and export. | 1 | Separate Recipe Home from Cook Mode; add hero media, human time, readiness, non-conflicting scaling, planning action, and visual hierarchy. |
-| 4 | **Choose the planning horizon.** “Am I planning a week, the next shop, or just three dinners?” | Maya chooses a natural horizon without manufacturing calendar precision. | `Meal Planning` and horizon contracts support next shop, meal count, date range, and open planning. | 2 | Prove persistence and make horizon choice feel like a light beginning rather than configuration. |
+| 4 | **Keep a useful shortlist.** “What might we want to make next?” | Maya keeps one living household Plan without manufacturing calendar precision or maintaining planning periods. | Recipes owns one persistent household Plan with active count, reversible participation, and no required cadence. Live backend and Simulator persistence are proven. | 3 | Prove weeks-long use across one-person and multi-person households, including offline recovery. |
 | 5 | **Bring in the spending boundary.** “What can this shop reasonably use?” | Maya sees authorized Food-category reality from Money, its period/freshness, and chooses a distinct trip target; manual target remains available without Money setup. | Money can expose category plan/spend/remaining truth, while Food proposals can reference authorized Money evidence. No Food-specific projection or trip-target contract exists. | 1 | Add a purpose-limited `FoodBudgetEnvelope`, trip-target ownership, remaining-shop assumptions, and copy/tests distinguishing category room, target, estimate, paid total, and cash-safe evidence. |
 | 6 | **Confirm the food that matters.** “What can we make with what is already here?” | A quick review distinguishes confirmed, likely, and check-first stock; recipes show Make now, Almost there, and Use soon when evidence supports it. | Already-have is an ephemeral list review; no durable confidence-aware stock observation or stock-to-recipe query exists. | 1 | Add progressive photo/voice/receipt/manual observations, cautious confidence decay, correction/depletion, quantity ranges, safety boundaries, and proof that upkeep removes more work than it adds. |
 | 7 | **Prepare a plausible short list.** “What should we actually consider?” | AI prepares explained candidates from authorized recipes, family preferences, budget target, confirmed/likely stock, recent meals, time, and current price opportunities; Maya edits freely. | Meal-plan editor, lifecycle contracts, and AI-operation design exist. | 2 | Add constraint snapshots, price coverage/freshness, pantry-first and budget-first retrieval, two or three scenario comparisons, and proposal receipts. |
-| 8 | **Gather household input.** “What will everyone actually eat?” | Selected people respond in seconds from their own devices; non-response is visible but not shaming. | Invite and response screens, bounded choice-round contracts, Activity cards, and Shared Home foundations exist. | 2 | Wire exact participants, private responses, reminders, expiry, child-safe copy, Realtime, and two-account signed-device proof. |
-| 9 | **Make the final call.** “What are we really committing to?” | Maya sees a calm aggregate, resolves constraints, sets servings, and finalizes one version without majority vote becoming authority. | Aggregation, finalization, validation, and immutable-plan-version contracts exist. | 2 | Prove server authority, conflict handling, late-response behavior, version replacement, and a visually clear final review. |
-| 10 | **Compile one correct list.** “What do these meals require?” | Ingredients merge conservatively with recipe and meal provenance; uncertain matches remain separate. | Grocery contracts, repository, list UI, provenance, Already-have review, and edit foundations exist. | 2 | Finish deterministic server compilation, unit normalization, staple behavior, versioning, offline recovery, and end-to-end scaling proof. |
+| 8 | **Gather household input.** “What will everyone actually eat?” | Household members nominate recipes and register enthusiasm, “not for me,” or a contextual hard pass in seconds without turning dinner into a formal vote or shaming non-response. A trusted guest can respond to one Plan without becoming a Household member. | The shared Plan gives each signed-in person one optional, reversible response. A learning release adds an expiring, revocable guest link with a bounded meal snapshot, up to three private picks, pass, or one suggestion; the optional guest name is explicitly unverified. | 3 | Prove simultaneous Realtime behavior, role boundaries, participant disclosure, hard-pass comprehension/override, and guest-link comprehension, expiry, revocation, rich preview, and organizer receipt on signed devices plus a deployed anonymous browser. |
+| 9 | **Make the final call.** “What are we really committing to?” | Maya can commit any useful subset to shopping while the rest stay available as ideas. | Contextual multi-select sends only chosen Ideas to Groceries; Sent and Ready groups communicate stronger intent without locking or finalizing the Plan. | 3 | Prove conflict recovery and adult/child authority with simultaneous household actors. |
+| 10 | **Compile one correct list.** “What do these recipes require?” | Ingredients merge conservatively with recipe provenance; uncertain matches remain separate; removing a recipe unwinds only its unpurchased contribution. | The live Plan compiler retains candidate-scoped quantities and source identity, merges requirements, derives readiness from actual item completion, and reconciles sent-recipe removal. The complete flow is Simulator proven. | 3 | Add signed-device and multi-recipe shared-ingredient observation, offline recovery, and actual retailer fulfillment-result proof. |
 | 11 | **Account for the household.** “What do we already have, and what else do we need?” | Already-have is an ephemeral review; staples and household requests join the durable list without corrupting recipe provenance. | Already-have and item-edit screens exist. | 2 | Add fast pantry review, household additions, list collaboration, aisle/store organization, and conflict receipts. |
 | 12 | **Improve the plan and basket together.** “Is there a meaningful way to spend less or use more of what we have?” | At most a few scenarios compare changed meals, grocery gaps, basket range, price coverage, stock use, and household trade-offs. | Savings Autopilot, price-evidence vocabulary, Kroger adapter, and optimizer are planned, but savings currently begins after the meal plan. | 1 | Add deterministic scenario diffs and a preserved baseline; rank net household usefulness rather than coupon count or lowest nominal price. |
 | 13 | **Adapt to a useful store opportunity.** “This is on sale—should I buy it, and what would change?” | Maya captures a price tag/barcode/voice observation, sees comparable price, budget/storage/meal fit, and reviews the smallest plan/list change. | No `StoreOpportunity` capture or cross-capability replanning contract exists. | 1 | Add temporary evidence, confidence/expiry, package and likely-waste constraints, plan/list diffs, explicit acceptance, already-bought reconciliation, and low-connectivity store behavior. |
@@ -142,13 +143,11 @@ Trust Recipe Home and choose servings
         ↓
 Start from meals, budget, food on hand, or a store opportunity
         ↓
-Set horizon + optional trip target + confirm relevant stock
+Keep one living Plan + optional trip target + confirm relevant stock
         ↓
-Prepare a meal plan ── invite selected household members
-        ↓                         ↓
-       edit  ←──────────── calm response aggregate
+Add ideas ←──────── household support reactions
         ↓
-Finalize one plan version
+Send a chosen subset to Groceries
         ↓
 Compile + review groceries ── compare evidence-backed scenarios
         ↓                              ↑
@@ -156,7 +155,7 @@ Capture a store opportunity ── review the smallest plan/list change
         ↓
 Retailer handoff or plain list
         ↓
-Before you begin → Cook Mode → optional learning
+Ready to cook → Made → optional learning
         ↓
 Prepare the next cycle with less repeated work
 ```

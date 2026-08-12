@@ -3,6 +3,8 @@ import {
   beginExploreSession,
   completeExploreSession,
   createEmptyExploreData,
+  finalizeExploreRecap,
+  markExploreRecapSeen,
   rebuildExploreTerritory,
   recordPlaceVisit,
 } from './exploreState';
@@ -106,5 +108,17 @@ describe('Explore state transitions', () => {
     expect(repaired.sessions[0].points).toEqual([point, farPoint]);
     expect(Object.keys(repaired.exploredCells)).toEqual(Object.keys(legacyCells));
     expect(Object.keys(repaired.exploredCells).length).toBeGreaterThan(2);
+  });
+
+  it('does not resurface a dismissed recap when Place enrichment finishes', () => {
+    let state = beginExploreSession(createEmptyExploreData(), 'session-1', point.recordedAt);
+    state = appendExplorePoint(state, point);
+    state = completeExploreSession(state, '2026-07-27T18:10:00.000Z');
+    state = markExploreRecapSeen(state, 'session-1');
+
+    state = finalizeExploreRecap(state, 'session-1', ['apple:park']);
+
+    expect(state.sessions[0].recapStatus).toBe('seen');
+    expect(state.sessions[0].discoveredPlaceIds).toEqual(['apple:park']);
   });
 });

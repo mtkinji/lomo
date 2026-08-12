@@ -149,6 +149,7 @@ import { FoodNavigator, type FoodStackParamList } from '../features/household-fo
 import { ExploreSettingsScreen } from '../capabilities/explore/screens/ExploreSettingsScreen';
 import { useFeatureFlag } from '../services/analytics/useFeatureFlag';
 import { applyNavigationOrientation } from './navigationOrientation';
+import { useFocusSessionStore } from '../features/activities/focusSessionStore';
 
 export type RootDrawerParamList = {
   StandaloneFocus: { source?: string } | undefined;
@@ -458,6 +459,9 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   const completeWidgetNudge = useAppStore((s) => s.completeWidgetNudge);
   const widgetNudgeStatus = useAppStore((s) => s.widgetNudge?.status);
   const authIdentity = useAppStore((state) => state.authIdentity);
+  const focusVideoEnvironmentId = useAppStore((state) => state.focusVideoEnvironmentId);
+  const activeFocusSessionId = useFocusSessionStore((state) => state.activeSession?.sessionId);
+  const focusVideoActive = Boolean(focusVideoEnvironmentId && activeFocusSessionId);
   const lastWidgetOpenTrackedAtMsRef = useRef<number>(0);
 
   const [isNavReady, setIsNavReady] = useState(false);
@@ -643,6 +647,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
         const currentRoute = rootNavigationRef.getCurrentRoute();
         void applyNavigationOrientation(
           getActiveRoute(rootState)?.name ?? currentRoute?.name,
+          { focusVideoActive },
         );
         if (currentRoute?.name) {
           lastTrackedRouteNameRef.current = currentRoute.name;
@@ -658,7 +663,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
 
         const activeRoute = getActiveRoute(state);
         const routeName = activeRoute?.name;
-        void applyNavigationOrientation(routeName);
+        void applyNavigationOrientation(routeName, { focusVideoActive });
         if (routeName && routeName !== lastTrackedRouteNameRef.current) {
           lastTrackedRouteNameRef.current = routeName;
           trackScreen?.(routeName, activeRoute?.params as any);

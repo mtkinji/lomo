@@ -72,7 +72,6 @@ export function ActivityPeekSteps({
     }
     return acc + (step.completedAt ? 1 : 0);
   }, 0);
-
   return (
     <View style={styles.section}>
       <View style={styles.stepsHeaderRow}>
@@ -175,5 +174,3 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
 });
-
-

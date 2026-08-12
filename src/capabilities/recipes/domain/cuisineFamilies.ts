@@ -29,16 +29,17 @@ export type CuisineFamily = {
 };
 
 export const FEATURED_CUISINE_FAMILY_IDS: readonly CuisineFamilyId[] = [
-  "mexican",
-  "latin-american",
+  "north-american",
   "caribbean",
+  "chinese",
   "french",
   "italian",
-  "middle-eastern",
-  "indian-south-asian",
-  "chinese",
   "japanese",
   "korean",
+  "latin-american",
+  "mexican",
+  "middle-eastern",
+  "indian-south-asian",
   "thai",
   "vietnamese",
 ] as const;
@@ -55,7 +56,7 @@ function family(
 }
 
 export const CUISINE_FAMILIES: readonly CuisineFamily[] = [
-  family("north-american", "North American", "North American", [
+  family("north-american", "North American", "American", [
     "Alaska US",
     "American",
     "Cajun",

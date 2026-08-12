@@ -1025,13 +1025,6 @@ export const styles = StyleSheet.create({
     height: 36,
     backgroundColor: colors.primary,
   },
-  optionsButton: {
-    alignSelf: 'flex-end',
-    borderRadius: 999,
-    width: 36,
-    height: 36,
-    backgroundColor: colors.primary,
-  },
   doneButton: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -1224,14 +1217,6 @@ export const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
     maxHeight: 480,
-  },
-  focusSoundscapeQuickMenuLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontFamily: fonts.semibold,
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
   },
   focusSoundscapeQuickMenuItem: {
     minHeight: 40,

@@ -1,6 +1,7 @@
 import { act } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { useKeepAwake } from 'expo-keep-awake';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
 import { syncLiveActivity } from '../../services/appleEcosystem/liveActivity';
@@ -12,6 +13,10 @@ import { useFocusSessionStore } from './focusSessionStore';
 
 jest.mock('../../services/HapticsService', () => ({
   HapticsService: { trigger: jest.fn(async () => undefined) },
+}));
+
+jest.mock('expo-keep-awake', () => ({
+  useKeepAwake: jest.fn(),
 }));
 
 jest.mock('../../services/appleEcosystem/glanceableState', () => ({
@@ -32,6 +37,7 @@ jest.mock('../../services/screenTimeProtectionRuntime', () => ({
 }));
 
 jest.mock('../../services/soundscape', () => ({
+  SOUNDSCAPE_FADE_DURATION_MS: 700,
   startSoundscapeLoop: jest.fn(async () => undefined),
   stopSoundscapeLoop: jest.fn(async () => undefined),
 }));
@@ -46,6 +52,7 @@ const setGlanceableFocusSessionMock = setGlanceableFocusSession as jest.Mock;
 const syncLiveActivityMock = syncLiveActivity as jest.Mock;
 const reconcileScreenTimeRestrictionsMock = reconcileScreenTimeRestrictions as jest.Mock;
 const startSoundscapeLoopMock = startSoundscapeLoop as jest.Mock;
+const useKeepAwakeMock = useKeepAwake as jest.Mock;
 
 describe('FocusSessionRuntimeHost', () => {
   beforeEach(async () => {
@@ -120,6 +127,52 @@ describe('FocusSessionRuntimeHost', () => {
 
     expect(useFocusSessionStore.getState().activeSession).toBeNull();
     expect(cancelScheduledNotificationAsync).not.toHaveBeenCalledWith('focus-complete-notification');
+  });
+
+  it('starts a Focus soundscape with the same gentle fade used when stopping', async () => {
+    useAppStore.setState({ soundscapeTrackId: 'quietRain' });
+    useFocusSessionStore.getState().startSession({
+      activityId: 'activity-1',
+      title: 'Quiet reading',
+      minutes: 25,
+      startedAtMs: 10_000,
+    });
+
+    renderWithProviders(<FocusSessionRuntimeHost />);
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(startSoundscapeLoopMock).toHaveBeenCalledWith({
+      fadeInMs: 700,
+      soundscapeId: 'quietRain',
+    });
+  });
+
+  it('keeps the display awake only while a Focus session is running', async () => {
+    useFocusSessionStore.getState().startSession({
+      activityId: 'activity-1',
+      title: 'Quiet reading',
+      minutes: 25,
+      startedAtMs: 10_000,
+    });
+
+    renderWithProviders(<FocusSessionRuntimeHost />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(useKeepAwakeMock).toHaveBeenCalledWith('kwilt-focus-session');
+
+    useKeepAwakeMock.mockClear();
+    act(() => {
+      useFocusSessionStore.getState().pauseSession('activity-1-10000', 70_000);
+    });
+
+    expect(useKeepAwakeMock).not.toHaveBeenCalled();
   });
 
   it('does not restart native Focus state for a restored session that already expired', async () => {

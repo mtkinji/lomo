@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
-import { SOUND_SCAPES, soundscapesByKind, type SoundscapeId } from '../../services/soundscapeCatalog';
+import { SOUND_SCAPES, type SoundscapeId } from '../../services/soundscapeCatalog';
 import { colors, spacing } from '../../theme';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
@@ -8,8 +8,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { Icon } from '../../ui/Icon';
@@ -57,7 +55,9 @@ export function FocusSetupContent({
 }: FocusSetupContentProps) {
   const { height: windowHeight } = useWindowDimensions();
   const soundscapeMenuMaxHeight = Math.max(240, Math.min(560, Math.floor(windowHeight * 0.55)));
-  const selectedAudioTitle = SOUND_SCAPES.find((item) => item.id === audio)?.title ?? 'Soundscape';
+  const selectedAudioTitle = audio === 'none'
+    ? 'Quiet'
+    : SOUND_SCAPES.find((item) => item.id === audio)?.title ?? 'Environment';
   const fields = (
     <VStack space="md">
       {leadingContent}
@@ -119,9 +119,9 @@ export function FocusSetupContent({
         ) : null}
       </View>
       <View>
-        <Text style={styles.estimateFieldLabel}>Soundscape</Text>
+        <Text style={styles.estimateFieldLabel}>Environment</Text>
         <DropdownMenu>
-          <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select soundscape">
+          <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select Focus environment">
             <Pressable style={({ pressed }) => [styles.focusSoundscapeTrigger, pressed && styles.focusPresetChipPressed]}>
               <HStack space="xs" alignItems="center">
                 <Text style={styles.focusSoundscapeTriggerText}>{selectedAudioTitle}</Text>
@@ -142,23 +142,28 @@ export function FocusSetupContent({
               nestedScrollEnabled
               keyboardShouldPersistTaps="handled"
             >
-              {soundscapesByKind().map((section) => (
-                <DropdownMenuGroup key={section.kind}>
-                  <DropdownMenuLabel>{section.title}</DropdownMenuLabel>
-                  {section.soundscapes.map((item) => (
-                    <DropdownMenuCheckboxItem
-                      key={item.id}
-                      testID={`focus-soundscape-option-${item.id}`}
-                      style={styles.focusSoundscapeMenuItem}
-                      checked={item.id === audio}
-                      onCheckedChange={(checked) => {
-                        if (checked) onAudioChange(item.id);
-                      }}
-                    >
-                      <Text style={styles.focusSoundscapeMenuItemText} numberOfLines={1}>{item.title}</Text>
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuGroup>
+              <DropdownMenuCheckboxItem
+                testID="focus-soundscape-option-none"
+                style={styles.focusSoundscapeMenuItem}
+                checked={audio === 'none'}
+                onCheckedChange={(checked) => {
+                  if (checked) onAudioChange('none');
+                }}
+              >
+                <Text style={styles.focusSoundscapeMenuItemText} numberOfLines={1}>Quiet</Text>
+              </DropdownMenuCheckboxItem>
+              {SOUND_SCAPES.map((item) => (
+                <DropdownMenuCheckboxItem
+                  key={item.id}
+                  testID={`focus-soundscape-option-${item.id}`}
+                  style={styles.focusSoundscapeMenuItem}
+                  checked={item.id === audio}
+                  onCheckedChange={(checked) => {
+                    if (checked) onAudioChange(item.id);
+                  }}
+                >
+                  <Text style={styles.focusSoundscapeMenuItemText} numberOfLines={1}>{item.title}</Text>
+                </DropdownMenuCheckboxItem>
               ))}
             </ScrollView>
           </DropdownMenuContent>

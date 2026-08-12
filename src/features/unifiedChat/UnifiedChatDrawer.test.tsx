@@ -10,14 +10,14 @@ jest.mock('../../ui/BottomDrawer', () => ({
     contentExtendsIntoBottomSafeArea,
     sheetStyle,
     onSnapIndexChange,
-    chrome,
+    contentLayout,
   }: {
     children: React.ReactNode;
     snapIndex: number;
     contentExtendsIntoBottomSafeArea?: boolean;
     sheetStyle?: unknown;
     onSnapIndexChange: (index: number, change: { previousIndex: number | null; direction: string }) => void;
-    chrome?: string;
+    contentLayout?: string;
   }) => {
     const {
       Pressable: MockPressable,
@@ -32,7 +32,7 @@ jest.mock('../../ui/BottomDrawer', () => ({
           now: snapIndex,
           text: contentExtendsIntoBottomSafeArea ? 'workbench-owns-bottom-inset' : 'drawer-owns-bottom-inset',
         }}
-        accessibilityHint={JSON.stringify({ chrome })}
+        accessibilityHint={JSON.stringify({ contentLayout })}
       >
         {children}
         <MockPressable
@@ -97,7 +97,9 @@ describe('UnifiedChatDrawer', () => {
     expect(getByTestId('chat-route-state').props.children).toBe('fresh:none:context');
     expect(getByTestId('chat-bottom-drawer').props.accessibilityValue.now).toBe(0);
     expect(getByTestId('chat-bottom-drawer').props.accessibilityValue.text).toBe('workbench-owns-bottom-inset');
-    expect(JSON.parse(getByTestId('chat-bottom-drawer').props.accessibilityHint)).toEqual({ chrome: 'immersive' });
+    expect(JSON.parse(getByTestId('chat-bottom-drawer').props.accessibilityHint)).toEqual({
+      contentLayout: 'edgeToEdge',
+    });
 
     fireEvent.press(getByLabelText('Focus embedded Chat'));
 

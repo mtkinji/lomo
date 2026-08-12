@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
-import { colors, spacing } from '../theme';
+import { colors, radii, spacing } from '../theme';
 import { cardElevation, cardSurfaceStyle } from '../theme/surfaces';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
 import { BottomDrawer } from './BottomDrawer';
@@ -9,6 +10,8 @@ import { useToastStore } from '../store/useToastStore';
 
 interface BottomGuideProps {
   visible: boolean;
+  /** Keep the guide bottom-anchored when its content owns keyboard scrolling. */
+  keyboardBehavior?: 'lift' | 'extend';
   /**
    * When true (default), the guide will lift above the keyboard via BottomDrawer's
    * KeyboardAvoidingView wrapper.
@@ -30,21 +33,31 @@ interface BottomGuideProps {
   scrim?: 'none' | 'light';
   /**
    * Layout style for the guide surface.
-   * - 'inset' (default): small horizontal gutter so the guide reads like a card.
+   * - 'floating' (default): equal left, right, and bottom clearance for compact guides.
+   * - 'inset': bottom-anchored treatment for tall, drawer-like guide content.
    * - 'fullWidth': edge-to-edge drawer surface.
    */
-  layout?: 'inset' | 'fullWidth';
+  layout?: 'inset' | 'floating' | 'fullWidth';
   /**
    * Accent color used for guide affordances (handle). Defaults to `colors.border`.
    * This lets us unify the visual language across Coachmarks/Guides (e.g. turmeric).
    */
   guideColor?: string;
   /**
+   * Whether the guide exposes drag-to-dismiss chrome and content panning.
+   * Defaults to true for existing lightweight guides. Set to false when the
+   * guide owns dismissal through an explicit header action.
+   */
+  showDragHandle?: boolean;
+  /**
    * Optional callback when the guide is dismissed, either via a swipe gesture
    * or programmatically. When provided, callers should use this to flip
    * `visible` to `false`.
    */
   onClose?: () => void;
+  /** Called after the guide's drawer host has fully unmounted. */
+  bottomAccessory?: ReactNode;
+  bottomAccessoryStyle?: StyleProp<ViewStyle>;
   /**
    * Main content for the guide card rendered near the bottom of the canvas.
    * Typically includes a title, supporting copy, and primary / secondary
@@ -57,6 +70,10 @@ interface BottomGuideProps {
    * like GIFs.
    */
   dynamicSizing?: boolean;
+  /** Keep scrimmed modal content mounted while it animates down on close. */
+  animateOnClose?: boolean;
+  /** Layout override for guides that need a bounded scroll body. */
+  contentStyle?: StyleProp<ViewStyle>;
 }
 
 /**
@@ -66,14 +83,20 @@ interface BottomGuideProps {
  */
 export function BottomGuide({
   visible,
-  keyboardAvoidanceEnabled = true,
+  keyboardBehavior = 'lift',
+  keyboardAvoidanceEnabled,
   snapPoints,
   scrim = 'none',
-  layout = 'inset',
+  layout = 'floating',
   guideColor,
+  showDragHandle = true,
   onClose,
+  bottomAccessory,
+  bottomAccessoryStyle,
   children,
   dynamicSizing = false,
+  animateOnClose = false,
+  contentStyle,
 }: BottomGuideProps) {
   const suppressionKeyRef = useRef(
     `bottomGuide-${Math.random().toString(36).slice(2)}-${Date.now()}`,
@@ -103,6 +126,7 @@ export function BottomGuide({
     <BottomDrawer
       visible={visible}
       onClose={onClose ?? (() => {})}
+      keyboardBehavior={keyboardBehavior}
       keyboardAvoidanceEnabled={keyboardAvoidanceEnabled}
       // Let content define its own height so the guide feels like a compact,
       // anchored panel instead of a full-height sheet. Use a modest percentage
@@ -114,20 +138,35 @@ export function BottomGuide({
       dismissable={canDismiss}
       // Guides should be easy to dismiss with a short swipe, otherwise the handle feels misleading.
       dismissDragThresholdRatio={0.16}
-      // Render inline so the guide sits inside the current canvas layer and can
-      // remain non-blocking when it does not have a scrim.
-      presentation="inline"
+      // A visible scrim is modal interaction, so use the native modal host for
+      // reliable stacking and touch ownership. Scrimless guides remain inline
+      // and can keep the underlying canvas interactive.
+      presentation={shouldHideBackdrop ? 'inline' : 'modal'}
       // Style the drawer surface itself as the guide card so it reads as a drawer
       // (clear background + border + subtle handle), while still living in the
       // canvas layer.
-      sheetStyle={[styles.sheetSurface, layout === 'fullWidth' && styles.sheetSurfaceFullWidth]}
-      handleContainerStyle={styles.handleContainer}
-      handleStyle={canDismiss ? [styles.handle, { backgroundColor: accent }] : styles.handleHidden}
+      sheetStyle={[
+        styles.sheetSurface,
+        layout === 'floating' && styles.sheetSurfaceFloating,
+        layout === 'fullWidth' && styles.sheetSurfaceFullWidth,
+      ]}
+      handleContainerStyle={
+        showDragHandle ? styles.handleContainer : styles.handleContainerHidden
+      }
+      handleStyle={
+        canDismiss && showDragHandle
+          ? [styles.handle, { backgroundColor: accent }]
+          : styles.handleHidden
+      }
       // Let users swipe down anywhere on the guide card to dismiss.
-      enableContentPanningGesture={canDismiss}
+      enableContentPanningGesture={canDismiss && showDragHandle}
       dynamicSizing={dynamicSizing}
+      animateOnHide={animateOnClose}
+      bottomAccessory={bottomAccessory}
+      bottomAccessoryStyle={bottomAccessoryStyle}
+      contentExtendsIntoBottomSafeArea={Boolean(bottomAccessory)}
     >
-      <View style={styles.content}>{children}</View>
+      <View style={[styles.content, contentStyle]}>{children}</View>
     </BottomDrawer>
   );
 }
@@ -138,7 +177,7 @@ const styles = StyleSheet.create({
     ...cardSurfaceStyle,
     ...cardElevation.raised,
     backgroundColor: colors.card,
-    borderRadius: 28,
+    borderRadius: radii.sheet,
     // Create a slim gutter from the screen edge so the guide doesn't touch bezels.
     // Leave enough room for the raised shadow to render instead of being clipped
     // by the left and right edges of the portal canvas.
@@ -147,15 +186,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
   },
+  sheetSurfaceFloating: {
+    borderRadius: radii.deviceSheet + spacing.xs,
+    marginBottom: spacing.md,
+  },
   sheetSurfaceFullWidth: {
     marginHorizontal: 0,
     borderRadius: 0,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
   },
   handleContainer: {
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
+  },
+  handleContainerHidden: {
+    height: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   handle: {
     width: 56,

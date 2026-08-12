@@ -221,11 +221,10 @@ function SurveyCardBody({
           <Button
             variant="primary"
             disabled={isPrimaryDisabled}
-            style={isPrimaryDisabled ? styles.primaryDisabled : undefined}
             onPress={isLast ? onSubmit : onNext}
             accessibilityLabel={primaryLabel}
           >
-            <ButtonLabel size="md" tone={isPrimaryDisabled ? 'muted' : 'inverse'}>
+            <ButtonLabel size="md" tone="inverse">
               {primaryLabel}
             </ButtonLabel>
           </Button>
@@ -327,10 +326,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '600',
   },
-  primaryDisabled: {
-    backgroundColor: colors.pine200,
-    borderColor: colors.pine200,
-  },
   completedBadge: {
     backgroundColor: colors.pine100,
     borderRadius: 999,
@@ -347,5 +342,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 });
-
 

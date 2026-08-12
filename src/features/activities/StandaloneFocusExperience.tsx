@@ -10,6 +10,8 @@ import { FOCUS_OVERLAY_COLOR_KEYS } from './focusOverlayPalette';
 import { formatFocusTimer } from './focusSessionPresentation';
 import { styles } from './activityDetailStyles';
 import type { StandaloneFocusController } from './useStandaloneFocusController';
+import { FocusEnvironmentBackdrop } from './FocusEnvironmentBackdrop';
+import { useActiveFocusOrientation } from './useActiveFocusOrientation';
 
 const palette = [
   colors.pine700,
@@ -29,19 +31,30 @@ export function StandaloneFocusExperience(props: {
   const colorIndex = useAppStore((state) => state.focusOverlayColorIndex);
   const setColorIndex = useAppStore((state) => state.setFocusOverlayColorIndex);
   const soundscapeEnabled = useAppStore((state) => state.soundscapeEnabled);
+  const focusVideoEnvironmentId = useAppStore((state) => state.focusVideoEnvironmentId);
   const setSoundscapeEnabled = useAppStore((state) => state.setSoundscapeEnabled);
   const normalizedColorIndex = Math.floor(Math.max(0, colorIndex)) % palette.length;
   const session = props.controller.session;
+  const videoEnvironmentActive = focusVideoEnvironmentId != null;
+  useActiveFocusOrientation(Boolean(session && videoEnvironmentActive));
 
   if (!session) return null;
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={() => props.controller.end().catch(() => undefined)}>
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      supportedOrientations={['portrait', 'landscape']}
+      onRequestClose={() => props.controller.end().catch(() => undefined)}
+    >
           <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Focus color"
-            accessibilityHint="Double tap to shift focus background color"
-            onPress={() => setColorIndex((normalizedColorIndex + 1) % FOCUS_OVERLAY_COLOR_KEYS.length)}
+            accessibilityRole={videoEnvironmentActive ? 'image' : 'button'}
+            accessibilityLabel={videoEnvironmentActive ? 'Canyon Spring Focus environment' : 'Focus color'}
+            accessibilityHint={videoEnvironmentActive ? undefined : 'Double tap to shift focus background color'}
+            onPress={videoEnvironmentActive
+              ? undefined
+              : () => setColorIndex((normalizedColorIndex + 1) % FOCUS_OVERLAY_COLOR_KEYS.length)}
             style={{ flex: 1 }}
           >
             <View
@@ -54,6 +67,12 @@ export function StandaloneFocusExperience(props: {
                 },
               ]}
             >
+              {videoEnvironmentActive ? (
+                <FocusEnvironmentBackdrop
+                  soundscapeId={focusVideoEnvironmentId}
+                  running={session.mode === 'running'}
+                />
+              ) : null}
               <View style={styles.focusTopBar}>
                 <BrandLockup logoSize={28} wordmarkSize="sm" logoVariant="parchment" color={colors.parchment} />
               </View>

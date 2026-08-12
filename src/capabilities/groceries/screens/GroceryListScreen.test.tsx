@@ -412,9 +412,10 @@ describe('Grocery List primary capability', () => {
   });
 
   it('is the checklist itself, using the Recipe ingredient checked treatment without review chrome', async () => {
+    const navigate = jest.fn();
     const screen = render(
       <GroceryListScreen
-        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+        navigation={{ goBack: jest.fn(), navigate, replace: jest.fn() } as never}
         route={{ params: { entryPoint: 'capability-menu' } } as never}
       />,
     );
@@ -424,7 +425,8 @@ describe('Grocery List primary capability', () => {
     expect(screen.queryByText('Review what I already have')).toBeNull();
     expect(screen.queryByText('List looks right')).toBeNull();
     expect(screen.queryByText('Why?')).toBeNull();
-    expect(screen.getByTestId('meal-plan-header-action')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('meal-plan-header-action'));
+    expect(navigate).toHaveBeenCalledWith('RecipeLibrary', { openPlan: true });
   });
 
   it('goes straight from Shop online to store selection', async () => {

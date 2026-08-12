@@ -1,0 +1,176 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1320" viewBox="0 0 1600 1320" role="img" aria-labelledby="title desc">
+  <title id="title">Flying Geese mathematical refinement — 24 variants</title>
+  <desc id="desc">Six rows of four mathematically constructed Kwilt mark variants derived from selected Flying Geese concepts.</desc>
+  <rect width="1600" height="1320" fill="#F7F2E8"/>
+  <style>
+    .mark { fill: #171817; }
+    .label { fill: #171817; font: 600 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .sub { fill: #625F58; font: 400 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .guide { fill: none; stroke: #DED8CD; stroke-width: 1; }
+  </style>
+
+  <defs>
+    <!-- One exact cadence module: flat spine, circular shoulder, circular foot. -->
+    <path id="cadenceModule" d="M0 0H8C39 0 64 25 64 56V112H36C16.118 112 0 95.882 0 76Z"/>
+    <!-- One exact four-part module: two flats, two quarter-circle transitions. -->
+    <path id="foldModule" d="M0 0H28C47.882 0 64 16.118 64 36V80H36C16.118 80 0 63.882 0 44Z"/>
+    <!-- Rounded terminal used by the constructed K families. -->
+    <rect id="capsule" x="0" y="0" width="48" height="120" rx="24"/>
+
+    <mask id="kCounterA" maskUnits="userSpaceOnUse" x="0" y="0" width="180" height="144">
+      <rect width="180" height="144" fill="white"/>
+      <path d="M66 28V116M66 72L126 26M66 72L126 118" fill="none" stroke="black" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+    <mask id="kCounterB" maskUnits="userSpaceOnUse" x="0" y="0" width="180" height="144">
+      <rect width="180" height="144" fill="white"/>
+      <path d="M60 24V120M60 72L130 22M60 72L130 122" fill="none" stroke="black" stroke-width="16" stroke-linecap="square" stroke-linejoin="round"/>
+    </mask>
+    <mask id="kCounterC" maskUnits="userSpaceOnUse" x="0" y="0" width="180" height="144">
+      <rect width="180" height="144" fill="white"/>
+      <path d="M70 28V116M70 72L126 30M70 72L126 114" fill="none" stroke="black" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+    <mask id="kCounterD" maskUnits="userSpaceOnUse" x="0" y="0" width="180" height="144">
+      <rect width="180" height="144" fill="white"/>
+      <path d="M64 20V124M64 72L136 20M64 72L136 124" fill="none" stroke="black" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+
+  <!-- Column headings -->
+  <text class="sub" x="438" y="54" text-anchor="middle">A · canonical</text>
+  <text class="sub" x="748" y="54" text-anchor="middle">B · tighter</text>
+  <text class="sub" x="1058" y="54" text-anchor="middle">C · wider</text>
+  <text class="sub" x="1368" y="54" text-anchor="middle">D · asymmetric</text>
+
+  <!-- Row 1: 1.1 exact cadence -->
+  <text class="label" x="42" y="124">1.1 · cadence</text>
+  <text class="sub" x="42" y="151">equal modules · stepped baseline</text>
+  <line class="guide" x1="300" y1="211" x2="1540" y2="211"/>
+  <g class="mark" transform="translate(346 82)">
+    <use href="#cadenceModule"/><use href="#cadenceModule" x="76" y="10"/><use href="#cadenceModule" x="152" y="20"/>
+  </g>
+  <g class="mark" transform="translate(664 82)">
+    <use href="#cadenceModule"/><use href="#cadenceModule" x="68" y="8"/><use href="#cadenceModule" x="136" y="16"/>
+  </g>
+  <g class="mark" transform="translate(948 82)">
+    <use href="#cadenceModule"/><use href="#cadenceModule" x="86" y="12"/><use href="#cadenceModule" x="172" y="24"/>
+  </g>
+  <g class="mark" transform="translate(1266 82)">
+    <use href="#cadenceModule"/><use href="#cadenceModule" x="74" y="8" transform="scale(1 .88)"/><use href="#cadenceModule" x="148" y="24"/>
+  </g>
+
+  <!-- Row 2: 1.2 / 1.4 exact four-part rhythm -->
+  <text class="label" x="42" y="332">1.2 / 1.4 · four-part rhythm</text>
+  <text class="sub" x="42" y="359">one module · rotations and offsets</text>
+  <line class="guide" x1="300" y1="419" x2="1540" y2="419"/>
+  <g class="mark" transform="translate(370 282)">
+    <use href="#foldModule"/><use href="#foldModule" x="80"/>
+    <g transform="translate(64 96) rotate(180 32 40)"><use href="#foldModule"/></g>
+    <g transform="translate(144 96) rotate(180 32 40)"><use href="#foldModule"/></g>
+  </g>
+  <g class="mark" transform="translate(686 278)">
+    <use href="#foldModule"/><use href="#foldModule" x="72" y="6"/>
+    <g transform="translate(56 98) rotate(180 32 40)"><use href="#foldModule"/></g>
+    <g transform="translate(128 92) rotate(180 32 40)"><use href="#foldModule"/></g>
+  </g>
+  <g class="mark" transform="translate(982 282)">
+    <use href="#foldModule"/><use href="#foldModule" x="90"/>
+    <g transform="translate(64 96) rotate(180 32 40)"><use href="#foldModule"/></g>
+    <g transform="translate(154 96) rotate(180 32 40)"><use href="#foldModule"/></g>
+  </g>
+  <g class="mark" transform="translate(1300 276)">
+    <use href="#foldModule" y="10"/><use href="#foldModule" x="76"/>
+    <g transform="translate(60 96) rotate(180 32 40)"><use href="#foldModule"/></g>
+    <g transform="translate(136 106) rotate(180 32 40)"><use href="#foldModule"/></g>
+  </g>
+
+  <!-- Row 3: 2.1 exact flowing seams -->
+  <text class="label" x="42" y="540">2.1 · flowing seams</text>
+  <text class="sub" x="42" y="567">parallel cubic boundaries · constant gap</text>
+  <line class="guide" x1="300" y1="627" x2="1540" y2="627"/>
+  <g class="mark" transform="translate(350 486)">
+    <path d="M0 0H50C74 30 26 82 50 120H0Z"/>
+    <path d="M64 0H114C138 30 90 82 114 120H64C40 82 88 30 64 0Z"/>
+    <path d="M128 0H178V120H128C104 82 152 30 128 0Z"/>
+  </g>
+  <g class="mark" transform="translate(674 486)">
+    <path d="M0 0H52C70 34 34 78 52 120H0Z"/>
+    <path d="M62 0H114C132 34 96 78 114 120H62C44 78 80 34 62 0Z"/>
+    <path d="M124 0H176V120H124C106 78 142 34 124 0Z"/>
+  </g>
+  <g class="mark" transform="translate(954 486)">
+    <path d="M0 0H50C80 28 20 86 50 120H0Z"/>
+    <path d="M68 0H118C148 28 88 86 118 120H68C38 86 98 28 68 0Z"/>
+    <path d="M136 0H186V120H136C106 86 166 28 136 0Z"/>
+  </g>
+  <g class="mark" transform="translate(1272 486)">
+    <path d="M0 0H52C76 30 28 82 52 120H0Z"/>
+    <path d="M66 0H116C136 34 96 76 116 112V120H66C42 82 90 30 66 0Z"/>
+    <path d="M130 8H180V120H130C110 80 150 38 130 8Z"/>
+  </g>
+
+  <!-- Row 4: 2.4 open passage -->
+  <text class="label" x="42" y="748">2.4 · open passage</text>
+  <text class="sub" x="42" y="775">three pieces · one branching counter</text>
+  <line class="guide" x1="300" y1="835" x2="1540" y2="835"/>
+  <g class="mark" transform="translate(360 692)">
+    <path d="M0 0H58V120H0Z"/>
+    <path d="M72 0H144V48H112C89.909 48 72 30.091 72 8Z"/>
+    <path d="M72 62H112C129.673 62 144 76.327 144 94V120H72Z"/>
+  </g>
+  <g class="mark" transform="translate(682 692)">
+    <path d="M0 0H54V120H0Z"/>
+    <path d="M66 0H146V44H110C85.699 44 66 24.301 66 0Z"/>
+    <path d="M66 64H108C128.987 64 146 81.013 146 102V120H66Z"/>
+  </g>
+  <g class="mark" transform="translate(978 692)">
+    <path d="M0 0H62V120H0Z"/>
+    <path d="M80 0H146V52H118C97.013 52 80 34.987 80 14Z"/>
+    <path d="M80 70H118C133.464 70 146 82.536 146 98V120H80Z"/>
+  </g>
+  <g class="mark" transform="translate(1292 692)">
+    <path d="M0 0H54V120H0Z"/>
+    <path d="M68 0H134V50H104C84.118 50 68 33.882 68 14Z"/>
+    <path d="M76 66H116C133.673 66 148 80.327 148 98V120H76Z"/>
+  </g>
+
+  <!-- Row 5: negative-space K -->
+  <text class="label" x="42" y="956">2.4 · negative-space K</text>
+  <text class="sub" x="42" y="983">transparent counter · three masses</text>
+  <line class="guide" x1="300" y1="1043" x2="1540" y2="1043"/>
+  <g class="mark" transform="translate(350 892)" mask="url(#kCounterA)">
+    <rect width="54" height="144" rx="27"/><rect x="66" width="100" height="64" rx="28"/><rect x="66" y="80" width="100" height="64" rx="28"/>
+  </g>
+  <g class="mark" transform="translate(670 892)" mask="url(#kCounterB)">
+    <rect width="50" height="144" rx="20"/><rect x="60" width="110" height="62" rx="24"/><rect x="60" y="82" width="110" height="62" rx="24"/>
+  </g>
+  <g class="mark" transform="translate(970 892)" mask="url(#kCounterC)">
+    <rect width="58" height="144" rx="29"/><rect x="70" width="96" height="68" rx="30"/><rect x="70" y="76" width="96" height="68" rx="30"/>
+  </g>
+  <g class="mark" transform="translate(1282 892)" mask="url(#kCounterD)">
+    <rect width="52" height="144" rx="22"/><rect x="64" width="106" height="60" rx="26"/><rect x="72" y="84" width="98" height="60" rx="26"/>
+  </g>
+
+  <!-- Row 6: constructed positive K -->
+  <text class="label" x="42" y="1164">3.3 / 3.4 · constructed K</text>
+  <text class="sub" x="42" y="1191">three independent modules · shared terminal system</text>
+  <g class="mark" transform="translate(366 1100)">
+    <rect width="46" height="144" rx="23"/>
+    <rect x="72" y="2" width="44" height="92" rx="22" transform="rotate(48 94 48)"/>
+    <rect x="72" y="50" width="44" height="92" rx="22" transform="rotate(-48 94 96)"/>
+  </g>
+  <g class="mark" transform="translate(682 1100)">
+    <rect width="50" height="144" rx="20"/>
+    <rect x="72" y="0" width="42" height="94" rx="18" transform="rotate(45 93 47)"/>
+    <rect x="72" y="50" width="42" height="94" rx="18" transform="rotate(-45 93 97)"/>
+  </g>
+  <g class="mark" transform="translate(984 1100)">
+    <rect width="44" height="144" rx="22"/>
+    <rect x="68" y="4" width="48" height="88" rx="24" transform="rotate(52 92 48)"/>
+    <rect x="68" y="52" width="48" height="88" rx="24" transform="rotate(-52 92 96)"/>
+  </g>
+  <g class="mark" transform="translate(1296 1100)">
+    <rect width="48" height="144" rx="24"/>
+    <rect x="68" y="0" width="44" height="82" rx="22" transform="rotate(46 90 41)"/>
+    <rect x="76" y="62" width="44" height="88" rx="22" transform="rotate(-46 98 106)"/>
+  </g>
+</svg>

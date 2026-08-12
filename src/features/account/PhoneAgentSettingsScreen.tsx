@@ -19,6 +19,7 @@ import {
   type PhoneAgentLink,
   type PhoneAgentStatus,
 } from '../../services/phoneAgent';
+import { KWILT_PRIVACY_URL, KWILT_TERMS_URL } from '../paywall/SubscriptionLegalLinks';
 
 type PhoneAgentSettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -69,9 +70,6 @@ const EMPTY_STATUS: PhoneAgentStatus = {
   memorySummary: { peopleCount: 0, activeEventsCount: 0, activeCadencesCount: 0 },
   recentActions: [],
 };
-
-const TERMS_URL = 'https://www.kwilt.app/terms';
-const PRIVACY_URL = 'https://www.kwilt.app/privacy';
 
 function firstLink(status: PhoneAgentStatus): PhoneAgentLink | null {
   return status.links[0] ?? null;
@@ -222,11 +220,11 @@ export function PhoneAgentSettingsScreen() {
               Agent for phone verification, saved-item confirmations, account notices, and optional follow-up reminders.
               Frequency varies, up to 3 messages per day by default. Message and data rates may apply. Reply STOP to opt
               out, HELP for help. Terms:{' '}
-              <Text accessibilityRole="link" onPress={() => openExternalUrl(TERMS_URL)} style={styles.disclosureLink}>
+              <Text accessibilityRole="link" onPress={() => openExternalUrl(KWILT_TERMS_URL)} style={styles.disclosureLink}>
                 kwilt.app/terms
               </Text>
               . Privacy:{' '}
-              <Text accessibilityRole="link" onPress={() => openExternalUrl(PRIVACY_URL)} style={styles.disclosureLink}>
+              <Text accessibilityRole="link" onPress={() => openExternalUrl(KWILT_PRIVACY_URL)} style={styles.disclosureLink}>
                 kwilt.app/privacy
               </Text>
               .

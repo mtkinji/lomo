@@ -86,9 +86,9 @@ export function RecipeSummaryBar({
                     accessibilityState={{ disabled: servings <= 1 }}
                     disabled={servings <= 1}
                     hitSlop={8}
-                    size="sm"
+                    size="icon"
+                    iconButtonSize={28}
                     variant="outline"
-                    style={styles.servingsButton}
                     onPress={() => onServingsChange(Math.max(1, servings - 1))}
                   >
                     −
@@ -96,9 +96,9 @@ export function RecipeSummaryBar({
                   <Button
                     accessibilityLabel="Increase servings"
                     hitSlop={8}
-                    size="sm"
+                    size="icon"
+                    iconButtonSize={28}
                     variant="outline"
-                    style={styles.servingsButton}
                     onPress={() => onServingsChange(servings + 1)}
                   >
                     +
@@ -163,14 +163,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  servingsButton: {
-    width: 28,
-    height: 28,
-    minHeight: 28,
-    borderRadius: 8,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
   },
   servingsCount: {
     minWidth: 24,

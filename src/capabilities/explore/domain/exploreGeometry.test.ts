@@ -12,6 +12,18 @@ import {
 } from './exploreGeometry';
 
 describe('Explore geometry', () => {
+  it('bounds a long history of disconnected observations before native rendering', () => {
+    const points = Array.from({ length: 12_448 }, (_, index) => ({
+      latitude: 30 + index * 0.01,
+      longitude: -110,
+      recordedAt: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
+    }));
+
+    const geometry = buildFogRenderGeometry([points], 256);
+
+    expect(geometry.points.length + geometry.segmentStarts.length).toBeLessThanOrEqual(256);
+  });
+
   it('keeps a 65-foot clear core and a separate 100-foot feather reference', () => {
     expect(EXPLORE_REVEAL_RADIUS_M).toBeCloseTo(65 * 0.3048, 3);
     expect(EXPLORE_FEATHER_REFERENCE_RADIUS_M).toBeCloseTo(100 * 0.3048, 3);

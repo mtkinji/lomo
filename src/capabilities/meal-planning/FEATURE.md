@@ -17,12 +17,15 @@ briefs:
   - household-food-loop
   - shared-meal-cart
   - progressive-meal-commitment
+  - live-family-meal-board
+  - guest-meal-plan-feedback
 status: draft
-last_reviewed: 2026-08-08
+last_reviewed: 2026-08-12
 ---
 
 # Meal Planning
 
-Owns the household-private shared meal cart, flexible planning horizons,
-immutable Recipe candidates, named positive support, organizer settlement,
-progressive timing, historical choice rounds, and revisions.
+Owns the household-private persistent Plan, immutable Recipe occurrences,
+named positive support, adult grocery commitment, derived readiness, and
+Made/Removed history. Legacy finalized plans and choice rounds remain readable
+as history but are not the Recipes Plan workflow.

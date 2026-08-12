@@ -25,6 +25,7 @@ briefs:
   - focus-mode-education
   - focus-protection
   - focus-seamless-soundscapes
+  - focus-canyon-spring
   - focus-widget
   - geolocation-activity-offers
   - keyboard-input-safety
@@ -42,7 +43,7 @@ briefs:
   - todo-list-grouping-config
   - todo-organization-triage
 status: shipped
-last_reviewed: 2026-08-10
+last_reviewed: 2026-08-12
 ---
 
 # activities

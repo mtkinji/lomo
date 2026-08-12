@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { StyleSheet, FlatList, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -15,8 +15,6 @@ import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
 import { useSharingSettingsStore } from '../../store/useSharingSettingsStore';
 
-const NETWORK_CHECK_URL = 'https://jsonplaceholder.typicode.com/todos/1';
-
 export function TodayScreen() {
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
@@ -32,7 +30,6 @@ export function TodayScreen() {
     acc[goal.id] = goal.title;
     return acc;
   }, {});
-  const [networkCheck, setNetworkCheck] = useState<string>('pending');
   const today = useMemo(() => new Date(), []);
   const suggested = useMemo(
     () =>
@@ -82,61 +79,6 @@ export function TodayScreen() {
     // Passive viewing doesn't maintain streak anymore
   }, [isFocused]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const runNetworkCheck = async () => {
-      const start = Date.now();
-      if (__DEV__) {
-        console.log('[today][network-check] starting', {
-          url: NETWORK_CHECK_URL,
-          timestamp: new Date(start).toISOString(),
-        });
-      }
-      try {
-        const response = await fetch(NETWORK_CHECK_URL);
-        const duration = Date.now() - start;
-        if (__DEV__) {
-          console.log('[today][network-check] response', {
-            status: response.status,
-            ok: response.ok,
-            durationMs: duration,
-          });
-        }
-        const text = await response.text();
-        if (__DEV__) {
-          console.log('[today][network-check] payload', {
-            preview: text.slice(0, 120),
-          });
-        }
-        if (cancelled) {
-          if (__DEV__) {
-            console.log('[today][network-check] cancelled before completion');
-          }
-          return;
-        }
-        setNetworkCheck('success');
-      } catch (err) {
-        const duration = Date.now() - start;
-        console.error('network check failed', err);
-        if (__DEV__) {
-          console.warn('[today][network-check] failure details', {
-            durationMs: duration,
-            message: err instanceof Error ? err.message : String(err),
-            name: err instanceof Error ? err.name : undefined,
-          });
-        }
-        if (!cancelled) {
-          setNetworkCheck(`failed: ${err instanceof Error ? err.message : 'unknown'}`);
-        }
-      }
-    };
-
-    runNetworkCheck();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
   const renderActivity = ({ item, index }: { item: typeof activities[number]; index: number }) => {
     const scheduledAt = item.scheduledAt ? new Date(item.scheduledAt) : null;
     const dueDate = item.scheduledDate ? new Date(item.scheduledDate) : null;
@@ -222,11 +164,6 @@ export function TodayScreen() {
                 <Button size="small" style={styles.primaryAction}>
                   <Text style={styles.primaryActionText}>Create New To-do</Text>
                 </Button>
-                {networkCheck !== 'success' && (
-                  <Text style={styles.networkText}>
-                    Network check: {networkCheck === 'pending' ? 'checking…' : networkCheck}
-                  </Text>
-                )}
               </VStack>
             </Card>
 
@@ -348,11 +285,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
     fontFamily: typography.body.fontFamily,
-  },
-  networkText: {
-    marginTop: spacing.xs,
-    ...typography.bodySm,
-    color: colors.warning,
   },
   streak: {
     marginTop: spacing.xs,

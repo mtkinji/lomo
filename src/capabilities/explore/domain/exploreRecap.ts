@@ -7,6 +7,7 @@ export type ExploreRecap = {
   endedAt: string;
   pointCount: number;
   places: Place[];
+  resolving: boolean;
 };
 
 export function buildExploreRecap(
@@ -21,6 +22,7 @@ export function buildExploreRecap(
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     pointCount: session.points.length,
+    resolving: session.recapStatus === 'resolving',
     places: session.discoveredPlaceIds
       .map((placeId) => state.places[placeId])
       .filter((place): place is Place => Boolean(place)),
@@ -28,9 +30,9 @@ export function buildExploreRecap(
 }
 
 export function pendingExploreRecap(state: Pick<ExploreData, 'sessions' | 'places'>): ExploreRecap | null {
-  if (state.sessions.some((candidate) => candidate.recapStatus === 'resolving')) return null;
   const sessions = state.sessions
-    .filter((candidate) => candidate.recapStatus === 'ready' && candidate.endedAt)
+    .filter((candidate) =>
+      (candidate.recapStatus === 'ready' || candidate.recapStatus === 'resolving') && candidate.endedAt)
     .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
   if (!sessions.length) return null;
   const places = [...new Map(sessions.flatMap((session) => session.discoveredPlaceIds)
@@ -44,6 +46,7 @@ export function pendingExploreRecap(state: Pick<ExploreData, 'sessions' | 'place
     endedAt: sessions.at(-1)!.endedAt!,
     pointCount: sessions.reduce((sum, session) => sum + session.points.length, 0),
     places,
+    resolving: sessions.some((session) => session.recapStatus === 'resolving'),
   };
 }
 

@@ -1,4 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 import { MealSetupDrawer } from './MealSetupDrawer';
 
@@ -11,6 +13,12 @@ jest.mock('../../../ui/BottomDrawer', () => {
 });
 
 describe('Meal setup drawer', () => {
+  it('inherits the compact standard drawer title', () => {
+    const source = readFileSync(path.join(__dirname, 'MealSetupDrawer.tsx'), 'utf8');
+
+    expect(source).not.toContain('titleVariant="md"');
+  });
+
   it('offers only the two useful setup choices and remains skippable', () => {
     const onOpenDiners = jest.fn();
     const onOpenFoodNeeds = jest.fn();

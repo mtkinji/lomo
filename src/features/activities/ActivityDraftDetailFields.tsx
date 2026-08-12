@@ -302,7 +302,6 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                             variant="ghost"
                             size="icon"
                             iconButtonSize={24}
-                            style={styles.removeStepButton}
                             pointerEvents="none"
                             accessible={false}
                           >
@@ -992,11 +991,6 @@ const styles = StyleSheet.create({
   },
   newStepInput: {
     paddingVertical: 0,
-  },
-  removeStepButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
   },
   addStepRow: {
     marginTop: 0,

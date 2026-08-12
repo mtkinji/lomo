@@ -96,8 +96,6 @@ export function ActionDockSplitContent<Id extends string>({
                     <Icon name={action.icon} size={16} color={disabled ? colors.muted : colors.textPrimary} />
                     <Text
                       style={[styles.menuLabel, disabled ? styles.menuLabelDisabled : null]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
                     >
                       {action.label}
                     </Text>

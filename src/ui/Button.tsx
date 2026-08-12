@@ -1,8 +1,8 @@
 import React, { forwardRef } from 'react';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../theme';
+import { colors, radii, spacing } from '../theme';
 import { ButtonContext } from './ButtonContext';
 import { ButtonLabel } from './Typography';
 import type { HapticsEvent } from '../services/HapticsService';
@@ -10,6 +10,7 @@ import {
   BUTTON_SIZE_TOKENS,
   BUTTON_VARIANT_TOKENS,
   type ButtonSizeToken,
+  type ButtonTextTone,
   type ButtonVariantToken,
 } from './buttonTokens';
 import { withHapticPress } from './haptics/withHapticPress';
@@ -41,6 +42,10 @@ type Props = {
    * provided, `label` will be used as the button content.
    */
   label?: ReactNode;
+  /**
+   * Layout-only adjustments such as flex, width, alignment, or margins.
+   * Button color and shape belong to semantic variants and the shared primitive.
+   */
   style?: StyleProp<ViewStyle>;
   /**
    * Optional className carried over from the previous Tailwind/ShadCN
@@ -57,6 +62,13 @@ type Props = {
    */
   fullWidth?: boolean;
   /**
+   * Distinct in-progress state. Loading buttons stay visually prominent, stop
+   * accepting presses, expose busy semantics, and show a spinner.
+   */
+  loading?: boolean;
+  /** Replaces the normal label while loading, e.g. "Opening…". */
+  loadingLabel?: ReactNode;
+  /**
    * Optional haptics event for the press. Defaults to `canvas.selection`.
    * Set to `false` to disable haptics for this button.
    */
@@ -65,11 +77,13 @@ type Props = {
 
 export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(function Button(
   {
-    variant = 'default',
+    variant = 'primary',
     size = 'default',
     style,
     iconButtonSize,
     fullWidth,
+    loading = false,
+    loadingLabel,
     children,
     label,
     className,
@@ -92,7 +106,9 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
   const contextValue = React.useMemo(() => ({ size: logicalSize }), [logicalSize]);
 
   const logicalVariant: ButtonVariantToken =
-    variant === 'secondary'
+    variant === 'cta' || variant === 'accent'
+      ? 'cta'
+      : variant === 'secondary'
       ? 'secondary'
       : variant === 'primary'
       ? 'primary'
@@ -110,7 +126,7 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
       ? 'destructive'
       : variant === 'turmeric'
       ? 'turmeric'
-      : 'cta';
+      : 'primary';
 
   const variantTokens = BUTTON_VARIANT_TOKENS[logicalVariant];
   // Ensure button sizing is consistent across variants. Outline/secondary variants
@@ -124,10 +140,17 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
     variantTokens.borderColor ?? (shouldReserveBorderSpace ? 'transparent' : 'transparent');
 
   const resolvedChildren = children ?? label;
+  const visibleChildren = loading ? loadingLabel ?? resolvedChildren : resolvedChildren;
   const shouldWrapChildrenAsLabel =
-    typeof resolvedChildren === 'string' || typeof resolvedChildren === 'number';
+    typeof visibleChildren === 'string' || typeof visibleChildren === 'number';
   const labelTone = variantTokens.textTone;
-  const { onPress, accessibilityRole, hitSlop, ...pressableRest } = rest;
+  const { onPress, accessibilityRole, accessibilityState, hitSlop, disabled, ...pressableRest } = rest;
+  const isDisabled = Boolean(disabled || loading);
+  const resolvedAccessibilityState = {
+    ...accessibilityState,
+    disabled: isDisabled,
+    ...(loading ? { busy: true } : null),
+  };
   const onPressWithHaptics = React.useMemo(() => withHapticPress(onPress as any, haptic), [onPress, haptic]);
   const visualTargetSize = isIconOnly ? iconButtonSize ?? 28 : sizeTokens.height;
   const minimumTargetInset = Math.max(0, (44 - visualTargetSize) / 2);
@@ -145,12 +168,14 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
       ref={ref}
       {...pressableRest}
       accessibilityRole={accessibilityRole ?? 'button'}
+      accessibilityState={resolvedAccessibilityState}
+      disabled={isDisabled}
       hitSlop={resolvedHitSlop}
       onPress={onPressWithHaptics as any}
       style={({ pressed }) => [
         // Base shape + sizing
         !isIconOnly && {
-          borderRadius: 12,
+          borderRadius: radii.pill,
           minHeight: sizeTokens.height,
           paddingHorizontal: sizeTokens.paddingHorizontal,
           paddingVertical: sizeTokens.paddingVertical,
@@ -189,6 +214,7 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
             }
           : null,
         style,
+        disabled && !loading ? { opacity: 0.5 } : null,
       ]}
     >
       {variant === 'ai' ? (
@@ -202,7 +228,20 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
         </View>
       ) : null}
       <ButtonContext.Provider value={contextValue}>
-        {shouldWrapChildrenAsLabel ? <ButtonLabel tone={labelTone}>{resolvedChildren}</ButtonLabel> : resolvedChildren}
+        {loading ? (
+          <View style={styles.loadingContent}>
+            <ActivityIndicator
+              accessible={false}
+              color={getIndicatorColor(labelTone)}
+              size="small"
+            />
+            {shouldWrapChildrenAsLabel ? <ButtonLabel tone={labelTone}>{visibleChildren}</ButtonLabel> : visibleChildren}
+          </View>
+        ) : shouldWrapChildrenAsLabel ? (
+          <ButtonLabel tone={labelTone}>{visibleChildren}</ButtonLabel>
+        ) : (
+          visibleChildren
+        )}
       </ButtonContext.Provider>
     </Pressable>
   );
@@ -211,15 +250,17 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
 type IconButtonProps = Omit<Props, 'size' | 'iconButtonSize'>;
 
 /**
- * Canonical circular icon button: pine background, fully rounded, fixed icon
+ * Canonical circular icon button: Sumi background, fully rounded, fixed icon
  * sizing. Intended for header actions and compact icon-only controls.
  */
 export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconButtonProps>(
-  function IconButton({ style, children, className, variant = 'default', ...rest }, ref) {
+  function IconButton({ style, children, className, variant = 'primary', loading = false, loadingLabel, ...rest }, ref) {
     const DEFAULT_ICON_BUTTON_SIZE = 44;
     const shouldWrapChildrenAsLabel = typeof children === 'string' || typeof children === 'number';
     const logicalVariant: ButtonVariantToken =
-      variant === 'secondary'
+      variant === 'cta' || variant === 'accent'
+        ? 'cta'
+        : variant === 'secondary'
         ? 'secondary'
         : variant === 'primary'
           ? 'primary'
@@ -237,14 +278,20 @@ export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconBut
                       ? 'destructive'
                       : variant === 'turmeric'
                         ? 'turmeric'
-                        : 'cta';
+                        : 'primary';
     const variantTokens = BUTTON_VARIANT_TOKENS[logicalVariant];
     const shouldReserveBorderSpace = logicalVariant !== 'ghost' && logicalVariant !== 'link';
     const resolvedBorderWidth =
       variantTokens.borderWidth ?? (shouldReserveBorderSpace ? 1 : 0);
     const resolvedBorderColor =
       variantTokens.borderColor ?? (shouldReserveBorderSpace ? 'transparent' : 'transparent');
-    const { onPress, accessibilityRole, ...pressableRest } = rest;
+    const { onPress, accessibilityRole, accessibilityState, disabled, ...pressableRest } = rest;
+    const isDisabled = Boolean(disabled || loading);
+    const resolvedAccessibilityState = {
+      ...accessibilityState,
+      disabled: isDisabled,
+      ...(loading ? { busy: true } : null),
+    };
     const onPressWithHaptics = React.useMemo(
       () => withHapticPress(onPress as any, 'canvas.selection'),
       [onPress],
@@ -254,6 +301,8 @@ export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconBut
         ref={ref}
         {...pressableRest}
         accessibilityRole={accessibilityRole ?? 'button'}
+        accessibilityState={resolvedAccessibilityState}
+        disabled={isDisabled}
         onPress={onPressWithHaptics as any}
         style={({ pressed }) => [
           {
@@ -273,10 +322,33 @@ export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconBut
               }
             : null,
           style,
+          disabled && !loading ? { opacity: 0.5 } : null,
         ]}
       >
-        {shouldWrapChildrenAsLabel ? <ButtonLabel tone={variantTokens.textTone}>{children}</ButtonLabel> : children}
+        {loading ? (
+          <ActivityIndicator accessible={false} color={getIndicatorColor(variantTokens.textTone)} size="small" />
+        ) : shouldWrapChildrenAsLabel ? (
+          <ButtonLabel tone={variantTokens.textTone}>{children}</ButtonLabel>
+        ) : (
+          children
+        )}
       </Pressable>
     );
   },
 );
+
+function getIndicatorColor(tone: ButtonTextTone): string {
+  if (tone === 'inverse') return colors.canvas;
+  if (tone === 'accent') return colors.accent; // @kwilt-brand-moment: explicit accent/inverse variant loading indicator
+  if (tone === 'destructive') return colors.destructive;
+  return colors.textPrimary;
+}
+
+const styles = StyleSheet.create({
+  loadingContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+    justifyContent: 'center',
+  },
+});

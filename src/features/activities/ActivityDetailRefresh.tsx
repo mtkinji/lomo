@@ -653,7 +653,7 @@ export function ActivityDetailRefresh(props: any) {
               <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
                 <HStack alignItems="center" space="sm">
                   <IconButton
-                    style={styles.optionsButton}
+                    variant="primary"
                     accessibilityLabel={activity?.priority === 1 ? 'Remove star from to-do' : 'Star this to-do'}
                     onPress={handleToggleActivityImportance}
                   >
@@ -666,7 +666,7 @@ export function ActivityDetailRefresh(props: any) {
                   <DropdownMenu>
                     <DropdownMenuTrigger accessibilityLabel="To-do actions">
                       <View pointerEvents="none">
-                        <IconButton style={styles.optionsButton} accessible={false}>
+                        <IconButton variant="primary" accessible={false}>
                           <Icon name="more" size={18} color={headerInk} />
                         </IconButton>
                       </View>

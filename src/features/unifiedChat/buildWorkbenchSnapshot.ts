@@ -1,6 +1,7 @@
 import type { UnifiedChatMutationReceipt, UnifiedChatRun, UnifiedChatRunEvent, UnifiedChatThreadAggregate } from './types';
 import type {
   AgentWorkbenchContextRef,
+  AgentWorkbenchOffer,
   AgentWorkbenchRun,
   AgentWorkbenchSnapshot,
   AgentWorkbenchTimelineItem,
@@ -20,6 +21,7 @@ type WorkbenchPresentation = {
 
 type FreshWorkbenchPresentation = WorkbenchPresentation & {
   context?: AgentWorkbenchContextRef[];
+  offers?: AgentWorkbenchOffer[];
   placeholder?: string;
 };
 
@@ -75,6 +77,7 @@ export function buildFreshWorkbenchSnapshot(
     receipts: [],
     clientActions: [],
     artifacts: [],
+    offers: presentation?.offers ?? [],
     composer: buildWorkbenchComposer(prompt, 'ready', presentation),
   };
 }

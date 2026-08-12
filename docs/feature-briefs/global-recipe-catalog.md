@@ -1,7 +1,7 @@
 ---
 id: brief-global-recipe-catalog
 title: Global Recipe Catalog
-status: draft
+status: accepted
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
@@ -9,7 +9,7 @@ job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-move-the-few-things-that-matter, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-food-loop, brief-food-ai-operating-layer, brief-personal-meal-favorites]
 owner: andrew
-last_updated: 2026-08-07
+last_updated: 2026-08-12
 ---
 
 # Global Recipe Catalog
@@ -120,7 +120,7 @@ Every attempt records publication/version, prompt/model version, output, cost me
 
 Queue eligibility is an active publication version without approved recipe-specific media or one whose media is marked inaccurate, duplicate, low-quality, or retired. Priority uses hard category/cuisine coverage, active-Collection wave completion, current discovery visibility, mismatched-art severity, aggregated opens/plans/cooks, visual-form coverage, attempt age, and retry penalty. Individual/private user content never enters prompts or priority signals.
 
-The first wave contains 48 images covering every currently visible discovery position, every active editorial Collection, and a balanced category/cuisine/visual-form matrix. After contact-sheet approval, remaining records process in coherent Collection/category/cuisine waves.
+The first learning wave contains 25 images spanning immediately recognizable, culturally specific, and visually difficult meals. It tests the full generation, review, publication, replacement, and installed-app refresh path before later 50-recipe waves process the remaining catalog in coherent Collection/category/cuisine groups.
 
 Art direction: beautiful modern cookbook photography; believable home-cooked texture and portions; natural window light; quiet warm surfaces; one unmistakable finished dish derived from exact recipe content; crop-safe composition; coherent tone with varied plates/angles; no hands, text, logos, packaging, impossible ingredients, excessive garnish, synthetic gloss, or culturally careless substitution.
 
@@ -140,7 +140,7 @@ Heart is learned directly from cards. Rating is available on Recipe Home and con
 
 ### Release and reversibility
 
-Release first as production-hidden for Andrew/internal adult profiles using production-shaped Supabase and an OTA/development bundle. Widen to production-small only after the 48-image contact sheet, catalog continuity, private-state separation, comments moderation, abuse/rate-limit tests, and two-account signed-device matrix pass. Comments have an independent server/client gate and can remain disabled while catalog, hearts, ratings, and private versions ship.
+Release first as production-hidden for Andrew/internal adult profiles using production-shaped Supabase and an OTA/development bundle. Widen to production-small only after the 25-image learning contact sheet, catalog continuity, private-state separation, comments moderation, abuse/rate-limit tests, and two-account signed-device matrix pass. Comments have an independent server/client gate and can remain disabled while catalog, hearts, ratings, and private versions ship.
 
 ## Success signal
 
@@ -157,7 +157,7 @@ A fresh account can browse all 500 database-backed canonical Recipes; two accoun
 - AI suggestions produce a reviewable structured diff and cannot save; manual update and local version save remain complete without connectivity.
 - Restoring an older version appends a new immutable version and never rewrites history.
 - Meal Plan and Grocery snapshots retain exact recipe/version/media lineage.
-- First 48 images pass automated and editorial contact-sheet review; published media resolves from Supabase CDN and can be replaced without a native build.
+- First 25 images pass automated and editorial contact-sheet review; published media resolves from Supabase CDN and can be replaced without a native build.
 - `npm run verify:changed -- --run` passes; source proof, Simulator/Metro proof, signed-account/device proof, and production-default proof remain explicitly distinct.
 
 ## Learning and decision rule
@@ -173,7 +173,7 @@ Decisions locked:
 - adult-profile public notes; all permanent users may privately heart/rate and maintain an attached personal edition;
 - AI-forward, manually complete, offline-honest updating with append-only version restoration;
 - exact-version ratings/notes/lineage;
-- 48-image accepted art-direction wave before long-tail generation;
+- 25-image accepted learning wave before later 50-recipe batches;
 - staged production-hidden release with independent participation gates.
 
 Implementation must still choose table/function names and batch sizes by following existing migration conventions and current Supabase limits. These are engineering choices, not product decisions. No user-owned product choice remains open for the first hidden slice.
@@ -185,7 +185,7 @@ Kwilt connector tools were unavailable in this task. Intended durable Goal: **Sh
 Intended Activities:
 
 - Migrate 500 OOTB meals to immutable catalog publications with verified client continuity.
-- Publish the first 48 recipe-book-quality catalog images through the reviewed generation pipeline.
+- Publish the first 25 recipe-book-quality catalog images through the reviewed generation pipeline.
 - Add private hearts/ratings/forks and gated moderated Cooking notes.
 - Prove two-account RLS, offline catalog fallback, canonical republish, and image replacement without a native build.
 

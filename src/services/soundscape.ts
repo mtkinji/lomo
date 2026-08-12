@@ -7,6 +7,8 @@ import { SOUND_SCAPES, type SoundscapeId } from './soundscapeCatalog';
 
 export { SOUND_SCAPES, isSoundscapeId, type SoundscapeId } from './soundscapeCatalog';
 
+export const SOUNDSCAPE_FADE_DURATION_MS = 700;
+
 type SoundscapeStatus = 'idle' | 'loading' | 'ready' | 'playing' | 'stopped' | 'error';
 
 let status: SoundscapeStatus = 'idle';
@@ -25,6 +27,7 @@ let lastResumeAttemptMs = 0;
 let playbackListenerAttached = false;
 
 const DEFAULT_SOUNDSCAPE_SOURCE = require('../../assets/audio/soundscapes/Sleep Music No. 1 - Chris Haugen.mp3');
+const CANYON_SPRING_SOURCE = require('../../assets/audio/soundscapes/canyon-spring-stream.mp3');
 const REMOTE_SOUNDSCAPE_IDS: Partial<Record<SoundscapeId, RemoteAudioAssetId>> = {
   copacabanaFocus: 'focus.copacabana',
   focusFlowState: 'focus.focus-tunnel',
@@ -33,7 +36,6 @@ const REMOTE_SOUNDSCAPE_IDS: Partial<Record<SoundscapeId, RemoteAudioAssetId>> =
   cedarWorkshop: 'focus.cedar-workshop',
   rainlitLibrary: 'focus.rainlit-library',
   quietRain: 'focus.quiet-rain',
-  forestStream: 'focus.forest-stream',
   oceanWaves: 'focus.ocean-waves',
   fireplace: 'focus.fireplace',
   nightMeadow: 'focus.night-meadow',
@@ -129,7 +131,7 @@ export async function startSoundscapeLoop(opts?: { volume?: number; fadeInMs?: n
   resumeAttempts = 0;
   const fadeInMs = typeof opts?.fadeInMs === 'number' && Number.isFinite(opts.fadeInMs)
     ? Math.max(0, Math.round(opts.fadeInMs))
-    : 250;
+    : SOUNDSCAPE_FADE_DURATION_MS;
 
   if (typeof opts?.volume === 'number' && Number.isFinite(opts.volume)) {
     currentVolume = clamp(opts.volume, 0, 1);
@@ -244,7 +246,7 @@ export async function stopSoundscapeLoop(opts?: { unload?: boolean }) {
 
   // Fade out before stopping/unloading so it doesn't cut abruptly.
   try {
-    await fadeToVolume(sound, lastAppliedVolume, 0, 700, opId);
+    await fadeToVolume(sound, lastAppliedVolume, 0, SOUNDSCAPE_FADE_DURATION_MS, opId);
   } catch {
     // best effort
   }
@@ -302,6 +304,7 @@ export async function setSoundscapeId(id: SoundscapeId) {
 }
 
 export async function resolveSoundscapeSource(id: SoundscapeId): Promise<any> {
+  if (id === 'canyonSpring') return CANYON_SPRING_SOURCE;
   const remoteId = REMOTE_SOUNDSCAPE_IDS[id];
   if (!remoteId) return DEFAULT_SOUNDSCAPE_SOURCE;
   const resolved = await resolveAudioAsset(remoteId);

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement this plan task-by-task. Do not use subagents or create another worktree unless Andrew explicitly approves parallel execution.
 
-**Goal:** Generate, review, publish, and replace cookbook-quality images for the 500 DB-backed catalog meals without requiring a new mobile build.
+**Goal:** Prove a 25-recipe editorial image wave, then generate, review, publish, and replace cookbook-quality images for the 500 DB-backed catalog meals without requiring another mobile build.
 
 **Architecture:** A durable server-side job queue selects only published catalog versions lacking approved media. Generation is asynchronous and idempotent. Original and derivative files live in a permanent recipe-media Storage bucket; DB media rows pin rights, prompt/model provenance, QA results, crops, alt text, and lifecycle. Only editorially approved assets become publication media, so generation never changes what users see by itself.
 
@@ -21,7 +21,7 @@
 
 - [ ] Add a pure scorer and tests using hard coverage constraints, active Collection wave completion, current discovery position, current artwork mismatch, aggregate opens/plans/cooks/searches, category/cuisine/visual-form gaps, age, and retry penalty.
 - [ ] Exclude private query text and user identity from prompts and ranking inputs.
-- [ ] Select a first wave of 48 that covers every visible discovery position, every active editorial Collection, and a broad category/cuisine/visual-form matrix.
+- [ ] Select a first learning wave of 25 spanning recognizable, culturally specific, and visually difficult meals; retain the same coverage scorer for later 50-recipe waves.
 - [ ] Emit an inspectable score breakdown for each queued meal so editorial priority is explainable.
 
 ## Task 3: Build the cookbook art-direction prompt
@@ -49,5 +49,5 @@
 
 - [ ] Publish one approved image to an internal catalog publication and confirm the already-installed app refreshes it from the DB/Storage URL.
 - [ ] Replace that image with a second approved asset and prove cache-busted rendering without a native build or JS update.
-- [ ] Complete the 48-image wave, review as contact sheets, then queue later waves based on real discovery/cook usage and coverage gaps.
+- [ ] Complete the 25-image learning wave, review as contact sheets, then queue later 50-recipe waves based on real discovery/cook usage and coverage gaps.
 - [ ] Record generation cost, approval rate, mismatch rate, duplicate rate, and time-to-publish; do not optimize ranking for engagement alone.

@@ -255,12 +255,13 @@ export function buildFogRenderGeometry<T extends ExploreCoordinate>(
   const segmentEnds: T[] = [];
   const renderTraces: T[][] = [];
   simplified.forEach((trace) => {
+    const remainingPrimitiveCount = Math.max(0, maxSegments - points.length - segmentStarts.length);
+    if (remainingPrimitiveCount === 0) return;
     if (trace.length === 1) {
       points.push(trace[0]);
       return;
     }
-    const remainingSegmentCount = Math.max(0, maxSegments - segmentStarts.length);
-    const renderTrace = trace.slice(0, remainingSegmentCount + 1);
+    const renderTrace = trace.slice(0, remainingPrimitiveCount + 1);
     if (renderTrace.length < 2) return;
     renderTraces.push(renderTrace);
     renderTrace.slice(1).forEach((end, index) => {

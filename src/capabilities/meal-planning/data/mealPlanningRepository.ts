@@ -5,7 +5,14 @@ import { validateMealPlanHorizon } from '../domain/mealPlanLifecycle';
 import type { MealPeriod, MealPlanHorizon, MealTimingIntent } from '../domain/mealPlanContracts';
 import { aggregateMealChoices } from '../domain/mealChoiceAggregate';
 import { stableContentHash } from '@kwilt/food-core';
-import { parseSharedMealCartProjection, type SharedMealCartProjection } from '../domain/sharedMealCart';
+import { parseSharedMealCartProjection, type PlanReaction, type SharedMealCartProjection } from '../domain/sharedMealCart';
+
+let mealPlanningSubscriptionSequence = 0;
+
+function nextMealPlanningSubscriptionTopic(): string {
+  mealPlanningSubscriptionSequence += 1;
+  return `meal-planning-invalidation:${Date.now().toString(36)}:${mealPlanningSubscriptionSequence.toString(36)}`;
+}
 
 export type MealPlanCandidateDraft = {
   id: string;
@@ -32,6 +39,24 @@ export type MealPlanProjection = {
   }>;
   activeRound: { id: string; version: number; state: 'open' | 'closed' | 'cancelled'; closesAt: string | null } | null;
   updatedAt: string;
+};
+
+export type GuestMealFeedbackSummary = {
+  candidates: Array<{ id: string; title: string }>;
+  invites: Array<{
+    id: string;
+    state: 'active' | 'expired' | 'revoked';
+    expiresAt: string;
+    responseCount: number;
+    responses: Array<{
+      id: string;
+      displayName: string | null;
+      selectedCandidateIds: string[];
+      pass: boolean;
+      suggestion: string | null;
+      updatedAt: string;
+    }>;
+  }>;
 };
 
 type VersionedMealPlanRow = {
@@ -123,8 +148,41 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
     withdrawSharedCandidate(candidateId: string) {
       return rpc(client, 'withdraw_kwilt_shared_meal_candidate', { p_candidate_id: candidateId });
     },
-    setSharedReaction(candidateId: string, reacted: boolean) {
-      return rpc(client, 'set_kwilt_shared_meal_reaction', { p_candidate_id: candidateId, p_reacted: reacted });
+    setSharedReaction(candidateId: string, reaction: PlanReaction | null, reason: string | null = null) {
+      return rpc(client, 'set_kwilt_shared_meal_reaction', {
+        p_candidate_id: candidateId,
+        p_reaction: reaction,
+        ...(reason === null ? {} : { p_reason: reason }),
+      });
+    },
+    async sendSharedCandidates(
+      planId: string,
+      expectedVersion: number,
+      candidateIds: string[],
+      options?: { acknowledgeHardPasses?: boolean },
+    ) {
+      const { data, error } = await client.functions.invoke('grocery-compile', {
+        body: {
+          planAction: 'send',
+          planId,
+          expectedVersion,
+          candidateIds,
+          ...(options?.acknowledgeHardPasses ? { acknowledgeHardPasses: true } : {}),
+        },
+      });
+      if (error) throw new Error(error.message);
+      return (data as { receipt: { planId: string; version: number; groceryListId: string; revision: number } }).receipt;
+    },
+    async removeSentSharedCandidate(planId: string, expectedVersion: number, candidateId: string) {
+      const { data, error } = await client.functions.invoke('grocery-compile', { body: { planAction: 'remove', planId, expectedVersion, candidateIds: [candidateId] } });
+      if (error) throw new Error(error.message);
+      return (data as { receipt: { planId: string; version: number; groceryListId: string; revision: number } }).receipt;
+    },
+    keepGroceriesAndRemoveSharedCandidate(candidateId: string, expectedVersion: number) {
+      return rpc(client, 'remove_kwilt_sent_plan_candidate_keep_groceries', { p_candidate_id: candidateId, p_expected_version: expectedVersion });
+    },
+    markSharedCandidateMade(candidateId: string, expectedVersion: number) {
+      return rpc(client, 'mark_kwilt_plan_candidate_made', { p_candidate_id: candidateId, p_expected_version: expectedVersion });
     },
     async list(): Promise<MealPlanProjection[]> {
       const { data, error } = await client.from('kwilt_meal_plans').select('*,candidates:kwilt_meal_plan_candidates(*),entries:kwilt_meal_plan_entries(*),occasions:kwilt_meal_plan_occasions(*),rounds:kwilt_meal_choice_rounds(*)').order('updated_at', { ascending: false });
@@ -139,6 +197,19 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
     },
     openRound(input: { planId: string; expectedVersion: number; participantMembershipIds: string[]; closesAt: string | null }) {
       return rpc(client, 'open_kwilt_meal_choice_round', { p_plan_id: input.planId, p_expected_version: input.expectedVersion, p_participant_membership_ids: input.participantMembershipIds, p_closes_at: input.closesAt });
+    },
+    async createGuestFeedbackInvite(input: { planId: string; expectedVersion: number; expiresAt: string | null }): Promise<{ inviteId: string; token: string; expiresAt: string }> {
+      return await rpc(client, 'create_kwilt_guest_meal_feedback_invite', {
+        p_plan_id: input.planId,
+        p_expected_version: input.expectedVersion,
+        p_expires_at: input.expiresAt,
+      }) as { inviteId: string; token: string; expiresAt: string };
+    },
+    revokeGuestFeedbackInvite(inviteId: string) {
+      return rpc(client, 'revoke_kwilt_guest_meal_feedback_invite', { p_invite_id: inviteId });
+    },
+    async getGuestFeedbackSummary(planId: string): Promise<GuestMealFeedbackSummary> {
+      return await rpc(client, 'get_kwilt_guest_meal_feedback_summary', { p_plan_id: planId }) as GuestMealFeedbackSummary;
     },
     projection(roundId: string) { return rpc(client, 'get_kwilt_meal_choice_projection', { p_round_id: roundId }); },
     submitResponse(input: { roundId: string; expectedRoundVersion: number; selectedCandidateIds: string[]; pass: boolean; suggestion: string | null; availableCandidateIds?: string[]; selectionLimit?: number }) {
@@ -181,12 +252,15 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
     },
     revise(planId: string, expectedVersion: number) { return rpc(client, 'revise_kwilt_meal_plan', { p_plan_id: planId, p_expected_version: expectedVersion }); },
     subscribe(onInvalidate: () => void): () => void {
-      const channel = client.channel('meal-planning-invalidation')
+      const channel = client.channel(nextMealPlanningSubscriptionTopic())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plans' }, onInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plan_candidates' }, onInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_candidate_reactions' }, onInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plan_entries' }, onInvalidate)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_meal_plan_occasions' }, onInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_grocery_lists' }, onInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_grocery_items' }, onInvalidate)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kwilt_grocery_item_sources' }, onInvalidate)
         .subscribe();
       return () => { void client.removeChannel(channel); };
     },

@@ -664,7 +664,7 @@ describe('resetUserSpecificState', () => {
     useAppStore.setState({
       hapticsEnabled: false,
       soundscapeEnabled: false,
-      soundscapeTrackId: 'forestStream',
+      soundscapeTrackId: 'quietRain',
       focusOverlayColorIndex: 3,
       notificationPreferences: {
         ...useAppStore.getState().notificationPreferences,
@@ -681,7 +681,7 @@ describe('resetUserSpecificState', () => {
     // Device settings should be preserved.
     expect(state.hapticsEnabled).toBe(false);
     expect((state as any).soundscapeEnabled).toBe(false);
-    expect((state as any).soundscapeTrackId).toBe('forestStream');
+    expect((state as any).soundscapeTrackId).toBe('quietRain');
     expect((state as any).focusOverlayColorIndex).toBe(3);
     expect(state.notificationPreferences.notificationsEnabled).toBe(true);
     expect(state.notificationPreferences.allowDailyFocus).toBe(true);

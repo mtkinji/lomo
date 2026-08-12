@@ -4644,7 +4644,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingHorizontal: spacing['2xl'] ?? spacing.xl,
     paddingVertical: spacing.sm,
-    borderRadius: 999,
   },
   revealIntroText: {
     marginBottom: spacing.lg,

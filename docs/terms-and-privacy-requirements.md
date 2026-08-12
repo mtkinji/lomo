@@ -1,270 +1,121 @@
-## Kwilt — Terms of Service + Privacy Policy Requirements (product-driven)
+# Kwilt Terms and Privacy Requirements
 
-This document is **not legal advice**. It is a **product/engineering requirements brief** that enumerates the specific Terms of Service (ToS) and Privacy Policy disclosures Kwilt needs, based on the current app architecture and feature set in this repo.
+**Current release baseline:** `1.0.104 (104)`
+**Last product review:** August 12, 2026
 
-Kwilt is a **local-first** mobile app that can optionally use cloud services for:
-- **Sign-in and shared goals** (Supabase Auth + Edge Functions)
-- **AI coaching** (via a Supabase Edge Function “AI proxy”; no OpenAI key in the client)
-- **Media/attachments uploads** (Supabase Storage via Edge Functions)
-- **Analytics** (PostHog; with client-side redaction of user-entered text fields)
-- **Subscriptions** (RevenueCat; Apple subscriptions)
+This document is not legal advice. It defines the product and engineering requirements that consumer legal language and store disclosures must satisfy. The detailed data map is [the mega-app disclosure matrix](legal/mega-app-data-disclosure-matrix.md).
 
----
+## One product contract
 
-### Scope & vocabulary (must be consistent across policies)
+Kwilt is one Tools for Life app. Its public documents must cover:
 
-- **App**: the Kwilt mobile app.
-- **Local-first**: your Arcs/Goals/Activities and profile live on-device by default; some features call cloud services.
-- **Kwilt account**: a Supabase Auth identity (Sign in with Apple/Google).
-- **Shared goal**: a goal with memberships; supports invite links and a “signals-only” default.
-- **Signals-only**: check-ins + lightweight reactions/cheers by default; **activity titles/notes are not shared** unless explicitly enabled.
-- **AI proxy**: the server endpoint the app uses to call LLM providers (e.g., OpenAI) with quotas/limits.
+- Planning, Focus, Chapters, durable Chat, attachments, AI, and voice.
+- Money with Plaid-connected accounts, transactions, budgets, forecasting, AI classification, privacy lock, widgets, and optional Screen Time rules.
+- Explore with precise foreground/background location, recorded paths, Places, history, maps, and signed-in synchronization.
+- Recipes, cooking, Meals, dietary needs, Groceries, and optional retailer connections/cart handoffs.
+- Guest/local and authenticated private multiplayer Games, including nearby discovery and user-created game content.
+- Household rosters, parent-managed dependent profiles, caregiver authority, capability grants, and family Screen Time controls.
+- Apple/Google sign-in, Google/Microsoft calendars, Apple Health, notifications, subscriptions, analytics, email, optional Phone Agent SMS, connected AI tools, and account deletion.
 
----
+`Local-first` must never be used to imply `device-only`. The policy must identify which optional actions send data to Kwilt or another provider.
 
-### 1) Terms of Service — requirements
+## Terms of Use requirements
 
-#### 1.1 Service description + user eligibility
-- **Describe the service** as personal planning/coaching support (Arcs, Goals, Activities, reminders, optional AI assistance, optional collaboration).
-- **Age/eligibility**:
-  - Minimum age requirement (e.g., 13+ or 16+ depending on target + regional rules).
-  - If minors are permitted, require parental consent language; otherwise, explicitly prohibit use by children under the threshold.
+### Eligibility and dependents
 
-#### 1.2 Accounts and authentication (optional, intent-gated)
-- **Account is optional** for core local use; **required** for certain features (sharing/joining shared goals, uploading attachments, etc.).
-- **Sign-in methods**: Sign in with Apple and Google (via Supabase Auth).
-- **Session handling**: ToS should allow maintaining sessions on the device.
-- **Logout semantics** must match product posture:
-  - Logging out disconnects the cloud identity but **does not automatically delete local data**.
-  - Provide a separate “Erase local data” action (if supported) for shared-device privacy.
+- A person under 13 may not create or control a Kwilt account.
+- An adult may create a parent-managed dependent profile and enable bounded household capabilities for that dependent.
+- A person from 13 to the local age of majority needs parent or guardian consent to use a Kwilt account.
+- The adult is responsible for dependent-profile information, capability grants, invitations, and appropriate supervision.
 
-#### 1.3 User content, ownership, and license
-Kwilt stores and processes user-generated content including:
-- Arc/Goal/Activity titles, descriptions, notes, steps, tags
-- Profile/identity fields (e.g., identity summaries, coaching context text)
-- Shared-goal check-ins + reactions (when implemented)
-- Attachments (photos/videos/documents/audio recordings) when enabled
+### Accounts and subscriptions
 
-ToS must:
-- **Confirm user ownership** of user content (subject to third-party rights).
-- Grant Kwilt a **limited license** to host/process/display user content solely to operate the service (including sharing to invited members when the user enables sharing).
-- Include **content responsibility**: user represents they have rights to upload/share content, especially attachments and shared-goal check-ins.
+- Core local experiences may work without sign-in; cloud sync, sharing, connected providers, durable Chat, Money, remote Games, and other services may require an account.
+- Logging out does not by itself erase local data.
+- Account deletion is distinct from cancelling an Apple-managed subscription.
+- Apple processes purchases; RevenueCat manages Kwilt entitlement state. Auto-renewal, trial conversion, restore, cancellation, and refund language must match the purchase sheet.
 
-#### 1.4 AI features — limits, disclaimers, and acceptable use
-Kwilt includes AI-assisted coaching flows and may send user-provided text and derived summaries to the AI proxy.
+### User content and sharing
 
-ToS must include:
-- **No professional advice** disclaimer (not medical/mental health/legal/financial advice).
-- **Accuracy and reliance** disclaimer (AI can be wrong; user is responsible for decisions).
-- **Safety & prohibited use**:
-  - No illegal content; no abuse/harassment; no content that violates others’ privacy/rights.
-  - No attempts to extract secrets or abuse quotas/rate limits.
-- **Rate limiting / quotas**:
-  - Kwilt may enforce free/pro quotas, daily rails, and suspend abusive usage.
-  - Define consequences for exceeding limits (throttling, paywall, temporary blocks).
-- **Model/provider changes**: Kwilt may change models/providers without notice, while preserving core service behavior.
+- Users retain ownership of their content and grant Kwilt a limited operational license.
+- Content includes planning objects, Chat, attachments, recipes/imports, photos/scans/audio, meal choices, grocery items, player names, game submissions, household content, and connected-tool actions.
+- The user must have rights to import, upload, publish, or share content and must respect privacy, copyright, trademark, publicity, and other rights.
+- Private-by-default data becomes visible only through an explicit share, access grant, household role, game room, connected-provider authorization, or publication action.
 
-#### 1.5 Collaboration: shared goals + invites
-ToS must clearly define:
-- **Invite links** and who is responsible for link sharing; links may grant access to a shared goal experience.
-- **Signals-only default** and user controls:
-  - What’s shared by default (membership + check-ins + reactions).
-  - What is not shared by default (activity titles, notes, attachments) unless explicitly opted in.
-- **Member conduct** expectations (no harassment; no doxxing; no sharing others’ data).
-- **Termination/removal**:
-  - Users can leave shared goals; owners/admins (if supported) can remove members/revoke invites.
-  - Kwilt may disable collaboration features if abuse is detected.
+### Capability reliance boundaries
 
-#### 1.6 Attachments (photos/videos/audio/documents)
-If attachments are available:
-- **Permission-based access**: photo library / microphone permissions are user-controlled via OS.
-- **Storage + access**:
-  - Attachments are uploaded to cloud storage when user initiates upload and is signed in.
-  - Access is controlled by authentication and server-side authorization.
-- **Sharing toggle**:
-  - If “share with goal members” exists, ToS must state that enabling it makes that attachment accessible to members (and may remain accessible until unshared/deleted).
+- AI may be incomplete or wrong and is not medical, mental-health, legal, financial, tax, investment, or other professional advice.
+- Money is a budgeting aid. Plaid/bank data can be delayed, incomplete, duplicated, or corrected; Kwilt does not move money, issue credit, or make lending decisions.
+- Explore is not an emergency, navigation, safety, tracking, or missing-person service. Location history may be incomplete or inaccurate.
+- Recipes, dietary labels, and meal suggestions are not medical, nutrition, or allergy advice. Users remain responsible for ingredients, allergens, preparation, food safety, and household needs.
+- Retailer price, availability, substitutions, fulfillment, payment, checkout, coupons, and orders remain controlled by the retailer.
+- Calendar/notification/Screen Time actions are best-effort and depend on OS/provider permissions, connectivity, and platform behavior.
+- Games are private connection experiences; room members must not harass, impersonate, doxx, cheat through service abuse, or share others' content without permission.
 
-#### 1.7 Notifications
-- Local notifications are best-effort and can be disabled by the user in OS settings.
-- Notification content can include activity/goal titles (user-generated text).
-- Kwilt is not liable for missed or delayed notifications (OS/battery settings).
+### Connected services
 
-#### 1.8 Calendar export
-Kwilt can generate and share an `.ics` file (calendar export).
-- Clarify it’s **export-only** (not full calendar sync), unless/ until OAuth sync is introduced.
-- User is responsible for choosing where to share/import the `.ics` file; third-party calendar providers are governed by their own terms.
+- Cover Google and Microsoft calendar connections as well as `.ics` export.
+- Cover Plaid financial connections, Kroger/Smith's retailer connections, OAuth MCP clients, image/GIF search, AI/voice providers, and app-store services.
+- Users are responsible for third-party accounts and may disconnect or revoke them through Kwilt or the provider where supported.
 
-#### 1.9 Subscriptions, billing, and trials (RevenueCat / Apple)
-ToS must include:
-- **Free vs Pro** (and “Pro Tools Trial” if offered): define what unlocks are included (object limits, tools like scheduling, attachments, etc.).
-- **Billing**:
-  - Purchases are handled by Apple; cancellation/refunds governed by Apple’s policies.
-  - Restores supported.
-  - Family Sharing behavior (if enabled) is governed by Apple.
-- **Entitlement reliability**:
-  - Offline behavior: last-known entitlement may be used for a bounded window; clarify user responsibility to reconnect for billing verification.
+### Standard legal terms
 
-#### 1.10 IP, DMCA, and takedowns
-- Standard IP ownership for the app and trademarks.
-- If user-uploaded content is hosted, include DMCA/takedown process (or local law equivalent).
+Maintain appropriate provisions for acceptable use, quotas, suspension, reports/moderation, intellectual property/takedowns, Apple third-party beneficiary terms, availability, disclaimers, limitation of liability, indemnity, dispute resolution/arbitration opt-out, governing law, changes, and contact.
 
-#### 1.11 Availability, changes, and termination
-- Service may be modified/discontinued; ToS should include notice language.
-- Account termination/suspension for ToS violations.
+## Privacy Policy requirements
 
-#### 1.12 Disclaimers, limitation of liability, indemnity
-- Standard warranty disclaimers, limitation of liability, and indemnity appropriate to an AI-enabled planning/coaching app.
+### Data categories
 
----
+The policy must plainly disclose:
 
-### 2) Privacy Policy — requirements
+- Account/contact/profile and household/dependent information.
+- Planning, Chat, AI, voice, attachment, calendar, Health, and connected-tool content.
+- Financial institutions, accounts, balances, transactions, merchants, categories, budgets, forecasts, and related Money records.
+- Precise/background location, routes, visits, Places, map requests, and Explore history.
+- Recipes/import URLs/content/provenance, media, cook records, dietary needs, meal plans/choices, grocery lists/products/prices, retailer connections, and cart handoffs.
+- Player profiles, private rooms, invitations, gameplay state/actions/scores, submissions, votes, and nearby/local-network discovery.
+- Subscription/purchase state, install/user/analytics identifiers, push tokens, usage events, diagnostics, and email delivery/preferences.
 
-#### 2.1 “Local-first” data handling disclosure (must be explicit)
-Privacy Policy must clearly distinguish:
-- **On-device data** (stored locally by default): Arcs/Goals/Activities, user profile fields, preferences, drafts, and other workspace state.
-- **Cloud-processed data** (only when user uses specific features): AI proxy requests, shared-goal membership/invites, attachments uploads, analytics events, subscription entitlement checks.
+### AI and audio paths
 
-Users should understand: **using AI, sharing, or attachments will transmit certain data off-device**.
+- State what content is selected and why it is sent.
+- Describe the normal Supabase AI endpoint to OpenAI path.
+- Disclose that live conversation may use an ephemeral credential for a direct encrypted device-to-OpenAI Realtime connection.
+- Separate durable Kwilt Chat/message/action history from transient provider processing and operational telemetry.
+- State that Kwilt does not use user content to train its own general-purpose models and configures business/API providers not to train on submitted content where the provider offers that control.
 
-#### 2.2 Categories of personal data (map to actual app behavior)
-At minimum, document these categories and examples:
+### Named providers
 
-- **Account/identity data (if user signs in)**:
-  - User ID, email (optional), name (optional), avatar URL (optional), auth provider (Apple/Google).
-- **User-generated content (UGC)**:
-  - Arcs, goals, activities (titles, descriptions, notes, steps, tags, schedules).
-  - “Coach context” text (long-form identity/background), plus summarized “coach context summary”.
-  - Shared-goal check-ins + reactions (when implemented).
-- **Attachments (if enabled)**:
-  - Photos/videos/documents/audio recordings uploaded by the user.
-  - Metadata (filename, MIME type, size, timestamps); sharing flag (shared with goal members).
-- **Device/app identifiers**:
-  - Install-scoped identifier (install ID) used for quotas/abuse prevention/attribution (stored on device; sent in headers like `x-kwilt-install-id`).
-- **Usage and diagnostics**:
-  - Analytics events (e.g., onboarding started/completed, notification opened, paywall viewed, invite created/accepted).
-  - App lifecycle and basic device/app metadata as collected by the analytics SDK.
-- **Notifications data**:
-  - Notification preferences and in-app ledgers for scheduling/open tracking (local-first).
-  - Notification content may include user-entered text like activity titles.
-- **Subscription/billing data**:
-  - RevenueCat customer/entitlement state; purchase metadata/receipts handled by Apple/RevenueCat.
-- **Location data (if enabled)**:
-  - If location features are turned on and permissions granted, the app may access approximate/precise location for “attach place” / location-based prompts.
-  - Disclosure should match actual behavior: best-effort location access; user control via OS.
-- **Calendar data (export)**:
-  - `.ics` content includes activity title and optional description (may include goal title/notes); exported via share sheet under user control.
+Name the active roles of Supabase, OpenAI, Plaid, PostHog, RevenueCat, Apple, Google, Microsoft, Kroger/Smith's, Instacart when enabled, Resend, Twilio, Expo push, Unsplash, GIPHY, OpenStreetMap/Nominatim, OpenStreetMap.de, and Wikimedia Maps. Explain that app stores and connected providers may independently control data under their own policies.
 
-#### 2.3 Purposes of processing
-List purposes such as:
-- Provide core app functionality (store/display your workspace locally).
-- Provide shared goals (invites, memberships, member roster).
-- Provide AI features (generate suggestions, summarize context, improve coaching flow).
-- Enforce quotas, prevent abuse, and secure services.
-- Process payments and manage subscriptions (RevenueCat / Apple).
-- Measure product performance and reliability (analytics; notification open metrics).
+### Controls and sharing
 
-#### 2.4 Third-party processors/subprocessors (must name them)
-Privacy Policy must name and describe (as applicable to the build):
-- **Supabase** (Auth, Edge Functions, database, storage) — used for sign-in, shared goals, AI proxy, attachments.
-- **LLM provider(s) via the AI proxy** (e.g., OpenAI) — processes user prompts and context to generate responses.
-- **PostHog** — analytics event collection.
-- **RevenueCat** — subscription and entitlement management; Apple handles payments.
-- **Unsplash** — image search (Arc banners) when enabled; requests include the user’s search query and device network metadata.
-- **GIPHY** — celebration GIF search when enabled; requests include search queries derived from app context (not free-form user text).
+- Location: foreground/manual and optional background Automatic Exploring; OS revocation; stopping recording; private by default.
+- Money: optional Face ID/device-auth privacy lock; local display-safe widgets; Apple Family Controls tokens stay on device.
+- Calendar/Health/photos/camera/microphone/notifications/local network: request only after the user enters the relevant feature and honor OS controls.
+- Household: roster visibility and capability-owned authorization; membership never means blanket access to personal Money, Explore, Recipes, Chat, or other private capability data.
+- Analytics: no intentional free-form or sensitive capability content, no advertising, no cross-context tracking.
 
-Also include:
-- A statement that app stores (Apple App Store / Google Play) may collect data independently.
+### Retention and deletion
 
-#### 2.5 AI-specific privacy disclosures (high priority)
-Because Kwilt processes intimate “life planning” content, the Privacy Policy should explicitly disclose:
-- **What is sent to AI**:
-  - User messages/prompts, relevant workspace context (arcs/goals/activities summaries), and profile summaries used for personalization.
-- **Where it goes**:
-  - From device → AI proxy (Supabase Edge Function) → LLM provider(s).
-- **Why**:
-  - To generate responses, summaries, drafts, suggestions.
-- **Retention**:
-  - Whether the proxy stores request metadata/telemetry (counts, timestamps, status, latency) and for how long.
-  - Whether prompts/responses are logged, and if so, how they’re protected and how long retained.
-- **User choice**:
-  - How to avoid sending data to AI (don’t use AI features; provide an in-app toggle if planned).
+- Explain device deletion, account deletion, connected-provider disconnection, Storage deletion, shared-content de-identification, processor records, logs, security/fraud records, and backups.
+- Do not promise immediate deletion from every backup or independent provider.
+- Do not promise that account deletion cancels Apple subscriptions or deletes events/orders/data controlled by a connected provider.
+- The implementation must satisfy the deletion release contract in the matrix before public copy says account deletion removes the corresponding data.
 
-#### 2.6 Sharing disclosures (shared goals + attachments)
-Privacy Policy must be extremely clear about:
-- **Default sharing model** (“signals-only”).
-- **What becomes visible to other members** when you join a shared goal.
-- **What becomes visible if you enable specific sharing toggles** (e.g., attachments shared with goal members).
-- **Your responsibility** when sharing content and links.
+### Regional rights and security
 
-#### 2.7 Analytics: minimization + redaction commitments
-Kwilt uses analytics but should commit to data minimization:
-- State that Kwilt **does not intentionally send user-entered free-form text** to analytics.
-- Describe the kinds of identifiers collected (install ID or analytics distinct ID), and whether it is used for personalized advertising (should be **no**, unless added later).
-- Provide user controls where possible (opt-out toggle; or document the current state and roadmap).
+Maintain rights to access, correct, delete, port, and object/opt out where applicable; no sale/share for cross-context behavioral advertising; legal bases where relevant; international transfers; HTTPS, access controls, least-privilege authorization, and the statement that no system is perfectly secure.
 
-#### 2.8 Legal bases (if applicable) and regional rights
-Depending on target regions, include:
-- GDPR/UK GDPR legal bases (contract, legitimate interests, consent where needed).
-- CCPA/CPRA “sale/share” statement (likely **no sale/share**; confirm).
-- Data subject rights: access, deletion, correction, portability, objection/opt-out.
+## Release synchronization gates
 
-#### 2.9 Data retention + deletion
-Policy must cover:
-- **On-device**: how users can delete local data (delete app; “Erase local data” if present).
-- **Account data**: how users request account deletion (and what happens to shared-goal memberships).
-- **Attachments**: how to delete uploaded attachments (and retention windows/backups).
-- **Analytics**: retention window in PostHog.
-- **AI proxy telemetry**: retention window.
+Before every public build:
 
-#### 2.10 Security
-Disclose:
-- Encryption in transit (HTTPS).
-- Authentication/authorization for shared goals and attachments.
-- Best-effort posture; no method is 100% secure.
-
-#### 2.11 Contact + updates
-- Provide a support contact email and policy update process.
-
----
-
-### 3) App Store / platform-facing disclosures (must align)
-
-#### 3.1 iOS App Privacy “nutrition label”
-Ensure Apple privacy declarations align with the Privacy Policy for:
-- Contact info (email) if collected via sign-in.
-- User content (goals/notes/attachments) if transmitted off-device.
-- Identifiers (install ID / analytics ID).
-- Usage data (analytics).
-- Purchases (subscriptions).
-- Location (if requested).
-
-#### 3.2 Permissions rationale strings (in-app + OS prompts)
-Kwilt should provide clear rationale text for:
-- **Notifications**: reminders/nudges.
-- **Photo library**: add attachments.
-- **Microphone**: record audio attachments.
-- **Location** (if enabled): attach a place and create location-based completion offers; not continuous tracking.
-- **Calendar** (if the app requests calendar permissions): explain why (optional; `.ics` export may not require permission).
-
----
-
-### 4) Implementation checklist for counsel + engineering
-
-- **ToS**:
-  - Service description; eligibility; accounts.
-  - AI disclaimers + acceptable use + quotas/suspension.
-  - Shared goals: signals-only default; invite link responsibility; member conduct.
-  - Attachments: ownership/license; sharing controls; takedowns.
-  - Subscriptions: Apple/RevenueCat terms; cancellation; restore; trial terms.
-  - Liability/disclaimers/termination.
-
-- **Privacy Policy**:
-  - Local-first vs cloud processing explanation.
-  - Data categories (including sensitive UGC + attachments).
-  - Third-party processors list (Supabase, PostHog, RevenueCat, LLM provider, Unsplash, GIPHY).
-  - AI-specific disclosures (what is sent, retention, user choice).
-  - Sharing disclosures (shared goals + attachment sharing toggle).
-  - Retention/deletion procedures.
-  - Regional rights + contact.
-
-
+1. Compare the compiled capability registry, native permissions, dependencies, Edge Functions, database migrations, analytics catalog, and provider flags with the disclosure matrix.
+2. Update the public Privacy Policy and Terms effective/updated date for material changes.
+3. Update in-app legal summaries and keep all links canonical at `https://go.kwilt.app/privacy` and `https://go.kwilt.app/terms`.
+4. Update App Store Connect App Privacy answers and Google Play Data Safety answers for the submitted build.
+5. Verify permission prompts and prominent disclosures on a signed device for background location, microphone, photos/camera, Calendar/Reminders, Apple Health, local network, Face ID, notifications, and Family Controls.
+6. Exercise account deletion on a disposable signed-in account that used Money, Explore sync, Chat, Household, Recipes/Meals/Groceries, Games, calendar, Health sync, attachments, and connected tools.
+7. Confirm legal pages are live before publishing store answers or submitting the build.
+8. Preserve screenshots or exported console summaries as release evidence; do not treat source text alone as App Store/Play proof.

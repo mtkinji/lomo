@@ -1,8 +1,10 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
 import { ExploreMapScreen } from './ExploreMapScreen';
 import { useExploreStore } from '../runtime/useExploreStore';
 import { useAppStore } from '../../../store/useAppStore';
+import { reconstructExploreRecordedPath } from '../runtime/explorePathReconstruction';
 
 const mockOpenMenu = jest.fn();
 const mockNavigate = jest.fn();
@@ -14,6 +16,13 @@ const mockAnimateToRegion = jest.fn();
 const mockFitToCoordinates = jest.fn();
 const mockNearbySearch = jest.fn(async () => undefined);
 const mockNearbySetRadius = jest.fn();
+type MockBottomGuideProps = {
+  children?: ReactNode;
+  visible: boolean;
+  scrim?: 'none' | 'light';
+  dynamicSizing?: boolean;
+};
+const mockBottomGuideProps: MockBottomGuideProps[] = [];
 let mockNearbyStatus: 'idle' | 'loading' | 'ready' | 'empty' | 'unavailable' | 'error' = 'ready';
 let mockNearbyRadius: 'quarter-mile' | 'half-mile' | 'one-mile' = 'half-mile';
 let mockNearbyResults = [{
@@ -55,6 +64,10 @@ jest.mock('../runtime/useExploreRecorder', () => ({
   useExploreRecorder: () => mockRecorder,
 }));
 
+jest.mock('../runtime/explorePathReconstruction', () => ({
+  reconstructExploreRecordedPath: jest.fn(async () => []),
+}));
+
 jest.mock('../runtime/useExploreNearbyPlaces', () => ({
   useExploreNearbyPlaces: () => ({
     status: mockNearbyStatus,
@@ -93,6 +106,17 @@ jest.mock('../../../ui/BottomDrawer', () => {
   return {
     BottomDrawer: ({ visible, children }: any) => visible ? React.createElement(View, null, children) : null,
     BottomDrawerScrollView: ({ children, ...props }: any) => React.createElement(View, props, children),
+  };
+});
+
+jest.mock('../../../ui/BottomGuide', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    BottomGuide: ({ children, ...props }: MockBottomGuideProps) => {
+      mockBottomGuideProps.push(props);
+      return props.visible ? React.createElement(View, { testID: 'mock.bottomGuide' }, children) : null;
+    },
   };
 });
 
@@ -150,6 +174,7 @@ jest.mock('../../../ui/KwiltSwitch', () => {
 describe('ExploreMapScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBottomGuideProps.length = 0;
     mockNearbyStatus = 'ready';
     mockNearbyRadius = 'half-mile';
     mockNearbyResults = [{
@@ -480,10 +505,8 @@ describe('ExploreMapScreen', () => {
       expect.objectContaining({ latitudeDelta: 0.0045, longitudeDelta: 0.0045 }),
       450,
     );
-    expect(screen.getByText('You uncovered 3 new Places.')).toBeTruthy();
-    expect(screen.getAllByText('Spring Canyon Park').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Foothills Trail').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Harmony Overlook').length).toBeGreaterThan(0);
+    expect(screen.getByText('Path saved to your map.')).toBeTruthy();
+    expect(screen.getByText('Spring Canyon Park · Foothills Trail · Harmony Overlook')).toBeTruthy();
     fireEvent.press(screen.getByText('Done'));
     expect(useExploreStore.getState().sessions[0].recapStatus).toBe('seen');
   });
@@ -493,7 +516,10 @@ describe('ExploreMapScreen', () => {
     const screen = render(<ExploreMapScreen />);
     const completeMap = screen.getByTestId('explore.map', { includeHiddenElements: true });
     expect(completeMap.props.fogSegmentStarts.length).toBeGreaterThan(0);
+    expect(reconstructExploreRecordedPath).not.toHaveBeenCalled();
 
+    fireEvent.press(screen.getByText('Review'));
+    expect(reconstructExploreRecordedPath).toHaveBeenCalledWith(useExploreStore.getState().sessions[0].points);
     fireEvent.press(screen.getByText('Replay'));
 
     const replayMap = screen.getByTestId('explore.map', { includeHiddenElements: true });
@@ -534,6 +560,7 @@ describe('ExploreMapScreen', () => {
     const screen = render(<ExploreMapScreen />);
 
     expect(screen.getByText('Explore Recap')).toBeTruthy();
+    expect(mockBottomGuideProps.some((props) => props.visible && props.scrim === 'none' && props.dynamicSizing)).toBe(true);
     expect(screen.queryByText('Replay')).toBeNull();
     expect(screen.queryByText('Elevation')).toBeNull();
   });

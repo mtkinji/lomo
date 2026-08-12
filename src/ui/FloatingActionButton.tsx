@@ -110,13 +110,13 @@ const styles = StyleSheet.create({
     height: 20,
     paddingHorizontal: 6,
     borderRadius: 999,
-    backgroundColor: colors.destructive,
+    backgroundColor: colors.actionAttention,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeText: {
     ...typography.caption,
-    color: colors.primaryForeground,
+    color: colors.actionAttentionForeground,
     fontWeight: '700',
     includeFontPadding: false,
   },
@@ -125,5 +125,4 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.96 }],
   },
 });
-
 

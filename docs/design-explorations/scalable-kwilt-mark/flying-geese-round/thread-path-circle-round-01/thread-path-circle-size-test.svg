@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">Kwilt Thread Path circle size test</title>
+  <desc id="desc">The circular Thread Path mark shown large and at 64, 32, 24, and 16 pixels.</desc>
+  <rect width="1200" height="720" fill="#F7F2E8"/>
+  <style>
+    .heading { fill:#171817; font:700 28px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .caption { fill:#625F58; font:500 17px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .guide { fill:none; stroke:#D9D2C6; stroke-width:1; stroke-dasharray:5 5; }
+  </style>
+  <defs>
+    <symbol id="mark" viewBox="0 0 256 256">
+      <mask id="board-thread-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+        <rect width="256" height="256" fill="black"/>
+        <circle cx="128" cy="128" r="96" fill="white"/>
+        <g transform="rotate(-45 128 128)">
+          <rect x="-24" y="58" width="304" height="20" rx="10" fill="black"/>
+          <rect x="-24" y="118" width="304" height="20" rx="10" fill="black"/>
+          <rect x="-24" y="178" width="304" height="20" rx="10" fill="black"/>
+          <rect x="62" y="55" width="42" height="26" rx="13" fill="white"/>
+          <rect x="139" y="115" width="42" height="26" rx="13" fill="white"/>
+          <rect x="88" y="175" width="42" height="26" rx="13" fill="white"/>
+        </g>
+      </mask>
+      <rect width="256" height="256" fill="#315545" mask="url(#board-thread-mask)"/>
+    </symbol>
+  </defs>
+
+  <text class="heading" x="600" y="72" text-anchor="middle">Thread Path · circular lead</text>
+  <text class="caption" x="600" y="104" text-anchor="middle">three diagonal channels · staggered underpasses · true 1:1 silhouette</text>
+
+  <rect class="guide" x="472" y="142" width="256" height="256"/>
+  <use href="#mark" x="472" y="142" width="256" height="256"/>
+
+  <text class="caption" x="600" y="462" text-anchor="middle">64 px</text>
+  <use href="#mark" x="568" y="480" width="64" height="64"/>
+
+  <text class="caption" x="600" y="588" text-anchor="middle">32 · 24 · 16 px</text>
+  <use href="#mark" x="514" y="608" width="32" height="32"/>
+  <use href="#mark" x="588" y="612" width="24" height="24"/>
+  <use href="#mark" x="658" y="616" width="16" height="16"/>
+</svg>

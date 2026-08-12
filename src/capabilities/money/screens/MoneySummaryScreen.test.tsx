@@ -193,6 +193,15 @@ describe('MoneySummaryScreen living limit answer', () => {
   });
 });
 
+describe('MoneySummaryScreen drawer anatomy', () => {
+  it('inherits the compact standard drawer title', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneySummaryScreen.tsx'), 'utf8');
+
+    expect(source).toContain('<BottomDrawerHeader');
+    expect(source).not.toContain('titleVariant="lg"');
+  });
+});
+
 function transaction(id: string, amountCents: number, overrides: Record<string, unknown> = {}) {
   return {
     id, accountId: 'checking', accountName: 'Checking', institutionName: 'Bank', merchantName: id,
