@@ -351,8 +351,8 @@ export const styles = StyleSheet.create({
   committedMealArtwork: { width: 64, height: 64, borderRadius: 14 },
   committedMealCopy: { flex: 1, minWidth: 0, gap: 2 },
   committedMealTitle: { ...typography.titleSm, minWidth: 0 },
-  planDrawerList: { gap: spacing.xs },
-  planDrawerItem: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  planDrawerList: { gap: spacing.sm },
+  planDrawerItem: {},
   planDrawerRow: {
     minHeight: 64,
     flexDirection: "row",
