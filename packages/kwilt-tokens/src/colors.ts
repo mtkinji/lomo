@@ -92,6 +92,11 @@ export const colors = {
   destructive: '#DC2626',
   destructiveForeground: '#FEF2F2',
 
+  // Attention-bearing action affordances, such as actionable count badges.
+  // Keep separate from `destructive`: this signals "act here", not error or deletion.
+  actionAttention: '#EC2E30',
+  actionAttentionForeground: '#FFFFFF',
+
   // Default "ink" color – aligned with Sumi for a softer, less green-tinted body/heading text.
   textPrimary: '#1C1A19',
   // Secondary text should stay neutral (no pine tint) so body copy doesn't read green.

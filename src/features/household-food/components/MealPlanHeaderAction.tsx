@@ -1,9 +1,10 @@
 import { forwardRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { colors, radii, spacing } from '../../../theme';
+import { colors, spacing } from '../../../theme';
 import { Icon } from '../../../ui/Icon';
 import { Text } from '../../../ui/Typography';
+import { MealPlanAttentionBadge } from './MealPlanAttentionBadge';
 
 export const MealPlanHeaderAction = forwardRef<View, {
   count: number;
@@ -12,7 +13,6 @@ export const MealPlanHeaderAction = forwardRef<View, {
   count,
   onPress,
 }, ref) {
-  const countLabel = count > 99 ? '99+' : String(count);
   return (
     <Pressable
       ref={ref}
@@ -26,13 +26,7 @@ export const MealPlanHeaderAction = forwardRef<View, {
       <Text variant="label" style={styles.label}>
         Plan
       </Text>
-      {count ? (
-        <View testID="meal-plan-header-count" style={styles.countBadge}>
-          <Text variant="label" style={styles.countText}>
-            {countLabel}
-          </Text>
-        </View>
-      ) : null}
+      <MealPlanAttentionBadge count={count} testID="meal-plan-header-count" />
     </Pressable>
   );
 });
@@ -48,19 +42,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fieldFill,
   },
   label: { color: colors.textPrimary },
-  countBadge: {
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 5,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.sumi900,
-  },
-  countText: {
-    color: colors.primaryForeground,
-    fontSize: 10,
-    lineHeight: 12,
-  },
   pressed: { opacity: 0.64 },
 });

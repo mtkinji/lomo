@@ -619,7 +619,7 @@ const styles = StyleSheet.create({
     height: 20,
     paddingHorizontal: 6,
     borderRadius: 999,
-    backgroundColor: colors.destructive,
+    backgroundColor: colors.actionAttention,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 20,
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     ...typography.caption,
-    color: colors.primaryForeground,
+    color: colors.actionAttentionForeground,
     fontWeight: '700',
     includeFontPadding: false,
   },

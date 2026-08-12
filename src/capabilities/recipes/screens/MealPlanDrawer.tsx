@@ -17,6 +17,7 @@ import { Icon } from "../../../ui/Icon";
 import { EmptyState } from "../../../ui/EmptyState";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
 import { Heading, Text } from "../../../ui/Typography";
+import { MealPlanAttentionBadge } from "../../../features/household-food/components/MealPlanAttentionBadge";
 import {
   PLAN_POSITIVE_REACTION_OPTIONS,
   PLAN_REACTION_OPTIONS,
@@ -240,7 +241,6 @@ export function MealPlanDrawer({
       onClose={onClose}
       snapPoints={["88%"]}
       snapIndex={0}
-      dismissable={false}
       presentation="inline"
       enableContentPanningGesture
       contentExtendsIntoBottomSafeArea
@@ -251,16 +251,14 @@ export function MealPlanDrawer({
     >
       <View style={styles.planDrawerViewport}>
         <BottomDrawerHeader
-          variant="withClose"
+          variant="minimal"
           titleVariant="sm"
-          onClose={onClose}
-          closeAccessibilityLabel="Close Plan"
           containerStyle={styles.planDrawerHeader}
           title={(
             <View accessible accessibilityRole="header" accessibilityLabel={`Plan, ${items.length} ${items.length === 1 ? "recipe" : "recipes"}`} style={styles.planDrawerHeaderMain}>
               <Icon name="meal" size={16} color={colors.textPrimary} />
               <Heading variant="sm">Plan</Heading>
-              {items.length ? <Text tone="secondary">· {items.length}</Text> : null}
+              <MealPlanAttentionBadge count={items.length} testID="meal-plan-drawer-count" />
             </View>
           )}
         />
