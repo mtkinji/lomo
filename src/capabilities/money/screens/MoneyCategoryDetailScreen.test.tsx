@@ -12,7 +12,6 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).toContain('title="Forecast settings"');
     expect(source).not.toContain('styles.drawerEyebrow');
     expect(source).not.toContain('drawerEyebrow:');
-    expect(source).not.toContain('titleVariant="lg"');
   });
 
   it('uses persisted covers and exposes cover editing without category-name image guesses', () => {

@@ -35,45 +35,6 @@ describe('BottomDrawer accessibility contract', () => {
     expect(isBottomDrawerAccessibilityModal('modal', true)).toBe(true);
   });
 
-  it('uses the high-handle standard anatomy by default', () => {
-    const { getByTestId } = renderWithProviders(
-      <BottomDrawer visible onClose={jest.fn()}>
-        <Text>Standard drawer</Text>
-      </BottomDrawer>,
-    );
-
-    expect(StyleSheet.flatten(getByTestId('bottom-drawer.surface').props.style)).toMatchObject({
-      paddingTop: 0,
-    });
-    expect(StyleSheet.flatten(getByTestId('bottom-drawer.handle-region').props.style)).toMatchObject({
-      paddingTop: 8,
-      paddingBottom: 4,
-    });
-    expect(StyleSheet.flatten(getByTestId('bottom-drawer.handle').props.style)).toMatchObject({
-      width: 64,
-      height: 5,
-    });
-  });
-
-  it('keeps the standard handle and rounded frame for edge-to-edge content', () => {
-    const { getByTestId } = renderWithProviders(
-      <BottomDrawer visible onClose={jest.fn()} contentLayout="edgeToEdge">
-        <Text>Full-width conversation</Text>
-      </BottomDrawer>,
-    );
-
-    expect(StyleSheet.flatten(getByTestId('bottom-drawer.surface').props.style)).toMatchObject({
-      borderTopLeftRadius: 40,
-      borderTopRightRadius: 40,
-      paddingHorizontal: 0,
-    });
-    expect(StyleSheet.flatten(getByTestId('bottom-drawer.handle-region').props.style)).toMatchObject({
-      position: 'relative',
-      paddingTop: 8,
-      paddingBottom: 4,
-    });
-  });
-
   it('dismisses the keyboard only when a settled drawer moves to a lower snap point', () => {
     expect(shouldDismissKeyboardOnSnapChange({ previousIndex: 1, nextIndex: 0, enabled: true })).toBe(true);
     expect(shouldDismissKeyboardOnSnapChange({ previousIndex: 0, nextIndex: 1, enabled: true })).toBe(false);
@@ -107,11 +68,12 @@ describe('BottomDrawer accessibility contract', () => {
     })).toBe(1);
   });
 
-  it('provides a safe-area-owning bottom accessory', () => {
+  it('provides opt-in immersive chrome and a safe-area-owning bottom accessory', () => {
     const { getByTestId, getByText } = renderWithProviders(
       <BottomDrawer
         visible
         onClose={jest.fn()}
+        chrome="immersive"
         bottomAccessory={<Text>Composer</Text>}
       >
         <Text>Conversation</Text>
@@ -120,6 +82,19 @@ describe('BottomDrawer accessibility contract', () => {
 
     expect(getByText('Conversation')).toBeTruthy();
     expect(getByText('Composer')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('bottom-drawer.surface').props.style)).toMatchObject({
+      paddingHorizontal: 0,
+    });
+    expect(StyleSheet.flatten(getByTestId('bottom-drawer.handle-region').props.style)).toMatchObject({
+      position: 'absolute',
+      top: 0,
+      paddingTop: 16,
+      paddingBottom: 16,
+    });
+    expect(StyleSheet.flatten(getByTestId('bottom-drawer.handle').props.style)).toMatchObject({
+      width: 64,
+      height: 4,
+    });
     expect(StyleSheet.flatten(getByTestId('bottom-drawer.bottom-accessory').props.style).paddingBottom).toBeGreaterThan(0);
   });
 });

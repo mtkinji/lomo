@@ -414,6 +414,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
             closeAccessibilityLabel="Close forecast details"
             onClose={() => setForecastInfoOpen(false)}
             title="How this forecast works"
+            titleVariant="lg"
             variant="withClose"
           />
           <Text style={styles.drawerCopy}>{category.fundingRhythm === 'reserve'
@@ -450,6 +451,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
             closeAccessibilityLabel="Close category settings"
             onClose={() => setSettingsOpen(false)}
             title="Category settings"
+            titleVariant="lg"
             variant="withClose"
           />
         </View>
@@ -539,6 +541,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
             closeAccessibilityLabel="Close forecast settings"
             onClose={() => setForecastSettingsOpen(false)}
             title="Forecast settings"
+            titleVariant="lg"
             variant="withClose"
           />
         </View>

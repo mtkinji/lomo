@@ -33,6 +33,7 @@ export function MealSetupDrawer({ visible, dinerSummary, foodNeedsSummary, onOpe
           title="Make Meals fit your household"
           subtitle="Two quick choices help Kwilt suggest useful quantities and flag recorded food needs."
           variant="minimal"
+          titleVariant="md"
         />
         <View style={styles.group}>
           <SetupRow title="Usually cooking for" value={dinerSummary} onPress={onOpenDiners} />

@@ -229,6 +229,7 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
           <BottomDrawerHeader
             title="Flexible spending"
+            titleVariant="lg"
             variant="withClose"
             closeAccessibilityLabel="Close flexible spending calculation"
             onClose={() => setLimitExplanationOpen(false)}
