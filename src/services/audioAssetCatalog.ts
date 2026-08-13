@@ -20,6 +20,8 @@ export type RemoteAudioAssetId =
   | 'game.bank-building'
   | 'game.bank-maximum';
 
+export type FocusRemoteAudioAssetId = Extract<RemoteAudioAssetId, `focus.${string}`>;
+
 export type RemoteAudioAsset = {
   id: RemoteAudioAssetId;
   url: string;
