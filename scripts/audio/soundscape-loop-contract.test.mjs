@@ -16,7 +16,7 @@ test('rejects duplicate identities, invalid formats, and non-seamless entries', 
 
   const failures = validateSoundscapeLoopContract(invalid);
   assert.ok(failures.includes('duplicate soundscape id: default'));
-  assert.ok(failures.includes('duplicate loop asset key: bundled-deep-work-drift-v1'));
+  assert.ok(failures.includes(`duplicate loop asset key: ${admissions[0].assetKey}`));
   assert.ok(failures.includes('default: expected 48 kHz stereo'));
   assert.ok(failures.includes('default: not admitted for seamless looping'));
   assert.ok(failures.includes('copacabanaFocus: missing loop admission'));

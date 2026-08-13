@@ -2,11 +2,10 @@ package expo.modules.kwiltseamlessloop
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Process
 import java.io.RandomAccessFile
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.max
 import kotlin.math.min
 
@@ -15,7 +14,7 @@ class LoopAudioTrack {
   private var audioTrack: AudioTrack? = null
   private var playbackThread: Thread? = null
   private var prepared: PreparedLoopFile? = null
-  private val threadRunning = AtomicBoolean(false)
+  private val writerGeneration = AtomicLong(0)
   private var state = "idle"
   private var assetKey: String? = null
   private var completedBoundaries = 0
@@ -85,15 +84,15 @@ class LoopAudioTrack {
   private fun startWriterLocked(chunkSize: Int) {
     val file = prepared?.file ?: return
     val track = audioTrack ?: return
-    threadRunning.set(true)
+    val generation = writerGeneration.incrementAndGet()
     playbackThread = Thread({
       Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
       val buffer = ByteArray(max(4096, chunkSize))
       try {
         RandomAccessFile(file, "r").use { input ->
-          while (threadRunning.get()) {
+          while (writerGeneration.get() == generation) {
             var filled = 0
-            while (filled < buffer.size && threadRunning.get()) {
+            while (filled < buffer.size && writerGeneration.get() == generation) {
               val count = input.read(buffer, filled, buffer.size - filled)
               if (count < 0) {
                 input.seek(0)
@@ -103,7 +102,7 @@ class LoopAudioTrack {
               }
             }
             var written = 0
-            while (written < filled && threadRunning.get()) {
+            while (written < filled && writerGeneration.get() == generation) {
               val count = track.write(buffer, written, filled - written, AudioTrack.WRITE_BLOCKING)
               if (count < 0) error("audio_write_failed")
               written += count
@@ -112,7 +111,7 @@ class LoopAudioTrack {
         }
       } catch (error: Throwable) {
         synchronized(lock) {
-          if (threadRunning.get()) {
+          if (writerGeneration.get() == generation) {
             state = "error"
             lastErrorCode = error.message ?: "native_failure"
           }
@@ -143,7 +142,7 @@ class LoopAudioTrack {
   }
 
   private fun unloadLocked() {
-    threadRunning.set(false)
+    writerGeneration.incrementAndGet()
     audioTrack?.pause()
     audioTrack?.flush()
     audioTrack?.release()
@@ -164,7 +163,7 @@ class LoopAudioTrack {
     "assetKey" to assetKey,
     "queuedSegments" to if (prepared == null) 0 else 3,
     "completedBoundaries" to completedBoundaries,
-    "underrunCount" to underrunCount,
+    "underrunCount" to max(underrunCount, audioTrack?.underrunCount ?: 0),
     "lastErrorCode" to lastErrorCode
   )
 }

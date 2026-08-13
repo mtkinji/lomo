@@ -5,6 +5,7 @@ enum LoopSchedulerError: String, Error {
   case notPrepared
   case engineStartFailed
   case invalidFrameLength
+  case probeRenderFailed
 }
 
 final class LoopScheduler {
@@ -107,6 +108,69 @@ final class LoopScheduler {
 
   func getDiagnostics() -> [String: Any] {
     controlQueue.sync { diagnosticsLocked() }
+  }
+
+  func runContinuityProbe(loopCount: Int) async throws -> [String: Any] {
+    try await perform {
+      guard let fileURL = self.fileURL else { throw LoopSchedulerError.notPrepared }
+      let requestedLoops = min(max(loopCount, 1), 12)
+      let probeFile = try AVAudioFile(forReading: fileURL)
+      let probeEngine = AVAudioEngine()
+      let probePlayer = AVAudioPlayerNode()
+      probeEngine.attach(probePlayer)
+      probeEngine.connect(probePlayer, to: probeEngine.mainMixerNode, format: probeFile.processingFormat)
+      try probeEngine.enableManualRenderingMode(
+        .offline,
+        format: probeFile.processingFormat,
+        maximumFrameCount: 4_096
+      )
+      for _ in 0...requestedLoops {
+        probePlayer.scheduleSegment(
+          probeFile,
+          startingFrame: 0,
+          frameCount: AVAudioFrameCount(probeFile.length),
+          at: nil
+        )
+      }
+      try probeEngine.start()
+      probePlayer.play()
+
+      guard let buffer = AVAudioPCMBuffer(
+        pcmFormat: probeEngine.manualRenderingFormat,
+        frameCapacity: probeEngine.manualRenderingMaximumFrameCount
+      ) else { throw LoopSchedulerError.invalidFrameLength }
+      let totalFrames = probeFile.length * AVAudioFramePosition(requestedLoops + 1)
+      var renderedFrames: AVAudioFramePosition = 0
+      var previousSamples = Array(repeating: Float(0), count: Int(probeFile.processingFormat.channelCount))
+      var worstBoundaryJump: Float = 0
+      while renderedFrames < totalFrames {
+        let remaining = totalFrames - renderedFrames
+        let frames = AVAudioFrameCount(min(AVAudioFramePosition(buffer.frameCapacity), remaining))
+        let renderStatus = try probeEngine.renderOffline(frames, to: buffer)
+        guard renderStatus == .success, let channels = buffer.floatChannelData else {
+          throw LoopSchedulerError.probeRenderFailed
+        }
+        for frame in 0..<Int(buffer.frameLength) {
+          let absoluteFrame = renderedFrames + AVAudioFramePosition(frame)
+          for channel in 0..<Int(buffer.format.channelCount) {
+            let sample = channels[channel][frame]
+            if absoluteFrame > 0 && absoluteFrame % probeFile.length == 0 {
+              worstBoundaryJump = max(worstBoundaryJump, abs(sample - previousSamples[channel]))
+            }
+            previousSamples[channel] = sample
+          }
+        }
+        renderedFrames += AVAudioFramePosition(buffer.frameLength)
+      }
+      probePlayer.stop()
+      probeEngine.stop()
+      var result = self.diagnosticsLocked()
+      result["completedBoundaries"] = requestedLoops
+      result["worstBoundaryJumpDbfs"] = worstBoundaryJump > 0
+        ? 20 * log10(Double(worstBoundaryJump))
+        : -160
+      return result
+    }
   }
 
   func handleInterruptionBegan() {

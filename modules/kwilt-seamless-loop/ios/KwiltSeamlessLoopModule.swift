@@ -57,12 +57,8 @@ public final class KwiltSeamlessLoopModule: Module {
       self.scheduler.getDiagnostics()
     }
 
-    AsyncFunction("runContinuityProbe") { (_: Int) throws -> [String: Any] in
-      throw NSError(
-        domain: "KwiltSeamlessLoop",
-        code: 10,
-        userInfo: [NSLocalizedDescriptionKey: "Continuity probe is unavailable in this build"]
-      )
+    AsyncFunction("runContinuityProbe") { (loopCount: Int) async throws -> [String: Any] in
+      try await self.scheduler.runContinuityProbe(loopCount: loopCount)
     }
 
     OnDestroy {

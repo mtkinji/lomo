@@ -92,6 +92,28 @@ if (matches(/^scripts\/code-health(-lib)?(\.test)?\.mjs$/)) {
   add('npm run test:code-health', 'unit-test the code-health ratchet rules');
 }
 
+if (matches(/^(assets\/audio\/|modules\/kwilt-seamless-loop\/|src\/services\/(soundscape|soundscapeCatalog|soundscapeLoop|audioAsset)|scripts\/audio\/)/)) {
+  add('npm run audio:audit:soundscape-contract', 'require every visible Focus soundscape to have admitted immutable loop bytes');
+  add(
+    'node --test scripts/audio/soundscape-loop-contract.test.mjs scripts/audio/loop-seam-lib.test.mjs scripts/audio/master-loop.test.mjs scripts/audio/rendered-loop-probe.test.mjs',
+    'test source-seam, mastering, admission, and rendered-continuity policies',
+  );
+}
+
+if (matches(/^modules\/kwilt-seamless-loop\/ios\//)) {
+  addManual(
+    "npx expo prebuild --platform ios --no-install && npx pod-install && xcodebuild -workspace ios/Kwilt.xcworkspace -scheme Kwilt -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build",
+    'generate the managed iOS project and compile/link the local seamless-loop pod',
+  );
+}
+
+if (matches(/^modules\/kwilt-seamless-loop\/android\//)) {
+  addManual(
+    'npx expo prebuild --platform android --no-install && (cd android && ./gradlew :kwilt-seamless-loop:compileDebugKotlin)',
+    'generate the managed Android project and compile the local seamless-loop module with a configured JDK',
+  );
+}
+
 if (matches(/(^|\/)([^/]+\.)?(test|spec)\.(ts|tsx)$/) || matches(/^(jest\.setup\.ts|jest\.config\.js|src\/test\/|tsconfig\.test\.json)/)) {
   add('npm run lint:tests', 'typecheck Jest files and shared test harness code that app lint excludes');
 }
