@@ -1,6 +1,7 @@
 import {
   decideProviderAction,
   parseProviderEvidence,
+  parseRetailerRuntimePolicy,
   providerCapabilities,
 } from './groceryProviderContracts';
 
@@ -18,5 +19,34 @@ describe('grocery provider contracts', () => {
   it('rejects expired or malformed evidence', () => {
     expect(() => parseProviderEvidence({ provider: 'instacart', kind: 'quote', observedAt: 'bad', expiresAt: 'bad', authority: 'provider_observed' }, '2026-08-05T12:00:00.000Z')).toThrow('provider.evidence_invalid');
     expect(() => parseProviderEvidence({ provider: 'instacart', kind: 'quote', observedAt: '2026-08-04T12:00:00.000Z', expiresAt: '2026-08-05T11:00:00.000Z', authority: 'provider_observed' }, '2026-08-05T12:00:00.000Z')).toThrow('provider.evidence_expired');
+  });
+
+  it('requires runtime evidence for executable online retailer capabilities', () => {
+    expect(parseRetailerRuntimePolicy({
+      retailerId: 'kroger',
+      capability: 'cart_prepare',
+      supportedModes: ['pickup'],
+      approvedSurface: true,
+      productEvidence: true,
+      cartWrite: true,
+    })).toEqual(expect.objectContaining({ retailerId: 'kroger', capability: 'cart_prepare' }));
+
+    expect(() => parseRetailerRuntimePolicy({
+      retailerId: 'amazon',
+      capability: 'product_links',
+      supportedModes: ['pickup'],
+      approvedSurface: false,
+      productEvidence: true,
+      cartWrite: false,
+    })).toThrow('provider.runtime_policy_invalid');
+
+    expect(() => parseRetailerRuntimePolicy({
+      retailerId: 'kroger',
+      capability: 'cart_prepare',
+      supportedModes: ['pickup'],
+      approvedSurface: true,
+      productEvidence: true,
+      cartWrite: false,
+    })).toThrow('provider.runtime_policy_invalid');
   });
 });

@@ -1,3 +1,5 @@
+import type { RetailerPreferenceId } from '../domain/onlineShoppingPreferences';
+
 export type GroceryProviderId = 'instacart' | 'kroger';
 export type ProviderCapabilityState = boolean | 'gated';
 
@@ -28,6 +30,60 @@ export type ProviderEvidence = {
 
 export class GroceryProviderContractError extends Error {
   constructor(public readonly code: string) { super(code); this.name = 'GroceryProviderContractError'; }
+}
+
+export type OnlineRetailerCapability =
+  | 'cart_prepare'
+  | 'product_links'
+  | 'remembered_only'
+  | 'unavailable';
+
+export type OnlineRetailerMode = 'pickup' | 'delivery';
+
+export type RetailerRuntimePolicy = {
+  retailerId: RetailerPreferenceId;
+  capability: OnlineRetailerCapability;
+  supportedModes: OnlineRetailerMode[];
+  approvedSurface: boolean;
+  productEvidence: boolean;
+  cartWrite: boolean;
+};
+
+const RETAILER_IDS: RetailerPreferenceId[] = [
+  'amazon',
+  'costco',
+  'kroger',
+  'walmart',
+  'other',
+];
+const ONLINE_CAPABILITIES: OnlineRetailerCapability[] = [
+  'cart_prepare',
+  'product_links',
+  'remembered_only',
+  'unavailable',
+];
+
+export function parseRetailerRuntimePolicy(value: RetailerRuntimePolicy): RetailerRuntimePolicy {
+  const modes = value.supportedModes;
+  const modesValid = Array.isArray(modes)
+    && modes.every((mode) => mode === 'pickup' || mode === 'delivery')
+    && new Set(modes).size === modes.length;
+  const basicsValid = RETAILER_IDS.includes(value.retailerId)
+    && ONLINE_CAPABILITIES.includes(value.capability)
+    && modesValid
+    && typeof value.approvedSurface === 'boolean'
+    && typeof value.productEvidence === 'boolean'
+    && typeof value.cartWrite === 'boolean';
+  const capabilityValid = value.capability === 'cart_prepare'
+    ? value.approvedSurface && value.productEvidence && value.cartWrite && modes.length > 0
+    : value.capability === 'product_links'
+      ? value.approvedSurface && value.productEvidence && !value.cartWrite && modes.length > 0
+      : !value.cartWrite;
+
+  if (!basicsValid || !capabilityValid) {
+    throw new GroceryProviderContractError('provider.runtime_policy_invalid');
+  }
+  return { ...value, supportedModes: [...modes] };
 }
 
 export function parseProviderEvidence(value: ProviderEvidence, now = new Date().toISOString()): ProviderEvidence {
