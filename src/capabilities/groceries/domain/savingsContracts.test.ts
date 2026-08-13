@@ -1,4 +1,4 @@
-import { parseSavingsEvidence, savingsActionLabel } from './savingsContracts';
+import { parseSavingsEvidence, savingsActionLabel, type CartSavingsSuggestion } from './savingsContracts';
 
 describe('savings evidence', () => {
   const now = '2026-08-05T12:00:00.000Z';
@@ -12,5 +12,10 @@ describe('savings evidence', () => {
   it('expires stale evidence and rejects impossible money', () => {
     expect(parseSavingsEvidence({ id: 'o', kind: 'coupon', state: 'eligible', provider: 'kroger', productId: 'p', amountCents: 100, memberRequired: false, activationRequired: true, observedAt: '2026-08-01T12:00:00.000Z', expiresAt: '2026-08-05T11:00:00.000Z' }, now).state).toBe('expired');
     expect(() => parseSavingsEvidence({ id: 'o', kind: 'rebate', state: 'observed', provider: null, productId: 'p', amountCents: -1, memberRequired: false, activationRequired: false, observedAt: now, expiresAt: null }, now)).toThrow('savings.money_invalid');
+  });
+
+  it('keeps cart suggestions explicit about merchandise-only evidence coverage', () => {
+    const suggestion: CartSavingsSuggestion = { id: 'sale', kind: 'selected_promotion', productId: 'milk', savingsCents: 100, decisionChanges: 0, observedAt: now, expiresAt: null, coverageItemCount: 1, totalCartItemCount: 3, merchandiseOnly: true };
+    expect(suggestion).toMatchObject({ coverageItemCount: 1, totalCartItemCount: 3, merchandiseOnly: true });
   });
 });

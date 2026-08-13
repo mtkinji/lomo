@@ -1,3 +1,6 @@
+import { Linking } from 'react-native';
+import { buildAffiliateRetailerSearchUrl, buildApprovedWalmartAffiliateSearchUrl } from '../../../services/affiliateLinks';
+import { getAmazonMobileAffiliateApproved, getWalmartAffiliateSurfaceApproved } from '../../../utils/getEnv';
 import type { RetailerRuntimePolicy } from './groceryProviderContracts';
 
 export type AffiliateRetailerApprovalGates = {
@@ -5,13 +8,12 @@ export type AffiliateRetailerApprovalGates = {
   walmartSurfaceApproved: boolean;
 };
 
-const DISABLED_APPROVAL_GATES: AffiliateRetailerApprovalGates = {
-  amazonMobileApproved: false,
-  walmartSurfaceApproved: false,
-};
+export function getAffiliateRetailerApprovalGates(): AffiliateRetailerApprovalGates {
+  return { amazonMobileApproved: getAmazonMobileAffiliateApproved(), walmartSurfaceApproved: getWalmartAffiliateSurfaceApproved() };
+}
 
 export function getOnlineRetailerRuntimePolicies(
-  gates: AffiliateRetailerApprovalGates = DISABLED_APPROVAL_GATES,
+  gates: AffiliateRetailerApprovalGates = getAffiliateRetailerApprovalGates(),
 ): RetailerRuntimePolicy[] {
   return [
     {
@@ -55,4 +57,16 @@ export function getOnlineRetailerRuntimePolicies(
       cartWrite: false,
     },
   ];
+}
+
+export function buildApprovedAffiliateProductSearch(retailerId: 'amazon' | 'walmart', query: string, gates = getAffiliateRetailerApprovalGates()): string {
+  if (retailerId === 'amazon') return gates.amazonMobileApproved ? buildAffiliateRetailerSearchUrl('amazon', query) : '';
+  return gates.walmartSurfaceApproved ? buildApprovedWalmartAffiliateSearchUrl(query) : '';
+}
+
+export async function openAffiliateProductSearch(retailerId: 'amazon' | 'walmart', query: string): Promise<boolean> {
+  const url = buildApprovedAffiliateProductSearch(retailerId, query);
+  if (!url) return false;
+  await Linking.openURL(url);
+  return true;
 }

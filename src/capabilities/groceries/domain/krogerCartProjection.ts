@@ -1,5 +1,6 @@
 import type { KrogerMatch } from '../data/krogerConnectionRepository';
 import type { KrogerProduct } from '../providers/krogerProvider';
+import { normalizeRetailPackage, type RetailPackageResolution } from './retailPackageNormalization';
 
 export type KrogerCartLine = { product: KrogerProduct; quantity: number };
 export type KrogerCartSelection = Record<string, KrogerCartLine>;
@@ -13,6 +14,10 @@ export type KrogerCartGroup = {
 };
 
 const productKey = (product: KrogerProduct) => product.upc.trim() || product.id;
+
+export function resolveKrogerRetailQuantity(match: KrogerMatch, product: KrogerProduct): RetailPackageResolution {
+  return normalizeRetailPackage({ packageSize: product.size ?? null, requestedQuantity: match.groceryItem.quantity, requestedUnit: match.groceryItem.unit });
+}
 
 export function getKrogerCartGroupAlternatives(group: KrogerCartGroup): KrogerProduct[] {
   const [firstMatch, ...remainingMatches] = group.matches;

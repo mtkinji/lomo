@@ -4,6 +4,8 @@ import { Alert, StyleSheet, View } from 'react-native';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { useAppStore } from '../../../store/useAppStore';
+import { AnalyticsEvent } from '../../../services/analytics/events';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Input } from '../../../ui/Input';
@@ -62,6 +64,7 @@ function moveRetailer(
 }
 
 export function OnlineShoppingSetupScreen({ navigation, route }: Props) {
+  const { capture } = useAnalytics();
   const personId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const defaults = useMemo(() => createDefaultOnlineShoppingPreferences(), []);
   const [step, setStep] = useState<SetupStep>('fulfillment');
@@ -98,6 +101,7 @@ export function OnlineShoppingSetupScreen({ navigation, route }: Props) {
     setSaving(true);
     try {
       await onlineShoppingPreferencesRepository.replace(personId, preferences);
+      capture(AnalyticsEvent.OnlineShoppingPreferencesSaved, { fulfillment_mode: preferences.defaultFulfillment, count: preferences.retailers.filter((retailer) => retailer.enabled).length, outcome: 'saved' });
       navigation.navigate('OnlineOrder', { listId: route.params.listId });
     } catch {
       Alert.alert('Preferences did not save', 'Try again. Your grocery list is unchanged.');

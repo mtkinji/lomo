@@ -176,6 +176,20 @@ export function getAmazonAssociatesTag(): string | undefined {
   return getEnvVar<string>('amazonAssociatesTag');
 }
 
+export function getAmazonMobileAffiliateApproved(): boolean {
+  return getEnvVar<boolean | string>('amazonMobileAffiliateApproved') === true
+    || getEnvVar<boolean | string>('amazonMobileAffiliateApproved') === 'true';
+}
+
+export function getWalmartAffiliateSurfaceApproved(): boolean {
+  return getEnvVar<boolean | string>('walmartAffiliateSurfaceApproved') === true
+    || getEnvVar<boolean | string>('walmartAffiliateSurfaceApproved') === 'true';
+}
+
+export function getWalmartAffiliateSearchTemplate(): string | undefined {
+  return getEnvVar<string>('walmartAffiliateSearchTemplate');
+}
+
 export type AuthRuntimeDiagnostics = {
   appOwnership: string;
   environment: string;
@@ -232,4 +246,3 @@ export function getAuthRuntimeDiagnostics(): AuthRuntimeDiagnostics {
     warnings,
   };
 }
-

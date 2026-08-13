@@ -7,6 +7,7 @@ const mockReadPreferences = jest.fn();
 const mockListGroceries = jest.fn();
 const mockReadPreferredStore = jest.fn();
 const mockRuntimePolicies = jest.fn();
+const mockOpenAffiliateProductSearch = jest.fn();
 
 jest.mock('../data/onlineShoppingPreferencesRepository', () => ({
   onlineShoppingPreferencesRepository: { read: (...args: unknown[]) => mockReadPreferences(...args) },
@@ -19,6 +20,7 @@ jest.mock('../data/preferredGroceryStore', () => ({
 }));
 jest.mock('../providers/affiliateRetailerProvider', () => ({
   getOnlineRetailerRuntimePolicies: (...args: unknown[]) => mockRuntimePolicies(...args),
+  openAffiliateProductSearch: (...args: unknown[]) => mockOpenAffiliateProductSearch(...args),
 }));
 jest.mock('../../../store/useAppStore', () => ({
   useAppStore: (selector: (state: { authIdentity: { userId: string } }) => unknown) =>
@@ -44,7 +46,7 @@ const list = {
   id: 'list-1',
   revision: 4,
   status: 'ready',
-  items: [{ id: 'item-1', state: 'needed' }],
+  items: [{ id: 'item-1', concept: 'almond milk', state: 'needed' }],
 };
 
 describe('OnlineOrderScreen', () => {
@@ -72,6 +74,9 @@ describe('OnlineOrderScreen', () => {
     expect(await screen.findByText('Pickup · Amazon first')).toBeTruthy();
     expect(screen.getByText('Amazon can help with individual products; Kwilt cannot prepare this cart there.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Build my pickup cart' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open product search at Amazon' })).toBeTruthy();
+    expect(screen.getByText('Affiliate link')).toBeTruthy();
+    expect(screen.queryByText(/items found/i)).toBeNull();
     expect(screen.queryByText(/best price/i)).toBeNull();
     expect(screen.queryByText(/coverage score/i)).toBeNull();
 

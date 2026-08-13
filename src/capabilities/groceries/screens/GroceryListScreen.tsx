@@ -370,6 +370,12 @@ export function GroceryListScreen({ navigation, route }: Props) {
   }, [list?.items, list?.sourceKind, list?.sourceMealPlanId, list?.sourceMealPlanVersion]);
 
   const fulfillment = groceryFulfillmentSummary(list?.items ?? []);
+  const remainderCapturedRef = useRef(false);
+  useEffect(() => {
+    if (remainderCapturedRef.current || fulfillment.cartedCount === 0) return;
+    remainderCapturedRef.current = true;
+    capture(AnalyticsEvent.OnlineShoppingRemainderViewed, { acknowledged_count: fulfillment.cartedCount, count: fulfillment.remainingCount, outcome: fulfillment.remainingCount === 0 ? 'all_in_carts' : 'remainder_visible' });
+  }, [capture, fulfillment.cartedCount, fulfillment.remainingCount]);
   const coveredIds = useMemo(
     () =>
       new Set(
@@ -392,7 +398,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
         display: groceryItemDisplay(item),
         groupLabel: aisleLabels[aisle] ?? 'Other',
         supportingText: item.retailerCart
-          ? `In ${item.retailerCart.retailerLabel} cart`
+          ? `In ${item.retailerCart.retailerLabel} ${item.retailerCart.fulfillmentMode} cart`
           : null,
       })),
     );

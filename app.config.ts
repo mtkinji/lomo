@@ -348,6 +348,14 @@ const config = {
     // Only used to rewrite the `/auth/v1/authorize` OAuth start URL host.
     authBrandOrigin: process.env.AUTH_BRAND_ORIGIN ?? process.env.EXPO_PUBLIC_AUTH_BRAND_ORIGIN,
     giphyApiKey: process.env.GIPHY_API_KEY,
+    amazonAssociatesTag:
+      process.env.AMAZON_ASSOCIATES_TAG ?? process.env.EXPO_PUBLIC_AMAZON_ASSOCIATES_TAG,
+    amazonMobileAffiliateApproved:
+      (process.env.AMAZON_MOBILE_AFFILIATE_APPROVED ?? process.env.EXPO_PUBLIC_AMAZON_MOBILE_AFFILIATE_APPROVED) === 'true',
+    walmartAffiliateSurfaceApproved:
+      (process.env.WALMART_AFFILIATE_SURFACE_APPROVED ?? process.env.EXPO_PUBLIC_WALMART_AFFILIATE_SURFACE_APPROVED) === 'true',
+    walmartAffiliateSearchTemplate:
+      process.env.WALMART_AFFILIATE_SEARCH_TEMPLATE ?? process.env.EXPO_PUBLIC_WALMART_AFFILIATE_SEARCH_TEMPLATE,
     // Unsplash Access Key (Client ID). Support a few common env var names so
     // local/dev setups don't silently break.
     unsplashAccessKey:

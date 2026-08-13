@@ -35,17 +35,20 @@ describe('Kroger provider', () => {
     })]);
   });
 
-  it('normalizes store-specific product proposals, promo evidence, and the preferred front image', () => {
+  it('normalizes store-specific product proposals, promo evidence, fulfillment, and the preferred front image', () => {
     expect(normalizeKrogerProducts({ data: [{ productId: '0001111085000', upc: '0001111085000', description: 'Whole Milk', brand: 'Kroger', images: [{ perspective: 'back', sizes: [{ size: 'small', url: 'https://images.example/back.png' }] }, { perspective: 'front', sizes: [{ size: 'large', url: 'https://images.example/front-large.png' }, { size: 'small', url: 'https://images.example/front-small.png' }] }], items: [{ size: '1 gal', price: { regular: 3.99, promo: 3.49 }, fulfillment: { curbside: true } }] }] })).toEqual([{
-      id: '0001111085000', upc: '0001111085000', title: 'Whole Milk', brand: 'Kroger', size: '1 gal', thumbnailUrl: 'https://images.example/front-small.png', regularPriceCents: 399, promoPriceCents: 349, pickupAvailable: true,
+      id: '0001111085000', upc: '0001111085000', title: 'Whole Milk', brand: 'Kroger', size: '1 gal', thumbnailUrl: 'https://images.example/front-small.png', regularPriceCents: 399, promoPriceCents: 349, pickupAvailable: true, deliveryAvailable: false,
     }]);
   });
 
-  it('adds only explicit confirmed UPC quantities to a pickup cart', () => {
-    expect(buildKrogerCartPayload([{ upc: '0001111085000', quantity: 2 }])).toEqual({
+  it('adds only explicit confirmed UPC quantities with the requested fulfillment modality', () => {
+    expect(buildKrogerCartPayload([{ upc: '0001111085000', quantity: 2 }], 'pickup')).toEqual({
       items: [{ upc: '0001111085000', quantity: 2, modality: 'PICKUP' }],
     });
-    expect(() => buildKrogerCartPayload([])).toThrow('provider.cart_empty');
-    expect(() => buildKrogerCartPayload([{ upc: '', quantity: 1 }])).toThrow('provider.cart_item_invalid');
+    expect(buildKrogerCartPayload([{ upc: '0001111085000', quantity: 2 }], 'delivery')).toEqual({
+      items: [{ upc: '0001111085000', quantity: 2, modality: 'DELIVERY' }],
+    });
+    expect(() => buildKrogerCartPayload([], 'pickup')).toThrow('provider.cart_empty');
+    expect(() => buildKrogerCartPayload([{ upc: '', quantity: 1 }], 'pickup')).toThrow('provider.cart_item_invalid');
   });
 });

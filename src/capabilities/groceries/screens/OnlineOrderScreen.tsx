@@ -4,6 +4,8 @@ import { StyleSheet, View } from 'react-native';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { useAppStore } from '../../../store/useAppStore';
+import { AnalyticsEvent } from '../../../services/analytics/events';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { AppShell } from '../../../ui/layout/AppShell';
@@ -18,7 +20,7 @@ import {
   type OnlineRetailerOutcome,
 } from '../domain/onlineRetailerResolver';
 import type { OnlineShoppingPreferences } from '../domain/onlineShoppingPreferences';
-import { getOnlineRetailerRuntimePolicies } from '../providers/affiliateRetailerProvider';
+import { getOnlineRetailerRuntimePolicies, openAffiliateProductSearch } from '../providers/affiliateRetailerProvider';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'OnlineOrder'>;
 
@@ -41,6 +43,7 @@ function alternativeCopy(outcome: OnlineRetailerOutcome, preferences: OnlineShop
 }
 
 export function OnlineOrderScreen({ navigation, route }: Props) {
+  const { capture } = useAnalytics();
   const personId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const [preferences, setPreferences] = useState<OnlineShoppingPreferences | null>(null);
   const [list, setList] = useState<GroceryProjection | null>(null);
@@ -67,14 +70,16 @@ export function OnlineOrderScreen({ navigation, route }: Props) {
     initialRevision.current = currentList.revision;
     setPreferences(saved);
     setList(currentList);
-    setOutcomes(resolveOnlineRetailerOutcomes({
+    const resolved = resolveOnlineRetailerOutcomes({
       preferences: saved,
       policies: getOnlineRetailerRuntimePolicies(),
       storeReady: Boolean(store),
       fulfillmentOverride: route.params.fulfillmentOverride,
-    }));
+    });
+    setOutcomes(resolved);
+    resolved.forEach((outcome) => capture(AnalyticsEvent.OnlineRetailerOutcomesResolved, { fulfillment_mode: outcome.requestedMode, retailer_id: outcome.retailerId, capability: outcome.capability, outcome: outcome.reason }));
     setLoading(false);
-  }, [personId, route.params.fulfillmentOverride, route.params.listId]);
+  }, [capture, personId, route.params.fulfillmentOverride, route.params.listId]);
 
   useEffect(() => {
     void load();
@@ -97,6 +102,8 @@ export function OnlineOrderScreen({ navigation, route }: Props) {
   const linkBeforeHero = hero
     ? outcomes.find((outcome) => outcome.rank < hero.rank && outcome.capability === 'product_links')
     : null;
+  const activeLink = outcomes.find((outcome) => outcome.capability === 'product_links' && outcome.reason === 'ready');
+  const firstNeededConcept = list?.items.find((item) => item.state === 'needed')?.concept ?? null;
   const headerCopy = useMemo(() => {
     if (!preferences || !first) return null;
     const mode = first.requestedMode === 'pickup' ? 'Pickup' : 'Delivery';
@@ -139,6 +146,19 @@ export function OnlineOrderScreen({ navigation, route }: Props) {
               <Text tone="secondary">
                 {retailerName(linkBeforeHero.retailerId, preferences)} can help with individual products; Kwilt cannot prepare this cart there.
               </Text>
+            ) : null}
+
+            {activeLink && firstNeededConcept && (activeLink.retailerId === 'amazon' || activeLink.retailerId === 'walmart') ? (
+              <View style={styles.linkAssistance}>
+                <Button
+                  variant="outline"
+                  accessibilityLabel={`Open product search at ${retailerName(activeLink.retailerId, preferences)}`}
+                  onPress={() => { void openAffiliateProductSearch(activeLink.retailerId as 'amazon' | 'walmart', firstNeededConcept); }}
+                >
+                  Open product search
+                </Button>
+                <Text tone="secondary" style={styles.affiliateDisclosure}>Affiliate link</Text>
+              </View>
             ) : null}
 
             {hero ? (
@@ -227,4 +247,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
+  linkAssistance: { alignItems: 'flex-start', gap: spacing.xs },
+  affiliateDisclosure: { fontSize: 12 },
 });
