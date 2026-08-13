@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import {
   ActivityIndicator,
@@ -90,23 +90,28 @@ export function MealPlanShareDrawer(props: {
     };
   }, [planId, visible]);
 
-  const revokeGuestInvite = useCallback(async (inviteId: string) => {
-    if (busy) return;
+  const activeGuestInviteIds = useMemo(() => [...new Set([
+    ...(guestSummary?.invites.filter((invite) => invite.state === 'active').map((invite) => invite.id) ?? []),
+    ...(guestInvite ? [guestInvite.inviteId] : []),
+  ])], [guestInvite, guestSummary]);
+  const revokeActiveGuestInvites = useCallback(async () => {
+    if (busy || !activeGuestInviteIds.length) return;
     setBusy(true);
     try {
-      await createMealPlanningRepository().revokeGuestFeedbackInvite(inviteId);
+      const repository = createMealPlanningRepository();
+      await Promise.all(activeGuestInviteIds.map((inviteId) => repository.revokeGuestFeedbackInvite(inviteId)));
       setGuestSummary((current) => current ? {
         ...current,
-        invites: current.invites.map((invite) => invite.id === inviteId ? { ...invite, state: 'revoked' } : invite),
+        invites: current.invites.map((invite) => invite.state === 'active' ? { ...invite, state: 'revoked' } : invite),
       } : current);
-      if (guestInvite?.inviteId === inviteId) setGuestInvite(null);
+      setGuestInvite(null);
       showToast({ message: 'Sharing link turned off', variant: 'success', durationMs: 2000 });
     } catch (error) {
       Alert.alert('Could not turn off link', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setBusy(false);
     }
-  }, [busy, guestInvite?.inviteId, showToast]);
+  }, [activeGuestInviteIds, busy, showToast]);
 
   const askSelectedPeople = useCallback(async () => {
     if (!selected.length || busy) return;
@@ -144,7 +149,8 @@ export function MealPlanShareDrawer(props: {
         onShared?.();
       }
       const inviteUrl = `https://go.kwilt.app/meal-plan/${encodeURIComponent(invitation.token)}`;
-      const message = `${authIdentity?.name || 'Someone'} would like your help with a meal plan.\n\nReview the plan, vote on meals, or suggest something else.\n\n${inviteUrl}`;
+      const taskCopy = 'Choose the meals you’d eat or suggest one that’s missing.';
+      const message = `${authIdentity?.name || 'Someone'} would like your help with a meal plan.\n\n${taskCopy}\n\n${inviteUrl}`;
       if (channel === 'copy') {
         await Clipboard.setStringAsync(inviteUrl);
         showToast({ message: 'Link copied', variant: 'success', durationMs: 2000 });
@@ -161,7 +167,7 @@ export function MealPlanShareDrawer(props: {
         return;
       }
       const body = encodeURIComponent(channel === 'sms'
-        ? `Help with our meal plan. Review the plan, vote on meals, or suggest something else.\n\n${inviteUrl}`
+        ? `Help with our meal plan. ${taskCopy}\n\n${inviteUrl}`
         : message);
       const composerUrl = channel === 'sms'
         ? Platform.OS === 'ios' ? `sms:&body=${body}` : `sms:?body=${body}`
@@ -297,39 +303,49 @@ export function MealPlanShareDrawer(props: {
                 disabled={busy}
                 onPress={() => void openExternalInvite('more')}
               />
+              {activeGuestInviteIds.length ? (
+                <>
+                  <View style={styles.divider} />
+                  <ChannelRow
+                    icon="link"
+                    label="Turn off guest link"
+                    disabled={busy}
+                    onPress={() => void revokeActiveGuestInvites()}
+                  />
+                </>
+              ) : null}
             </View>
             <Text tone="secondary" style={styles.privacyCopy}>
               Anyone with the link can respond until it expires. They won’t join your Household.
             </Text>
           </View>
 
-          {guestSummary?.invites.some((invite) => invite.responseCount > 0 || invite.state === 'active') ? (
+          {guestSummary?.invites.some((invite) => invite.responseCount > 0) ? (
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Guest feedback</Text>
               <View style={styles.card}>
-                {guestSummary.invites.filter((invite) => invite.responseCount > 0 || invite.state === 'active').map((invite, index) => (
+                {guestSummary.invites.filter((invite) => invite.responseCount > 0).map((invite, index) => (
                   <View key={invite.id}>
                     {index > 0 ? <View style={styles.divider} /> : null}
                     <View style={styles.feedbackRow}>
-                      <View style={styles.personCopy}>
-                        <Text style={styles.personName}>{invite.responseCount === 1 ? '1 response' : `${invite.responseCount} responses`}</Text>
-                        <Text tone="secondary">{invite.state === 'active' ? 'Link active' : invite.state === 'revoked' ? 'Link off' : 'Link expired'}</Text>
-                        {invite.responses.slice(0, 3).map((response) => {
-                          const pickedTitles = response.selectedCandidateIds
-                            .map((candidateId) => guestSummary.candidates.find((candidate) => candidate.id === candidateId)?.title)
-                            .filter((title): title is string => Boolean(title));
-                          const choice = response.pass ? 'Passed' : pickedTitles.length ? pickedTitles.join(', ') : 'Suggested a meal';
-                          return (
-                            <View key={response.id}>
-                              <Text tone="secondary" style={styles.responseCopy}>{response.displayName || 'Guest'} · {choice}</Text>
-                              {response.suggestion ? <Text tone="secondary" style={styles.suggestionCopy}>“{response.suggestion}”</Text> : null}
-                            </View>
-                          );
-                        })}
-                      </View>
-                      {invite.state === 'active' ? (
-                        <Button variant="ghost" size="sm" disabled={busy} onPress={() => void revokeGuestInvite(invite.id)}>Turn off</Button>
-                      ) : null}
+                      <Text style={styles.personName}>
+                        {invite.responseCount === 1 ? '1 response' : `${invite.responseCount} responses`}
+                      </Text>
+                      {invite.responses.slice(0, 3).map((response) => {
+                        const pickedTitles = response.selectedCandidateIds
+                          .map((candidateId) => guestSummary.candidates.find((candidate) => candidate.id === candidateId)?.title)
+                          .filter((title): title is string => Boolean(title));
+                        return (
+                          <View key={response.id} style={styles.responseBlock}>
+                            <Text tone="secondary" style={styles.responseCopy}>
+                              {response.displayName || 'Guest'} · {pickedTitles.length ? pickedTitles.join(', ') : 'Suggested a meal'}
+                            </Text>
+                            {response.suggestion ? (
+                              <Text tone="secondary" style={styles.suggestionCopy}>“{response.suggestion}”</Text>
+                            ) : null}
+                          </View>
+                        );
+                      })}
                     </View>
                   </View>
                 ))}
@@ -443,8 +459,9 @@ const styles = StyleSheet.create({
   channelLabel: { flex: 1, fontFamily: fonts.semibold },
   disabledLabel: { color: colors.muted },
   privacyCopy: { fontSize: 13, lineHeight: 18 },
-  feedbackRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  responseCopy: { marginTop: 2, fontSize: 13 },
+  feedbackRow: { minHeight: 68, gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  responseBlock: { marginTop: spacing.xs },
+  responseCopy: { fontSize: 13 },
   suggestionCopy: { marginTop: 1, fontSize: 13, fontStyle: 'italic' },
   pressed: { opacity: 0.64 },
 });

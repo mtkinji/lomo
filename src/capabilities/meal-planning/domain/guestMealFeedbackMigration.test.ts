@@ -5,6 +5,10 @@ const sql = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260812175939_guest_meal_plan_feedback.sql'),
   'utf8',
 ).toLowerCase();
+const taskFirstChoiceSql = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260813122516_task_first_guest_meal_choices.sql'),
+  'utf8',
+).toLowerCase();
 
 describe('guest Meal Plan feedback migration contract', () => {
   it('keeps bearer tokens hashed and guest tables closed behind bounded RPCs', () => {
@@ -40,4 +44,24 @@ describe('guest Meal Plan feedback migration contract', () => {
     expect(sql).toContain("jsonb_build_object('id',c.candidate_id,'title',c.title,'imageurl'");
     expect(sql).not.toContain("'householdid'");
   });
+
+  it('projects concrete guest choices into the regular Plan while preserving suggestions for organizer review', () => {
+    expect(taskFirstChoiceSql).toContain('create or replace function public.preview_kwilt_guest_meal_feedback_invite');
+    expect(taskFirstChoiceSql).toContain("'selectionlimit',(select count(*)");
+    expect(taskFirstChoiceSql).toContain('create or replace function public.submit_kwilt_guest_meal_feedback');
+    expect(taskFirstChoiceSql).toContain('cardinality(v_selected) > 60');
+    expect(taskFirstChoiceSql).toContain('cardinality(v_selected) > 0 or v_suggestion is not null');
+    expect(taskFirstChoiceSql).toContain('selected_candidate_ids=excluded.selected_candidate_ids');
+    expect(taskFirstChoiceSql).toContain("select 'guest:' || guest_response.id::text");
+    expect(taskFirstChoiceSql).toContain('cross join lateral unnest(guest_response.selected_candidate_ids)');
+    expect(taskFirstChoiceSql).toContain("'thumbs_up',");
+    expect(taskFirstChoiceSql).toContain("'reaction',reaction.reaction");
+    expect(taskFirstChoiceSql).toContain("|| ' · guest'");
+    expect(taskFirstChoiceSql).toContain("'suggestion',r.suggestion");
+    expect(taskFirstChoiceSql).not.toContain('create or replace function public.submit_kwilt_guest_meal_reactions');
+    expect(taskFirstChoiceSql).not.toContain('kwilt_guest_meal_feedback_responses_candidate_reactions');
+    expect(taskFirstChoiceSql).not.toContain('candidate_reactions=');
+    expect(taskFirstChoiceSql).not.toContain('alter publication supabase_realtime add table public.kwilt_guest_meal_feedback_responses');
+  });
+
 });

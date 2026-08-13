@@ -157,6 +157,37 @@ describe('MealPlanShareDrawer', () => {
     expect(screen.getByText('Share outside your Household')).toBeTruthy();
   });
 
+  it('shows the organizer what a guest chose and suggested', async () => {
+    mockGetGuestFeedbackSummary.mockResolvedValueOnce({
+      candidates: [{ id: 'candidate-1', title: 'Tacos' }],
+      invites: [{
+        id: 'invite-1',
+        state: 'active',
+        expiresAt: '2026-08-20T00:00:00.000Z',
+        responseCount: 1,
+        responses: [{
+          id: 'response-1',
+          displayName: 'Blaire',
+          selectedCandidateIds: ['candidate-1'],
+          pass: false,
+          suggestion: 'Breakfast for dinner',
+          updatedAt: '2026-08-12T20:00:00.000Z',
+        }],
+      }],
+    });
+
+    const screen = render(
+      <MealPlanShareDrawer visible planId="plan-1" planVersion={3} onClose={jest.fn()} />,
+    );
+
+    await waitFor(() => expect(mockGetGuestFeedbackSummary).toHaveBeenCalledWith('plan-1'));
+    expect(screen.getByText('Guest feedback')).toBeTruthy();
+    expect(screen.getByText('1 response')).toBeTruthy();
+    expect(screen.getByText('Blaire · Tacos')).toBeTruthy();
+    expect(screen.getByText('“Breakfast for dinner”')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Turn off guest link' })).toBeTruthy();
+  });
+
   it('asks the selected Household people without leaving for another screen', async () => {
     const onClose = jest.fn();
     const onShared = jest.fn();
@@ -210,6 +241,7 @@ describe('MealPlanShareDrawer', () => {
     } else {
       expect(decodeURIComponent(composerUrl)).toContain('Andrew would like your help with a meal plan.');
     }
+    expect(decodeURIComponent(composerUrl)).toContain('Choose the meals you’d eat or suggest one that’s missing.');
     expect(decodeURIComponent(composerUrl)).toMatch(/https:\/\/go\.kwilt\.app\/meal-plan\/guest-token$/);
   });
 
