@@ -231,8 +231,8 @@ describe('Unified Chat coexistence contract', () => {
     expect(navigatorSource).toContain('component={UnifiedChatScreen}');
   });
 
-  test('makes durable Chat the shell entry while preserving the legacy Agent route', () => {
-    expect(navigatorSource).toContain("rootNavigationRef.navigate('UnifiedChat', launchContext");
+  test('opens a fresh durable Chat from the shell while preserving the legacy Agent route', () => {
+    expect(navigatorSource).toContain("entry: 'fresh', source: 'capability_menu'");
     expect(navigatorSource).toContain('deriveCapabilityAgentContext(navigationState)');
     expect(navigatorSource).toContain('resolveCapabilityAgentReturn(context)');
     expect(navigatorSource).not.toContain("onOpenAgent={() =>");

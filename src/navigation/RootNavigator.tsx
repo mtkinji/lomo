@@ -1329,7 +1329,12 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
               returnTarget: resolveCapabilityAgentReturn(context) as unknown as Record<string, unknown>,
             };
           }
-          rootNavigationRef.navigate('UnifiedChat', launchContext ? { launchContext } : undefined);
+          rootNavigationRef.navigate(
+            'UnifiedChat',
+            launchContext
+              ? { entry: 'fresh', source: 'capability_menu', launchContext }
+              : { entry: 'fresh', source: 'capability_menu' },
+          );
           coverMenu();
         }}
         exploreEnabled={exploreEnabled}
