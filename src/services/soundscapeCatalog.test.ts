@@ -34,7 +34,7 @@ describe('Focus soundscape catalog', () => {
         expect(remote.cacheFileName).toMatch(/-[a-f0-9]{12}\.mp3$/);
       } else {
         expect(['deep-work-drift', 'canyon-spring']).toContain(soundscape.loop.source.key);
-        expect(soundscape.loop.assetKey).toMatch(/-v\d+$/);
+        expect(soundscape.loop.assetKey).toMatch(/-[a-f0-9]{12}$/);
         expect(typeof soundscape.loop.source.module).toBe('number');
       }
     }

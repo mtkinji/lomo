@@ -1,7 +1,7 @@
 [
   {
     "id": "default",
-    "assetKey": "bundled-deep-work-drift-v1",
+    "assetKey": "deep-work-drift-loop-c24a34f97230",
     "source": { "kind": "bundled", "key": "deep-work-drift" },
     "loopPlayback": "seamless",
     "sampleRateHz": 48000,
@@ -33,7 +33,7 @@
   },
   {
     "id": "openRoadFocus",
-    "assetKey": "open-road-focus-707dfde8b7ee",
+    "assetKey": "open-road-focus-616130a69080",
     "source": { "kind": "remote", "id": "focus.open-road" },
     "loopPlayback": "seamless",
     "sampleRateHz": 48000,
@@ -41,7 +41,7 @@
   },
   {
     "id": "cedarWorkshop",
-    "assetKey": "cedar-workshop-56a9047ea7ae",
+    "assetKey": "cedar-workshop-279fdbb6ed7a",
     "source": { "kind": "remote", "id": "focus.cedar-workshop" },
     "loopPlayback": "seamless",
     "sampleRateHz": 48000,
@@ -49,7 +49,7 @@
   },
   {
     "id": "rainlitLibrary",
-    "assetKey": "rainlit-library-f28fdc597fd5",
+    "assetKey": "rainlit-library-3bc31c4a550f",
     "source": { "kind": "remote", "id": "focus.rainlit-library" },
     "loopPlayback": "seamless",
     "sampleRateHz": 48000,
@@ -65,7 +65,7 @@
   },
   {
     "id": "canyonSpring",
-    "assetKey": "bundled-canyon-spring-v1",
+    "assetKey": "canyon-spring-stream-7e21d76f632c",
     "source": { "kind": "bundled", "key": "canyon-spring" },
     "loopPlayback": "seamless",
     "sampleRateHz": 48000,

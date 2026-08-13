@@ -84,16 +84,8 @@ export async function masterLoop({
   if (!Number.isInteger(repeatCount) || repeatCount < 1) {
     throw new Error('repeatCount must be a positive integer');
   }
-  const metadata = await parseFile(input, { duration: true });
-  const sourceDurationSeconds = Number(metadata.format.duration);
-  if (!Number.isFinite(sourceDurationSeconds)) throw new Error('Audio input has no finite duration');
-  if (loopStartSeconds >= sourceDurationSeconds - crossfadeSeconds) {
-    throw new Error('Loop start must leave room for the body and tail crossfade');
-  }
-
-  const singleLoopDurationSeconds = sourceDurationSeconds - loopStartSeconds;
-  const outputDurationSeconds = singleLoopDurationSeconds * repeatCount;
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'kwilt-loop-master-'));
+  const normalizedSource = path.join(temporaryDirectory, 'source-48k.wav');
   const unnormalized = path.join(temporaryDirectory, 'rotated-loop.wav');
   const tiled = path.join(temporaryDirectory, 'tiled-loop.wav');
   const outputExtension = path.extname(output).toLowerCase();
@@ -101,6 +93,20 @@ export async function masterLoop({
   try {
     run([
       '-hide_banner', '-loglevel', 'error', '-y', '-i', input,
+      '-vn', '-sn', '-dn',
+      '-c:a', 'pcm_f32le', '-ar', '48000', '-ac', '2', normalizedSource,
+    ]);
+    const metadata = await parseFile(normalizedSource, { duration: true });
+    const sourceDurationSeconds = Number(metadata.format.duration);
+    if (!Number.isFinite(sourceDurationSeconds)) throw new Error('Audio input has no finite duration');
+    if (loopStartSeconds >= sourceDurationSeconds - crossfadeSeconds) {
+      throw new Error('Loop start must leave room for the body and tail crossfade');
+    }
+    const singleLoopDurationSeconds = sourceDurationSeconds - loopStartSeconds;
+    const outputDurationSeconds = singleLoopDurationSeconds * repeatCount;
+
+    run([
+      '-hide_banner', '-loglevel', 'error', '-y', '-i', normalizedSource,
       '-filter_complex', rotatedCrossfadeGraph(sourceDurationSeconds, crossfadeSeconds, loopStartSeconds),
       '-map', '[loop]', '-c:a', 'pcm_f32le', '-ar', '48000', '-ac', '2', unnormalized,
     ]);
@@ -135,21 +141,21 @@ export async function masterLoop({
         ...codecArgs(path.extname(audition).toLowerCase()), audition,
       ]);
     }
+    return {
+      sourceDurationSeconds: Number(sourceDurationSeconds.toFixed(3)),
+      singleLoopDurationSeconds: Number(singleLoopDurationSeconds.toFixed(3)),
+      outputDurationSeconds: Number(outputDurationSeconds.toFixed(3)),
+      workingSampleRateHz: 48_000,
+      crossfadeSeconds,
+      loopStartSeconds,
+      repeatCount,
+      category,
+      output,
+      audition,
+    };
   } finally {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
   }
-
-  return {
-    sourceDurationSeconds: Number(sourceDurationSeconds.toFixed(3)),
-    singleLoopDurationSeconds: Number(singleLoopDurationSeconds.toFixed(3)),
-    outputDurationSeconds: Number(outputDurationSeconds.toFixed(3)),
-    crossfadeSeconds,
-    loopStartSeconds,
-    repeatCount,
-    category,
-    output,
-    audition,
-  };
 }
 
 function parseArgs(argv) {

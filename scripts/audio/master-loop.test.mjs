@@ -96,3 +96,31 @@ test('tiles a seamless master before delivery encoding to reduce transport-bound
   const outputMetadata = await parseFile(output, { duration: true });
   assert.ok(Math.abs(outputMetadata.format.duration - 18) < 0.05);
 });
+
+test('normalizes a 44.1 kHz source before cutting the cyclic seam', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'kwilt-loop-resample-'));
+  const input = path.join(directory, 'source.wav');
+  const output = path.join(directory, 'loop.wav');
+  runFfmpeg([
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-f', 'lavfi', '-i', 'sine=frequency=437:sample_rate=44100:duration=8',
+    '-ac', '2', '-c:a', 'pcm_s16le', input,
+  ]);
+
+  const result = await masterLoop({
+    input,
+    output,
+    crossfadeSeconds: 2,
+    loopStartSeconds: 3,
+    category: 'focus.music',
+  });
+
+  assert.equal(result.workingSampleRateHz, 48_000);
+  const metadata = await parseFile(output);
+  assert.equal(metadata.format.sampleRate, 48_000);
+  const audit = spawnSync(process.execPath, [
+    path.resolve('scripts/audio/audit-loop-seams.mjs'),
+    '--enforce', output,
+  ], { encoding: 'utf8' });
+  assert.equal(audit.status, 0, audit.stdout + audit.stderr);
+});

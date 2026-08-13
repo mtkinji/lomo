@@ -1,6 +1,8 @@
 const DEFAULT_LOOP_POLICY = Object.freeze({
   silenceCeilingSeconds: 0.03,
   boundaryRmsDeltaCeilingDb: 3,
+  endpointJumpFloorDbfs: -36,
+  endpointOutlierCeilingDb: 12,
 });
 
 function requireFinite(values) {
@@ -54,6 +56,43 @@ function boundarySilenceSeconds(frames, threshold, sampleRateHz, fromStart) {
   return silentFrames / sampleRateHz;
 }
 
+function worstChannelBoundaryDiscontinuities(startSamples, endSamples, channels) {
+  let worstEndpointJump = 0;
+  let worstDerivativeJump = 0;
+  const localDerivatives = [];
+  const endLastFrame = endSamples.length - channels;
+  const endPreviousFrame = endLastFrame - channels;
+  for (let channel = 0; channel < channels; channel += 1) {
+    const endpointJump = startSamples[channel] - endSamples[endLastFrame + channel];
+    const startDerivative = startSamples[channels + channel] - startSamples[channel];
+    const endDerivative = endSamples[endLastFrame + channel] - endSamples[endPreviousFrame + channel];
+    worstEndpointJump = Math.max(worstEndpointJump, Math.abs(endpointJump));
+    worstDerivativeJump = Math.max(
+      worstDerivativeJump,
+      Math.abs(startDerivative - endDerivative),
+    );
+    for (let index = channels + channel; index < startSamples.length; index += channels) {
+      localDerivatives.push(Math.abs(startSamples[index] - startSamples[index - channels]));
+    }
+    for (let index = channels + channel; index < endSamples.length; index += channels) {
+      localDerivatives.push(Math.abs(endSamples[index] - endSamples[index - channels]));
+    }
+  }
+  localDerivatives.sort((a, b) => a - b);
+  const referenceIndex = Math.min(
+    localDerivatives.length - 1,
+    Math.floor(localDerivatives.length * 0.99),
+  );
+  const endpointJumpDbfs = round(amplitudeToDbfs(worstEndpointJump));
+  const endpointDerivativeReferenceDbfs = round(amplitudeToDbfs(localDerivatives[referenceIndex] ?? 0));
+  return {
+    worstEndpointJumpDbfs: endpointJumpDbfs,
+    endpointDerivativeReferenceDbfs,
+    endpointOutlierDb: round(endpointJumpDbfs - endpointDerivativeReferenceDbfs),
+    worstDerivativeJumpDbfs: round(amplitudeToDbfs(worstDerivativeJump)),
+  };
+}
+
 export function measureLoopBoundary({
   startSamples,
   endSamples,
@@ -70,8 +109,7 @@ export function measureLoopBoundary({
   }
 
   const threshold = 10 ** (silenceThresholdDbfs / 20);
-  const startDerivative = startFrames[1] - startFrames[0];
-  const endDerivative = endFrames[endFrames.length - 1] - endFrames[endFrames.length - 2];
+  const discontinuities = worstChannelBoundaryDiscontinuities(startSamples, endSamples, channels);
 
   return {
     leadingSilenceSeconds: round(
@@ -84,7 +122,7 @@ export function measureLoopBoundary({
     ),
     startRmsDbfs: round(rmsDbfs(startFrames)),
     endRmsDbfs: round(rmsDbfs(endFrames)),
-    derivativeJumpDbfs: round(amplitudeToDbfs(startDerivative - endDerivative)),
+    ...discontinuities,
   };
 }
 
@@ -94,9 +132,14 @@ export function evaluateLoopSeam(measurement, policy = DEFAULT_LOOP_POLICY) {
     measurement.trailingSilenceSeconds,
     measurement.startRmsDbfs,
     measurement.endRmsDbfs,
-    measurement.derivativeJumpDbfs,
+    measurement.worstEndpointJumpDbfs,
+    measurement.endpointDerivativeReferenceDbfs,
+    measurement.endpointOutlierDb,
+    measurement.worstDerivativeJumpDbfs,
     policy.silenceCeilingSeconds,
     policy.boundaryRmsDeltaCeilingDb,
+    policy.endpointJumpFloorDbfs,
+    policy.endpointOutlierCeilingDb,
   ]);
 
   const failures = [];
@@ -116,12 +159,23 @@ export function evaluateLoopSeam(measurement, policy = DEFAULT_LOOP_POLICY) {
       `boundary window energy differs by ${rmsDeltaDb} dB (ceiling ${policy.boundaryRmsDeltaCeilingDb} dB)`,
     );
   }
+  if (
+    measurement.worstEndpointJumpDbfs > policy.endpointJumpFloorDbfs
+    && measurement.endpointOutlierDb > policy.endpointOutlierCeilingDb
+  ) {
+    failures.push(
+      `endpoint jump ${measurement.worstEndpointJumpDbfs} dBFS is ${measurement.endpointOutlierDb} dB above local waveform motion (ceiling ${policy.endpointOutlierCeilingDb} dB)`,
+    );
+  }
 
   return {
     passes: failures.length === 0,
     failures,
     rmsDeltaDb,
-    derivativeJumpDbfs: measurement.derivativeJumpDbfs,
+    worstEndpointJumpDbfs: measurement.worstEndpointJumpDbfs,
+    endpointDerivativeReferenceDbfs: measurement.endpointDerivativeReferenceDbfs,
+    endpointOutlierDb: measurement.endpointOutlierDb,
+    worstDerivativeJumpDbfs: measurement.worstDerivativeJumpDbfs,
   };
 }
 

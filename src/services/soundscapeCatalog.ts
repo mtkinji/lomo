@@ -37,8 +37,8 @@ type SerializedAdmission = Omit<SoundscapeLoopAdmission, 'source'> & {
 };
 
 const BUNDLED_SOUNDSCAPE_MODULES: Record<BundledSoundscapeKey, number> = {
-  'deep-work-drift': require('../../assets/audio/soundscapes/Sleep Music No. 1 - Chris Haugen.mp3'),
-  'canyon-spring': require('../../assets/audio/soundscapes/canyon-spring-stream.mp3'),
+  'deep-work-drift': require('../../assets/audio/soundscapes/deep-work-drift-loop-c24a34f97230.mp3'),
+  'canyon-spring': require('../../assets/audio/soundscapes/canyon-spring-stream-7e21d76f632c.mp3'),
 };
 
 const admissions = admissionsJson as SerializedAdmission[];

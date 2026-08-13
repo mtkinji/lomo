@@ -17,9 +17,13 @@ Automated measurements do not establish perceived balance on phone speakers. Sim
 
 ## Bundled Focus fallback
 
-| Asset | Owner | Category | Provenance | Current status |
-| --- | --- | --- | --- | --- |
-| `soundscapes/Sleep Music No. 1 - Chris Haugen.mp3` | Focus | `focus.music` | Pre-existing third-party track; preserve its existing license record | Baseline audit required |
+| Asset | Owner | Category | Provenance / transform | Measurements | Proof status |
+| --- | --- | --- | --- | --- | --- |
+| `soundscapes/deep-work-drift-loop-c24a34f97230.mp3` | Focus | `focus.music` | Derived from the licensed pre-existing `Sleep Music No. 1 - Chris Haugen.mp3`; decoded to 48 kHz stereo before a 16 s rotation and 12 s equal-power seam, then normalized and encoded once at 192 kbps | 178.150 s; 8,551,200 decoded frames; 48 kHz stereo; 0 ms lead/tail; 0.11 dB boundary delta; -62.24 dBFS endpoint; endpoint 7.52 dB below local waveform motion; SHA-256 `c24a34f972303058e426344933366dbc65f2664d275a01996f9fa56c07ca5bb9` | Automated seam pass; Simulator, signed device, TestFlight, and production pending |
+| `soundscapes/canyon-spring-stream-7e21d76f632c.mp3` | Focus | `focus.music` | Content-addressed copy of the accepted Canyon Spring stream master | 291.240 s; 13,977,600 decoded frames; 48 kHz stereo; 0 ms lead/tail; 0.48 dB boundary delta; -24.74 dBFS endpoint; 2.70 dB local outlier; SHA-256 `7e21d76f632c146b36caa71a3bee0b65786fb9ac9d4f211e4818846b13fa9c6f` | Automated seam pass; Simulator transport and signed-device listening pending |
+| `soundscapes/Sleep Music No. 1 - Chris Haugen.mp3` | Focus source only | `focus.music` | Pre-existing third-party source retained with its license record; no longer selected for playback | 44.1 kHz; 237 ms lead; 745 ms tail; 13.11 dB boundary mismatch | Source retained; not admitted as a runtime loop |
+
+Loop admission measures leading/trailing silence, boundary-window energy, and each channel independently. A loud endpoint step fails only when it is also more than 12 dB above the 99th-percentile sample-to-sample motion near the boundary; this avoids mistaking ordinary high-frequency water or fire waveform motion for a click. Passing measurements establish source plausibility, not physical-device perceptibility.
 
 All other continuous Focus and Games tracks are delivered from the immutable public catalog in `src/services/audioAssetCatalog.ts`, streamed on first play, and cached in the app cache when space permits. An unavailable uncached Focus track falls back to Deep Work Drift for that session.
 
@@ -32,9 +36,9 @@ Public root: `https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/
 | `focus.copacabana` | Copacabana | `focus.music` | `focus/copacabana-focus-9714caeb0913.mp3` |
 | `focus.focus-tunnel` | Focus Tunnel | `focus.music` | `focus/focus-tunnel-36e2e0d5c498.mp3` |
 | `focus.midnight-study` | Midnight Study | `focus.music` | `focus/midnight-study-f415ecb449e4.mp3` |
-| `focus.open-road` | Open Road | `focus.music` | `focus/open-road-focus-707dfde8b7ee.mp3` |
-| `focus.cedar-workshop` | Cedar Workshop | `focus.music` | `focus/cedar-workshop-56a9047ea7ae.mp3` |
-| `focus.rainlit-library` | Rainlit Library | `focus.music` | `focus/rainlit-library-f28fdc597fd5.mp3` |
+| `focus.open-road` | Open Road | `focus.music` | `focus/open-road-focus-616130a69080.mp3` |
+| `focus.cedar-workshop` | Cedar Workshop | `focus.music` | `focus/cedar-workshop-279fdbb6ed7a.mp3` |
+| `focus.rainlit-library` | Rainlit Library | `focus.music` | `focus/rainlit-library-3bc31c4a550f.mp3` |
 | `focus.quiet-rain` | Quiet Rain | `focus.music` | `focus/quiet-rain-bb036739700b.mp3` |
 | `focus.forest-stream` | Forest Stream | `focus.music` | `focus/forest-stream-96a2d1cccd42.mp3` |
 | `focus.ocean-waves` | Ocean Waves | `focus.music` | `focus/ocean-waves-1bc54848be4d.mp3` |
@@ -47,7 +51,7 @@ Public root: `https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/
 | `game.bank-building` | Bank: High stakes | `game.music` | `games/bank-building-80c059ab399e.mp3` |
 | `game.bank-maximum` | Bank: First risky rolls | `game.music` | `games/bank-maximum-b04a34eb7fd2.mp3` |
 
-The Supabase `audio_assets` bucket is public-read, MP3-only, capped at 10 MiB per object, and has no client write policy. Objects use content-addressed names. Earlier August 10 Dashboard uploads returned `Cache-Control: no-cache`; changing only their `storage.objects.metadata.cacheControl` values did not change the public response. The replacement Quiet Rain upload returned `Cache-Control: public, max-age=3600`, and its first range request returned `max-age=3600`. A one-year immutable cache policy remains a delivery-optimization follow-up and is not represented as complete here.
+The Supabase `audio_assets` bucket is public-read, MP3-only, capped at 10 MiB per object, and has no client write policy. Objects use content-addressed names. Earlier August 10 Dashboard uploads returned `Cache-Control: no-cache`; changing only their `storage.objects.metadata.cacheControl` values did not change the public response. The replacement Quiet Rain upload returned `Cache-Control: public, max-age=3600`, and its first range request returned `max-age=3600`. The August 13 CLI uploads requested `public, max-age=31536000, immutable`, but public HEAD responses still returned `no-cache`; a one-year immutable response policy therefore remains unproven and is not represented as complete here.
 
 ## Focus seamless-loop corrected masters
 
@@ -58,9 +62,9 @@ The August 10 correction pass preserves the six published July music sources, re
 | Copacabana | 16 s loop start; 16 s equal-power tail-to-head crossfade | 223.992 s; 48 kHz stereo; -24.2 LUFS; -11.0 dBTP; 0 ms lead/tail; 1.10 dB boundary delta; -65.56 dBFS derivative jump | `9714caebdff69795bcffaa70faaae030b9a62dca4677261f1cc3bbd7d6ef09d7` | Published; automated pass; listening pending |
 | Focus Tunnel | 8 s loop start; 8 s equal-power tail-to-head crossfade | 232.056 s; 48 kHz stereo; -24.2 LUFS; -9.3 dBTP; 0 ms lead/tail; 0.13 dB boundary delta; -49.10 dBFS derivative jump | `36e2e0d582f1efe69afd251e9f8cff522f51c09db6303a4b4ac16d485f5a9121` | Published; automated pass; listening pending |
 | Midnight Study | 30 s loop start; 12 s equal-power tail-to-head crossfade | 210.048 s; 48 kHz stereo; -24.2 LUFS; -9.1 dBTP; 0 ms lead/tail; 2.92 dB boundary delta; -36.31 dBFS derivative jump | `f415ecb4a9108b7b4f4652bd2fe5a6920a21a95082b7df417d96a1de67304171` | Published; automated pass; listening pending |
-| Open Road | 45 s loop start; 12 s equal-power tail-to-head crossfade | 183.072 s; 48 kHz stereo; -24.2 LUFS; -11.5 dBTP; 0 ms lead/tail; 1.79 dB boundary delta; -63.15 dBFS derivative jump | `707dfde8636abcfa2f86d554b146139f4a746ca3d1d959534060792aa564acb3` | Published; automated pass; listening pending |
-| Cedar Workshop | 60 s loop start; 12 s equal-power tail-to-head crossfade | 168.048 s; 48 kHz stereo; -24.2 LUFS; -8.4 dBTP; 0 ms lead/tail; 2.75 dB boundary delta; -38.41 dBFS derivative jump | `56a9047e031d4f4f598d6b0d1d5390e20a2b76f27f0f5142526d2de3def5a371` | Published; automated pass; listening pending |
-| Rainlit Library | 60 s loop start; 12 s equal-power tail-to-head crossfade | 167.832 s; 48 kHz stereo; -24.2 LUFS; -12.8 dBTP; 0 ms lead/tail; 0.20 dB boundary delta; -37.94 dBFS derivative jump | `f28fdc596dab4f3d9c36ed1ce5d826681ba12c72809fb3b543d36a348457a8a8` | Published; automated pass; listening pending |
+| Open Road | Existing rotated/crossfaded master plus a 20 ms codec-edge taper | 183.072 s; 48 kHz stereo; -24.2 LUFS source policy; 1 ms lead/tail; 1.80 dB boundary delta; -88.47 dBFS endpoint; endpoint 47.41 dB below local waveform motion | `616130a69080dcb6bcea99f0e1f9f2184ae41ed06d6748c0310e4aece5b44c1b` | Replacement published and byte/hash verified; automated pass; listening pending |
+| Cedar Workshop | Existing rotated/crossfaded master plus a 20 ms codec-edge taper | 168.048 s; 48 kHz stereo; -24.2 LUFS source policy; 0/1 ms lead/tail; 2.82 dB boundary delta; -72.82 dBFS endpoint; endpoint 30.92 dB below local waveform motion | `279fdbb6ed7a2245deef4b22dff990fa25441975c74d457be49f4cc012655149` | Replacement published and byte/hash verified; automated pass; listening pending |
+| Rainlit Library | Existing rotated/crossfaded master plus a 20 ms codec-edge taper | 167.832 s; 48 kHz stereo; -24.2 LUFS source policy; 1/0 ms lead/tail; 0.21 dB boundary delta; -80.64 dBFS endpoint; endpoint 35.76 dB below local waveform motion | `3bc31c4a550fc9a9604c4cd2977f4e9fade2cec7ae55f5129933440c7ece828d` | Replacement published and byte/hash verified; automated pass; listening pending |
 
 ## Focus nature masters
 
