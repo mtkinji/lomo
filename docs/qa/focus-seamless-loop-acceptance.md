@@ -37,6 +37,8 @@ The native diagnostics requirement is `underrunCount = 0`, no `lastErrorCode`, a
 
 Compile with JDK 17, then repeat the physical matrix on at least one current Android device. Android parity remains pending until this gate passes; the Expo rollback transport remains available through `EXPO_PUBLIC_FOCUS_LOOP_TRANSPORT=expo-only`.
 
+Status: Expo autolinking and `:kwilt-seamless-loop:compileDebugKotlin` passed against SDK 36/JDK 17 on 2026-08-13; Android hardware listening remains pending.
+
 ## TestFlight and production
 
 - TestFlight: repeat Deep Work Drift, Canyon Spring, Cedar Workshop, background, interruption, and Bluetooth route-change checks from the signed distribution build.

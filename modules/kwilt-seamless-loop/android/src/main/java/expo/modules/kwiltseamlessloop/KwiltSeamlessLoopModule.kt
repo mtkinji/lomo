@@ -39,12 +39,14 @@ class KwiltSeamlessLoopModule : Module() {
       player.unload().also { sendEvent("onStateChanged", it) }
     }
     Function("getDiagnostics") { player.diagnostics() }
-    AsyncFunction("runContinuityProbe") { _: Int ->
-      throw IllegalStateException("Continuity probe is unavailable in this build")
-    }
+    AsyncFunction("runContinuityProbe") { loopCount: Int -> unsupportedProbe(loopCount) }
     OnDestroy {
       cache.clear()
       player.unload()
     }
+  }
+
+  private fun unsupportedProbe(@Suppress("UNUSED_PARAMETER") loopCount: Int): Map<String, Any?> {
+    throw IllegalStateException("Continuity probe is unavailable in this build")
   }
 }
