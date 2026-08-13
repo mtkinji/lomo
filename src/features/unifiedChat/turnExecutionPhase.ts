@@ -100,6 +100,20 @@ export function selectAgentJudgmentTools(
   return tools.filter((tool) => selectedToolIds.has(tool.id));
 }
 
+const SELF_DIRECTED_DEVICE_PATTERN =
+  /\b(?:for me|myself|my (?:phone|device)|on this (?:phone|device))\b/i;
+
+export function selectSubjectSafeRuntimeTools(
+  tools: readonly AgentToolDefinition[],
+  prompt: string,
+): AgentToolDefinition[] {
+  if (!SELF_DIRECTED_DEVICE_PATTERN.test(prompt)) return [...tools];
+  return tools.filter((tool) =>
+    tool.capabilityId !== 'screenTime' ||
+    tool.id === 'screen_time.read' ||
+    tool.id === 'screen_time.personal.setup.open');
+}
+
 function selectAgentJudgmentWriteTools(
   tools: readonly AgentToolDefinition[],
   agentJudgment: AgentJudgment | null,
@@ -392,11 +406,11 @@ export async function executeUnifiedChatTurnPhase(
   let runtimeToolEvents: readonly AgentToolLoopEvent[] = [];
   let recoveryAttempted = false;
   const runtimeTools = usesRuntimeToolLoop
-    ? selectAgentJudgmentTools(discoverAgentTools(UNIFIED_CHAT_TOOL_CATALOG, {
+    ? selectSubjectSafeRuntimeTools(selectAgentJudgmentTools(discoverAgentTools(UNIFIED_CHAT_TOOL_CATALOG, {
         capabilityIds: input.requestPolicy.participatingCapabilities,
         effects: ['read', 'write'],
         providerAvailability: { server: true, device: true, connector: true, channel: false },
-      }).map((entry) => entry.tool), input.agentJudgment)
+      }).map((entry) => entry.tool), input.agentJudgment), input.prompt)
     : [];
   const plannedWriteTools = selectAgentJudgmentWriteTools(runtimeTools, input.agentJudgment);
   const supportsTypedAction = input.requestPolicy.requestClass !== 'capability_action' ||

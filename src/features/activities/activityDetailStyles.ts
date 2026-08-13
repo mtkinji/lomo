@@ -75,6 +75,9 @@ export const styles = StyleSheet.create({
     flexShrink: 1,
     flex: 1,
   },
+  focusSoundscapeMenuItemContent: {
+    flex: 1,
+  },
   menuItemText: menuStyles.menuItemText,
   destructiveMenuRowText: {
     ...menuStyles.destructiveMenuItemText,

@@ -20,16 +20,19 @@ jest.mock('../../ui/BottomDrawer', () => {
 });
 
 jest.mock('../../ui/DropdownMenu', () => {
-  const { View } = jest.requireActual('react-native');
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { Text, View } = jest.requireActual<typeof import('react-native')>('react-native');
   return {
     DropdownMenu: ({ children }: any) => <View>{children}</View>,
     DropdownMenuTrigger: ({ children }: any) => <View>{children}</View>,
     DropdownMenuContent: ({ children, ...props }: any) => (
       <View testID="focus-audio-menu" {...props}>{children}</View>
     ),
-    DropdownMenuCheckboxItem: ({ children, style, testID }: any) => (
-      <View style={style} testID={testID}>{children}</View>
+    DropdownMenuCheckboxItem: ({ children, ...props }: React.ComponentProps<typeof View>) => (
+      <View {...props}>{children}</View>
     ),
+    DropdownMenuLabel: ({ children }: { children?: React.ReactNode }) => <Text>{children}</Text>,
+    DropdownMenuSeparator: () => <View />,
   };
 });
 
@@ -58,13 +61,18 @@ describe('FocusSetupContent', () => {
     expect(getByText('Environment')).toBeTruthy();
     expect(queryByText('Music')).toBeNull();
     expect(queryByText('Nature')).toBeNull();
+    expect(queryByText('Video')).toBeNull();
+    expect(queryByText('Sound')).toBeNull();
     expect(getAllByText('Deep Work Drift').length).toBeGreaterThan(0);
     expect(getByText('Quiet Rain')).toBeTruthy();
     expect(getByText('Canyon Spring')).toBeTruthy();
+    expect(getByLabelText('Canyon Spring, video environment')).toBeTruthy();
     expect(getByText('Quiet')).toBeTruthy();
     expect(queryByText('Forest Stream')).toBeNull();
+    expect(queryByText('Night Meadow')).toBeNull();
     expect(queryByText('No audio')).toBeNull();
-    expect(getByTestId('focus-soundscape-menu-scroll')).toBeTruthy();
+    expect(getByTestId('focus-soundscape-menu-scroll')).toHaveProp('bounces', false);
+    expect(getByTestId('focus-soundscape-menu-scroll')).toHaveProp('overScrollMode', 'never');
     expect(StyleSheet.flatten(getByTestId('focus-soundscape-option-default').props.style)).toMatchObject({
       minHeight: 44,
       paddingVertical: spacing.xs,

@@ -119,9 +119,12 @@ describe('GamePlayerSetup', () => {
       onChange={jest.fn()}
       onStart={jest.fn()}
       onUseMorePhones={jest.fn()}
+      allTimeHigh={725}
       personalBestFor={(player) => 'id' in player && player.id === 'alden' ? 640 : null}
     />);
 
+    expect(screen.getByText('ALL-TIME HIGH')).toBeTruthy();
+    expect(screen.getByText('725')).toBeTruthy();
     expect(screen.queryByText('Pick familiar players or add someone new.')).toBeNull();
     expect(screen.getByText('PERSONAL BESTS')).toBeTruthy();
     expect(screen.getByText('640')).toBeTruthy();

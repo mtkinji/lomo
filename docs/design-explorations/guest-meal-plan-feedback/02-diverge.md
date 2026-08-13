@@ -1,10 +1,17 @@
 # Diverge
 
-1. Household invitation first: familiar infrastructure, but falsely couples
-   one meal decision to permanent membership and app adoption.
-2. Native-only share card: excellent iOS presentation, but non-users cannot act
-   and results do not return to Plan.
-3. Expiring hosted feedback link: works from Messages or Email, preserves a rich
-   preview, accepts bounded guest feedback, and remains revocable.
+The original divergence chose the expiring hosted link. Once the first app
+receipt exposed a second feedback destination, three result models remained:
+
+1. Share-sheet summary: keep response counts, names, picks, passes, and
+   suggestions in Share Plan. This preserves every response field but turns a
+   sending surface into a feedback inbox and duplicates the Plan.
+2. Pick-to-like projection: translate existing guest picks into `👍` while
+   leaving pass and suggestion data behind. This is cheap, but silently hides
+   feedback that no longer has a visible home.
+3. One reaction stream: let guests choose one ordinary emoji reaction per meal
+   and project those reactions into the Plan's existing pills. Keep link status
+   and revocation in Share Plan, but no response content.
 
 Option 3 best answers the job while keeping the Household boundary intact.
+Guests remain unverified and cannot create a consequential Household hard pass.

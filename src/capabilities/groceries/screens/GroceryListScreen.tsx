@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import * as Crypto from 'expo-crypto';
+import { getLocales } from 'expo-localization';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { FloatingControlSurface } from '../../../features/activities/FloatingControlSurface';
@@ -58,6 +59,7 @@ import {
   reconcileGroceryOfflineQueue,
 } from '../data/groceryOfflineQueue';
 import { groceryFulfillmentSummary } from '../domain/groceryFulfillment';
+import { isOnlineShoppingCountryEligible } from '../domain/groceryOnlineShoppingEligibility';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'GroceryList'>;
 
@@ -226,6 +228,9 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const [cartFlowStarted, setCartFlowStarted] = useState(true);
   const [sourcePlanMealCount, setSourcePlanMealCount] = useState(0);
   const requestedListId = route.params?.listId;
+  const onlineShoppingCountryEligible = isOnlineShoppingCountryEligible(
+    getLocales()[0]?.regionCode,
+  );
 
   const chooseList = useCallback(
     (lists: GroceryProjection[]) =>
@@ -498,6 +503,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
   );
   const showAlreadyHaveCoachmark =
     isFocused &&
+    onlineShoppingCountryEligible &&
     alreadyHaveEducationLoaded &&
     !alreadyHaveEducationSeen &&
     !cartFlowStarted &&
@@ -597,7 +603,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
           pointerEvents="box-none"
           style={styles.dock}
         >
-          <Pressable
+          {list?.status === 'stale' || onlineShoppingCountryEligible ? (
+            <Pressable
               testID="grocery-shop-remaining"
               accessibilityRole="button"
               accessibilityLabel={shopLabel}
@@ -630,7 +637,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
                   <Text style={styles.shopLabel}>Shop online</Text>
                 )}
               </FloatingControlSurface>
-          </Pressable>
+            </Pressable>
+          ) : null}
           <FloatingDockActionButton
             testID="grocery-add-item"
             accessibilityLabel="Add grocery item"
@@ -720,6 +728,7 @@ const styles = StyleSheet.create({
     height: RESTING_COMPOSER_HEIGHT_PX,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: spacing.sm,
     zIndex: 60,
     elevation: 60,

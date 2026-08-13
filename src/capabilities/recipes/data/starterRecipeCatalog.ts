@@ -81,12 +81,25 @@ export function isStarterRecipe(recipeId: string): boolean {
   return metadataById.has(recipeId);
 }
 
+export function isCanonicalCatalogProjection(
+  projection: RecipeProjection,
+): boolean {
+  return (
+    projection.recipe.provenance.method === "catalog" &&
+    projection.recipe.provenance.rightsBasis === "kwilt_authored" &&
+    projection.recipe.lineage.length === 0
+  );
+}
+
 export function buildRecipeLibraryInventory(
   personalRecipes: readonly RecipeProjection[],
 ): RecipeProjection[] {
-  const personalIds = new Set(personalRecipes.map(({ recipe }) => recipe.id));
+  const privateRecipes = personalRecipes.filter(
+    (projection) => !isCanonicalCatalogProjection(projection),
+  );
+  const personalIds = new Set(privateRecipes.map(({ recipe }) => recipe.id));
   return [
-    ...personalRecipes,
+    ...privateRecipes,
     ...STARTER_RECIPE_PROJECTIONS.filter(
       ({ recipe }) => !personalIds.has(recipe.id),
     ).map(applyHostedCatalogMedia),

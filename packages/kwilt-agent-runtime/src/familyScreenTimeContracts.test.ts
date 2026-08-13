@@ -23,6 +23,7 @@ describe('family Screen Time agent contracts', () => {
       });
     }
     for (const id of [
+      'screen_time.personal.setup.open',
       'screen_time.selection.open',
       'screen_time.device.setup.open',
       'screen_time.device.release.open',
@@ -56,6 +57,21 @@ describe('family Screen Time agent contracts', () => {
     expect(serialized).not.toContain('opaquetoken');
   });
 
+  it('models Money app control as a typed self subject, Money condition, and Screen Time effect', () => {
+    const contract = tool('money.app_control.review');
+    expect(contract).toMatchObject({
+      capabilityId: 'money', providers: ['device'], effect: 'write', confirmation: 'explicit',
+    });
+    const serialized = JSON.stringify(contract?.inputSchema);
+    expect(serialized).toContain('"subject"');
+    expect(serialized).toContain('"kind":{"type":"string","enum":["self"]}');
+    expect(serialized).toContain('"owner":{"type":"string","enum":["money"]}');
+    expect(serialized).toContain('"owner":{"type":"string","enum":["screenTime"]}');
+    expect(serialized).toContain('"preset"');
+    expect(serialized).not.toContain('childMembershipId');
+    expect(serialized).not.toContain('applicationToken');
+  });
+
   it('models one daily foreground prerequisite in standing agreement creation', () => {
     const schema = tool('screen_time.agreement.create')?.inputSchema as {
       required?: string[];
@@ -73,7 +89,9 @@ describe('family Screen Time agent contracts', () => {
 
   it('does not claim mobile or Phone execution before providers are wired and proven', () => {
     for (const entry of KWILT_CAPABILITY_MANIFEST.filter((candidate) => (
-      candidate.id.startsWith('screen_time.') && candidate.id !== 'screen_time.configure'
+      candidate.id.startsWith('screen_time.') &&
+      candidate.id !== 'screen_time.configure' &&
+      candidate.id !== 'screen_time.personal.setup.open'
     ))) {
       expect(entry.channels.mobile.state).toBe('pending_provider');
       expect(entry.channels.phone.state).toBe('pending_provider');

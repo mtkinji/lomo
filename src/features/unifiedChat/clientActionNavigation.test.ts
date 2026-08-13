@@ -51,3 +51,16 @@ test('family Screen Time setup opens the exact child and requested native step',
     },
   });
 });
+
+test('Money-owned self control opens the exact category app-control editor', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('review_money_app_control', 'shopping'),
+    capabilityId: 'money', targetType: 'money_category',
+    payload: { subject: { kind: 'self' }, preset: 'when_hot', suggestedAppLabels: ['Amazon'] },
+  })).toEqual({
+    kind: 'navigate', name: 'Money', params: {
+      screen: 'MoneyAppControl',
+      params: { categoryId: 'shopping', suggestedPreset: 'when_hot', suggestedAppLabels: ['Amazon'] },
+    },
+  });
+});

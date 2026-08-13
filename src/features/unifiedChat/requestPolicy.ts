@@ -38,6 +38,8 @@ const UNSUPPORTED_CONSEQUENTIAL_EFFECT_PATTERN =
   /\b(transfer|wire|send)\b[^.!?]*\b(?:\$|money|funds?|checking|savings|bank)|\bfile\b[^.!?]*\btaxes\b|\badd\b[^.!?]*\b(?:bank account|credit card)\b/i;
 const NATIVE_CONTROL_PATTERN =
   /\b(screen time|app limit|block games?|block apps?|allow games?|unlock games?|shield apps?)\b|\bunlock\b[^.!?\n]{0,60}\b(?:apps?|games?)\b/i;
+const SELF_MONEY_APP_CONTROL_PATTERN =
+  /\b(?:for me|my (?:phone|device)|on this (?:phone|device))\b[\s\S]*\b(?:block|pause|restrict|shield)\b|\b(?:block|pause|restrict|shield)\b[\s\S]*\b(?:apps?|amazon|shopping)\b[\s\S]*\b(?:budget|spend(?:ing|ings)?|over budget|ahead of pace|time of (?:the )?month)\b/i;
 const ACTION_PATTERN =
   /\b(move|put|rename|reschedule|schedule|mark|complete|create|add|make|remember|update|change|delete|remove|remind me|call me|turn|enable|disable|open|manage)\b/i;
 const AMBIGUOUS_ACTION_TARGET_PATTERN =
@@ -215,6 +217,16 @@ export function classifyUnifiedChatRequest({
       usePrivateContext: false,
       clarification: null,
       policyReason: 'unsupported-consequential-effect',
+    };
+  }
+
+  if (SELF_MONEY_APP_CONTROL_PATTERN.test(normalizedPrompt) && /\b(?:budget|spend(?:ing|ings)?|over budget|ahead of pace|time of (?:the )?month)\b/i.test(normalizedPrompt)) {
+    return {
+      requestClass: 'capability_action',
+      participatingCapabilities: ['money', 'screenTime'],
+      usePrivateContext: true,
+      clarification: null,
+      policyReason: 'money-owned-self-screen-time-control',
     };
   }
 

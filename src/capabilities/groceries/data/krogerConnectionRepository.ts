@@ -14,7 +14,7 @@ export function createKrogerConnectionRepository(client:SupabaseClient=getSupaba
   selectLocation(location:KrogerLocation){return invoke<{location:KrogerLocation}>(client,'kroger-api',{action:'select_location',location});},
   prepareMatches(groceryListId:string,expectedRevision:number,location:KrogerLocation){return invoke<{retailerLabel:string;location:{id:string;name:string;address:string};matches:KrogerMatch[]}>(client,'kroger-api',{action:'prepare_matches',groceryListId,expectedRevision,location});},
   confirmMapping(groceryListId:string,groceryItemId:string,product:KrogerProduct,quantity:number,location:KrogerLocation){return invoke<{mappingId:string;state:'confirmed'}>(client,'kroger-api',{action:'confirm_mapping',groceryListId,groceryItemId,product,quantity,location});},
-  cartAdd(groceryListId:string,expectedRevision:number){return invoke<{handoffId:string;state:'cart_add_acknowledged';cartUrl:string;addedItemCount:number;remainingItemCount:number;retailerLabel:string;replayed:boolean}>(client,'kroger-api',{action:'cart_add',groceryListId,expectedRevision});},
+  cartAdd(groceryListId:string,expectedRevision:number,location:KrogerLocation){return invoke<{handoffId:string;state:'cart_add_acknowledged';cartUrl:string;addedItemCount:number;remainingItemCount:number;retailerLabel:string;replayed:boolean}>(client,'kroger-api',{action:'cart_add',groceryListId,expectedRevision,locationConfirmation:{locationId:location.id,authority:'user_confirmed'}});},
   revoke(){return invoke<{state:'revoked'}>(client,'kroger-auth',{action:'revoke'});},
  };
 }

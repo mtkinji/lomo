@@ -12,6 +12,25 @@ export type KrogerCartGroup = {
   matches: KrogerMatch[];
 };
 
+const productKey = (product: KrogerProduct) => product.upc.trim() || product.id;
+
+export function getKrogerCartGroupAlternatives(group: KrogerCartGroup): KrogerProduct[] {
+  const [firstMatch, ...remainingMatches] = group.matches;
+  if (!firstMatch) return [];
+
+  const availableInEveryMatch = remainingMatches.map(
+    (match) => new Set(match.products.map(productKey)),
+  );
+  const seen = new Set<string>();
+
+  return firstMatch.products.filter((product) => {
+    const key = productKey(product);
+    if (seen.has(key) || availableInEveryMatch.some((keys) => !keys.has(key))) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function projectKrogerCartGroups(
   matches: KrogerMatch[],
   selection: KrogerCartSelection,
@@ -21,7 +40,7 @@ export function projectKrogerCartGroups(
   for (const match of matches) {
     const line = selection[match.groceryItem.id];
     if (!line) continue;
-    const key = line.product.upc.trim() || line.product.id;
+    const key = productKey(line.product);
     const existing = groups.get(key);
     if (existing) {
       existing.quantity += line.quantity;

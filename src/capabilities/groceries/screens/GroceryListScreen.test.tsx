@@ -8,6 +8,7 @@ import { reconcileGroceryOfflineQueue } from '../data/groceryOfflineQueue';
 const mockOpenMenu = jest.fn();
 let mockCapabilityMenuOpen = false;
 let mockScreenFocused = true;
+let mockCountryCode: string | null = 'US';
 const mockEnqueue = jest.fn();
 const mockAddItem = jest.fn();
 
@@ -31,6 +32,9 @@ type MockButtonProps = {
 jest.mock('../data/groceryRepository', () => ({ createGroceryRepository: jest.fn() }));
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => mockScreenFocused,
+}));
+jest.mock('expo-localization', () => ({
+  getLocales: () => [{ regionCode: mockCountryCode }],
 }));
 jest.mock('../data/groceryEducation', () => ({
   groceryEducation: {
@@ -190,6 +194,7 @@ describe('Grocery List primary capability', () => {
     jest.clearAllMocks();
     mockCapabilityMenuOpen = false;
     mockScreenFocused = true;
+    mockCountryCode = 'US';
     mockHasSeenAlreadyHave.mockResolvedValue(false);
     mockHasStartedCartFlow.mockResolvedValue(false);
     mockMarkAlreadyHaveSeen.mockResolvedValue(undefined);
@@ -445,6 +450,21 @@ describe('Grocery List primary capability', () => {
     expect(mockMarkCartFlowStarted).toHaveBeenCalledWith('user-1');
     expect(screen.getByLabelText('Shop online · 1 item')).toBeTruthy();
     expect(navigate).toHaveBeenCalledWith('KrogerCart', { listId: 'list-1' });
+  });
+
+  it('only offers online shopping in the US or Canada', async () => {
+    mockCountryCode = 'FR';
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
+    expect(screen.queryByTestId('grocery-shop-remaining')).toBeNull();
+    expect(screen.queryByTestId('grocery-already-have-coachmark')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add grocery item' })).toBeTruthy();
   });
 
   it('keeps a queued completion layout-stable while updating the handoff count', async () => {

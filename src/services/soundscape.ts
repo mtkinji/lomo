@@ -13,7 +13,8 @@ type SoundscapeStatus = 'idle' | 'loading' | 'ready' | 'playing' | 'stopped' | '
 
 let status: SoundscapeStatus = 'idle';
 let sound: AudioPlayer | null = null;
-let playbackSubscription: { remove: () => void } | null = null;
+let warmStandbySound: AudioPlayer | null = null;
+const playbackSubscriptions = new Map<AudioPlayer, { remove: () => void }>();
 // Default soundscape volume (0..1). The device/system volume still applies on top of this.
 let currentVolume = audioGainForCategory('focus.music');
 let lastAppliedVolume = currentVolume;
@@ -24,10 +25,12 @@ let loadPromise: Promise<void> | null = null;
 let shouldBePlaying = false;
 let resumeAttempts = 0;
 let lastResumeAttemptMs = 0;
-let playbackListenerAttached = false;
+let canyonCrossfadeInProgress = false;
 
 const DEFAULT_SOUNDSCAPE_SOURCE = require('../../assets/audio/soundscapes/Sleep Music No. 1 - Chris Haugen.mp3');
 const CANYON_SPRING_SOURCE = require('../../assets/audio/soundscapes/canyon-spring-stream.mp3');
+const CANYON_SPRING_CROSSFADE_LEAD_SECONDS = 2;
+const CANYON_SPRING_CROSSFADE_DURATION_MS = 1_200;
 const REMOTE_SOUNDSCAPE_IDS: Partial<Record<SoundscapeId, RemoteAudioAssetId>> = {
   copacabanaFocus: 'focus.copacabana',
   focusFlowState: 'focus.focus-tunnel',
@@ -38,7 +41,6 @@ const REMOTE_SOUNDSCAPE_IDS: Partial<Record<SoundscapeId, RemoteAudioAssetId>> =
   quietRain: 'focus.quiet-rain',
   oceanWaves: 'focus.ocean-waves',
   fireplace: 'focus.fireplace',
-  nightMeadow: 'focus.night-meadow',
 };
 
 let currentSoundscapeId: SoundscapeId = 'default';
@@ -70,15 +72,21 @@ export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) 
       await ensureAudioMode();
       const selectedId = currentSoundscapeId;
       const selectedSource = await resolveSoundscapeSource(selectedId);
+      const playerOptions = {
+        keepAudioSessionActive: true,
+        updateInterval: selectedId === 'canyonSpring' ? 250 : 500,
+      } as const;
       let created;
+      let usingOfflineFallback = false;
       try {
         created = await runSoundscapeNativeOperation(
           'createAudioPlayer',
-          () => createAudioPlayer(selectedSource, { keepAudioSessionActive: true }),
+          () => createAudioPlayer(selectedSource, playerOptions),
           { shouldPlay: false, selectedId },
         );
       } catch (error) {
         if (selectedId === 'default') throw error;
+        usingOfflineFallback = true;
         created = await runSoundscapeNativeOperation(
           'createAudioPlayer.offlineFallback',
           () => createAudioPlayer(DEFAULT_SOUNDSCAPE_SOURCE, { keepAudioSessionActive: true }),
@@ -89,6 +97,21 @@ export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) 
       sound.loop = true;
       sound.volume = 0;
       attachPlaybackStatusListener(sound);
+      if (selectedId === 'canyonSpring' && !usingOfflineFallback) {
+        try {
+          warmStandbySound = await runSoundscapeNativeOperation(
+            'createAudioPlayer.canyonWarmStandby',
+            () => createAudioPlayer(selectedSource, playerOptions),
+            { shouldPlay: false, selectedId },
+          );
+          warmStandbySound.loop = true;
+          warmStandbySound.volume = 0;
+          attachPlaybackStatusListener(warmStandbySound);
+        } catch {
+          // The primary player's native loop remains the safe fallback.
+          warmStandbySound = null;
+        }
+      }
       status = 'ready';
 
       if (pendingStop) {
@@ -109,9 +132,8 @@ export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) 
         // ignore
       }
       sound = null;
-      playbackSubscription?.remove();
-      playbackSubscription = null;
-      playbackListenerAttached = false;
+      await releaseWarmStandbySound();
+      removeAllPlaybackSubscriptions();
       throw e;
     } finally {
       loadPromise = null;
@@ -214,9 +236,8 @@ export async function startSoundscapeLoop(opts?: { volume?: number; fadeInMs?: n
       // ignore
     }
     sound = null;
-    playbackSubscription?.remove();
-    playbackSubscription = null;
-    playbackListenerAttached = false;
+    await releaseWarmStandbySound();
+    removeAllPlaybackSubscriptions();
     throw e;
   }
 }
@@ -228,6 +249,7 @@ export async function stopSoundscapeLoop(opts?: { unload?: boolean }) {
   shouldBePlaying = false;
   resumeAttempts = 0;
   lastResumeAttemptMs = 0;
+  canyonCrossfadeInProgress = false;
 
   // If we're loading but haven't created the Sound instance yet, mark stopped now.
   // The start flow checks `pendingStop` after load and will shut down immediately.
@@ -260,15 +282,14 @@ export async function stopSoundscapeLoop(opts?: { unload?: boolean }) {
     }
     try {
       const target = sound;
-      playbackSubscription?.remove();
-      playbackSubscription = null;
+      removePlaybackSubscription(target);
       await runSoundscapeNativeOperation('sound.remove', () => target.remove());
     } catch {
       // ignore
     }
     sound = null;
+    await releaseWarmStandbySound();
     status = 'stopped';
-    playbackListenerAttached = false;
   } else {
     // Keep the asset loaded so turning sound back on feels instant.
     try {
@@ -276,6 +297,14 @@ export async function stopSoundscapeLoop(opts?: { unload?: boolean }) {
       await runSoundscapeNativeOperation('sound.pause', () => target.pause());
     } catch {
       // ignore
+    }
+    try {
+      if (warmStandbySound) {
+        warmStandbySound.pause();
+        warmStandbySound.volume = 0;
+      }
+    } catch {
+      // best effort
     }
     status = 'ready';
   }
@@ -301,6 +330,7 @@ export async function setSoundscapeId(id: SoundscapeId) {
   currentSoundscapeId = id;
   status = 'idle';
   sound = null;
+  warmStandbySound = null;
 }
 
 export async function resolveSoundscapeSource(id: SoundscapeId): Promise<any> {
@@ -332,13 +362,18 @@ async function ensureAudioMode(opts?: { force?: boolean }) {
   audioModeConfigured = true;
 }
 
-function attachPlaybackStatusListener(target: any) {
-  if (!target?.addListener || playbackListenerAttached) return;
-  playbackListenerAttached = true;
-  playbackSubscription = target.addListener('playbackStatusUpdate', (status: any) => {
-    if (!status || !status.isLoaded) return;
-    if (!shouldBePlaying) return;
-    if (status.playing || status.isBuffering) return;
+function attachPlaybackStatusListener(target: AudioPlayer) {
+  if (!target?.addListener || playbackSubscriptions.has(target)) return;
+  const subscription = target.addListener('playbackStatusUpdate', (playbackStatus: any) => {
+    if (!playbackStatus || !playbackStatus.isLoaded) return;
+    if (!shouldBePlaying || target !== sound) return;
+
+    if (shouldCrossfadeCanyonSpring(playbackStatus)) {
+      void crossfadeCanyonSpringLoop(target);
+      return;
+    }
+
+    if (playbackStatus.playing || playbackStatus.isBuffering) return;
     // Best-effort: resume after route changes / interruptions.
     const now = Date.now();
     const cooldownMs = resumeAttempts < 2 ? 500 : 1500;
@@ -347,6 +382,91 @@ function attachPlaybackStatusListener(target: any) {
     resumeAttempts += 1;
     void attemptResumePlayback();
   });
+  playbackSubscriptions.set(target, subscription);
+}
+
+function shouldCrossfadeCanyonSpring(playbackStatus: any): boolean {
+  if (currentSoundscapeId !== 'canyonSpring') return false;
+  if (!warmStandbySound || canyonCrossfadeInProgress) return false;
+  if (!playbackStatus.playing || playbackStatus.isBuffering) return false;
+  const duration = Number(playbackStatus.duration);
+  const currentTime = Number(playbackStatus.currentTime);
+  if (!Number.isFinite(duration) || !Number.isFinite(currentTime) || duration <= 0) return false;
+  return duration - currentTime <= CANYON_SPRING_CROSSFADE_LEAD_SECONDS;
+}
+
+async function crossfadeCanyonSpringLoop(outgoing: AudioPlayer) {
+  const incoming = warmStandbySound;
+  if (!incoming || outgoing !== sound || canyonCrossfadeInProgress) return;
+
+  canyonCrossfadeInProgress = true;
+  const crossfadeOpId = opCounter;
+  try {
+    incoming.volume = 0;
+    await incoming.seekTo(0, 0, 0);
+    if (crossfadeOpId !== opCounter || !shouldBePlaying) return;
+    incoming.play();
+
+    const steps = Math.max(12, Math.floor(CANYON_SPRING_CROSSFADE_DURATION_MS / 50));
+    const stepMs = Math.floor(CANYON_SPRING_CROSSFADE_DURATION_MS / steps);
+    for (let step = 1; step <= steps; step += 1) {
+      if (crossfadeOpId !== opCounter || !shouldBePlaying) return;
+      const progress = step / steps;
+      outgoing.volume = currentVolume * Math.cos(progress * Math.PI / 2);
+      incoming.volume = currentVolume * Math.sin(progress * Math.PI / 2);
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(stepMs);
+    }
+
+    outgoing.pause();
+    await outgoing.seekTo(0, 0, 0);
+    outgoing.volume = 0;
+    if (crossfadeOpId !== opCounter || !shouldBePlaying) return;
+
+    sound = incoming;
+    warmStandbySound = outgoing;
+    lastAppliedVolume = currentVolume;
+    resumeAttempts = 0;
+  } catch (error) {
+    // Keep the outgoing player's native loop enabled as the reliability fallback.
+    try {
+      incoming.pause();
+      incoming.volume = 0;
+      outgoing.volume = currentVolume;
+    } catch {
+      // best effort
+    }
+    await recordSoundscapeBreadcrumb('canyonCrossfade', 'error', undefined, error);
+  } finally {
+    canyonCrossfadeInProgress = false;
+  }
+}
+
+function removePlaybackSubscription(target: AudioPlayer) {
+  playbackSubscriptions.get(target)?.remove();
+  playbackSubscriptions.delete(target);
+}
+
+function removeAllPlaybackSubscriptions() {
+  playbackSubscriptions.forEach((subscription) => subscription.remove());
+  playbackSubscriptions.clear();
+}
+
+async function releaseWarmStandbySound() {
+  const standby = warmStandbySound;
+  warmStandbySound = null;
+  if (!standby) return;
+  removePlaybackSubscription(standby);
+  try {
+    standby.pause();
+  } catch {
+    // best effort
+  }
+  try {
+    await runSoundscapeNativeOperation('sound.remove.canyonWarmStandby', () => standby.remove());
+  } catch {
+    // best effort
+  }
 }
 
 async function attemptResumePlayback() {
@@ -445,7 +565,9 @@ async function disposeSoundscapeForFastRefresh(): Promise<void> {
   // JavaScript singleton that owns it. Stop it before the old module is discarded
   // so Focus audio cannot become detached from the active-session state.
   const target = sound;
+  const standby = warmStandbySound;
   sound = null;
+  warmStandbySound = null;
   opCounter += 1;
   pendingStop = true;
   shouldBePlaying = false;
@@ -453,25 +575,25 @@ async function disposeSoundscapeForFastRefresh(): Promise<void> {
   resumeAttempts = 0;
   lastResumeAttemptMs = 0;
   lastAppliedVolume = 0;
-  playbackListenerAttached = false;
-
-  if (!target) return;
+  canyonCrossfadeInProgress = false;
 
   try {
-    playbackSubscription?.remove();
-    playbackSubscription = null;
+    removeAllPlaybackSubscriptions();
   } catch {
     // best effort during development teardown
   }
-  try {
-    target.pause();
-  } catch {
-    // best effort during development teardown
-  }
-  try {
-    target.remove();
-  } catch {
-    // best effort during development teardown
+  for (const player of [target, standby]) {
+    if (!player) continue;
+    try {
+      player.pause();
+    } catch {
+      // best effort during development teardown
+    }
+    try {
+      player.remove();
+    } catch {
+      // best effort during development teardown
+    }
   }
 }
 

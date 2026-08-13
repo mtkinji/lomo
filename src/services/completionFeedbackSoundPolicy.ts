@@ -1,4 +1,4 @@
-export type CompletionBaseSound = 'none' | 'step' | 'activity';
+export type CompletionBaseSound = 'none' | 'step' | 'activity' | 'focus';
 
 export type StreakSoundMoment =
   | 'none'
@@ -10,6 +10,7 @@ export type StreakSoundMoment =
 
 export type CompletionFeedbackSound =
   | CompletionBaseSound
+  | 'focusChime'
   | 'tinyCrowdWarm'
   | 'tinyCrowdProminent';
 
@@ -18,6 +19,13 @@ export function chooseCompletionFeedbackSound(input: {
   streakMoment: StreakSoundMoment;
   allScheduledActivitiesDone: boolean;
 }): CompletionFeedbackSound {
+  // Finishing Focus should preserve the quiet state the session created.
+  // A streak or all-done milestone may still celebrate visually, but it must
+  // not replace this event-owned cue with applause.
+  if (input.baseSound === 'focus') {
+    return 'focusChime';
+  }
+
   if (
     input.allScheduledActivitiesDone ||
     input.streakMoment === 'milestone' ||

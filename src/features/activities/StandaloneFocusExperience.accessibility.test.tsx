@@ -1,13 +1,21 @@
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { Modal } from 'react-native';
+import { FullWindowOverlay } from 'react-native-screens';
 import { StandaloneFocusExperience } from './StandaloneFocusExperience';
 import type { StandaloneFocusController } from './useStandaloneFocusController';
+import { FocusSessionOverlay } from './FocusSessionOverlay';
 
 jest.mock('./FocusEnvironmentBackdrop', () => ({ FocusEnvironmentBackdrop: () => null }));
-jest.mock('./useActiveFocusOrientation', () => ({ useActiveFocusOrientation: jest.fn() }));
+jest.mock('react-native-screens', () => {
+  const React = jest.requireActual('react');
+  const { View } = jest.requireActual('react-native');
+  return {
+    FullWindowOverlay: ({ children }: { children?: React.ReactNode }) => React.createElement(View, null, children),
+  };
+});
 
 describe('StandaloneFocusExperience accessibility contract', () => {
-  it('allows the active Focus modal to rotate into either landscape orientation', () => {
+  it('uses the iOS window overlay so the active Focus session follows native rotation', () => {
     const controller = {
       session: { mode: 'running' },
       remainingMs: 10 * 60 * 1000,
@@ -23,10 +31,9 @@ describe('StandaloneFocusExperience accessibility contract', () => {
       />,
     );
 
-    expect(UNSAFE_getByType(Modal).props.supportedOrientations).toEqual([
-      'portrait',
-      'landscape',
-    ]);
+    expect(UNSAFE_getByType(FocusSessionOverlay)).toBeTruthy();
+    expect(UNSAFE_getByType(FullWindowOverlay)).toBeTruthy();
+    expect(() => UNSAFE_getByType(Modal)).toThrow();
   });
 
   it('keeps the timer inside the viewport at accessibility text sizes', () => {

@@ -1,4 +1,5 @@
 import {
+  allTimeBestForGame,
   mergePersonalBests,
   playerBestKey,
   recordPersonalBests,
@@ -53,5 +54,17 @@ describe('personal bests', () => {
     const local = [at('saved:charlie', 'bank', 500, '2026-07-18T20:00:00.000Z')];
     const cloud = [at('saved:charlie', 'bank', 350, '2026-07-19T20:00:00.000Z')];
     expect(mergePersonalBests(local, cloud)).toEqual(local);
+  });
+
+  test('finds the all-time high for one game across saved players', () => {
+    const records = [
+      at('saved:charlie', 'bank', 500, '2026-07-18T20:00:00.000Z'),
+      at('profile:andrew', 'bank', 725, '2026-07-19T20:00:00.000Z'),
+      at('saved:charlie', 'farkle', 11200, '2026-07-19T21:00:00.000Z'),
+    ];
+
+    expect(allTimeBestForGame(records, 'bank')).toBe(725);
+    expect(allTimeBestForGame(records, 'farkle')).toBe(11200);
+    expect(allTimeBestForGame([], 'bank')).toBeNull();
   });
 });

@@ -41,6 +41,7 @@ type Props = {
   onEditSelf?: () => void;
   onUseAsMyPlayer?: (name: string, identity: PlayerIdentity) => void;
   personalBestFor?: (player: SavedPlayer | GamePlayerProfile) => number | null;
+  allTimeHigh?: number | null;
   minPlayers?: number;
   maxPlayers?: number;
 };
@@ -70,6 +71,7 @@ export function GamePlayerSetup({
   onEditSelf,
   onUseAsMyPlayer,
   personalBestFor,
+  allTimeHigh,
   minPlayers: requestedMinPlayers,
   maxPlayers: requestedMaxPlayers,
 }: Props) {
@@ -124,7 +126,13 @@ export function GamePlayerSetup({
   };
 
   return <View style={styles.setup}>
-    <View style={styles.setupHeading}><Text style={styles.setupTitle}>Who’s playing?</Text></View>
+    <View style={styles.setupHeading}>
+      <Text style={styles.setupTitle}>Who’s playing?</Text>
+      {mode === 'bank' && allTimeHigh !== null && allTimeHigh !== undefined ? <View accessible accessibilityLabel={`Bank all-time high ${allTimeHigh}`} style={styles.allTimeHigh}>
+        <Text style={styles.allTimeHighLabel}>ALL-TIME HIGH</Text>
+        <Text style={styles.allTimeHighValue}>{allTimeHigh.toLocaleString()}</Text>
+      </View> : null}
+    </View>
 
     {!loading ? <SavedPlayerPicker
       players={savedPlayers}
@@ -184,8 +192,11 @@ export function GamePlayerSetup({
 
 const styles = StyleSheet.create({
   setup: { flex: 1, paddingHorizontal: 4, paddingVertical: 14, gap: 13 },
-  setupHeading: { paddingHorizontal: 6 },
+  setupHeading: { minHeight: 38, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
   setupTitle: { fontFamily: gamesTheme.type.display, fontSize: 27, color: gamesTheme.colors.ink },
+  allTimeHigh: { alignItems: 'flex-end' },
+  allTimeHighLabel: { fontFamily: gamesTheme.type.utility, color: 'rgba(32,29,24,0.5)', fontSize: 9, letterSpacing: 1.1 },
+  allTimeHighValue: { fontFamily: gamesTheme.type.display, color: gamesTheme.colors.ink, fontSize: 20, lineHeight: 22 },
   seatScroll: { minHeight: 0 },
   inputs: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingVertical: 6 },
   inputWrap: { width: '48%', gap: 5 },

@@ -54,6 +54,7 @@ export function DoodleBridgeGame({ players }: { players: string[] }) {
       if (points.length > 1) setStrokes((items) => commitDoodleStroke(items, { points, color: activeColor, player: turn.playerIndex, turn: turnIndex }));
       return [];
     }),
+    onPanResponderTerminationRequest: () => false,
     onPanResponderTerminate: () => setCurrent([]),
     onShouldBlockNativeResponder: () => true,
   }), [activeColor, canvasBounds, phase, turn.playerIndex, turnIndex]);

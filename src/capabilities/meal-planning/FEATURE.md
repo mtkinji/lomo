@@ -25,7 +25,9 @@ last_reviewed: 2026-08-12
 
 # Meal Planning
 
-Owns the household-private persistent Plan, immutable Recipe occurrences,
-named positive support, adult grocery commitment, derived readiness, and
-Made/Removed history. Legacy finalized plans and choice rounds remain readable
-as history but are not the Recipes Plan workflow.
+Owns the household-private persistent Plan, immutable Recipe occurrences, one
+meal-row reaction stream for signed-in members and purpose-limited guests,
+adult grocery commitment, derived readiness, and Made/Removed history. Guest
+labels remain unverified and cannot create a consequential hard pass. Legacy
+finalized plans and choice rounds remain readable as history but are not the
+Recipes Plan workflow.

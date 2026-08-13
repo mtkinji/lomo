@@ -25,7 +25,7 @@ describe('Oddball rules', () => {
     expect(result).toMatchObject({
       phase: 'result',
       oddballPlayerId: 'player-4',
-      winnerId: null,
+      winnerIds: [],
       outcome: {
         kind: 'scored',
         winningOptionIndex: 1,
@@ -66,47 +66,40 @@ describe('Oddball rules', () => {
     expect(result.outcome).toMatchObject({ oddballPlayerId: 'player-1', markerChanged: true });
   });
 
-  it('does not let the Oddball holder win even when they reach eight', () => {
+  it('finishes after six questions and does not let the Oddball holder win', () => {
     const game = recordingGame();
-    const nearWin = {
+    const finalQuestion = {
       ...game,
+      roundIndex: 5,
       oddballPlayerId: 'player-1',
-      players: game.players.map((player, index) => ({ ...player, score: index === 0 ? 7 : index === 1 ? 6 : 0 })),
+      players: game.players.map((player, index) => ({ ...player, score: index === 0 ? 4 : index === 1 ? 3 : 0 })),
     };
-    const result = scoreOddballRound(nearWin, {
+    const result = scoreOddballRound(finalQuestion, {
       winningOptionIndex: 0,
       scorerIds: ['player-1', 'player-2'],
       oddballPlayerId: null,
     });
 
-    expect(result.players.map((player) => player.score)).toEqual([8, 7, 0, 0]);
-    expect(result.winnerId).toBeNull();
+    expect(result.players.map((player) => player.score)).toEqual([5, 4, 0, 0]);
+    expect(result.winnerIds).toEqual(['player-2']);
+    expect(advanceOddballGame(result).phase).toBe('finished');
   });
 
-  it('finishes for one unmarked leader at eight but extends a tied race', () => {
+  it('preserves shared winners instead of extending a tied final score', () => {
     const game = recordingGame();
-    const oneLeader = {
+    const finalQuestion = {
       ...game,
-      players: game.players.map((player, index) => ({ ...player, score: index === 0 ? 7 : index === 1 ? 6 : 0 })),
+      roundIndex: 5,
+      players: game.players.map((player, index) => ({ ...player, score: index < 2 ? 3 : 0 })),
     };
-    const won = scoreOddballRound(oneLeader, {
+    const tied = scoreOddballRound(finalQuestion, {
       winningOptionIndex: 2,
-      scorerIds: ['player-1', 'player-3'],
-      oddballPlayerId: null,
-    });
-    expect(won.winnerId).toBe('player-1');
-    expect(advanceOddballGame(won).phase).toBe('finished');
-
-    const tied = scoreOddballRound({
-      ...game,
-      players: game.players.map((player, index) => ({ ...player, score: index < 2 ? 7 : 0 })),
-    }, {
-      winningOptionIndex: 1,
       scorerIds: ['player-1', 'player-2'],
       oddballPlayerId: null,
     });
-    expect(tied.winnerId).toBeNull();
-    expect(advanceOddballGame(tied).phase).toBe('choosing');
+
+    expect(tied.winnerIds).toEqual(['player-1', 'player-2']);
+    expect(advanceOddballGame(tied).phase).toBe('finished');
   });
 
   it('ignores malformed result reports instead of corrupting the shared score', () => {

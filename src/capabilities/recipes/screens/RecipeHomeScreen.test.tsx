@@ -314,6 +314,7 @@ describe("Recipe Home", () => {
         servings={8}
         {...deriveRecipeNextActions({ activeCook: true, isInPlan: true, planState: "finalized" })}
         actionBusy={false}
+        cookCount={3}
         priorLearning={{
           id: "record-1",
           sessionId: "session-1",
@@ -321,7 +322,16 @@ describe("Recipe Home", () => {
           recipeVersionId: "version-1",
           servingScale: 1,
           wouldMakeAgain: true,
+          outcomeRating: 4,
           privateNote: "Use more sauce",
+          substitutions: [{
+            id: "substitution-1",
+            ingredientLineId: "ingredient-1",
+            ingredientText: "1 cup whole milk",
+            usedInstead: "oat milk",
+            resultRating: 3,
+            note: "Use a little less",
+          }],
           completedAt: "2026-08-05T12:00:00.000Z",
         }}
         onServingsChange={jest.fn()}
@@ -330,6 +340,10 @@ describe("Recipe Home", () => {
       />,
     );
     expect(screen.getByText("From your last cook")).toBeTruthy();
+    expect(screen.getByText("Cooked 3 times")).toBeTruthy();
+    expect(screen.getByText("You rated this cook 4 out of 5.")).toBeTruthy();
+    expect(screen.getByText("Last time you used oat milk instead of 1 cup whole milk.")).toBeTruthy();
+    expect(screen.getByText("That substitution was 3 out of 5 · Use a little less")).toBeTruthy();
     expect(screen.getByText("Use more sauce")).toBeTruthy();
     expect(screen.getByText(/Private Cook record/)).toBeTruthy();
     expect(screen.getByText("Continue cooking")).toBeTruthy();

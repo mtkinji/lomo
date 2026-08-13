@@ -29,8 +29,8 @@ import { identityForSeats } from './setupSeats';
 import { useGamePlayerProfile } from '@/src/capabilities/games/players/useGamePlayerProfile';
 import { useActiveGameOrientation } from '@/src/capabilities/games/platform/useActiveGameOrientation';
 import { usePersonalBests } from '@/src/capabilities/games/players/usePersonalBests';
-import { playerBestKey, type PersonalBestOutcome } from '@/src/capabilities/games/players/personalBests';
-import { bankRollButtonLabel, bankRollCooldownRemaining, useRollCooldown } from './useRollCooldown';
+import { allTimeBestForGame, playerBestKey, type PersonalBestOutcome } from '@/src/capabilities/games/players/personalBests';
+import { BANK_ROLL_COOLDOWN_SECONDS, bankRollButtonLabel, bankRollCooldownRemaining, useRollCooldown } from './useRollCooldown';
 import { permanentUserId } from '@/src/capabilities/games/platform/auth';
 import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
 import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';
@@ -71,7 +71,7 @@ export function TumbleScreen() {
   const [bankingRule, setBankingRule] = useState<BankingRule>('anyone');
   const [bankGame, setBankGame] = useState(() => createBankGame(initialNames));
   const [bankDice, setBankDice] = useState([3, 5]);
-  const bankRollCooldown = useRollCooldown(3);
+  const bankRollCooldown = useRollCooldown(BANK_ROLL_COOLDOWN_SECONDS);
   const [bankPickerOpen, setBankPickerOpen] = useState(false);
   const [remoteStarting, setRemoteStarting] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
@@ -357,6 +357,7 @@ export function TumbleScreen() {
             personalBestFor={(player) => 'id' in player
               ? personalBests.bestFor(mode === 'bank' ? 'bank' : 'farkle', { savedPlayerId: player.id, displayName: player.displayName })
               : personalBests.bestFor(mode === 'bank' ? 'bank' : 'farkle', { profileUserId: player.userId, displayName: player.displayName })}
+            allTimeHigh={mode === 'bank' ? allTimeBestForGame(personalBests.records, 'bank') : null}
           />
         ) : (
           <>

@@ -8,6 +8,7 @@ import { syncLiveActivity } from '../../services/appleEcosystem/liveActivity';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
 import { startSoundscapeLoop } from '../../services/soundscape';
 import { useAppStore } from '../../store/useAppStore';
+import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
 import { FocusSessionRuntimeHost } from './FocusSessionRuntimeHost';
 import { useFocusSessionStore } from './focusSessionStore';
 
@@ -53,6 +54,7 @@ const syncLiveActivityMock = syncLiveActivity as jest.Mock;
 const reconcileScreenTimeRestrictionsMock = reconcileScreenTimeRestrictions as jest.Mock;
 const startSoundscapeLoopMock = startSoundscapeLoop as jest.Mock;
 const useKeepAwakeMock = useKeepAwake as jest.Mock;
+const recordShowUpWithCelebrationMock = recordShowUpWithCelebration as jest.Mock;
 
 describe('FocusSessionRuntimeHost', () => {
   beforeEach(async () => {
@@ -127,6 +129,7 @@ describe('FocusSessionRuntimeHost', () => {
 
     expect(useFocusSessionStore.getState().activeSession).toBeNull();
     expect(cancelScheduledNotificationAsync).not.toHaveBeenCalledWith('focus-complete-notification');
+    expect(recordShowUpWithCelebrationMock).toHaveBeenCalledWith({ baseSound: 'focus' });
   });
 
   it('starts a Focus soundscape with the same gentle fade used when stopping', async () => {

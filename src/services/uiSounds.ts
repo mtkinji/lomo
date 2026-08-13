@@ -15,6 +15,8 @@ let stepDoneSound: AudioPlayer | null = null;
 let stepDoneLoading: Promise<void> | null = null;
 let activityDoneSound: AudioPlayer | null = null;
 let activityDoneLoading: Promise<void> | null = null;
+let focusChimeSound: AudioPlayer | null = null;
+let focusChimeLoading: Promise<void> | null = null;
 let tinyCrowdSound: AudioPlayer | null = null;
 let tinyCrowdLoading: Promise<void> | null = null;
 
@@ -22,13 +24,15 @@ let tinyCrowdLoading: Promise<void> | null = null;
 // You can swap this for any other short asset under `assets/audio/sfx/`.
 const STEP_DONE_SOURCE = require('../../assets/audio/sfx/list-tap.wav');
 const ACTIVITY_DONE_SOURCE = require('../../assets/audio/sfx/mark-complete.wav');
+const FOCUS_CHIME_SOURCE = require('../../assets/audio/sfx/focus-complete-chime.wav');
+const FOCUS_CHIME_GAIN = 0.32;
 // Reuse the already-bundled Games signature instead of adding another asset.
 const TINY_CROWD_SOURCE = require('../../assets/games/success-tiny-crowd-1.mp3');
 const TINY_CROWD_PROMINENT_GAIN = audioGainForCategory('game.signature');
 const TINY_CROWD_WARM_GAIN = TINY_CROWD_PROMINENT_GAIN * 0.55;
 
 function pauseOtherUiSounds(active: AudioPlayer) {
-  for (const player of [stepDoneSound, activityDoneSound, tinyCrowdSound]) {
+  for (const player of [stepDoneSound, activityDoneSound, focusChimeSound, tinyCrowdSound]) {
     if (!player || player === active) continue;
     try {
       player.pause();
@@ -149,6 +153,53 @@ export async function playActivityDoneSound() {
   }
 }
 
+async function preloadFocusChimeSound() {
+  if (focusChimeSound) return;
+  if (focusChimeLoading) {
+    await focusChimeLoading.catch(() => undefined);
+    return;
+  }
+
+  focusChimeLoading = (async () => {
+    await ensureUiAudioMode();
+    const player = createAudioPlayer(FOCUS_CHIME_SOURCE);
+    player.volume = FOCUS_CHIME_GAIN;
+    focusChimeSound = player;
+  })();
+
+  try {
+    await focusChimeLoading;
+  } finally {
+    focusChimeLoading = null;
+  }
+}
+
+async function playFocusChimeSound() {
+  try {
+    await preloadFocusChimeSound();
+    if (!focusChimeSound) return;
+    await ensureUiAudioMode({ force: true });
+    focusChimeSound.volume = FOCUS_CHIME_GAIN;
+    pauseOtherUiSounds(focusChimeSound);
+    try {
+      await focusChimeSound.seekTo(0);
+      focusChimeSound.play();
+    } catch {
+      focusChimeSound?.remove();
+      focusChimeSound = null;
+      await preloadFocusChimeSound();
+      const recovered = focusChimeSound as AudioPlayer | null;
+      if (!recovered) return;
+      recovered.volume = FOCUS_CHIME_GAIN;
+      pauseOtherUiSounds(recovered);
+      await recovered.seekTo(0);
+      recovered.play();
+    }
+  } catch {
+    // Best-effort: no-op if audio fails.
+  }
+}
+
 async function preloadTinyCrowdSound() {
   if (tinyCrowdSound) return;
   if (tinyCrowdLoading) {
@@ -206,6 +257,10 @@ export async function playCompletionFeedbackSound(sound: CompletionFeedbackSound
     await playActivityDoneSound();
     return;
   }
+  if (sound === 'focusChime' || sound === 'focus') {
+    await playFocusChimeSound();
+    return;
+  }
   await playTinyCrowdSound(
     sound === 'tinyCrowdProminent' ? TINY_CROWD_PROMINENT_GAIN : TINY_CROWD_WARM_GAIN,
   );
@@ -215,6 +270,7 @@ export async function unloadUiSounds() {
   try {
     stepDoneSound?.remove();
     activityDoneSound?.remove();
+    focusChimeSound?.remove();
     tinyCrowdSound?.remove();
   } catch {
     // ignore
@@ -223,6 +279,8 @@ export async function unloadUiSounds() {
     stepDoneLoading = null;
     activityDoneSound = null;
     activityDoneLoading = null;
+    focusChimeSound = null;
+    focusChimeLoading = null;
     tinyCrowdSound = null;
     tinyCrowdLoading = null;
   }

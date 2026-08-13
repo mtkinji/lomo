@@ -30,7 +30,7 @@ describe('game catalog', () => {
   });
 
   it('replaces Same Page with player-aware Oddball without expanding the shelf', () => {
-    expect(gameCatalog.find((game) => game.id === 'same-page')).toMatchObject({ title: 'Oddball', minPlayers: 3, maxPlayers: 8 });
+    expect(gameCatalog.find((game) => game.id === 'same-page')).toMatchObject({ title: 'Oddball', minPlayers: 3, maxPlayers: 8, durationMinutes: [5, 10] });
     expect(gameCatalog.map((game) => game.title)).not.toContain('Same Page');
     expect(gameCatalog.map((game) => game.title)).not.toContain('One Plan');
     expect(gameCatalog.map((game) => game.title)).not.toContain('Show of Hands');

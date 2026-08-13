@@ -46,7 +46,11 @@ export function MoneyAppControlScreen({ navigation, route }: NativeStackScreenPr
   const { settings, loaded, save } = useMoneyAppControlSettings();
   const [saving, setSaving] = useState(false);
   const category = snapshot?.categories.find((item) => item.id === route.params.categoryId || item.sourceId === route.params.categoryId);
-  const policy = category ? settings.policies[category.sourceId] ?? DEFAULT_POLICY : DEFAULT_POLICY;
+  const suggestedPreset = route.params.suggestedPreset;
+  const policy = category ? settings.policies[category.sourceId] ?? {
+    ...DEFAULT_POLICY,
+    ...(suggestedPreset ? { preset: suggestedPreset } : {}),
+  } : DEFAULT_POLICY;
   const targetCount = policy.selectedApps.length + policy.selectedCategories.length;
 
   useEffect(() => {
@@ -113,6 +117,11 @@ export function MoneyAppControlScreen({ navigation, route }: NativeStackScreenPr
 
   return (
     <SettingsPage onBack={() => navigation.goBack()} title={`${category.name} app controls`}>
+      {route.params.suggestedAppLabels?.length ? (
+        <SettingsGroup footer="Choose the actual apps in Apple’s private picker. Kwilt does not convert these labels into app identities." title="From Chat">
+          <SettingsRow title="Apps you mentioned" value={route.params.suggestedAppLabels.join(', ')} />
+        </SettingsGroup>
+      ) : null}
       <SettingsGroup footer="Kwilt uses Apple's Screen Time picker. Your app choices stay opaque to JavaScript and on this device." title="Selected apps">
         <SettingsRow disabled={saving} onPress={() => void chooseApps()} title="Apps to pause" value={status} />
         <SettingsDivider />

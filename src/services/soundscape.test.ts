@@ -58,8 +58,6 @@ describe('Focus soundscape sources', () => {
     await expect(resolveSoundscapeSource('fireplace')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
     expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.fireplace');
 
-    await expect(resolveSoundscapeSource('nightMeadow')).resolves.toEqual({ uri: 'file:///cache/track.mp3' });
-    expect(resolveAudioAssetMock).toHaveBeenCalledWith('focus.night-meadow');
   });
 
   test('offers one flat soundscape list without Forest Stream', () => {
@@ -75,7 +73,6 @@ describe('Focus soundscape sources', () => {
       'canyonSpring',
       'oceanWaves',
       'fireplace',
-      'nightMeadow',
     ]);
     expect(SOUND_SCAPES.map((item) => item.title)).toEqual([
       'Deep Work Drift',
@@ -89,7 +86,6 @@ describe('Focus soundscape sources', () => {
       'Canyon Spring',
       'Ocean Waves',
       'Fireplace',
-      'Night Meadow',
     ]);
   });
 

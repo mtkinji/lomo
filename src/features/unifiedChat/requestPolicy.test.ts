@@ -214,6 +214,18 @@ describe('classifyUnifiedChatRequest', () => {
     });
   });
 
+  test('keeps self-directed budget-conditioned app control as a Money and Screen Time action', () => {
+    expect(classifyUnifiedChatRequest({
+      prompt: 'Not for him, for me. Block Amazon and other shopping apps if my budgets are being spent faster than they should for this time of the month, or are already over budget.',
+      context: [],
+    })).toMatchObject({
+      requestClass: 'capability_action',
+      participatingCapabilities: ['money', 'screenTime'],
+      usePrivateContext: true,
+      policyReason: 'money-owned-self-screen-time-control',
+    });
+  });
+
   test('does not reinterpret an explicit relationship fact as a To-do capture', () => {
     expect(directTodoCaptureTitle('Remember Lily likes dragons')).toBeNull();
     expect(classifyUnifiedChatRequest({ prompt: 'Remember Lily likes dragons', context: [] })).toMatchObject({

@@ -32,7 +32,8 @@ function clientFor(role: 'owner' | 'caregiver' | 'child') {
 describe('loadFamilyScreenTimeChatSnapshot', () => {
   it('loads every activated child for a Household owner', async () => {
     const { client, rpc } = clientFor('owner');
-    await expect(loadFamilyScreenTimeChatSnapshot(client)).resolves.toMatchObject({
+    await expect(loadFamilyScreenTimeChatSnapshot(client, async () => 'approved')).resolves.toMatchObject({
+      self: { kind: 'self', deviceScope: 'current_device', authorizationStatus: 'approved' },
       children: [{ membershipId: 'charlie' }, { membershipId: 'grant' }],
     });
     expect(rpc).toHaveBeenCalledWith('get_kwilt_family_screen_time_snapshot', { p_child_membership_id: 'charlie' });
@@ -41,7 +42,7 @@ describe('loadFamilyScreenTimeChatSnapshot', () => {
 
   it('never queries a child without the caregiver-specific Screen Time grant', async () => {
     const { client, rpc } = clientFor('caregiver');
-    await expect(loadFamilyScreenTimeChatSnapshot(client)).resolves.toMatchObject({
+    await expect(loadFamilyScreenTimeChatSnapshot(client, async () => 'notDetermined')).resolves.toMatchObject({
       children: [{ membershipId: 'charlie' }],
     });
     expect(rpc).not.toHaveBeenCalledWith('get_kwilt_family_screen_time_snapshot', { p_child_membership_id: 'grant' });
@@ -49,7 +50,10 @@ describe('loadFamilyScreenTimeChatSnapshot', () => {
 
   it('does not expose family controls to a child account', async () => {
     const { client, rpc } = clientFor('child');
-    await expect(loadFamilyScreenTimeChatSnapshot(client)).resolves.toEqual({ children: [] });
+    await expect(loadFamilyScreenTimeChatSnapshot(client, async () => 'notDetermined')).resolves.toEqual({
+      self: { kind: 'self', deviceScope: 'current_device', authorizationStatus: 'notDetermined' },
+      children: [],
+    });
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 });

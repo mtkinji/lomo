@@ -18,9 +18,17 @@ export type CookCue = {
   ingredientReferences: Array<{ ingredientLineId: string; concept: string; displayAmount: string | null }>;
   timerSuggestions: Array<{ durationSeconds: number; label: string }>;
 };
+export type RecipeCookSubstitution = {
+  ingredientLineId: string;
+  ingredientText: string;
+  usedInstead: string;
+  resultRating: number | null;
+  note: string | null;
+};
 export type RecipeCookRecord = {
   id: string; sessionId: string; ownerPersonId: string; recipeId: string; recipeVersionId: string; servingScale: number;
-  completed: boolean; wouldMakeAgain: boolean | null; privateNote: string | null; completedAt: string; provenance: 'cook_session';
+  completed: boolean; wouldMakeAgain: boolean | null; outcomeRating: number | null; privateNote: string | null;
+  substitutions: RecipeCookSubstitution[]; completedAt: string; provenance: 'cook_session';
 };
 
 export class RecipeCookContractError extends Error {

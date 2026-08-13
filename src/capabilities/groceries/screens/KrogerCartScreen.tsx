@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { openBrowserAsync } from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,6 +16,7 @@ import { useAppStore } from '../../../store/useAppStore';
 import { useToastStore } from '../../../store/useToastStore';
 import { cardElevation, colors, fonts, spacing, typography } from '../../../theme';
 import { Button } from '../../../ui/Button';
+import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,23 +28,32 @@ import {
 import { Icon } from '../../../ui/Icon';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { HeaderActionPill, ObjectPageHeader } from '../../../ui/layout/ObjectPageHeader';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { ButtonLabel, Heading, Text } from '../../../ui/Typography';
 import { KrogerStoreFinder } from '../components/KrogerStoreFinder';
 import { createGroceryRepository, type GroceryProjection } from '../data/groceryRepository';
 import { preferredGroceryStore } from '../data/preferredGroceryStore';
+import { retailerStoreConfirmation } from '../data/retailerStoreConfirmation';
 import {
   createKrogerConnectionRepository,
   type KrogerConnectionStatus,
   type KrogerMatch,
 } from '../data/krogerConnectionRepository';
-import type { KrogerLocation, KrogerProduct } from '../providers/krogerProvider';
 import {
+  krogerCartUrlForBanner,
+  type KrogerLocation,
+  type KrogerProduct,
+} from '../providers/krogerProvider';
+import {
+  getKrogerCartGroupAlternatives,
   projectKrogerCartGroups,
+  type KrogerCartGroup,
   type KrogerCartSelection,
 } from '../domain/krogerCartProjection';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'KrogerCart'>;
-type Success = { cartUrl: string; count: number; remainingCount: number; retailerLabel: string };
+type Success = { cartUrl: string; count: number; remainingCount: number; retailerLabel: string; location: KrogerLocation };
+type StoreConfirmationStep = 'open_retailer' | 'confirm_store';
 
 const money = (cents: number | null) =>
   cents === null ? null : `$${(cents / 100).toFixed(2)}`;
@@ -149,6 +159,95 @@ function ProductThumbnail({ product }: { product: KrogerProduct }) {
   );
 }
 
+const sameProduct = (left: KrogerProduct, right: KrogerProduct) =>
+  (left.upc.trim() || left.id) === (right.upc.trim() || right.id);
+
+const productSelectionLabel = (product: KrogerProduct) => {
+  const price = productPrice(product);
+  const hasSalePrice = product.promoPriceCents !== null
+    && product.regularPriceCents !== null
+    && product.promoPriceCents < product.regularPriceCents;
+  const priceDescription = hasSalePrice
+    ? `sale price ${money(product.promoPriceCents)}, regular price ${money(product.regularPriceCents)}`
+    : money(price);
+  return ['Select ' + product.title, product.size, priceDescription].filter(Boolean).join(', ');
+};
+
+function ProductAlternativesDrawer({
+  group,
+  retailerLabel,
+  onClose,
+  onSelect,
+}: {
+  group: KrogerCartGroup | null;
+  retailerLabel: string;
+  onClose: () => void;
+  onSelect: (product: KrogerProduct) => void;
+}) {
+  const alternatives = group ? getKrogerCartGroupAlternatives(group) : [];
+  const concept = group?.matches[0]?.groceryItem.concept ?? 'product';
+
+  return (
+    <BottomDrawer
+      visible={group !== null}
+      onClose={onClose}
+      snapPoints={['72%']}
+      dismissOnBackdropPress
+      dynamicSizing={false}
+    >
+      <BottomDrawerHeader
+        variant="withClose"
+        title={`Choose ${concept}`}
+        subtitle={`${alternatives.length} option${alternatives.length === 1 ? '' : 's'} at ${retailerLabel}`}
+        onClose={onClose}
+        closeAccessibilityLabel="Close product alternatives"
+      />
+      <BottomDrawerScrollView
+        contentContainerStyle={styles.alternativesContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {alternatives.map((product) => {
+          const selected = group ? sameProduct(product, group.product) : false;
+          const price = productPrice(product);
+          const hasSalePrice = product.promoPriceCents !== null
+            && product.regularPriceCents !== null
+            && product.promoPriceCents < product.regularPriceCents;
+          const details = [product.brand, product.size].filter(Boolean).join(' · ');
+          return (
+            <Pressable
+              key={product.upc.trim() || product.id}
+              accessibilityRole="button"
+              accessibilityLabel={productSelectionLabel(product)}
+              accessibilityState={{ selected }}
+              onPress={() => onSelect(product)}
+              style={({ pressed }) => [
+                styles.alternativeRow,
+                pressed ? styles.pressedChoice : null,
+              ]}
+            >
+              <ProductThumbnail product={product} />
+              <View style={styles.alternativeIdentity}>
+                <Text style={styles.productTitle} numberOfLines={2}>{product.title}</Text>
+                {details ? <Text style={styles.productDetails} tone="secondary" numberOfLines={1}>{details}</Text> : null}
+                {hasSalePrice ? <Text style={styles.saleLabel}>Sale</Text> : null}
+              </View>
+              <View style={styles.alternativePrice}>
+                {price !== null ? <Text style={styles.choicePrice}>{money(price)}</Text> : null}
+                {hasSalePrice ? (
+                  <Text style={styles.regularPrice} tone="secondary">{money(product.regularPriceCents)}</Text>
+                ) : null}
+              </View>
+              <View style={styles.selectionIndicator}>
+                {selected ? <Icon name="check" size={18} color={colors.textPrimary} /> : null}
+              </View>
+            </Pressable>
+          );
+        })}
+      </BottomDrawerScrollView>
+    </BottomDrawer>
+  );
+}
+
 function CartLoadingState({
   location,
   itemCount,
@@ -213,8 +312,10 @@ export function KrogerCartScreen({ navigation, route }: Props) {
   const [selected, setSelected] = useState<KrogerCartSelection>({});
   const [busy, setBusy] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [comparisonGroup, setComparisonGroup] = useState<KrogerCartGroup | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<Success | null>(null);
+  const [storeConfirmationStep, setStoreConfirmationStep] = useState<StoreConfirmationStep | null>(null);
   const showToast = useToastStore((state) => state.showToast);
 
   useEffect(() => {
@@ -347,6 +448,11 @@ export function KrogerCartScreen({ navigation, route }: Props) {
   };
   const choose = (location: KrogerLocation) =>
     run(async () => {
+      setStoreConfirmationStep(null);
+      setSuccess(null);
+      if (selectedLocation?.id !== location.id) {
+        await retailerStoreConfirmation.clear(userId);
+      }
       setSelectedLocation(location);
       setLocations([]);
       setChoosingStore(false);
@@ -405,6 +511,18 @@ export function KrogerCartScreen({ navigation, route }: Props) {
       return next;
     });
   };
+  const selectAlternative = (product: KrogerProduct) => {
+    if (!comparisonGroup) return;
+    setSelected((current) => {
+      const next = { ...current };
+      comparisonGroup.groceryItemIds.forEach((itemId) => {
+        const line = current[itemId];
+        if (line) next[itemId] = { ...line, product };
+      });
+      return next;
+    });
+    setComparisonGroup(null);
+  };
   const add = async () => {
     setAddingToCart(true);
     try {
@@ -423,20 +541,59 @@ export function KrogerCartScreen({ navigation, route }: Props) {
             selectedLocation,
           );
         }
+        let connectedToAnotherAccount = false;
         if (status?.connection?.state !== 'active') {
           const connected = await repository.connect();
           setStatus(connected);
+          await retailerStoreConfirmation.clear(userId);
+          connectedToAnotherAccount = true;
         }
         await repository.selectLocation(selectedLocation);
         setStatus(await repository.status());
-        const result = await repository.cartAdd(list.id, list.revision);
+        const confirmation = connectedToAnotherAccount
+          ? null
+          : await retailerStoreConfirmation.read(userId, selectedLocation);
+        if (!confirmation) {
+          setStoreConfirmationStep('open_retailer');
+          return;
+        }
+        const result = await repository.cartAdd(list.id, list.revision, selectedLocation);
         setSuccess({
           cartUrl: result.cartUrl,
           count: result.addedItemCount,
           remainingCount: result.remainingItemCount,
           retailerLabel: result.retailerLabel,
+          location: selectedLocation,
         });
-        await openBrowserAsync(result.cartUrl);
+      });
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  const openRetailerForStoreConfirmation = () => {
+    if (!selectedLocation) return;
+    void run(async () => {
+      await openBrowserAsync(krogerCartUrlForBanner(selectedLocation.banner || selectedLocation.name));
+      setStoreConfirmationStep('confirm_store');
+    });
+  };
+
+  const confirmStoreAndAdd = async () => {
+    if (!list || !selectedLocation) return;
+    setAddingToCart(true);
+    try {
+      await run(async () => {
+        await retailerStoreConfirmation.confirm(userId, selectedLocation);
+        const result = await repository.cartAdd(list.id, list.revision, selectedLocation);
+        setStoreConfirmationStep(null);
+        setSuccess({
+          cartUrl: result.cartUrl,
+          count: result.addedItemCount,
+          remainingCount: result.remainingItemCount,
+          retailerLabel: result.retailerLabel,
+          location: selectedLocation,
+        });
       });
     } finally {
       setAddingToCart(false);
@@ -445,7 +602,7 @@ export function KrogerCartScreen({ navigation, route }: Props) {
 
   const showStorePicker = !initializing && (!selectedLocation || choosingStore);
   const showCartLoading = initializing || (!showStorePicker && !error && matches === null);
-  const showCartAction = !success && !error && !showStorePicker && matches !== null;
+  const showCartAction = !success && !storeConfirmationStep && !error && !showStorePicker && matches !== null;
   const selectedSourceCount = Object.keys(selected).length;
   const cartGroups = projectKrogerCartGroups(matches ?? [], selected);
   const matchedCount = cartGroups.reduce((total, group) => total + group.quantity, 0);
@@ -525,17 +682,68 @@ export function KrogerCartScreen({ navigation, route }: Props) {
         keyboardShouldPersistTaps="handled"
       >
         {error ? <View style={styles.message}><Text>{error}</Text></View> : null}
-        {success ? (
+        {storeConfirmationStep ? (
+          <View style={styles.storeConfirmation}>
+            <View style={styles.storeConfirmationIcon}>
+              <Icon name="pin" size={22} color={colors.textPrimary} />
+            </View>
+            <Heading variant="md">Confirm pickup store</Heading>
+            {storeConfirmationStep === 'open_retailer' ? (
+              <>
+                <Text tone="secondary" style={styles.storeConfirmationCopy}>
+                  Before Kwilt adds anything, set {selectedLocation?.banner || selectedLocation?.name} pickup to {selectedLocation?.address || selectedLocation?.name}.
+                </Text>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  accessibilityLabel={`Set pickup store at ${selectedLocation?.banner || selectedLocation?.name}`}
+                  onPress={openRetailerForStoreConfirmation}
+                >
+                  Set pickup store at {selectedLocation?.banner || selectedLocation?.name}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Text tone="secondary" style={styles.storeConfirmationCopy}>
+                  Is {selectedLocation?.banner || selectedLocation?.name} pickup set to {selectedLocation?.address || selectedLocation?.name}?
+                </Text>
+                <Button
+                  variant="primary"
+                  fullWidth
+                  disabled={busy}
+                  accessibilityLabel={`Yes, add ${matchedCount} item${matchedCount === 1 ? '' : 's'}`}
+                  onPress={confirmStoreAndAdd}
+                >
+                  {addingToCart ? 'Adding…' : `Yes, add ${matchedCount} item${matchedCount === 1 ? '' : 's'}`}
+                </Button>
+                <Button
+                  variant="ghost"
+                  fullWidth
+                  onPress={openRetailerForStoreConfirmation}
+                >
+                  Check {selectedLocation?.banner || selectedLocation?.name} again
+                </Button>
+              </>
+            )}
+            <Text tone="secondary" style={styles.storeConfirmationFootnote}>
+              Confirmed by you. The retailer does not currently let Kwilt verify its active pickup store.
+            </Text>
+          </View>
+        ) : success ? (
           <>
-            <Heading variant="md">Added to {success.retailerLabel}</Heading>
+            <Heading variant="md">Added to {success.location.name || success.retailerLabel}</Heading>
             <Text tone="secondary">
               {success.count} item{success.count === 1 ? '' : 's'} added to the retailer cart.
               {success.remainingCount
                 ? ` ${success.remainingCount} stay on your Kwilt list for another shopping pass.`
                 : ' Everything on this pass is now in a retailer cart.'}
             </Text>
-            <Button variant="primary" onPress={() => void openBrowserAsync(success.cartUrl)}>
-              Open {success.retailerLabel} cart
+            <Button
+              variant="primary"
+              accessibilityLabel={`Review ${success.retailerLabel} cart`}
+              onPress={() => void openBrowserAsync(success.cartUrl)}
+            >
+              Review {success.retailerLabel} cart
             </Button>
             {success.remainingCount ? (
               <Button variant="outline" onPress={() => navigation.goBack()}>
@@ -543,7 +751,7 @@ export function KrogerCartScreen({ navigation, route }: Props) {
               </Button>
             ) : null}
             <Text tone="secondary">
-              Checkout, substitutions, and pickup timing are confirmed by the retailer.
+              Kwilt matched products at this store. The retailer controls the pickup store, substitutions, timing, and checkout.
             </Text>
           </>
         ) : error ? null : (
@@ -571,9 +779,21 @@ export function KrogerCartScreen({ navigation, route }: Props) {
                     const unitPrice = productPrice(group.product);
                     const linePrice = unitPrice === null ? null : unitPrice * group.quantity;
                     const details = [group.product.brand, group.product.size].filter(Boolean).join(' · ');
+                    const alternatives = getKrogerCartGroupAlternatives(group);
+                    const canCompare = alternatives.length > 1;
                     return (
                       <View key={group.key} style={styles.cartLine}>
-                        <View style={styles.productSummary}>
+                        <Pressable
+                          accessibilityRole={canCompare ? 'button' : undefined}
+                          accessibilityLabel={canCompare ? `Compare alternatives for ${group.product.title}` : undefined}
+                          accessibilityHint={canCompare ? 'Shows other matches and prices at this store.' : undefined}
+                          disabled={!canCompare || busy}
+                          onPress={() => setComparisonGroup(group)}
+                          style={({ pressed }) => [
+                            styles.productSummary,
+                            pressed ? styles.pressedChoice : null,
+                          ]}
+                        >
                           <ProductThumbnail product={group.product} />
                           <View style={styles.grow}>
                             <Text style={styles.productTitle} numberOfLines={2}>{group.product.title}</Text>
@@ -583,7 +803,10 @@ export function KrogerCartScreen({ navigation, route }: Props) {
                             ) : null}
                           </View>
                           {linePrice !== null ? <Text>{money(linePrice)}</Text> : null}
-                        </View>
+                          {canCompare ? (
+                            <Icon name="chevronRight" size={17} color={colors.textSecondary} />
+                          ) : null}
+                        </Pressable>
                         <View style={styles.lineControls}>
                           <View style={styles.quantityControls}>
                             <Button
@@ -640,6 +863,14 @@ export function KrogerCartScreen({ navigation, route }: Props) {
       </ScrollView>
       </>
       )}
+      {comparisonGroup ? (
+        <ProductAlternativesDrawer
+          group={comparisonGroup}
+          retailerLabel={selectedLocation?.banner || selectedLocation?.name || 'this store'}
+          onClose={() => setComparisonGroup(null)}
+          onSelect={selectAlternative}
+        />
+      ) : null}
       {showCartAction ? (
         <View
           testID="kroger-cart-footer"
@@ -698,6 +929,23 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: spacing.md, paddingBottom: spacing['2xl'], gap: spacing.md },
   message: { padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
+  storeConfirmation: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing['2xl'],
+    gap: spacing.md,
+  },
+  storeConfirmationIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.muted,
+  },
+  storeConfirmationCopy: { textAlign: 'center' },
+  storeConfirmationFootnote: { ...typography.bodyXs, textAlign: 'center' },
   loadingSurface: { flex: 1, backgroundColor: colors.canvas },
   loadingContent: {
     flex: 1,
@@ -747,6 +995,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
   },
+  pressedChoice: { opacity: 0.62 },
   thumbnailFrame: {
     width: 54,
     height: 54,
@@ -773,6 +1022,22 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -1 }],
   },
   grow: { flex: 1, gap: 2 },
+  alternativesContent: { paddingBottom: spacing.xl },
+  alternativeRow: {
+    minHeight: 76,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.cardBorder,
+  },
+  alternativeIdentity: { flex: 1, minWidth: 0, gap: 2 },
+  alternativePrice: { alignItems: 'flex-end', gap: 1 },
+  choicePrice: { fontFamily: fonts.semibold },
+  regularPrice: { ...typography.bodyXs, textDecorationLine: 'line-through' },
+  saleLabel: { ...typography.bodyXs, fontFamily: fonts.semibold },
+  selectionIndicator: { width: 20, alignItems: 'flex-end' },
   emptyCart: { paddingVertical: spacing['2xl'], alignItems: 'center', gap: spacing.xs },
   footer: {
     marginHorizontal: -spacing.sm,

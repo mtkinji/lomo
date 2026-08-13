@@ -1,0 +1,6 @@
+create index kwilt_recipe_cook_substitutions_recipe_idx
+  on public.kwilt_recipe_cook_substitutions(recipe_id);
+create index kwilt_recipe_cook_substitutions_version_idx
+  on public.kwilt_recipe_cook_substitutions(recipe_version_id);
+create index kwilt_recipe_cook_substitutions_ingredient_idx
+  on public.kwilt_recipe_cook_substitutions(source_ingredient_line_id);

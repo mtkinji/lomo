@@ -16,8 +16,9 @@ briefs:
   - games-timer
   - deeper-story-relay
   - stitch-five-game
+  - pass-the-pattern-rhythm-elimination
 status: shipping
-last_reviewed: 2026-08-03
+last_reviewed: 2026-08-12
 ---
 
 # Games

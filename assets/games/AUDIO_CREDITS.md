@@ -1,5 +1,9 @@
 # Audio credits
 
+## Pass the Pattern procedural grooves
+
+`music/pattern-{funk,jazz,rock,blues}.wav` are original deterministic percussion loops generated from synthesis code in `scripts/audio/build-pattern-grooves.mjs`. They contain no sampled or third-party source audio and require no external attribution. The source script, fixed rhythm arrangements, output measurements, checksums, and physical-device review boundary are recorded in `assets/audio/AUDIO_MANIFEST.md`.
+
 ## Majestic eagle (red-tailed hawk)
 
 `success-hawk.mp3` is adapted from “red-tailed-hawk-flying-away.wav,” a field recording by Freesound user 1888software.

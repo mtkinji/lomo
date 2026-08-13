@@ -5,9 +5,9 @@ personas: [Maya]
 hero_jtbd: jtbd-help-us-enjoy-being-together
 job_flow: job-flow-maya-start-playing-together
 serves: [jtbd-help-us-enjoy-being-together, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
-briefs: [ten-game-connection-catalog, deeper-story-relay, player-profile, pass-pattern-shared-watch, doodle-bridge-secret-dares, show-of-hands, slanguage]
+briefs: [ten-game-connection-catalog, deeper-story-relay, player-profile, pass-pattern-shared-watch, pass-the-pattern-rhythm-elimination, doodle-bridge-secret-dares, show-of-hands, slanguage]
 status: shipping
-last_reviewed: 2026-07-20
+last_reviewed: 2026-08-12
 ---
 
 # connection-games

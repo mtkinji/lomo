@@ -5,14 +5,16 @@ import {
 } from './soundscapeCatalog';
 
 describe('Focus soundscape catalog', () => {
-  it('offers one flat list without Forest Stream', () => {
+  it('offers only current sound environments', () => {
     expect(SOUND_SCAPES.map((soundscape) => soundscape.title)).not.toContain('Forest Stream');
+    expect(SOUND_SCAPES.map((soundscape) => soundscape.title)).not.toContain('Night Meadow');
     expect(SOUND_SCAPES).toContainEqual({ id: 'canyonSpring', title: 'Canyon Spring' });
     expect(SOUND_SCAPES.every((soundscape) => !('kind' in soundscape))).toBe(true);
   });
 
   it('moves a retired Forest Stream preference to Quiet Rain', () => {
     expect(normalizeSoundscapeId('forestStream')).toBe('quietRain');
+    expect(normalizeSoundscapeId('nightMeadow')).toBe('quietRain');
     expect(normalizeSoundscapeId('oceanWaves')).toBe('oceanWaves');
     expect(normalizeSoundscapeId('not-a-track')).toBe('default');
   });

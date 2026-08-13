@@ -1,4 +1,4 @@
-import { Modal, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { colors, spacing } from '../../theme';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { Icon } from '../../ui/Icon';
@@ -11,7 +11,7 @@ import { formatFocusTimer } from './focusSessionPresentation';
 import { styles } from './activityDetailStyles';
 import type { StandaloneFocusController } from './useStandaloneFocusController';
 import { FocusEnvironmentBackdrop } from './FocusEnvironmentBackdrop';
-import { useActiveFocusOrientation } from './useActiveFocusOrientation';
+import { FocusSessionOverlay } from './FocusSessionOverlay';
 
 const palette = [
   colors.pine700,
@@ -36,16 +36,11 @@ export function StandaloneFocusExperience(props: {
   const normalizedColorIndex = Math.floor(Math.max(0, colorIndex)) % palette.length;
   const session = props.controller.session;
   const videoEnvironmentActive = focusVideoEnvironmentId != null;
-  useActiveFocusOrientation(Boolean(session && videoEnvironmentActive));
 
   if (!session) return null;
 
   return (
-    <Modal
-      visible
-      transparent
-      animationType="fade"
-      supportedOrientations={['portrait', 'landscape']}
+    <FocusSessionOverlay
       onRequestClose={() => props.controller.end().catch(() => undefined)}
     >
           <Pressable
@@ -118,6 +113,6 @@ export function StandaloneFocusExperience(props: {
               </HStack>
             </View>
           </Pressable>
-    </Modal>
+    </FocusSessionOverlay>
   );
 }

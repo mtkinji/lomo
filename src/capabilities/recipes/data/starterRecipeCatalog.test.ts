@@ -79,6 +79,72 @@ describe("starter Recipe catalog", () => {
     ).toHaveLength(1);
   });
 
+  it("does not count a database-backed canonical catalog projection as a personal recipe", () => {
+    const personal = {
+      recipe: recipeContractFixture(),
+      currentVersion: recipeVersionContractFixture(),
+    };
+    const importedCatalog = {
+      recipe: {
+        ...recipeContractFixture(),
+        id: "93000000-0000-0000-0000-000000000001",
+        currentVersionId: "94000000-0000-0000-0000-000000000001",
+        provenance: {
+          ...recipeContractFixture().provenance,
+          id: "95000000-0000-0000-0000-000000000001",
+          method: "catalog" as const,
+          rightsBasis: "kwilt_authored" as const,
+        },
+      },
+      currentVersion: {
+        ...recipeVersionContractFixture(),
+        id: "94000000-0000-0000-0000-000000000001",
+        recipeId: "93000000-0000-0000-0000-000000000001",
+      },
+    };
+
+    expect(buildRecipeLibraryInventory([])).toHaveLength(500);
+    expect(buildRecipeLibraryInventory([personal])).toHaveLength(501);
+    const inventory = buildRecipeLibraryInventory([personal, importedCatalog]);
+
+    expect(inventory).toHaveLength(501);
+    expect(inventory[0]).toBe(personal);
+    expect(
+      inventory.some(
+        ({ recipe }) => recipe.id === importedCatalog.recipe.id,
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps a private adaptation descended from a canonical catalog recipe", () => {
+    const personalEdition = {
+      recipe: {
+        ...recipeContractFixture(),
+        id: "93000000-0000-0000-0000-000000000002",
+        provenance: {
+          ...recipeContractFixture().provenance,
+          method: "catalog" as const,
+          rightsBasis: "kwilt_authored" as const,
+        },
+        lineage: [
+          {
+            id: "lineage-personal-edition",
+            relationship: "adaptation" as const,
+            sourceRecipeId: "93000000-0000-0000-0000-000000000001",
+            sourceRecipeVersionId: "94000000-0000-0000-0000-000000000001",
+            sourcePublicationId: "95000000-0000-0000-0000-000000000001",
+          },
+        ],
+      },
+      currentVersion: recipeVersionContractFixture(),
+    };
+
+    const inventory = buildRecipeLibraryInventory([personalEdition]);
+
+    expect(inventory).toHaveLength(501);
+    expect(inventory[0]).toBe(personalEdition);
+  });
+
   it("accepts only an in-range bundled artwork reference", () => {
     expect(
       getBundledRecipeArtworkIndex("bundle://household-recipe-atlas/11"),

@@ -1,6 +1,9 @@
 import type { KrogerMatch } from '../data/krogerConnectionRepository';
 import type { KrogerProduct } from '../providers/krogerProvider';
-import { projectKrogerCartGroups } from './krogerCartProjection';
+import {
+  getKrogerCartGroupAlternatives,
+  projectKrogerCartGroups,
+} from './krogerCartProjection';
 
 const butter: KrogerProduct = {
   id: 'butter-product',
@@ -32,5 +35,29 @@ describe('Kroger cart projection', () => {
         groceryItemIds: ['butter-1', 'butter-2'],
       }),
     ]);
+  });
+
+  it('offers only alternatives returned for every grocery need in a consolidated row', () => {
+    const sharedAlternative: KrogerProduct = {
+      ...butter,
+      id: 'shared-alternative',
+      upc: '000111100002',
+      title: 'Simple Truth Butter',
+    };
+    const firstOnly: KrogerProduct = {
+      ...butter,
+      id: 'first-only',
+      upc: '000111100003',
+      title: 'First search only',
+    };
+    const grouped = projectKrogerCartGroups([
+      { ...matches[0], products: [butter, sharedAlternative, firstOnly] },
+      { ...matches[1], products: [butter, sharedAlternative] },
+    ], {
+      'butter-1': { product: butter, quantity: 1 },
+      'butter-2': { product: butter, quantity: 1 },
+    })[0];
+
+    expect(getKrogerCartGroupAlternatives(grouped)).toEqual([butter, sharedAlternative]);
   });
 });

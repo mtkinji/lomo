@@ -202,3 +202,76 @@ test('stages a reviewed family Screen Time control from authorized saved-selecti
     }),
   }));
 });
+
+test('routes a self budget-triggered app pause through Money review without child tools', async () => {
+  const sender = jest.fn(async (_history, options) => {
+    const toolIds = options.runtimeTools?.map((tool: { id: string }) => tool.id) ?? [];
+    expect(toolIds).toContain('money.app_control.review');
+    expect(toolIds).toContain('screen_time.personal.setup.open');
+    expect(toolIds).not.toContain('screen_time.configure');
+    expect(toolIds).not.toContain('screen_time.override.allow');
+    const appControlTool = options.runtimeTools?.find(
+      (tool: { id: string }) => tool.id === 'money.app_control.review',
+    );
+    await options.executeRuntimeTool?.({
+      id: 'shopping-app-control', toolId: 'money.app_control.review', arguments: {
+        subject: { kind: 'self' },
+        condition: { owner: 'money', categoryId: 'shopping', preset: 'when_hot' },
+        effect: {
+          owner: 'screenTime', kind: 'pause_selected_apps', suggestedAppLabels: ['Amazon'],
+        },
+      },
+    }, appControlTool);
+    return 'I prepared the Shopping app control for your review.';
+  });
+  const { repository, send } = harness(sender);
+
+  await runUnifiedChatTurn(
+    {
+      aggregate,
+      prompt: 'Not for him, for me. I want to block Amazon and other shopping apps if my budgets are being spent faster than they should for this time of the month, already over budget.',
+    },
+    {
+      repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+      loadCapabilitySnapshots: async () => ({
+        goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        screenTime: {
+          self: { kind: 'self', deviceScope: 'current_device', authorizationStatus: 'approved' },
+          children: [],
+        },
+        money: {
+          periodLabel: 'August 2026', generatedAt: '2026-08-13T12:00:00.000Z', lastSyncedAt: null,
+          totals: { plannedCents: 10000, spentCents: 11000, remainingCents: -1000, needsReviewCount: 0 },
+          forecast: {
+            projectedSpendCents: 15000, projectionRangeLowCents: 14000,
+            projectionRangeHighCents: 16000, projectedRemainingCents: -5000,
+            projectedOverageCents: 5000, confidence: 'high', atRiskCategoryCount: 1,
+          },
+          outsidePlan: { spentCents: 0, transactionCount: 0 },
+          categories: [{
+            id: 'shopping', sourceId: 'shopping', name: 'Shopping', description: null,
+            accentColor: '#000000', plannedCents: 10000, spentCents: 11000,
+            remainingCents: -1000, percentUsed: 110, transactionCount: 2,
+            rolloverEnabled: false, fundingRhythm: 'monthly', fundingPolicyVersion: null,
+            starterWeight: 1, monthlyContributionCents: 10000, reserveAvailableCents: 0,
+            reserveBalanceCents: 0, reserveBalancePeriodId: null, reserveAvailabilityKnown: true,
+            expectedNeed: null, fundingCoverage: 'uncovered',
+            forecast: {
+              projectedSpendCents: 15000, projectedRemainingCents: -5000,
+              projectedOverageCents: 5000, confidence: 'high',
+            },
+          }],
+          transactions: [], accounts: [], livingLimitAnswer: null,
+        } as never,
+      }),
+    },
+  );
+
+  expect(repository.createClientAction).toHaveBeenCalledWith(expect.objectContaining({
+    capabilityId: 'money', actionType: 'review_money_app_control', targetId: 'shopping',
+    payload: expect.objectContaining({
+      subject: { kind: 'self' }, preset: 'when_hot', suggestedAppLabels: ['Amazon'],
+    }),
+  }));
+  expect(repository.createProposal).not.toHaveBeenCalled();
+});
