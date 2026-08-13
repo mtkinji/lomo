@@ -21,6 +21,20 @@ describe('Kroger provider', () => {
     }]);
   });
 
+  it('preserves the Kroger-family banner for a Seattle store', () => {
+    expect(normalizeKrogerLocations({ data: [{
+      locationId: '70100861',
+      name: 'University Village',
+      chain: 'QFC',
+      address: { addressLine1: '2746 NE 45th St', city: 'Seattle', state: 'WA', zipCode: '98105' },
+    }] })).toEqual([expect.objectContaining({
+      id: '70100861',
+      name: 'University Village',
+      banner: 'QFC',
+      address: '2746 NE 45th St · Seattle, WA 98105',
+    })]);
+  });
+
   it('normalizes store-specific product proposals, promo evidence, and the preferred front image', () => {
     expect(normalizeKrogerProducts({ data: [{ productId: '0001111085000', upc: '0001111085000', description: 'Whole Milk', brand: 'Kroger', images: [{ perspective: 'back', sizes: [{ size: 'small', url: 'https://images.example/back.png' }] }, { perspective: 'front', sizes: [{ size: 'large', url: 'https://images.example/front-large.png' }, { size: 'small', url: 'https://images.example/front-small.png' }] }], items: [{ size: '1 gal', price: { regular: 3.99, promo: 3.49 }, fulfillment: { curbside: true } }] }] })).toEqual([{
       id: '0001111085000', upc: '0001111085000', title: 'Whole Milk', brand: 'Kroger', size: '1 gal', thumbnailUrl: 'https://images.example/front-small.png', regularPriceCents: 399, promoPriceCents: 349, pickupAvailable: true,

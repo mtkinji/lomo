@@ -81,4 +81,15 @@ describe('UI sounds', () => {
     expect(mockPlayers[0]?.volume).toBeCloseTo(0.43);
     expect(mockPlayers[0]?.play).toHaveBeenCalledTimes(1);
   });
+
+  test('plays the Focus completion chime as its own restrained cue', async () => {
+    const { playCompletionFeedbackSound } =
+      require('./uiSounds') as typeof import('./uiSounds');
+
+    await playCompletionFeedbackSound('focusChime');
+
+    expect(mockPlayers).toHaveLength(1);
+    expect(mockPlayers[0]?.volume).toBeCloseTo(0.32);
+    expect(mockPlayers[0]?.play).toHaveBeenCalledTimes(1);
+  });
 });

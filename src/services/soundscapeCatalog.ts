@@ -9,8 +9,7 @@ export type SoundscapeId =
   | 'quietRain'
   | 'canyonSpring'
   | 'oceanWaves'
-  | 'fireplace'
-  | 'nightMeadow';
+  | 'fireplace';
 
 export type Soundscape = { id: SoundscapeId; title: string };
 export type FocusVideoEnvironmentId = Extract<SoundscapeId, 'canyonSpring'>;
@@ -27,7 +26,6 @@ export const SOUND_SCAPES: Soundscape[] = [
   { id: 'canyonSpring', title: 'Canyon Spring' },
   { id: 'oceanWaves', title: 'Ocean Waves' },
   { id: 'fireplace', title: 'Fireplace' },
-  { id: 'nightMeadow', title: 'Night Meadow' },
 ];
 
 export function isSoundscapeId(value: unknown): value is SoundscapeId {
@@ -35,7 +33,7 @@ export function isSoundscapeId(value: unknown): value is SoundscapeId {
 }
 
 export function normalizeSoundscapeId(value: unknown): SoundscapeId {
-  if (value === 'forestStream') return 'quietRain';
+  if (value === 'forestStream' || value === 'nightMeadow') return 'quietRain';
   return isSoundscapeId(value) ? value : 'default';
 }
 

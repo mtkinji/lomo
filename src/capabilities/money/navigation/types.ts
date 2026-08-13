@@ -14,7 +14,11 @@ export type MoneyStackParamList = {
   MoneyCategoryDetail: { categoryId: string; monthOffset?: number };
   MoneyCategoryCreate: undefined;
   MoneySetup: undefined;
-  MoneyAppControl: { categoryId: string };
+  MoneyAppControl: {
+    categoryId: string;
+    suggestedPreset?: 'always_review' | 'when_hot' | 'at_95_percent' | 'when_over' | 'needs_review';
+    suggestedAppLabels?: string[];
+  };
   MoneyLivingPlan: undefined;
   MoneyLivingPlanReceipt: { receiptId: string };
   MoneyTransactionDetail: { transactionId: string; economicRoleReview?: boolean };

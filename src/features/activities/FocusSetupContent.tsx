@@ -140,6 +140,8 @@ export function FocusSetupContent({
               style={{ maxHeight: soundscapeMenuMaxHeight }}
               showsVerticalScrollIndicator
               nestedScrollEnabled
+              bounces={false}
+              overScrollMode="never"
               keyboardShouldPersistTaps="handled"
             >
               <DropdownMenuCheckboxItem
@@ -156,13 +158,17 @@ export function FocusSetupContent({
                 <DropdownMenuCheckboxItem
                   key={item.id}
                   testID={`focus-soundscape-option-${item.id}`}
+                  accessibilityLabel={item.id === 'canyonSpring' ? 'Canyon Spring, video environment' : undefined}
                   style={styles.focusSoundscapeMenuItem}
                   checked={item.id === audio}
                   onCheckedChange={(checked) => {
                     if (checked) onAudioChange(item.id);
                   }}
                 >
-                  <Text style={styles.focusSoundscapeMenuItemText} numberOfLines={1}>{item.title}</Text>
+                  <HStack alignItems="center" style={styles.focusSoundscapeMenuItemContent}>
+                    <Text style={styles.focusSoundscapeMenuItemText} numberOfLines={1}>{item.title}</Text>
+                    {item.id === 'canyonSpring' ? <Icon name="video" size={16} color={colors.textSecondary} /> : null}
+                  </HStack>
                 </DropdownMenuCheckboxItem>
               ))}
             </ScrollView>

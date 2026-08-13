@@ -82,7 +82,7 @@ function completeExpiredFocusSessionIfNeeded(nowMs = Date.now()) {
   if (!completed) return;
 
   void HapticsService.trigger('outcome.success');
-  recordShowUpWithCelebration();
+  recordShowUpWithCelebration({ baseSound: 'focus' });
   useAppStore.getState().recordCompletedFocusSession({ completedAtMs: completed.completedAtMs });
   useAppStore.getState().recordScreenTimeQualifyingAction({
     action: 'focus_session_completed',

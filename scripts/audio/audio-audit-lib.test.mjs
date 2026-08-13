@@ -39,6 +39,7 @@ test('parses leading and trailing silence without treating an interior pause as 
 test('infers current repository asset categories', () => {
   assert.equal(inferAudioCategory('assets/audio/sfx/list-tap.wav'), 'ui.micro');
   assert.equal(inferAudioCategory('assets/audio/sfx/mark-complete.wav'), 'ui.outcome');
+  assert.equal(inferAudioCategory('assets/audio/sfx/focus-complete-chime.wav'), 'ui.outcome');
   assert.equal(inferAudioCategory('assets/audio/soundscapes/Focus Flow State.mp3'), 'focus.music');
   assert.equal(inferAudioCategory('assets/games/dice-roll.mp3'), 'game.mechanic');
   assert.equal(inferAudioCategory('assets/games/bank-coin-gather-1.mp3'), 'game.mechanic');

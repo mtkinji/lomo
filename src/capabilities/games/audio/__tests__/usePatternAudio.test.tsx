@@ -1,5 +1,5 @@
-const mockPlayers = Array.from({ length: 8 }, () => ({
-  seekTo: jest.fn(async () => undefined), play: jest.fn(), volume: 1,
+const mockPlayers = Array.from({ length: 14 }, () => ({
+  seekTo: jest.fn(async () => undefined), play: jest.fn(), pause: jest.fn(), volume: 1,
   shouldCorrectPitch: true, setPlaybackRate: jest.fn(),
 }));
 let mockNextPlayer = 0;
@@ -27,22 +27,33 @@ describe('usePatternAudio', () => {
     jest.useFakeTimers();
     mockNextPlayer = 0;
     mockSources.length = 0;
-    mockPlayers.forEach((player) => { player.seekTo.mockClear(); player.play.mockClear(); player.setPlaybackRate.mockClear(); });
+    mockPlayers.forEach((player) => { player.seekTo.mockClear(); player.play.mockClear(); player.pause.mockClear(); player.setPlaybackRate.mockClear(); });
   });
   afterEach(() => jest.useRealTimers());
 
-  it('plays color voices without runtime pitch shifting', async () => {
+  it('starts a preloaded color voice synchronously without awaiting a rewind', () => {
     const { result } = renderHook(() => usePatternAudio());
 
-    await act(async () => {
-      await result.current.beat('coral');
-      await result.current.beat('rose');
+    act(() => {
+      result.current.beat('coral');
     });
 
-    expect(mockSources).toHaveLength(8);
-    expect(mockPlayers.slice(0, 6).every((player) => player.setPlaybackRate.mock.calls.length === 0)).toBe(true);
+    expect(mockSources).toHaveLength(14);
     expect(mockPlayers[0].play).toHaveBeenCalledTimes(1);
-    expect(mockPlayers[5].play).toHaveBeenCalledTimes(1);
+    expect(mockPlayers[0].seekTo).not.toHaveBeenCalled();
+    expect(mockPlayers.slice(0, 12).every((player) => player.setPlaybackRate.mock.calls.length === 0)).toBe(true);
+  });
+
+  it('alternates pooled voices so a repeated note never waits for the first voice to rewind', () => {
+    const { result } = renderHook(() => usePatternAudio());
+
+    act(() => {
+      result.current.beat('coral');
+      result.current.beat('coral');
+    });
+
+    expect(mockPlayers[0].play).toHaveBeenCalledTimes(1);
+    expect(mockPlayers[1].play).toHaveBeenCalledTimes(1);
   });
 
   it('plays the watched pattern in order', async () => {
@@ -78,7 +89,7 @@ describe('usePatternAudio', () => {
     const { result } = renderHook(() => usePatternAudio(false));
     const onComplete = jest.fn();
 
-    await act(async () => { await result.current.beat('coral'); });
+    act(() => { result.current.beat('coral'); });
     act(() => result.current.sequence(['pine'], { onComplete }));
     await act(async () => { jest.runAllTimers(); });
     await act(async () => {

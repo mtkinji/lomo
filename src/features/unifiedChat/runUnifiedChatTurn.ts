@@ -387,6 +387,7 @@ export async function runUnifiedChatTurn(
       repository,
       loadCapabilitySnapshots,
     });
+    failureCode = 'model_response_failed';
     input.onLatencyMilestone?.('context_ready');
     if (input.onRunProgress) {
       try {

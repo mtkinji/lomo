@@ -4,7 +4,7 @@
 
 An earned Games shelf that starts quickly and only gives production billing to tables with a complete shared loop.
 
-Oddball's learning slice is a public local/cast table: 3–8 named or neutral players predict the room, reveal together after 15 seconds, score the single largest group, and visibly transfer one Oddball marker to the sole unique player. The marker holder can keep scoring but cannot win.
+Oddball's revised learning slice is a public local/cast table: 3–8 named or neutral players answer six questions, reveal together after a visible and spoken countdown, score the single largest group, and visibly transfer one Oddball marker to the sole unique player. The marker holder can keep scoring but cannot win.
 
 Clue Circle's learning slice is a short rapid-guessing circle: each finder holds the phone outward, the group helps them guess, and forward/correct or backward/pass both reveal the next target until time expires.
 
@@ -40,7 +40,10 @@ Must be real:
 - production filtering and development Workshop grouping;
 - canonical 3–8-player setup for Oddball;
 - deterministic Oddball scoring, tie, marker-transfer, blocked-winner, and replay rules;
-- a 15-second shared choice clock, simultaneous reveal cue, compact public score rail, and reduced host result entry;
+- a 15-second shared choice clock, visible and spoken 3–2–1 reveal, compact public score rail, and direct host result entry that starts with nobody selected;
+- quiet background music during play that yields to the spoken countdown;
+- an in-game rules reference available without leaving the table;
+- a six-question ending with highest eligible score and honest shared winners;
 - optional local player names with neutral fallbacks;
 - tests for catalog filtering and setup behavior.
 - a deterministic Clue Circle turn state machine with timed turns, immediate correct/pass advancement, per-finder results, and one cooperative total;

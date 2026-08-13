@@ -23,6 +23,16 @@ describe('completion feedback sound policy', () => {
     ).toBe('step');
   });
 
+  it('keeps Focus completion calm even when it advances a milestone streak', () => {
+    expect(
+      chooseCompletionFeedbackSound({
+        baseSound: 'focus',
+        streakMoment: 'milestone',
+        allScheduledActivitiesDone: false,
+      }),
+    ).toBe('focusChime');
+  });
+
   it('replaces the base sound when an ordinary streak continues', () => {
     expect(
       chooseCompletionFeedbackSound({

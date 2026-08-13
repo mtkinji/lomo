@@ -6,6 +6,7 @@ import {
   buildCreateCalendarContinuation,
   buildTurnResponseGrounding,
   selectAgentJudgmentTools,
+  selectSubjectSafeRuntimeTools,
 } from './turnExecutionPhase';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 
@@ -54,6 +55,27 @@ test('grounds the job and exposes only judgment-selected tools', () => {
     'activities.capture',
     'plan.schedule_activity',
   ]);
+});
+
+test('self-directed Screen Time requests cannot receive child-control tools', () => {
+  const screenTimeTools = UNIFIED_CHAT_TOOL_CATALOG.filter((tool) =>
+    tool.capabilityId === 'screenTime' || tool.id === 'money.app_control.review');
+
+  expect(selectSubjectSafeRuntimeTools(
+    screenTimeTools,
+    'Set up Screen Time controls for me.',
+  ).map((tool) => tool.id)).toEqual(expect.arrayContaining([
+    'screen_time.read',
+    'screen_time.personal.setup.open',
+    'money.app_control.review',
+  ]));
+  expect(selectSubjectSafeRuntimeTools(
+    screenTimeTools,
+    'Set up Screen Time controls for me.',
+  ).map((tool) => tool.id)).not.toEqual(expect.arrayContaining([
+    'screen_time.configure',
+    'screen_time.override.allow',
+  ]));
 });
 
 test('grounds evidence-linked reasoning and no-change truth without capability-specific wording', () => {

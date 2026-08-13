@@ -248,6 +248,46 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
     }, outputSchema: OBJECT_SCHEMA,
   },
   {
+    id: 'money.app_control.review', version: 1, capabilityId: 'money',
+    purpose: 'Open the canonical Money category app-control editor for a self-authored rule whose Money condition pauses user-selected apps through Screen Time.',
+    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        subject: {
+          type: 'object', additionalProperties: false,
+          properties: { kind: { type: 'string', enum: ['self'] } },
+          required: ['kind'],
+        },
+        condition: {
+          type: 'object', additionalProperties: false,
+          properties: {
+            owner: { type: 'string', enum: ['money'] },
+            categoryId: { type: 'string', minLength: 1 },
+            preset: { type: 'string', enum: ['always_review', 'when_hot', 'at_95_percent', 'when_over', 'needs_review'] },
+          },
+          required: ['owner', 'categoryId', 'preset'],
+        },
+        effect: {
+          type: 'object', additionalProperties: false,
+          properties: {
+            owner: { type: 'string', enum: ['screenTime'] },
+            kind: { type: 'string', enum: ['pause_selected_apps'] },
+            suggestedAppLabels: {
+              type: 'array', maxItems: 8,
+              items: { type: 'string', minLength: 1, maxLength: 80 },
+            },
+          },
+          required: ['owner', 'kind', 'suggestedAppLabels'],
+        },
+      },
+      required: ['subject', 'condition', 'effect'],
+      additionalProperties: false,
+    },
+    outputSchema: OBJECT_SCHEMA,
+  },
+  {
     id: 'relationships.read', version: 1, capabilityId: 'relationships',
     purpose: 'Read bounded owner-scoped People, relationship memories, personal events, and follow-up cadences.',
     providers: ['server'], effect: 'read', consequence: 'low', reversible: true,
@@ -366,6 +406,20 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
         allowMinutes: { type: ['integer', 'null'], minimum: 1, maximum: 1440 },
         expectedVersion: { type: 'integer', minimum: 0 },
       }, required: ['childMembershipId', 'requestId', 'decision', 'allowMinutes', 'expectedVersion'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.personal.setup.open', version: 1, capabilityId: 'screenTime',
+    purpose: 'Open Screen Time setup for the signed-in person on the current device without substituting a managed child.',
+    providers: ['device'], effect: 'write', consequence: 'low', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        subject: {
+          type: 'object', additionalProperties: false,
+          properties: { kind: { type: 'string', enum: ['self'] } }, required: ['kind'],
+        },
+      }, required: ['subject'], additionalProperties: false,
     }, outputSchema: OBJECT_SCHEMA,
   },
   {

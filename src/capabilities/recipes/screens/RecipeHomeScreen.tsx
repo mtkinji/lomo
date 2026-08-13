@@ -177,6 +177,7 @@ export function RecipeHomeView({
   servings,
   checkedIngredients = new Set<string>(),
   priorLearning = null,
+  cookCount = 0,
   syncPending = false,
   recommendedAction,
   menuActions,
@@ -194,6 +195,7 @@ export function RecipeHomeView({
   servings: number;
   checkedIngredients?: Set<string>;
   priorLearning?: RecipeCookRecordProjection | null;
+  cookCount?: number;
   syncPending?: boolean;
   recommendedAction: RecipeNextAction;
   menuActions: RecipeNextAction[];
@@ -286,9 +288,19 @@ export function RecipeHomeView({
           />
           {priorLearning &&
           (priorLearning.privateNote ||
-            priorLearning.wouldMakeAgain !== null) ? (
+            priorLearning.wouldMakeAgain !== null ||
+            priorLearning.outcomeRating !== null ||
+            priorLearning.substitutions.length > 0) ? (
             <View style={styles.learning}>
               <Text variant="label">From your last cook</Text>
+              {cookCount > 0 ? (
+                <Text tone="secondary">
+                  Cooked {cookCount} {cookCount === 1 ? "time" : "times"}
+                </Text>
+              ) : null}
+              {priorLearning.outcomeRating !== null ? (
+                <Text>You rated this cook {priorLearning.outcomeRating} out of 5.</Text>
+              ) : null}
               {priorLearning.privateNote ? (
                 <Text>{priorLearning.privateNote}</Text>
               ) : null}
@@ -299,6 +311,21 @@ export function RecipeHomeView({
                   You said this one wasn’t a repeat yet.
                 </Text>
               ) : null}
+              {priorLearning.substitutions.map((substitution) => (
+                <View key={substitution.id} style={styles.learningSubstitution}>
+                  <Text>
+                    Last time you used {substitution.usedInstead} instead of {substitution.ingredientText}.
+                  </Text>
+                  {substitution.resultRating !== null || substitution.note ? (
+                    <Text tone="secondary">
+                      {substitution.resultRating !== null
+                        ? `That substitution was ${substitution.resultRating} out of 5`
+                        : "Substitution note"}
+                      {substitution.note ? ` · ${substitution.note}` : ""}
+                    </Text>
+                  ) : null}
+                </View>
+              ))}
               <Text tone="secondary">
                 Private Cook record ·{" "}
                 {new Date(priorLearning.completedAt).toLocaleDateString()}
@@ -404,6 +431,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   const [activeCook, setActiveCook] = useState<RecipeCookSession | null>(null);
   const [priorLearning, setPriorLearning] =
     useState<RecipeCookRecordProjection | null>(null);
+  const [cookCount, setCookCount] = useState(0);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const { capture } = useAnalytics();
   const mealChatLaunchContext = useMemo<UnifiedChatLaunchContext>(
@@ -491,13 +519,33 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
           ),
         );
   }, [projection?.currentVersion.id, route.params.recipeId, userId]);
-  useEffect(() => {
-    if (userId)
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      if (!userId) {
+        setPriorLearning(null);
+        setCookCount(0);
+        return () => {
+          cancelled = true;
+        };
+      }
       void createRecipeCookRepository()
-        .latestForRecipe(route.params.recipeId)
-        .then(setPriorLearning)
-        .catch(() => setPriorLearning(null));
-  }, [route.params.recipeId, userId]);
+        .historyForRecipe(route.params.recipeId, 6)
+        .then((history) => {
+          if (cancelled) return;
+          setPriorLearning(history.records[0] ?? null);
+          setCookCount(history.cookCount);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setPriorLearning(null);
+          setCookCount(0);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [route.params.recipeId, userId]),
+  );
   if (!projection)
     return (
       <AppShell>
@@ -693,6 +741,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         servings={servings}
         checkedIngredients={checkedIngredients}
         priorLearning={priorLearning}
+        cookCount={cookCount}
         syncPending={pendingRecipeIds.includes(projection.recipe.id)}
         recommendedAction={nextActions.recommendedAction}
         menuActions={nextActions.menuActions}
@@ -783,6 +832,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.pine50,
   },
+  learningSubstitution: { gap: spacing.xs, paddingTop: spacing.xs },
   provenance: { gap: spacing.xs, paddingTop: spacing.sm },
   headerActions: {
     flexDirection: "row",

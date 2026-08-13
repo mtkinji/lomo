@@ -22,4 +22,19 @@ describe('Kroger connection repository', () => {
     await repository.confirmMapping('list-1', 'item-1', { id:'p',upc:'001',title:'Milk',brand:null,size:null,regularPriceCents:null,promoPriceCents:null,pickupAvailable:true }, 2, location);
     expect(invoke).toHaveBeenCalledWith('kroger-api', { body: expect.objectContaining({ action: 'confirm_mapping', groceryItemId: 'item-1', quantity: 2, location }) });
   });
+
+  it('sends the exact user-confirmed store with the cart mutation', async () => {
+    const invoke = jest.fn().mockResolvedValue({ data: { state: 'cart_add_acknowledged' }, error: null });
+    const repository = createKrogerConnectionRepository({ functions: { invoke } } as unknown as SupabaseClient);
+    const location={id:'store-1',name:'Smiths',banner:"Smith's",address:'689 N Redwood Rd'};
+
+    await repository.cartAdd('list-1', 2, location);
+
+    expect(invoke).toHaveBeenCalledWith('kroger-api', { body: {
+      action: 'cart_add',
+      groceryListId: 'list-1',
+      expectedRevision: 2,
+      locationConfirmation: { locationId: 'store-1', authority: 'user_confirmed' },
+    } });
+  });
 });

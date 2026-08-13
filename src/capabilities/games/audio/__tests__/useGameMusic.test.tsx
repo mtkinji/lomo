@@ -36,4 +36,46 @@ describe('useGameMusic', () => {
     await applyGameMusicTransition(mockPlayer, null, true, () => true, immediateSleep);
     expect(mockPlayer.pause).toHaveBeenCalled();
   });
+
+  test('keeps the current track playing while the next track resolves', async () => {
+    mockPlayer.playing = true;
+    mockPlayer.volume = audioGainForCategory('game.music');
+    let finishResolving: ((value: { uri: string; sourceKind: 'cache' }) => void) | undefined;
+    jest.mocked(resolveAudioAsset).mockImplementationOnce(() => new Promise((resolve) => {
+      finishResolving = resolve;
+    }));
+
+    const transition = applyGameMusicTransition(
+      mockPlayer,
+      'game.bank-building',
+      true,
+      () => true,
+      async () => undefined,
+    );
+    await Promise.resolve();
+
+    expect(mockPlayer.pause).not.toHaveBeenCalled();
+    expect(mockPlayer.playing).toBe(true);
+
+    finishResolving?.({ uri: 'file:///cache/bank-building.mp3', sourceKind: 'cache' });
+    await transition;
+    expect(mockPlayer.replace).toHaveBeenCalledWith({ uri: 'file:///cache/bank-building.mp3' });
+  });
+
+  test('leaves the current track playing when the next track cannot resolve', async () => {
+    mockPlayer.playing = true;
+    mockPlayer.volume = audioGainForCategory('game.music');
+    jest.mocked(resolveAudioAsset).mockRejectedValueOnce(new Error('offline'));
+
+    await expect(applyGameMusicTransition(
+      mockPlayer,
+      'game.bank-maximum',
+      true,
+      () => true,
+      async () => undefined,
+    )).rejects.toThrow('offline');
+
+    expect(mockPlayer.pause).not.toHaveBeenCalled();
+    expect(mockPlayer.playing).toBe(true);
+  });
 });

@@ -1,7 +1,8 @@
-import { Platform, View } from 'react-native';
+import { Modal, Platform, View } from 'react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import type { ActivityFocusController } from './useActivityFocusController';
 import { ActivityFocusExperience } from './ActivityFocusExperience';
+import { FocusSessionOverlay } from './FocusSessionOverlay';
 
 const mockBottomDrawerProps: Array<{ snapPoints?: readonly string[] }> = [];
 
@@ -38,10 +39,6 @@ jest.mock('./FocusEnvironmentBackdrop', () => {
       React.createElement(MockView, { ...props, testID: 'focus-environment-backdrop' }),
   };
 });
-
-jest.mock('./useActiveFocusOrientation', () => ({
-  useActiveFocusOrientation: jest.fn(),
-}));
 
 describe('ActivityFocusExperience drawer presentation', () => {
   beforeEach(() => {
@@ -188,5 +185,7 @@ describe('ActivityFocusExperience drawer presentation', () => {
 
     expect(screen.getByTestId('focus-environment-backdrop')).toHaveProp('running', true);
     expect(screen.getByText('Write the brief')).toBeTruthy();
+    expect(screen.UNSAFE_getByType(FocusSessionOverlay)).toBeTruthy();
+    expect(screen.UNSAFE_queryByType(Modal)).toBeNull();
   });
 });

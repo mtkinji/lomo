@@ -1,6 +1,8 @@
 import { runUnifiedChatTurn } from './runUnifiedChatTurn';
 import { materializeUnifiedChatOutcomePhase } from './turnOutcomePhase';
 import type { CreateUnifiedChatMessageInput, UnifiedChatThreadAggregate } from './types';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const aggregate: UnifiedChatThreadAggregate = {
   thread: {
@@ -68,6 +70,13 @@ function harness() {
 }
 
 describe('runUnifiedChatTurn phase failure contracts', () => {
+  test('advances beyond context failure before constructing local execution', () => {
+    const source = fs.readFileSync(path.join(__dirname, 'runUnifiedChatTurn.ts'), 'utf8');
+    const contextComplete = source.indexOf("failureCode = 'model_response_failed';");
+    const executionStart = source.indexOf('const executionResult = await executeUnifiedChatTurnPhase');
+    expect(contextComplete).toBeGreaterThan(source.indexOf('authorizeUnifiedChatContextPhase'));
+    expect(contextComplete).toBeLessThan(executionStart);
+  });
   test('persistence failure stops before a run and hides provider details', async () => {
     const { repository, sendCoachChat } = harness();
     repository.insertMessage.mockRejectedValueOnce(new Error('database secret detail'));

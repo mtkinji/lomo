@@ -52,8 +52,8 @@ When a group has a small opening, help them choose, start, understand, finish, a
 - Treat Common Thread and Object Quest as playtest candidates until their payoff and replay evidence clear the permanent threshold.
 - Keep Slanguage under its existing learning-release gate.
 - Rework Show of Hands into **Oddball**: everyone secretly predicts the room, the single largest group scores one point each, and the only player on a unique answer receives the public Oddball marker and cannot win while holding it.
-- Keep Oddball local/cast-first in this learning release. A 15-second choice clock and shared reveal keep the room moving; the host records the largest group and, when present, the sole unique player. Remote synchronized voting remains a later extension.
-- End Oddball when one unmarked player has at least eight points and leads every other unmarked player. The marker transfers only when a later round produces exactly one unique answer; tied largest groups score nothing.
+- Keep Oddball local/cast-first in this learning release. A 15-second choice clock, quiet background music, and visible/spoken 3–2–1 reveal keep the room moving; the host selects the largest group from an empty state and, when present, the sole unique player. A rules reference remains available during play. Remote synchronized voting remains a later extension.
+- End Oddball after six questions. The highest unmarked score wins and tied eligible leaders share the win, so the game never extends indefinitely. The marker transfers only when a later round produces exactly one unique answer; tied largest groups score nothing.
 - Rework Clue Circle into 60-second finder turns: use one terse gesture handoff, dip forward for correct, tilt backward to pass, and advance immediately after either result.
 - Keep Clue Circle cooperative: show each finder’s result, then celebrate one circle total after everyone has played.
 - Retain touch fallbacks, provide immediate haptic/audio feedback, and expand the original family-safe target pool for rapid play.

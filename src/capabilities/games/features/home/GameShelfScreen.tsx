@@ -56,7 +56,7 @@ export function GameShelfScreen({ joinInitiallyOpen = false, initialJoinToken, o
       <ScrollView style={styles.inventory} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Pressable accessibilityRole="button" accessibilityLabel="Play Oddball" onPress={() => router.push('/play/same-page')} style={({ pressed }) => [styles.quickStart, pressed ? styles.pressed : null]}>
           <View style={styles.quickMark}><Play size={20} fill={gamesTheme.colors.ink} color={gamesTheme.colors.ink} /></View>
-          <View style={styles.quickCopy}><Text style={styles.quickEyebrow}>3–8 PLAYERS · 10–15 MIN</Text><Text style={styles.quickTitle}>Oddball</Text><Text style={styles.quickBody}>Read the room. Don’t stand alone.</Text></View>
+          <View style={styles.quickCopy}><Text style={styles.quickEyebrow}>3–8 PLAYERS · 5–10 MIN</Text><Text style={styles.quickTitle}>Oddball</Text><Text style={styles.quickBody}>Read the room. Don’t stand alone.</Text></View>
           <ChevronRight size={20} color={gamesTheme.colors.ink} />
         </Pressable>
         <Text style={styles.catalogHeading}>Ready for the table</Text>

@@ -85,6 +85,49 @@ test('returns an honest boundary for cross-device Screen Time control', async ()
   expect(provider.actions()).toEqual([]);
 });
 
+test('stages personal Screen Time setup for self without substituting a child', async () => {
+  const provider = createDeviceToolProvider({ snapshots });
+  await expect(provider.execute({
+    id: 'personal-setup', toolId: 'screen_time.personal.setup.open',
+    arguments: { subject: { kind: 'self' } },
+  }, tool('screen_time.personal.setup.open'))).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: expect.objectContaining({
+      actionType: 'configure_screen_time', targetType: 'personal_screen_time_device',
+      targetId: 'self', payload: { subject: { kind: 'self' } },
+    }),
+  });
+  expect(provider.actions()[0].title).toBe('Set up My Screen Time');
+});
+
+test('stages a self Money condition and Screen Time effect in the canonical category editor', async () => {
+  const provider = createDeviceToolProvider({
+    snapshots: {
+      ...snapshots,
+      money: { categories: [{ id: 'shopping', sourceId: 'shopping', name: 'Shopping' }] },
+    } as never,
+  });
+  await expect(provider.execute({
+    id: 'money-app-control', toolId: 'money.app_control.review', arguments: {
+      subject: { kind: 'self' },
+      condition: { owner: 'money', categoryId: 'shopping', preset: 'when_hot' },
+      effect: { owner: 'screenTime', kind: 'pause_selected_apps', suggestedAppLabels: ['Amazon', 'shopping apps'] },
+    },
+  }, tool('money.app_control.review'))).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: expect.objectContaining({
+      capabilityId: 'money', actionType: 'review_money_app_control',
+      targetType: 'money_category', targetId: 'shopping',
+      payload: {
+        subject: { kind: 'self' }, preset: 'when_hot',
+        suggestedAppLabels: ['Amazon', 'shopping apps'],
+      },
+    }),
+  });
+  expect(provider.actions()[0].consequenceSummary).toContain('choose the apps');
+  expect(provider.actions()[0].consequenceSummary).toContain('Nothing is applied');
+});
+
 test('names missing Screen Time intent fields instead of staging a generic setup action', async () => {
   const provider = createDeviceToolProvider({ snapshots });
   await expect(provider.execute({

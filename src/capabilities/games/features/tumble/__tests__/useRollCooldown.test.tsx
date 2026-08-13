@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
-import { bankRollButtonLabel, bankRollCooldownRemaining, useRollCooldown } from '../useRollCooldown';
+import { BANK_ROLL_COOLDOWN_SECONDS, bankRollButtonLabel, bankRollCooldownRemaining, useRollCooldown } from '../useRollCooldown';
 
 const players = (banked: boolean[]) => banked.map((isBanked, index) => ({
   id: index + 1,
@@ -44,6 +44,12 @@ describe('useRollCooldown', () => {
     act(() => jest.advanceTimersByTime(3_000));
 
     expect(result.current.remainingSeconds).toBe(0);
+  });
+});
+
+describe('Bank cooldown policy', () => {
+  test('keeps the in-flow pause to two seconds at most', () => {
+    expect(BANK_ROLL_COOLDOWN_SECONDS).toBe(2);
   });
 });
 

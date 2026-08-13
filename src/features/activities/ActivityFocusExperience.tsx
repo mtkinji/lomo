@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Animated, Easing, Platform, Pressable, ScrollView, View } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
 import { PortalHost } from '../../ui/Portal';
 import { colors, spacing } from '../../theme';
@@ -16,8 +16,8 @@ import { Text } from '../../ui/Typography';
 import { styles } from './activityDetailStyles';
 import { FocusSetupContent } from './FocusSetupContent';
 import { FocusEnvironmentBackdrop } from './FocusEnvironmentBackdrop';
+import { FocusSessionOverlay } from './FocusSessionOverlay';
 import { formatFocusTimer } from './focusSessionPresentation';
-import { useActiveFocusOrientation } from './useActiveFocusOrientation';
 import type { ActivityFocusController } from './useActivityFocusController';
 
 type ActivityFocusExperienceProps = {
@@ -78,7 +78,6 @@ export function ActivityFocusExperience({
   });
   const hasScreenTimeOffer = screenTimeOffer != null;
   const videoEnvironmentActive = focusVideoEnvironmentId != null;
-  useActiveFocusOrientation(Boolean(controller.session && videoEnvironmentActive));
   const snapPoints = useMemo(() => {
     if (Platform.OS === 'ios') {
       if (controller.customExpanded) return hasScreenTimeOffer ? ['92%' as const] : ['82%' as const];
@@ -175,7 +174,9 @@ export function ActivityFocusExperience({
       </BottomDrawer>
 
       {controller.session ? (
-        <Modal visible transparent animationType="fade" onRequestClose={() => controller.end().catch(() => undefined)}>
+        <FocusSessionOverlay
+          onRequestClose={() => controller.end().catch(() => undefined)}
+        >
           <Pressable
             onPress={videoEnvironmentActive ? undefined : shiftOverlayColor}
             accessibilityRole={videoEnvironmentActive ? 'image' : 'button'}
@@ -212,7 +213,7 @@ export function ActivityFocusExperience({
                 <View style={styles.focusAudioControlWrap}>
                   {soundscapeMenuVisible ? (
                     <Animated.View style={[styles.focusSoundscapeQuickMenu, { opacity: menuAnimation, transform: [{ translateY: menuAnimation.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }, { scale: menuAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1] }) }] }]}>
-                      <ScrollView showsVerticalScrollIndicator={false}>
+                      <ScrollView showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
                         {SOUND_SCAPES.map((item) => {
                           const selected = item.id === soundscapeTrackId;
                           return (
@@ -225,9 +226,14 @@ export function ActivityFocusExperience({
                               }}
                               style={({ pressed }) => [styles.focusSoundscapeQuickMenuItem, selected && styles.focusSoundscapeQuickMenuItemActive, pressed && styles.focusSoundscapeQuickMenuItemPressed]}
                               accessibilityRole="button"
-                              accessibilityLabel={`Select ${item.title} soundscape`}
+                              accessibilityLabel={item.id === 'canyonSpring'
+                                ? 'Select Canyon Spring video environment'
+                                : `Select ${item.title} soundscape`}
                             >
-                              <Text style={styles.focusSoundscapeQuickMenuItemText} numberOfLines={1}>{item.title}</Text>
+                              <HStack space="sm" alignItems="center" style={{ flex: 1 }}>
+                                <Text style={styles.focusSoundscapeQuickMenuItemText} numberOfLines={1}>{item.title}</Text>
+                                {item.id === 'canyonSpring' ? <Icon name="video" size={16} color={colors.textSecondary} /> : null}
+                              </HStack>
                               {selected ? <Icon name="check" size={16} color={colors.textPrimary} /> : null}
                             </Pressable>
                           );
@@ -258,7 +264,7 @@ export function ActivityFocusExperience({
               </HStack>
             </Animated.View>
           </Pressable>
-        </Modal>
+        </FocusSessionOverlay>
       ) : null}
     </>
   );

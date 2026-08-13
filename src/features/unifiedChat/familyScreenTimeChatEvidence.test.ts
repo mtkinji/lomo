@@ -19,6 +19,7 @@ function policy(childMembershipId: string, label = 'Brawl Stars'): FamilyScreenT
 }
 
 const snapshot: ScreenTimeChatSnapshot = {
+  self: { kind: 'self', deviceScope: 'current_device', authorizationStatus: 'approved' },
   children: [
     { membershipId: 'charlie', displayName: 'Charlie', canManage: true, policy: policy('charlie') },
     { membershipId: 'grant', displayName: 'Grant', canManage: true, policy: policy('grant') },
@@ -29,13 +30,18 @@ const snapshot: ScreenTimeChatSnapshot = {
 describe('family Screen Time Chat evidence', () => {
   it('exposes only authorized children and semantic saved-selection labels', () => {
     const evidence = screenTimeChatAdapter.evidence.list(snapshot);
-    expect(evidence).toHaveLength(2);
+    expect(evidence).toHaveLength(3);
     expect(evidence[0]).toMatchObject({
+      capabilityId: 'screenTime',
+      object: { type: 'personal_screen_time_device', id: 'self', label: 'My Screen Time' },
+      authority: 'authoritative',
+    });
+    expect(evidence[1]).toMatchObject({
       capabilityId: 'screenTime',
       object: { type: 'family_screen_time_child', id: 'charlie', label: "Charlie's Screen Time" },
       authority: 'authoritative',
     });
-    expect(evidence[0].summary).toContain('Brawl Stars');
+    expect(evidence[1].summary).toContain('Brawl Stars');
     expect(JSON.stringify(evidence)).not.toContain('opaque-charlie');
     expect(JSON.stringify(evidence)).not.toContain('Private');
   });
@@ -47,7 +53,7 @@ describe('family Screen Time Chat evidence', () => {
         goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] }, screenTime: snapshot,
       },
     });
-    expect(evidence.map((item) => item.object.id)).toEqual(['charlie', 'grant']);
+    expect(evidence.map((item) => item.object.id)).toEqual(['self', 'charlie', 'grant']);
   });
 
   it('resolves child and app labels to stable child-scoped targets', () => {

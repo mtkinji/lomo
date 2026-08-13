@@ -88,8 +88,8 @@ export function ConnectionGameScreen() {
     gameMark={game.mark}
     showHeading={false}
     onRestart={started ? () => setSessionKey((value) => value + 1) : undefined}
-    soundEnabled={started && (game.id === 'clue-circle' || game.id === 'story-relay' || oddball) ? soundOn : undefined}
-    onToggleSound={started && (game.id === 'clue-circle' || game.id === 'story-relay' || oddball) ? () => setSoundOverride(!soundOn) : undefined}
+    soundEnabled={started && (game.id === 'clue-circle' || game.id === 'story-relay' || game.id === 'pass-pattern' || oddball) ? soundOn : undefined}
+    onToggleSound={started && (game.id === 'clue-circle' || game.id === 'story-relay' || game.id === 'pass-pattern' || oddball) ? () => setSoundOverride(!soundOn) : undefined}
   >
     {!started ? <GamePlayerSetup
       mode="connection"
@@ -133,7 +133,7 @@ export function ConnectionGameScreen() {
 
 function GameBody({ gameId, players, soundEnabled, onClueCorrect, onCluePass }: { gameId: NonNullable<ReturnType<typeof findConnectionGame>>['id']; players: string[]; soundEnabled: boolean; onClueCorrect: () => void; onCluePass: () => void }) {
   if (gameId === 'same-page') return <ShowOfHandsGame players={players} soundEnabled={soundEnabled} />;
-  if (gameId === 'pass-pattern') return <PassPatternGame players={players} />;
+  if (gameId === 'pass-pattern') return <PassPatternGame players={players} soundEnabled={soundEnabled} />;
   if (gameId === 'doodle-bridge') return <DoodleBridgeGame players={players} />;
   if (gameId === 'clue-circle') return <ClueCircleGame players={players} soundEnabled={soundEnabled} onCorrectFeedback={onClueCorrect} onPassFeedback={onCluePass} />;
   return <PromptConnectionGame gameId={gameId} players={players} soundEnabled={soundEnabled} />;

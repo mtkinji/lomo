@@ -34,6 +34,22 @@ Deno.test('preserves store coordinates for map-first location selection', () => 
   }]);
 });
 
+Deno.test('preserves a Seattle store chain as the retailer banner', () => {
+  assertEquals(parseKrogerLocations({ data: [{
+    locationId: '70100861',
+    name: 'University Village',
+    chain: 'QFC',
+    address: { addressLine1: '2746 NE 45th St', city: 'Seattle', state: 'WA', zipCode: '98105' },
+  }] }), [{
+    id: '70100861',
+    name: 'University Village',
+    banner: 'QFC',
+    address: '2746 NE 45th St · Seattle WA 98105',
+    latitude: null,
+    longitude: null,
+  }]);
+});
+
 Deno.test('uses basic auth server-side when exchanging the authorization code', async () => {
   let auth = '';
   let body = '';
@@ -47,6 +63,15 @@ Deno.test('uses basic auth server-side when exchanging the authorization code', 
   });
   assertEquals(auth.startsWith('Basic '), true);
   assertEquals(body.includes('code_verifier=verifier'), true);
+  assertEquals(result.scope, ['cart.basic:write']);
+});
+
+Deno.test('keeps the requested cart scope when Kroger omits an unchanged scope from the token response', async () => {
+  const result = await exchangeKrogerToken({
+    clientId: 'client', clientSecret: 'secret', redirectUri: 'https://callback', code: 'code', verifier: 'verifier',
+    fetcher: () => Promise.resolve(Response.json({ access_token: 'access', refresh_token: 'refresh', expires_in: 1800, token_type: 'bearer' })),
+  });
+
   assertEquals(result.scope, ['cart.basic:write']);
 });
 

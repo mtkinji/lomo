@@ -148,7 +148,7 @@ import type { GamesStackParamList } from '../capabilities/games/navigation/types
 import { FoodNavigator, type FoodStackParamList } from '../features/household-food/FoodNavigator';
 import { ExploreSettingsScreen } from '../capabilities/explore/screens/ExploreSettingsScreen';
 import { useFeatureFlag } from '../services/analytics/useFeatureFlag';
-import { applyNavigationOrientation } from './navigationOrientation';
+import { useNavigationOrientationPolicy } from './navigationOrientation';
 import { useFocusSessionStore } from '../features/activities/focusSessionStore';
 
 export type RootDrawerParamList = {
@@ -475,6 +475,12 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   const [initialState, setInitialState] = useState<NavigationState | undefined>(undefined);
   const [currentNavigationState, setCurrentNavigationState] = useState<NavigationState | undefined>();
   const lastTrackedRouteNameRef = useRef<string | undefined>(undefined);
+  const activeRouteName = getActiveRoute(currentNavigationState)?.name;
+  useNavigationOrientationPolicy({
+    ready: isNavReady && currentNavigationState !== undefined,
+    routeName: activeRouteName,
+    focusVideoActive,
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -645,10 +651,6 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
         const rootState = rootNavigationRef.getRootState();
         setCurrentNavigationState(rootState);
         const currentRoute = rootNavigationRef.getCurrentRoute();
-        void applyNavigationOrientation(
-          getActiveRoute(rootState)?.name ?? currentRoute?.name,
-          { focusVideoActive },
-        );
         if (currentRoute?.name) {
           lastTrackedRouteNameRef.current = currentRoute.name;
           trackScreen?.(currentRoute.name, currentRoute.params as any);
@@ -663,7 +665,6 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
 
         const activeRoute = getActiveRoute(state);
         const routeName = activeRoute?.name;
-        void applyNavigationOrientation(routeName, { focusVideoActive });
         if (routeName && routeName !== lastTrackedRouteNameRef.current) {
           lastTrackedRouteNameRef.current = routeName;
           trackScreen?.(routeName, activeRoute?.params as any);

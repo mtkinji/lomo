@@ -34,6 +34,11 @@ export function personalBestFor(records: PersonalBest[], gameKey: PersonalBestGa
   return playerKey ? records.find((record) => record.playerKey === playerKey && record.gameKey === gameKey)?.score ?? null : null;
 }
 
+export function allTimeBestForGame(records: PersonalBest[], gameKey: PersonalBestGameKey) {
+  const scores = records.filter((record) => record.gameKey === gameKey).map((record) => record.score);
+  return scores.length ? Math.max(...scores) : null;
+}
+
 export function mergePersonalBests(...collections: PersonalBest[][]): PersonalBest[] {
   const merged = new Map<string, PersonalBest>();
   collections.flat().forEach((record) => {

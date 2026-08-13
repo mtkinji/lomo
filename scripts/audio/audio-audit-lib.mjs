@@ -86,7 +86,9 @@ export function inferAudioCategory(filePath) {
   const normalized = filePath.split(path.sep).join('/').toLowerCase();
   if (normalized.includes('/soundscapes/')) return 'focus.music';
   if (normalized.endsWith('/list-tap.wav')) return 'ui.micro';
-  if (normalized.endsWith('/mark-complete.wav')) return 'ui.outcome';
+  if (normalized.endsWith('/mark-complete.wav') || normalized.endsWith('/focus-complete-chime.wav')) {
+    return 'ui.outcome';
+  }
   if (normalized.includes('/games/music/')) return 'game.music';
   if (/\/pattern-(coral|pine|gold|sky|violet|rose|success|miss)\./.test(normalized)) return 'game.pattern';
   if (/\/dice-roll(?:-\d+)?\./.test(normalized) || /\/bank-(lock-in|doubles-hit|seven-release|coin-gather(?:-\d+)?)\./.test(normalized)) {

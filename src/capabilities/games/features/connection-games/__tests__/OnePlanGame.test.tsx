@@ -2,15 +2,38 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { ShowOfHandsGame } from '../OnePlanGame';
 
 const mockFeedback = { success: jest.fn(), failure: jest.fn(), select: jest.fn() };
+const mockUseGameMusic = jest.fn();
+const mockSpeak = jest.fn();
+const mockStopSpeaking = jest.fn();
+const mockCountdownCount = jest.fn(async () => undefined);
+const mockCountdownReveal = jest.fn(async () => undefined);
 
 jest.mock('@/src/capabilities/games/audio/useGameFeedback', () => ({
   useGameFeedback: () => mockFeedback,
+}));
+
+jest.mock('@/src/capabilities/games/audio/useGameMusic', () => ({
+  useGameMusic: (...args: unknown[]) => mockUseGameMusic(...args),
+}));
+
+jest.mock('@/src/capabilities/games/audio/useOddballCountdownAudio', () => ({
+  useOddballCountdownAudio: () => ({ count: mockCountdownCount, reveal: mockCountdownReveal }),
+}));
+
+jest.mock('expo-speech', () => ({
+  speak: (...args: unknown[]) => mockSpeak(...args),
+  stop: () => mockStopSpeaking(),
 }));
 
 describe('Oddball shared table', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     Object.values(mockFeedback).forEach((mock) => mock.mockClear());
+    mockUseGameMusic.mockClear();
+    mockSpeak.mockClear();
+    mockStopSpeaking.mockClear();
+    mockCountdownCount.mockClear();
+    mockCountdownReveal.mockClear();
   });
 
   afterEach(() => jest.useRealTimers());
@@ -18,8 +41,10 @@ describe('Oddball shared table', () => {
   function reachResultEntry(screen: ReturnType<typeof render>) {
     fireEvent.press(screen.getByRole('button', { name: 'Start Oddball' }));
     act(() => jest.advanceTimersByTime(15_000));
-    expect(screen.getByText('3 · 2 · 1 · SHOW!')).toBeTruthy();
-    act(() => jest.advanceTimersByTime(1_200));
+    expect(screen.getByText('3')).toBeTruthy();
+    act(() => jest.advanceTimersByTime(1_000));
+    act(() => jest.advanceTimersByTime(1_000));
+    act(() => jest.advanceTimersByTime(1_000));
     expect(screen.getByText('What was the biggest group?')).toBeTruthy();
   }
 
@@ -34,22 +59,38 @@ describe('Oddball shared table', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Start Oddball' }));
     expect(screen.getByText('0:15')).toBeTruthy();
     act(() => jest.advanceTimersByTime(15_000));
+    expect(screen.getByText('3')).toBeTruthy();
+    expect(mockSpeak).toHaveBeenLastCalledWith('Three', expect.objectContaining({ rate: expect.any(Number) }));
 
-    expect(screen.getByText('3 · 2 · 1 · SHOW!')).toBeTruthy();
-    expect(mockFeedback.select).toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(1_000));
+    expect(screen.getByText('2')).toBeTruthy();
+    expect(mockSpeak).toHaveBeenLastCalledWith('Two', expect.any(Object));
+
+    act(() => jest.advanceTimersByTime(1_000));
+    expect(screen.getByText('1')).toBeTruthy();
+    expect(mockSpeak).toHaveBeenLastCalledWith('One', expect.any(Object));
+    expect(mockCountdownCount).toHaveBeenCalledTimes(3);
+
+    act(() => jest.advanceTimersByTime(1_000));
+    expect(mockCountdownReveal).toHaveBeenCalledTimes(1);
+    expect(mockUseGameMusic).toHaveBeenCalledWith('game.clue-circle', true);
+    expect(mockUseGameMusic).toHaveBeenCalledWith(null, true);
   });
 
-  it('scores the largest group and docks the public Oddball beside the sole unique player', () => {
+  it('starts with nobody selected, scores the people the host selects, and derives a sole outsider', () => {
     const screen = render(<ShowOfHandsGame players={['Maya', 'Leo', 'Nana', 'Ari']} soundEnabled />);
     reachResultEntry(screen);
 
     fireEvent.press(screen.getByRole('button', { name: 'The garage was the biggest group' }));
-    expect(screen.getByText('Who matched?')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Ari, included in biggest group' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByText('Who picked it?')).toBeTruthy();
+    for (const name of ['Maya', 'Leo', 'Nana', 'Ari']) {
+      expect(screen.getByRole('button', { name: `${name}, not in biggest group` }).props.accessibilityState).toEqual({ selected: false });
+    }
 
-    expect(screen.getByText('Did one person stand alone?')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Ari stood alone' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Maya, not in biggest group' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Leo, not in biggest group' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Nana, not in biggest group' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
 
     expect(screen.getByText('Ari gets the Oddball.')).toBeTruthy();
     expect(screen.getByLabelText('Maya, 1 point')).toBeTruthy();
@@ -66,5 +107,29 @@ describe('Oddball shared table', () => {
     expect(screen.getByText('No points.')).toBeTruthy();
     expect(screen.getByLabelText('Maya, 0 points')).toBeTruthy();
     expect(mockFeedback.failure).toHaveBeenCalled();
+  });
+
+  it('keeps a sole-unique choice explicit when several players are outside the largest group', () => {
+    const screen = render(<ShowOfHandsGame players={['Maya', 'Leo', 'Nana', 'Ari', 'Bo']} soundEnabled />);
+    reachResultEntry(screen);
+
+    fireEvent.press(screen.getByRole('button', { name: 'The garage was the biggest group' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Maya, not in biggest group' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Leo, not in biggest group' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(screen.getByText('Did exactly one person stand alone?')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Nana stood alone' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'No sole Oddball this question' })).toBeTruthy();
+  });
+
+  it('keeps the six-question rules available during play', () => {
+    const screen = render(<ShowOfHandsGame players={['Maya', 'Leo', 'Nana']} soundEnabled />);
+    fireEvent.press(screen.getByRole('button', { name: 'Start Oddball' }));
+    fireEvent.press(screen.getByRole('button', { name: 'How to play Oddball' }));
+
+    expect(screen.getByRole('header', { name: 'How to play Oddball' })).toBeTruthy();
+    expect(screen.getByText('Play six questions.')).toBeTruthy();
+    expect(screen.getByText('The highest score wins, but not while holding the Oddball.')).toBeTruthy();
   });
 });

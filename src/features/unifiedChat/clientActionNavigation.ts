@@ -2,7 +2,7 @@ import type { UnifiedChatClientAction } from './types';
 
 export type ClientActionOpenInstruction =
   | { kind: 'search' }
-  | { kind: 'navigate'; name: 'MainTabs' | 'Settings'; params: Record<string, unknown> };
+  | { kind: 'navigate'; name: 'MainTabs' | 'Settings' | 'Money'; params: Record<string, unknown> };
 
 export function resolveClientActionOpenInstruction(
   action: UnifiedChatClientAction,
@@ -44,6 +44,20 @@ export function resolveClientActionOpenInstruction(
           },
         },
       };
+    case 'review_money_app_control': {
+      const suggestedPreset = typeof action.payload.preset === 'string' ? action.payload.preset : null;
+      const suggestedAppLabels = Array.isArray(action.payload.suggestedAppLabels)
+        ? action.payload.suggestedAppLabels.filter((value): value is string => typeof value === 'string')
+        : [];
+      if (!action.targetId || action.payload.subject == null || suggestedPreset === null) return null;
+      return {
+        kind: 'navigate', name: 'Money', params: {
+          screen: 'MoneyAppControl', params: {
+            categoryId: action.targetId, suggestedPreset, suggestedAppLabels,
+          },
+        },
+      };
+    }
     case 'configure_screen_time':
       return {
         kind: 'navigate', name: 'Settings', params: {

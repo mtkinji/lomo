@@ -1,0 +1,39 @@
+diff --git a/node_modules/expo-screen-orientation/ios/ScreenOrientationViewController.swift b/node_modules/expo-screen-orientation/ios/ScreenOrientationViewController.swift
+index 9893985..f694908 100644
+--- a/node_modules/expo-screen-orientation/ios/ScreenOrientationViewController.swift
++++ b/node_modules/expo-screen-orientation/ios/ScreenOrientationViewController.swift
+@@ -22,6 +22,7 @@ class ScreenOrientationViewController: UIViewController {
+     self.defaultOrientationMask = defaultOrientationMask
+     super.init(nibName: nil, bundle: nil)
+ 
++
+     // For iPads traitCollectionDidChange will not be called (it's always in the same size class). It is necessary
+     // to init it in here, so it's possible to return it in the didUpdateDimensionsEvent of the module
+     if self.screenOrientationRegistry.currentTraitCollection == nil {
+@@ -63,7 +64,16 @@ class ScreenOrientationViewController: UIViewController {
+     fatalError("init(coder:) has not been implemented")
+   }
+ 
++
+   override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
++    // An explicit expo-screen-orientation lock represents the current feature's
++    // runtime intent (Focus, Games, Cook mode). It must win over a portrait mask
++    // inherited from an outer react-native-screens navigator.
++    let mask = screenOrientationRegistry.requiredOrientationMask()
++    if !mask.isEmpty {
++      return mask
++    }
++
+     if let vc = vcWithRNScreenOrientation() {
+       // react-native-screens has per-screen orientation set. Defer to that VC's
+       // supportedInterfaceOrientations so RNScreens' swizzled implementation can
+@@ -77,8 +87,7 @@ class ScreenOrientationViewController: UIViewController {
+ 
+     // No react-native-screens orientation — use expo-screen-orientation's registry mask
+     // (set via lockAsync) or the default from Info.plist.
+-    let mask = screenOrientationRegistry.requiredOrientationMask()
+-    return !mask.isEmpty ? mask : defaultOrientationMask
++    return defaultOrientationMask
+   }
+ 
+   override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {

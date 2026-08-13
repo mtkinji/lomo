@@ -39,13 +39,17 @@ export async function applyGameMusicTransition(
     return;
   }
 
+  // Keep the current loop alive while the next remote-backed track resolves.
+  // If resolution fails, the caller can swallow the error without leaving the table silent.
+  const resolved = await resolveAudioAsset(trackId);
+  if (!active()) return;
+
   if (player.playing) {
     const faded = await fadePlayer(player, player.volume, 0, active, sleep);
     if (!faded) return;
     player.pause();
   }
 
-  const resolved = await resolveAudioAsset(trackId);
   if (!active()) return;
   player.replace({ uri: resolved.uri });
   player.loop = true;

@@ -13,6 +13,7 @@ import type { CalendarRef } from '../../services/plan/calendarApi';
 import { formatMoney, type MoneySnapshot } from '../../capabilities/money/data/moneySnapshot';
 import { formatMoneyPlanLimitAnswer } from '../../capabilities/money/domain/moneyPlanLimitAnswer';
 import type { FamilyScreenTimeSnapshot } from '../household/screenTime/data/familyScreenTime';
+import type { ScreenTimeAuthorizationStatus } from '../../services/screenTimeProtection';
 import type { RecipeProjection } from '../../capabilities/recipes/data/recipeCache';
 
 export type GoalsChatSnapshot = { goals: readonly Goal[]; arcIds?: readonly string[] };
@@ -35,6 +36,11 @@ export type AccountChatSnapshot = {
 };
 export type MoneyChatSnapshot = MoneySnapshot;
 export type ScreenTimeChatSnapshot = {
+  self?: {
+    kind: 'self';
+    deviceScope: 'current_device';
+    authorizationStatus: ScreenTimeAuthorizationStatus;
+  };
   children: ReadonlyArray<{
     membershipId: string;
     displayName: string;
@@ -42,6 +48,28 @@ export type ScreenTimeChatSnapshot = {
     policy: FamilyScreenTimeSnapshot;
   }>;
 };
+
+function personalScreenTimeEvidence(
+  self: NonNullable<ScreenTimeChatSnapshot['self']>,
+): CapabilityEvidenceSource {
+  const setup = self.authorizationStatus === 'approved'
+    ? 'Available on this device'
+    : self.authorizationStatus === 'notDetermined'
+      ? 'Permission not requested'
+      : self.authorizationStatus === 'unavailable'
+        ? 'Unavailable in this build'
+        : 'Permission needs attention';
+  return {
+    capabilityId: 'screenTime',
+    object: {
+      type: 'personal_screen_time_device', id: 'self', label: 'My Screen Time', secondaryLabel: setup,
+    },
+    searchableText: 'my self personal current device phone screen time app controls',
+    summary: `Subject: self · Device: current device · ${setup}`,
+    authority: 'authoritative',
+    observedAt: null,
+  };
+}
 export type RecipesChatSnapshot = { recipes: readonly RecipeProjection[] };
 
 export type UnifiedChatCapabilitySnapshots = {
@@ -563,14 +591,27 @@ export const screenTimeChatAdapter: CapabilityChatAdapter<ScreenTimeChatSnapshot
   capabilityId: 'screenTime',
   context: { dataClassification: 'private_kwilt_data', readOnly: false },
   evidence: {
-    list: ({ children }) => children.filter((child) => child.canManage).map(familyScreenTimeEvidence),
+    list: ({ self, children }) => [
+      ...(self ? [personalScreenTimeEvidence(self)] : []),
+      ...children.filter((child) => child.canManage).map(familyScreenTimeEvidence),
+    ],
   },
   proposal: { operationKinds: [] },
   apply: { operationKinds: [] },
   receipt: { reloadAuthoritativeObject: true },
   undo: { operationKinds: [] },
   return: {
-    targetFor: (object) => ({
+    targetFor: (object) => object.type === 'personal_screen_time_device' ? ({
+      capabilityId: 'screenTime',
+      object: { type: object.type, id: object.id },
+      label: object.label,
+      route: {
+        name: 'Settings', params: {
+          screen: 'SettingsScreenTimeProtection',
+          params: { setupIntent: 'settings_discovery', entrySurface: 'settings' },
+        },
+      },
+    }) : ({
       capabilityId: 'screenTime',
       object: { type: object.type, id: object.id },
       label: object.label,
@@ -801,6 +842,7 @@ export function resolveUnifiedChatObjectReturn(
   if (object.type === 'money_category') return moneyChatAdapter.return.targetFor(object);
   if (object.type === 'money_transaction') return moneyChatAdapter.return.targetFor(object);
   if (object.type === 'family_screen_time_child') return screenTimeChatAdapter.return.targetFor(object);
+  if (object.type === 'personal_screen_time_device') return screenTimeChatAdapter.return.targetFor(object);
   if (object.type === 'recipe') return recipesChatAdapter.return.targetFor(object);
   return null;
 }

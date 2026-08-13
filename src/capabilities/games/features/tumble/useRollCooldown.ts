@@ -3,6 +3,8 @@ import type { BankGame } from '../../domain/bank';
 
 type BankCooldownState = Pick<BankGame, 'players' | 'rollInRound'>;
 
+export const BANK_ROLL_COOLDOWN_SECONDS = 2;
+
 export function bankRollCooldownRemaining(
   game: BankCooldownState,
   remainingSeconds: number,

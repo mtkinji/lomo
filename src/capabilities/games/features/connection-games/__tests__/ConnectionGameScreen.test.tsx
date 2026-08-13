@@ -11,9 +11,18 @@ const mockPatternAudio = {
   beat: jest.fn(), sequence: jest.fn(), stopSequence: jest.fn(),
   success: jest.fn(), failure: jest.fn(),
 };
+const mockPatternGroove = {
+  beatIndex: 0,
+  timingOffsetMs: jest.fn(() => 0),
+  msUntilNextBeat: jest.fn(() => 0),
+};
 let mockMotionAvailable = false;
 let mockMotionListener: ((event: { rotationRate?: { alpha?: number } }) => void) | null = null;
 const mockGameFeedback = { success: jest.fn(), failure: jest.fn(), select: jest.fn(), skip: jest.fn() };
+const mockOddballCountdownAudio = {
+  count: jest.fn(async () => undefined),
+  reveal: jest.fn(async () => undefined),
+};
 
 function launchLocalGame(screen: ReturnType<typeof render>) {
   const first = screen.getByLabelText('Player 1');
@@ -78,8 +87,16 @@ jest.mock('@/src/capabilities/games/audio/usePatternAudio', () => ({
   usePatternAudio: () => mockPatternAudio,
 }));
 
+jest.mock('@/src/capabilities/games/audio/usePatternGroove', () => ({
+  usePatternGroove: () => mockPatternGroove,
+}));
+
 jest.mock('@/src/capabilities/games/audio/useGameFeedback', () => ({
   useGameFeedback: () => mockGameFeedback,
+}));
+
+jest.mock('@/src/capabilities/games/audio/useOddballCountdownAudio', () => ({
+  useOddballCountdownAudio: () => mockOddballCountdownAudio,
 }));
 
 jest.mock('@/src/capabilities/games/remote/remoteSlanguageClient', () => ({
@@ -92,7 +109,10 @@ describe('ConnectionGameScreen', () => {
     mockCreateOpenSlanguageTable.mockReset();
     mockCreateOpenSlanguageTable.mockResolvedValue({ sessionId: 'slanguage-room', userId: 'host-user' });
     Object.values(mockPatternAudio).forEach((mock) => mock.mockClear());
+    mockPatternGroove.timingOffsetMs.mockClear();
+    mockPatternGroove.msUntilNextBeat.mockClear();
     Object.values(mockGameFeedback).forEach((mock) => mock.mockClear());
+    Object.values(mockOddballCountdownAudio).forEach((mock) => mock.mockClear());
     mockMotionAvailable = false;
     mockMotionListener = null;
   });
@@ -102,7 +122,7 @@ describe('ConnectionGameScreen', () => {
     ['object-quest', 'Object Quest', /Find something older than you/],
     ['story-relay', 'Story Relay', /Choose a story/],
     ['family-forecast', 'Family Forecast', /Which would Player 1 choose/],
-    ['pass-pattern', 'Pass the Pattern', /Choose your rhythm/],
+    ['pass-pattern', 'Pass the Pattern', /Pass to Player 1/],
     ['doodle-bridge', 'Doodle Bridge', /Turn the circle into anything/],
     ['clue-circle', 'Clue Circle', /Phone on forehead/],
   ] as const;
@@ -245,16 +265,16 @@ describe('ConnectionGameScreen', () => {
     expect(screen.UNSAFE_getByType(SafeAreaView).props.accessibilityViewIsModal).toBe(true);
   });
 
-  it('waits for the receiver before playing a Gentle pattern', () => {
+  it('waits for the receiver before playing the first Funk pattern', () => {
     mockGameId = 'pass-pattern';
     const screen = render(<ConnectionGameScreen />);
     launchLocalGame(screen);
-    fireEvent.press(screen.getByText('Gentle'));
 
     expect(screen.getByText('Pass to Player 1')).toBeTruthy();
+    expect(screen.getByText('Funk · 100 BPM')).toBeTruthy();
     expect(mockPatternAudio.sequence).not.toHaveBeenCalled();
     fireEvent.press(screen.getByText('We’re ready'));
-    expect(mockPatternAudio.sequence).toHaveBeenCalledWith(['coral', 'pine'], expect.objectContaining({ spacingMs: 650 }));
+    expect(mockPatternAudio.sequence).toHaveBeenCalledWith(['coral', 'pine'], expect.objectContaining({ spacingMs: 600, startDelayMs: 0 }));
 
     const options = mockPatternAudio.sequence.mock.calls[0][1];
     act(() => options.onComplete());
@@ -265,22 +285,42 @@ describe('ConnectionGameScreen', () => {
     expect(screen.getByLabelText('Coral beat')).toBeTruthy();
     expect(screen.getByLabelText('Pine beat')).toBeTruthy();
     expect(screen.getByLabelText('Gold beat')).toBeTruthy();
-    expect(screen.queryByLabelText('Sky beat')).toBeNull();
+    expect(screen.getByLabelText('Sky beat')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Turn sound off' })).toBeTruthy();
   });
 
-  it('renders six full beat controls for Challenge', () => {
+  it('plays a note on touch-down, then judges that same timestamp on release', () => {
     mockGameId = 'pass-pattern';
     const screen = render(<ConnectionGameScreen />);
     launchLocalGame(screen);
-    fireEvent.press(screen.getByText('Challenge'));
     fireEvent.press(screen.getByText('We’re ready'));
     const options = mockPatternAudio.sequence.mock.calls[0][1];
     act(() => options.onComplete());
     fireEvent.press(screen.getByText('I’ve got it'));
 
-    for (const label of ['Coral', 'Pine', 'Gold', 'Sky', 'Violet', 'Rose']) {
-      expect(screen.getByLabelText(`${label} beat`)).toBeTruthy();
-    }
+    const coral = screen.getByLabelText('Coral beat');
+    fireEvent(coral, 'pressIn');
+    expect(mockPatternAudio.beat).toHaveBeenCalledWith('coral');
+    expect(screen.getByText('0 of 2 notes')).toBeTruthy();
+    fireEvent.press(coral);
+    expect(mockPatternGroove.timingOffsetMs).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('1 of 2 notes')).toBeTruthy();
+  });
+
+  it('ends only the active player’s run and finishes with the sole survivor', () => {
+    mockGameId = 'pass-pattern';
+    const screen = render(<ConnectionGameScreen />);
+    launchLocalGame(screen);
+    fireEvent.press(screen.getByText('We’re ready'));
+    const options = mockPatternAudio.sequence.mock.calls[0][1];
+    act(() => options.onComplete());
+    fireEvent.press(screen.getByText('I’ve got it'));
+
+    fireEvent.press(screen.getByLabelText('Sky beat'));
+    expect(screen.getByText('Player 1 is out this game.')).toBeTruthy();
+    expect(screen.getByText('One player remains. See who held the pattern.')).toBeTruthy();
+    fireEvent.press(screen.getByText('See winner'));
+    expect(screen.getByText('Player 2 held the pattern.')).toBeTruthy();
   });
 
   it('passes neutral setup names into the Oddball teaching table', () => {
@@ -342,6 +382,15 @@ describe('ConnectionGameScreen', () => {
 
     fireEvent.press(screen.getByText('Start another doodle'));
     expect(screen.getByText('Take this wandering line somewhere.')).toBeTruthy();
+  });
+
+  it('keeps an active Doodle Bridge stroke when the surrounding scroll view asks for the gesture', () => {
+    mockGameId = 'doodle-bridge';
+    const screen = render(<ConnectionGameScreen />);
+    launchLocalGame(screen);
+
+    const canvas = screen.getByLabelText('Shared doodle canvas');
+    expect(canvas.props.onResponderTerminationRequest()).toBe(false);
   });
 
   it('runs rapid timed Clue Circle turns entirely through motion', async () => {

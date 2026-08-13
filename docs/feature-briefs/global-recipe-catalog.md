@@ -16,7 +16,7 @@ last_updated: 2026-08-12
 
 ## Context
 
-Kwilt has 500 authored OOTB meals, but they currently live as TypeScript data inside the mobile bundle and share a 24-cell generic artwork atlas. They are not durable public catalog records and cannot receive independent content corrections, recipe-specific media, ratings, cooking notes, or safe private adaptations without an application release. Production Supabase currently contains one private Recipe and no active Recipe media rows.
+Kwilt has 500 authored OOTB meals in the mobile bundle and 500 corresponding published catalog records in production Supabase. Before the catalog-ownership repair, those canonical records were owned by the same person as one genuine private Recipe, so the personal projection returned 501 rows and the app concatenated them with the bundled fallback for a visible total of 1,001. The ownership repair separates canonical publication records from person-owned inventory without deleting the records used by the public catalog and recipe-image pipeline. The bundle remains a last-known-good fallback during the hosted-catalog transition; hosted and bundled catalogs must never be concatenated.
 
 ## Target audience
 
@@ -54,7 +54,8 @@ When the next meals are unresolved, give me a trustworthy cookbook that already 
 | Canonical media | Catalog publication/editorial review | All eligible users |
 | Heart | Person preference | Private |
 | Star rating | Person-to-published-version event | Own rating private; thresholded aggregate public |
-| Cooking note | Public contribution | Public under adult profile; moderated |
+| Cook outcome, substitutions, and next-time note | Exact-version Cook record | Private to the cook |
+| Public Cooking note | Explicit public contribution | Public under adult profile; moderated |
 | Personal edition | One evolving private Recipe with exact source lineage and immutable versions | Owner and explicit grantees |
 
 Private Recipes remain person-owned and private. Public catalog reads never broaden RLS over the private aggregate. A stable database function or security-invoker projection returns only active publication fields.
@@ -89,6 +90,14 @@ The existing private favorite repository remains authoritative. Hearts are avail
 - Public count/average appears only at five independent ratings; below it, Recipe Home says **Not enough ratings yet**.
 - A newly published canonical version starts a new aggregate.
 - Ratings never rank discovery shelves in this release.
+
+Private Cook outcome ratings are separate evidence. They describe how one attempt turned out—including any substitutions—and never enter the public Recipe aggregate.
+
+### Private Cook journal
+
+Each completed Cook session creates at most one owner-only Cook record pinned to the exact canonical RecipeVersion used. The record may contain a private 1–5 outcome, a make-again signal, a next-time note, and structured substitutions linked to the exact source ingredient lines. Resaving completion learning updates the same record transactionally rather than incrementing the cook count.
+
+Recipe Home shows the owner's total completed Cook count and the most recent relevant evidence. Stable bundled roster and ingredient IDs resolve server-side to canonical UUID rows so existing favorites, hides, plans, and deep links retain their identity while Cook history keeps canonical foreign keys. Public ratings, public Cooking notes, and community photos never read from this private journal without a later explicit contribution act.
 
 ### Cooking notes
 

@@ -138,6 +138,7 @@ import TrendingUp from 'lucide-react-native/dist/cjs/icons/trending-up';
 import TriangleAlert from 'lucide-react-native/dist/cjs/icons/triangle-alert';
 import Underline from 'lucide-react-native/dist/cjs/icons/underline';
 import Utensils from 'lucide-react-native/dist/cjs/icons/utensils';
+import Video from 'lucide-react-native/dist/cjs/icons/video';
 import Waves from 'lucide-react-native/dist/cjs/icons/waves';
 import Wheat from 'lucide-react-native/dist/cjs/icons/wheat';
 import User from 'lucide-react-native/dist/cjs/icons/user';
@@ -197,6 +198,7 @@ const iconMap = {
   share: { library: 'ion', name: 'share-outline' },
   camera: { library: 'lucide', icon: Camera },
   image: { library: 'lucide', icon: ImageIcon },
+  video: { library: 'lucide', icon: Video },
   mic: { library: 'lucide', icon: Mic },
   arrowUp: { library: 'lucide', icon: ArrowUp },
   arrowDown: { library: 'lucide', icon: ArrowDown },

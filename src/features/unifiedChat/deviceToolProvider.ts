@@ -13,6 +13,8 @@ export type StagedUnifiedChatClientAction = {
 };
 
 const DEVICE_TOOL_IDS = new Set([
+  'money.app_control.review',
+  'screen_time.personal.setup.open',
   'screen_time.configure', 'screen_time.selection.open', 'screen_time.device.setup.open',
   'screen_time.device.release.open', 'notifications.configure', 'navigation.search.open',
   'navigation.account_settings.open', 'account.subscription.open', 'account.delete.open',
@@ -32,6 +34,50 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
     if (!DEVICE_TOOL_IDS.has(call.toolId)) return null;
     if (call.toolId !== tool.id) {
       return { status: 'failed', code: 'tool_mismatch', message: 'The discovered device tool does not match this call.', retryable: false };
+    }
+    if (call.toolId === 'money.app_control.review') {
+      const subject = call.arguments.subject as Record<string, unknown> | undefined;
+      const condition = call.arguments.condition as Record<string, unknown> | undefined;
+      const effect = call.arguments.effect as Record<string, unknown> | undefined;
+      const categoryId = typeof condition?.categoryId === 'string' ? condition.categoryId.trim() : '';
+      const preset = typeof condition?.preset === 'string' ? condition.preset : '';
+      const presets = new Set(['always_review', 'when_hot', 'at_95_percent', 'when_over', 'needs_review']);
+      const suggestedAppLabels = Array.isArray(effect?.suggestedAppLabels)
+        ? effect.suggestedAppLabels.flatMap((value) => typeof value === 'string' && value.trim()
+            ? [value.trim().slice(0, 80)] : []).slice(0, 8)
+        : [];
+      if (
+        subject?.kind !== 'self' || condition?.owner !== 'money' || effect?.owner !== 'screenTime' ||
+        effect?.kind !== 'pause_selected_apps' || !categoryId || !presets.has(preset)
+      ) {
+        return { status: 'failed', code: 'invalid_money_app_control_intent', message: 'That app-control request does not have a valid self subject, Money condition, and Screen Time effect.', retryable: false };
+      }
+      const category = snapshots.money?.categories.find((candidate) => (
+        candidate.id === categoryId || candidate.sourceId === categoryId
+      ));
+      if (!category) {
+        return { status: 'needs_input', prompt: 'Which Money category should decide when those apps pause?', fields: ['categoryId'] };
+      }
+      return stage({
+        capabilityId: 'money', actionType: 'review_money_app_control',
+        targetType: 'money_category', targetId: category.sourceId,
+        title: `Review app controls for ${category.name}`,
+        consequenceSummary: 'Kwilt will open this Money category. You still choose the apps and review the condition with Apple Screen Time. Nothing is applied in Chat.',
+        payload: { subject: { kind: 'self' }, preset, suggestedAppLabels },
+      });
+    }
+    if (call.toolId === 'screen_time.personal.setup.open') {
+      const subject = call.arguments.subject as Record<string, unknown> | undefined;
+      if (subject?.kind !== 'self') {
+        return { status: 'failed', code: 'invalid_personal_screen_time_subject', message: 'Personal Screen Time setup requires the signed-in person on this device.', retryable: false };
+      }
+      return stage({
+        capabilityId: 'screenTime', actionType: 'configure_screen_time',
+        targetType: 'personal_screen_time_device', targetId: 'self',
+        title: 'Set up My Screen Time',
+        consequenceSummary: 'Kwilt will open Screen Time setup on this device. Apple permission and app selection remain under your review.',
+        payload: { subject: { kind: 'self' } },
+      });
     }
     if (call.toolId.startsWith('activities.')) {
       const activityId = typeof call.arguments.activityId === 'string' ? call.arguments.activityId : '';
