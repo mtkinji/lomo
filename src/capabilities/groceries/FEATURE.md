@@ -48,3 +48,12 @@ retailer preferences, prepare an exception-light cart where a provider permits
 it, surface only evidence-backed savings, and preserve the exact remainder.
 Amazon and Walmart remain approval-gated outbound assistance, and Costco is a
 remembered preference rather than an executable integration.
+
+Runtime capability is distinct from preference: a retailer may be
+`cart_prepare`, `product_links`, `remembered_only`, or `unavailable` for the
+requested fulfillment mode. Learning release A is Kroger-family pickup only;
+Kroger delivery requires its own disposable-cart proof, while Amazon and
+Walmart require exact-surface approval and live qualifying-link attribution
+before their disabled gates may be enabled. Source completion, Simulator proof,
+signed-device cart proof, TestFlight household use, and production affiliate
+attribution remain separate evidence levels.
