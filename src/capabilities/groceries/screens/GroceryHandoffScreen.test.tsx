@@ -85,7 +85,10 @@ describe('Grocery handoff accessibility layout', () => {
       />,
     );
     fireEvent.press(await screen.findByRole('button', { name: "Shop at Smith's" }));
-    expect(navigate).toHaveBeenCalledWith('KrogerCart', { listId: 'list-1' });
+    expect(navigate).toHaveBeenCalledWith('KrogerCart', {
+      listId: 'list-1',
+      fulfillmentMode: 'pickup',
+    });
   });
 
   it('does not offer a dead Smiths handoff when Kroger is not configured', async () => {

@@ -49,6 +49,7 @@ import { formatKitchenQuantity } from '../../recipes/domain/recipeScaling';
 import { createMealPlanningRepository } from '../../meal-planning/data/mealPlanningRepository';
 import { groceryCache } from '../data/groceryCache';
 import { groceryEducation } from '../data/groceryEducation';
+import { onlineShoppingPreferencesRepository } from '../data/onlineShoppingPreferencesRepository';
 import {
   createGroceryRepository,
   type GroceryProjection,
@@ -452,7 +453,11 @@ export function GroceryListScreen({ navigation, route }: Props) {
       if (list.status === 'review_needed') {
         capture(AnalyticsEvent.GroceryListReviewed, { count: list.items.length });
       }
-      navigation.navigate('KrogerCart', { listId: list.id });
+      const preferences = await onlineShoppingPreferencesRepository.read(userId);
+      navigation.navigate(
+        preferences ? 'OnlineOrder' : 'OnlineShoppingSetup',
+        { listId: list.id },
+      );
     } catch (error) {
       Alert.alert(
         'Shopping is not ready',
