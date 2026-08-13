@@ -63,3 +63,4 @@ JWT Key Generator
 # generated native folders
 /ios
 /android
+modules/*/android/build/
