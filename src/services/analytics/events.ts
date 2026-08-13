@@ -44,7 +44,6 @@ export const AnalyticsEvent = {
   RecipeCookingOpened: 'recipe_cooking_opened',
   RecipeExported: 'recipe_exported',
   RecipeDeleted: 'recipe_deleted',
-  FoodContinuationViewed: 'food_continuation_viewed',
   MealPlanHorizonSelected: 'meal_plan_horizon_selected',
   MealCandidatesPrepared: 'meal_candidates_prepared',
   MealChoiceRoundOpened: 'meal_choice_round_opened',

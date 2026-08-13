@@ -45,7 +45,7 @@ export type CapabilityNavigationTarget =
   | {
       name: 'Food';
       params: {
-        screen: 'FoodHome' | 'RecipeLibrary' | 'NextMeals' | 'GroceryList';
+        screen: 'RecipeLibrary' | 'NextMeals' | 'GroceryList';
         params?: { entryPoint: 'capability-menu' };
       };
     };

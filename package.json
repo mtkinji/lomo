@@ -172,6 +172,7 @@
           "kwilt-nearby-table",
           "kwilt-place-search",
           "kwilt-route-reconstruction",
+          "kwilt-share-sheet",
           "react-native-plaid-link-sdk"
         ]
       }

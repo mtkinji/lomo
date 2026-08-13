@@ -244,7 +244,7 @@ export function RecipeCookCompleteScreen({ navigation, route }: Props) {
     navigation.reset({
       index: 1,
       routes: [
-        { name: "FoodHome" },
+        { name: "RecipeLibrary" },
         { name: "RecipeHome", params: { recipeId: route.params.recipeId } },
       ],
     });

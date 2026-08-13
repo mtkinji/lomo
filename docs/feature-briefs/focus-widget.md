@@ -9,7 +9,7 @@ job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-carry-intentions-into-action, jtbd-capture-and-find-meaning, jtbd-trust-this-app-with-my-life]
 related_briefs: []
 owner: andrew
-last_updated: 2026-08-05
+last_updated: 2026-08-13
 ---
 
 # Standalone Focus Widget
@@ -44,7 +44,7 @@ When I am ready, let me begin a real bounded session without creating maintenanc
 
 ## Design
 
-The small WidgetKit widget is a static Focus launcher rather than a persistent configuration surface. At rest it presents Focus and one action. Tapping opens Kwilt directly into an opaque full-page Focus interstitial with two decisions: duration and audio (including No audio). The interstitial renders the same shared setup contents as Activity Focus rather than maintaining a second control implementation. It seeds those controls from the user's recent choices but never starts until the user presses Start. While any Focus session is active, the widget shows its live countdown or paused state and opens the owning in-app controls.
+The small WidgetKit widget is a static Focus launcher rather than a persistent configuration surface. At rest it presents the quiet identity `Kwilt`, the title `Start a Focus session`, and the shared launcher CTA `Start` followed by a right arrow. Its title and CTA align exactly with the Chat widget. Tapping opens Kwilt directly into an opaque full-page Focus interstitial with two decisions: duration and audio (including No audio). The interstitial renders the same shared setup contents as Activity Focus rather than maintaining a second control implementation. It seeds those controls from the user's recent choices but never starts until the user presses Start. While any Focus session is active, the widget shows its live countdown or paused state and opens the owning in-app controls.
 
 The in-app standalone overlay reuses the existing timer, pause/resume, soundscape, color, end, notification, Live Activity, and Screen Time behavior. The standalone identity is a runtime sentinel only and must never be resolved, displayed, or persisted as an Activity. The widget does not claim to toggle Apple's system Focus modes.
 

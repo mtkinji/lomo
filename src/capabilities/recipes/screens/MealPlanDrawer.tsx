@@ -1,6 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, Pressable, View } from "react-native";
-import Reanimated, { Easing, FadeIn, LinearTransition, ReduceMotion } from "react-native-reanimated";
+import Reanimated, {
+  Easing,
+  FadeIn,
+  LinearTransition,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { colors } from "../../../theme";
 import { HapticsService } from "../../../services/HapticsService";
@@ -19,7 +27,7 @@ import { Input } from "../../../ui/Input";
 import { AlertDialog } from "../../../ui/AlertDialog";
 import { useAccessibilityPreferences } from "../../../ui/hooks/useAccessibilityPreferences";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
-import { Heading, Text } from "../../../ui/Typography";
+import { ButtonLabel, Heading, Text } from "../../../ui/Typography";
 import {
   PLAN_HARD_PASS_REACTION,
   PLAN_NEGATIVE_REACTION_OPTIONS,
@@ -34,6 +42,8 @@ import { styles } from "./RecipeLibraryScreen.styles";
 
 const HOUSEHOLD_FOOD_EMPTY_ILLUSTRATION = require("../../../../assets/illustrations/groceries-empty.png");
 const REACTION_SELECTION_HOLD_MS = 180;
+const PLAN_ACTION_SHARE_OFFSET_PX = 96;
+const PLAN_ACTION_SHARE_DURATION_MS = 220;
 const HARD_PASS_REASON_OPTIONS = [
   "Allergy",
   "Dietary need",
@@ -167,7 +177,12 @@ export function MealPlanDrawer({
   onClose,
   onRemove,
   onReact,
-  onRequestFeedback,
+  onSharePlan,
+  guestSuggestions,
+  shareBusy,
+  shareSheetVisible,
+  hasActiveGuestLink,
+  onTurnOffGuestLink,
   onSendToGroceries,
   onMarkMade,
   onOpenGroceries,
@@ -179,7 +194,12 @@ export function MealPlanDrawer({
   onClose(): void;
   onRemove(item: MealPlanTrayItem): void;
   onReact?(candidateId: string, reaction: PlanReaction | null, reason?: string | null): void;
-  onRequestFeedback?(): void;
+  onSharePlan?(): void;
+  guestSuggestions?: Array<{ id: string; displayName: string | null; suggestion: string }>;
+  shareBusy?: boolean;
+  shareSheetVisible?: boolean;
+  hasActiveGuestLink?: boolean;
+  onTurnOffGuestLink?(): void;
   onSendToGroceries?(candidateIds: string[], options?: { acknowledgeHardPasses?: boolean }): void;
   onMarkMade?(candidateId: string): void;
   onOpenGroceries?(): void;
@@ -198,6 +218,19 @@ export function MealPlanDrawer({
   const wasVisibleRef = useRef(false);
   const lifecycleSignatureRef = useRef("");
   const reactionSelectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const planActionVisibility = useSharedValue(shareSheetVisible ? 0 : 1);
+  const planActionAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{
+      translateY: (1 - planActionVisibility.value) * PLAN_ACTION_SHARE_OFFSET_PX,
+    }],
+  }));
+
+  useLayoutEffect(() => {
+    planActionVisibility.value = withTiming(shareSheetVisible ? 0 : 1, {
+      duration: reduceMotionEnabled ? 0 : PLAN_ACTION_SHARE_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [planActionVisibility, reduceMotionEnabled, shareSheetVisible]);
 
   useEffect(() => () => {
     if (reactionSelectionTimerRef.current) clearTimeout(reactionSelectionTimerRef.current);
@@ -352,7 +385,17 @@ export function MealPlanDrawer({
       keyboardAvoidanceEnabled={false}
       enableContentPanningGesture
       contentExtendsIntoBottomSafeArea
-      bottomAccessory={planAction}
+      bottomAccessory={planAction ? (
+        <Reanimated.View
+          testID="plan-grocery-action-transition"
+          accessibilityElementsHidden={shareSheetVisible}
+          importantForAccessibility={shareSheetVisible ? "no-hide-descendants" : "auto"}
+          pointerEvents={shareSheetVisible ? "none" : "auto"}
+          style={planActionAnimatedStyle}
+        >
+          {planAction}
+        </Reanimated.View>
+      ) : null}
       bottomAccessoryStyle={styles.planDrawerBottomAction}
       sheetStyle={styles.planDrawerSheet}
       handleContainerStyle={styles.planDrawerHandleRegion}
@@ -361,24 +404,49 @@ export function MealPlanDrawer({
         <BottomDrawerHeader
           variant="default"
           containerStyle={styles.planDrawerHeader}
-          rightAction={onRequestFeedback ? (
+          rightAction={onSharePlan ? (
             <Button
               accessibilityLabel="Share Plan"
-              accessibilityHint="Ask household members for meal input or invite an adult to Kwilt"
+              accessibilityHint="Opens the system share sheet with a guest feedback link"
               variant="ghost"
               size="sm"
-              onPress={onRequestFeedback}
+              disabled={shareBusy}
+              onPress={onSharePlan}
             >
               <View style={styles.planDrawerShareActionContent}>
                 <Icon testID="plan-share-icon" name="share" size={18} color={colors.textPrimary} />
-                <Text variant="label">Share</Text>
+                <ButtonLabel>Share</ButtonLabel>
               </View>
             </Button>
           ) : undefined}
           title={(
-            <View accessible accessibilityRole="header" accessibilityLabel={`Plan, ${items.length} ${items.length === 1 ? "recipe" : "recipes"}`} style={styles.planDrawerHeaderMain}>
-              <Icon testID="plan-drawer-header-icon" name="meal" size={24} color={colors.textPrimary} />
-              <Heading variant="lg">Plan</Heading>
+            <View testID="plan-drawer-title-cluster" style={styles.planDrawerHeaderMain}>
+              <View
+                accessible
+                accessibilityRole="header"
+                accessibilityLabel={`Plan, ${items.length} ${items.length === 1 ? "recipe" : "recipes"}`}
+                style={styles.planDrawerTitleIdentity}
+              >
+                <Icon testID="plan-drawer-header-icon" name="meal" size={24} color={colors.textPrimary} />
+                <Heading variant="lg">Plan</Heading>
+              </View>
+              {hasActiveGuestLink && onTurnOffGuestLink ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <IconButton accessibilityLabel="Guest link options" variant="ghost">
+                      <Icon name="more" size={18} color={colors.textPrimary} />
+                    </IconButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" sideOffset={6} align="start">
+                    <DropdownMenuItem
+                      label="Turn off guest link"
+                      icon="link"
+                      variant="destructive"
+                      onPress={onTurnOffGuestLink}
+                    />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
             </View>
           )}
         />
@@ -464,6 +532,16 @@ export function MealPlanDrawer({
               style={styles.planDrawerEmpty}
             />
           )}
+          {guestSuggestions?.length ? (
+            <View style={styles.planGuestSuggestions}>
+              <Text variant="label" tone="secondary">Guest suggestions</Text>
+              {guestSuggestions.map((response) => (
+                <Text key={response.id} tone="secondary">
+                  {response.displayName || "Guest"} · “{response.suggestion}”
+                </Text>
+              ))}
+            </View>
+          ) : null}
         </BottomDrawerScrollView>
       </View>
       </BottomDrawer>

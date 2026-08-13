@@ -108,6 +108,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
               path: 'today',
               alias: ['todos'],
               parse: {
+                openQuickAdd: (v: string) => v === '1' || v === 'true',
                 autoStartStandaloneFocus: (v: string) => v === '1' || v === 'true',
                 openStandaloneFocus: (v: string) => v === '1' || v === 'true',
                 focusMinutes: (v: string) => {

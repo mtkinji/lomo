@@ -259,6 +259,15 @@ describe('linkingConfig', () => {
       expect(leaf?.path).toEqual(['MainTabs', 'ActivitiesTab', 'ActivitiesList']);
     });
 
+    test('kwilt://todos?openQuickAdd=1 opens the To-dos composer from a widget', () => {
+      const leaf = parse('todos?openQuickAdd=1&source=widget');
+      expect(leaf?.name).toBe('ActivitiesList');
+      expect(leaf?.params).toMatchObject({
+        openQuickAdd: true,
+        source: 'widget',
+      });
+    });
+
     test('kwilt://settings/screen-time opens the Screen Time controls', () => {
       const leaf = parse('settings/screen-time');
       expect(leaf?.name).toBe('SettingsScreenTimeProtection');

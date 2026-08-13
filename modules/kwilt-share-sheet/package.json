@@ -1,0 +1,11 @@
+{
+  "name": "kwilt-share-sheet",
+  "version": "0.1.0",
+  "description": "Kwilt-owned activities inside the native iOS share sheet",
+  "main": "index.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}
