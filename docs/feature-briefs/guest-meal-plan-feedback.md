@@ -9,7 +9,7 @@ job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-invite-the-right-people-in, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life]
 related_briefs: [live-family-meal-board]
 owner: andrew
-last_updated: 2026-08-12
+last_updated: 2026-08-13
 ---
 
 # Guest Meal Plan Feedback
@@ -25,9 +25,12 @@ Household-membership job.
 
 The Plan share action creates a purpose-limited bearer link that expires after
 seven days by default, can be revoked by the organizer, and snapshots only the
-meal candidate title and image. The hosted mobile page looks and reads like the
-Plan itself. It opens directly on one concrete task: choose every meal you would
-eat, with a secondary option to suggest one missing meal.
+meal candidate title and image. It immediately opens the system share sheet
+with the URL as the primary item so Messages and other destinations receive the
+rich link preview. Kwilt does not duplicate Messages, Email, Copy, or other
+system destinations in an intermediate picker. The hosted mobile page looks
+and reads like the Plan itself. It opens directly on one concrete task: choose
+every meal you would eat, with a secondary option to suggest one missing meal.
 
 The guest may add a display name, but it is explicitly an unverified label. A
 browser-local opaque key lets the same browser revise its response. The link
@@ -39,6 +42,13 @@ row. The supporter list may show the optional label as `<name> · Guest`; that
 label is explicitly unverified. A compact organizer receipt preserves a guest's
 free-text suggestion, because it has no existing Plan row yet. Existing
 Household participation remains the higher-trust signed-in path.
+
+Requesting Household attention remains distinct from sending the guest link,
+but begins from the same native share sheet. Its `Ask Household` app action
+preserves the guest link's rich preview, then opens the signed-in recipient
+picker. Eligible members default on, the organizer may exclude anyone, and
+Kwilt creates in-app deliveries only after explicit confirmation. Ordinary Plan
+edits and guest-link sharing do not automatically notify the Household.
 
 ## UI contract
 
@@ -59,8 +69,8 @@ Household participation remains the higher-trust signed-in path.
   expiry, revocation, response limits, and a bounded preview projection.
 - Hosted boundary tests reject extra private fields and normalize only the
   intended response shape.
-- App tests prove the Share Plan guide creates a guest-feedback invitation, not
-  a Household caregiver invitation.
+- App tests prove the Plan share action opens the URL-first native share flow,
+  while the separate Household guide creates signed-in meal-choice deliveries.
 - App and migration tests prove guest choices are projected into the regular
   Plan support count and suggestions remain available to the organizer.
 - Site tests prove the task precedes any app invitation and the install CTA is
@@ -83,6 +93,9 @@ Household participation remains the higher-trust signed-in path.
   long list or learn a new reaction vocabulary.
 - Suggesting a meal does not silently add or schedule it. The organizer sees the
   suggestion and decides whether to add it to the Plan.
+- Guest choices and suggestions are read in the Plan; the share surface does not
+  become a second feedback inbox. Active guest-link revocation is revealed from
+  the Plan only after a link exists.
 - Web participation remains complete without installing Kwilt. Installation is
   offered only after a successful response and promises additional ongoing
   planning benefits, not access to the task just completed.

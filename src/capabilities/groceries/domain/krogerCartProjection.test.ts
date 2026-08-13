@@ -3,6 +3,7 @@ import type { KrogerProduct } from '../providers/krogerProvider';
 import {
   getKrogerCartGroupAlternatives,
   projectKrogerCartGroups,
+  resolveKrogerRetailQuantity,
 } from './krogerCartProjection';
 
 const butter: KrogerProduct = {
@@ -59,5 +60,11 @@ describe('Kroger cart projection', () => {
     })[0];
 
     expect(getKrogerCartGroupAlternatives(grouped)).toEqual([butter, sharedAlternative]);
+  });
+
+  it('projects an exact retail package quantity only when units are compatible', () => {
+    const countMatch: KrogerMatch = { groceryItem: { id: 'eggs', concept: 'eggs', quantity: 18, unit: 'count' }, products: [{ ...butter, size: '12 ct' }] };
+    expect(resolveKrogerRetailQuantity(countMatch, countMatch.products[0])).toEqual(expect.objectContaining({ state: 'normalized', retailQuantity: 2 }));
+    expect(resolveKrogerRetailQuantity(matches[0], butter)).toEqual({ state: 'unknown', reason: 'unit_incompatible' });
   });
 });

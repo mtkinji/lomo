@@ -1,4 +1,4 @@
-import { getAmazonAssociatesTag } from '../utils/getEnv';
+import { getAmazonAssociatesTag, getWalmartAffiliateSearchTemplate } from '../utils/getEnv';
 
 export type SendToRetailer = 'amazon' | 'homeDepot' | 'instacart' | 'doorDash';
 
@@ -61,4 +61,16 @@ export function buildAffiliateRetailerSearchUrl(retailer: SendToRetailer, query:
   return base ? withAffiliateTracking(retailer, base) : base;
 }
 
+export function buildApprovedWalmartAffiliateSearchUrl(query: string): string {
+  const normalized = normalizeQuery(query);
+  const template = getWalmartAffiliateSearchTemplate()?.trim();
+  if (!normalized || !template || !template.includes('{query}')) return '';
+  try {
+    const url = template.replace('{query}', encodeURIComponent(normalized));
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' ? parsed.toString() : '';
+  } catch {
+    return '';
+  }
+}
 

@@ -128,6 +128,22 @@ describe('navigationPersistence', () => {
     });
   });
 
+  test('migrates the retired Food home route to Recipes', async () => {
+    const food = nestedState('stack', 'FoodHome', [route('FoodHome')]);
+    const root = nestedState('drawer', 'Food', [
+      route('MainTabs'),
+      route('Food', food),
+      route('Settings'),
+    ]);
+
+    const restored = (await restore(root)) as unknown as TestState;
+    const restoredFood = restored.routes[restored.index].state!;
+
+    expect(restored.routes[restored.index].name).toBe('Food');
+    expect(restoredFood.routes[restoredFood.index]).toMatchObject({ name: 'RecipeLibrary' });
+    expect(restoredFood.routes.map(({ name }) => name)).not.toContain('FoodHome');
+  });
+
   test('restores a known Money detail route and drops unknown nested routes', async () => {
     const money = nestedState('stack', 'MoneyTransactionDetail', [
       route('MoneySummary'),

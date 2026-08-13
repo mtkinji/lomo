@@ -1,5 +1,7 @@
 import { Platform, Share } from 'react-native';
 
+import KwiltShareSheet from '../../modules/kwilt-share-sheet';
+
 /**
  * iOS share sheets build their rich preview ("LinkPresentation" card) from the primary item.
  * React Native's core Share API can end up prioritizing `message` over `url`, which yields a
@@ -12,11 +14,30 @@ export async function shareUrlWithPreview(params: {
   subject?: string;
   androidDialogTitle?: string;
   androidAppendUrl?: boolean;
+  onAskHousehold?(): void;
+  onShareSheetDismissStart?(): void;
 }): Promise<void> {
   const url = params.url.trim();
   if (!url) return;
 
   if (Platform.OS === 'ios') {
+    if (KwiltShareSheet && (params.onAskHousehold || params.onShareSheetDismissStart)) {
+      const dismissalSubscription = params.onShareSheetDismissStart
+        ? KwiltShareSheet.addListener('onDismissStart', params.onShareSheetDismissStart)
+        : null;
+      let result;
+      try {
+        result = await KwiltShareSheet.present(
+          url,
+          params.subject ?? null,
+          'Ask Household',
+        );
+      } finally {
+        dismissalSubscription?.remove();
+      }
+      if (result.action === 'askHousehold') params.onAskHousehold?.();
+      return;
+    }
     // URL-first for rich previews. (Most targets let the user add message copy manually.)
     await Share.share({ url }, { subject: params.subject });
     return;
@@ -30,5 +51,3 @@ export async function shareUrlWithPreview(params: {
     params.androidDialogTitle ? { dialogTitle: params.androidDialogTitle } : undefined,
   );
 }
-
-

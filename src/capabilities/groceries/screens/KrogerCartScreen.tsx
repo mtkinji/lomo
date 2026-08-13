@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { openBrowserAsync } from 'expo-web-browser';
@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { LocationPermissionService } from '../../../services/LocationPermissionService';
+import { AnalyticsEvent } from '../../../services/analytics/events';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import {
   geocodeStoreSearchBestEffort,
   getCurrentStoreSearchContextBestEffort,
@@ -31,6 +33,7 @@ import { HeaderActionPill, ObjectPageHeader } from '../../../ui/layout/ObjectPag
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { ButtonLabel, Heading, Text } from '../../../ui/Typography';
 import { KrogerStoreFinder } from '../components/KrogerStoreFinder';
+import { KrogerCartReviewSections } from '../components/KrogerCartReviewSections';
 import { createGroceryRepository, type GroceryProjection } from '../data/groceryRepository';
 import { preferredGroceryStore } from '../data/preferredGroceryStore';
 import { retailerStoreConfirmation } from '../data/retailerStoreConfirmation';
@@ -50,6 +53,9 @@ import {
   type KrogerCartGroup,
   type KrogerCartSelection,
 } from '../domain/krogerCartProjection';
+import { resolveKrogerRetailQuantity } from '../domain/krogerCartProjection';
+import { classifyKrogerMatchReadiness } from '../domain/krogerMatchReadiness';
+import { generateCartSavingsSuggestions } from '../domain/cartSavingsSuggestions';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'KrogerCart'>;
 type Success = { cartUrl: string; count: number; remainingCount: number; retailerLabel: string; location: KrogerLocation };
@@ -58,14 +64,24 @@ type StoreConfirmationStep = 'open_retailer' | 'confirm_store';
 const money = (cents: number | null) =>
   cents === null ? null : `$${(cents / 100).toFixed(2)}`;
 
+const elapsedBucket = (milliseconds: number) => milliseconds < 120000
+  ? 'under_2m'
+  : milliseconds < 300000 ? '2_to_5m' : milliseconds < 600000 ? '5_to_10m' : 'over_10m';
+
 const productPrice = (product: KrogerProduct) =>
   product.promoPriceCents ?? product.regularPriceCents;
 
-const createDraftCart = (matches: KrogerMatch[]): KrogerCartSelection =>
+const createDraftCart = (matches: KrogerMatch[], fulfillmentMode: 'pickup' | 'delivery', locationId: string): KrogerCartSelection =>
   Object.fromEntries(
     matches.flatMap((match) => {
       const product = match.products[0];
-      return product ? [[match.groceryItem.id, { product, quantity: 1 }]] : [];
+      if (!product) return [];
+      const packageResolution = resolveKrogerRetailQuantity({ ...match, groceryItem: { ...match.groceryItem, quantity: Number(match.groceryItem.quantity) } }, product);
+      const readiness = classifyKrogerMatchReadiness({ concept: match.groceryItem.concept, products: match.products, provider: 'kroger', locationId, fulfillmentMode, remembered: match.rememberedMapping, quantityKnown: Number.isFinite(Number(match.groceryItem.quantity)), packageKnown: packageResolution.state === 'normalized' });
+      if (readiness.state !== 'ready') return [];
+      const readyProduct = match.products.find((candidate) => candidate.id === readiness.productId || candidate.upc === readiness.productId) ?? product;
+      const readyQuantity = resolveKrogerRetailQuantity({ ...match, groceryItem: { ...match.groceryItem, quantity: Number(match.groceryItem.quantity) } }, readyProduct);
+      return [[match.groceryItem.id, { product: readyProduct, quantity: readyQuantity.state === 'normalized' ? readyQuantity.retailQuantity : 1 }]];
     }),
   );
 
@@ -293,6 +309,9 @@ function CartLoadingState({
 }
 
 export function KrogerCartScreen({ navigation, route }: Props) {
+  const { capture } = useAnalytics();
+  const handoffStartedAt = useRef(Date.now());
+  const fulfillmentMode = route.params.fulfillmentMode ?? 'pickup';
   const insets = useSafeAreaInsets();
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const repository = useMemo(() => createKrogerConnectionRepository(), []);
@@ -342,9 +361,9 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           const location = remembered;
           setSelectedLocation(location);
           if (nextList?.status === 'ready') {
-            const result = await repository.prepareMatches(nextList.id, nextList.revision, location);
+            const result = await repository.prepareMatches(nextList.id, nextList.revision, location, fulfillmentMode);
             setMatches(result.matches);
-            setSelected(createDraftCart(result.matches));
+            setSelected(createDraftCart(result.matches, fulfillmentMode, location.id));
           }
           return;
         }
@@ -369,7 +388,7 @@ export function KrogerCartScreen({ navigation, route }: Props) {
         setError('Online shopping is not configured yet. Your plain list is still available.'),
       )
       .finally(() => setInitializing(false));
-  }, [groceryRepository, repository, route.params.listId, userId]);
+  }, [fulfillmentMode, groceryRepository, repository, route.params.listId, userId]);
 
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -463,9 +482,9 @@ export function KrogerCartScreen({ navigation, route }: Props) {
         setStatus(await repository.status());
       }
       if (!list || list.status !== 'ready') return;
-      const result = await repository.prepareMatches(list.id, list.revision, location);
+      const result = await repository.prepareMatches(list.id, list.revision, location, fulfillmentMode);
       setMatches(result.matches);
-      setSelected(createDraftCart(result.matches));
+      setSelected(createDraftCart(result.matches, fulfillmentMode, location.id));
     });
   const setAsPreferred = (location: KrogerLocation) => {
     void run(async () => {
@@ -517,7 +536,9 @@ export function KrogerCartScreen({ navigation, route }: Props) {
       const next = { ...current };
       comparisonGroup.groceryItemIds.forEach((itemId) => {
         const line = current[itemId];
-        if (line) next[itemId] = { ...line, product };
+        const match = comparisonGroup.matches.find((candidate) => candidate.groceryItem.id === itemId);
+        const resolution = match ? resolveKrogerRetailQuantity({ ...match, groceryItem: { ...match.groceryItem, quantity: Number(match.groceryItem.quantity) } }, product) : null;
+        next[itemId] = { product, quantity: line?.quantity ?? (resolution?.state === 'normalized' ? resolution.retailQuantity : 1) };
       });
       return next;
     });
@@ -557,7 +578,7 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           setStoreConfirmationStep('open_retailer');
           return;
         }
-        const result = await repository.cartAdd(list.id, list.revision, selectedLocation);
+        const result = await repository.cartAdd(list.id, list.revision, selectedLocation, fulfillmentMode);
         setSuccess({
           cartUrl: result.cartUrl,
           count: result.addedItemCount,
@@ -565,6 +586,7 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           retailerLabel: result.retailerLabel,
           location: selectedLocation,
         });
+        capture(AnalyticsEvent.OnlineCartHandoffAcknowledged, { fulfillment_mode: fulfillmentMode, retailer_id: 'kroger', acknowledged_count: result.addedItemCount, elapsed_time_bucket: elapsedBucket(Date.now() - handoffStartedAt.current), outcome: 'acknowledged' });
       });
     } finally {
       setAddingToCart(false);
@@ -585,7 +607,7 @@ export function KrogerCartScreen({ navigation, route }: Props) {
     try {
       await run(async () => {
         await retailerStoreConfirmation.confirm(userId, selectedLocation);
-        const result = await repository.cartAdd(list.id, list.revision, selectedLocation);
+        const result = await repository.cartAdd(list.id, list.revision, selectedLocation, fulfillmentMode);
         setStoreConfirmationStep(null);
         setSuccess({
           cartUrl: result.cartUrl,
@@ -594,6 +616,7 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           retailerLabel: result.retailerLabel,
           location: selectedLocation,
         });
+        capture(AnalyticsEvent.OnlineCartHandoffAcknowledged, { fulfillment_mode: fulfillmentMode, retailer_id: 'kroger', acknowledged_count: result.addedItemCount, elapsed_time_bucket: elapsedBucket(Date.now() - handoffStartedAt.current), outcome: 'acknowledged' });
       });
     } finally {
       setAddingToCart(false);
@@ -605,6 +628,16 @@ export function KrogerCartScreen({ navigation, route }: Props) {
   const showCartAction = !success && !storeConfirmationStep && !error && !showStorePicker && matches !== null;
   const selectedSourceCount = Object.keys(selected).length;
   const cartGroups = projectKrogerCartGroups(matches ?? [], selected);
+  const readinessByItem = new Map((matches ?? []).map((match) => {
+    const product = match.products[0];
+    if (!product || !selectedLocation) return [match.groceryItem.id, { state: 'unmatched', reason: 'not_found' } as const];
+    const normalizedMatch = { ...match, groceryItem: { ...match.groceryItem, quantity: Number(match.groceryItem.quantity) } };
+    const packageResolution = resolveKrogerRetailQuantity(normalizedMatch, product);
+    return [match.groceryItem.id, classifyKrogerMatchReadiness({ concept: match.groceryItem.concept, products: match.products, provider: 'kroger', locationId: selectedLocation.id, fulfillmentMode, remembered: match.rememberedMapping, quantityKnown: Number.isFinite(Number(match.groceryItem.quantity)), packageKnown: packageResolution.state === 'normalized' })];
+  }));
+  const readyReviewItems = (matches ?? []).filter((match) => selected[match.groceryItem.id]).map((match) => ({ id: match.groceryItem.id, title: match.groceryItem.concept }));
+  const needsReviewItems = (matches ?? []).filter((match) => !selected[match.groceryItem.id] && readinessByItem.get(match.groceryItem.id)?.state !== 'unmatched').map((match) => ({ id: match.groceryItem.id, title: match.groceryItem.concept }));
+  const unmatchedReviewItems = (matches ?? []).filter((match) => readinessByItem.get(match.groceryItem.id)?.state === 'unmatched').map((match) => ({ id: match.groceryItem.id, title: match.groceryItem.concept }));
   const matchedCount = cartGroups.reduce((total, group) => total + group.quantity, 0);
   const missingCount = Math.max(0, (matches?.length ?? 0) - selectedSourceCount);
   const pricedGroups = cartGroups.filter((group) => productPrice(group.product) !== null);
@@ -616,6 +649,32 @@ export function KrogerCartScreen({ navigation, route }: Props) {
     pricedGroups.length === cartGroups.length
       ? 'Estimated subtotal'
       : `Estimated subtotal for ${pricedGroups.length} of ${cartGroups.length} products`;
+  const savings = generateCartSavingsSuggestions(cartGroups.flatMap((group) => {
+    const observedAt = group.matches.find((match) => match.observedAt)?.observedAt;
+    const regularPriceCents = group.product.regularPriceCents;
+    const promoPriceCents = group.product.promoPriceCents;
+    return observedAt && regularPriceCents !== null && promoPriceCents !== null ? [{ id: `promotion:${group.key}`, kind: 'selected_promotion' as const, productId: group.product.id, regularPriceCents, promoPriceCents, retailQuantity: group.quantity, observedAt, expiresAt: null, coverageItemCount: group.groceryItemIds.length, totalCartItemCount: matches?.length ?? 0, fulfillmentMode, memberOnly: false, membershipConfirmed: null, includesFees: false }] : [];
+  }), { now: new Date().toISOString(), fulfillmentMode });
+  const savingsSummary = savings[0] ? `Save ${money(savings[0].savingsCents)} on ${savings[0].coverageItemCount} of ${savings[0].totalCartItemCount} items` : null;
+  const useReviewMatch = (itemId: string) => {
+    const match = matches?.find((candidate) => candidate.groceryItem.id === itemId);
+    const product = match?.products[0];
+    if (!match || !product) return;
+    const resolution = resolveKrogerRetailQuantity({ ...match, groceryItem: { ...match.groceryItem, quantity: Number(match.groceryItem.quantity) } }, product);
+    setSelected((current) => ({ ...current, [itemId]: { product, quantity: resolution.state === 'normalized' ? resolution.retailQuantity : 1 } }));
+    capture(AnalyticsEvent.OnlineCartExceptionsReviewed, { fulfillment_mode: fulfillmentMode, retailer_id: 'kroger', review_count: 1, outcome: 'use_suggested' });
+  };
+  const chooseReviewAlternative = (itemId: string) => {
+    const match = matches?.find((candidate) => candidate.groceryItem.id === itemId);
+    const product = match?.products[0];
+    if (!match || !product) return;
+    setComparisonGroup({ key: product.upc || product.id, product, quantity: 1, groceryItemIds: [itemId], matches: [match] });
+    capture(AnalyticsEvent.OnlineCartExceptionsReviewed, { fulfillment_mode: fulfillmentMode, retailer_id: 'kroger', review_count: 1, outcome: 'choose_another' });
+  };
+  const leaveReviewOnList = (itemId: string) => {
+    remove([itemId]);
+    capture(AnalyticsEvent.OnlineCartExceptionsReviewed, { fulfillment_mode: fulfillmentMode, retailer_id: 'kroger', review_count: 1, outcome: 'leave_on_list' });
+  };
   return (
     <AppShell fullBleedCanvas={showStorePicker}>
       {showCartLoading ? (
@@ -756,7 +815,17 @@ export function KrogerCartScreen({ navigation, route }: Props) {
           </>
         ) : error ? null : (
           <>
-            {cartGroups.length ? (
+            <KrogerCartReviewSections
+              retailerLabel={selectedLocation?.banner || selectedLocation?.name || 'this store'}
+              fulfillmentMode={fulfillmentMode}
+              ready={readyReviewItems}
+              review={needsReviewItems}
+              unmatched={unmatchedReviewItems}
+              savingsSummary={savingsSummary}
+              onUse={useReviewMatch}
+              onChoose={chooseReviewAlternative}
+              onLeave={leaveReviewOnList}
+              renderReadyList={cartGroups.length ? (
               <View style={styles.cartSection}>
                 <Button
                   variant="ghost"
@@ -852,7 +921,8 @@ export function KrogerCartScreen({ navigation, route }: Props) {
                 <Heading variant="md">Your cart is empty</Heading>
                 <Text tone="secondary">Your grocery list has not changed.</Text>
               </View>
-            )}
+              )}
+            />
             {missingCount ? (
               <Text tone="secondary">
                 {missingCount} grocery list item{missingCount === 1 ? '' : 's'} {missingCount === 1 ? "isn't" : "aren't"} in this cart.

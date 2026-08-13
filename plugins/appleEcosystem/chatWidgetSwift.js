@@ -26,34 +26,32 @@ struct ChatWidgetView: View {
     widgetContainer {
       Link(destination: URL(string: "kwilt://chat?entry=fresh&mode=conversation&source=widget")!) {
         VStack(alignment: .leading, spacing: 0) {
-          HStack(spacing: 6) {
+          HStack {
             if let logo = kwiltLogoImage() {
               logo
                 .resizable()
                 .scaledToFit()
                 .frame(width: 18, height: 18)
             }
-            Text("Talk to Kwilt")
-              .font(KwiltWidgetTypography.label)
             Spacer()
           }
           .foregroundStyle(.white.opacity(0.82))
 
           Spacer()
 
-          Text("Start a conversation")
-            .font(KwiltWidgetTypography.title)
-            .minimumScaleFactor(0.8)
+          Text("Chat with Kwilt")
+            .font(KwiltWidgetTypography.launcherTitle)
             .lineLimit(2)
 
           Spacer()
 
           HStack(spacing: 5) {
-            Image(systemName: "square.and.pencil")
-              .font(.caption2.bold())
-            Text("Open")
+            Text("Start")
               .font(KwiltWidgetTypography.action)
+            Image(systemName: "arrow.right")
+              .font(.caption2.bold())
           }
+          .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding(16)

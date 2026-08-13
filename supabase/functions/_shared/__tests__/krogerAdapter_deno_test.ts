@@ -3,6 +3,7 @@ import {
   buildKrogerAuthorizationUrl,
   buildKrogerCartPayload,
   exchangeKrogerToken,
+  krogerProductSearchPath,
   parseKrogerProducts,
   parseKrogerLocations,
   RetailerAdapterError,
@@ -84,9 +85,15 @@ Deno.test('refuses a token response missing cart authority', async () => {
 
 Deno.test('normalizes product proposals and only builds confirmed cart rows', () => {
   assertEquals(parseKrogerProducts({ data: [{ productId: 'p1', upc: '001', description: 'Milk', brand: 'Kroger', images: [{ perspective: 'back', sizes: [{ size: 'small', url: 'https://images.example/back.png' }] }, { perspective: 'front', sizes: [{ size: 'large', url: 'https://images.example/front-large.png' }, { size: 'small', url: 'https://images.example/front-small.png' }] }], items: [{ size: '1 gal', price: { regular: 4, promo: 3.5 }, fulfillment: { curbside: true } }] }] }), [{
-    id: 'p1', upc: '001', title: 'Milk', brand: 'Kroger', size: '1 gal', thumbnailUrl: 'https://images.example/front-small.png', regularPriceCents: 400, promoPriceCents: 350, pickupAvailable: true,
+    id: 'p1', upc: '001', title: 'Milk', brand: 'Kroger', size: '1 gal', thumbnailUrl: 'https://images.example/front-small.png', regularPriceCents: 400, promoPriceCents: 350, pickupAvailable: true, deliveryAvailable: false,
   }]);
-  assertEquals(buildKrogerCartPayload([{ upc: '001', quantity: 1 }]), { items: [{ upc: '001', quantity: 1, modality: 'PICKUP' }] });
+  assertEquals(buildKrogerCartPayload([{ upc: '001', quantity: 1 }], 'pickup'), { items: [{ upc: '001', quantity: 1, modality: 'PICKUP' }] });
+  assertEquals(buildKrogerCartPayload([{ upc: '001', quantity: 1 }], 'delivery'), { items: [{ upc: '001', quantity: 1, modality: 'DELIVERY' }] });
+});
+
+Deno.test('uses mode-specific product fulfillment filters', () => {
+  assertEquals(new URL(`https://example.test${krogerProductSearchPath({ term: 'milk', locationId: 'store-1', fulfillmentMode: 'pickup' })}`).searchParams.get('filter.fulfillment'), 'csp');
+  assertEquals(new URL(`https://example.test${krogerProductSearchPath({ term: 'milk', locationId: 'store-1', fulfillmentMode: 'delivery' })}`).searchParams.get('filter.fulfillment'), 'dth');
 });
 
 Deno.test('coalesces duplicate retailer products before sending the cart payload', () => {
@@ -95,7 +102,7 @@ Deno.test('coalesces duplicate retailer products before sending the cart payload
       { upc: '001', quantity: 1 },
       { upc: '001', quantity: 1 },
       { upc: '002', quantity: 3 },
-    ]),
+    ], 'pickup'),
     {
       items: [
         { upc: '001', quantity: 2, modality: 'PICKUP' },

@@ -61,8 +61,17 @@ import { AnalyticsEvent } from "../../../services/analytics/events";
 import { RecipeArtwork } from "../components/RecipeArtwork";
 import { RecipeArtworkGallery } from "../components/RecipeArtworkGallery";
 import { useAppStore } from "../../../store/useAppStore";
-import { createMealPlanningRepository } from "../../meal-planning/data/mealPlanningRepository";
+import { useToastStore } from "../../../store/useToastStore";
+import {
+  createMealPlanningRepository,
+  type GuestMealFeedbackSummary,
+} from "../../meal-planning/data/mealPlanningRepository";
 import { MealPlanShareDrawer } from "../../meal-planning/components/MealPlanShareDrawer";
+import {
+  shareGuestMealPlan,
+  type GuestMealPlanInvitation,
+} from "../../meal-planning/domain/guestMealPlanSharing";
+import { shareUrlWithPreview } from "../../../utils/share";
 import {
   optimisticallySetSharedMealReaction,
   type PlanReaction,
@@ -193,7 +202,12 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const [mealChatThreadId, setMealChatThreadId] = useState<string | null>(null);
   const [sharedCart, setSharedCart] = useState<SharedMealCartProjection | null>(null);
   const [planBrowsing, setPlanBrowsing] = useState(false);
-  const [planShareVisible, setPlanShareVisible] = useState(false);
+  const [householdRequestVisible, setHouseholdRequestVisible] = useState(false);
+  const [guestInvitation, setGuestInvitation] = useState<GuestMealPlanInvitation | null>(null);
+  const [guestFeedbackSummary, setGuestFeedbackSummary] = useState<GuestMealFeedbackSummary | null>(null);
+  const [activeGuestInviteIds, setActiveGuestInviteIds] = useState<string[]>([]);
+  const [guestShareBusy, setGuestShareBusy] = useState(false);
+  const [guestShareSheetVisible, setGuestShareSheetVisible] = useState(false);
   const [planMutationBusy, setPlanMutationBusy] = useState(false);
   const [reactingCandidateIds, setReactingCandidateIds] = useState<Set<string>>(new Set());
   const reactingCandidateIdsRef = useRef<Set<string>>(new Set());
@@ -203,6 +217,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const [hasSeenReadyPlan, setHasSeenReadyPlan] = useState(false);
   const planHeaderRef = useRef<View | null>(null);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
+  const showToast = useToastStore((state) => state.showToast);
   const defaultServings = useAppStore((state) =>
     resolveDefaultMealServings(
       state.userProfile?.preferences?.meals?.defaultServings,
@@ -367,10 +382,45 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     setSharedCart(next);
     return next;
   }, [mealPreferences?.householdId]);
+  const refreshGuestFeedback = useCallback(async () => {
+    const planId = sharedCart?.planId;
+    if (!planId) {
+      setGuestFeedbackSummary(null);
+      setActiveGuestInviteIds([]);
+      return;
+    }
+    const summary = await createMealPlanningRepository().getGuestFeedbackSummary(planId);
+    setGuestFeedbackSummary(summary);
+    setActiveGuestInviteIds(summary.invites
+      .filter((invite) => invite.state === "active")
+      .map((invite) => invite.id));
+  }, [sharedCart?.planId]);
+  useEffect(() => {
+    if (!sharedCart?.planId) {
+      setGuestInvitation(null);
+      setGuestFeedbackSummary(null);
+      setActiveGuestInviteIds([]);
+      return undefined;
+    }
+    let cancelled = false;
+    void refreshGuestFeedback()
+      .catch(() => {
+        if (!cancelled) {
+          setGuestFeedbackSummary(null);
+          setActiveGuestInviteIds([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshGuestFeedback, sharedCart?.planId]);
   useEffect(() => {
     if (!mealPreferences?.householdId) return undefined;
-    return createMealPlanningRepository().subscribe(() => { void reloadSharedCart().catch(() => undefined); });
-  }, [mealPreferences?.householdId, reloadSharedCart]);
+    return createMealPlanningRepository().subscribe(() => {
+      void reloadSharedCart().catch(() => undefined);
+      void refreshGuestFeedback().catch(() => undefined);
+    });
+  }, [mealPreferences?.householdId, refreshGuestFeedback, reloadSharedCart]);
   const toggleMealInPlan = useCallback(
     async (projection: RecipeProjection) => {
       if (planMutationBusy) return;
@@ -479,6 +529,65 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       setPlanMutationBusy(false);
     }
   }, [planMutationBusy, reloadSharedCart, sharedCart]);
+  const sharePlanWithGuest = useCallback(async () => {
+    if (!sharedCart?.planId || sharedCart.version == null || guestShareBusy) return;
+    setGuestShareBusy(true);
+    try {
+      const repository = createMealPlanningRepository();
+      const invitation = await shareGuestMealPlan({
+        planId: sharedCart.planId,
+        planVersion: sharedCart.version,
+        currentInvitation: guestInvitation,
+        createInvite: (input) => repository.createGuestFeedbackInvite(input),
+        shareUrl: async (params) => {
+          setGuestShareSheetVisible(true);
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          await shareUrlWithPreview(params);
+        },
+        onAskHousehold: () => {
+          setMealChatVisible(false);
+          setHouseholdRequestVisible(true);
+        },
+        onShareSheetDismissStart: () => {
+          setGuestShareSheetVisible(false);
+        },
+      });
+      setGuestInvitation(invitation);
+      setActiveGuestInviteIds((current) => [...new Set([...current, invitation.inviteId])]);
+    } catch (caught) {
+      Alert.alert(
+        "Could not share Plan",
+        caught instanceof Error ? caught.message : "Try again in a moment.",
+      );
+    } finally {
+      setGuestShareSheetVisible(false);
+      setGuestShareBusy(false);
+    }
+  }, [guestInvitation, guestShareBusy, sharedCart]);
+  const turnOffGuestLinks = useCallback(async () => {
+    if (!activeGuestInviteIds.length || guestShareBusy) return;
+    setGuestShareBusy(true);
+    try {
+      const repository = createMealPlanningRepository();
+      await Promise.all(activeGuestInviteIds.map((inviteId) => repository.revokeGuestFeedbackInvite(inviteId)));
+      setActiveGuestInviteIds([]);
+      setGuestInvitation(null);
+      setGuestFeedbackSummary((current) => current ? {
+        ...current,
+        invites: current.invites.map((invite) => (
+          activeGuestInviteIds.includes(invite.id) ? { ...invite, state: "revoked" } : invite
+        )),
+      } : current);
+      showToast({ message: "Guest link turned off", variant: "success", durationMs: 2000 });
+    } catch (caught) {
+      Alert.alert(
+        "Could not turn off guest link",
+        caught instanceof Error ? caught.message : "Try again in a moment.",
+      );
+    } finally {
+      setGuestShareBusy(false);
+    }
+  }, [activeGuestInviteIds, guestShareBusy, showToast]);
   const openMealSearch = useCallback(
     () => useAppStore.getState().openGlobalSearch({ initialScope: "recipes" }),
     [],
@@ -584,12 +693,20 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           }}
           onReact={(candidateId, reaction, reason) => { void setCandidateReaction(candidateId, reaction, reason); }}
           reactingCandidateIds={reactingCandidateIds}
-          onRequestFeedback={sharedCart?.planId && sharedCart.version != null && sharedCart.viewer.canManage && sharedCart.candidates.length
-            ? () => {
-              setMealChatVisible(false);
-              setPlanShareVisible(true);
-            }
+          onSharePlan={sharedCart?.planId && sharedCart.version != null && sharedCart.viewer.canManage && sharedCart.candidates.length
+            ? () => { void sharePlanWithGuest(); }
             : undefined}
+          guestSuggestions={guestFeedbackSummary?.invites.flatMap((invite) => invite.responses
+            .filter((response): response is typeof response & { suggestion: string } => Boolean(response.suggestion))
+            .map((response) => ({
+              id: response.id,
+              displayName: response.displayName,
+              suggestion: response.suggestion,
+            }))) ?? []}
+          shareBusy={guestShareBusy}
+          shareSheetVisible={guestShareSheetVisible}
+          hasActiveGuestLink={activeGuestInviteIds.length > 0}
+          onTurnOffGuestLink={activeGuestInviteIds.length ? () => { void turnOffGuestLinks(); } : undefined}
           onSendToGroceries={(candidateIds, options) => { void sendToGroceries(candidateIds, options); }}
           onMarkMade={(candidateId) => { void markCandidateMade(candidateId); }}
           onOpenGroceries={() => {
@@ -607,16 +724,17 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       )}
       {sharedCart?.planId && sharedCart.version != null ? (
         <MealPlanShareDrawer
-          visible={planShareVisible}
+          visible={householdRequestVisible}
           planId={sharedCart.planId}
           planVersion={sharedCart.version}
           onClose={() => {
-            setPlanShareVisible(false);
+            setHouseholdRequestVisible(false);
           }}
+          onShared={() => { void reloadSharedCart().catch(() => undefined); }}
         />
       ) : null}
       <Coachmark
-        visible={planEducationLoaded && hasReadyRecipe && !hasSeenReadyPlan && !planBrowsing && !planShareVisible && pendingRemoval === null}
+        visible={planEducationLoaded && hasReadyRecipe && !hasSeenReadyPlan && !planBrowsing && !householdRequestVisible && pendingRemoval === null}
         targetRef={planHeaderRef}
         title={<Text style={{ fontWeight: "700" }}>Your recipes are ready</Text>}
         body={<Text tone="secondary">Find what you planned here when you’re ready to cook.</Text>}

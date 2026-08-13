@@ -11,6 +11,7 @@ let mockScreenFocused = true;
 let mockCountryCode: string | null = 'US';
 const mockEnqueue = jest.fn();
 const mockAddItem = jest.fn();
+const mockReadOnlineShoppingPreferences = jest.fn();
 
 type MockPageHeaderProps = {
   title: string;
@@ -30,6 +31,9 @@ type MockButtonProps = {
 };
 
 jest.mock('../data/groceryRepository', () => ({ createGroceryRepository: jest.fn() }));
+jest.mock('../data/onlineShoppingPreferencesRepository', () => ({
+  onlineShoppingPreferencesRepository: { read: (...args: unknown[]) => mockReadOnlineShoppingPreferences(...args) },
+}));
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => mockScreenFocused,
 }));
@@ -206,6 +210,7 @@ describe('Grocery List primary capability', () => {
     }));
     mockEnqueue.mockResolvedValue([]);
     mockAddItem.mockResolvedValue({});
+    mockReadOnlineShoppingPreferences.mockResolvedValue(null);
     (createGroceryRepository as jest.Mock).mockReturnValue({
       list: jest.fn().mockResolvedValue([
         {
@@ -434,7 +439,7 @@ describe('Grocery List primary capability', () => {
     expect(navigate).toHaveBeenCalledWith('RecipeLibrary', { openPlan: true });
   });
 
-  it('goes straight from Shop online to store selection', async () => {
+  it('opens first-use setup when no online-shopping preference is saved', async () => {
     const navigate = jest.fn();
     const screen = render(
       <GroceryListScreen
@@ -449,7 +454,31 @@ describe('Grocery List primary capability', () => {
     await waitFor(() => expect(markReviewed).toHaveBeenCalledWith('list-1', 1));
     expect(mockMarkCartFlowStarted).toHaveBeenCalledWith('user-1');
     expect(screen.getByLabelText('Shop online · 1 item')).toBeTruthy();
-    expect(navigate).toHaveBeenCalledWith('KrogerCart', { listId: 'list-1' });
+    expect(mockReadOnlineShoppingPreferences).toHaveBeenCalledWith('user-1');
+    expect(navigate).toHaveBeenCalledWith('OnlineShoppingSetup', { listId: 'list-1' });
+  });
+
+  it('opens Order this list when online-shopping preferences already exist', async () => {
+    mockReadOnlineShoppingPreferences.mockResolvedValue({
+      schemaVersion: 1,
+      defaultFulfillment: 'pickup',
+      homePostalCode: null,
+      savedAt: '2026-08-13T16:00:00.000Z',
+      retailers: [{ id: 'kroger', enabled: true, rank: 1, label: "Smith's", membershipConfirmed: null }],
+    });
+    const navigate = jest.fn();
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate, replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('grocery-shop-remaining'));
+
+    await waitFor(() => expect(markReviewed).toHaveBeenCalledWith('list-1', 1));
+    expect(navigate).toHaveBeenCalledWith('OnlineOrder', { listId: 'list-1' });
   });
 
   it('only offers online shopping in the US or Canada', async () => {

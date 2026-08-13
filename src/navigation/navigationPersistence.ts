@@ -90,7 +90,6 @@ const GAMES_STACK_SCHEMA: ChildSchema = {
 
 const FOOD_STACK_SCHEMA: ChildSchema = {
   allowed: [
-    'FoodHome',
     'RecipeLibrary',
     'EditorialMealCollection',
     'RecipeEdit',
@@ -113,7 +112,7 @@ const FOOD_STACK_SCHEMA: ChildSchema = {
     'FoodStockReview',
     'FoodScenarioReview',
   ],
-  fallback: 'FoodHome',
+  fallback: 'RecipeLibrary',
 };
 
 const SETTINGS_STACK_SCHEMA: ChildSchema = {

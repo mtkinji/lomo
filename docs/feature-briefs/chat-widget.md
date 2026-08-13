@@ -9,7 +9,7 @@ job_flow: job-flow-nina-trust-ai-with-my-life-system
 serves: [jtbd-get-help-without-retelling-my-life, jtbd-capture-and-find-meaning, jtbd-trust-this-app-with-my-life]
 related_briefs: [unified-chat]
 owner: andrew
-last_updated: 2026-08-02
+last_updated: 2026-08-13
 ---
 
 # Kwilt Chat Home Screen Widget
@@ -47,8 +47,8 @@ When something is already on my mind, let me reach the one authoritative Kwilt C
 ### Widget
 
 - Add one small static Home Screen widget to the existing generated `KwiltWidgetsBundle`.
-- Present the Kwilt visual identity, `Chat`, and restrained supporting copy: `Start a thought`.
-- Make the entire widget one tap target to `kwilt://chat?entry=fresh&source=widget`.
+- Present the quiet identity `Kwilt`, the title `Chat with Kwilt`, and the shared launcher CTA `Start` followed by a right arrow. The title and CTA align exactly with the Focus widget.
+- Make the entire widget one tap target to `kwilt://chat?entry=fresh&mode=conversation&source=widget`.
 - Display no thread title, message excerpt, prompt suggestion, personal context, badge, count, or status.
 - Do not add configuration, additional sizes, timeline data, App Intent mutations, Lock Screen, or Android surfaces in this release.
 

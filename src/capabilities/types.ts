@@ -22,7 +22,7 @@ export type CapabilityRouteTarget =
   | { root: 'Money'; screen: 'MoneySummary' | 'MoneyTransactions' | 'MoneyAccounts' }
   | { root: 'Explore'; screen: 'ExploreMap' }
   | { root: 'Games'; screen: 'GamesShelf' }
-  | { root: 'Food'; screen: 'FoodHome' | 'RecipeLibrary' | 'NextMeals' | 'GroceryList' };
+  | { root: 'Food'; screen: 'RecipeLibrary' | 'NextMeals' | 'GroceryList' };
 
 export type CapabilitySettingsDestination = {
   id: string;

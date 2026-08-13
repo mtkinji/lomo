@@ -10,7 +10,7 @@ serves: [jtbd-review-budget-reality-before-spending, jtbd-put-intention-before-i
 related_briefs: [brief-money-living-limit-answer, brief-ios-budget-widgets]
 exploration: docs/design-explorations/money-widgets-flexible-room
 owner: andrew
-last_updated: 2026-07-31
+last_updated: 2026-08-13
 ---
 
 # Money Flexible-Room Widgets
@@ -93,9 +93,11 @@ interactive Money mutations.
   add `KwiltWidgets.money.flexible` for Flexible Money.
 - Snapshot evolution is additive and optional so older extension/app builds can
   decode one another during local iteration.
-- Category widget configuration uses a Money category `AppEntity` and a display
-  `AppEnum`; an unavailable selected category renders `Choose a category` and
-  never substitutes another.
+- Category widget configuration stores the category as an optional scalar id
+  with titled dynamic options. The timeline compares that persisted id directly
+  with the current App Group snapshot, avoiding AppEntity hydration between the
+  editor and provider. A category that has genuinely been removed renders
+  `Choose a category` and never substitutes another.
 - Flexible Money reads a widget-ready projection from
   `MoneyPlanLimitAnswer`; WidgetKit performs formatting only.
 - Category dollars left uses the category projection's exact `remainingCents`;

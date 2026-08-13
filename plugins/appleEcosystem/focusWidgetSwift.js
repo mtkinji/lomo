@@ -72,15 +72,13 @@ struct FocusWidgetView: View {
   private func activeView(_ focus: GlanceableStateV1.FocusSession) -> some View {
     Link(destination: deepLinkFocusControls(focus)) {
       VStack(alignment: .leading, spacing: 0) {
-        HStack(spacing: 6) {
+        HStack {
           if let logo = kwiltLogoImage() {
             logo
               .resizable()
               .scaledToFit()
               .frame(width: 18, height: 18)
           }
-          Text(focus.mode == "paused" ? "Paused" : "Focus")
-            .font(KwiltWidgetTypography.label)
           Spacer()
         }
         .foregroundStyle(.white.opacity(0.82))
@@ -121,15 +119,13 @@ struct FocusWidgetView: View {
       } else {
         Link(destination: deepLinkConfigureStandaloneFocus()) {
           VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 6) {
+            HStack {
               if let logo = kwiltLogoImage() {
                 logo
                   .resizable()
                   .scaledToFit()
                   .frame(width: 18, height: 18)
               }
-              Text("Focus")
-                .font(KwiltWidgetTypography.label)
               Spacer()
             }
             .foregroundStyle(.white.opacity(0.82))
@@ -137,18 +133,18 @@ struct FocusWidgetView: View {
             Spacer()
 
             Text("Start a Focus session")
-              .font(KwiltWidgetTypography.title)
-              .minimumScaleFactor(0.72)
+              .font(KwiltWidgetTypography.launcherTitle)
               .lineLimit(2)
 
             Spacer()
 
             HStack(spacing: 5) {
-              Image(systemName: "play.fill")
-                .font(.caption2.bold())
-              Text("Open")
+              Text("Start")
                 .font(KwiltWidgetTypography.action)
+              Image(systemName: "arrow.right")
+                .font(.caption2.bold())
             }
+            .frame(maxWidth: .infinity, alignment: .trailing)
           }
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
           .padding(16)

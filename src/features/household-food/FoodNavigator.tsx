@@ -18,10 +18,11 @@ import { AlreadyHaveReviewScreen } from '../../capabilities/groceries/screens/Al
 import { GroceryItemEditScreen } from '../../capabilities/groceries/screens/GroceryItemEditScreen';
 import { GroceryHandoffScreen } from '../../capabilities/groceries/screens/GroceryHandoffScreen';
 import { KrogerCartScreen } from '../../capabilities/groceries/screens/KrogerCartScreen';
+import { OnlineShoppingSetupScreen } from '../../capabilities/groceries/screens/OnlineShoppingSetupScreen';
+import { OnlineOrderScreen } from '../../capabilities/groceries/screens/OnlineOrderScreen';
 import { GrocerySavingsScreen } from '../../capabilities/groceries/screens/GrocerySavingsScreen';
 import { FoodStockReviewScreen } from '../../capabilities/groceries/screens/FoodStockReviewScreen';
 import { FoodScenarioReviewScreen } from '../../capabilities/groceries/screens/FoodScenarioReviewScreen';
-import { FoodHomeScreen } from './FoodHomeScreen';
 import { useAppStore } from '../../store/useAppStore';
 import { useRecipeStore } from '../../capabilities/recipes/runtime/useRecipeStore';
 import { useRecipeFavoriteStore } from '../../capabilities/recipes/runtime/useRecipeFavoriteStore';
@@ -34,7 +35,6 @@ import {
 } from './foodNavigationOptions';
 
 export type FoodStackParamList = {
-  FoodHome: undefined;
   RecipeLibrary: { openPlan?: boolean } | undefined;
   EditorialMealCollection: { collectionId: string };
   RecipeEdit: { recipeId?: string };
@@ -59,7 +59,9 @@ export type FoodStackParamList = {
   AlreadyHaveReview: { listId: string };
   GroceryItemEdit: { listId: string; itemId: string };
   GroceryHandoff: { listId: string };
-  KrogerCart: { listId: string };
+  OnlineShoppingSetup: { listId: string };
+  OnlineOrder: { listId: string; fulfillmentOverride?: 'pickup' | 'delivery' };
+  KrogerCart: { listId: string; fulfillmentMode: 'pickup' | 'delivery' };
   GrocerySavings: { listId: string };
   FoodStockReview: { concepts?: string[] } | undefined;
   FoodScenarioReview: { scenarioId: string };
@@ -81,9 +83,9 @@ export function FoodNavigator() {
   }, [setHiddenRecipeIdentity, setHouseholdMealPreferencesIdentity, setRecipeFavoriteIdentity, setRecipeIdentity, userId]);
   return (
     <Stack.Navigator
+      initialRouteName="RecipeLibrary"
       screenOptions={({ route }) => getFoodScreenOptions(route.name)}
     >
-      <Stack.Screen name="FoodHome" component={FoodHomeScreen} />
       <Stack.Screen name="RecipeLibrary" component={RecipeLibraryScreen} />
       <Stack.Screen name="EditorialMealCollection" component={EditorialMealCollectionScreen} />
       <Stack.Screen name="RecipeEdit" component={RecipeEditScreen} />
@@ -105,6 +107,8 @@ export function FoodNavigator() {
       <Stack.Screen name="AlreadyHaveReview" component={AlreadyHaveReviewScreen} />
       <Stack.Screen name="GroceryItemEdit" component={GroceryItemEditScreen} />
       <Stack.Screen name="GroceryHandoff" component={GroceryHandoffScreen} />
+      <Stack.Screen name="OnlineShoppingSetup" component={OnlineShoppingSetupScreen} />
+      <Stack.Screen name="OnlineOrder" component={OnlineOrderScreen} />
       <Stack.Screen name="KrogerCart" component={KrogerCartScreen} />
       <Stack.Screen name="GrocerySavings" component={GrocerySavingsScreen} />
       <Stack.Screen name="FoodStockReview" component={FoodStockReviewScreen} />
