@@ -38,7 +38,6 @@ export function Logo({ size = 32, variant = 'default', style }: LogoProps) {
         {
           width: size,
           height: size,
-          borderRadius: size / 4,
         },
         style,
       ]}

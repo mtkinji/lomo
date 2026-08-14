@@ -272,8 +272,8 @@ const config = {
       {
         // Use a flat, monochrome logo for the small status-bar icon on Android.
         // This should be a white glyph on a transparent background.
-        icon: './assets/icon.png',
-        color: '#1F5226',
+        icon: './assets/notification-icon.png',
+        color: '#315545',
       },
     ],
     'expo-localization',

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Kwilt K2 — hair more air</title>
+  <desc id="desc">Approved K2 contours with slightly wider internal channels for small widget sizes.</desc>
+  <g fill="#315545">
+    <path transform="translate(2 -2)" d="M49 9C70 9 87 26 87 47V187C87 217 70 241 47 247C26 252 10 244 10 228V48C10 26 27 9 49 9Z"/>
+    <path transform="translate(-3 -2)" d="M166 9C143 10 126 28 126 51V121C126 136 135 143 147 137C172 124 197 108 218 89C236 72 246 49 246 25C246 16 239 10 230 9C209 7 187 7 166 9Z"/>
+    <path transform="translate(9 -1)" d="M218 140C234 139 246 149 246 164V215C246 233 232 247 214 247H113C104 247 100 238 104 229C127 178 168 144 218 140Z"/>
+  </g>
+</svg>
