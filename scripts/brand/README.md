@@ -15,6 +15,14 @@ The generator creates the app's raster and native-platform variants and updates
 the corresponding assets in the sibling `kwilt-site` and `kwilt-desktop`
 repositories. It requires Pillow plus the macOS `sips` and `iconutil` tools.
 
+The mobile app tile is intentionally distinct from the standalone mark: it uses
+a white opaque square with the solid pine K2 centered at 640 units within the
+1024-unit canvas. Platform launcher masks supply the final corner treatment.
+On iOS, `assets/icon-composer/AppIcon.icon` is the production source: a separate
+white background and pine K2 vector layer, with Icon Composer glass, specular,
+blur, translucency, and shadow effects disabled. The PNG remains the Android
+launcher source and a deterministic raster fallback.
+
 Run the integrity check after generation:
 
 ```bash

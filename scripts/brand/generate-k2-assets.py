@@ -41,10 +41,17 @@ def clean_transparency(path: Path) -> None:
     image.save(path)
 
 
-def opaque_icon(mark_path: Path, output: Path, background=(255, 255, 255, 255)) -> None:
-    mark = Image.open(mark_path).convert("RGBA")
-    canvas = Image.new("RGBA", mark.size, background)
-    canvas.alpha_composite(mark)
+def opaque_icon(
+    mark_path: Path,
+    output: Path,
+    *,
+    content_size: int,
+    background=(255, 255, 255, 255),
+) -> None:
+    mark = Image.open(mark_path).convert("RGBA").resize((content_size, content_size), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", (1024, 1024), background)
+    offset = (1024 - content_size) // 2
+    canvas.alpha_composite(mark, (offset, offset))
     canvas.convert("RGB").save(output)
 
 
@@ -113,7 +120,10 @@ def main() -> None:
     resize(parchment_1024, APP_ROOT / "assets" / "logo-parchment.png", 501)
     resize(pine_1024, APP_ROOT / "assets" / "favicon.png", 129)
     resize(white_1024, APP_ROOT / "assets" / "notification-icon.png", 96)
-    opaque_icon(pine_1024, APP_ROOT / "assets" / "icon.png")
+    # App tiles use the solid pine mark as a centered symbol on white. Keeping
+    # the mark to 62.5% of the square leaves durable clearspace after iOS and
+    # Android apply their launcher masks.
+    opaque_icon(pine_1024, APP_ROOT / "assets" / "icon.png", content_size=640)
     centered_foreground(pine_1024, APP_ROOT / "assets" / "adaptive-icon.png", 640)
 
     shutil.copy2(APP_ROOT / "assets" / "icon.png", APP_ROOT / "ios" / "Kwilt" / "Images.xcassets" / "AppIcon.appiconset" / "App-Icon-1024x1024@1x.png")
@@ -132,8 +142,8 @@ def main() -> None:
     centered_foreground(pine_1024, foreground_1024, 640)
     for density, (legacy_size, foreground_size) in launcher_sizes.items():
         resource_directory = APP_ROOT / "android" / "app" / "src" / "main" / "res" / f"mipmap-{density}"
-        resize_webp(pine_1024, resource_directory / "ic_launcher.webp", legacy_size, opaque=True)
-        resize_webp(pine_1024, resource_directory / "ic_launcher_round.webp", legacy_size, opaque=True)
+        resize_webp(APP_ROOT / "assets" / "icon.png", resource_directory / "ic_launcher.webp", legacy_size, opaque=True)
+        resize_webp(APP_ROOT / "assets" / "icon.png", resource_directory / "ic_launcher_round.webp", legacy_size, opaque=True)
         resize_webp(foreground_1024, resource_directory / "ic_launcher_foreground.webp", foreground_size)
     foreground_1024.unlink()
 

@@ -149,6 +149,9 @@ const config = {
     backgroundColor: '#315545', // Pine 700 (official Kwilt green)
   },
   ios: {
+    // Native layered source for iOS 26+ and build-time fallbacks on earlier iOS.
+    // The solid white background and pine mark remain separate in Icon Composer.
+    icon: './assets/icon-composer/AppIcon.icon',
     supportsTablet: true,
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
