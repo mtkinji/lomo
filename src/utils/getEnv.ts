@@ -173,21 +173,46 @@ export function getSupabaseUrl(): string | undefined {
 }
 
 export function getAmazonAssociatesTag(): string | undefined {
-  return getEnvVar<string>('amazonAssociatesTag');
+  return getEnvVar<string>('amazonAssociatesTag')
+    ?? getProcessEnvString('EXPO_PUBLIC_AMAZON_ASSOCIATES_TAG');
 }
 
 export function getAmazonMobileAffiliateApproved(): boolean {
-  return getEnvVar<boolean | string>('amazonMobileAffiliateApproved') === true
-    || getEnvVar<boolean | string>('amazonMobileAffiliateApproved') === 'true';
+  const embedded = getEnvVar<boolean | string>('amazonMobileAffiliateApproved');
+  const publicValue = getProcessEnvString('EXPO_PUBLIC_AMAZON_MOBILE_AFFILIATE_APPROVED');
+  return embedded === true || embedded === 'true' || publicValue === 'true';
+}
+
+export function resolveAffiliateRetailerTesting(input: {
+  embedded: boolean | string | undefined;
+  publicValue: string | undefined;
+  development: boolean;
+}): boolean {
+  return input.embedded === true
+    || input.embedded === 'true'
+    || input.publicValue === 'true'
+    || input.development;
+}
+
+export function getAffiliateRetailerTestingEnabled(): boolean {
+  const embedded = getEnvVar<boolean | string>('affiliateRetailerTestingEnabled');
+  const publicValue = getProcessEnvString('EXPO_PUBLIC_AFFILIATE_RETAILER_TESTING');
+  return resolveAffiliateRetailerTesting({
+    embedded,
+    publicValue,
+    development: typeof __DEV__ !== 'undefined' && __DEV__,
+  });
 }
 
 export function getWalmartAffiliateSurfaceApproved(): boolean {
-  return getEnvVar<boolean | string>('walmartAffiliateSurfaceApproved') === true
-    || getEnvVar<boolean | string>('walmartAffiliateSurfaceApproved') === 'true';
+  const embedded = getEnvVar<boolean | string>('walmartAffiliateSurfaceApproved');
+  const publicValue = getProcessEnvString('EXPO_PUBLIC_WALMART_AFFILIATE_SURFACE_APPROVED');
+  return embedded === true || embedded === 'true' || publicValue === 'true';
 }
 
 export function getWalmartAffiliateSearchTemplate(): string | undefined {
-  return getEnvVar<string>('walmartAffiliateSearchTemplate');
+  return getEnvVar<string>('walmartAffiliateSearchTemplate')
+    ?? getProcessEnvString('EXPO_PUBLIC_WALMART_AFFILIATE_SEARCH_TEMPLATE');
 }
 
 export type AuthRuntimeDiagnostics = {

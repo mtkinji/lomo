@@ -134,7 +134,7 @@ const config = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.105',
+  version: '1.0.106',
   // Games temporarily unlocks orientation for shared-table play and restores
   // portrait when leaving an active table.
   orientation: 'default',
@@ -167,7 +167,7 @@ const config = {
           }
         : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '105',
+    buildNumber: '106',
     // iOS app extensions are only declared for profiles that enable them.
     // This prevents production builds without those surfaces from requiring extension credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -355,6 +355,12 @@ const config = {
       process.env.AMAZON_ASSOCIATES_TAG ?? process.env.EXPO_PUBLIC_AMAZON_ASSOCIATES_TAG,
     amazonMobileAffiliateApproved:
       (process.env.AMAZON_MOBILE_AFFILIATE_APPROVED ?? process.env.EXPO_PUBLIC_AMAZON_MOBILE_AFFILIATE_APPROVED) === 'true',
+    // Internal product-link testing is deliberately separate from commercial approval.
+    // Development/preview default on; store production remains off unless an explicit
+    // test-only EAS profile enables it.
+    affiliateRetailerTestingEnabled:
+      process.env.AFFILIATE_RETAILER_TESTING === '1' ||
+      ['development', 'preview', 'test'].includes(APP_ENVIRONMENT),
     walmartAffiliateSurfaceApproved:
       (process.env.WALMART_AFFILIATE_SURFACE_APPROVED ?? process.env.EXPO_PUBLIC_WALMART_AFFILIATE_SURFACE_APPROVED) === 'true',
     walmartAffiliateSearchTemplate:

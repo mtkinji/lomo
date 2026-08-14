@@ -1,107 +1,208 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
-import { useAppStore } from '../../../store/useAppStore';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
-import { colors, spacing } from '../../../theme';
+import { useAppStore } from '../../../store/useAppStore';
+import { colors, fonts, radii, spacing } from '../../../theme';
+import { BottomDrawer } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
-import { Input } from '../../../ui/Input';
-import { KwiltSwitch } from '../../../ui/KwiltSwitch';
-import { SegmentedControl } from '../../../ui/SegmentedControl';
+import { Icon, type IconName } from '../../../ui/Icon';
 import { AppShell } from '../../../ui/layout/AppShell';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { CanvasScrollView } from '../../../ui/layout/CanvasScrollView';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { Heading, Text } from '../../../ui/Typography';
 import { RetailerPreferenceList } from '../components/RetailerPreferenceList';
 import { onlineShoppingPreferencesRepository } from '../data/onlineShoppingPreferencesRepository';
+import { preferredGroceryStore } from '../data/preferredGroceryStore';
 import {
   createDefaultOnlineShoppingPreferences,
+  deriveActionableRetailerPreferences,
   normalizeRetailerPreferenceOrder,
   parseOnlineShoppingPreferences,
+  reconcileActionableRetailerPreferences,
   type OnlineFulfillmentPreference,
   type RetailerPreference,
 } from '../domain/onlineShoppingPreferences';
+import { getOnlineRetailerRuntimePolicies } from '../providers/affiliateRetailerProvider';
+import type { KrogerLocation } from '../providers/krogerProvider';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'OnlineShoppingSetup'>;
-type SetupStep = 'fulfillment' | 'retailers' | 'order';
+type SetupStep = 'fulfillment' | 'retailers';
 
-function setRetailerEnabled(
-  retailers: RetailerPreference[],
-  retailerId: RetailerPreference['id'],
-  enabled: boolean,
-): RetailerPreference[] {
-  const nextRank = Math.max(0, ...retailers.map((retailer) => retailer.rank)) + 1;
-  return normalizeRetailerPreferenceOrder(retailers.map((retailer) =>
-    retailer.id === retailerId
-      ? { ...retailer, enabled, rank: enabled ? nextRank : 0 }
-      : retailer,
-  ));
-}
+const fulfillmentChoices: ReadonlyArray<{
+  value: OnlineFulfillmentPreference;
+  label: string;
+  description: string;
+  icon: IconName;
+}> = [
+  { value: 'pickup', label: 'Pickup', description: 'I’ll collect it from a nearby store.', icon: 'pin' },
+  { value: 'delivery', label: 'Delivery', description: 'Bring it to my door.', icon: 'home' },
+  { value: 'either', label: 'Either works', description: 'Use whichever option Kwilt can support best for this list.', icon: 'chevronsUpDown' },
+];
 
-function moveRetailer(
-  retailers: RetailerPreference[],
-  retailerId: RetailerPreference['id'],
-  direction: 'earlier' | 'later',
-): RetailerPreference[] {
-  const ranked = retailers
-    .filter((retailer) => retailer.enabled)
-    .sort((left, right) => left.rank - right.rank);
-  const index = ranked.findIndex((retailer) => retailer.id === retailerId);
-  const swapIndex = direction === 'earlier' ? index - 1 : index + 1;
-  if (index < 0 || swapIndex < 0 || swapIndex >= ranked.length) return retailers;
-  const currentId = ranked[index].id;
-  const swapId = ranked[swapIndex].id;
-  const currentRank = ranked[index].rank;
-  const swapRank = ranked[swapIndex].rank;
-  return retailers.map((retailer) => retailer.id === currentId
-    ? { ...retailer, rank: swapRank }
-    : retailer.id === swapId
-      ? { ...retailer, rank: currentRank }
-      : retailer);
+function FulfillmentChoice({
+  choice,
+  onPress,
+  selected,
+}: {
+  choice: (typeof fulfillmentChoices)[number];
+  onPress: () => void;
+  selected: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={`${choice.label}. ${choice.description}`}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.fulfillmentChoice,
+        selected ? styles.fulfillmentChoiceSelected : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <View style={[styles.fulfillmentIcon, selected ? styles.fulfillmentIconSelected : null]}>
+        <Icon name={choice.icon} size={22} color={selected ? colors.primaryForeground : colors.textSecondary} />
+      </View>
+      <View style={styles.grow}>
+        <Text variant="body" style={styles.fulfillmentLabel}>{choice.label}</Text>
+        <Text tone="secondary">{choice.description}</Text>
+      </View>
+      {selected ? <Icon name="check" size={20} color={colors.primary} /> : null}
+    </Pressable>
+  );
 }
 
 export function OnlineShoppingSetupScreen({ navigation, route }: Props) {
   const { capture } = useAnalytics();
   const personId = useAppStore((state) => state.authIdentity?.userId ?? null);
+  const policies = useMemo(() => getOnlineRetailerRuntimePolicies(), []);
   const defaults = useMemo(() => createDefaultOnlineShoppingPreferences(), []);
+  const initialized = useRef(false);
+  const storePickerPending = useRef(false);
+  const fulfillmentRef = useRef<OnlineFulfillmentPreference>(defaults.defaultFulfillment);
   const [step, setStep] = useState<SetupStep>('fulfillment');
-  const [fulfillment, setFulfillment] = useState<OnlineFulfillmentPreference>(
-    defaults.defaultFulfillment,
-  );
-  const [retailers, setRetailers] = useState(defaults.retailers);
+  const [fulfillment, setFulfillment] = useState<OnlineFulfillmentPreference>(defaults.defaultFulfillment);
+  const [retailers, setRetailers] = useState<RetailerPreference[]>([]);
+  const [preferredStore, setPreferredStore] = useState<KrogerLocation | null>(null);
+  const [homePostalCode, setHomePostalCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [addStoreOpen, setAddStoreOpen] = useState(false);
   const enabledRetailers = retailers.filter((retailer) => retailer.enabled);
-  const other = retailers.find((retailer) => retailer.id === 'other');
-  const canContinueRetailers = enabledRetailers.length > 0
-    && (!other?.enabled || other.label.trim().length > 0);
 
-  const updateRetailer = (
-    retailerId: RetailerPreference['id'],
-    patch: Partial<RetailerPreference>,
-  ) => setRetailers((current) => current.map((retailer) =>
-    retailer.id === retailerId ? { ...retailer, ...patch } : retailer,
-  ));
+  const load = useCallback(async () => {
+    const [saved, store] = await Promise.all([
+      onlineShoppingPreferencesRepository.read(personId),
+      preferredGroceryStore.read(personId),
+    ]);
+    setPreferredStore(store);
+    if (!initialized.current) {
+      const nextFulfillment = saved?.defaultFulfillment ?? fulfillmentRef.current;
+      fulfillmentRef.current = nextFulfillment;
+      setFulfillment(nextFulfillment);
+      setHomePostalCode(saved?.homePostalCode ?? null);
+      setRetailers(saved
+        ? reconcileActionableRetailerPreferences({
+            fulfillment: nextFulfillment,
+            policies,
+            preferredStore: store,
+            retailers: saved.retailers,
+          })
+        : deriveActionableRetailerPreferences({
+            fulfillment: nextFulfillment,
+            policies,
+            preferredStore: store,
+          }));
+      initialized.current = true;
+    } else if (storePickerPending.current && store) {
+      const available = deriveActionableRetailerPreferences({ fulfillment, policies, preferredStore: store });
+      const local = available.find((retailer) => retailer.id === 'kroger');
+      if (local) {
+        setRetailers((current) => normalizeRetailerPreferenceOrder([
+          ...current.filter((retailer) => retailer.id !== 'kroger'),
+          { ...local, rank: current.length + 1 },
+        ]));
+      }
+      storePickerPending.current = false;
+    }
+    setLoading(false);
+  }, [defaults.defaultFulfillment, fulfillment, personId, policies]);
+
+  useEffect(() => {
+    void load().catch(() => setLoading(false));
+    const unsubscribe = navigation.addListener('focus', () => {
+      void load().catch(() => setLoading(false));
+    });
+    return unsubscribe;
+  }, [load, navigation]);
+
+  const available = deriveActionableRetailerPreferences({ fulfillment, policies, preferredStore })
+    .filter((candidate) => !retailers.some((retailer) => retailer.id === candidate.id && retailer.enabled));
+  const localPolicy = policies.find((policy) => policy.retailerId === 'kroger');
+  const canFindNearbyStore = Boolean(
+    localPolicy
+    && localPolicy.capability === 'cart_prepare'
+    && localPolicy.approvedSurface
+    && localPolicy.productEvidence
+    && localPolicy.cartWrite
+    && (fulfillment === 'either' || localPolicy.supportedModes.includes(fulfillment)),
+  );
+
+  const continueToRetailers = () => {
+    setRetailers((current) => reconcileActionableRetailerPreferences({
+      fulfillment,
+      policies,
+      preferredStore,
+      retailers: current,
+    }));
+    setStep('retailers');
+  };
+
+  const chooseFulfillment = (value: OnlineFulfillmentPreference) => {
+    fulfillmentRef.current = value;
+    setFulfillment(value);
+  };
+
+  const addRetailer = (retailer: RetailerPreference) => {
+    setRetailers((current) => normalizeRetailerPreferenceOrder([
+      ...current.filter((candidate) => candidate.id !== retailer.id),
+      { ...retailer, enabled: true, rank: current.filter((candidate) => candidate.enabled).length + 1 },
+    ]));
+    setAddStoreOpen(false);
+  };
+
+  const openStorePicker = () => {
+    storePickerPending.current = true;
+    setAddStoreOpen(false);
+    navigation.navigate('OnlineStorePicker', { listId: route.params.listId });
+  };
 
   const save = async () => {
-    if (saving) return;
+    if (saving || enabledRetailers.length === 0) return;
     const preferences = parseOnlineShoppingPreferences({
       schemaVersion: 1,
       defaultFulfillment: fulfillment,
       retailers: normalizeRetailerPreferenceOrder(retailers),
-      homePostalCode: null,
+      homePostalCode,
       savedAt: new Date().toISOString(),
     });
     if (!preferences) {
-      Alert.alert('Choose your retailers', 'Each selected retailer needs one place in your preferred order.');
+      Alert.alert('Check your online stores', 'Each store needs one place in your preferred order.');
       return;
     }
     setSaving(true);
     try {
       await onlineShoppingPreferencesRepository.replace(personId, preferences);
-      capture(AnalyticsEvent.OnlineShoppingPreferencesSaved, { fulfillment_mode: preferences.defaultFulfillment, count: preferences.retailers.filter((retailer) => retailer.enabled).length, outcome: 'saved' });
+      capture(AnalyticsEvent.OnlineShoppingPreferencesSaved, {
+        fulfillment_mode: preferences.defaultFulfillment,
+        count: preferences.retailers.length,
+        outcome: 'saved',
+      });
       navigation.navigate('OnlineOrder', { listId: route.params.listId });
     } catch {
       Alert.alert('Preferences did not save', 'Try again. Your grocery list is unchanged.');
@@ -116,93 +217,84 @@ export function OnlineShoppingSetupScreen({ navigation, route }: Props) {
       <CanvasScrollView contentContainerStyle={styles.content}>
         {step === 'fulfillment' ? (
           <View style={styles.section}>
-            <Text tone="secondary">Set this once. You can change it whenever a list calls for something different.</Text>
-            <Heading variant="lg">How should Kwilt help?</Heading>
-            <SegmentedControl
-              accessibilityLabel="Default fulfillment"
-              options={[
-                { value: 'pickup', label: 'Pickup' },
-                { value: 'delivery', label: 'Delivery' },
-                { value: 'either', label: 'Either' },
-              ]}
-              value={fulfillment}
-              onChange={setFulfillment}
-            />
-            <Button fullWidth onPress={() => setStep('retailers')}>Continue</Button>
+            <Heading variant="lg">How do you want to get your groceries?</Heading>
+            <View accessibilityRole="radiogroup" style={styles.fulfillmentChoices}>
+              {fulfillmentChoices.map((choice) => (
+                <FulfillmentChoice
+                  key={choice.value}
+                  choice={choice}
+                  selected={fulfillment === choice.value}
+                  onPress={() => chooseFulfillment(choice.value)}
+                />
+              ))}
+            </View>
+            <Text tone="secondary">Kwilt will remember this. You can change it for any order.</Text>
+            <Button fullWidth disabled={loading} onPress={continueToRetailers}>Continue</Button>
           </View>
         ) : null}
 
         {step === 'retailers' ? (
           <View style={styles.section}>
-            <Heading variant="lg">Where do you shop?</Heading>
-            <Text tone="secondary">Choose only stores you would actually use online. Kwilt will remember them even when a direct action is not available yet.</Text>
-            <View style={styles.retailerList}>
-              {retailers.map((retailer) => (
-                <View key={retailer.id} style={styles.retailerBlock}>
-                  <View style={styles.retailerRow}>
-                    <Text variant="body">{retailer.id === 'other' ? 'Another retailer' : retailer.label}</Text>
-                    <KwiltSwitch
-                      accessibilityLabel={`Use ${retailer.id === 'other' ? 'another retailer' : retailer.label}`}
-                      value={retailer.enabled}
-                      onPress={() => setRetailers((current) =>
-                        setRetailerEnabled(current, retailer.id, !retailer.enabled))}
-                    />
-                  </View>
-                  {retailer.id === 'other' && retailer.enabled ? (
-                    <Input
-                      accessibilityLabel="Other retailer name"
-                      label="Retailer name"
-                      value={retailer.label}
-                      onChangeText={(label) => updateRetailer('other', { label })}
-                    />
-                  ) : null}
-                  {(retailer.id === 'amazon' || retailer.id === 'costco') && retailer.enabled ? (
-                    <View style={styles.membershipRow}>
-                      <Text tone="secondary">
-                        {retailer.id === 'amazon' ? 'I use Amazon Prime' : 'I have a Costco membership'}
-                      </Text>
-                      <KwiltSwitch
-                        accessibilityLabel={retailer.id === 'amazon'
-                          ? 'I use Amazon Prime'
-                          : 'I have a Costco membership'}
-                        value={retailer.membershipConfirmed === true}
-                        onPress={() => updateRetailer(retailer.id, {
-                          membershipConfirmed: retailer.membershipConfirmed === true ? null : true,
-                        })}
-                      />
-                    </View>
-                  ) : null}
-                </View>
-              ))}
+            <View style={styles.headingGroup}>
+              <Heading variant="lg">Where should Kwilt look first?</Heading>
+              <Text tone="secondary">Only stores Kwilt can help you shop online are shown.</Text>
             </View>
-            {retailers.some((retailer) => retailer.id === 'kroger' && retailer.enabled) ? (
-              <Text tone="secondary">Your exact local store comes later, when Kwilt can match this list.</Text>
-            ) : null}
+            {enabledRetailers.length ? (
+              <View style={styles.retailerList}>
+                <RetailerPreferenceList
+                  retailers={enabledRetailers}
+                  onOrderChange={(ordered) => setRetailers((current) => normalizeRetailerPreferenceOrder([
+                    ...ordered,
+                    ...current.filter((retailer) => !retailer.enabled),
+                  ]))}
+                  onRemove={(retailerId) => setRetailers((current) => normalizeRetailerPreferenceOrder(current.map((retailer) =>
+                    retailer.id === retailerId ? { ...retailer, enabled: false, rank: 0 } : retailer)))}
+                />
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Heading variant="sm">Add an online store</Heading>
+                <Text tone="secondary">Choose a destination Kwilt can use for this kind of order.</Text>
+              </View>
+            )}
             <Button
-              fullWidth
-              disabled={!canContinueRetailers}
-              onPress={() => setStep('order')}
+              accessibilityLabel="Add online store"
+              variant="ghost"
+              onPress={() => setAddStoreOpen(true)}
             >
-              Continue
+              <View style={styles.addStoreLabel}>
+                <Icon name="plus" size={18} color={colors.textPrimary} />
+                <Text variant="label">Add store</Text>
+              </View>
             </Button>
-          </View>
-        ) : null}
-
-        {step === 'order' ? (
-          <View style={styles.section}>
-            <Heading variant="lg">Which should Kwilt try first?</Heading>
-            <Text tone="secondary">This order is yours. Kwilt never rearranges it for commission.</Text>
-            <RetailerPreferenceList
-              retailers={retailers}
-              onMove={(retailerId, direction) =>
-                setRetailers((current) => moveRetailer(current, retailerId, direction))}
-            />
-            <Button fullWidth loading={saving} onPress={() => { void save(); }}>
+            <Button fullWidth disabled={enabledRetailers.length === 0} loading={saving} onPress={() => { void save(); }}>
               Save and continue
             </Button>
           </View>
         ) : null}
       </CanvasScrollView>
+
+      <BottomDrawer visible={addStoreOpen} onClose={() => setAddStoreOpen(false)} snapPoints={['55%']}>
+        <View style={styles.drawerContent}>
+          <BottomDrawerHeader
+            title="Add an online store"
+            variant="withClose"
+            onClose={() => setAddStoreOpen(false)}
+            closeAccessibilityLabel="Close online stores"
+          />
+          {available.map((retailer) => (
+            <Button key={retailer.id} variant="ghost" onPress={() => addRetailer(retailer)}>
+              {retailer.label}
+            </Button>
+          ))}
+          {!preferredStore && canFindNearbyStore ? (
+            <Button variant="ghost" onPress={openStorePicker}>Find a nearby pickup store</Button>
+          ) : null}
+          {!available.length && (preferredStore || !canFindNearbyStore) ? (
+            <Text tone="secondary">All available online stores are already on your list.</Text>
+          ) : null}
+        </View>
+      </BottomDrawer>
     </AppShell>
   );
 }
@@ -213,32 +305,35 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  section: {
-    gap: spacing.lg,
-  },
-  retailerList: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  retailerBlock: {
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  retailerRow: {
-    minHeight: 44,
+  section: { gap: spacing.lg },
+  headingGroup: { gap: spacing.xs },
+  fulfillmentChoices: { gap: spacing.md },
+  fulfillmentChoice: {
+    minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: spacing.md,
+    padding: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
+    borderRadius: radii.input,
+    backgroundColor: colors.card,
   },
-  membershipRow: {
-    minHeight: 44,
-    flexDirection: 'row',
+  fulfillmentChoiceSelected: { borderColor: colors.primary, backgroundColor: colors.fieldFill },
+  fulfillmentIcon: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    paddingLeft: spacing.md,
+    justifyContent: 'center',
+    borderRadius: radii.control,
+    backgroundColor: colors.gray100,
   },
+  fulfillmentIconSelected: { backgroundColor: colors.primary },
+  fulfillmentLabel: { fontFamily: fonts.medium, marginBottom: 1 },
+  retailerList: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  emptyState: { gap: spacing.xs, paddingVertical: spacing.lg },
+  drawerContent: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  addStoreLabel: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  grow: { flex: 1 },
+  pressed: { opacity: 0.72 },
 });

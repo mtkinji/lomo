@@ -20,13 +20,14 @@ import {
   type OnlineRetailerOutcome,
 } from '../domain/onlineRetailerResolver';
 import type { OnlineShoppingPreferences } from '../domain/onlineShoppingPreferences';
-import { getOnlineRetailerRuntimePolicies, openAffiliateProductSearch } from '../providers/affiliateRetailerProvider';
+import { reconcileActionableRetailerPreferences } from '../domain/onlineShoppingPreferences';
+import { getOnlineRetailerRuntimePolicies } from '../providers/affiliateRetailerProvider';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'OnlineOrder'>;
 
 const retailerName = (retailerId: OnlineRetailerOutcome['retailerId'], preferences: OnlineShoppingPreferences) =>
   preferences.retailers.find((retailer) => retailer.id === retailerId)?.label
-  || (retailerId === 'kroger' ? 'Kroger family' : retailerId[0].toUpperCase() + retailerId.slice(1));
+  || (retailerId === 'kroger' ? 'Your grocery store' : retailerId[0].toUpperCase() + retailerId.slice(1));
 
 function alternativeCopy(outcome: OnlineRetailerOutcome, preferences: OnlineShoppingPreferences): string {
   const name = retailerName(outcome.retailerId, preferences);
@@ -68,11 +69,22 @@ export function OnlineOrderScreen({ navigation, route }: Props) {
       return;
     }
     initialRevision.current = currentList.revision;
-    setPreferences(saved);
+    const policies = getOnlineRetailerRuntimePolicies();
+    const reconciled = reconcileActionableRetailerPreferences({
+      fulfillment: route.params.fulfillmentOverride ?? saved.defaultFulfillment,
+      policies,
+      preferredStore: store,
+      retailers: saved.retailers,
+    });
+    const actionablePreferences = {
+      ...saved,
+      retailers: reconciled.filter((retailer) => retailer.enabled),
+    };
+    setPreferences(actionablePreferences);
     setList(currentList);
     const resolved = resolveOnlineRetailerOutcomes({
-      preferences: saved,
-      policies: getOnlineRetailerRuntimePolicies(),
+      preferences: actionablePreferences,
+      policies,
       storeReady: Boolean(store),
       fulfillmentOverride: route.params.fulfillmentOverride,
     });
@@ -95,15 +107,16 @@ export function OnlineOrderScreen({ navigation, route }: Props) {
     setList(latest);
   };
 
-  const hero = outcomes.find((outcome) =>
-    outcome.capability === 'cart_prepare'
-    && (outcome.reason === 'ready' || outcome.reason === 'store_required'));
+  const primaryOutcome = outcomes.find((outcome) =>
+    outcome.reason === 'ready' || outcome.reason === 'store_required') ?? null;
   const first = outcomes[0] ?? null;
-  const linkBeforeHero = hero
-    ? outcomes.find((outcome) => outcome.rank < hero.rank && outcome.capability === 'product_links')
-    : null;
-  const activeLink = outcomes.find((outcome) => outcome.capability === 'product_links' && outcome.reason === 'ready');
-  const firstNeededConcept = list?.items.find((item) => item.state === 'needed')?.concept ?? null;
+  const alternativeOutcomes = outcomes.filter((outcome) =>
+    outcome !== primaryOutcome
+    && (outcome.reason === 'ready' || outcome.reason === 'store_required'));
+  const unavailableOutcomes = outcomes.filter((outcome) =>
+    outcome !== primaryOutcome
+    && outcome.reason !== 'ready'
+    && outcome.reason !== 'store_required');
   const headerCopy = useMemo(() => {
     if (!preferences || !first) return null;
     const mode = first.requestedMode === 'pickup' ? 'Pickup' : 'Delivery';
@@ -115,16 +128,16 @@ export function OnlineOrderScreen({ navigation, route }: Props) {
       <PageHeader title="Order this list" onPressBack={() => navigation.goBack()} />
       <CanvasScrollView contentContainerStyle={styles.content}>
         {loading ? <Text tone="secondary">Checking what Kwilt can prepare…</Text> : null}
-        {!loading && (!preferences || !list) ? (
+        {!loading && (!preferences || !list || preferences.retailers.length === 0) ? (
           <View style={styles.section}>
             <Heading variant="md">Your list is safe</Heading>
-            <Text tone="secondary">Set your online-shopping preferences, then Kwilt can find a truthful next step.</Text>
+            <Text tone="secondary">Choose an online store Kwilt can use for this list.</Text>
             <Button onPress={() => navigation.navigate('OnlineShoppingSetup', { listId: route.params.listId })}>
               Set preferences
             </Button>
           </View>
         ) : null}
-        {!loading && preferences && list && headerCopy ? (
+        {!loading && preferences && preferences.retailers.length > 0 && list && headerCopy ? (
           <View style={styles.section}>
             <View style={styles.preferenceHeader}>
               <Text variant="label">{headerCopy}</Text>
@@ -139,59 +152,65 @@ export function OnlineOrderScreen({ navigation, route }: Props) {
             </View>
 
             {listChanged ? (
-              <Text tone="destructive">Your grocery list changed. Review it before building a cart.</Text>
+              <Text tone="destructive">Your grocery list changed. Review it before shopping.</Text>
             ) : null}
 
-            {linkBeforeHero ? (
-              <Text tone="secondary">
-                {retailerName(linkBeforeHero.retailerId, preferences)} can help with individual products; Kwilt cannot prepare this cart there.
-              </Text>
-            ) : null}
-
-            {activeLink && firstNeededConcept && (activeLink.retailerId === 'amazon' || activeLink.retailerId === 'walmart') ? (
-              <View style={styles.linkAssistance}>
+            {primaryOutcome?.capability === 'product_links'
+            && (primaryOutcome.retailerId === 'amazon' || primaryOutcome.retailerId === 'walmart') ? (
+              <View style={styles.hero}>
+                <Heading variant="lg">
+                  {`Shop this list at ${retailerName(primaryOutcome.retailerId, preferences)}`}
+                </Heading>
+                <Text tone="secondary">
+                  Kwilt will take you through one item at a time and remember where you left off. You choose each product and finish checkout with the retailer.
+                </Text>
                 <Button
-                  variant="outline"
-                  accessibilityLabel={`Open product search at ${retailerName(activeLink.retailerId, preferences)}`}
-                  onPress={() => { void openAffiliateProductSearch(activeLink.retailerId as 'amazon' | 'walmart', firstNeededConcept); }}
+                  accessibilityLabel={`Start shopping at ${retailerName(primaryOutcome.retailerId, preferences)}`}
+                  disabled={listChanged}
+                  fullWidth
+                  onPress={() => navigation.navigate('RetailerLinkShopping', {
+                    listId: list.id,
+                    retailerId: primaryOutcome.retailerId as 'amazon' | 'walmart',
+                  })}
                 >
-                  Open product search
+                  {`Start with ${retailerName(primaryOutcome.retailerId, preferences)}`}
                 </Button>
-                <Text tone="secondary" style={styles.affiliateDisclosure}>Affiliate link</Text>
               </View>
             ) : null}
 
-            {hero ? (
+            {primaryOutcome?.capability === 'cart_prepare' ? (
               <View style={styles.hero}>
                 <Heading variant="lg">
-                  {hero.reason === 'store_required'
-                    ? `Choose your ${retailerName(hero.retailerId, preferences)} pickup store`
-                    : `Build with ${retailerName(hero.retailerId, preferences)}`}
+                  {primaryOutcome.reason === 'store_required'
+                    ? `Choose your ${retailerName(primaryOutcome.retailerId, preferences)} pickup store`
+                    : `Build with ${retailerName(primaryOutcome.retailerId, preferences)}`}
                 </Heading>
                 <Text tone="secondary">Kwilt will match this list, keep clear matches out of the way, and ask only about exceptions.</Text>
                 <Button
                   fullWidth
-                  accessibilityLabel={`Build my ${hero.requestedMode} cart`}
+                  accessibilityLabel={`Build my ${primaryOutcome.requestedMode} cart`}
                   disabled={listChanged}
                   onPress={() => navigation.navigate('KrogerCart', {
                     listId: list.id,
-                    fulfillmentMode: hero.requestedMode,
+                    fulfillmentMode: primaryOutcome.requestedMode,
                   })}
                 >
-                  {`Build my ${hero.requestedMode} cart`}
+                  {`Build my ${primaryOutcome.requestedMode} cart`}
                 </Button>
               </View>
-            ) : (
+            ) : !primaryOutcome ? (
               <View style={styles.hero}>
                 <Heading variant="lg">Your list stays here</Heading>
                 <Text tone="secondary">None of your retailers can prepare this cart yet. Kwilt will not turn an opened link into a cart or order claim.</Text>
               </View>
-            )}
+            ) : null}
 
             <View style={styles.secondaryActions}>
-              <Button variant="ghost" onPress={() => setShowAlternatives((current) => !current)}>
-                Try another retailer
-              </Button>
+              {alternativeOutcomes.length || unavailableOutcomes.length ? (
+                <Button variant="ghost" onPress={() => setShowAlternatives((current) => !current)}>
+                  Try another retailer
+                </Button>
+              ) : <View />}
               <Button accessibilityLabel="Refresh list" variant="ghost" onPress={() => { void refreshRevision(); }}>
                 Refresh list
               </Button>
@@ -199,13 +218,41 @@ export function OnlineOrderScreen({ navigation, route }: Props) {
 
             {showAlternatives ? (
               <View style={styles.alternatives}>
-                {outcomes
-                  .filter((outcome) => outcome !== hero)
-                  .map((outcome) => (
-                    <Text key={outcome.retailerId} tone="secondary">
-                      {alternativeCopy(outcome, preferences)}
-                    </Text>
-                  ))}
+                {alternativeOutcomes.map((outcome) => {
+                  const name = retailerName(outcome.retailerId, preferences);
+                  if (outcome.capability === 'product_links'
+                    && (outcome.retailerId === 'amazon' || outcome.retailerId === 'walmart')) {
+                    return (
+                      <Button
+                        key={outcome.retailerId}
+                        variant="outline"
+                        onPress={() => navigation.navigate('RetailerLinkShopping', {
+                          listId: list.id,
+                          retailerId: outcome.retailerId as 'amazon' | 'walmart',
+                        })}
+                      >
+                        {`Shop at ${name}`}
+                      </Button>
+                    );
+                  }
+                  return (
+                    <Button
+                      key={outcome.retailerId}
+                      variant="outline"
+                      onPress={() => navigation.navigate('KrogerCart', {
+                        listId: list.id,
+                        fulfillmentMode: outcome.requestedMode,
+                      })}
+                    >
+                      {`Build with ${name}`}
+                    </Button>
+                  );
+                })}
+                {unavailableOutcomes.map((outcome) => (
+                  <Text key={outcome.retailerId} tone="secondary">
+                    {alternativeCopy(outcome, preferences)}
+                  </Text>
+                ))}
               </View>
             ) : null}
           </View>
@@ -247,6 +294,4 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  linkAssistance: { alignItems: 'flex-start', gap: spacing.xs },
-  affiliateDisclosure: { fontSize: 12 },
 });

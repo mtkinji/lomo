@@ -1,3 +1,6 @@
+import type { KrogerLocation } from '../providers/krogerProvider';
+import type { RetailerRuntimePolicy } from '../providers/groceryProviderContracts';
+
 export type OnlineFulfillmentPreference = 'pickup' | 'delivery' | 'either';
 export type RetailerPreferenceId = 'amazon' | 'costco' | 'kroger' | 'walmart' | 'other';
 
@@ -28,9 +31,75 @@ const RETAILER_IDS: RetailerPreferenceId[] = [
 const RETAILER_LABELS: Record<Exclude<RetailerPreferenceId, 'other'>, string> = {
   amazon: 'Amazon',
   costco: 'Costco',
-  kroger: 'Kroger family',
+  kroger: 'Your grocery store',
   walmart: 'Walmart',
 };
+
+type ActionableRetailerInput = {
+  fulfillment: OnlineFulfillmentPreference;
+  policies: RetailerRuntimePolicy[];
+  preferredStore: KrogerLocation | null;
+};
+
+function policySupportsFulfillment(
+  policy: RetailerRuntimePolicy,
+  fulfillment: OnlineFulfillmentPreference,
+): boolean {
+  const supportsMode = fulfillment === 'either'
+    ? policy.supportedModes.length > 0
+    : policy.supportedModes.includes(fulfillment);
+  if (!supportsMode || !policy.approvedSurface || !policy.productEvidence) return false;
+  if (policy.capability === 'product_links') return !policy.cartWrite;
+  return policy.capability === 'cart_prepare' && policy.cartWrite;
+}
+
+export function deriveActionableRetailerPreferences({
+  fulfillment,
+  policies,
+  preferredStore,
+}: ActionableRetailerInput): RetailerPreference[] {
+  const policyByRetailer = new Map(policies.map((policy) => [policy.retailerId, policy]));
+  return RETAILER_IDS.flatMap((id) => {
+    const policy = policyByRetailer.get(id);
+    if (!policy || !policySupportsFulfillment(policy, fulfillment)) return [];
+    if (id === 'kroger' && !preferredStore) return [];
+    if (id === 'costco' || id === 'other') return [];
+    return [{
+      id,
+      enabled: true,
+      rank: 0,
+      label: id === 'kroger'
+        ? preferredStore?.banner || preferredStore?.name || 'Your grocery store'
+        : RETAILER_LABELS[id],
+      membershipConfirmed: null,
+    } satisfies RetailerPreference];
+  }).map((retailer, index) => ({ ...retailer, rank: index + 1 }));
+}
+
+export function reconcileActionableRetailerPreferences(
+  input: ActionableRetailerInput & { retailers: RetailerPreference[] },
+): RetailerPreference[] {
+  const actionable = deriveActionableRetailerPreferences(input);
+  const actionableById = new Map(actionable.map((retailer) => [retailer.id, retailer]));
+  const retained = input.retailers
+    .filter((retailer) => actionableById.has(retailer.id))
+    .sort((left, right) => {
+      if (left.enabled !== right.enabled) return left.enabled ? -1 : 1;
+      return left.rank - right.rank;
+    })
+    .map((retailer) => ({
+      ...retailer,
+      rank: retailer.enabled ? retailer.rank : 0,
+      label: actionableById.get(retailer.id)?.label ?? retailer.label,
+      membershipConfirmed: null,
+    }));
+  const retainedIds = new Set(retained.map((retailer) => retailer.id));
+  const nextRank = retained.filter((retailer) => retailer.enabled).length;
+  const newlyActionable = actionable
+    .filter((retailer) => !retainedIds.has(retailer.id))
+    .map((retailer, index) => ({ ...retailer, rank: nextRank + index + 1 }));
+  return normalizeRetailerPreferenceOrder([...retained, ...newlyActionable]);
+}
 
 export function createDefaultOnlineShoppingPreferences(
   savedAt = new Date().toISOString(),
@@ -40,13 +109,7 @@ export function createDefaultOnlineShoppingPreferences(
     defaultFulfillment: 'either',
     homePostalCode: null,
     savedAt,
-    retailers: RETAILER_IDS.map((id) => ({
-      id,
-      enabled: false,
-      rank: 0,
-      label: id === 'other' ? '' : RETAILER_LABELS[id],
-      membershipConfirmed: null,
-    })),
+    retailers: [],
   };
 }
 

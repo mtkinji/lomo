@@ -60,12 +60,14 @@ type Props = {
   mapCenter: { latitude: number; longitude: number } | null;
   showsUserLocation: boolean;
   bottomInset: number;
+  backAccessibilityLabel?: string;
+  chooseActionLabel?: string;
   onQueryChange(value: string): void;
   onBack(): void;
   onFindStores(): void;
   onFindCurrentLocation(): void;
   onChoose(location: KrogerLocation): void;
-  onSetPreferred(location: KrogerLocation): void;
+  onSetPreferred?(location: KrogerLocation): void;
 };
 
 export function KrogerStoreFinder({
@@ -77,6 +79,8 @@ export function KrogerStoreFinder({
   mapCenter,
   showsUserLocation,
   bottomInset,
+  backAccessibilityLabel = 'Back to groceries',
+  chooseActionLabel = 'Shop with this store',
   onQueryChange,
   onBack,
   onFindStores,
@@ -150,7 +154,7 @@ export function KrogerStoreFinder({
         showFullWidthBackground={false}
         left={(
           <HeaderActionPill
-            accessibilityLabel="Back to groceries"
+            accessibilityLabel={backAccessibilityLabel}
             materialVariant="floatingWhite"
             size={48}
             onPress={onBack}
@@ -226,7 +230,7 @@ export function KrogerStoreFinder({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityState={{ selected: previewed }}
-                    accessibilityLabel={`${mapLabel}. ${location.banner}. ${location.address}. Shop with this store`}
+                    accessibilityLabel={`${mapLabel}. ${location.banner}. ${location.address}. ${chooseActionLabel}`}
                     onPress={() => onChoose(location)}
                     style={({ pressed }) => [
                       styles.storeChoice,
@@ -252,16 +256,18 @@ export function KrogerStoreFinder({
                     </View>
                     <Icon name="chevronRight" size={18} color={colors.textSecondary} />
                   </Pressable>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    iconButtonSize={44}
-                    disabled={preferred || busy}
-                    accessibilityLabel={preferred ? `${location.banner} is my store` : `Set ${location.banner} as my store`}
-                    onPress={() => onSetPreferred(location)}
-                  >
-                    <Icon name={preferred ? 'starFilled' : 'star'} size={19} color={colors.textPrimary} />
-                  </Button>
+                  {onSetPreferred ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      iconButtonSize={44}
+                      disabled={preferred || busy}
+                      accessibilityLabel={preferred ? `${location.banner} is my store` : `Set ${location.banner} as my store`}
+                      onPress={() => onSetPreferred(location)}
+                    >
+                      <Icon name={preferred ? 'starFilled' : 'star'} size={19} color={colors.textPrimary} />
+                    </Button>
+                  ) : null}
                 </View>
               );
             })}
