@@ -1994,8 +1994,10 @@ func whiteWidgetContainer<Content: View>(@ViewBuilder content: () -> Content) ->
 // MARK: - To-dos widget
 
 struct ActivitiesEntry: TimelineEntry {
+  struct Row { let activityId: String; let title: String }
+
   let date: Date
-  let rows: [GlanceableStateV1.TodaySummary.Top3]
+  let rows: [Row]
 }
 
 struct ActivitiesWidgetProvider: TimelineProvider {
@@ -2022,7 +2024,7 @@ struct ActivitiesWidgetProvider: TimelineProvider {
 
   private func buildEntry() -> ActivitiesEntry {
     let state = readGlanceableState()
-    let rows = Array((state?.todaySummary?.top3 ?? []).prefix(3))
+    let rows = (state?.suggested?.items ?? []).prefix(3).map { ActivitiesEntry.Row(activityId: $0.activityId, title: $0.title) }
     return ActivitiesEntry(date: Date(), rows: rows)
   }
 }

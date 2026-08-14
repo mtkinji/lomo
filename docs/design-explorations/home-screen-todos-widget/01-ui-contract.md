@@ -5,7 +5,7 @@ to-dos Kwilt has already identified as most important so they can choose what to
 do without opening another list or configuring another view.
 
 Authority chain: Andrew's current correction -> iOS WidgetKit conventions ->
-Kwilt widget typography and the existing `todaySummary.top3` projection ->
+Kwilt widget typography and the existing `suggested.items` projection ->
 current To-dos priority language.
 
 Three-second read: `Priorities` -> three one-line to-dos.
@@ -26,7 +26,7 @@ interactive completion, a second CTA, proposal counts, streaks, large brand
 banners, or a new widget data model.
 
 Reuse map: `KwiltWidgetTypography`, `KwiltPalette`, `kwiltLogoImage`,
-`todaySummary.top3`, `deepLinkToday`, and the existing medium WidgetKit family.
+`suggested.items`, `deepLinkToday`, and the existing medium WidgetKit family.
 
 Nearest precedent: Kwilt's current To-dos inventory rows; the widget is denser,
 read-only, uses the same square checkbox grammar, and intentionally omits row
@@ -35,7 +35,7 @@ detail.
 External exemplar ledger: N/A.
 
 Behavior sources: Ordering and titles come directly from the existing
-`todaySummary.top3` App Group projection. Tapping uses the existing Today deep
+`suggested.items` App Group projection. Tapping uses the existing Today deep
 link.
 
 Required states: Placeholder, three priorities, fewer than three priorities,
