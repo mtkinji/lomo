@@ -35,6 +35,7 @@ describe('resolveOnlineShoppingLaunch', () => {
       },
       policies: [amazonPolicy, walmartPolicy],
       preferredStore: null,
+      amazonBatchPreparationEnabled: true,
     })).toEqual({
       screen: 'RetailerLinkShopping',
       params: { listId: 'list-1', retailerId: 'amazon' },
@@ -56,6 +57,7 @@ describe('resolveOnlineShoppingLaunch', () => {
       },
       policies: [amazonPolicy, walmartPolicy],
       preferredStore: null,
+      amazonBatchPreparationEnabled: true,
     })).toEqual({
       screen: 'OnlineOrder',
       params: { listId: 'list-1' },
@@ -76,6 +78,28 @@ describe('resolveOnlineShoppingLaunch', () => {
       },
       policies: [{ ...amazonPolicy, approvedSurface: false }],
       preferredStore: null,
+      amazonBatchPreparationEnabled: true,
+    })).toEqual({
+      screen: 'OnlineOrder',
+      params: { listId: 'list-1' },
+    });
+  });
+
+  it('keeps approved Amazon product links in the order overview until batch preparation is enabled', () => {
+    expect(resolveOnlineShoppingLaunch({
+      listId: 'list-1',
+      preferences: {
+        schemaVersion: 1,
+        defaultFulfillment: 'delivery',
+        homePostalCode: null,
+        savedAt: '2026-08-14T12:00:00.000Z',
+        retailers: [
+          { id: 'amazon', enabled: true, rank: 1, label: 'Amazon', membershipConfirmed: null },
+        ],
+      },
+      policies: [amazonPolicy],
+      preferredStore: null,
+      amazonBatchPreparationEnabled: false,
     })).toEqual({
       screen: 'OnlineOrder',
       params: { listId: 'list-1' },

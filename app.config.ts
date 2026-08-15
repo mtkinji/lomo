@@ -355,6 +355,9 @@ const config = {
       process.env.AMAZON_ASSOCIATES_TAG ?? process.env.EXPO_PUBLIC_AMAZON_ASSOCIATES_TAG,
     amazonMobileAffiliateApproved:
       (process.env.AMAZON_MOBILE_AFFILIATE_APPROVED ?? process.env.EXPO_PUBLIC_AMAZON_MOBILE_AFFILIATE_APPROVED) === 'true',
+    // Whole-list Amazon preparation remains off until its provider boundary is deployed.
+    amazonBatchPreparationEnabled:
+      (process.env.AMAZON_BATCH_PREPARATION_ENABLED ?? process.env.EXPO_PUBLIC_AMAZON_BATCH_PREPARATION_ENABLED) === 'true',
     // Internal product-link testing is deliberately separate from commercial approval.
     // Development/preview default on; store production remains off unless an explicit
     // test-only EAS profile enables it.

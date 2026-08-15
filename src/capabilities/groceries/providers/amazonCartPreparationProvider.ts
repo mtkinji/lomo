@@ -1,8 +1,12 @@
 import { Linking } from 'react-native';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
-import { getAffiliateRetailerTestingEnabled } from '../../../utils/getEnv';
+import {
+  getAffiliateRetailerTestingEnabled,
+  getAmazonBatchPreparationEnabled,
+} from '../../../utils/getEnv';
 import {
   parseRetailerBatchPreparation,
+  summarizeRetailerBatchPreparation,
   type RetailerBatchPreparation,
 } from '../domain/retailerBatchPreparation';
 
@@ -45,12 +49,15 @@ function createPreview(input: AmazonPreparationInput): RetailerBatchPreparation 
 export function createAmazonCartPreparationProvider(dependencies?: {
   invoke?: Invoke;
   testingEnabled?: boolean;
+  batchPreparationEnabled?: boolean;
 }) {
   const invoke = dependencies?.invoke ?? ((name, options) => getSupabaseClient().functions.invoke(name, options));
   const testingEnabled = dependencies?.testingEnabled ?? getAffiliateRetailerTestingEnabled();
+  const batchPreparationEnabled = dependencies?.batchPreparationEnabled ?? getAmazonBatchPreparationEnabled();
   return {
     async prepare(input: AmazonPreparationInput): Promise<RetailerBatchPreparation> {
       if (testingEnabled) return createPreview(input);
+      if (!batchPreparationEnabled) throw new Error('amazon.preparation_unavailable');
       const { data, error } = await invoke('amazon-grocery-prepare', { body: input });
       if (error) throw new Error('amazon.preparation_unavailable');
       const parsed = parseRetailerBatchPreparation(data, {
@@ -67,7 +74,7 @@ export function createAmazonCartPreparationProvider(dependencies?: {
 export const amazonCartPreparationProvider = createAmazonCartPreparationProvider();
 
 export async function openAmazonPreparedCart(preparation: RetailerBatchPreparation): Promise<boolean> {
-  if (preparation.source !== 'provider' || !preparation.cartUrl) return false;
+  if (!summarizeRetailerBatchPreparation(preparation).canOpenBatchCart || !preparation.cartUrl) return false;
   await Linking.openURL(preparation.cartUrl);
   return true;
 }

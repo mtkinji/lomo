@@ -64,6 +64,10 @@ import { groceryFulfillmentSummary } from '../domain/groceryFulfillment';
 import { isOnlineShoppingCountryEligible } from '../domain/groceryOnlineShoppingEligibility';
 import { resolveOnlineShoppingLaunch } from '../domain/onlineShoppingLaunch';
 import { getOnlineRetailerRuntimePolicies } from '../providers/affiliateRetailerProvider';
+import {
+  getAffiliateRetailerTestingEnabled,
+  getAmazonBatchPreparationEnabled,
+} from '../../../utils/getEnv';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'GroceryList'>;
 
@@ -473,6 +477,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
         preferences,
         policies: getOnlineRetailerRuntimePolicies(),
         preferredStore,
+        amazonBatchPreparationEnabled:
+          getAffiliateRetailerTestingEnabled() || getAmazonBatchPreparationEnabled(),
       });
       if (launch.screen === 'RetailerLinkShopping') {
         navigation.navigate(launch.screen, launch.params);

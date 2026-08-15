@@ -183,6 +183,12 @@ export function getAmazonMobileAffiliateApproved(): boolean {
   return embedded === true || embedded === 'true' || publicValue === 'true';
 }
 
+export function getAmazonBatchPreparationEnabled(): boolean {
+  const embedded = getEnvVar<boolean | string>('amazonBatchPreparationEnabled');
+  const publicValue = getProcessEnvString('EXPO_PUBLIC_AMAZON_BATCH_PREPARATION_ENABLED');
+  return embedded === true || embedded === 'true' || publicValue === 'true';
+}
+
 export function resolveAffiliateRetailerTesting(input: {
   embedded: boolean | string | undefined;
   publicValue: string | undefined;

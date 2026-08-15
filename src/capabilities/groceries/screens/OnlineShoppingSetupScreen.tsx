@@ -30,6 +30,10 @@ import {
 import { resolveOnlineShoppingLaunch } from '../domain/onlineShoppingLaunch';
 import { getOnlineRetailerRuntimePolicies } from '../providers/affiliateRetailerProvider';
 import type { KrogerLocation } from '../providers/krogerProvider';
+import {
+  getAffiliateRetailerTestingEnabled,
+  getAmazonBatchPreparationEnabled,
+} from '../../../utils/getEnv';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'OnlineShoppingSetup'>;
 type SetupStep = 'fulfillment' | 'retailers';
@@ -209,6 +213,8 @@ export function OnlineShoppingSetupScreen({ navigation, route }: Props) {
         preferences,
         policies,
         preferredStore,
+        amazonBatchPreparationEnabled:
+          getAffiliateRetailerTestingEnabled() || getAmazonBatchPreparationEnabled(),
       });
       if (launch.screen === 'RetailerLinkShopping') {
         navigation.navigate(launch.screen, launch.params);

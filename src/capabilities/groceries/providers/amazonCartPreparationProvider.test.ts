@@ -45,7 +45,7 @@ describe('Amazon cart preparation provider', () => {
         { itemId: 'tomatoes', status: 'unavailable', reason: 'No confident match' },
       ],
     }, error: null });
-    const provider = createAmazonCartPreparationProvider({ invoke, testingEnabled: false });
+    const provider = createAmazonCartPreparationProvider({ invoke, testingEnabled: false, batchPreparationEnabled: true });
 
     const result = await provider.prepare(input);
 
@@ -58,14 +58,28 @@ describe('Amazon cart preparation provider', () => {
     const unavailable = createAmazonCartPreparationProvider({
       invoke: jest.fn().mockResolvedValue({ data: null, error: { message: 'unavailable' } }),
       testingEnabled: false,
+      batchPreparationEnabled: true,
     });
     const invalid = createAmazonCartPreparationProvider({
       invoke: jest.fn().mockResolvedValue({ data: { nope: true }, error: null }),
       testingEnabled: false,
+      batchPreparationEnabled: true,
     });
 
     await expect(unavailable.prepare(input)).rejects.toThrow('amazon.preparation_unavailable');
     await expect(invalid.prepare(input)).rejects.toThrow('amazon.preparation_invalid');
+  });
+
+  it('does not invoke the provider until batch preparation is explicitly enabled', async () => {
+    const invoke = jest.fn();
+    const provider = createAmazonCartPreparationProvider({
+      invoke,
+      testingEnabled: false,
+      batchPreparationEnabled: false,
+    });
+
+    await expect(provider.prepare(input)).rejects.toThrow('amazon.preparation_unavailable');
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it('opens only a provider-issued prepared cart', async () => {
@@ -77,10 +91,17 @@ describe('Amazon cart preparation provider', () => {
     await expect(openAmazonPreparedCart(preview)).resolves.toBe(false);
     expect(Linking.openURL).not.toHaveBeenCalled();
 
-    await expect(openAmazonPreparedCart({
+    const reviewOnly = {
       ...preview,
       source: 'provider',
       cartUrl: 'https://www.amazon.com/gp/cart/view.html?tag=kwiltapp-20',
+    } as const;
+    await expect(openAmazonPreparedCart(reviewOnly)).resolves.toBe(false);
+    expect(Linking.openURL).not.toHaveBeenCalled();
+
+    await expect(openAmazonPreparedCart({
+      ...reviewOnly,
+      items: reviewOnly.items.map((item, index) => index === 0 ? { ...item, status: 'ready' as const } : item),
     })).resolves.toBe(true);
     expect(Linking.openURL).toHaveBeenCalledWith('https://www.amazon.com/gp/cart/view.html?tag=kwiltapp-20');
   });

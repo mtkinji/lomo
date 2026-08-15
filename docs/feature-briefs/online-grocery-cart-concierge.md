@@ -76,9 +76,10 @@ evidence states.
 - The Grocery list remains the complete in-store experience.
 - `Shop online` owns online preference setup, retailer eligibility, product
   matching, exception review, evidence-backed savings, retailer handoff, and
-  the exact unresolved remainder. Amazon is whole-list-first: Kwilt prepares
-  every provider-supported match together and uses product search links only
-  for unresolved exceptions.
+  the exact unresolved remainder. When its batch provider is explicitly
+  available, Amazon is whole-list-first: Kwilt prepares every
+  provider-supported match together, while unresolved exceptions stay in
+  Kwilt for another retailer or an in-store pass.
 - Kwilt does not create an in-person itinerary, call an affiliate link a cart,
   or infer a purchase from an opened retailer.
 - The retailer owns slot selection, substitutions not supported by the provider

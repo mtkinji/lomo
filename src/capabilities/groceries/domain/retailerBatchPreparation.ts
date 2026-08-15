@@ -34,7 +34,8 @@ function isAmazonCartUrl(value: unknown): value is string {
       || url.searchParams.get('AssociateTag')?.trim(),
     );
     return url.protocol === 'https:'
-      && /(^|\.)amazon\.com$/i.test(url.hostname)
+      && /^(www\.)?amazon\.com$/i.test(url.hostname)
+      && url.pathname === '/gp/cart/view.html'
       && hasPartnerTag;
   } catch {
     return false;

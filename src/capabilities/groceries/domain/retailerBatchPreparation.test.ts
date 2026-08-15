@@ -60,5 +60,8 @@ describe('retailer batch preparation', () => {
     expect(parseRetailerBatchPreparation({ ...base, cartUrl: 'https://example.com/cart' }, expected)).toBeNull();
     expect(parseRetailerBatchPreparation({ ...base, cartUrl: 'http://www.amazon.com/cart' }, expected)).toBeNull();
     expect(parseRetailerBatchPreparation({ ...base, cartUrl: 'https://www.amazon.com/cart' }, expected)).toBeNull();
+    expect(parseRetailerBatchPreparation({ ...base, cartUrl: 'https://www.amazon.com/?tag=kwiltapp-20' }, expected)).toBeNull();
+    expect(parseRetailerBatchPreparation({ ...base, cartUrl: 'https://www.amazon.com/s?k=milk&tag=kwiltapp-20' }, expected)).toBeNull();
+    expect(parseRetailerBatchPreparation({ ...base, cartUrl: 'https://www.amazon.com/dp/B000000001?tag=kwiltapp-20' }, expected)).toBeNull();
   });
 });

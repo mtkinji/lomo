@@ -31,6 +31,7 @@ import {
   openAmazonPreparedCart,
 } from '../providers/amazonCartPreparationProvider';
 import {
+  getAffiliateRetailerLinkDisclosure,
   openAffiliateProductSearch,
 } from '../providers/affiliateRetailerProvider';
 
@@ -115,6 +116,7 @@ function AmazonBatchShopping({ navigation, route }: Props) {
   const stayedCount = summary ? summary.reviewCount + summary.unavailableCount : 0;
   const isPreview = preparation?.source === 'preview';
   const isReady = Boolean(preparation && summary?.canOpenBatchCart && !cartOpened && !error);
+  const amazonDisclosure = getAffiliateRetailerLinkDisclosure('amazon');
 
   return (
     <AppShell>
@@ -135,6 +137,7 @@ function AmazonBatchShopping({ navigation, route }: Props) {
           <View style={styles.amazonMomentBody}>
             <Heading variant="lg">{summary.readyCount} ready for Amazon</Heading>
             <Text tone="secondary">{stayedCount} will stay in Kwilt</Text>
+            <Text variant="label" tone="secondary">{amazonDisclosure}</Text>
             <Button
               fullWidth
               loading={openingCart}
@@ -176,6 +179,7 @@ function AmazonBatchShopping({ navigation, route }: Props) {
           <View style={styles.amazonMomentBody}>
             <Heading variant="lg">Amazon opened</Heading>
             <Text tone="secondary">{summary.readyCount} prepared · {stayedCount} still in Kwilt</Text>
+            <Text variant="label" tone="secondary">{amazonDisclosure}</Text>
             <Button fullWidth onPress={() => { void openCart(); }}>Open Amazon again</Button>
             <Button fullWidth variant="ghost" onPress={() => navigation.goBack()}>Back to Groceries</Button>
           </View>

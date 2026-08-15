@@ -86,6 +86,7 @@ describe('RetailerLinkShoppingScreen', () => {
 
     expect(await screen.findByText('1 ready for Amazon')).toBeTruthy();
     expect(screen.getByText('1 will stay in Kwilt')).toBeTruthy();
+    expect(screen.getByText('Paid link')).toBeTruthy();
     expect(mockOpenAmazonCart).not.toHaveBeenCalled();
 
     fireEvent.press(screen.getByRole('button', { name: 'Open Amazon' }));

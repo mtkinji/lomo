@@ -21,6 +21,7 @@ export function resolveOnlineShoppingLaunch(input: {
   preferences: OnlineShoppingPreferences;
   policies: RetailerRuntimePolicy[];
   preferredStore: KrogerLocation | null;
+  amazonBatchPreparationEnabled: boolean;
 }): OnlineShoppingLaunch {
   const retailers = reconcileActionableRetailerPreferences({
     fulfillment: input.preferences.defaultFulfillment,
@@ -36,7 +37,11 @@ export function resolveOnlineShoppingLaunch(input: {
   const primary = outcomes.find((outcome) =>
     outcome.reason === 'ready' || outcome.reason === 'store_required');
 
-  if (primary?.retailerId === 'amazon' && primary.capability === 'product_links') {
+  if (
+    input.amazonBatchPreparationEnabled
+    && primary?.retailerId === 'amazon'
+    && primary.capability === 'product_links'
+  ) {
     return {
       screen: 'RetailerLinkShopping',
       params: { listId: input.listId, retailerId: 'amazon' },
