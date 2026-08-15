@@ -1,8 +1,8 @@
 # Online Grocery Acquisition Integration State
 
-**Reviewed:** 2026-08-14  
-**Status:** Current integration and partner-access assessment  
-**Audience:** Product, engineering, partnership, and release decisions  
+**Reviewed:** 2026-08-14
+**Status:** Current integration and partner-access assessment
+**Audience:** Product, engineering, partnership, and release decisions
 **Related job flow:** `job-flow-maya-feed-household-with-less-work`, step 14,
 “Reach a buying surface”
 
@@ -256,4 +256,3 @@ that a household can reach retailer review without reconstructing the list.
 - [Amazon Creators API operations](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/api-reference)
 - [Amazon PA-API deprecation notice](https://affiliate-program.amazon.com/creatorsapi/docs/en-us/paapiv5-deprecation)
 - [Walmart Marketplace API introduction](https://developer.walmart.com/us-marketplace/docs/introduction-to-marketplace-apis)
-
