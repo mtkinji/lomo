@@ -226,7 +226,10 @@ test('generated To-dos widget gives the ranked top three exact destinations', ()
     widgetGenerator.indexOf('${getFocusWidgetSwift(targetName)}'),
   );
 
-  assert.match(activitiesSource, /state\?\.todaySummary\?\.top3/);
+  assert.match(activitiesSource, /state\?\.suggested\?\.items/);
+  assert.doesNotMatch(activitiesSource, /state\?\.todaySummary\?\.top3/);
+  assert.match(activitiesSource, /struct Row \{ let activityId: String; let title: String \}/);
+  assert.match(activitiesSource, /prefix\(3\)\.map \{ ActivitiesEntry\.Row\(activityId: \$0\.activityId, title: \$0\.title\) \}/);
   assert.match(activitiesSource, /Text\("To-dos"\)/);
   assert.match(activitiesSource, /prefix\(3\)/);
   assert.match(activitiesSource, /deepLinkQuickAdd\(\)/);

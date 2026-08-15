@@ -1,6 +1,6 @@
 import { getAmazonAssociatesTag, getWalmartAffiliateSearchTemplate } from '../utils/getEnv';
 
-export type SendToRetailer = 'amazon' | 'homeDepot' | 'instacart' | 'doorDash';
+export type SendToRetailer = 'amazon' | 'walmart' | 'homeDepot' | 'instacart' | 'doorDash';
 
 function normalizeQuery(input: string): string {
   const q = String(input ?? '').trim();
@@ -15,6 +15,9 @@ export function buildRetailerSearchUrl(retailer: SendToRetailer, query: string):
 
   if (retailer === 'amazon') {
     return `https://www.amazon.com/s?k=${encoded}`;
+  }
+  if (retailer === 'walmart') {
+    return `https://www.walmart.com/search?q=${encoded}`;
   }
   if (retailer === 'homeDepot') {
     return `https://www.homedepot.com/s/${encoded}`;
@@ -73,4 +76,3 @@ export function buildApprovedWalmartAffiliateSearchUrl(query: string): string {
     return '';
   }
 }
-

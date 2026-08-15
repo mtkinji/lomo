@@ -19,7 +19,9 @@ import { GroceryItemEditScreen } from '../../capabilities/groceries/screens/Groc
 import { GroceryHandoffScreen } from '../../capabilities/groceries/screens/GroceryHandoffScreen';
 import { KrogerCartScreen } from '../../capabilities/groceries/screens/KrogerCartScreen';
 import { OnlineShoppingSetupScreen } from '../../capabilities/groceries/screens/OnlineShoppingSetupScreen';
+import { OnlineStorePickerScreen } from '../../capabilities/groceries/screens/OnlineStorePickerScreen';
 import { OnlineOrderScreen } from '../../capabilities/groceries/screens/OnlineOrderScreen';
+import { RetailerLinkShoppingScreen } from '../../capabilities/groceries/screens/RetailerLinkShoppingScreen';
 import { GrocerySavingsScreen } from '../../capabilities/groceries/screens/GrocerySavingsScreen';
 import { FoodStockReviewScreen } from '../../capabilities/groceries/screens/FoodStockReviewScreen';
 import { FoodScenarioReviewScreen } from '../../capabilities/groceries/screens/FoodScenarioReviewScreen';
@@ -60,7 +62,9 @@ export type FoodStackParamList = {
   GroceryItemEdit: { listId: string; itemId: string };
   GroceryHandoff: { listId: string };
   OnlineShoppingSetup: { listId: string };
+  OnlineStorePicker: { listId: string };
   OnlineOrder: { listId: string; fulfillmentOverride?: 'pickup' | 'delivery' };
+  RetailerLinkShopping: { listId: string; retailerId: 'amazon' | 'walmart' };
   KrogerCart: { listId: string; fulfillmentMode: 'pickup' | 'delivery' };
   GrocerySavings: { listId: string };
   FoodStockReview: { concepts?: string[] } | undefined;
@@ -108,7 +112,9 @@ export function FoodNavigator() {
       <Stack.Screen name="GroceryItemEdit" component={GroceryItemEditScreen} />
       <Stack.Screen name="GroceryHandoff" component={GroceryHandoffScreen} />
       <Stack.Screen name="OnlineShoppingSetup" component={OnlineShoppingSetupScreen} />
+      <Stack.Screen name="OnlineStorePicker" component={OnlineStorePickerScreen} />
       <Stack.Screen name="OnlineOrder" component={OnlineOrderScreen} />
+      <Stack.Screen name="RetailerLinkShopping" component={RetailerLinkShoppingScreen} />
       <Stack.Screen name="KrogerCart" component={KrogerCartScreen} />
       <Stack.Screen name="GrocerySavings" component={GrocerySavingsScreen} />
       <Stack.Screen name="FoodStockReview" component={FoodStockReviewScreen} />

@@ -1,6 +1,16 @@
 import { Linking } from 'react-native';
-import { buildAffiliateRetailerSearchUrl, buildApprovedWalmartAffiliateSearchUrl } from '../../../services/affiliateLinks';
-import { getAmazonMobileAffiliateApproved, getWalmartAffiliateSurfaceApproved } from '../../../utils/getEnv';
+import {
+  buildAffiliateRetailerSearchUrl,
+  buildApprovedWalmartAffiliateSearchUrl,
+  buildRetailerSearchUrl,
+} from '../../../services/affiliateLinks';
+import {
+  getAffiliateRetailerTestingEnabled,
+  getAmazonAssociatesTag,
+  getAmazonMobileAffiliateApproved,
+  getWalmartAffiliateSearchTemplate,
+  getWalmartAffiliateSurfaceApproved,
+} from '../../../utils/getEnv';
 import type { RetailerRuntimePolicy } from './groceryProviderContracts';
 
 export type AffiliateRetailerApprovalGates = {
@@ -14,14 +24,20 @@ export function getAffiliateRetailerApprovalGates(): AffiliateRetailerApprovalGa
 
 export function getOnlineRetailerRuntimePolicies(
   gates: AffiliateRetailerApprovalGates = getAffiliateRetailerApprovalGates(),
+  testingEnabled = getAffiliateRetailerTestingEnabled(),
 ): RetailerRuntimePolicy[] {
+  const amazonAffiliateReady = gates.amazonMobileApproved && Boolean(getAmazonAssociatesTag()?.trim());
+  const walmartAffiliateReady = gates.walmartSurfaceApproved
+    && Boolean(getWalmartAffiliateSearchTemplate()?.includes('{query}'));
+  const amazonReady = amazonAffiliateReady || testingEnabled;
+  const walmartReady = walmartAffiliateReady || testingEnabled;
   return [
     {
       retailerId: 'amazon',
       capability: 'product_links',
       supportedModes: ['pickup', 'delivery'],
-      approvedSurface: gates.amazonMobileApproved,
-      productEvidence: gates.amazonMobileApproved,
+      approvedSurface: amazonReady,
+      productEvidence: amazonReady,
       cartWrite: false,
     },
     {
@@ -44,8 +60,8 @@ export function getOnlineRetailerRuntimePolicies(
       retailerId: 'walmart',
       capability: 'product_links',
       supportedModes: ['pickup', 'delivery'],
-      approvedSurface: gates.walmartSurfaceApproved,
-      productEvidence: gates.walmartSurfaceApproved,
+      approvedSurface: walmartReady,
+      productEvidence: walmartReady,
       cartWrite: false,
     },
     {
@@ -59,9 +75,33 @@ export function getOnlineRetailerRuntimePolicies(
   ];
 }
 
-export function buildApprovedAffiliateProductSearch(retailerId: 'amazon' | 'walmart', query: string, gates = getAffiliateRetailerApprovalGates()): string {
-  if (retailerId === 'amazon') return gates.amazonMobileApproved ? buildAffiliateRetailerSearchUrl('amazon', query) : '';
-  return gates.walmartSurfaceApproved ? buildApprovedWalmartAffiliateSearchUrl(query) : '';
+export function buildApprovedAffiliateProductSearch(
+  retailerId: 'amazon' | 'walmart',
+  query: string,
+  gates = getAffiliateRetailerApprovalGates(),
+  testingEnabled = getAffiliateRetailerTestingEnabled(),
+): string {
+  if (retailerId === 'amazon') {
+    if (gates.amazonMobileApproved && getAmazonAssociatesTag()?.trim()) {
+      return buildAffiliateRetailerSearchUrl('amazon', query);
+    }
+    return testingEnabled ? buildRetailerSearchUrl('amazon', query) : '';
+  }
+  if (gates.walmartSurfaceApproved && getWalmartAffiliateSearchTemplate()?.includes('{query}')) {
+    return buildApprovedWalmartAffiliateSearchUrl(query);
+  }
+  return testingEnabled ? buildRetailerSearchUrl('walmart', query) : '';
+}
+
+export function getAffiliateRetailerLinkDisclosure(
+  retailerId: 'amazon' | 'walmart',
+  gates = getAffiliateRetailerApprovalGates(),
+): 'Paid link' | 'External retailer link' {
+  const paid = retailerId === 'amazon'
+    ? gates.amazonMobileApproved && Boolean(getAmazonAssociatesTag()?.trim())
+    : gates.walmartSurfaceApproved && Boolean(getWalmartAffiliateSearchTemplate()?.includes('{query}'));
+  if (paid) return 'Paid link';
+  return 'External retailer link';
 }
 
 export async function openAffiliateProductSearch(retailerId: 'amazon' | 'walmart', query: string): Promise<boolean> {

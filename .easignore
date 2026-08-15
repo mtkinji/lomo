@@ -7,6 +7,9 @@
 # Git history (not needed by EAS Build; saves ~128 MB on upload).
 .git/
 
+# Local parallel checkouts (never part of an app build).
+.worktrees/
+
 # dependencies
 node_modules/
 

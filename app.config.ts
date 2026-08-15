@@ -134,7 +134,7 @@ const config = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.105',
+  version: '1.0.106',
   // Games temporarily unlocks orientation for shared-table play and restores
   // portrait when leaving an active table.
   orientation: 'default',
@@ -149,6 +149,9 @@ const config = {
     backgroundColor: '#315545', // Pine 700 (official Kwilt green)
   },
   ios: {
+    // Native layered source for iOS 26+ and build-time fallbacks on earlier iOS.
+    // The solid white background and pine mark remain separate in Icon Composer.
+    icon: './assets/icon-composer/AppIcon.icon',
     supportsTablet: true,
     // New bundle identifier for the fresh kwilt app.
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
@@ -164,7 +167,7 @@ const config = {
           }
         : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '105',
+    buildNumber: '106',
     // iOS app extensions are only declared for profiles that enable them.
     // This prevents production builds without those surfaces from requiring extension credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -272,8 +275,8 @@ const config = {
       {
         // Use a flat, monochrome logo for the small status-bar icon on Android.
         // This should be a white glyph on a transparent background.
-        icon: './assets/icon.png',
-        color: '#1F5226',
+        icon: './assets/notification-icon.png',
+        color: '#315545',
       },
     ],
     'expo-localization',
@@ -352,6 +355,15 @@ const config = {
       process.env.AMAZON_ASSOCIATES_TAG ?? process.env.EXPO_PUBLIC_AMAZON_ASSOCIATES_TAG,
     amazonMobileAffiliateApproved:
       (process.env.AMAZON_MOBILE_AFFILIATE_APPROVED ?? process.env.EXPO_PUBLIC_AMAZON_MOBILE_AFFILIATE_APPROVED) === 'true',
+    // Whole-list Amazon preparation remains off until its provider boundary is deployed.
+    amazonBatchPreparationEnabled:
+      (process.env.AMAZON_BATCH_PREPARATION_ENABLED ?? process.env.EXPO_PUBLIC_AMAZON_BATCH_PREPARATION_ENABLED) === 'true',
+    // Internal product-link testing is deliberately separate from commercial approval.
+    // Development/preview default on; store production remains off unless an explicit
+    // test-only EAS profile enables it.
+    affiliateRetailerTestingEnabled:
+      process.env.AFFILIATE_RETAILER_TESTING === '1' ||
+      ['development', 'preview', 'test'].includes(APP_ENVIRONMENT),
     walmartAffiliateSurfaceApproved:
       (process.env.WALMART_AFFILIATE_SURFACE_APPROVED ?? process.env.EXPO_PUBLIC_WALMART_AFFILIATE_SURFACE_APPROVED) === 'true',
     walmartAffiliateSearchTemplate:

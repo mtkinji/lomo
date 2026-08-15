@@ -23,6 +23,13 @@ This doc captures the recommended approach to make Kwilt an affiliate for “Sen
 - Amazon tag configuration lives in Expo `extra`:
   - `amazonAssociatesTag` (from `AMAZON_ASSOCIATES_TAG` or `EXPO_PUBLIC_AMAZON_ASSOCIATES_TAG`)
 
+### Internal testing surfaces
+
+- Simulator development and preview builds expose Amazon and Walmart with ordinary, untracked retailer search links.
+- `npm run ios:testflight` uses the dedicated `testflight-widgets` EAS profile, which sets `AFFILIATE_RETAILER_TESTING=1` and embeds the same test-only access.
+- Test-only links say `External retailer link`. `Paid link` is reserved for a commercially approved surface with a configured qualifying URL.
+- Production and `production-widgets` profiles do not enable test access. Do not promote a `testflight*` binary to App Store production.
+
 ### Compliance checklist (minimum)
 
 - Add in-app disclosure copy near “Send to…”:
@@ -32,5 +39,4 @@ This doc captures the recommended approach to make Kwilt an affiliate for “Sen
   - redirects / cloaking
   - required UI disclosure language
   - prohibited incentivization / misleading copy
-
 

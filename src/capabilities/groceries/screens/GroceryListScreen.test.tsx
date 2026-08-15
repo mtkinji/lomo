@@ -12,6 +12,8 @@ let mockCountryCode: string | null = 'US';
 const mockEnqueue = jest.fn();
 const mockAddItem = jest.fn();
 const mockReadOnlineShoppingPreferences = jest.fn();
+const mockReadPreferredStore = jest.fn();
+const mockRuntimePolicies = jest.fn();
 
 type MockPageHeaderProps = {
   title: string;
@@ -33,6 +35,12 @@ type MockButtonProps = {
 jest.mock('../data/groceryRepository', () => ({ createGroceryRepository: jest.fn() }));
 jest.mock('../data/onlineShoppingPreferencesRepository', () => ({
   onlineShoppingPreferencesRepository: { read: (...args: unknown[]) => mockReadOnlineShoppingPreferences(...args) },
+}));
+jest.mock('../data/preferredGroceryStore', () => ({
+  preferredGroceryStore: { read: (...args: unknown[]) => mockReadPreferredStore(...args) },
+}));
+jest.mock('../providers/affiliateRetailerProvider', () => ({
+  getOnlineRetailerRuntimePolicies: (...args: unknown[]) => mockRuntimePolicies(...args),
 }));
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => mockScreenFocused,
@@ -211,6 +219,12 @@ describe('Grocery List primary capability', () => {
     mockEnqueue.mockResolvedValue([]);
     mockAddItem.mockResolvedValue({});
     mockReadOnlineShoppingPreferences.mockResolvedValue(null);
+    mockReadPreferredStore.mockResolvedValue(null);
+    mockRuntimePolicies.mockReturnValue([
+      { retailerId: 'amazon', capability: 'product_links', supportedModes: ['pickup', 'delivery'], approvedSurface: true, productEvidence: true, cartWrite: false },
+      { retailerId: 'kroger', capability: 'cart_prepare', supportedModes: ['pickup'], approvedSurface: true, productEvidence: true, cartWrite: true },
+      { retailerId: 'walmart', capability: 'product_links', supportedModes: ['pickup', 'delivery'], approvedSurface: true, productEvidence: true, cartWrite: false },
+    ]);
     (createGroceryRepository as jest.Mock).mockReturnValue({
       list: jest.fn().mockResolvedValue([
         {
@@ -459,6 +473,14 @@ describe('Grocery List primary capability', () => {
   });
 
   it('opens Order this list when online-shopping preferences already exist', async () => {
+    mockReadPreferredStore.mockResolvedValue({
+      id: 'store-1',
+      name: 'Smiths',
+      banner: "Smith's",
+      address: '689 N Redwood Rd · Saratoga Springs, UT 84045',
+      latitude: 40.34,
+      longitude: -111.91,
+    });
     mockReadOnlineShoppingPreferences.mockResolvedValue({
       schemaVersion: 1,
       defaultFulfillment: 'pickup',
@@ -479,6 +501,36 @@ describe('Grocery List primary capability', () => {
 
     await waitFor(() => expect(markReviewed).toHaveBeenCalledWith('list-1', 1));
     expect(navigate).toHaveBeenCalledWith('OnlineOrder', { listId: 'list-1' });
+  });
+
+  it('goes directly to Amazon preparation when Amazon is already preferred', async () => {
+    mockReadOnlineShoppingPreferences.mockResolvedValue({
+      schemaVersion: 1,
+      defaultFulfillment: 'pickup',
+      homePostalCode: null,
+      savedAt: '2026-08-13T16:00:00.000Z',
+      retailers: [
+        { id: 'amazon', enabled: true, rank: 1, label: 'Amazon', membershipConfirmed: null },
+        { id: 'walmart', enabled: true, rank: 2, label: 'Walmart', membershipConfirmed: null },
+      ],
+    });
+    const navigate = jest.fn();
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate, replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('grocery-shop-remaining'));
+
+    await waitFor(() => expect(markReviewed).toHaveBeenCalledWith('list-1', 1));
+    expect(navigate).toHaveBeenCalledWith('RetailerLinkShopping', {
+      listId: 'list-1',
+      retailerId: 'amazon',
+    });
+    expect(navigate).not.toHaveBeenCalledWith('OnlineOrder', { listId: 'list-1' });
   });
 
   it('only offers online shopping in the US or Canada', async () => {

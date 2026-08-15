@@ -49,12 +49,21 @@ const list = {
   items: [{ id: 'item-1', concept: 'almond milk', state: 'needed' }],
 };
 
+const smiths = {
+  id: '70600123',
+  name: 'Smiths',
+  banner: "Smith's",
+  address: '689 N Redwood Rd · Saratoga Springs, UT 84045',
+  latitude: 40.34,
+  longitude: -111.91,
+};
+
 describe('OnlineOrderScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockReadPreferences.mockResolvedValue(preferences);
     mockListGroceries.mockResolvedValue([list]);
-    mockReadPreferredStore.mockResolvedValue(null);
+    mockReadPreferredStore.mockResolvedValue(smiths);
     mockRuntimePolicies.mockReturnValue([
       { retailerId: 'amazon', capability: 'product_links', supportedModes: ['pickup', 'delivery'], approvedSurface: true, productEvidence: true, cartWrite: false },
       { retailerId: 'kroger', capability: 'cart_prepare', supportedModes: ['pickup'], approvedSurface: true, productEvidence: true, cartWrite: true },
@@ -62,7 +71,7 @@ describe('OnlineOrderScreen', () => {
     ]);
   });
 
-  it('shows one cart outcome while explaining a higher-ranked link-only retailer', async () => {
+  it('makes the highest-ranked approved link retailer the primary shopping outcome', async () => {
     const navigate = jest.fn();
     const screen = render(
       <OnlineOrderScreen
@@ -72,24 +81,28 @@ describe('OnlineOrderScreen', () => {
     );
 
     expect(await screen.findByText('Pickup · Amazon first')).toBeTruthy();
-    expect(screen.getByText('Amazon can help with individual products; Kwilt cannot prepare this cart there.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Build my pickup cart' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open product search at Amazon' })).toBeTruthy();
-    expect(screen.getByText('Affiliate link')).toBeTruthy();
+    expect(screen.getByText('Amazon')).toBeTruthy();
+    expect(screen.getByText('Kwilt will send what it can and keep the rest on your list.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start shopping at Amazon' })).toHaveTextContent('Shop with Amazon');
+    expect(screen.queryByText(/one item at a time/i)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Start shopping at Amazon' })).toBeTruthy();
     expect(screen.queryByText(/items found/i)).toBeNull();
     expect(screen.queryByText(/best price/i)).toBeNull();
     expect(screen.queryByText(/coverage score/i)).toBeNull();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Build my pickup cart' }));
-    expect(navigate).toHaveBeenCalledWith('KrogerCart', {
+    fireEvent.press(screen.getByRole('button', { name: 'Start shopping at Amazon' }));
+    expect(navigate).toHaveBeenCalledWith('RetailerLinkShopping', {
       listId: 'list-1',
-      fulfillmentMode: 'pickup',
+      retailerId: 'amazon',
     });
+    fireEvent.press(screen.getByRole('button', { name: 'Try another retailer' }));
+    fireEvent.press(screen.getByRole('button', { name: "Build with Smith's" }));
+    expect(navigate).toHaveBeenCalledWith('KrogerCart', { listId: 'list-1', fulfillmentMode: 'pickup' });
     fireEvent.press(screen.getByRole('button', { name: 'Change online shopping preferences' }));
     expect(navigate).toHaveBeenCalledWith('OnlineShoppingSetup', { listId: 'list-1' });
   });
 
-  it('keeps remembered retailers behind progressive disclosure', async () => {
+  it('does not carry remembered-only retailers into an online order', async () => {
     const screen = render(
       <OnlineOrderScreen
         navigation={{ navigate: jest.fn(), goBack: jest.fn() } as never}
@@ -98,9 +111,28 @@ describe('OnlineOrderScreen', () => {
     );
 
     await screen.findByText('Pickup · Amazon first');
-    expect(screen.queryByText('Costco is remembered, but Kwilt cannot shop there yet.')).toBeNull();
+    expect(screen.queryByText(/Costco/)).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Try another retailer' }));
-    expect(screen.getByText('Costco is remembered, but Kwilt cannot shop there yet.')).toBeTruthy();
+    expect(screen.queryByText(/Costco/)).toBeNull();
+  });
+
+  it('relabels a legacy provider preference with the selected local banner', async () => {
+    mockReadPreferences.mockResolvedValue({
+      ...preferences,
+      retailers: [
+        { id: 'kroger', enabled: true, rank: 1, label: 'Kroger family', membershipConfirmed: null },
+      ],
+    });
+    const screen = render(
+      <OnlineOrderScreen
+        navigation={{ navigate: jest.fn(), goBack: jest.fn() } as never}
+        route={{ params: { listId: 'list-1' } } as never}
+      />,
+    );
+
+    expect(await screen.findByText("Pickup · Smith's first")).toBeTruthy();
+    expect(screen.getByText("Build with Smith's")).toBeTruthy();
+    expect(screen.queryByText('Kroger family')).toBeNull();
   });
 
   it('requires refresh when the Grocery-list revision changes', async () => {
@@ -116,7 +148,7 @@ describe('OnlineOrderScreen', () => {
 
     await screen.findByText('Pickup · Amazon first');
     fireEvent.press(screen.getByRole('button', { name: 'Refresh list' }));
-    await waitFor(() => expect(screen.getByText('Your grocery list changed. Review it before building a cart.')).toBeTruthy());
-    expect(screen.getByRole('button', { name: 'Build my pickup cart' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByText('Your grocery list changed. Review it before shopping.')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Start shopping at Amazon' })).toBeDisabled();
   });
 });

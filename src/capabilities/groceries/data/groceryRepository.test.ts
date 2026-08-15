@@ -9,6 +9,23 @@ describe('Grocery repository', () => {
     });
   });
 
+  it('keeps legacy retailer receipts readable while fulfillment-mode migration is pending', async () => {
+    const chain={
+      select:jest.fn(),
+      order:jest.fn().mockResolvedValue({
+        data:[{id:'list-1',revision:1,status:'ready',updated_at:'2026-08-09',items:[{id:'item-1',position:0,concept:'milk',quantity_min:1,quantity_max:null,unit:'gallon',aisle:'dairy_eggs',state:'needed',sources:[],cart_entries:[{provider:'kroger',retailer_label:"Smith's",location_name:'Saratoga Springs',state:'cart_add_acknowledged',created_at:'2026-08-09T12:00:00Z'}]}]}],
+        error:null,
+      }),
+    };
+    chain.select.mockReturnValue(chain);
+    const repository=createGroceryRepository({from:jest.fn().mockReturnValue(chain)} as never);
+
+    const [list]=await repository.list();
+
+    expect(chain.select).toHaveBeenCalledWith(expect.stringContaining('cart_entries:kwilt_retailer_handoff_items(*)'));
+    expect(list.items[0].retailerCart?.fulfillmentMode).toBe('pickup');
+  });
+
   it('compiles through the server boundary and mutates only through revisioned RPCs', async () => {
     const invoke=jest.fn().mockResolvedValue({data:{receipt:{}},error:null}); const rpc=jest.fn().mockResolvedValue({data:{},error:null}); const repository=createGroceryRepository({functions:{invoke},rpc} as never);
     await repository.compile('plan-1',3); await repository.compile('plan-1',4,{fromListId:'list-1',expectedRevision:5}); await repository.compileRecipe({

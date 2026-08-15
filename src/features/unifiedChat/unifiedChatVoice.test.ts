@@ -115,4 +115,26 @@ describe('Unified Chat native voice recording', () => {
     expect(mockRecorder.stop).toHaveBeenCalledTimes(1);
     expect(mockFileBase64).toHaveBeenCalledTimes(1);
   });
+
+  test('reports that recording stopped before transcription work begins', async () => {
+    const order: string[] = [];
+    mockRecorder.stop.mockImplementationOnce(async () => {
+      order.push('recording_stopped');
+    });
+    mockFileBase64.mockImplementationOnce(async () => {
+      order.push('audio_encoded');
+      return 'base64-audio';
+    });
+    const onRecordingStopped = jest.fn(async () => {
+      order.push('receipt_cue');
+    });
+    const { startUnifiedChatVoiceRecording, stopAndTranscribeUnifiedChatVoice } =
+      require('./unifiedChatVoice') as typeof import('./unifiedChatVoice');
+
+    await startUnifiedChatVoiceRecording();
+    await stopAndTranscribeUnifiedChatVoice({ onRecordingStopped });
+
+    expect(onRecordingStopped).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['recording_stopped', 'receipt_cue', 'audio_encoded']);
+  });
 });

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Kwilt three-piece K — F3 soft fair</title>
+  <desc id="desc">The optically centered three-piece K with maximally continuous organic curves and minimal straightness.</desc>
+  <g fill="#315545">
+    <path d="M55 10C80 10 100 30 100 55C101 98 101 143 99 187C98 217 79 241 52 248C30 254 10 245 10 227C9 170 9 112 10 55C10 30 30 10 55 10Z"/>
+    <path d="M159 10C136 11 118 30 117 54C116 77 116 100 118 123C119 138 128 145 139 139C166 126 192 109 214 88C233 70 244 47 244 24C244 15 237 10 228 10C205 8 182 8 159 10Z"/>
+    <path d="M157 147C177 137 200 134 220 136C235 138 244 150 244 165C245 181 245 198 242 214C239 234 223 247 203 249C174 252 144 251 115 248C104 247 99 236 104 226C112 209 121 192 130 176C137 162 147 152 157 147Z"/>
+  </g>
+</svg>

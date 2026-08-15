@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Kwilt three-piece K — Balanced Air with restored quadrant</title>
+  <desc id="desc">The Balanced Air construction with fair stem and upper contours and a lower-right piece restored to its intentional quarter-sphere character.</desc>
+  <g fill="#315545">
+    <path transform="translate(1.2 0) scale(.88 1)" d="M55 10C79.853 10 100 30.147 100 55V190C100 220 78 244 50 248C28 251 10 242 10 226V55C10 30.147 30.147 10 55 10Z"/>
+    <path transform="translate(3 -1.5)" d="M160 10C137 10 119 28 119 51C118 76 118 101 119 126C119 138 127 144 137 139C163 126 188 111 210 93C231 76 244 51 244 25C244 16 237 10 228 10C205 9 182 9 160 10Z"/>
+    <path transform="translate(3 2.5)" d="M159 148C177 139 199 136 218 136C233 136 244 148 244 163V218C244 235 231 248 214 248H115C105 248 100 237 105 228C113 211 121 195 130 179C137 165 147 154 159 148Z"/>
+  </g>
+</svg>

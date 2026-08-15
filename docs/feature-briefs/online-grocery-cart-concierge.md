@@ -9,7 +9,7 @@ job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-carry-intentions-into-action, jtbd-review-budget-reality-before-spending, jtbd-trust-this-app-with-my-life]
 related_briefs: [household-food-loop, exact-store-retailer-handoff]
 owner: andrew
-last_updated: 2026-08-13
+last_updated: 2026-08-14
 ---
 
 ## Context
@@ -76,7 +76,10 @@ evidence states.
 - The Grocery list remains the complete in-store experience.
 - `Shop online` owns online preference setup, retailer eligibility, product
   matching, exception review, evidence-backed savings, retailer handoff, and
-  the exact unresolved remainder.
+  the exact unresolved remainder. When its batch provider is explicitly
+  available, Amazon is whole-list-first: Kwilt prepares every
+  provider-supported match together, while unresolved exceptions stay in
+  Kwilt for another retailer or an in-store pass.
 - Kwilt does not create an in-person itinerary, call an affiliate link a cart,
   or infer a purchase from an opened retailer.
 - The retailer owns slot selection, substitutions not supported by the provider
@@ -87,25 +90,44 @@ evidence states.
 The first `Shop online` use asks for stable, user-owned defaults:
 
 1. Default fulfillment: `Pickup`, `Delivery`, or `Either`.
-2. Retailers Maya actually uses: Amazon, Costco, the relevant Kroger-family
-   banner, Walmart, or a named `Other` retailer.
-3. Preferred retailer order.
+2. One ordered list of online destinations Kwilt can actually use for the
+   selected fulfillment mode. Amazon and Walmart appear only when their exact
+   mobile handoffs are approved and a qualifying-link format is configured. A Kroger-backed store appears only after an
+   exact supported location is known, labeled with the banner Maya recognizes,
+   such as Smith's, King Soopers, or Fred Meyer.
+3. Drag handles and a quiet remove action let Maya make that actionable list
+   her preferred order. `Add store` searches only supported online locations;
+   it is not a directory of every store where the household shops.
 
-Kwilt may use authorized location or ZIP to identify an exact Kroger-family
-store, but it does not claim to detect Amazon membership or retailer-account
-state. Account authorization is deferred until a cart-capable provider needs
-it. Preferences are person/device scoped in the learning release, inspectable,
-editable, versioned, and reversible.
+The starter list contains every currently actionable destination. When a new
+destination becomes actionable later, Kwilt appends it without disturbing the
+person's existing order. Removing a destination is remembered, and `Add store`
+can restore it.
+
+Kwilt may use already-authorized location or a user-entered place or ZIP to
+identify an exact supported store. Corporate ownership and provider routing
+stay internal: Maya ranks Smith's, not `Kroger family`. Unsupported
+independents, co-ops, Costco, and generic `Other` entries remain served by the
+ordinary in-store Grocery list rather than appearing as inert online
+preferences. Kwilt does not claim to detect Amazon membership or
+retailer-account state. Account authorization is deferred until a cart-capable
+provider needs it. Preferences are person/device scoped in the learning
+release, inspectable, editable, versioned, and reversible.
 
 ### Returning use
 
-`Shop online` opens with the current default in a compact header such as
-`Pickup · Amazon first · Change`. Kwilt freezes the current Grocery-list
-revision and produces executable outcomes in Maya's preferred order. The hero
-outcome is the highest-ranked retailer that can prepare a sufficiently complete
-cart for the requested fulfillment method. If a higher-ranked retailer offers
-only links, Kwilt explains the limitation rather than silently pretending it
-won or suppressing it.
+`Shop online` immediately resolves Maya's highest-ranked executable destination
+against the current Grocery-list revision. When Amazon is first, Kwilt bypasses
+the retailer overview and starts whole-list preparation in one transient
+interstitial. The moment first states the real work underway, then reports the
+ready count and exact remainder. Maya explicitly chooses `Open Amazon` before
+leaving Kwilt; `Use another retailer` is quiet recovery, not a required
+decision. Every uncertain or unavailable item remains on the Grocery list. The
+retailer overview remains available for non-Amazon destinations,
+unavailable-preference recovery, and deliberate retailer changes.
+Without provider evidence, the interstitial says the Amazon cart handoff is
+not connected and offers another retailer; example data is not counted as
+ready.
 
 ### Capability levels
 
@@ -114,18 +136,22 @@ Retailer capability is explicit and runtime-gated:
 - `cart_prepare`: store/area evidence, fulfillment-filtered product matches,
   current item prices where returned, and an acknowledged cart-write path.
 - `product_links`: authorized product or search links opened in the retailer's
-  app or the system browser; no cart-coverage claim.
-- `remembered_only`: retained as a user preference, but no executable online
-  action.
+  app or the system browser. Kwilt may remember explicit user-reported progress
+  for the current list revision, but makes no cart, coverage, availability,
+  price, purchase, or order claim.
+- `remembered_only`: an internal legacy or demand signal; it is not presented
+  as a choice in the online priority list.
 - `unavailable`: an integration exists conceptually but is disabled, expired,
   unapproved, or unavailable for this fulfillment mode.
 
 Kroger-family pickup is the first `cart_prepare` implementation. Delivery may
 be exposed only after the public API's delivery filter and cart modality are
-proved against a disposable retailer cart. Amazon and Walmart product links
-remain disabled until the exact Kwilt mobile surface is accepted by each
-program and the required disclosures/link formats are implemented. Costco is
-`remembered_only` until Kwilt has a legitimate integration.
+proved against a disposable retailer cart. Amazon and Walmart product-link
+workflows are product-ready behind disabled runtime gates. They remain absent
+from production until the exact Kwilt mobile surface is accepted by each
+program, a qualifying-link format is configured, the unavoidable `Paid link`
+disclosure is present, and live attribution is proved. Costco remains outside
+the online priority list until Kwilt has a legitimate integration.
 
 ### Cart concierge
 
@@ -168,6 +194,14 @@ same Grocery list. `Shop N remaining` repeats online fulfillment; `Leave for
 in-store` simply returns those items to the ordinary checklist and does not
 construct a store trip.
 
+For Amazon and Walmart link assistance, opening an individual product link or
+reporting an addition never creates a provider cart receipt or checks off the
+Grocery item. A batch handoff is shown only when the provider returns an
+approved cart URL for specific product identifiers. Opening that URL means only
+`opened for retailer review`; the retailer still owns availability, final cart
+contents, price, fulfillment, and checkout. A changed Grocery-list revision
+safely starts a fresh preparation rather than carrying stale assertions forward.
+
 ### Privacy and monetization
 
 - Retailer priority is never changed by commission rate.
@@ -198,15 +232,19 @@ material time or trip reduction.
 - The learning release is Kroger-family pickup first. It records delivery as a
   preference but does not expose Kroger delivery cart preparation until the API
   path is independently proved.
-- Retailer preference and retailer capability are separate models. A preferred
-  retailer may be remembered without being executable.
+- Retailer preference and retailer capability are separate models. The visible
+  priority list is the actionable intersection of user preference, current
+  approval, fulfillment mode, and exact-store evidence; non-executable stores
+  do not appear there.
 - The existing exact-store confirmation remains required for pickup and must
   not be generalized to imply provider-verified delivery origin.
 - Cross-retailer basket optimization, order-status ingestion, automatic
   checkout, and receipt reconciliation are excluded.
-- Amazon and Walmart work is implementation-ready only at the policy shell and
-  disabled runtime-gate level; active qualifying links require program/surface
-  approval and live link-format verification.
+- Amazon and Walmart have complete disabled-gate product flows: preference
+  entry, primary-outcome routing, whole-list preparation, compact handoff receipt,
+  disclosure, recovery, and alternatives. Active
+  qualifying links still require program/surface approval, configured link
+  formats, and live attribution verification.
 
 ## Open questions
 
