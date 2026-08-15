@@ -81,7 +81,10 @@ describe('OnlineOrderScreen', () => {
     );
 
     expect(await screen.findByText('Pickup · Amazon first')).toBeTruthy();
-    expect(screen.getByText('Shop this list at Amazon')).toBeTruthy();
+    expect(screen.getByText('Amazon')).toBeTruthy();
+    expect(screen.getByText('Kwilt will send what it can and keep the rest on your list.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start shopping at Amazon' })).toHaveTextContent('Shop with Amazon');
+    expect(screen.queryByText(/one item at a time/i)).toBeNull();
     expect(screen.getByRole('button', { name: 'Start shopping at Amazon' })).toBeTruthy();
     expect(screen.queryByText(/items found/i)).toBeNull();
     expect(screen.queryByText(/best price/i)).toBeNull();

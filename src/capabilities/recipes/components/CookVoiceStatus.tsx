@@ -24,7 +24,7 @@ function statusLabel(
       : "Voice unavailable";
   }
   if (state === "listening") return "Listening";
-  if (state === "thinking") return "Working…";
+  if (state === "thinking") return "Thinking…";
   if (state === "speaking") return "Speaking";
   if (state === "paused") return "Paused";
   return "Getting ready…";
@@ -50,17 +50,21 @@ export const CookVoiceStatus = forwardRef<React.ElementRef<typeof View>, Props>(
     useEffect(() => {
       pulse.stopAnimation();
       pulse.setValue(0);
-      if (voiceState !== "listening" || reduceMotionEnabled) return;
+      if (
+        (voiceState !== "listening" && voiceState !== "thinking") ||
+        reduceMotionEnabled
+      )
+        return;
       const animation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulse, {
             toValue: 1,
-            duration: 900,
+            duration: 520,
             useNativeDriver: true,
           }),
           Animated.timing(pulse, {
             toValue: 0,
-            duration: 900,
+            duration: 520,
             useNativeDriver: true,
           }),
         ]),
@@ -72,12 +76,12 @@ export const CookVoiceStatus = forwardRef<React.ElementRef<typeof View>, Props>(
     const waveformEnergy = Animated.add(pulse, level);
     const centerBarScale = waveformEnergy.interpolate({
       inputRange: [0, 2],
-      outputRange: [0.55, 1.4],
+      outputRange: [0.35, 1.45],
       extrapolate: "clamp",
     });
     const outerBarScale = waveformEnergy.interpolate({
       inputRange: [0, 2],
-      outputRange: [0.7, 1.15],
+      outputRange: [0.45, 1.5],
       extrapolate: "clamp",
     });
     const glistenOpacity = pulse.interpolate({
@@ -86,11 +90,13 @@ export const CookVoiceStatus = forwardRef<React.ElementRef<typeof View>, Props>(
     });
     const interactive = voiceState === "listening" || Boolean(errorMessage);
     const label = statusLabel(voiceState, errorMessage);
+    const thinking = voiceState === "thinking";
 
     return (
       <View ref={ref} collapsable={false} style={styles.wrap}>
         <Pressable
-          accessibilityRole="button"
+          accessibilityRole={interactive ? "button" : "text"}
+          accessibilityState={{ busy: thinking, disabled: !interactive }}
           accessibilityLabel={
             errorMessage ? `${label}. Try voice again` : label
           }
@@ -141,7 +147,12 @@ export const CookVoiceStatus = forwardRef<React.ElementRef<typeof View>, Props>(
                   : 1,
             }}
           >
-            <Text variant="body" numberOfLines={1} style={styles.status}>
+            <Text
+              accessibilityLiveRegion="polite"
+              variant="body"
+              numberOfLines={1}
+              style={styles.status}
+            >
               {label}
             </Text>
           </Animated.View>

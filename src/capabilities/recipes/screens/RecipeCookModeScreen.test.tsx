@@ -1,4 +1,5 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { Alert } from "react-native";
 
 import {
   recipeContractFixture,
@@ -38,6 +39,9 @@ jest.mock("../voice/cookVoiceSpeech", () => ({
     }),
     stop: jest.fn(async () => undefined),
   },
+}));
+jest.mock("../voice/cookVoiceReceiptSound", () => ({
+  playCookVoiceReceiptSound: jest.fn(async () => undefined),
 }));
 jest.mock("../../../services/analytics/useAnalytics", () => ({
   useAnalytics: () => ({ capture: jest.fn() }),
@@ -168,6 +172,18 @@ describe("RecipeCookModeExperience", () => {
     const voiceTransport = jest.requireMock(
       "../voice/cookVoiceTransport",
     ).cookVoiceTransport;
+    const receiptSound = jest.requireMock(
+      "../voice/cookVoiceReceiptSound",
+    ).playCookVoiceReceiptSound;
+    voiceTransport.stopAndTranscribe.mockImplementationOnce(
+      async ({ onRecordingStopped }: { onRecordingStopped(): Promise<void> }) => {
+        await onRecordingStopped();
+        return "what?";
+      },
+    );
+    fireEvent.press(screen.getByText("Listening"));
+    await waitFor(() => expect(receiptSound).toHaveBeenCalledTimes(1));
+
     voiceTransport.cancel.mockClear();
     voiceTransport.start.mockClear();
     fireEvent.press(screen.getByText("Show photo"));
@@ -185,8 +201,10 @@ describe("RecipeCookModeExperience", () => {
     const navigation = {
       goBack: jest.fn(),
       navigate: jest.fn(),
+      popTo: jest.fn(),
       replace: jest.fn(),
-    } as never;
+    };
+    const send = jest.fn(async () => undefined);
     mockUseRecipeCookSession.mockReturnValue({
       restoring: false,
       session: {
@@ -219,7 +237,7 @@ describe("RecipeCookModeExperience", () => {
         {} as never,
       ],
       start: jest.fn(),
-      send: jest.fn(),
+      send,
       startTimer: jest.fn(),
     } as never);
 
@@ -228,7 +246,7 @@ describe("RecipeCookModeExperience", () => {
         projection={projection}
         servings={4}
         landscape={true}
-        navigation={navigation}
+        navigation={navigation as never}
       />,
     );
 
@@ -244,5 +262,17 @@ describe("RecipeCookModeExperience", () => {
     expect(screen.queryByText("2 of 3")).toBeNull();
     expect(screen.queryByText("Phase 3 of 5 · Action 1 of 2")).toBeNull();
     await waitFor(() => expect(screen.getByText("Listening")).toBeTruthy());
+
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
+    fireEvent.press(screen.getByLabelText("Exit Cook Mode"));
+    const actions = alertSpy.mock.calls[0]?.[2];
+    actions?.[1]?.onPress?.();
+
+    expect(send).toHaveBeenCalledWith({ type: "pause" });
+    expect(navigation.popTo).toHaveBeenCalledWith("RecipeHome", {
+      recipeId: projection.recipe.id,
+    });
+    expect(navigation.navigate).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
   });
 });

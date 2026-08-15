@@ -158,11 +158,11 @@ export function OnlineOrderScreen({ navigation, route }: Props) {
             {primaryOutcome?.capability === 'product_links'
             && (primaryOutcome.retailerId === 'amazon' || primaryOutcome.retailerId === 'walmart') ? (
               <View style={styles.hero}>
-                <Heading variant="lg">
-                  {`Shop this list at ${retailerName(primaryOutcome.retailerId, preferences)}`}
-                </Heading>
+                <Heading variant="lg">{retailerName(primaryOutcome.retailerId, preferences)}</Heading>
                 <Text tone="secondary">
-                  Kwilt will take you through one item at a time and remember where you left off. You choose each product and finish checkout with the retailer.
+                  {primaryOutcome.retailerId === 'amazon'
+                    ? 'Kwilt will send what it can and keep the rest on your list.'
+                    : 'Kwilt will take you through one item at a time and remember where you left off. You choose each product and finish checkout with Walmart.'}
                 </Text>
                 <Button
                   accessibilityLabel={`Start shopping at ${retailerName(primaryOutcome.retailerId, preferences)}`}
@@ -173,7 +173,9 @@ export function OnlineOrderScreen({ navigation, route }: Props) {
                     retailerId: primaryOutcome.retailerId as 'amazon' | 'walmart',
                   })}
                 >
-                  {`Start with ${retailerName(primaryOutcome.retailerId, preferences)}`}
+                  {primaryOutcome.retailerId === 'amazon'
+                    ? 'Shop with Amazon'
+                    : `Start with ${retailerName(primaryOutcome.retailerId, preferences)}`}
                 </Button>
               </View>
             ) : null}

@@ -27,6 +27,7 @@ import {
   type OnlineFulfillmentPreference,
   type RetailerPreference,
 } from '../domain/onlineShoppingPreferences';
+import { resolveOnlineShoppingLaunch } from '../domain/onlineShoppingLaunch';
 import { getOnlineRetailerRuntimePolicies } from '../providers/affiliateRetailerProvider';
 import type { KrogerLocation } from '../providers/krogerProvider';
 
@@ -203,7 +204,17 @@ export function OnlineShoppingSetupScreen({ navigation, route }: Props) {
         count: preferences.retailers.length,
         outcome: 'saved',
       });
-      navigation.navigate('OnlineOrder', { listId: route.params.listId });
+      const launch = resolveOnlineShoppingLaunch({
+        listId: route.params.listId,
+        preferences,
+        policies,
+        preferredStore,
+      });
+      if (launch.screen === 'RetailerLinkShopping') {
+        navigation.navigate(launch.screen, launch.params);
+      } else {
+        navigation.navigate(launch.screen, launch.params);
+      }
     } catch {
       Alert.alert('Preferences did not save', 'Try again. Your grocery list is unchanged.');
     } finally {

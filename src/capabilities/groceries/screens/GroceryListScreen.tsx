@@ -50,6 +50,7 @@ import { createMealPlanningRepository } from '../../meal-planning/data/mealPlann
 import { groceryCache } from '../data/groceryCache';
 import { groceryEducation } from '../data/groceryEducation';
 import { onlineShoppingPreferencesRepository } from '../data/onlineShoppingPreferencesRepository';
+import { preferredGroceryStore } from '../data/preferredGroceryStore';
 import {
   createGroceryRepository,
   type GroceryProjection,
@@ -61,6 +62,8 @@ import {
 } from '../data/groceryOfflineQueue';
 import { groceryFulfillmentSummary } from '../domain/groceryFulfillment';
 import { isOnlineShoppingCountryEligible } from '../domain/groceryOnlineShoppingEligibility';
+import { resolveOnlineShoppingLaunch } from '../domain/onlineShoppingLaunch';
+import { getOnlineRetailerRuntimePolicies } from '../providers/affiliateRetailerProvider';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'GroceryList'>;
 
@@ -460,10 +463,22 @@ export function GroceryListScreen({ navigation, route }: Props) {
         capture(AnalyticsEvent.GroceryListReviewed, { count: list.items.length });
       }
       const preferences = await onlineShoppingPreferencesRepository.read(userId);
-      navigation.navigate(
-        preferences ? 'OnlineOrder' : 'OnlineShoppingSetup',
-        { listId: list.id },
-      );
+      if (!preferences) {
+        navigation.navigate('OnlineShoppingSetup', { listId: list.id });
+        return;
+      }
+      const preferredStore = await preferredGroceryStore.read(userId);
+      const launch = resolveOnlineShoppingLaunch({
+        listId: list.id,
+        preferences,
+        policies: getOnlineRetailerRuntimePolicies(),
+        preferredStore,
+      });
+      if (launch.screen === 'RetailerLinkShopping') {
+        navigation.navigate(launch.screen, launch.params);
+      } else {
+        navigation.navigate(launch.screen, launch.params);
+      }
     } catch (error) {
       Alert.alert(
         'Shopping is not ready',

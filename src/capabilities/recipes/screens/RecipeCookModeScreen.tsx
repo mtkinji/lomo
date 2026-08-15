@@ -39,6 +39,7 @@ import { cookVoiceTransport } from "../voice/cookVoiceTransport";
 import type { CookVoiceState } from "../voice/cookVoiceContracts";
 import { cookVoiceBargeIn } from "../voice/cookVoiceBargeIn";
 import { cookVoiceSpeech } from "../voice/cookVoiceSpeech";
+import { playCookVoiceReceiptSound } from "../voice/cookVoiceReceiptSound";
 import { createCookVoiceSilenceDetector } from "../voice/cookVoiceSilenceDetector";
 import { AnalyticsEvent } from "../../../services/analytics/events";
 import { useAnalytics } from "../../../services/analytics/useAnalytics";
@@ -165,6 +166,7 @@ function ActiveRecipeCookModeExperience({
   const recordingActiveRef = useRef(false);
   const listeningEpochRef = useRef(0);
   const pendingVoiceResponseRef = useRef<string | null>(null);
+  const lastVoiceResponseRef = useRef<string | null>(null);
   const finishListeningRef = useRef<() => Promise<void>>(async () => undefined);
   const beginListeningRef = useRef<() => Promise<void>>(async () => undefined);
   const resumeVoiceAfterMediaRef = useRef(false);
@@ -215,6 +217,8 @@ function ActiveRecipeCookModeExperience({
             ? `${item.displayAmount ? `${item.displayAmount} ` : ""}${item.concept}`
             : `I can’t verify ${action.ingredientQuery} from this action.`;
           pendingVoiceResponseRef.current = answer;
+        } else if (lastVoiceResponseRef.current) {
+          pendingVoiceResponseRef.current = lastVoiceResponseRef.current;
         } else {
           pendingVoiceResponseRef.current = cue.supportingCue
             ? `${cue.actionText} Ready when. ${cue.supportingCue.text}`
@@ -307,6 +311,7 @@ function ActiveRecipeCookModeExperience({
   }, []);
   const speakAndResume = useCallback(async (text: string) => {
     if (!voiceSessionActiveRef.current) return;
+    lastVoiceResponseRef.current = text;
     setVoiceLevel(0);
     try {
       await cookVoiceSpeech.speak(text, () => {
@@ -340,7 +345,9 @@ function ActiveRecipeCookModeExperience({
     setVoiceLevel(0);
     pendingVoiceResponseRef.current = null;
     try {
-      const transcript = await cookVoiceTransport.stopAndTranscribe();
+      const transcript = await cookVoiceTransport.stopAndTranscribe({
+        onRecordingStopped: playCookVoiceReceiptSound,
+      });
       const result = voiceController.handle(transcript, {
         hasActiveSession: true,
       });
@@ -437,7 +444,7 @@ function ActiveRecipeCookModeExperience({
           text: "Pause and exit",
           onPress: () => {
             send({ type: "pause" });
-            navigation.navigate("RecipeHome", {
+            navigation.popTo("RecipeHome", {
               recipeId: projection.recipe.id,
             });
           },

@@ -46,11 +46,17 @@ The accepted online cart-concierge direction keeps the Grocery list as the
 complete in-store experience. `Shop online` will collect stable fulfillment and
 retailer preferences, prepare an exception-light cart where a provider permits
 it, surface only evidence-backed savings, and preserve the exact remainder.
-Amazon and Walmart have product-ready, approval-gated outbound assistance: an
-approved retailer can become the preferred hero outcome, guide one Grocery item
-at a time, persist only explicit `reported added` or `kept for later` progress,
-and resume while the list revision is unchanged. This never creates retailer
-cart or order evidence. Costco remains outside the executable online list.
+Amazon and Walmart have product-ready, approval-gated outbound assistance. An
+approved retailer can become the preferred hero outcome. Amazon-first bypasses
+the retailer overview: a transient whole-list preparation moment reports the
+ready count and remainder, then waits for explicit `Open Amazon` consent. It
+quietly leaves uncertain items on the Grocery list. A live handoff occurs only
+for a provider-issued Amazon cart URL;
+internal previews without provider evidence do not claim that any item is
+ready and instead offer another retailer. Walmart retains
+resumable explicit `reported added` or `kept for later` progress until its batch
+provider contract is proved. Neither path creates order evidence. Costco
+remains outside the executable online list.
 
 Runtime capability is distinct from preference: a retailer may be
 `cart_prepare`, `product_links`, `remembered_only`, or `unavailable` for the

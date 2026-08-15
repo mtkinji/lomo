@@ -12,7 +12,7 @@ export function parseCookVoiceCommand(transcript: string): ParsedCookVoiceComman
   if (/ignore (?:all |the )?(?:previous|system)|system prompt|developer message|jailbreak/.test(text)) return result(text, { kind: 'out_of_scope', reason: 'unsafe' }, 'low');
   if (/^(?:what(?:'s| is) next|next(?: step)?|continue|go on)[?]?$/.test(text)) return result(text, { kind: 'advance' });
   if (/^(?:go back|back|previous(?: step)?)[?]?$/.test(text)) return result(text, { kind: 'go_back' });
-  if (/^(?:repeat|repeat that|read that again|say that again)[?]?$/.test(text)) return result(text, { kind: 'repeat_current' });
+  if (/^(?:repeat|repeat that|read that again|say that again|what|huh|sorry|come again)[?]?$/.test(text)) return result(text, { kind: 'repeat_current' });
   if (/^(?:where am i|what step am i on|read (?:my |the )?position)[?]?$/.test(text)) return result(text, { kind: 'read_position' });
   if (/^(?:pause cooking|pause session)$/.test(text)) return result(text, { kind: 'pause_session' });
   if (/^(?:resume cooking|resume session)$/.test(text)) return result(text, { kind: 'resume_session' });

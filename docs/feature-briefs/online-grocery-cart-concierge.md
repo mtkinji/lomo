@@ -76,7 +76,9 @@ evidence states.
 - The Grocery list remains the complete in-store experience.
 - `Shop online` owns online preference setup, retailer eligibility, product
   matching, exception review, evidence-backed savings, retailer handoff, and
-  the exact unresolved remainder.
+  the exact unresolved remainder. Amazon is whole-list-first: Kwilt prepares
+  every provider-supported match together and uses product search links only
+  for unresolved exceptions.
 - Kwilt does not create an in-person itinerary, call an affiliate link a cart,
   or infer a purchase from an opened retailer.
 - The retailer owns slot selection, substitutions not supported by the provider
@@ -113,14 +115,18 @@ release, inspectable, editable, versioned, and reversible.
 
 ### Returning use
 
-`Shop online` opens with the current default in a compact header such as
-`Pickup · Amazon first · Change`. Kwilt freezes the current Grocery-list
-revision and produces executable outcomes in Maya's preferred order. The hero
-outcome is the highest-ranked executable destination. A `cart_prepare` outcome
-starts matching and exception review. A `product_links` outcome starts a
-resumable, one-item-at-a-time shopping pass; Maya chooses the product, then
-explicitly reports `I added it` or `Keep for later`. Lower-ranked ready
-destinations remain available under `Try another retailer`.
+`Shop online` immediately resolves Maya's highest-ranked executable destination
+against the current Grocery-list revision. When Amazon is first, Kwilt bypasses
+the retailer overview and starts whole-list preparation in one transient
+interstitial. The moment first states the real work underway, then reports the
+ready count and exact remainder. Maya explicitly chooses `Open Amazon` before
+leaving Kwilt; `Use another retailer` is quiet recovery, not a required
+decision. Every uncertain or unavailable item remains on the Grocery list. The
+retailer overview remains available for non-Amazon destinations,
+unavailable-preference recovery, and deliberate retailer changes.
+Without provider evidence, the interstitial says the Amazon cart handoff is
+not connected and offers another retailer; example data is not counted as
+ready.
 
 ### Capability levels
 
@@ -187,11 +193,13 @@ same Grocery list. `Shop N remaining` repeats online fulfillment; `Leave for
 in-store` simply returns those items to the ordinary checklist and does not
 construct a store trip.
 
-For Amazon and Walmart link assistance, `reported added` is explicitly Maya's
-statement, stored only for that retailer, Grocery-list revision, and shopping
-pass. It advances the assisted pass but does not create a provider cart receipt
-or check off the Grocery item. A changed Grocery-list revision safely starts a
-fresh pass rather than carrying stale assertions forward.
+For Amazon and Walmart link assistance, opening an individual product link or
+reporting an addition never creates a provider cart receipt or checks off the
+Grocery item. A batch handoff is shown only when the provider returns an
+approved cart URL for specific product identifiers. Opening that URL means only
+`opened for retailer review`; the retailer still owns availability, final cart
+contents, price, fulfillment, and checkout. A changed Grocery-list revision
+safely starts a fresh preparation rather than carrying stale assertions forward.
 
 ### Privacy and monetization
 
@@ -232,8 +240,8 @@ material time or trip reduction.
 - Cross-retailer basket optimization, order-status ingestion, automatic
   checkout, and receipt reconciliation are excluded.
 - Amazon and Walmart have complete disabled-gate product flows: preference
-  entry, primary-outcome routing, resumable per-item handoff, explicit
-  user-reported progress, disclosure, recovery, and alternatives. Active
+  entry, primary-outcome routing, whole-list preparation, compact handoff receipt,
+  disclosure, recovery, and alternatives. Active
   qualifying links still require program/surface approval, configured link
   formats, and live attribution verification.
 
