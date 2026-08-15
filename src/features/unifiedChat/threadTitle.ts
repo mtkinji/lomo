@@ -69,6 +69,28 @@ export function buildOpeningTitleMessages(turns: readonly ThreadTitleTurn[]): Th
   ];
 }
 
+export function buildOnDeviceThreadTitlePrompt(
+  turns: readonly ThreadTitleTurn[],
+  maximumCharacters = 2_400,
+): string {
+  return transcript(turns).slice(0, maximumCharacters).trim();
+}
+
+export async function resolveOpeningThreadTitle(input: {
+  generateLocal?: () => Promise<string | null>;
+  generateCloud: () => Promise<string | null>;
+}): Promise<string | null> {
+  if (input.generateLocal) {
+    try {
+      const localTitle = normalizeSuggestedThreadTitle(await input.generateLocal());
+      if (localTitle) return localTitle;
+    } catch {
+      // Background metadata may fall through to the existing cloud helper.
+    }
+  }
+  return normalizeSuggestedThreadTitle(await input.generateCloud());
+}
+
 export function parseOpeningTitleResponse(raw: string): string | null {
   try {
     const value: unknown = JSON.parse(raw);

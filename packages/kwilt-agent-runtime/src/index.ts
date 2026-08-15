@@ -14,6 +14,20 @@ export {
 } from './capabilityManifest';
 export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
 export { calendarDateInTimeZone, normalizeIanaTimeZone } from './timeContext';
+export {
+  getKwiltGenerationJobContract,
+  KWILT_GENERATION_JOB_CONTRACTS,
+  KWILT_GENERATION_JOB_IDS,
+} from './generationJobContracts';
+export type {
+  KwiltCloudFallbackPolicy,
+  KwiltCloudTier,
+  KwiltGenerationJobContract,
+  KwiltGenerationJobId,
+  KwiltGenerationPrivacyClass,
+  KwiltLocalGenerationContract,
+  KwiltLocalPromotion,
+} from './generationJobContracts';
 export type {
   AgentToolDefinition,
   AgentToolExecutionResult,

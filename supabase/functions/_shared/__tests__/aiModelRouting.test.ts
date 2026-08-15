@@ -2,6 +2,10 @@ import {
   normalizeKwiltAiJob,
   resolveKwiltAiModel,
 } from '../aiModelRouting';
+import {
+  getKwiltGenerationJobContract,
+  KWILT_GENERATION_JOB_IDS,
+} from '../../../../packages/kwilt-agent-runtime/src/generationJobContracts';
 
 describe('resolveKwiltAiModel', () => {
   it('routes product-defining generation jobs to higher-quality text models', () => {
@@ -35,5 +39,14 @@ describe('resolveKwiltAiModel', () => {
     expect(normalizeKwiltAiJob('arc_generation')).toBe('arc_generation');
     expect(normalizeKwiltAiJob('story_game')).toBe('story_game');
     expect(normalizeKwiltAiJob('agent_judgment')).toBe('agent_judgment');
+    expect(normalizeKwiltAiJob('thread_title')).toBe('thread_title');
+  });
+
+  it('projects every registered text job from the portable cloud contract', () => {
+    for (const job of KWILT_GENERATION_JOB_IDS) {
+      expect(resolveKwiltAiModel({ route: '/v1/chat/completions', job })).toBe(
+        getKwiltGenerationJobContract(job).cloudModel,
+      );
+    }
   });
 });

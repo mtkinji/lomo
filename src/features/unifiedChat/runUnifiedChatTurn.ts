@@ -56,6 +56,10 @@ import {
   finalizeUnifiedChatTurnPhase,
 } from './turnFinalizationPhase';
 import type { ConversationProgressCueId } from '../liveConversation/conversationProgressCue';
+import {
+  defaultGenerateOnDeviceChatResponse,
+  type GenerateOnDeviceChatResponse,
+} from './onDeviceChatProvider';
 
 export class UnifiedChatTurnError extends Error {
   constructor(message: string) {
@@ -123,6 +127,7 @@ export type RunUnifiedChatTurnDependencies = {
   requestJudgment?: (
     input: RequestAgentJudgmentInput,
   ) => Promise<AgentJudgment | null>;
+  generateOnDeviceResponse?: GenerateOnDeviceChatResponse;
   enableRuntimeTools?: boolean;
   executeRelationshipTool?: (
     call: AgentToolCall,
@@ -148,6 +153,8 @@ export async function runUnifiedChatTurn(
   const requestJudgment = dependencies?.requestJudgment ?? (
     dependencies ? async () => null : defaultRequestAgentJudgment
   );
+  const generateOnDeviceResponse =
+    dependencies?.generateOnDeviceResponse ?? defaultGenerateOnDeviceChatResponse;
   const loadCapabilitySnapshots =
     dependencies?.loadCapabilitySnapshots ?? loadDefaultCapabilitySnapshots;
   const runtimeToolsEnabled = dependencies?.enableRuntimeTools ?? !dependencies;
@@ -450,6 +457,7 @@ export async function runUnifiedChatTurn(
       history,
       repository,
       sendCoachChat,
+      generateOnDeviceResponse,
       runtimeToolsEnabled,
       signal: input.signal,
       executeRelationshipTool: dependencies?.executeRelationshipTool,

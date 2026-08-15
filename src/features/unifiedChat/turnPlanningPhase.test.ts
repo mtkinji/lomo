@@ -50,6 +50,26 @@ function plan(overrides: Partial<Parameters<typeof planUnifiedChatTurnPhase>[0]>
 }
 
 describe('planUnifiedChatTurnPhase agent judgment', () => {
+  it('does not serialize a planning model call before a lightweight typed greeting', async () => {
+    const requestJudgment = jest.fn(async () => null);
+    const routeRequest = jest.fn(async () => null);
+
+    const result = await plan({
+      prompt: 'Yo',
+      requestJudgment,
+      routeRequest,
+    });
+
+    expect(result.planningStrategy).toBe('fast_direct');
+    expect(result.requestPolicy).toMatchObject({
+      requestClass: 'general',
+      participatingCapabilities: [],
+      usePrivateContext: false,
+    });
+    expect(requestJudgment).not.toHaveBeenCalled();
+    expect(routeRequest).not.toHaveBeenCalled();
+  });
+
   it('preserves an explicit date in a successful Activity judgment', async () => {
     const result = await plan();
 

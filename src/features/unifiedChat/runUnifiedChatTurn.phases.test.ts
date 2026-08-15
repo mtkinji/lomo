@@ -248,6 +248,128 @@ test('text turns keep the existing response ceiling and prompt', async () => {
   expect(options.launchContextSummary).not.toContain('Conversation mode:');
 });
 
+test('a tiny social turn uses an authored response without any model call', async () => {
+  const { repository, sendCoachChat } = harness();
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Yo', interactionMode: 'text' },
+    { repository: repository as never, sendCoachChat: sendCoachChat as never },
+  );
+
+  expect(sendCoachChat).not.toHaveBeenCalled();
+  expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+    role: 'assistant',
+    body: 'Hey! What’s up?',
+  }));
+});
+
+test('an eligible text task uses on-device generation without a paid model call', async () => {
+  const { repository, sendCoachChat } = harness();
+  const generateOnDeviceResponse = jest.fn(async () => ({
+    status: 'completed' as const,
+    text: 'I’m sorry, but I can’t attend.',
+    durationMs: 240,
+  }));
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Rewrite this more warmly: I cannot attend.', interactionMode: 'text' },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      generateOnDeviceResponse,
+    },
+  );
+
+  expect(generateOnDeviceResponse).toHaveBeenCalledWith(expect.objectContaining({
+    task: 'rewrite',
+  }), undefined);
+  expect(sendCoachChat).not.toHaveBeenCalled();
+  expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+    role: 'assistant',
+    body: 'I’m sorry, but I can’t attend.',
+  }));
+});
+
+test('an unavailable on-device task falls back to the existing cloud model', async () => {
+  const { repository, sendCoachChat } = harness();
+  const generateOnDeviceResponse = jest.fn(async () => ({
+    status: 'unavailable' as const,
+    reason: 'model_not_ready',
+  }));
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Rewrite this more warmly: I cannot attend.', interactionMode: 'text' },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      generateOnDeviceResponse,
+    },
+  );
+
+  expect(generateOnDeviceResponse).toHaveBeenCalled();
+  expect(sendCoachChat).toHaveBeenCalledTimes(1);
+});
+
+test('a cancelled on-device task stops without spending a cloud request', async () => {
+  const { repository, sendCoachChat } = harness();
+  const controller = new AbortController();
+  const generateOnDeviceResponse = jest.fn(async () => {
+    controller.abort();
+    return { status: 'cancelled' as const, reason: 'cancelled' };
+  });
+
+  await expect(runUnifiedChatTurn(
+    { aggregate, prompt: 'Rewrite this more warmly: I cannot attend.', interactionMode: 'text', signal: controller.signal },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      generateOnDeviceResponse,
+    },
+  )).rejects.toThrow('Response stopped.');
+
+  expect(sendCoachChat).not.toHaveBeenCalled();
+});
+
+test('an unexpected native cancellation falls back while the turn remains active', async () => {
+  const { repository, sendCoachChat } = harness();
+  const controller = new AbortController();
+  const generateOnDeviceResponse = jest.fn(async () => ({
+    status: 'cancelled' as const,
+    reason: 'cancelled',
+  }));
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Rewrite this more warmly: I cannot attend.', interactionMode: 'text', signal: controller.signal },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      generateOnDeviceResponse,
+    },
+  );
+
+  expect(sendCoachChat).toHaveBeenCalledTimes(1);
+});
+
+test('a local email rewrite stays plain text and does not trigger artifact recovery', async () => {
+  const { repository, sendCoachChat } = harness();
+  const generateOnDeviceResponse = jest.fn(async () => ({
+    status: 'completed' as const,
+    text: 'I’m sorry, but I can’t attend.',
+    durationMs: 240,
+  }));
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Rewrite this email: I cannot attend.', interactionMode: 'text' },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      generateOnDeviceResponse,
+    },
+  );
+
+  expect(sendCoachChat).not.toHaveBeenCalled();
+});
+
 test('outcome phase converts completion-looking action prose into a durable clarification', async () => {
   const { repository } = harness();
   const setFailureCode = jest.fn();

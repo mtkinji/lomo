@@ -36,6 +36,7 @@ import {
   OPENING_THREAD_TITLE_RESPONSE_FORMAT,
   parseCompressionMetadataResponse,
   parseOpeningTitleResponse,
+  resolveOpeningThreadTitle,
 } from '../features/unifiedChat/threadTitle';
 import {
   buildCurrentInformationRequest,
@@ -53,6 +54,7 @@ import {
   type AgentToolDefinition,
   type AgentToolExecutionResult,
   type AgentToolLoopResult,
+  type KwiltGenerationJobId,
 } from '@kwilt/agent-runtime';
 import {
   parseOpenAiRuntimeStepResponse,
@@ -839,6 +841,7 @@ export type CoachChatOptions = {
   conversationTitlePolicy?: {
     suggestFromOpening: boolean;
     refreshFromSummary: boolean;
+    generateOpeningTitle?: (turns: CoachChatTurn[]) => Promise<string | null>;
     onSuggestedTitle: (title: string, source: 'opening' | 'summary') => void | Promise<void>;
   };
 };
@@ -848,17 +851,7 @@ export function resolveCoachChatMaxOutputTokens(value: number | undefined): numb
   return Math.max(32, Math.min(1_200, Math.floor(value)));
 }
 
-type KwiltAiJob =
-  | 'arc_generation'
-  | 'goal_generation'
-  | 'deep_planning'
-  | 'activity_generation'
-  | 'arc_image_query'
-  | 'conversation_summary'
-  | 'lightweight_helper'
-  | 'agent_judgment'
-  | 'current_information'
-  | 'default_chat';
+type KwiltAiJob = KwiltGenerationJobId;
 
 function getCoachAiJob(options?: CoachChatOptions): KwiltAiJob {
   if (options?.webSearch) return 'current_information';
@@ -2751,31 +2744,38 @@ export async function sendCoachChat(
   const suggestOpeningConversationTitle = async (
     completedTurns: CoachChatTurn[],
   ): Promise<string | null> => {
-    const titleResponse = await fetchWithTimeout(
-      OPENAI_COMPLETIONS_URL,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'x-kwilt-ai-job': 'lightweight_helper',
-        },
-        body: JSON.stringify({
-          model: resolveChatModel(),
-          temperature: 0.2,
-          messages: buildOpeningTitleMessages(completedTurns).map((message) => ({
-            ...message,
-            content: truncateMessageContent(message.content),
-          })),
-          response_format: OPENING_THREAD_TITLE_RESPONSE_FORMAT,
-        }),
+    return resolveOpeningThreadTitle({
+      generateLocal: options?.conversationTitlePolicy?.generateOpeningTitle
+        ? () => options.conversationTitlePolicy!.generateOpeningTitle!(completedTurns)
+        : undefined,
+      generateCloud: async () => {
+        const titleResponse = await fetchWithTimeout(
+          OPENAI_COMPLETIONS_URL,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+              'x-kwilt-ai-job': 'thread_title',
+            },
+            body: JSON.stringify({
+              model: resolveChatModel(),
+              temperature: 0.2,
+              messages: buildOpeningTitleMessages(completedTurns).map((message) => ({
+                ...message,
+                content: truncateMessageContent(message.content),
+              })),
+              response_format: OPENING_THREAD_TITLE_RESPONSE_FORMAT,
+            }),
+          },
+          OPENAI_TIMEOUT_MS,
+        );
+        if (!titleResponse.ok) throw new Error('Unable to name conversation');
+        const titleData = await titleResponse.json();
+        const content: string | undefined = titleData?.choices?.[0]?.message?.content;
+        return parseOpeningTitleResponse(content ?? '');
       },
-      OPENAI_TIMEOUT_MS,
-    );
-    if (!titleResponse.ok) throw new Error('Unable to name conversation');
-    const titleData = await titleResponse.json();
-    const content: string | undefined = titleData?.choices?.[0]?.message?.content;
-    return parseOpeningTitleResponse(content ?? '');
+    });
   };
 
   const summaryRecord = await loadCoachConversationSummaryRecord(options);

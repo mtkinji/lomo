@@ -1,4 +1,4 @@
-import { discoverAgentTools, type AgentToolCall, type AgentToolDefinition, type AgentToolExecutionResult, type AgentToolLoopEvent } from '@kwilt/agent-runtime';
+import { discoverAgentTools, getKwiltGenerationJobContract, type AgentToolCall, type AgentToolDefinition, type AgentToolExecutionResult, type AgentToolLoopEvent } from '@kwilt/agent-runtime';
 import {
   KwiltAiQuotaExceededError,
   sendCoachChat as defaultSendCoachChat,
@@ -28,7 +28,7 @@ import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 import { inferredGoalTargetDate, directRecurringReminder } from './directAppControl';
 import { ACTIVITY_ACTION_RESPONSE_FORMAT, parseActivityActionResponse } from './activityProposal';
 import { GROUNDED_ANSWER_RESPONSE_FORMAT, formatGroundedAnswer, parseGroundedAnswer } from './groundedAnswer';
-import { normalizeSuggestedThreadTitle } from './threadTitle';
+import { buildOnDeviceThreadTitlePrompt, normalizeSuggestedThreadTitle } from './threadTitle';
 import { buildPlanPriorityChatBody } from './planPriorityChatPresentation';
 import { sanitizeVisibleAssistantText } from './visibleAssistantText';
 import {
@@ -45,6 +45,8 @@ import {
   type UnifiedChatActionOutcomeTruth,
 } from './turnOutcomeTruth';
 import { conversationResponseContract } from '../liveConversation/conversationTurnProfile';
+import { classifyOnDeviceChatTask, resolveLocalChatRoute } from './localChatRoute';
+import type { GenerateOnDeviceChatResponse } from './onDeviceChatProvider';
 
 type ExecutionRepository = Pick<
   UnifiedChatRepository,
@@ -308,6 +310,7 @@ export type ExecuteUnifiedChatTurnPhaseInput = {
   history: CoachChatTurn[];
   repository: ExecutionRepository;
   sendCoachChat: SendCoachChat;
+  generateOnDeviceResponse: GenerateOnDeviceChatResponse;
   runtimeToolsEnabled: boolean;
   signal?: AbortSignal;
   executeRelationshipTool?: (
@@ -456,6 +459,7 @@ export async function executeUnifiedChatTurnPhase(
     !expectsActivityProposal && !usesRuntimeToolLoop;
   const expectsArtifactResponse = input.requestPolicy.requestClass === 'general' &&
     !input.requiresWebSearch && !usesRuntimeToolLoop && !expectsGroundedAnswer &&
+    classifyOnDeviceChatTask(input.prompt) === null &&
     /\b(?:draft|write|compose|outline|checklist|table|template|email|letter|message|code|script)\b/i.test(input.prompt);
   input.setFailureCode('model_response_failed');
   const automaticTitlesAllowed = input.aggregate.thread.titleSource !== 'user';
@@ -511,6 +515,46 @@ export async function executeUnifiedChatTurnPhase(
         : directReminder
           ? `I prepared a recurring “${directReminder.title}” reminder for review.`
           : 'I prepared that change for review.';
+    }
+  }
+  const localRoute = directResponse === null
+    ? resolveLocalChatRoute({
+        prompt: input.prompt,
+        requestPolicy: input.requestPolicy,
+        requiresWebSearch: input.requiresWebSearch === true,
+        attachmentCount: input.turnAttachments.length,
+        evidenceCount: input.context.evidence.length,
+        isRetry: Boolean(input.retryMessage),
+      })
+    : { kind: 'cloud' as const };
+  if (localRoute.kind === 'authored') {
+    directResponse = localRoute.response;
+    input.captureTelemetry(AnalyticsEvent.UnifiedChatProviderOutcome, {
+      provider: 'authored',
+      task: 'social',
+      outcome: 'completed',
+    });
+  } else if (localRoute.kind === 'on_device') {
+    const localResult = await input.generateOnDeviceResponse({
+      task: localRoute.task,
+      prompt: localRoute.prompt,
+    }, input.signal);
+    if (localResult.status === 'completed') directResponse = localResult.text;
+    input.captureTelemetry(AnalyticsEvent.UnifiedChatProviderOutcome, {
+      provider: 'apple_foundation_models',
+      task: localRoute.task,
+      outcome: localResult.status,
+      fallback_reason: localResult.status === 'completed' ? null : localResult.reason,
+      duration_bucket: localResult.status === 'completed'
+        ? localResult.durationMs < 1_000
+          ? 'under_1s'
+          : localResult.durationMs < 3_000
+            ? '1_3s'
+            : 'over_3s'
+        : null,
+    });
+    if (localResult.status === 'cancelled' && input.signal?.aborted) {
+      throw Object.assign(new Error('On-device response cancelled.'), { name: 'AbortError' });
     }
   }
   const modelOptions: NonNullable<Parameters<SendCoachChat>[1]> = {
@@ -571,6 +615,31 @@ export async function executeUnifiedChatTurnPhase(
     conversationTitlePolicy: {
       suggestFromOpening,
       refreshFromSummary: automaticTitlesAllowed,
+      generateOpeningTitle: async (turns) => {
+        const job = getKwiltGenerationJobContract('thread_title');
+        if (job.local?.promotion !== 'default') return null;
+        const localResult = await input.generateOnDeviceResponse({
+          task: 'thread_title',
+          prompt: buildOnDeviceThreadTitlePrompt(
+            turns,
+            job.local.maximumInputCharacters,
+          ),
+        }, input.signal);
+        input.captureTelemetry(AnalyticsEvent.UnifiedChatProviderOutcome, {
+          provider: 'apple_foundation_models',
+          task: 'thread_title',
+          outcome: localResult.status,
+          fallback_reason: localResult.status === 'completed' ? null : localResult.reason,
+          duration_bucket: localResult.status === 'completed'
+            ? localResult.durationMs < 1_000
+              ? 'under_1s'
+              : localResult.durationMs < 3_000
+                ? '1_3s'
+                : 'over_3s'
+            : null,
+        });
+        return localResult.status === 'completed' ? localResult.text : null;
+      },
       onSuggestedTitle: async (suggestedTitle) => {
         const title = normalizeSuggestedThreadTitle(suggestedTitle);
         if (!title) return;
