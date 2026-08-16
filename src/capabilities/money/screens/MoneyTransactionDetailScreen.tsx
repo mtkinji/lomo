@@ -14,6 +14,7 @@ import { MoneyTransactionSplitDrawer } from '../components/MoneyTransactionSplit
 import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
+import { getPostCategorySelectionOutcome } from '../domain/merchantRuleOffer';
 import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
 import { getPaymentSourcePresentation, type InstitutionPalette } from '../domain/paymentSourcePresentation';
 import { getTransactionMeaningOptions, type TransactionMeaningOption } from '../domain/transactionMeaningOptions';
@@ -106,14 +107,20 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     if (!changed) return;
     setCategoryPickerOpen(false);
     setCategoryQuery('');
-    if (route.params.economicRoleReview) {
-      await refresh();
-      navigation.popTo('MoneySummary');
-      return;
-    }
-    if (transaction.direction === 'outflow' && transaction.merchantRuleCategoryId !== category.id) {
+    const outcome = getPostCategorySelectionOutcome({
+      direction: transaction.direction,
+      economicRoleReview: Boolean(route.params.economicRoleReview),
+      existingRuleCategoryId: transaction.merchantRuleCategoryId,
+      selectedCategoryId: category.id,
+    });
+    if (outcome === 'offer_rule') {
       setPendingRuleCategory(category);
       setRuleDrawerOpen(false);
+      return;
+    }
+    if (outcome === 'return_to_summary') {
+      await refresh();
+      navigation.popTo('MoneySummary');
     }
   };
 
@@ -180,7 +187,23 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       categoryName: pendingRuleCategory.name,
       matchMode: ruleMode,
     }));
-    if (saved) setPendingRuleCategory(null);
+    if (saved) {
+      setPendingRuleCategory(null);
+      setRuleDrawerOpen(false);
+      if (route.params.economicRoleReview) {
+        await refresh();
+        navigation.popTo('MoneySummary');
+      }
+    }
+  };
+
+  const dismissRuleOffer = async () => {
+    setPendingRuleCategory(null);
+    setRuleDrawerOpen(false);
+    if (route.params.economicRoleReview) {
+      await refresh();
+      navigation.popTo('MoneySummary');
+    }
   };
 
   const saveSplit = async (allocations: Parameters<typeof splitTransaction>[0]['allocations']) => {
@@ -489,7 +512,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           </View>
           {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
           <Button disabled={saving} fullWidth onPress={() => void applyRule()}>{saving ? 'Saving…' : 'Create rule'}</Button>
-          <Button fullWidth variant="ghost" onPress={() => setPendingRuleCategory(null)}>Not now</Button>
+          <Button fullWidth variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
         </BottomDrawerScrollView>
       </BottomDrawer>
 
