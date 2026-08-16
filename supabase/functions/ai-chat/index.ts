@@ -14,6 +14,10 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { resolveKwiltAiModel } from '../_shared/aiModelRouting.ts';
 import { validateKwiltAiRequestShape } from '../_shared/aiRequestValidation.ts';
+import {
+  createChatCompletionStreamAccumulator,
+  type ChatCompletionStreamUsage,
+} from '../_shared/aiChatCompletionStream.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -33,6 +37,14 @@ function json(status: number, body: JsonValue, headers?: Record<string, string>)
       ...(headers ?? {}),
     },
   });
+}
+
+function runBackground(task: Promise<unknown>): void {
+  const guarded = task.catch(() => undefined);
+  const edgeRuntime = (globalThis as typeof globalThis & {
+    EdgeRuntime?: { waitUntil?: (pending: Promise<unknown>) => void };
+  }).EdgeRuntime;
+  if (typeof edgeRuntime?.waitUntil === 'function') edgeRuntime.waitUntil(guarded);
 }
 
 function getUtcDayString(now: Date): string {
@@ -538,6 +550,9 @@ serve(async (req) => {
     } else if (maxOut > 0) {
       parsedBody.max_tokens = maxOut;
     }
+    if (parsedBody.stream === true) {
+      parsedBody.stream_options = { include_usage: true };
+    }
   }
   if (route === '/v1/responses') {
     const maxOut = getMaxOutputTokens(route);
@@ -559,16 +574,66 @@ serve(async (req) => {
 
   const upstreamUrl = `https://api.openai.com${route}`;
   const startedAt = Date.now();
+  const streamsChatCompletion = route === '/v1/chat/completions' && parsedBody.stream === true;
 
   const upstreamResp = await fetch(upstreamUrl, {
     method: 'POST',
     headers: {
       'Content-Type': contentType,
       Authorization: `Bearer ${openAiKey}`,
-      Accept: 'application/json',
+      Accept: streamsChatCompletion ? 'text/event-stream' : 'application/json',
     },
     body: JSON.stringify(parsedBody),
   });
+
+  if (streamsChatCompletion && upstreamResp.ok && upstreamResp.body) {
+    const accumulator = createChatCompletionStreamAccumulator();
+    let latestUsage: ChatCompletionStreamUsage | null = null;
+    const responseBody = upstreamResp.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        controller.enqueue(chunk);
+        latestUsage = accumulator.push(chunk).usage;
+      },
+      flush() {
+        latestUsage = accumulator.finish().usage;
+        const durationMs = Date.now() - startedAt;
+        runBackground((async () => {
+          if (latestUsage?.total_tokens && latestUsage.total_tokens > 0) {
+            await incrementMonthlyUsage({
+              quotaKey,
+              month,
+              actionsCost: 0,
+              tokensIncrement: latestUsage.total_tokens,
+            });
+          }
+          await recordRequest({
+            quotaKey,
+            isPro,
+            route,
+            model,
+            status: upstreamResp.status,
+            durationMs,
+            errorCode: null,
+            actionsCost,
+            promptTokens: latestUsage?.prompt_tokens ?? null,
+            completionTokens: latestUsage?.completion_tokens ?? null,
+            totalTokens: latestUsage?.total_tokens ?? null,
+          });
+        })());
+      },
+    }));
+    return new Response(responseBody, {
+      status: upstreamResp.status,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': upstreamResp.headers.get('content-type') ?? 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        ...(upstreamResp.headers.get('x-request-id')
+          ? { 'x-request-id': upstreamResp.headers.get('x-request-id')! }
+          : {}),
+      },
+    });
+  }
 
   const upstreamText = await upstreamResp.text();
   const durationMs = Date.now() - startedAt;

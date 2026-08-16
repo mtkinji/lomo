@@ -41,6 +41,8 @@ Record only:
 - whether a cloud request followed;
 - app version and coarse device capability.
 
+The response-latency event records numeric first-useful-output, total, and fallback milliseconds plus bounded provider, job, outcome, and warm-state values. It contains no prompt or generated content.
+
 Do not record prompts, generated titles, summaries, private context, or model transcripts in analytics. Quality evaluation examples belong in checked-in synthetic fixtures or explicit Andrew dogfood notes, not production telemetry.
 
 ## Decision rule
@@ -65,6 +67,31 @@ working tree intentionally dirty and Metro serving that checkout on port 8081.
 - Automated title tests prove successful local opening titles bypass the helper request and invalid or unavailable local titles make exactly one cloud fallback request.
 
 Simulator proof establishes wiring and fallback logic, not production latency or device health. Fresh-thread title observation and the 30 cold / 30 warm title corpus remain open for Andrew's signed physical iPhone, along with energy, thermal, memory, and repeated-use observation.
+
+### Response-latency benchmark, 2026-08-16
+
+The iPhone 17 Pro Simulator completed 48 of 48 local generations without a runtime error. Across the streaming cohort, first output averaged about 416 ms and total generation averaged about 1.09 s. Session construction measured roughly 1–3.5 ms, so recreating isolated request sessions was not the material latency source. The first truly cold generation carried an approximately 870 ms penalty.
+
+Quality review changed the promotion boundary:
+
+- proofread and rewrite were strong enough to keep as local defaults and expose progressive snapshots;
+- summarize was useful at roughly 2.17 s, but remains final-only until its deterministic concision check passes;
+- shorten often truncated instead of shortening, and brainstorm missed explicit constraints, so both remain cloud-default challengers;
+- thread titles now remove a leading `Title:` label before applying the existing title contract.
+
+Implementation now prewarms once at Chat entry, streams Apple rewrite/proofread snapshots, validates every local final before persistence, and discloses any local-to-cloud fallback. Plain cloud completions stream through Supabase; structured, tool, web-search, and attachment jobs keep their buffered authority boundary. Partial text is presentation-only and never enters durable thread storage.
+
+The hardening pass adds three safeguards before signed-device evaluation:
+
+- progressive snapshots remain hidden until a deterministic source-fidelity guard accepts them;
+- per-job first-output and total-duration targets measure missed UX goals without cancelling healthy native work;
+- cached per-job PostHog flags can demote bundled defaults without an app release but cannot promote challengers.
+
+Cloud fallback now requires actual local unavailability, a native error, or a rejected final result. Chat discloses that fallback with a dismissible processing notice rather than silently changing where the request is processed.
+
+Dev Tools now exposes a shareable quick corpus and a dedicated 30-cold/30-prewarmed title gate. This makes the next proof artifact reproducible on an eligible physical iPhone without running generation automatically during app launch.
+
+This remains Simulator evidence. Signed-device time-to-first-output, battery, thermal, memory, repeated-use behavior, and real network cloud timing remain open proof gates.
 
 ## Expected next action
 

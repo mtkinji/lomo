@@ -11,10 +11,13 @@ describe('Kwilt generation job contracts', () => {
       maximumResponseTokens: 96,
     }));
     expect(getKwiltGenerationJobContract('chat_brainstorm').local).toEqual(expect.objectContaining({
-      promotion: 'default',
+      promotion: 'challenger',
       maximumInputCharacters: 1_200,
       maximumResponseTokens: 128,
     }));
+    expect(getKwiltGenerationJobContract('chat_shorten').local?.promotion).toBe('challenger');
+    expect(getKwiltGenerationJobContract('chat_proofread').local?.promotion).toBe('default');
+    expect(getKwiltGenerationJobContract('chat_summarize').local?.promotion).toBe('default');
     expect(getKwiltGenerationJobContract('thread_title').local).toEqual(expect.objectContaining({
       promotion: 'default',
       maximumInputCharacters: 2_400,
@@ -39,6 +42,25 @@ describe('Kwilt generation job contracts', () => {
     expect(getKwiltGenerationJobContract('current_information')).toEqual(expect.objectContaining({
       cloudFallbackPolicy: 'allowed',
       cloudTier: 'advanced',
+    }));
+  });
+
+  test('gives every local cohort observational first-output and total targets', () => {
+    for (const contract of Object.values(KWILT_GENERATION_JOB_CONTRACTS)) {
+      if (!contract.local) continue;
+      expect(contract.local.targetFirstUsefulOutputMs).toBeGreaterThan(0);
+      expect(contract.local.targetTotalDurationMs).toBeGreaterThanOrEqual(
+        contract.local.targetFirstUsefulOutputMs,
+      );
+      expect(contract.local.targetTotalDurationMs).toBeLessThanOrEqual(6_000);
+    }
+    expect(getKwiltGenerationJobContract('chat_rewrite').local).toEqual(expect.objectContaining({
+      targetFirstUsefulOutputMs: 1_200,
+      targetTotalDurationMs: 3_000,
+    }));
+    expect(getKwiltGenerationJobContract('thread_title').local).toEqual(expect.objectContaining({
+      targetFirstUsefulOutputMs: 2_400,
+      targetTotalDurationMs: 2_400,
     }));
   });
 

@@ -24,12 +24,20 @@ export type KwiltFoundationModelsGenerationResult = {
   durationMs: number;
 };
 
+export type KwiltFoundationModelsGenerationSnapshot = {
+  requestId: string;
+  text: string;
+  durationMs: number;
+};
+
 export interface KwiltFoundationModelsNativeModule extends NativeModule {
   availability(localeIdentifier?: string): Promise<KwiltFoundationModelsAvailability>;
   generateText(
     options: KwiltFoundationModelsGenerationOptions,
   ): Promise<KwiltFoundationModelsGenerationResult>;
+  prewarm(): Promise<void>;
   cancelGeneration(requestId: string): void;
+  runBenchmark(payload: string): Promise<string>;
 }
 
 export default requireOptionalNativeModule<KwiltFoundationModelsNativeModule>(

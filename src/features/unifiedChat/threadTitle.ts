@@ -40,7 +40,12 @@ const MAX_THREAD_TITLE_CHARACTERS = 36;
 
 export function normalizeSuggestedThreadTitle(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  const title = value.replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '').trim();
+  const title = value
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^title\s*:\s*/i, '')
+    .replace(/[.!?]+$/, '')
+    .trim();
   if (!title || title.length > MAX_THREAD_TITLE_CHARACTERS ||
       QUOTED_TITLE.test(title) || GENERIC_TITLE.test(title)) {
     return null;

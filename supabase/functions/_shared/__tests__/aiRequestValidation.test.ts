@@ -27,6 +27,18 @@ const validAgentJudgmentRequest = {
 };
 
 describe('Kwilt AI request validation', () => {
+  test('allows streaming only for plain chat completions', () => {
+    const plain = { model: 'gpt-4o-mini', messages: [{ role: 'user', content: 'Hello' }], stream: true };
+    expect(validateKwiltAiRequestShape('/v1/chat/completions', plain, 'default_chat'))
+      .toEqual({ ok: true });
+    expect(validateKwiltAiRequestShape('/v1/chat/completions', {
+      ...plain, tools: [{ type: 'function', function: { name: 'test' } }],
+    }, 'default_chat')).toEqual(expect.objectContaining({ ok: false }));
+    expect(validateKwiltAiRequestShape('/v1/chat/completions', {
+      ...plain, response_format: { type: 'json_schema' },
+    }, 'default_chat')).toEqual(expect.objectContaining({ ok: false }));
+  });
+
   test('accepts only bounded local image/PDF parts for attachment inspection', () => {
     expect(validateKwiltAiRequestShape('/v1/responses', validAttachmentRequest, 'unified_chat_attachment'))
       .toEqual({ ok: true });

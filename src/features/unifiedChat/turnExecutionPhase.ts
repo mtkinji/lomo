@@ -321,6 +321,12 @@ export type ExecuteUnifiedChatTurnPhaseInput = {
     event: AnalyticsEventName,
     properties?: UnifiedChatTelemetryProperties,
   ) => void;
+  onResponseProgress?: (progress: { runId: string; text: string }) => void;
+  onProviderFallback?: (fallback: {
+    from: 'on_device';
+    to: 'cloud';
+    reason: string;
+  }) => void;
   onThreadTitleUpdated?: (thread: UnifiedChatThreadAggregate['thread']) => void;
   onRecoveryAttempted?: () => void;
   now?: () => Date;
@@ -527,6 +533,7 @@ export async function executeUnifiedChatTurnPhase(
         isRetry: Boolean(input.retryMessage),
       })
     : { kind: 'cloud' as const };
+  let fallbackStartedAt: number | null = null;
   if (localRoute.kind === 'authored') {
     directResponse = localRoute.response;
     input.captureTelemetry(AnalyticsEvent.UnifiedChatProviderOutcome, {
@@ -538,7 +545,7 @@ export async function executeUnifiedChatTurnPhase(
     const localResult = await input.generateOnDeviceResponse({
       task: localRoute.task,
       prompt: localRoute.prompt,
-    }, input.signal);
+    }, input.signal, (text) => input.onResponseProgress?.({ runId: input.run.id, text }));
     if (localResult.status === 'completed') directResponse = localResult.text;
     input.captureTelemetry(AnalyticsEvent.UnifiedChatProviderOutcome, {
       provider: 'apple_foundation_models',
@@ -552,17 +559,51 @@ export async function executeUnifiedChatTurnPhase(
             ? '1_3s'
             : 'over_3s'
         : null,
+      first_output_ms: localResult.status === 'completed' ? localResult.firstOutputMs : null,
+      total_ms: localResult.status === 'completed' ? localResult.durationMs : localResult.totalMs,
+      warm_state: localResult.warmState,
     });
+    input.captureTelemetry(AnalyticsEvent.UnifiedChatResponseLatency, {
+      provider: 'apple_foundation_models',
+      task: localRoute.task,
+      outcome: localResult.status,
+      first_output_ms: localResult.status === 'completed' ? localResult.firstOutputMs : null,
+      total_ms: localResult.status === 'completed' ? localResult.durationMs : localResult.totalMs,
+      warm_state: localResult.warmState,
+      fallback_reason: localResult.status === 'completed' ? null : localResult.reason,
+    });
+    if (localResult.status !== 'completed') {
+      fallbackStartedAt = Date.now();
+    }
+    if (
+      localResult.status !== 'completed' &&
+      localResult.reason !== 'job_not_promoted' &&
+      !(localResult.status === 'cancelled' && input.signal?.aborted)
+    ) {
+      input.onProviderFallback?.({
+        from: 'on_device',
+        to: 'cloud',
+        reason: localResult.reason,
+      });
+    }
     if (localResult.status === 'cancelled' && input.signal?.aborted) {
       throw Object.assign(new Error('On-device response cancelled.'), { name: 'AbortError' });
     }
   }
+  let cloudStartedAt: number | null = null;
+  let cloudFirstOutputMs: number | null = null;
   const modelOptions: NonNullable<Parameters<SendCoachChat>[1]> = {
     aiJob: 'default_chat',
     workflowInstanceId: input.aggregate.thread.id,
     includeUserProfileContext: false,
     webSearch: input.requiresWebSearch === true,
     signal: input.signal,
+    onTextUpdate: (text) => {
+      if (cloudStartedAt !== null && cloudFirstOutputMs === null) {
+        cloudFirstOutputMs = Date.now() - cloudStartedAt;
+      }
+      input.onResponseProgress?.({ runId: input.run.id, text });
+    },
     ...(usesRuntimeToolLoop
       ? {
           runtimeTools,
@@ -637,7 +678,30 @@ export async function executeUnifiedChatTurnPhase(
                 ? '1_3s'
                 : 'over_3s'
             : null,
+          first_output_ms: localResult.status === 'completed' ? localResult.firstOutputMs : null,
+          total_ms: localResult.status === 'completed' ? localResult.durationMs : localResult.totalMs,
+          warm_state: localResult.warmState,
         });
+        input.captureTelemetry(AnalyticsEvent.UnifiedChatResponseLatency, {
+          provider: 'apple_foundation_models',
+          task: 'thread_title',
+          outcome: localResult.status,
+          first_output_ms: localResult.status === 'completed' ? localResult.firstOutputMs : null,
+          total_ms: localResult.status === 'completed' ? localResult.durationMs : localResult.totalMs,
+          warm_state: localResult.warmState,
+          fallback_reason: localResult.status === 'completed' ? null : localResult.reason,
+        });
+        if (
+          localResult.status !== 'completed' &&
+          localResult.reason !== 'job_not_promoted' &&
+          !(localResult.status === 'cancelled' && input.signal?.aborted)
+        ) {
+          input.onProviderFallback?.({
+            from: 'on_device',
+            to: 'cloud',
+            reason: localResult.reason,
+          });
+        }
         return localResult.status === 'completed' ? localResult.text : null;
       },
       onSuggestedTitle: async (suggestedTitle) => {
@@ -657,7 +721,21 @@ export async function executeUnifiedChatTurnPhase(
   };
   let response: string;
   try {
-    response = directResponse ?? await input.sendCoachChat(input.history, modelOptions);
+    if (directResponse !== null) {
+      response = directResponse;
+    } else {
+      cloudStartedAt = Date.now();
+      response = await input.sendCoachChat(input.history, modelOptions);
+      const cloudTotalMs = Date.now() - cloudStartedAt;
+      input.captureTelemetry(AnalyticsEvent.UnifiedChatResponseLatency, {
+        provider: 'cloud',
+        task: 'default_chat',
+        outcome: 'completed',
+        first_output_ms: cloudFirstOutputMs ?? cloudTotalMs,
+        total_ms: cloudTotalMs,
+        fallback_ms: fallbackStartedAt === null ? null : Date.now() - fallbackStartedAt,
+      });
+    }
   } catch (error) {
     const proposals = toolProvider.proposals();
     const clientActions = toolProvider.clientActions();

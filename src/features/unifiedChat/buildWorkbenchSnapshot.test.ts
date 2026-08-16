@@ -178,6 +178,51 @@ describe('buildWorkbenchSnapshot', () => {
     ]);
   });
 
+  test('replaces active-run progress with a transient assistant response snapshot', () => {
+    const run: UnifiedChatRun = {
+      id: 'run-stream', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,
+      status: 'active', errorCode: null, errorMessage: null, requestClass: 'general',
+      participatingCapabilities: [],
+      contextPolicy: { usePrivateContext: false, reason: 'general', clarification: null },
+      version: 1, stopRequestedAt: null, steerCount: 0,
+      createdAt: '2026-07-21T11:00:01.000Z', updatedAt: '2026-07-21T11:00:01.000Z', completedAt: null,
+    };
+
+    const snapshot = buildWorkbenchSnapshot({ ...aggregate, runs: [run] }, '', {
+      streamingResponse: { runId: run.id, text: 'I can help with that.' },
+    });
+
+    expect(snapshot.messages).toContainEqual(expect.objectContaining({
+      id: 'run-stream:streaming',
+      role: 'assistant',
+      body: 'I can help with that.',
+    }));
+    expect(snapshot.runs[0]?.assistantMessageId).toBe('run-stream:streaming');
+    expect(snapshot.timeline?.[0]?.items).toEqual([
+      { kind: 'message', id: 'message-1' },
+      { kind: 'message', id: 'run-stream:streaming' },
+    ]);
+  });
+
+  test('ignores stale transient response state once its run is complete', () => {
+    const run: UnifiedChatRun = {
+      id: 'run-complete', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,
+      status: 'complete', errorCode: null, errorMessage: null, requestClass: 'general',
+      participatingCapabilities: [],
+      contextPolicy: { usePrivateContext: false, reason: 'general', clarification: null },
+      version: 2, stopRequestedAt: null, steerCount: 0,
+      createdAt: '2026-07-21T11:00:01.000Z', updatedAt: '2026-07-21T11:00:03.000Z',
+      completedAt: '2026-07-21T11:00:03.000Z',
+    };
+
+    const snapshot = buildWorkbenchSnapshot({ ...aggregate, runs: [run] }, '', {
+      streamingResponse: { runId: run.id, text: 'Stale partial' },
+    });
+
+    expect(snapshot.messages).toHaveLength(1);
+    expect(snapshot.runs[0]?.assistantMessageId).toBeUndefined();
+  });
+
   test('keeps Phone and background provenance in the same calm causal timeline', () => {
     const baseRun = {
       id: 'run-phone', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,

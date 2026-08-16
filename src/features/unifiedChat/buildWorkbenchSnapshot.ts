@@ -17,6 +17,7 @@ import { getUnifiedChatFailureCopy } from './chatFailure';
 type WorkbenchPresentation = {
   voice?: AgentWorkbenchSnapshot['composer']['voice'];
   attachments?: UnifiedChatTextAttachment[];
+  streamingResponse?: { runId: string; text: string };
 };
 
 type FreshWorkbenchPresentation = WorkbenchPresentation & {
@@ -288,7 +289,8 @@ function buildWorkbenchTimeline(
       items.push({ kind: 'message', id: userMessage.id });
       claimedMessageIds.add(userMessage.id);
     }
-    if (latestRun.status === 'queued' || latestRun.status === 'active' || latestRun.status === 'failed') {
+    if ((latestRun.status === 'queued' || latestRun.status === 'active' || latestRun.status === 'failed') &&
+      !assistantMessages.some((message) => message.id.endsWith(':streaming'))) {
       items.push({ kind: 'run', id: latestRun.id });
     }
     for (const assistantMessage of assistantMessages) {
@@ -419,6 +421,17 @@ export function buildWorkbenchSnapshot(
   const hasActiveRun = aggregate.runs.some(
     (run) => run.status === 'queued' || run.status === 'active',
   );
+  const streamingRun = presentation?.streamingResponse
+    ? aggregate.runs.find((run) =>
+        run.id === presentation.streamingResponse?.runId &&
+        (run.status === 'queued' || run.status === 'active'))
+    : undefined;
+  const streamingBody = streamingRun
+    ? sanitizeVisibleAssistantText(presentation?.streamingResponse?.text ?? '').trim()
+    : '';
+  const streamingMessageId = streamingRun && streamingBody
+    ? `${streamingRun.id}:streaming`
+    : null;
   const compactCreateProposals = new Set(
     (aggregate.proposals ?? [])
       .filter((proposal) =>
@@ -488,7 +501,7 @@ export function buildWorkbenchSnapshot(
       sufficient: evidence.sufficient,
       coverageNote: evidence.coverageNote,
     })),
-    messages: aggregate.messages.filter(
+    messages: [...aggregate.messages.filter(
       (message) => !compactCreateMessageIds.has(message.id),
     ).map((message) => ({
       id: message.id,
@@ -508,9 +521,19 @@ export function buildWorkbenchSnapshot(
         status: attachment.status ?? 'ready',
         ...(attachment.failureReason ? { failureReason: attachment.failureReason } : {}),
       })),
-    })),
+    })), ...(streamingRun && streamingMessageId ? [{
+      id: streamingMessageId,
+      threadId: streamingRun.threadId,
+      role: 'assistant' as const,
+      body: streamingBody,
+      createdAt: streamingRun.updatedAt,
+      feedback: null,
+      attachments: [],
+    }] : [])],
     runs: aggregate.runs.map((run) => projectRun(
-      run,
+      run.id === streamingRun?.id && streamingMessageId
+        ? { ...run, assistantMessageId: streamingMessageId }
+        : run,
       (aggregate.events ?? []).filter((event) => event.runId === run.id),
       run.status === 'failed' && !(aggregate.proposals ?? []).some((proposal) => proposal.runId === run.id),
     )),

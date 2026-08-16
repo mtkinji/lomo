@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Calendar from 'expo-calendar';
 import { Platform } from 'react-native';
+import { fetch as expoFetch } from 'expo/fetch';
 import { getFocusAreaLabel } from '../domain/focusAreas';
 import { buildHybridArcGuidelinesBlock } from '../domain/arcHybridPrompt';
 import { mockGenerateArcs } from './mockAi';
@@ -66,6 +67,7 @@ import {
 } from './aiRuntimeToolTransport';
 import { runCoachRuntimeToolLoop } from './runCoachRuntimeToolLoop';
 import { shouldConsumeCoachChatCredit } from './coachChatCreditPolicy';
+import { readChatCompletionStream } from './aiChatCompletionStream';
 
 export { normalizeActivityAiEnrichmentResponse } from './aiActivityEnrichmentResponse';
 export { shouldConsumeCoachChatCredit } from './coachChatCreditPolicy';
@@ -817,6 +819,8 @@ export type CoachChatOptions = {
   /** Bounded response ceiling for short conversational turns. */
   maxOutputTokens?: number;
   signal?: AbortSignal;
+  /** Cumulative plain-text response snapshots. Structured and tool requests remain buffered. */
+  onTextUpdate?: (text: string) => void;
   aiJob?: KwiltAiJob;
   /**
    * Internal orchestration calls may share the user turn's credit only when
@@ -2846,6 +2850,12 @@ export async function sendCoachChat(
   const tools = runtimeTools.length > 0
     ? toOpenAiRuntimeTools(runtimeTools)
     : buildCoachToolsForMode(options?.mode);
+  const streamPlainText = Boolean(
+    options?.onTextUpdate &&
+    !options.responseFormat &&
+    !options.webSearch &&
+    (!tools || tools.length === 0),
+  );
 
   const model = resolveChatModel();
 
@@ -2858,6 +2868,10 @@ export async function sendCoachChat(
     temperature,
     messages: openAiMessages,
   };
+  if (streamPlainText) {
+    body.stream = true;
+    body.stream_options = { include_usage: true };
+  }
 
   const maxOutputTokens = resolveCoachChatMaxOutputTokens(options?.maxOutputTokens);
   if (maxOutputTokens !== undefined) {
@@ -2903,7 +2917,8 @@ export async function sendCoachChat(
         body: JSON.stringify(body),
         signal: options?.signal,
       },
-      OPENAI_CHAT_TIMEOUT_MS
+      OPENAI_CHAT_TIMEOUT_MS,
+      streamPlainText,
     );
   } catch (err) {
     logNetworkErrorDetails('coachChat', err);
@@ -2978,13 +2993,6 @@ export async function sendCoachChat(
     throw new Error(`Unable to reach Kwilt Coach: ${error.message}`);
   }
 
-  const data = await response.json();
-
-  const firstChoice = data.choices?.[0]?.message as OpenAiToolMessage | undefined;
-  if (!firstChoice) {
-    throw new Error('OpenAI coach chat response malformed');
-  }
-
   const scheduleConversationSummaryMaintenance = () => {
     void (async () => {
       try {
@@ -3037,6 +3045,29 @@ export async function sendCoachChat(
       }
     })();
   };
+
+  if (streamPlainText && options?.onTextUpdate) {
+    const content = await readChatCompletionStream(response, options.onTextUpdate);
+    devLog('coachChat:parsed', { contentPreview: previewText(content) });
+    void appendDevCoachChatHistory({
+      timestamp: new Date().toISOString(),
+      mode: options.mode,
+      workflowDefinitionId: options.workflowDefinitionId,
+      workflowInstanceId: options.workflowInstanceId,
+      workflowStepId: options.workflowStepId,
+      launchContextSummary: options.launchContextSummary,
+      messages: [...messages, { role: 'assistant', content }],
+    });
+    scheduleConversationSummaryMaintenance();
+    scheduleOpeningTitleMaintenance(content);
+    return content;
+  }
+
+  const data = await response.json();
+  const firstChoice = data.choices?.[0]?.message as OpenAiToolMessage | undefined;
+  if (!firstChoice) {
+    throw new Error('OpenAI coach chat response malformed');
+  }
 
   // If the model did not request any tools, return the content as before.
   if (!firstChoice.tool_calls || firstChoice.tool_calls.length === 0) {
@@ -3445,7 +3476,8 @@ function buildDevMockCoachChatReply(messages: CoachChatTurn[], options?: CoachCh
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
-  timeoutMs: number = OPENAI_TIMEOUT_MS
+  timeoutMs: number = OPENAI_TIMEOUT_MS,
+  streamResponse = false,
 ): Promise<Response> {
   if (typeof AbortController === 'undefined') {
     // Environment (like Expo Go) may not support AbortController yet.
@@ -3460,6 +3492,7 @@ async function fetchWithTimeout(
   const timeoutId = setTimeout(() => {
     devLog('fetchWithTimeout:aborting', { url, timeoutMs });
     controller.abort();
+    options.signal?.removeEventListener('abort', abortFromCaller);
   }, timeoutMs);
   devLog('fetchWithTimeout:dispatch', {
     url,
@@ -3493,7 +3526,10 @@ async function fetchWithTimeout(
       nextOptions = { ...options, headers };
     }
 
-    const response = await fetch(url, { ...nextOptions, signal: controller.signal });
+    const response = await (streamResponse ? expoFetch : fetch)(
+      url,
+      { ...nextOptions, signal: controller.signal },
+    );
     devLog('fetchWithTimeout:response', {
       url,
       status: response.status,
@@ -3502,8 +3538,12 @@ async function fetchWithTimeout(
     });
     return response;
   } finally {
-    clearTimeout(timeoutId);
-    options.signal?.removeEventListener('abort', abortFromCaller);
+    // Expo's native fetch keeps delivering ReadableStream chunks after headers.
+    // Preserve cancellation and the deadline until that native request settles.
+    if (!streamResponse) {
+      clearTimeout(timeoutId);
+      options.signal?.removeEventListener('abort', abortFromCaller);
+    }
   }
 }
 

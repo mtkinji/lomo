@@ -2,10 +2,16 @@ import foundationModelsModule, {
   type KwiltFoundationModelsAvailability,
   type KwiltFoundationModelsGenerationOptions,
   type KwiltFoundationModelsGenerationResult,
+  type KwiltFoundationModelsGenerationSnapshot,
 } from '../../../modules/kwilt-foundation-models';
 import type { OnDeviceChatTask } from './localChatRoute';
 import { ON_DEVICE_CHAT_JOB_BY_TASK } from './localChatRoute';
 import { getKwiltGenerationJobContract } from '@kwilt/agent-runtime';
+import {
+  canPublishOnDeviceGenerationSnapshot,
+  validateOnDeviceGenerationResult,
+} from './onDeviceGenerationQuality';
+import { resolveOnDeviceGenerationPromotion } from './onDeviceGenerationPolicy';
 
 export type OnDeviceGenerationTask = OnDeviceChatTask | 'thread_title';
 
@@ -15,12 +21,26 @@ export type OnDeviceChatRequest = {
 };
 
 export type OnDeviceChatResult =
-  | { status: 'completed'; text: string; durationMs: number }
-  | { status: 'unavailable' | 'failed' | 'cancelled'; reason: string };
+  | {
+      status: 'completed';
+      text: string;
+      durationMs: number;
+      firstOutputMs?: number;
+      warmState?: OnDeviceModelWarmState;
+    }
+  | {
+      status: 'unavailable' | 'failed' | 'cancelled';
+      reason: string;
+      totalMs?: number;
+      warmState?: OnDeviceModelWarmState;
+    };
+
+export type OnDeviceModelWarmState = 'cold' | 'warming' | 'warm';
 
 export type GenerateOnDeviceChatResponse = (
   request: OnDeviceChatRequest,
   signal?: AbortSignal,
+  onUpdate?: (text: string) => void,
 ) => Promise<OnDeviceChatResult>;
 
 type FoundationModelsProviderModule = {
@@ -28,8 +48,17 @@ type FoundationModelsProviderModule = {
   generateText(
     options: KwiltFoundationModelsGenerationOptions,
   ): Promise<KwiltFoundationModelsGenerationResult>;
+  prewarm?: () => Promise<void>;
+  addListener?: (
+    eventName: 'onGenerationSnapshot',
+    listener: (event: KwiltFoundationModelsGenerationSnapshot) => void,
+  ) => { remove: () => void };
   cancelGeneration(requestId: string): void;
 };
+
+const STREAMING_LOCAL_TASKS = new Set<OnDeviceGenerationTask>(['rewrite', 'proofread']);
+const prewarmByModule = new WeakMap<object, Promise<void>>();
+const prewarmStateByModule = new WeakMap<object, OnDeviceModelWarmState>();
 
 let nextRequestSequence = 0;
 
@@ -50,9 +79,24 @@ export async function generateOnDeviceChatResponse(
   request: OnDeviceChatRequest,
   nativeModule: FoundationModelsProviderModule | null = foundationModelsModule,
   signal?: AbortSignal,
+  onUpdate?: (text: string) => void,
 ): Promise<OnDeviceChatResult> {
   if (!nativeModule) return { status: 'unavailable', reason: 'module_unavailable' };
   if (signal?.aborted) return { status: 'cancelled', reason: 'cancelled' };
+
+  const job = getKwiltGenerationJobContract(generationJobId(request.task));
+  if (!job.local) return { status: 'unavailable', reason: 'job_not_local' };
+  const effectivePromotion = await resolveOnDeviceGenerationPromotion(
+    job.id,
+    job.local.promotion,
+  );
+  if (signal?.aborted) return { status: 'cancelled', reason: 'cancelled' };
+  if (effectivePromotion !== 'default') {
+    return {
+      status: 'unavailable',
+      reason: effectivePromotion === 'disabled' ? 'remote_job_disabled' : 'job_not_promoted',
+    };
+  }
 
   let availability: KwiltFoundationModelsAvailability;
   try {
@@ -66,17 +110,35 @@ export async function generateOnDeviceChatResponse(
   }
 
   const requestId = `chat-${Date.now()}-${nextRequestSequence += 1}`;
+  const warmState = prewarmStateByModule.get(nativeModule) ?? 'cold';
+  let firstOutputMs: number | undefined;
   let aborted = false;
   const cancel = () => {
     aborted = true;
     nativeModule.cancelGeneration(requestId);
   };
+  const snapshotSubscription = nativeModule.addListener
+    ? nativeModule.addListener('onGenerationSnapshot', (event) => {
+        if (
+          event.requestId === requestId &&
+          !aborted &&
+          !signal?.aborted &&
+          STREAMING_LOCAL_TASKS.has(request.task)
+        ) {
+          const text = event.text.trim();
+          if (canPublishOnDeviceGenerationSnapshot({
+            task: request.task,
+            prompt: request.prompt,
+            output: text,
+          })) {
+            firstOutputMs ??= event.durationMs;
+            onUpdate?.(text);
+          }
+        }
+      })
+    : null;
   signal?.addEventListener('abort', cancel, { once: true });
   try {
-    const job = getKwiltGenerationJobContract(generationJobId(request.task));
-    if (job.local?.promotion !== 'default') {
-      return { status: 'unavailable', reason: 'job_not_promoted' };
-    }
     const result = await nativeModule.generateText({
       requestId,
       prompt: request.prompt,
@@ -84,19 +146,63 @@ export async function generateOnDeviceChatResponse(
       maximumResponseTokens: job.local.maximumResponseTokens,
     });
     if (aborted || signal?.aborted) return { status: 'cancelled', reason: 'cancelled' };
-    const text = result.text.trim();
-    if (!text) return { status: 'failed', reason: 'empty_response' };
-    return { status: 'completed', text, durationMs: result.durationMs };
+    const quality = validateOnDeviceGenerationResult({
+      task: request.task,
+      prompt: request.prompt,
+      output: result.text,
+    });
+    if (!quality.accepted) {
+      return {
+        status: 'failed',
+        reason: 'quality_gate_failed',
+        totalMs: result.durationMs,
+        warmState,
+      };
+    }
+    return {
+      status: 'completed',
+      text: quality.text,
+      durationMs: result.durationMs,
+      firstOutputMs: firstOutputMs ?? result.durationMs,
+      warmState,
+    };
   } catch {
     return aborted || signal?.aborted
       ? { status: 'cancelled', reason: 'cancelled' }
       : { status: 'failed', reason: 'generation_failed' };
   } finally {
     signal?.removeEventListener('abort', cancel);
+    snapshotSubscription?.remove();
+  }
+}
+
+export async function prewarmOnDeviceChatModel(
+  nativeModule: FoundationModelsProviderModule | null = foundationModelsModule,
+): Promise<void> {
+  if (!nativeModule?.prewarm) return;
+  const existing = prewarmByModule.get(nativeModule);
+  if (existing) return existing;
+  prewarmStateByModule.set(nativeModule, 'warming');
+  const pending = (async () => {
+    const availability = await nativeModule.availability();
+    if (availability.state === 'available') {
+      await nativeModule.prewarm?.();
+      prewarmStateByModule.set(nativeModule, 'warm');
+    } else {
+      prewarmStateByModule.set(nativeModule, 'cold');
+    }
+  })();
+  prewarmByModule.set(nativeModule, pending);
+  try {
+    await pending;
+  } catch {
+    prewarmByModule.delete(nativeModule);
+    prewarmStateByModule.set(nativeModule, 'cold');
   }
 }
 
 export const defaultGenerateOnDeviceChatResponse: GenerateOnDeviceChatResponse = (
   request,
   signal,
-) => generateOnDeviceChatResponse(request, foundationModelsModule, signal);
+  onUpdate,
+) => generateOnDeviceChatResponse(request, foundationModelsModule, signal, onUpdate);

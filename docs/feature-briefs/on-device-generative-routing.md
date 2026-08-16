@@ -9,7 +9,7 @@ job_flow: job-flow-nina-trust-ai-with-my-life-system
 serves: [jtbd-trust-this-app-with-my-life, jtbd-get-help-without-retelling-my-life, jtbd-understand-why-ai-suggested-this, jtbd-stay-in-control-of-ai-actions]
 related_briefs: [brief-unified-chat, brief-ai-proxy-and-quotas, brief-model-strategy-and-tradeoffs]
 owner: andrew
-last_updated: 2026-08-15
+last_updated: 2026-08-16
 ---
 
 # On-Device Generative Routing
@@ -83,6 +83,25 @@ The first slice:
 - records content-free operational evidence;
 - does not count successful local work against cloud-generation quota.
 
+### Measured response-latency slice
+
+The first comparative Simulator run narrowed the default local cohort instead of promoting every syntactically eligible task:
+
+- `chat_rewrite` and `chat_proofread` remain on-device-default and publish cumulative snapshots into the existing assistant response position;
+- `chat_summarize` remains on-device-default but publishes only its validated final result because a premature partial summary cannot be safely replaced after it is read;
+- `chat_shorten` and `chat_brainstorm` return to challenger status after the measured outputs missed their task-specific quality bars;
+- local results pass deterministic output validation before persistence, with an invisible single cloud fallback on rejection or unavailability;
+- the Apple model is prewarmed once when Chat mounts, while each generation still receives a fresh isolated session;
+- plain cloud text responses use end-to-end SSE through the AI proxy and the same transient assistant projection. Tool calls, structured output, web search, and attachment inspection remain buffered.
+
+Provider choice stays invisible. Progressive output changes timing, not the visual hierarchy, durable thread contract, or action authority.
+
+Progressive rewrite/proofread snapshots are withheld until they contain a meaningful source-word match and pass the no-preface guard. Each local job declares separate first-useful-output and total-duration measurement targets, but missing a target does not cancel otherwise healthy local work. Cloud is used only when local processing is unavailable, errors, or produces a final result rejected by the task quality gate.
+
+When an attempted local job falls back, Chat shows a dismissible processing notice stating that on-device processing could not complete the request and the response is using cloud processing. The notice is separate from generated answer text and does not ask the user to choose a provider.
+
+Bundled promotion remains authoritative. A cached PostHog boolean may demote an individual on-device-default job with `kwilt-on-device-generation-<job-id>`; it cannot promote a challenger. Missing, invalid, or unreachable remote config preserves the bundled state. This control is operational and invisible in ordinary Chat.
+
 ### Resilience and privacy
 
 Unsupported hardware, OS versions, locales, disabled Apple Intelligence, model-not-ready states, and local failures use the job’s declared fallback. `cloud_allowed` jobs may use the cloud provider; `cloud_allowed_with_reduced_context` jobs must deterministically reduce input first; `local_only` jobs never transmit the input and must defer or use a deterministic fallback.
@@ -99,16 +118,19 @@ Unsupported hardware, OS versions, locales, disabled Apple Intelligence, model-n
 
 A job can move to on-device-default without a visible product fork, without increased correction or fallback burden, and without a cloud request on successful local execution. Unsupported users retain the same capable experience. The first `thread_title` cohort passes its source tests and 30 cold/30 warm eligible-device evaluation with acceptable latency and device health.
 
+For ordinary text Chat, the perceived target is useful response text within roughly one second when the selected provider supports streaming. Exact content-free first-output, total, warm-state, and cloud-fallback timing are measured separately. Dev Tools can export either a quick full corpus or a 30-cold/30-prewarmed physical-device title gate through the native benchmark runner.
+
 ## Spec refinement
 
-- Source-controlled promotion state is sufficient for the first local build; remote policy delivery is intentionally deferred, but the contract must allow independent job rollback.
+- Source-controlled promotion state remains the only promotion authority. Cached remote flags provide independent demotion-only rollback.
 - `thread_title` is the only newly promoted job in this slice. `conversation_summary` remains the named next challenger.
 - Existing cloud model assignments do not change as part of this implementation.
 - The app’s current branch and checkout remain the sole simulator/runtime owner; no worktree is created.
 - Simulator and source tests cannot satisfy physical-device quality, energy, thermal, or latency gates.
 - No user-owned product decision remains for the first slice. Promotion beyond `thread_title` requires evidence review rather than an implementation assumption.
+- Automatic app-root benchmark execution is intentionally absent. Explicit development actions run and share native benchmark artifacts so normal launches cannot accidentally generate a full evaluation corpus.
 
 ## Open questions
 
-- Whether a later production control plane should deliver signed remote promotion policy or use ordinary release-config flags.
+- Whether a later production control plane needs signed policy beyond the current PostHog demotion-only rollback.
 - Whether Android’s first provider can honor the same job contracts without platform-specific visible differences.

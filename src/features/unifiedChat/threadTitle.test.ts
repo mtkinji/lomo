@@ -11,6 +11,9 @@ import {
 describe('Unified Chat intelligent titles', () => {
   test('normalizes specific short titles and rejects generic or unstable suggestions', () => {
     expect(normalizeSuggestedThreadTitle(' Planning the School Week ')).toBe('Planning the School Week');
+    expect(normalizeSuggestedThreadTitle('Title: Efficient Saturday Routine')).toBe(
+      'Efficient Saturday Routine',
+    );
     expect(normalizeSuggestedThreadTitle("Prioritizing Tomorrow's Tasks and Schedule")).toBeNull();
     expect(normalizeSuggestedThreadTitle('New chat')).toBeNull();
     expect(normalizeSuggestedThreadTitle('Conversation about things')).toBeNull();

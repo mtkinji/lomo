@@ -33,9 +33,7 @@ describe('resolveLocalChatRoute', () => {
     ['Rewrite this more warmly: I cannot attend.', 'rewrite'],
     ['Proofread this: We is ready to go.', 'proofread'],
     ["Proofread I can't make it tonite", 'proofread'],
-    ['Shorten this: I am writing to let you know I will arrive later.', 'shorten'],
     ['Summarize this: The first option is cheaper. The second is faster.', 'summarize'],
-    ['Brainstorm five names for a family recipe night.', 'brainstorm'],
   ] as const)('routes an explicit self-contained task to the device: %s', (prompt, task) => {
     expect(resolveLocalChatRoute({
       prompt,
@@ -45,6 +43,20 @@ describe('resolveLocalChatRoute', () => {
       evidenceCount: 0,
       isRetry: false,
     })).toEqual({ kind: 'on_device', task, prompt });
+  });
+
+  test.each([
+    'Shorten this: I am writing to let you know I will arrive later.',
+    'Brainstorm five names for a family recipe night.',
+  ])('keeps a measured challenger task on the cloud route: %s', (prompt) => {
+    expect(resolveLocalChatRoute({
+      prompt,
+      requestPolicy: general,
+      requiresWebSearch: false,
+      attachmentCount: 0,
+      evidenceCount: 0,
+      isRetry: false,
+    })).toEqual({ kind: 'cloud' });
   });
 
   test.each([

@@ -11,11 +11,45 @@ private struct GenerateTextOptions: Record {
   @Field var maximumResponseTokens: Int = 192
 }
 
+private struct BenchmarkInput: Decodable {
+  struct Case: Decodable {
+    let id: String
+    let prompt: String
+    let instructions: String
+    let maximumResponseTokens: Int
+  }
+  let repetitions: Int
+  let prewarmDelayMs: Int
+  let variants: [String]
+  let cases: [Case]
+}
+
+private struct BenchmarkResult: Codable {
+  let caseId: String
+  let variant: String
+  let repetition: Int
+  let queueWaitMs: Int
+  let sessionCreateMs: Int
+  let prewarmCallMs: Int
+  let firstOutputMs: Int?
+  let totalMs: Int
+  let output: String?
+  let error: String?
+}
+
+@available(iOS 16.0, *)
+private func elapsedMilliseconds(since start: ContinuousClock.Instant) -> Int {
+  let duration = start.duration(to: .now)
+  return Int(duration.components.seconds * 1_000) +
+    Int(duration.components.attoseconds / 1_000_000_000_000_000)
+}
+
 #if canImport(FoundationModels)
 @available(iOS 26.0, *)
 private actor FoundationModelGenerationQueue {
   private var isGenerating = false
   private var waiters: [(id: UUID, continuation: CheckedContinuation<Bool, Never>)] = []
+  private var prewarmSession: LanguageModelSession?
 
   private func acquire() async -> Bool {
     if !isGenerating {
@@ -45,27 +79,114 @@ private actor FoundationModelGenerationQueue {
     }
   }
 
+  func prewarm() {
+    guard prewarmSession == nil else { return }
+    let session = LanguageModelSession(instructions: "")
+    prewarmSession = session
+    session.prewarm()
+  }
+
   func generate(
     prompt: String,
     instructions: String,
-    maximumResponseTokens: Int
+    maximumResponseTokens: Int,
+    onSnapshot: @escaping (String, Int) -> Void
   ) async throws -> (text: String, durationMs: Int) {
     guard await acquire() else { throw CancellationError() }
     defer { release() }
     try Task.checkCancellation()
     let startedAt = ContinuousClock.now
     let session = LanguageModelSession(instructions: instructions)
-    let response = try await session.respond(
+    let stream = session.streamResponse(
       to: prompt,
       options: GenerationOptions(
         sampling: .greedy,
         maximumResponseTokens: min(max(maximumResponseTokens, 16), 256)
       )
     )
-    let duration = startedAt.duration(to: .now)
-    let milliseconds = Int(duration.components.seconds * 1_000) +
-      Int(duration.components.attoseconds / 1_000_000_000_000_000)
-    return (response.content, milliseconds)
+    var output = ""
+    for try await snapshot in stream {
+      try Task.checkCancellation()
+      guard snapshot.content != output else { continue }
+      output = snapshot.content
+      if !output.isEmpty {
+        onSnapshot(output, elapsedMilliseconds(since: startedAt))
+      }
+    }
+    return (output, elapsedMilliseconds(since: startedAt))
+  }
+
+  func benchmark(_ input: BenchmarkInput) async -> [BenchmarkResult] {
+    var results: [BenchmarkResult] = []
+    for benchmarkCase in input.cases {
+      for variant in input.variants {
+        for repetition in 1...max(1, input.repetitions) {
+          let queuedAt = ContinuousClock.now
+          guard await acquire() else { continue }
+          let queueWaitMs = elapsedMilliseconds(since: queuedAt)
+          let totalStartedAt = ContinuousClock.now
+          do {
+            let sessionStartedAt = ContinuousClock.now
+            let session = LanguageModelSession(instructions: benchmarkCase.instructions)
+            let sessionCreateMs = elapsedMilliseconds(since: sessionStartedAt)
+            var prewarmCallMs = 0
+            if variant.contains("prewarmed") {
+              let prewarmStartedAt = ContinuousClock.now
+              session.prewarm(promptPrefix: Prompt(benchmarkCase.prompt))
+              prewarmCallMs = elapsedMilliseconds(since: prewarmStartedAt)
+              if input.prewarmDelayMs > 0 {
+                try await Task.sleep(for: .milliseconds(input.prewarmDelayMs))
+              }
+            }
+            let options = GenerationOptions(
+              sampling: .greedy,
+              maximumResponseTokens: min(max(benchmarkCase.maximumResponseTokens, 16), 256)
+            )
+            var firstOutputMs: Int?
+            var output = ""
+            if variant.hasPrefix("stream") {
+              let stream = session.streamResponse(to: benchmarkCase.prompt, options: options)
+              for try await snapshot in stream {
+                output = snapshot.content
+                if firstOutputMs == nil && !output.isEmpty {
+                  firstOutputMs = elapsedMilliseconds(since: totalStartedAt)
+                }
+              }
+            } else {
+              let response = try await session.respond(to: benchmarkCase.prompt, options: options)
+              output = response.content
+            }
+            results.append(BenchmarkResult(
+              caseId: benchmarkCase.id,
+              variant: variant,
+              repetition: repetition,
+              queueWaitMs: queueWaitMs,
+              sessionCreateMs: sessionCreateMs,
+              prewarmCallMs: prewarmCallMs,
+              firstOutputMs: firstOutputMs,
+              totalMs: elapsedMilliseconds(since: totalStartedAt),
+              output: output,
+              error: nil
+            ))
+          } catch {
+            results.append(BenchmarkResult(
+              caseId: benchmarkCase.id,
+              variant: variant,
+              repetition: repetition,
+              queueWaitMs: queueWaitMs,
+              sessionCreateMs: 0,
+              prewarmCallMs: 0,
+              firstOutputMs: nil,
+              totalMs: elapsedMilliseconds(since: totalStartedAt),
+              output: nil,
+              error: String(describing: error)
+            ))
+          }
+          release()
+        }
+      }
+    }
+    return results
   }
 }
 #endif
@@ -122,6 +243,7 @@ public final class KwiltFoundationModelsModule: Module {
 
   public func definition() -> ModuleDefinition {
     Name("KwiltFoundationModels")
+    Events("onGenerationSnapshot")
 
     AsyncFunction("availability") { (localeIdentifier: String?) -> [String: String] in
       self.availability(localeIdentifier: localeIdentifier)
@@ -133,7 +255,13 @@ public final class KwiltFoundationModelsModule: Module {
       let task = Task {
         defer { _ = self.takeGenerationTask(requestId: options.requestId) }
         do {
-          let result = try await self.generate(options: options)
+          let result = try await self.generate(options: options) { text, durationMs in
+            self.sendEvent("onGenerationSnapshot", [
+              "requestId": options.requestId,
+              "text": text,
+              "durationMs": durationMs,
+            ])
+          }
           guard !Task.isCancelled else {
             promise.reject(FoundationModelsCancelledException("On-device generation was cancelled."))
             return
@@ -146,6 +274,42 @@ public final class KwiltFoundationModelsModule: Module {
         }
       }
       handle.install(task)
+    }
+
+    AsyncFunction("prewarm") { (promise: Promise) in
+      Task {
+        do {
+          try await self.prewarm()
+          promise.resolve(nil)
+        } catch {
+          promise.reject(FoundationModelsGenerationException(error.localizedDescription))
+        }
+      }
+    }
+
+    AsyncFunction("runBenchmark") { (payload: String, promise: Promise) in
+      #if canImport(FoundationModels)
+      guard #available(iOS 26.0, *) else {
+        promise.reject(FoundationModelsUnavailableException("Foundation Models requires iOS 26 or later."))
+        return
+      }
+      Task {
+        do {
+          let input = try JSONDecoder().decode(BenchmarkInput.self, from: Data(payload.utf8))
+          let results = await Self.generationQueue.benchmark(input)
+          let data = try JSONEncoder().encode(results)
+          let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+          let url = directory.appendingPathComponent("kwilt-foundation-models-benchmark.json")
+          try data.write(to: url, options: .atomic)
+          NSLog("KWILT_FOUNDATION_MODELS_BENCHMARK %@", url.path)
+          promise.resolve(url.path)
+        } catch {
+          promise.reject(FoundationModelsGenerationException(error.localizedDescription))
+        }
+      }
+      #else
+      promise.reject(FoundationModelsUnavailableException("Foundation Models is not present in this SDK."))
+      #endif
     }
 
     Function("cancelGeneration") { (requestId: String) in
@@ -184,7 +348,10 @@ public final class KwiltFoundationModelsModule: Module {
     #endif
   }
 
-  private func generate(options: GenerateTextOptions) async throws -> (text: String, durationMs: Int) {
+  private func generate(
+    options: GenerateTextOptions,
+    onSnapshot: @escaping (String, Int) -> Void
+  ) async throws -> (text: String, durationMs: Int) {
     #if canImport(FoundationModels)
     guard #available(iOS 26.0, *) else {
       throw FoundationModelsUnavailableException("Foundation Models requires iOS 26 or later.")
@@ -192,8 +359,23 @@ public final class KwiltFoundationModelsModule: Module {
     return try await Self.generationQueue.generate(
       prompt: options.prompt,
       instructions: options.instructions,
-      maximumResponseTokens: options.maximumResponseTokens
+      maximumResponseTokens: options.maximumResponseTokens,
+      onSnapshot: onSnapshot
     )
+    #else
+    throw FoundationModelsUnavailableException("Foundation Models is not present in this SDK.")
+    #endif
+  }
+
+  private func prewarm() async throws {
+    #if canImport(FoundationModels)
+    guard #available(iOS 26.0, *) else {
+      throw FoundationModelsUnavailableException("Foundation Models requires iOS 26 or later.")
+    }
+    guard case .available = SystemLanguageModel.default.availability else {
+      throw FoundationModelsUnavailableException("Foundation Models is not currently available.")
+    }
+    await Self.generationQueue.prewarm()
     #else
     throw FoundationModelsUnavailableException("Foundation Models is not present in this SDK.")
     #endif

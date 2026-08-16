@@ -110,6 +110,12 @@ export type RunUnifiedChatTurnInput = {
   attachments?: UnifiedChatTextAttachment[];
   onRunStarted?: (aggregate: UnifiedChatThreadAggregate) => void;
   onRunProgress?: (aggregate: UnifiedChatThreadAggregate) => void;
+  onResponseProgress?: (progress: { runId: string; text: string }) => void;
+  onProviderFallback?: (fallback: {
+    from: 'on_device';
+    to: 'cloud';
+    reason: string;
+  }) => void;
   onThreadTitleUpdated?: (thread: UnifiedChatThreadAggregate['thread']) => void;
 };
 
@@ -462,6 +468,8 @@ export async function runUnifiedChatTurn(
       signal: input.signal,
       executeRelationshipTool: dependencies?.executeRelationshipTool,
       captureTelemetry,
+      onResponseProgress: input.onResponseProgress,
+      onProviderFallback: input.onProviderFallback,
       onThreadTitleUpdated: input.onThreadTitleUpdated,
       onRecoveryAttempted: () => {
         recoveryAttempted = true;
