@@ -56,9 +56,9 @@ function rotatedCrossfadeGraph(durationSeconds, crossfadeSeconds, loopStartSecon
   return [
     '[0:a]asplit=3[bodySource][tailSource][headSource]',
     `[bodySource]atrim=start=${loopStartSeconds}:end=${bodyEnd},asetpts=PTS-STARTPTS[body]`,
-    `[tailSource]atrim=start=${tailStart}:end=${durationSeconds},asetpts=PTS-STARTPTS[tail]`,
-    `[headSource]atrim=start=${headStart}:end=${loopStartSeconds},asetpts=PTS-STARTPTS[head]`,
-    `[tail][head]acrossfade=d=${crossfadeSeconds}:c1=qsin:c2=qsin[seam]`,
+    `[tailSource]atrim=start=${tailStart}:end=${durationSeconds},asetpts=PTS-STARTPTS,afade=t=out:st=0:d=${crossfadeSeconds}:curve=qsin[tail]`,
+    `[headSource]atrim=start=${headStart}:end=${loopStartSeconds},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=${crossfadeSeconds}:curve=qsin[head]`,
+    '[tail][head]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[seam]',
     '[body][seam]concat=n=2:v=0:a=1[loop]',
   ].join(';');
 }
