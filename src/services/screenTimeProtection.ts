@@ -551,6 +551,34 @@ export function createPersonalScreenTimeRule(params: {
   return rule;
 }
 
+const PERSONAL_SCREEN_TIME_RULE_KIND_ORDER: PersonalScreenTimeRuleKind[] = ['real_step', 'focus'];
+
+export function getAvailablePersonalScreenTimeRuleKinds(
+  settings: Pick<ScreenTimeProtectionSettings, 'personalRules'>,
+): PersonalScreenTimeRuleKind[] {
+  const configured = new Set(settings.personalRules.map((rule) => rule.kind));
+  return PERSONAL_SCREEN_TIME_RULE_KIND_ORDER.filter((kind) => !configured.has(kind));
+}
+
+export function addPersonalScreenTimeRule(
+  settings: ScreenTimeProtectionSettings,
+  rule: PersonalScreenTimeRule,
+):
+  | { status: 'created'; settings: ScreenTimeProtectionSettings }
+  | { status: 'duplicate_kind'; settings: ScreenTimeProtectionSettings } {
+  if (settings.personalRules.some((candidate) => candidate.kind === rule.kind)) {
+    return { status: 'duplicate_kind', settings };
+  }
+  return {
+    status: 'created',
+    settings: normalizeScreenTimeProtectionSettings({
+      ...settings,
+      personalRules: [...settings.personalRules, rule],
+      lastUpdated: rule.lastUpdated ?? settings.lastUpdated,
+    }),
+  };
+}
+
 function startOfNextLocalDay(date: Date): Date {
   const next = new Date(date);
   next.setHours(24, 0, 0, 0);

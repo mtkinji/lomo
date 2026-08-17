@@ -1,6 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import type { MoneyAppControlSettings } from '../../capabilities/money/domain/moneyAppControl';
+import { presentScreenTimeActivityPicker } from '../../services/appleEcosystem/screenTimeProtection';
 import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from '../../services/screenTimeProtection';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
@@ -98,6 +99,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     mockMoneySettings.mockReset().mockReturnValue(money);
     mockGetScreenTimeAuthorizationStatus.mockReset().mockResolvedValue('approved');
     mockRequestScreenTimeAuthorization.mockReset().mockResolvedValue('approved');
+    (presentScreenTimeActivityPicker as jest.Mock).mockReset().mockResolvedValue(null);
     mockRouteParams = undefined;
     useAppStore.getState().setAuthIdentity({
       userId: 'user-1',
@@ -118,19 +120,21 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     });
   });
 
-  it('shows personal, Family, and Money state without duplicating their editors', async () => {
+  it('shows scoped rule counts, individual Money rules, and Household setup', async () => {
     const { getByText, queryByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
 
     expect(getByText('Screen Time')).toBeTruthy();
-    expect(getByText('My Screen Time')).toBeTruthy();
+    expect(getByText('My rules · 2')).toBeTruthy();
+    expect(getByText('Household rules · 0')).toBeTruthy();
     expect(await waitFor(() => getByText('Charlie'))).toBeTruthy();
     expect(getByText('Set up')).toBeTruthy();
-    expect(getByText('Money app controls')).toBeTruthy();
-    expect(getByText('1 category')).toBeTruthy();
+    expect(getByText('Review Shopping before access')).toBeTruthy();
+    expect(getByText('Household setup')).toBeTruthy();
+    expect(queryByText('Family')).toBeNull();
     expect(queryByText('Shopping policy')).toBeNull();
   });
 
-  it('routes Family and Money rows to their canonical owners', async () => {
+  it('routes Household setup and an individual Money rule to their canonical owners', async () => {
     const { getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     await waitFor(() => expect(getByText('Charlie')).toBeTruthy());
 
@@ -140,10 +144,22 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
       childDisplayName: 'Charlie',
     });
 
-    fireEvent.press(getByText('Money app controls'));
+    fireEvent.press(getByText('Review Shopping before access'));
     expect(mockRootNavigate).toHaveBeenCalledWith('Money', {
       screen: 'MoneyAppControl',
       params: { categoryId: 'shopping' },
+    });
+  });
+
+  it('carries Household scope from its group add action into the named child flow', async () => {
+    const { getByLabelText, getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    await waitFor(() => expect(getByText('Charlie')).toBeTruthy());
+
+    fireEvent.press(getByLabelText('Add Household rule'));
+
+    expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsFamilyScreenTime', {
+      childMembershipId: 'child-charlie',
+      childDisplayName: 'Charlie',
     });
   });
 
@@ -160,8 +176,8 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     const { queryByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     await waitFor(() => expect(mockGetHouseholdSnapshot).toHaveBeenCalled());
 
-    expect(queryByText('Family')).toBeNull();
-    expect(queryByText('Money')).toBeNull();
+    expect(queryByText('Household setup')).toBeNull();
+    expect(queryByText('Review Shopping before access')).toBeNull();
   });
 
   it('shows a recoverable Household row when family state cannot load', async () => {
@@ -198,7 +214,8 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
 
     fireEvent.press(screen.getByLabelText('Close Screen Time Controls setup'));
     expect(screen.queryByText('Do what matters first.')).toBeNull();
-    expect(screen.getByText('Screen Time access is needed.')).toBeTruthy();
+    expect(screen.getByText('Screen Time access')).toBeTruthy();
+    expect(screen.getByText('Not set up')).toBeTruthy();
 
     mockRouteParams = {
       setupIntent: 'focus_sessions',
@@ -245,7 +262,12 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(queryByText('Do what matters first.')).toBeNull();
   });
 
-  it('makes each setup rule card an accessible checkbox across every selection combination', async () => {
+  it('carries a Focus setup offer into the guided rule builder', async () => {
+    mockRouteParams = {
+      setupIntent: 'focus_sessions',
+      entrySurface: 'focus_drawer',
+      returnToActivityId: 'activity-1',
+    };
     useAppStore.setState((state) => ({
       screenTimeProtection: {
         ...state.screenTimeProtection,
@@ -262,53 +284,51 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
       },
     }));
 
-    const { getByLabelText, getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    const { getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     fireEvent.press(getByText('Set Up'));
 
-    const realStep = await waitFor(() => getByLabelText('A real step'));
-    const focus = getByLabelText('Focus');
-    expect(realStep.props.accessibilityState).toMatchObject({ checked: false });
-    expect(focus.props.accessibilityState).toMatchObject({ checked: false });
-
-    fireEvent.press(realStep);
-    expect(getByLabelText('A real step').props.accessibilityState).toMatchObject({ checked: true });
-    expect(getByLabelText('Focus').props.accessibilityState).toMatchObject({ checked: false });
-
-    fireEvent.press(getByLabelText('Focus'));
-    expect(getByLabelText('A real step').props.accessibilityState).toMatchObject({ checked: true });
-    expect(getByLabelText('Focus').props.accessibilityState).toMatchObject({ checked: true });
-
-    fireEvent.press(getByLabelText('A real step'));
-    expect(getByLabelText('A real step').props.accessibilityState).toMatchObject({ checked: false });
-    expect(getByLabelText('Focus').props.accessibilityState).toMatchObject({ checked: true });
+    expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', {
+      entry: 'contextual',
+      suggestedKind: 'focus',
+      setupIntent: 'focus_sessions',
+      entrySurface: 'focus_drawer',
+    });
   });
 
-  it('creates independently identified rules when both setup cards are selected', async () => {
+  it('continues from Screen Time permission into the contextual rule builder', async () => {
+    mockRouteParams = {
+      setupIntent: 'meaningful_first_pattern_building',
+      entrySurface: 'settings',
+    };
     useAppStore.setState({
       screenTimeProtection: {
         ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
-        authorizationStatus: 'approved',
-        selectedApps: [{ token: 'social', label: 'Social' }],
+        authorizationStatus: 'notDetermined',
       },
     });
+    mockGetScreenTimeAuthorizationStatus.mockResolvedValue('notDetermined');
 
     const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     fireEvent.press(screen.getByText('Set Up'));
-    fireEvent.press(await screen.findByLabelText('A real step'));
-    fireEvent.press(screen.getByLabelText('Focus'));
-    fireEvent.press(screen.getByText('Done'));
+    fireEvent.press(screen.getByText('Continue'));
 
-    await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalRules).toEqual([
-      expect.objectContaining({
-        kind: 'real_step',
-        selectionId: 'personal_real_step',
-        selectedApps: [{ token: 'social', label: 'Social' }],
-      }),
-      expect.objectContaining({
-        kind: 'focus',
-        selectionId: 'personal_focus',
-        selectedApps: [{ token: 'social', label: 'Social' }],
-      }),
-    ]));
+    await waitFor(() => expect(mockSettingsNavigate).toHaveBeenCalledWith(
+      'SettingsScreenTimeRuleBuilder',
+      {
+        entry: 'contextual',
+        suggestedKind: 'real_step',
+        setupIntent: 'meaningful_first_pattern_building',
+        entrySurface: 'settings',
+      },
+    ));
+  });
+
+  it('routes the My rules add action into the guided builder', () => {
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    fireEvent.press(screen.getByLabelText('Add My rule'));
+
+    expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', {
+      entry: 'inventory',
+    });
   });
 });

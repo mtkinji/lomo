@@ -53,6 +53,7 @@ import { AppearanceSettingsScreen } from '../features/account/AppearanceSettings
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { ScreenTimeProtectionSettingsScreen } from '../features/account/ScreenTimeProtectionSettingsScreen';
+import { PersonalScreenTimeRuleBuilderScreen } from '../features/screen-time/rule-builder/PersonalScreenTimeRuleBuilderScreen';
 import type {
   ScreenTimeSetupIntent,
   ScreenTimeSetupOfferSurface,
@@ -354,6 +355,12 @@ export type SettingsStackParamList = {
         returnToActivityId?: string;
       }
     | undefined;
+  SettingsScreenTimeRuleBuilder: {
+    entry: 'inventory' | 'contextual';
+    suggestedKind?: 'focus' | 'real_step';
+    setupIntent?: ScreenTimeSetupIntent;
+    entrySurface?: ScreenTimeSetupOfferSurface;
+  };
   SettingsHousehold: { inviteCode?: string } | undefined;
   SettingsFamilyScreenTime: {
     childMembershipId: string;
@@ -1042,6 +1049,15 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsScreenTimeProtection"
         component={ScreenTimeProtectionSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsScreenTimeRuleBuilder"
+        component={PersonalScreenTimeRuleBuilderScreen}
+        options={{
+          presentation: 'transparentModal',
+          animation: 'none',
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
       />
       <SettingsStack.Screen name="SettingsHousehold" component={HouseholdSettingsScreen} />
       <SettingsStack.Screen
