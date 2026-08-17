@@ -1,0 +1,24 @@
+import { bottomDockGeometry } from '../../theme';
+
+export function resolvePhoneFloatingBottomInset(safeAreaBottom: number): number {
+  const safeAreaAwareInset = Math.round(
+    safeAreaBottom * bottomDockGeometry.phoneFloating.safeAreaLiftRatio,
+  ) + bottomDockGeometry.phoneFloating.safeAreaBottomAdjustment;
+
+  return Math.max(bottomDockGeometry.phoneFloating.minimumBottomGap, safeAreaAwareInset);
+}
+
+export function resolveDrawerActionBottomInset(safeAreaBottom: number): number {
+  return Math.max(bottomDockGeometry.drawerAction.minimumBottomGap, safeAreaBottom);
+}
+
+export function resolveDrawerActionInlinePadding(parentInlineInset: number): number {
+  return Math.max(0, bottomDockGeometry.drawerAction.inlineGap - parentInlineInset);
+}
+
+export function resolveDrawerActionBottomPadding(
+  parentBottomInset: number,
+  safeAreaBottom: number,
+): number {
+  return Math.max(0, resolveDrawerActionBottomInset(safeAreaBottom) - parentBottomInset);
+}

@@ -78,9 +78,6 @@ export const ActionSurfaces: Story = {
 
         <View style={styles.phoneStage}>
           <ActionDock
-            insetX={18}
-            insetBottom={18}
-            safeAreaLift="none"
             leftItems={[
               { id: 'filter', icon: 'funnel', accessibilityLabel: 'Filter', onPress: () => undefined },
               { id: 'sort', icon: 'sort', accessibilityLabel: 'Sort', onPress: () => undefined },

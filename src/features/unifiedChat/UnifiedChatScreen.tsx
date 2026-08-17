@@ -558,11 +558,13 @@ export function UnifiedChatScreen({
             conversationResponseGenerationRef.current += 1;
             conversationProgressSpeech.stop();
             void liveConversationSpeech.stop();
+            conversationActivationFeedback.listening();
             publishConversationLatency('interrupted', true);
             setVoice((current) => ({ ...current, state: 'listening', provisionalTranscript: '',
               finalizedUtterance: undefined, message: 'Listening' }));
           } else if (event.type === 'speech_stopped') {
             conversationResponseGenerationRef.current += 1;
+            conversationActivationFeedback.thinking();
             const tracker = createConversationLatencyTracker();
             tracker.mark('speech_stopped');
             conversationLatencyRef.current = {
@@ -585,11 +587,15 @@ export function UnifiedChatScreen({
             setVoice((current) => ({ ...current, state: 'thinking', provisionalTranscript: '',
               finalizedUtterance: { id: event.itemId, text: event.transcript }, message: 'Thinking…' }));
           } else if (event.type === 'provider_error') {
+            conversationActivationFeedback.recovering();
             setVoice((current) => ({ ...current, state: 'recovering', message: 'Reconnecting…' }));
           }
         },
-        onFailure: () => setVoice((current) => ({ ...current,
-          state: 'recovering', message: 'Connection interrupted.' })),
+        onFailure: () => {
+          conversationActivationFeedback.recovering();
+          setVoice((current) => ({ ...current,
+            state: 'recovering', message: 'Connection interrupted.' }));
+        },
       });
       liveConversation.current = connection;
     } catch (conversationError) {
@@ -626,6 +632,7 @@ export function UnifiedChatScreen({
       },
       onStart: () => {
         conversationLatencyRef.current?.tracker.mark('playback_started');
+        conversationActivationFeedback.speaking();
         setVoice((current) => ({ ...current, state: 'speaking', message: 'Speaking' }));
         publishConversationLatency('completed', false);
       },
@@ -633,6 +640,7 @@ export function UnifiedChatScreen({
     })().catch(() => {
       publishConversationLatency('failed', false);
     }).finally(() => {
+      if (liveConversation.current) conversationActivationFeedback.listening();
       setVoice((current) => liveConversation.current
         ? { ...current, state: 'listening', message: 'Listening' }
         : current);

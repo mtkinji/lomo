@@ -396,7 +396,7 @@ export function MealPlanDrawer({
           {planAction}
         </Reanimated.View>
       ) : null}
-      bottomAccessoryStyle={styles.planDrawerBottomAction}
+      bottomAccessoryShowTopBorder
       sheetStyle={styles.planDrawerSheet}
       handleContainerStyle={styles.planDrawerHandleRegion}
     >
@@ -570,7 +570,6 @@ export function MealPlanDrawer({
             Done
           </Button>
         ) : undefined}
-        bottomAccessoryStyle={styles.planHardPassAction}
       >
         {reactionPickerItem ? (
           <View style={styles.planReactionDrawerContent}>

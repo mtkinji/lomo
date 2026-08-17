@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { colors, floatingControl, spacing, typography, fonts } from '../theme';
+import { bottomDockGeometry, colors, floatingControl, spacing, typography, fonts } from '../theme';
+import { resolvePhoneFloatingBottomInset } from './layout/bottomDockGeometry';
 import { HStack, VStack } from './primitives';
 import { Icon, type IconName } from './Icon';
 import Svg, { Circle } from 'react-native-svg';
@@ -174,22 +175,6 @@ type Props = {
    */
   keyboardExpandedLeftItems?: ActionDockItem[];
   /**
-   * Horizontal inset from the canvas edges. Use to “nestle” into corners while
-   * keeping equal distance left/right.
-   */
-  insetX?: number;
-  /**
-   * Minimum bottom inset from the canvas edge (safe-area still applies).
-   */
-  insetBottom?: number;
-  /**
-   * How much of the bottom safe-area inset (home indicator) to apply when positioning.
-   *
-   * Notes-style “corner nesting” typically feels better with a partial lift instead
-   * of the full safe-area inset.
-   */
-  safeAreaLift?: 'none' | 'half' | 'full';
-  /**
    * When true, show small labels under icons (primarily useful in expanded mode).
    */
   showLabels?: boolean;
@@ -267,9 +252,6 @@ export function ActionDock({
   rightItemCenterLabel,
   rightItemCenterLabelPulseKey,
   keyboardExpandedLeftItems,
-  insetX = spacing.lg,
-  insetBottom = spacing.xs,
-  safeAreaLift = 'half',
   showLabels = false,
   style,
   onLayout,
@@ -613,14 +595,8 @@ export function ActionDock({
       style={[
         styles.host,
         {
-          paddingHorizontal: insetX,
-          // Position the dock using an explicit bottom offset (more predictable than paddingBottom).
-          bottom:
-            (safeAreaLift === 'full'
-              ? insets.bottom
-              : safeAreaLift === 'half'
-                ? Math.round(insets.bottom * 0.5)
-                : 0) + insetBottom,
+          paddingHorizontal: bottomDockGeometry.phoneFloating.inlineGap,
+          bottom: resolvePhoneFloatingBottomInset(insets.bottom),
           transform: [{ translateY }],
         },
         style,

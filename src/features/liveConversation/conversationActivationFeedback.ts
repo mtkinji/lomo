@@ -8,21 +8,43 @@ type ConversationActivationFeedbackDependencies = {
   triggerHaptic(event: HapticsEvent): void | Promise<void>;
   speakReady(): Promise<void>;
   stopSpeech(): void | Promise<void>;
+  playTurnReceived(): void | Promise<void>;
+  playRecovery(): void | Promise<void>;
+  stopIndicators(): void;
 };
+
+type ConversationFeedbackPhase =
+  | 'idle'
+  | 'connecting'
+  | 'listening'
+  | 'thinking'
+  | 'speaking'
+  | 'recovering'
+  | 'error';
 
 export function createConversationActivationFeedback(
   dependencies: ConversationActivationFeedbackDependencies,
 ) {
   let generation = 0;
+  let phase: ConversationFeedbackPhase = 'idle';
 
-  const cancel = () => {
+  const cancelCurrent = () => {
     generation += 1;
     void dependencies.stopSpeech();
+    dependencies.stopIndicators();
+  };
+
+  const enter = (next: ConversationFeedbackPhase): boolean => {
+    if (phase === next) return false;
+    phase = next;
+    return true;
   };
 
   return {
     begin() {
+      if (!enter('connecting')) return;
       generation += 1;
+      dependencies.stopIndicators();
       void dependencies.triggerHaptic('canvas.primary.confirm');
     },
 
@@ -34,19 +56,51 @@ export function createConversationActivationFeedback(
       } catch {
         // The visible Live Dock remains the dependable acknowledgement.
       } finally {
-        if (generation === readyGeneration) connection.setMicrophoneEnabled(true);
+        if (generation === readyGeneration) {
+          connection.setMicrophoneEnabled(true);
+          if (enter('listening')) void dependencies.triggerHaptic('canvas.toggle.on');
+        }
       }
     },
 
-    cancel,
+    listening() {
+      if (!enter('listening')) return;
+      dependencies.stopIndicators();
+    },
+
+    thinking() {
+      if (!enter('thinking')) return;
+      void dependencies.triggerHaptic('canvas.recording.stop');
+      void dependencies.playTurnReceived();
+    },
+
+    speaking() {
+      if (!enter('speaking')) return;
+      dependencies.stopIndicators();
+      void dependencies.triggerHaptic('canvas.selection');
+    },
+
+    recovering() {
+      if (!enter('recovering')) return;
+      dependencies.stopIndicators();
+      void dependencies.triggerHaptic('outcome.warning');
+      void dependencies.playRecovery();
+    },
+
+    cancel() {
+      phase = 'idle';
+      cancelCurrent();
+    },
 
     stop() {
-      cancel();
+      if (!enter('idle')) return;
+      cancelCurrent();
       void dependencies.triggerHaptic('canvas.recording.stop');
     },
 
     fail() {
-      cancel();
+      if (!enter('error')) return;
+      cancelCurrent();
       void dependencies.triggerHaptic('outcome.error');
     },
   };

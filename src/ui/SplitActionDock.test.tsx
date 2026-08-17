@@ -40,11 +40,9 @@ describe('SplitActionDock', () => {
 
     expect(screen.getByTestId('canonical-action-dock')).toBeTruthy();
     expect(screen.getByTestId('split-action-content')).toBeTruthy();
-    expect(mockActionDock.mock.calls[0][0]).toMatchObject({
-      insetX: 24,
-      insetBottom: 16,
-      safeAreaLift: 'half',
-    });
+    expect(mockActionDock.mock.calls[0][0]).not.toHaveProperty('insetX');
+    expect(mockActionDock.mock.calls[0][0]).not.toHaveProperty('insetBottom');
+    expect(mockActionDock.mock.calls[0][0]).not.toHaveProperty('safeAreaLift');
     expect(mockActionDock.mock.calls[0][0].leftContent).toBeTruthy();
   });
 });

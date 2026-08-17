@@ -152,8 +152,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: skip, item removal, and approval dismissal each pair analytics with draft-store mutations in adjacent screen callbacks.
   - Result: `goalCheckinLifecycleCommands.ts` now owns missing-goal guards and analytics/store ordering for skip, remove-item, and dismiss actions, with runtime wiring isolated from the screen.
 
-- [ ] Extract Goal target-date mutations
+- [x] Extract Goal target-date mutations
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: offset date math, end-of-day normalization, quality-state transitions, and update timestamps are embedded in screen callbacks.
-  - Ideal test: pin fixed-reference offsets, end-of-day time, metrics/no-metrics quality state, and clear behavior.
-  - Risk: low
+  - Result: `goalTargetDateMutations.ts` now owns offset and picker-date normalization, metrics-aware quality state, clearing, and timestamps with focused deterministic tests.
+
+- [ ] Extract Goal status transition decision
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: status persistence, first-completion detection, celebration, progress signals, shared check-in drafts, archive restoration, and navigation side effects are split across adjacent handlers.
+  - Ideal test: cover unchanged status, first completion, reopening, archive, and restore outcomes without invoking UI or service dependencies.
+  - Risk: medium

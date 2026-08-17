@@ -1,7 +1,6 @@
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { colors, spacing } from '../../theme';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { BottomDrawerFooter } from '../../ui/layout/BottomDrawerFooter';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
@@ -62,6 +61,27 @@ export function ActivityScheduleSheet({
       onClose={close}
       snapPoints={['95%']}
       scrimToken="pineSubtle"
+      bottomAccessoryShowTopBorder
+      bottomAccessory={writeRef ? (
+        <Button
+          variant="primary"
+          fullWidth
+          disabled={!selectedSlot || isCommitting}
+          accessibilityLabel="Schedule selected to-do time"
+          accessibilityState={{ disabled: !selectedSlot || isCommitting }}
+          testID="e2e.activityDetail.schedule.confirm"
+          style={!selectedSlot || isCommitting ? { opacity: 0.55 } : null}
+          onPress={() => confirmSelectedSlot().catch(() => undefined)}
+        >
+          <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
+            {isCommitting
+              ? 'Scheduling...'
+              : selectedSlotLabel
+                ? `Schedule ${selectedSlotLabel}`
+                : 'Schedule'}
+          </Text>
+        </Button>
+      ) : undefined}
     >
       <View style={[styles.sheetContent, styles.scheduleSheetContent]}>
         <View style={{ flex: 1, minHeight: 0 }}>
@@ -226,35 +246,6 @@ export function ActivityScheduleSheet({
             ) : null}
           </VStack>
         </View>
-
-        {writeRef ? (
-          <BottomDrawerFooter
-            showTopBorder
-            paddingHorizontal={0}
-            paddingTop={spacing.sm}
-            paddingBottom={spacing.sm}
-            backgroundColor={colors.canvas}
-          >
-            <Button
-              variant="primary"
-              fullWidth
-              disabled={!selectedSlot || isCommitting}
-              accessibilityLabel="Schedule selected to-do time"
-              accessibilityState={{ disabled: !selectedSlot || isCommitting }}
-              testID="e2e.activityDetail.schedule.confirm"
-              style={!selectedSlot || isCommitting ? { opacity: 0.55 } : null}
-              onPress={() => confirmSelectedSlot().catch(() => undefined)}
-            >
-              <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
-                {isCommitting
-                  ? 'Scheduling...'
-                  : selectedSlotLabel
-                    ? `Schedule ${selectedSlotLabel}`
-                    : 'Schedule'}
-              </Text>
-            </Button>
-          </BottomDrawerFooter>
-        ) : null}
       </View>
     </BottomDrawer>
   );

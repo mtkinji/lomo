@@ -31,12 +31,16 @@ import Animated, {
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Portal } from '@rn-primitives/portal';
-import { colors, scrims, spacing, type ScrimToken } from '../theme';
+import { bottomDockGeometry, colors, scrims, spacing, type ScrimToken } from '../theme';
 import {
   getAccessibleAnimationDuration,
   useAccessibilityPreferences,
 } from './hooks/useAccessibilityPreferences';
 import { bottomDrawerChromeTokens } from './drawerTokens';
+import {
+  resolveDrawerActionBottomInset,
+  resolveDrawerActionInlinePadding,
+} from './layout/bottomDockGeometry';
 
 export type BottomDrawerSnapPoint = number | `${number}%`;
 
@@ -172,7 +176,8 @@ type BottomDrawerProps = {
 
   /** Optional fixed bottom region that owns the drawer's bottom safe-area inset. */
   bottomAccessory?: ReactNode;
-  bottomAccessoryStyle?: StyleProp<ViewStyle>;
+  /** Draw a quiet divider between scroll content and the fixed action region. */
+  bottomAccessoryShowTopBorder?: boolean;
 
   /**
    * When true, the sheet surface extends through the bottom safe-area instead of
@@ -209,6 +214,7 @@ type BottomDrawerContextValue = {
   scrollY: SharedValue<number>;
   expansionProgress: SharedValue<number>;
   setScrollableGesture: (gesture: ReturnType<typeof Gesture.Native> | null) => void;
+  parentActionInsets: { inline: number; bottom: number };
 };
 
 const BottomDrawerContext = createContext<BottomDrawerContextValue | null>(null);
@@ -219,6 +225,10 @@ function useBottomDrawerContext() {
     throw new Error('BottomDrawerScrollView/FlatList must be used inside BottomDrawer.');
   }
   return ctx;
+}
+
+export function useBottomDrawerParentActionInsets() {
+  return useBottomDrawerContext().parentActionInsets;
 }
 
 export function getBottomDrawerExpansionOpacity({
@@ -337,7 +347,7 @@ export function BottomDrawer({
   handleContainerStyle,
   handleStyle,
   bottomAccessory,
-  bottomAccessoryStyle,
+  bottomAccessoryShowTopBorder = false,
   contentExtendsIntoBottomSafeArea = false,
   enableContentPanningGesture = false,
   dynamicSizing = false,
@@ -771,8 +781,14 @@ export function BottomDrawer({
         testID="bottom-drawer.bottom-accessory"
         style={[
           styles.bottomAccessory,
-          { paddingBottom: Math.max(insets.bottom, spacing.md) },
-          bottomAccessoryStyle,
+          {
+            paddingHorizontal: resolveDrawerActionInlinePadding(
+              contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
+            ),
+            paddingTop: bottomDockGeometry.drawerAction.contentGap,
+            paddingBottom: resolveDrawerActionBottomInset(insets.bottom),
+          },
+          bottomAccessoryShowTopBorder ? styles.bottomAccessoryBorder : null,
         ]}
       >
         {bottomAccessory}
@@ -796,7 +812,17 @@ export function BottomDrawer({
   // Keyboard behavior guidance:
   // - `docs/keyboard-input-safety-implementation.md`
   const body = (
-    <BottomDrawerContext.Provider value={{ scrollY, expansionProgress, setScrollableGesture }}>
+    <BottomDrawerContext.Provider
+      value={{
+        scrollY,
+        expansionProgress,
+        setScrollableGesture,
+        parentActionInsets: {
+          inline: contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
+          bottom: bottomAccessory || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
+        },
+      }}
+    >
       {shouldLiftAboveKeyboard ? (
         <KeyboardAvoidingView
           // Important: BottomDrawer hosts inputs inside a modal-like overlay.
@@ -1088,5 +1114,9 @@ const styles = StyleSheet.create({
   },
   bottomAccessory: {
     flexShrink: 0,
+  },
+  bottomAccessoryBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
 });

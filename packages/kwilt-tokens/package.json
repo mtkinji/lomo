@@ -36,6 +36,13 @@
       "require": "./dist/spacing.cjs",
       "default": "./dist/spacing.js"
     },
+    "./bottomDock": {
+      "react-native": "./src/bottomDock.ts",
+      "types": "./dist/bottomDock.d.ts",
+      "import": "./dist/bottomDock.js",
+      "require": "./dist/bottomDock.cjs",
+      "default": "./dist/bottomDock.js"
+    },
     "./radii": {
       "react-native": "./src/radii.ts",
       "types": "./dist/radii.d.ts",

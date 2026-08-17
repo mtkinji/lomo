@@ -2725,15 +2725,6 @@ export function ActivityDetailScreen() {
                   }}
                   rightItemCenterLabel={actionDockCountLabel}
                   rightItemCenterLabelPulseKey={rightItemCenterLabelPulseKey}
-                  // AppShell already provides the canvas gutter; keep docks “nested” into the corners.
-                  // Nestle into the corners, but keep a consistent 16pt inset from the canvas edges.
-                  // Match Arc/Goal effective page gutter (xl) while ActivityDetail runs inside
-                  // AppShell's default gutter (sm). Add the delta so total ~= xl.
-                  insetX={spacing.xl}
-                  insetBottom={16}
-                  // Notes-style: apply a partial safe-area lift so the dock “matches the corner curve”
-                  // without jumping as high as the full home-indicator inset.
-                  safeAreaLift="half"
                 />
               ) : null}
             </View>

@@ -174,7 +174,6 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
       dismissOnBackdropPress
       enableContentPanningGesture
       bottomAccessory={addRuleAction}
-      bottomAccessoryStyle={styles.bottomAccessory}
     >
         <View style={styles.header}>
           <View
@@ -474,9 +473,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingTop: spacing.sm,
-    backgroundColor: colors.canvas,
-  },
-  bottomAccessory: {
     backgroundColor: colors.canvas,
   },
 });

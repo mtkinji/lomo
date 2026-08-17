@@ -57,7 +57,6 @@ interface BottomGuideProps {
   onClose?: () => void;
   /** Called after the guide's drawer host has fully unmounted. */
   bottomAccessory?: ReactNode;
-  bottomAccessoryStyle?: StyleProp<ViewStyle>;
   /**
    * Main content for the guide card rendered near the bottom of the canvas.
    * Typically includes a title, supporting copy, and primary / secondary
@@ -92,7 +91,6 @@ export function BottomGuide({
   showDragHandle = true,
   onClose,
   bottomAccessory,
-  bottomAccessoryStyle,
   children,
   dynamicSizing = false,
   animateOnClose = false,
@@ -163,7 +161,6 @@ export function BottomGuide({
       dynamicSizing={dynamicSizing}
       animateOnHide={animateOnClose}
       bottomAccessory={bottomAccessory}
-      bottomAccessoryStyle={bottomAccessoryStyle}
       contentExtendsIntoBottomSafeArea={Boolean(bottomAccessory)}
     >
       <View style={[styles.content, contentStyle]}>{children}</View>

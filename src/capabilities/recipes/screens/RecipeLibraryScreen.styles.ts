@@ -359,13 +359,6 @@ export const styles = StyleSheet.create({
     paddingBottom: spacing.xl * 2,
     gap: spacing.md,
   },
-  planDrawerBottomAction: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    backgroundColor: colors.canvas,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
   committedPlanSection: { gap: spacing.md, paddingBottom: spacing.sm },
   committedPlanHeading: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: spacing.md },
   committedMealList: { gap: spacing.sm },
@@ -476,7 +469,6 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
   },
   planHardPassReasonChoiceText: { fontFamily: fonts.medium },
-  planHardPassAction: { paddingHorizontal: spacing.lg },
   planDrawerEmpty: {
     flex: 1,
     justifyContent: "center",
