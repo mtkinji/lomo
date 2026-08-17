@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   countUnmarkedBrandGreenUsages,
+  findBottomDockGeometryOverrides,
   findBrandGreenUsageIncrease,
 } from './architecture-lint-lib.mjs';
 
@@ -33,4 +34,49 @@ test('rejects increases while allowing existing green debt to stay flat or decre
   );
   assert.equal(findBrandGreenUsageIncrease(file, baseline, baseline), null);
   assert.equal(findBrandGreenUsageIncrease(file, 'color: colors.primary;', baseline), null);
+});
+
+test('rejects feature-level overrides of canonical ActionDock placement', () => {
+  assert.deepEqual(
+    findBottomDockGeometryOverrides(
+      'src/features/example/ExampleScreen.tsx',
+      '<ActionDock insetX={24} insetBottom={12} safeAreaLift="half" />',
+    ),
+    [
+      'src/features/example/ExampleScreen.tsx: ActionDock geometry is canonical; remove insetX, insetBottom, and safeAreaLift overrides',
+    ],
+  );
+});
+
+test('allows dock internals and semantic placement without raw geometry overrides', () => {
+  assert.deepEqual(
+    findBottomDockGeometryOverrides(
+      'src/ui/ActionDock.tsx',
+      '<ActionDock insetX={24} insetBottom={12} safeAreaLift="half" />',
+    ),
+    [],
+  );
+  assert.deepEqual(
+    findBottomDockGeometryOverrides(
+      'src/features/example/ExampleScreen.tsx',
+      '<ActionDock placement="phoneFloating" />',
+    ),
+    [],
+  );
+});
+
+test('rejects drawer action geometry escape hatches in feature code', () => {
+  assert.deepEqual(
+    findBottomDockGeometryOverrides(
+      'src/features/example/ExampleDrawer.tsx',
+      `
+        <BottomDrawer bottomAccessory={action} bottomAccessoryStyle={styles.footer} />
+        <BottomDrawerFooter paddingHorizontal={0}>{action}</BottomDrawerFooter>
+      `,
+    ),
+    [
+      'src/features/example/ExampleDrawer.tsx: BottomDrawer action geometry is canonical; remove bottomAccessoryStyle',
+      'src/features/example/ExampleDrawer.tsx: BottomDrawerFooter geometry is canonical; remove padding overrides',
+    ],
+  );
 });

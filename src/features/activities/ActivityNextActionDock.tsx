@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
-import { spacing } from '../../theme';
 import { ActionDockSplitContent } from '../../ui/ActionDockSplitContent';
 import { SplitActionDock } from '../../ui/SplitActionDock';
 import type {
@@ -14,9 +13,6 @@ type ActivityNextActionDockProps = {
   onActionPress: (actionId: ActivityNextBestActionId, source: 'primary' | 'menu') => void;
   disabledActionIds?: Partial<Record<ActivityNextBestActionId, boolean>>;
   targetRef?: React.RefObject<View | null>;
-  insetX?: number;
-  insetBottom?: number;
-  safeAreaLift?: 'none' | 'half' | 'full';
   style?: StyleProp<ViewStyle>;
   onLayout?: ViewProps['onLayout'];
 };
@@ -52,9 +48,6 @@ export function ActivityNextActionDock({
   onActionPress,
   disabledActionIds,
   targetRef,
-  insetX = spacing.xl,
-  insetBottom = 16,
-  safeAreaLift = 'half',
   style,
   onLayout,
 }: ActivityNextActionDockProps) {
@@ -69,9 +62,6 @@ export function ActivityNextActionDock({
       menuTriggerTestID="e2e.activityDetail.nextAction.menuTrigger"
       getMenuTestID={(actionId) => `e2e.activityDetail.nextAction.menu.${actionId}`}
       targetRef={targetRef}
-      insetX={insetX}
-      insetBottom={insetBottom}
-      safeAreaLift={safeAreaLift}
       onLayout={onLayout}
       style={style}
     />

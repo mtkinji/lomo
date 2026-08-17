@@ -28,7 +28,7 @@ src/
 Mobile's `src/theme/*` files are thin re-exports of this package, so existing imports (e.g. `import { colors } from '../../theme'`) continue to work unchanged. New code can import directly from `@kwilt/tokens` if preferred:
 
 ```ts
-import { colors, spacing } from '@kwilt/tokens';
+import { bottomDockGeometry, colors, spacing } from '@kwilt/tokens';
 ```
 
 The `react-native` export condition points at the TypeScript source, so Metro bundles the tokens directly — no build step required for mobile iteration.

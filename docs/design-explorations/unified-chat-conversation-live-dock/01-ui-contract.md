@@ -6,9 +6,9 @@
 
 **Authority chain:** Andrew's approved Live Dock direction -> `live-conversational-action-runtime.md` Chat conversation contract -> Kwilt UI Constitution and semantic tokens -> existing adaptive composer contract -> iOS microphone and accessibility conventions -> task-scoped external exemplars.
 
-**Three-second read:** Conversation Mode is unmistakably active; Kwilt's current phase is named; the rightmost control is the relevant End, Stop, or Send action.
+**Three-second read:** Conversation Mode is unmistakably active; Kwilt's current phase is named; an explicit X always ends the session.
 
-**Primary action:** The adaptive rightmost action remains authoritative: End while listening with an empty draft, Stop while a response is active, and Send or Steer after typing.
+**Primary action:** The Live Dock's X always ends Conversation Mode. Speaking naturally interrupts spoken output. A quiet keyboard affordance reveals typed Send or Steer without replacing the session exit.
 
 **Primary information:** Current conversation phase and elapsed listening time.
 
@@ -16,7 +16,7 @@
 
 **Reveal later:** Ordinary attachment and context controls return after Conversation Mode ends. Existing timeline evidence, proposals, receipts, and corrections remain in their current progressive-disclosure locations.
 
-**Scan order:** Animated state presence -> phase label or provisional transcript -> adaptive rightmost action.
+**Scan order:** Honest state motion -> phase label or provisional transcript -> explicit X.
 
 **Must not add:** A separate voice screen, floating orb, fake input metering, another conversation history, a second dominant action, a settings surface, or a network dependency for entry acknowledgement.
 
@@ -30,7 +30,7 @@
 - Apple Voice Memos, iOS 26 guide, reviewed 2026-08-15: preserve immediate recording presence, elapsed time, and an explicit end control; translate waveform activity into honest state motion; reject recording-editor chrome.
 - Gemini Live, official help, reviewed 2026-08-15: preserve interruptible session clarity; translate it into Kwilt's existing adaptive rightmost action; reject a separate session surface.
 
-**Behavior sources:** Immediate activation haptic and connected verbal acknowledgement are Andrew's explicit decision. Phase visibility comes from the accepted `LiveConversationSession` contract. Timeline continuity and adaptive End/Stop/Send behavior come from the existing Chat conversation and composer contracts.
+**Behavior sources:** Immediate activation haptic, connected verbal acknowledgement, a restrained audible turn-received cue, spoken long-work progress, and semantic recovery/error feedback are Andrew's explicit decisions. Phase visibility comes from the accepted `LiveConversationSession` contract. Timeline continuity, explicit X-to-end behavior, natural barge-in, and typed Send/Steer come from the existing Chat conversation and composer contracts plus Andrew's August 17 Live Dock correction.
 
 **Unresolved decisions:** None that change first-release behavior. Physical-device calibration may change speech rate or haptic strength without changing the contract.
 

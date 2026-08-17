@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
 
-import { spacing } from '../theme';
 import { ActionDock, type ActionDockItem } from './ActionDock';
 import {
   ActionDockSplitContent,
@@ -19,9 +18,6 @@ type Props<Id extends string> = {
   getMenuTestID?: (actionId: Id) => string | undefined;
   targetRef?: React.RefObject<View | null>;
   rightItem?: ActionDockItem;
-  insetX?: number;
-  insetBottom?: number;
-  safeAreaLift?: 'none' | 'half' | 'full';
   style?: StyleProp<ViewStyle>;
   onLayout?: ViewProps['onLayout'];
 };
@@ -37,9 +33,6 @@ export function SplitActionDock<Id extends string>({
   getMenuTestID,
   targetRef,
   rightItem,
-  insetX = spacing.xl,
-  insetBottom = 16,
-  safeAreaLift = 'half',
   style,
   onLayout,
 }: Props<Id>) {
@@ -59,9 +52,6 @@ export function SplitActionDock<Id extends string>({
           getMenuTestID={getMenuTestID}
         />
       )}
-      insetX={insetX}
-      insetBottom={insetBottom}
-      safeAreaLift={safeAreaLift}
       onLayout={onLayout}
       style={style}
     />

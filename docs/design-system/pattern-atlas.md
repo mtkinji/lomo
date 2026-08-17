@@ -11,7 +11,45 @@ The atlas governs how Canonical primitives compose into coherent Kwilt surfaces.
 | Local | Capability-owned composition; do not generalize it. |
 | Missing | No approved pattern yet; design and review before feature implementation. |
 
-No reusable composition is Canonical yet. This is intentional: the first promotion requires an explicit product/design-owner decision after rendered comparison and state review. Until then, Candidate entries guide implementation and must receive surface-specific visual acceptance.
+Bottom Dock Geometry is the first Canonical reusable composition. Andrew approved its promotion on 2026-08-17 after repeated phone-shell review and accepted Conversation Mode comparison. Other Candidate entries still require surface-specific visual acceptance.
+
+## Canonical Patterns
+
+### Bottom Dock Geometry
+
+Job: When the current action must remain available at the bottom of a phone surface, the user needs it to feel deliberately nested inside the device rather than attached with arbitrary padding, so it remains reachable without colliding with the home indicator, keyboard, tab bar, or content.
+
+Status: Canonical. Explicit product/design-owner approval: Andrew, 2026-08-17.
+
+Approved routes: `ActionDock` and `SplitActionDock` phone-floating controls; `BottomDrawerFooter`; `BottomDrawer.bottomAccessory` when it contains a fixed full-width drawer action; Unified Chat Conversation Mode composer states.
+
+Rendered references: `artifacts/conversation-mode/listening-nested-improved.png`; `artifacts/bottom-dock/activity-schedule-full-width-action.png`; accepted iPhone 17 Pro web composer proof with approximately 21px visible side and 22px visible bottom gaps; iPhone 17 Pro native drawer proof with a 24pt visible inline gap and full home-indicator clearance.
+
+Three-second read: One current action is visibly anchored to the surface and balanced within the phone's lower corner geometry.
+
+Scan order: Current decision context -> one bottom action region -> surrounding safe space.
+
+Primary action: The capability-owned current action. Geometry never invents, duplicates, or changes the action.
+
+Anatomy: Capability-owned content inside either a phone-floating frame or a fixed drawer-action frame. The frame owns inline gap, bottom gap, safe-area policy, keyboard relationship, and content clearance.
+
+Canonical components: `ActionDock`, `SplitActionDock`, `BottomDrawerFooter`, and `BottomDrawer`'s `bottomAccessory` region. Geometry tokens live in `@kwilt/tokens/bottomDock`.
+
+States: Resting, pressed, disabled, loading, keyboard open, no home indicator, home indicator present, and capability-owned state transitions such as Conversation Mode listening/thinking/speaking/recovering. State changes replace content without moving the outer frame.
+
+Responsive and accessibility behavior: Phone-floating controls use a 24pt inline optical gap and target at least a 20pt bottom gap, with a partial safe-area lift where needed. Fixed drawer actions use a 24pt inline gap, 12pt content separation, and at least 20pt below, expanding to the full bottom safe-area inset. Controls retain 44pt minimum targets, Dynamic Type support, and Reduce Motion behavior. Keyboard and tab-bar collision checks are mandatory.
+
+Allowed variations: Floating versus drawer-contained anatomy; one full-width action versus a capability-owned split action; quiet top divider when scroll content needs separation; platform safe-area expansion. Visual materials and action semantics remain component-owned.
+
+Do not use when: The action is not persistent, the drawer action naturally belongs in scrolling content, a platform-native bar owns the placement, or persistence would duplicate a nearby primary action. Do not pass numeric placement overrides from feature code.
+
+RNR reference: Localized Kwilt `Button` anatomy remains authoritative for the control. No upstream layout primitive supersedes this phone-shell contract.
+
+External-exemplar preserve/translate/reject ledger: Preserve the calm corner balance of accepted mobile precedents; translate it through Kwilt tokens and safe-area behavior; reject traced device pixels, copied control anatomy, and per-screen spacing guesses.
+
+Kwilt localization: This is an optical contract, not a demand that every bottom action look alike. Conversation Live Dock, action docks, and full-width drawer buttons share placement while retaining their own semantics and state presentation.
+
+Last reviewed: 2026-08-17.
 
 ## Initial Atlas
 
@@ -40,7 +78,7 @@ These patterns were extracted from the [August 2026 Airbnb mobile listing-detail
 | Compact evidence summary | `Typography`, semantic status/provenance components | Most decision-relevant truthful signal -> supporting signals -> explanation on request | No invented scores, trust badges, or equal emphasis for every metric. |
 | Progressive section reveal | Flat section plus quiet disclosure action | Representative content -> truthful count/state -> optional full detail | Do not hide decision-critical information or use disclosure to repair weak grouping. |
 | Horizontal evidence rail | Accessible horizontal list plus complete item anatomy | Section purpose -> independently legible items -> explicit full-list path when needed | No required sequence, inaccessible traversal, or clipped essential content. |
-| Persistent decision region | Existing dock/footer and one primary `Button` | Decision context -> one current action; body remains readable above it | No duplicate primary action, tab-bar collision, keyboard obstruction, or screenshot-derived persistence. |
+| Persistent decision region | Canonical Bottom Dock Geometry plus one primary `Button` | Decision context -> one current action; body remains readable above it | No duplicate primary action, tab-bar collision, keyboard obstruction, or screenshot-derived persistence. |
 | Person/contributor summary | `Avatar`, `Typography`, truthful relationship/provenance fields | Identity -> relevant relationship or proof -> deeper detail | No host-card clone, copied verification badge, or metrics without product authority. |
 
 ## Entry Contract

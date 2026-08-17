@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-import { findBrandGreenUsageIncrease } from './architecture-lint-lib.mjs';
+import {
+  findBottomDockGeometryOverrides,
+  findBrandGreenUsageIncrease,
+} from './architecture-lint-lib.mjs';
 
 const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const errors = [];
@@ -107,6 +110,7 @@ const brandGreenBaselineRef = resolveBrandGreenBaselineRef();
 for (const file of sourceFiles) {
   const text = fs.readFileSync(file, 'utf8');
   const relativeFile = rel(file);
+  errors.push(...findBottomDockGeometryOverrides(relativeFile, text));
   if (directReusableImport.test(text)) {
     pushImportFinding(errors, file, 'feature/app code must import through src/ui adapters, not components/ui directly');
   }

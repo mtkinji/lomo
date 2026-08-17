@@ -23,6 +23,7 @@ Only an explicit product/design-owner decision recorded here grants Canonical st
 | Raw palette | `packages/kwilt-tokens/src/colors.ts` | Canonical | Pine, indigo, turmeric, madder, quilt blue, clay, moss, sumi. Feature code uses semantic roles rather than selecting raw palette values decoratively. |
 | Semantic color roles | `packages/kwilt-tokens/src/colors.ts` | Canonical | `canvas`, `card`, `textPrimary`, `textSecondary`, `accent`, `linked`, `ai*`. |
 | Spacing | `packages/kwilt-tokens/src/spacing.ts` | Canonical | Small, stable scale already used across capabilities. |
+| Bottom dock geometry | `packages/kwilt-tokens/src/bottomDock.ts` | Canonical | Semantic optical placement for phone-floating docks and fixed full-width drawer actions; approved by Andrew on 2026-08-17. Feature code must not recreate safe-area or inset math. |
 | Radii | `packages/kwilt-tokens/src/radii.ts` | Canonical | Shared radius contract. |
 | Typography | `packages/kwilt-tokens/src/typography.ts` | Canonical | Inter + Urbanist. |
 | App family roles | `docs/design-system/brand-family-architecture.md` | Candidate | Needs tokenization: `appGoals`, `appMoney`, `signal`, `meaning`. |
@@ -69,6 +70,7 @@ Only an explicit product/design-owner decision recorded here grants Canonical st
 | `BottomDrawer` mechanics | `src/ui/BottomDrawer.tsx` | Canonical | Owns snap points, gesture coordination, keyboard avoidance, safe areas, scroll helpers, and modal/inline presentation. |
 | `BottomDrawer` standard chrome | `src/ui/drawerTokens.ts` | Canonical | High 64-by-5 handle with an 8-point top inset and 4-point lower inset; standard sheet content starts at the surface edge. |
 | `BottomDrawerHeader` | `src/ui/layout/BottomDrawerHeader.tsx` | Canonical | Standard drawer title anatomy uses `titleSm`, optional subtitle, close/action slots, and navbar/minimal variants. |
+| Bottom dock frames | `src/ui/ActionDock.tsx`, `src/ui/layout/BottomDrawerFooter.tsx`, and `BottomDrawer.bottomAccessory` | Canonical | Phone-floating and full-width drawer actions share semantic optical nesting without sharing action anatomy. The UI layer owns safe-area and inset geometry; feature code supplies content only. Approved by Andrew on 2026-08-17. |
 | `DrawerChoicePicker` anatomy | Hybrid, leaning Kwilt Money | Candidate | Money's category picker is a strong pattern for fast classification drawers: compact title, search, dense selectable rows, selected check. Build as a shared variant with app-provided rows. |
 | Drawer task/edit surfaces | Kwilt Goals | Candidate | Goals has stronger task drawers for filters, sort, creation, AI, and multi-field edits. These should not collapse into the compact Money picker pattern. |
 | `Toast` | Kwilt Goals | Candidate | Good cross-app feedback candidate. |

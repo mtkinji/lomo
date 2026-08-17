@@ -2,7 +2,12 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing } from '../../theme';
+import { bottomDockGeometry, colors } from '../../theme';
+import { useBottomDrawerParentActionInsets } from '../BottomDrawer';
+import {
+  resolveDrawerActionBottomPadding,
+  resolveDrawerActionInlinePadding,
+} from './bottomDockGeometry';
 
 type Props = {
   children: ReactNode;
@@ -23,19 +28,6 @@ type Props = {
    * Defaults to false (no divider).
    */
   showTopBorder?: boolean;
-  /**
-   * Override base horizontal padding (defaults to `spacing.lg`).
-   */
-  paddingHorizontal?: number;
-  /**
-   * Override base top padding (defaults to `spacing.md`).
-   */
-  paddingTop?: number;
-  /**
-   * Override base bottom padding *before* safe-area inset is applied.
-   * Actual paddingBottom becomes `max(paddingBottom, insets.bottom)`.
-   */
-  paddingBottom?: number;
 };
 
 /**
@@ -50,12 +42,13 @@ export function BottomDrawerFooter({
   backgroundColor = colors.canvas,
   borderColor = colors.border,
   showTopBorder = false,
-  paddingHorizontal = spacing.lg,
-  paddingTop = spacing.md,
-  paddingBottom = 0,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const resolvedPaddingBottom = Math.max(paddingBottom, insets.bottom);
+  const parentInsets = useBottomDrawerParentActionInsets();
+  const resolvedPaddingBottom = resolveDrawerActionBottomPadding(
+    parentInsets.bottom,
+    insets.bottom,
+  );
 
   return (
     <View
@@ -68,8 +61,8 @@ export function BottomDrawerFooter({
           : null,
         {
           backgroundColor,
-          paddingHorizontal,
-          paddingTop,
+          paddingHorizontal: resolveDrawerActionInlinePadding(parentInsets.inline),
+          paddingTop: bottomDockGeometry.drawerAction.contentGap,
           paddingBottom: resolvedPaddingBottom,
         },
         style,
@@ -79,5 +72,3 @@ export function BottomDrawerFooter({
     </View>
   );
 }
-
-
