@@ -166,12 +166,16 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
     }
   }
 
-  const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 10 }
-    : { state: next, version: 10 };
-  await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   if (useExploreStore.persist.hasHydrated()) {
-    useExploreStore.setState({ ...next, lastPointDecision: 'background-location' });
+    const persistLiveState = useExploreStore.setState as unknown as (
+      state: Partial<ReturnType<typeof useExploreStore.getState>>,
+    ) => void | Promise<void>;
+    await persistLiveState({ ...next, lastPointDecision: 'background-location' });
+  } else {
+    const envelope = 'state' in persisted.envelope
+      ? { ...persisted.envelope, state: next, version: 10 }
+      : { state: next, version: 10 };
+    await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   }
   if (result.trackingAction === 'deep-sleep' && next.tracking.wakeAnchor) {
     await enterExploreDeepSleep(next.tracking.wakeAnchor).catch(() => undefined);
