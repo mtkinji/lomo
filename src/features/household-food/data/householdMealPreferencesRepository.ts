@@ -3,11 +3,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { getHouseholdSnapshot, type HouseholdMember } from '../../household/data/household';
 import type { PersonFoodNeed } from '../domain/householdMealFit';
+import { DEFAULT_MEAL_SERVINGS, MAX_MEAL_SERVINGS, MIN_MEAL_SERVINGS } from '../../../capabilities/recipes/domain/mealPreferences';
 
 export type MealSetupState = 'unseen' | 'skipped' | 'completed';
 
 export type HouseholdMealPreferencesProjection = {
   householdId: string;
+  usualDinerCount: number;
   usualDinerPersonIds: string[];
   setupState: MealSetupState;
   foodNeeds: PersonFoodNeed[];
@@ -22,6 +24,16 @@ function requiredText(value: unknown, message: string): string {
 function parseSetupState(value: unknown): MealSetupState {
   if (value === 'unseen' || value === 'skipped' || value === 'completed') return value;
   throw new Error('Invalid household meal preferences');
+}
+
+function parseUsualDinerCount(value: unknown, dinerCount: number): number {
+  const fallback = dinerCount || DEFAULT_MEAL_SERVINGS;
+  if (value === undefined || value === null) return fallback;
+  if (!Number.isInteger(value) || (value as number) < MIN_MEAL_SERVINGS || (value as number) > MAX_MEAL_SERVINGS
+    || (value as number) < dinerCount) {
+    throw new Error('Invalid household meal preferences');
+  }
+  return value as number;
 }
 
 function parseFoodNeed(row: Record<string, unknown>): PersonFoodNeed {
@@ -47,7 +59,7 @@ export function createHouseholdMealPreferencesRepository(client: SupabaseClient 
       if (!household.household) return null;
       const householdId = household.household.id;
       const [preferencesResult, foodNeedsResult] = await Promise.all([
-        client.from('kwilt_meal_planner_preferences').select('household_id,usual_diner_person_ids,setup_state').eq('household_id', householdId).maybeSingle(),
+        client.from('kwilt_meal_planner_preferences').select('household_id,usual_diner_person_ids,usual_diner_count,setup_state').eq('household_id', householdId).maybeSingle(),
         client.from('kwilt_person_food_needs').select('id,person_id,kind,ingredient_concept,display_label').eq('household_id', householdId).order('created_at'),
       ]);
       if (preferencesResult.error) throw new Error(preferencesResult.error.message);
@@ -57,11 +69,13 @@ export function createHouseholdMealPreferencesRepository(client: SupabaseClient 
       if (!Array.isArray(diners) || diners.some((id) => typeof id !== 'string' || !id)) {
         throw new Error('Invalid household meal preferences');
       }
+      const usualDinerPersonIds = preference
+        ? [...new Set(diners as string[])]
+        : household.members.map((member) => member.personId);
       return {
         householdId,
-        usualDinerPersonIds: preference
-          ? [...new Set(diners as string[])]
-          : household.members.map((member) => member.personId),
+        usualDinerCount: parseUsualDinerCount(preference?.usual_diner_count, usualDinerPersonIds.length),
+        usualDinerPersonIds,
         setupState: preference ? parseSetupState(preference.setup_state) : 'unseen',
         foodNeeds: ((foodNeedsResult.data ?? []) as Record<string, unknown>[]).map(parseFoodNeed),
         members: household.members.map((member) => ({ ...member })),
@@ -69,15 +83,18 @@ export function createHouseholdMealPreferencesRepository(client: SupabaseClient 
     },
     async setPreferences(input: {
       householdId: string;
+      usualDinerCount: number;
       usualDinerPersonIds: string[];
       setupState: MealSetupState;
     }): Promise<void> {
       const householdId = requiredText(input.householdId, 'Invalid household meal preferences');
       const setupState = parseSetupState(input.setupState);
       const diners = [...new Set(input.usualDinerPersonIds.map((id) => requiredText(id, 'Invalid household meal preferences')))];
+      const usualDinerCount = parseUsualDinerCount(input.usualDinerCount, diners.length);
       await callRpc(client, 'set_kwilt_meal_planner_preferences', {
         p_household_id: householdId,
         p_usual_diner_person_ids: diners,
+        p_usual_diner_count: usualDinerCount,
         p_setup_state: setupState,
       });
     },

@@ -7,25 +7,71 @@ import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
-import { Text } from '../../../ui/Typography';
+import { Heading, Text } from '../../../ui/Typography';
+import { MAX_MEAL_SERVINGS, MIN_MEAL_SERVINGS } from '../../../capabilities/recipes/domain/mealPreferences';
 
-export function UsualDinersDrawer({ visible, members, selectedPersonIds, onClose, onSave }: {
+export function UsualDinersDrawer({ visible, members, usualDinerCount, selectedPersonIds, onClose, onSave }: {
   visible: boolean;
   members: readonly HouseholdMember[];
+  usualDinerCount: number;
   selectedPersonIds: readonly string[];
   onClose(): void;
-  onSave(personIds: string[]): void;
+  onSave(input: { usualDinerCount: number; personIds: string[] }): void;
 }) {
+  const [count, setCount] = useState(usualDinerCount);
   const [selected, setSelected] = useState<string[]>([...selectedPersonIds]);
-  useEffect(() => { if (visible) setSelected([...selectedPersonIds]); }, [selectedPersonIds, visible]);
-  const toggle = (personId: string) => setSelected((current) => current.includes(personId)
-    ? current.filter((id) => id !== personId)
-    : [...current, personId]);
+  useEffect(() => {
+    if (!visible) return;
+    setCount(Math.max(usualDinerCount, selectedPersonIds.length, MIN_MEAL_SERVINGS));
+    setSelected([...selectedPersonIds]);
+  }, [selectedPersonIds, usualDinerCount, visible]);
+  const toggle = (personId: string) => setSelected((current) => {
+    if (current.includes(personId)) return current.filter((id) => id !== personId);
+    const next = [...current, personId];
+    setCount((value) => Math.max(value, next.length));
+    return next;
+  });
+  const canDecrease = count > Math.max(MIN_MEAL_SERVINGS, selected.length);
+  const canIncrease = count < MAX_MEAL_SERVINGS;
   return (
     <BottomDrawer visible={visible} onClose={onClose} snapPoints={['70%']}>
       <BottomDrawerScrollView contentContainerStyle={styles.content}>
-        <BottomDrawerHeader title="Usually cooking for" subtitle="Choose people, not serving-size classes." variant="withClose" onClose={onClose} />
-        <View style={styles.group}>
+        <BottomDrawerHeader title="Usually cooking for" variant="withClose" onClose={onClose} />
+        <View style={styles.countControl}>
+          <Button
+            accessibilityLabel="Decrease usual people count"
+            accessibilityHint={canDecrease
+              ? undefined
+              : selected.length >= count
+                ? `Remove a selected person to choose fewer than ${selected.length}.`
+                : 'The minimum is 1 person.'}
+            accessibilityState={{ disabled: !canDecrease }}
+            disabled={!canDecrease}
+            iconButtonSize={44}
+            size="icon"
+            variant="outline"
+            onPress={() => setCount((value) => Math.max(MIN_MEAL_SERVINGS, value - 1))}
+          >
+            −
+          </Button>
+          <Heading accessibilityLabel={`${count} people`} accessibilityLiveRegion="polite" variant="md" style={styles.countLabel}>
+            {count} {count === 1 ? 'person' : 'people'}
+          </Heading>
+          <Button
+            accessibilityLabel="Increase usual people count"
+            accessibilityState={{ disabled: !canIncrease }}
+            disabled={!canIncrease}
+            iconButtonSize={44}
+            size="icon"
+            variant="outline"
+            onPress={() => setCount((value) => Math.min(MAX_MEAL_SERVINGS, value + 1))}
+          >
+            +
+          </Button>
+        </View>
+        <View style={styles.peopleSection}>
+          <Text variant="label">People (optional)</Text>
+          <View style={styles.group}>
           {members.map((member, index) => {
             const included = selected.includes(member.personId);
             return <View key={member.personId}>
@@ -44,15 +90,19 @@ export function UsualDinersDrawer({ visible, members, selectedPersonIds, onClose
               {index < members.length - 1 ? <View style={styles.divider} /> : null}
             </View>;
           })}
+          </View>
         </View>
-        <Button fullWidth variant="outline" disabled={!selected.length} onPress={() => onSave(selected)}>Save</Button>
+        <Button fullWidth variant="outline" onPress={() => onSave({ usualDinerCount: count, personIds: selected })}>Save</Button>
       </BottomDrawerScrollView>
     </BottomDrawer>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
+  content: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl, gap: spacing.lg },
+  countControl: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, paddingVertical: spacing.sm },
+  countLabel: { minWidth: 108, textAlign: 'center' },
+  peopleSection: { gap: spacing.sm },
   group: { overflow: 'hidden', borderRadius: radii.card, backgroundColor: colors.fieldFill },
   row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.md },
   rowTitle: { flex: 1 },

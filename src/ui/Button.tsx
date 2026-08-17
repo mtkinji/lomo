@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radii, spacing } from '../theme';
 import { ButtonContext } from './ButtonContext';
@@ -14,6 +14,7 @@ import {
   type ButtonVariantToken,
 } from './buttonTokens';
 import { withHapticPress } from './haptics/withHapticPress';
+import { KwiltLoader } from './KwiltLoader';
 
 type ButtonVariant =
   | 'default'
@@ -230,7 +231,7 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
       <ButtonContext.Provider value={contextValue}>
         {loading ? (
           <View style={styles.loadingContent}>
-            <ActivityIndicator
+            <KwiltLoader
               accessible={false}
               color={getIndicatorColor(labelTone)}
               size="small"
@@ -326,7 +327,7 @@ export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconBut
         ]}
       >
         {loading ? (
-          <ActivityIndicator accessible={false} color={getIndicatorColor(variantTokens.textTone)} size="small" />
+          <KwiltLoader accessible={false} color={getIndicatorColor(variantTokens.textTone)} size="small" />
         ) : shouldWrapChildrenAsLabel ? (
           <ButtonLabel tone={variantTokens.textTone}>{children}</ButtonLabel>
         ) : (

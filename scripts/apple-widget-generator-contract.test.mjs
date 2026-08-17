@@ -122,6 +122,22 @@ test('Money widgets keep the category clock tile centered and give Flexible Mone
   assert.doesNotMatch(categoryView, /moneyFreshnessLabel|Updated/);
 });
 
+test('Money widgets use the same semantic colors as the in-app budget surfaces', () => {
+  const palette = moneyWidgetTemplate.slice(
+    moneyWidgetTemplate.indexOf('struct MoneyWidgetPalette'),
+    moneyWidgetTemplate.indexOf('private let moneyTickCount'),
+  );
+  const flexibleAnswerCard = moneyWidgetTemplate.slice(
+    moneyWidgetTemplate.indexOf('struct FlexibleMoneyAnswerCard'),
+    moneyWidgetTemplate.indexOf('struct FlexibleMoneyWidgetView'),
+  );
+
+  assert.match(palette, /onTrack = Color\(red: 111\/255, green: 165\/255, blue: 146\/255\)/);
+  assert.match(palette, /watch = Color\(red: 169\/255, green: 113\/255, blue: 32\/255\)/);
+  assert.match(palette, /over = Color\(red: 220\/255, green: 38\/255, blue: 38\/255\)/);
+  assert.match(flexibleAnswerCard, /if state == "over" \|\| state == "plan_over" \{ return MoneyWidgetPalette\.over \}[\s\S]*?return \.primary/);
+});
+
 test('Budget Category rounds dollars and compacts thousands before rendering', () => {
   assert.match(moneyWidgetTemplate, /func compactBudgetDollarText\(cents: Double\) -> String/);
   assert.match(moneyWidgetTemplate, /abs\(cents \/ 100\.0\)\.rounded\(\)/);

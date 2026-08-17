@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
-  ActivityIndicator,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
@@ -23,7 +21,8 @@ import { resolveSharedHomeDestination } from './sharedHomeDestination';
 import { groupSharedHomeDeliveries } from './sharedHomePresentation';
 import type { SharedHomeDelivery } from './sharedHomeTypes';
 import { useSharedHomeFeed, type SharedHomeFeedState } from './useSharedHomeFeed';
-
+import { KwiltLoader } from '../../ui/KwiltLoader';
+import { KwiltRefreshFrame, useKwiltRefresh } from '../../ui/KwiltRefresh';
 type SharedHomeContentProps = Pick<
   SharedHomeFeedState,
   'items' | 'loading' | 'refreshing' | 'stale' | 'error'
@@ -131,19 +130,23 @@ export function SharedHomeContent({
   highlightedDeliveryId,
 }: SharedHomeContentProps) {
   const insets = useSafeAreaInsets();
+  const { onScroll, refreshControl, refreshOverlay, refreshing: refreshActive, scrollEventThrottle } = useKwiltRefresh({ onRefresh });
   const groups = useMemo(() => groupSharedHomeDeliveries(items, now), [items, now]);
   const empty = groups.needsYou.length === 0 && groups.sharedWithYou.length === 0;
 
   return (
-    <ScrollView
-      testID="sharedHome.screen"
-      contentContainerStyle={[styles.content, { paddingBottom: spacing['2xl'] + insets.bottom }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      showsVerticalScrollIndicator={false}
-    >
+    <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshActive}>
+      <ScrollView
+        testID="sharedHome.screen"
+        contentContainerStyle={[styles.content, { paddingBottom: spacing['2xl'] + insets.bottom }]}
+        onScroll={onScroll}
+        refreshControl={refreshControl}
+        scrollEventThrottle={scrollEventThrottle}
+        showsVerticalScrollIndicator={false}
+      >
       {loading && empty ? (
         <View style={styles.centeredState}>
-          <ActivityIndicator color={colors.textSecondary} />
+          <KwiltLoader color={colors.textSecondary} />
           <Text style={styles.stateText}>Loading shared activity…</Text>
         </View>
       ) : !signedIn ? (
@@ -214,7 +217,8 @@ export function SharedHomeContent({
           ) : null}
         </VStack>
       )}
-    </ScrollView>
+      </ScrollView>
+    </KwiltRefreshFrame>
   );
 }
 

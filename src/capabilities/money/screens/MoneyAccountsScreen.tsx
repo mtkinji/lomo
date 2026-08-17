@@ -1,7 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { Icon, type IconName } from '../../../ui/Icon';
 import {
@@ -18,11 +17,9 @@ import {
   MoneyInventoryListFrame,
 } from '../components/MoneyInventoryListFrame';
 import { useMoneyData } from '../data/MoneyDataContext';
-import { syncMoneyTransactions } from '../data/moneyPlaidApi';
 import { isMoneyPlaidError } from '../data/moneyPlaidErrors';
 import { formatMoneyFreshness, type MoneyAccount } from '../data/moneySnapshot';
 import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
-import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
@@ -43,7 +40,7 @@ const SORT_OPTIONS: Array<{ value: AccountSort; label: string }> = [
 ];
 
 export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneyAccounts'>) {
-  const { snapshot, reconcileGovernedPlanFoundation } = useMoneyData();
+  const { snapshot, reconcileConnectedActivity } = useMoneyData();
   const [filter, setFilter] = useState<AccountFilter>('all');
   const [sort, setSort] = useState<AccountSort>('name');
   const [connectionAction, setConnectionAction] = useState<'linking' | 'syncing' | null>(null);
@@ -68,8 +65,7 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
         setConnectionMessage('Account connection closed without changes.');
         return;
       }
-      await reconcileGovernedPlanFoundation();
-      await reconcileLivingPlan(getSupabaseClient(), 'account_scope_changed');
+      await reconcileConnectedActivity({ trigger: 'account_connected', sync: false });
       setConnectionTone('success');
       setConnectionMessage(`${result.exchange.institutionName} connected and synced.`);
       signalMoneyMutationOutcome('succeeded');
@@ -91,11 +87,10 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
     setCanRetryConnection(false);
     setConnectionMessage('Checking…');
     try {
-      const result = await syncMoneyTransactions(getSupabaseClient());
-      await reconcileGovernedPlanFoundation();
-      await reconcileLivingPlan(getSupabaseClient(), 'sync_evidence_changed');
+      const result = await reconcileConnectedActivity({ trigger: 'manual_sync', sync: true });
+      const added = result?.added ?? 0;
       setConnectionTone('success');
-      setConnectionMessage(result.added > 0 ? `${result.added} new ${result.added === 1 ? 'transaction' : 'transactions'}` : 'Accounts are up to date');
+      setConnectionMessage(added > 0 ? `${added} new ${added === 1 ? 'transaction' : 'transactions'}` : 'Accounts are up to date');
       signalMoneyMutationOutcome('succeeded');
     } catch (error) {
       setConnectionTone('error');

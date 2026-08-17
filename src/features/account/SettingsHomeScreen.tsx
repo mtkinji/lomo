@@ -45,42 +45,48 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: 'planning',
     title: 'Planning',
     entries: [
-      { id: 'activity_areas', title: 'Areas', route: 'SettingsActivityAreas' },
+      { id: 'activity_areas', title: 'Activity areas', route: 'SettingsActivityAreas' },
       { id: 'plan_availability', title: 'Availability', route: 'SettingsPlanAvailability' },
       { id: 'plan_calendars', title: 'Calendars', route: 'SettingsPlanCalendars' },
-      { id: 'meals', title: 'Meals', route: 'SettingsMeals' },
     ],
   },
   {
-    id: 'people',
-    title: 'People',
+    id: 'household_sharing',
+    title: 'Household & sharing',
     entries: [
       { id: 'household', title: 'Household', route: 'SettingsHousehold' },
+      { id: 'meals', title: 'Meal preferences', route: 'SettingsMeals' },
       { id: 'sharing', title: 'Sharing', route: 'SettingsSharing' },
     ],
   },
   {
-    id: 'integrations',
-    title: 'Integrations',
+    id: 'money',
+    title: 'Money',
     entries: [
-      { id: 'connected_tools', title: 'Apps & connections', route: 'SettingsConnectedTools' },
-      { id: 'money_privacy', title: 'Money privacy', route: 'SettingsMoneyPrivacy' },
-      { id: 'money_household', title: 'Money household', route: 'SettingsMoneyHousehold' },
+      { id: 'money_privacy', title: 'Privacy lock', route: 'SettingsMoneyPrivacy' },
+      { id: 'money_household', title: 'Household access', route: 'SettingsMoneyHousehold' },
     ],
   },
   {
-    id: 'personalization',
-    title: 'Personalization',
+    id: 'kwilt_features',
+    title: 'Kwilt features',
     entries: [
-      { id: 'explore', title: 'Explore', route: 'SettingsExplore' },
       { id: 'games', title: 'Games', route: 'SettingsGames' },
-      { id: 'notifications', title: 'Notifications', route: 'SettingsNotifications' },
       {
         id: 'screen_time_protection',
         title: 'Screen Time',
         route: 'SettingsScreenTimeProtection',
       },
       { id: 'weekly_chapters', title: 'Weekly Chapters', route: 'SettingsWeeklyChapters' },
+    ],
+  },
+  {
+    id: 'app',
+    title: 'App',
+    entries: [
+      { id: 'notifications', title: 'Notifications', route: 'SettingsNotifications' },
+      { id: 'connected_tools', title: 'Apps & connections', route: 'SettingsConnectedTools' },
+      { id: 'kwilt_labs', title: 'Kwilt Labs', route: 'SettingsKwiltLabs' },
     ],
   },
 ];
@@ -247,12 +253,12 @@ export function SettingsHomeScreen() {
   const accountRows = [
     {
       id: 'accountSettings',
-      title: 'Account settings',
+      title: 'Profile & account',
       onPress: () => navigation.navigate('SettingsProfile'),
     },
     {
       id: 'subscriptions',
-      title: 'Subscriptions',
+      title: 'Subscription',
       value: isPro ? 'Kwilt Pro' : 'Free',
       onPress: () => navigation.navigate('SettingsManageSubscription'),
     },

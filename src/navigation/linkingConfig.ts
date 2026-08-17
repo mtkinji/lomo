@@ -264,6 +264,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
     Settings: {
       screens: {
         SettingsHome: 'settings',
+        SettingsKwiltLabs: 'settings/labs',
         SettingsScreenTimeProtection: 'settings/screen-time',
         SettingsExplore: 'settings/explore',
         SettingsGames: 'settings/games',

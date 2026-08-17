@@ -6,7 +6,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
-import { colors, fonts, spacing, typography } from '../../../theme';
+import { colors, fonts, radii, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
 import {
@@ -18,11 +18,11 @@ import {
 import { Icon } from '../../../ui/Icon';
 import { Input } from '../../../ui/Input';
 import { KwiltSwitch } from '../../../ui/KwiltSwitch';
+import { KwiltRefreshFrame, useKwiltRefresh } from '../../../ui/KwiltRefresh';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import {
   HeaderActionPill,
-  ObjectPageHeader,
   OBJECT_PAGE_HEADER_BAR_HEIGHT,
 } from '../../../ui/layout/ObjectPageHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
@@ -87,6 +87,18 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [chartScrubbing, setChartScrubbing] = useState(false);
   const [coverDrawerOpen, setCoverDrawerOpen] = useState(false);
+  const {
+    onScroll: onRefreshScroll,
+    refreshControl,
+    refreshOverlay,
+    refreshing,
+    scrollEventThrottle,
+  } = useKwiltRefresh({
+    backgroundColor: colors.parchment,
+    onRefresh: refresh,
+    overlayTopOffset: insets.top,
+    scrollY,
+  });
   const view = useMemo(() => snapshot
     ? projectMoneyCategoryPeriodView(snapshot, route.params.categoryId, monthOffset)
     : null, [monthOffset, route.params.categoryId, snapshot]);
@@ -280,47 +292,50 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       <AppShell fullBleedCanvas>
         <StatusBar style={statusBarStyle} animated />
         <View style={styles.screen}>
-          <ObjectPageHeader
-            barHeight={CATEGORY_HEADER_BAR_HEIGHT}
-            horizontalPadding={spacing.xl}
-            showFullWidthBackground={false}
-            left={(
-              <HeaderActionPill
-                accessibilityLabel="Back to budget summary"
-                materialVariant="floatingWhite"
-                onPress={() => navigation.goBack()}
-                size={CATEGORY_HEADER_PILL_SIZE}
-              >
-                <Icon name="arrowLeft" size={22} color={colors.textPrimary} />
-              </HeaderActionPill>
-            )}
-            right={<HStack alignItems="center" space="sm">{moreMenu}</HStack>}
-          />
-          <Animated.ScrollView
-            contentInsetAdjustmentBehavior="never"
-            scrollEnabled={!chartScrubbing}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.content}
-            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-              useNativeDriver: true,
-            })}
-            scrollEventThrottle={16}
-          >
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Edit ${category.name} cover`}
-              onPress={() => setCoverDrawerOpen(true)}
-              style={styles.heroClip}
+          <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
+            <Animated.ScrollView
+              contentInsetAdjustmentBehavior="never"
+              scrollEnabled={!chartScrubbing}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              refreshControl={refreshControl}
+              onScroll={onRefreshScroll}
+              scrollEventThrottle={scrollEventThrottle}
             >
-              <Animated.View
-                style={[
-                  styles.heroArtwork,
-                  { opacity: heroOpacity, transform: [{ translateY: heroParallaxTranslateY }] },
-                ]}
+            <View style={styles.refreshPage}>
+            <View style={styles.heroStage}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${category.name} cover`}
+                onPress={() => setCoverDrawerOpen(true)}
+                style={styles.heroClip}
               >
-                <MoneyCategoryCover cover={category.coverImage} />
-              </Animated.View>
-            </Pressable>
+                <Animated.View
+                  style={[
+                    styles.heroArtwork,
+                    { opacity: heroOpacity, transform: [{ translateY: heroParallaxTranslateY }] },
+                  ]}
+                >
+                  <MoneyCategoryCover cover={category.coverImage} />
+                </Animated.View>
+              </Pressable>
+              <View
+                pointerEvents="box-none"
+                style={[styles.heroHeader, { height: headerTotalHeight, paddingTop: insets.top }]}
+              >
+                <View>
+                  <HeaderActionPill
+                    accessibilityLabel="Back to budget summary"
+                    materialVariant="floatingWhite"
+                    onPress={() => navigation.goBack()}
+                    size={CATEGORY_HEADER_PILL_SIZE}
+                  >
+                    <Icon name="arrowLeft" size={22} color={colors.textPrimary} />
+                  </HeaderActionPill>
+                </View>
+                <HStack alignItems="center" space="sm">{moreMenu}</HStack>
+              </View>
+            </View>
             <View style={styles.summarySection}>
               <Text accessibilityRole="header" style={styles.categoryTitle}>{category.name}</Text>
               <MoneyDetailMeter
@@ -404,7 +419,9 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
                 <Fact label="Funding" value={category.fundingRhythm === 'reserve' ? 'Reserve' : 'Monthly'} />
               </View>
             </View>
-          </Animated.ScrollView>
+            </View>
+            </Animated.ScrollView>
+          </KwiltRefreshFrame>
         </View>
       </AppShell>
 
@@ -588,7 +605,7 @@ function CategoryTransactionRow({ onPress, transaction }: { onPress: () => void;
     <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction, ${transaction.accountName}, ${amountLabel}`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.pressed : null]}>
       <View style={styles.transactionCopy}>
         <Text numberOfLines={1} style={styles.transactionMerchant}>{transaction.merchantName}</Text>
-        <Text numberOfLines={1} style={styles.transactionMeta}>{transaction.pending ? 'Pending' : transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.accountName}</Text>
+        <Text numberOfLines={1} style={styles.transactionMeta}>{transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.accountName}</Text>
       </View>
       <Text style={[styles.transactionAmount, transaction.direction === 'inflow' ? styles.inflow : null]}>{amountLabel}</Text>
       <Icon name="chevronRight" size={16} color={colors.gray400} />
@@ -745,8 +762,31 @@ function naturalList(values: string[]): string {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  content: { paddingBottom: 80, paddingHorizontal: spacing.xl, gap: spacing.xl },
-  heroClip: { height: CATEGORY_HERO_HEIGHT, marginHorizontal: -spacing.xl, overflow: 'hidden' },
+  scrollContent: { flexGrow: 1 },
+  refreshPage: {
+    flexGrow: 1,
+    position: 'relative',
+    overflow: 'hidden',
+    borderTopLeftRadius: radii.deviceSheet,
+    borderTopRightRadius: radii.deviceSheet,
+    backgroundColor: colors.canvas,
+    paddingBottom: 80,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.xl,
+  },
+  heroStage: { height: CATEGORY_HERO_HEIGHT, marginHorizontal: -spacing.xl, position: 'relative' },
+  heroClip: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  heroHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 50,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+  },
   heroArtwork: { ...StyleSheet.absoluteFillObject },
   summarySection: { gap: spacing.md },
   categoryTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 28, lineHeight: 34, fontWeight: '700' },

@@ -6,7 +6,6 @@ import {
   TextInput,
   Platform,
   ScrollView,
-  ActivityIndicator,
   Alert,
   Linking,
   TouchableOpacity,
@@ -93,6 +92,7 @@ import { ensureArcGuide, hasArcGuide } from './arcGuidance';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => {
   if (!__DEV__) return;
@@ -626,7 +626,7 @@ export function ArcDetailScreen() {
       return (
         <AppShell>
           <View style={styles.emptyStateContainer}>
-            <ActivityIndicator color={colors.textPrimary} />
+            <KwiltLoader color={colors.textPrimary} />
             <Text style={[styles.emptyBody, { marginTop: spacing.lg }]}>Loading Arc…</Text>
           </View>
         </AppShell>

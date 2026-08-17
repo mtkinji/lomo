@@ -5,7 +5,6 @@ import {
   Alert,
   Animated,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   type TextInput,
@@ -34,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../ui/DropdownMenu';
 import { Icon } from '../../../ui/Icon';
+import { KwiltRefreshFrame, useKwiltRefresh } from '../../../ui/KwiltRefresh';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import {
@@ -241,7 +241,6 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const [sourcePlan, setSourcePlan] = useState<MealPlanProjection | null>(null);
   const [offline, setOffline] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [manualItem, setManualItem] = useState('');
   const [showAddDrawer, setShowAddDrawer] = useState(false);
@@ -293,6 +292,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
       setOffline(Boolean(cachedList));
     }
   }, [chooseList, userId]);
+  const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: load });
 
   useEffect(() => {
     let cancelled = false;
@@ -681,19 +681,14 @@ export function GroceryListScreen({ navigation, route }: Props) {
           />
         }
       />
-      <ScrollView
+      <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
+        <ScrollView
           style={styles.list}
           contentContainerStyle={styles.content}
+          onScroll={onScroll}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                void load().finally(() => setRefreshing(false));
-              }}
-            />
-          }
+          refreshControl={refreshControl}
+          scrollEventThrottle={scrollEventThrottle}
         >
           {busy && !list ? <Text tone="secondary">Building your grocery list…</Text> : null}
           {!busy && !list ? (
@@ -776,7 +771,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
               ))}
             </View>
           ) : null}
-      </ScrollView>
+        </ScrollView>
+      </KwiltRefreshFrame>
 
       {!showAddDrawer ? (
         <View

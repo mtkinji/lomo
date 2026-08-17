@@ -1,7 +1,8 @@
 import { fireEvent, render } from '@testing-library/react-native';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { colors, radii } from '../theme';
 import { Button, IconButton } from './Button';
+import { KwiltLoader } from './KwiltLoader';
 
 describe('Button accessibility contract', () => {
   it('exposes button semantics and disabled state by default', () => {
@@ -63,7 +64,7 @@ describe('Button accessibility contract', () => {
     expect(style.opacity).toBeUndefined();
     expect(getByText('Opening…')).toBeTruthy();
     expect(queryByText('Open family choices')).toBeNull();
-    expect(UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
+    expect(UNSAFE_getByType(KwiltLoader)).toBeTruthy();
     fireEvent.press(button);
     expect(onPress).not.toHaveBeenCalled();
   });

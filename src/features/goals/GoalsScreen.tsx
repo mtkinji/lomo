@@ -8,7 +8,6 @@ import {
   Platform,
   TextInput,
   Image,
-  ActivityIndicator,
   InteractionManager,
   Alert,
   Linking,

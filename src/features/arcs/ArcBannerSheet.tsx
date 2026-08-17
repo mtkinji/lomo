@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   Keyboard,
@@ -32,6 +31,7 @@ import { generateArcBannerVibeQuery } from '../../services/ai';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import type { VisualSearchObjectKind } from '../../services/arcBannerImageSearchTerms';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 export type ArcBannerSheetProps = {
   visible: boolean;
@@ -545,7 +545,7 @@ export function ArcBannerSheet({
                               accessibilityLabel="Generate banner image"
                             >
                               {loading ? (
-                                <ActivityIndicator color={colors.textPrimary} />
+                                <KwiltLoader color={colors.textPrimary} />
                               ) : (
                                 <Icon
                                   name="refresh"
@@ -723,7 +723,7 @@ export function ArcBannerSheet({
                       disabled={unsplashLoading}
                     >
                       {unsplashLoading ? (
-                        <ActivityIndicator color={colors.textPrimary} />
+                        <KwiltLoader color={colors.textPrimary} />
                       ) : (
                         <Text style={styles.heroUnsplashSearchLabel}>Search</Text>
                       )}

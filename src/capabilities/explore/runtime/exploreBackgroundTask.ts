@@ -24,10 +24,16 @@ import {
   EXPLORE_WAKE_REGION_ID,
   EXPLORE_WAKE_TASK,
 } from './exploreLocationTaskNames';
+import { KWILT_LABS_STORAGE_KEY, parsePersistedKwiltLabs } from '../../../labs/kwiltLabs';
 
 export { EXPLORE_BACKGROUND_TASK } from './exploreLocationTaskNames';
 const EXPLORE_STORAGE_KEY = 'kwilt-explore-v1';
 const APP_STORAGE_KEY = 'kwilt-store';
+
+async function exploreLabIsEnabled(): Promise<boolean> {
+  const persisted = parsePersistedKwiltLabs(await AsyncStorage.getItem(KWILT_LABS_STORAGE_KEY));
+  return persisted.enabledCapabilities.includes('explore');
+}
 
 async function globalNotificationsAreEnabled(): Promise<boolean> {
   try {
@@ -117,6 +123,10 @@ function parsePersistedExplore(raw: string | null): { data: ExploreData; envelop
 
 TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
   if (error) return;
+  if (!await exploreLabIsEnabled()) {
+    await stopExploreBackgroundUpdates().catch(() => undefined);
+    return;
+  }
   const locations = (data as { locations?: Location.LocationObject[] } | undefined)?.locations ?? [];
   if (!locations.length) return;
   const persisted = parsePersistedExplore(await AsyncStorage.getItem(EXPLORE_STORAGE_KEY));
@@ -190,6 +200,10 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
 
 TaskManager.defineTask(EXPLORE_WAKE_TASK, async ({ data, error }) => {
   if (error) return;
+  if (!await exploreLabIsEnabled()) {
+    await stopExploreBackgroundUpdates().catch(() => undefined);
+    return;
+  }
   const event = data as {
     eventType?: Location.GeofencingEventType;
     region?: Location.LocationRegion;

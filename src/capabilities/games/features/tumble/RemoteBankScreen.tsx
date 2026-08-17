@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from '@/src/capabilities/games/navigation/gamesRouter';
 import { ArrowLeft, Check, Landmark, Smartphone, Volume2 } from 'lucide-react-native';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
@@ -19,6 +19,7 @@ import { bankMusicForState } from '@/src/capabilities/games/gameMusicState';
 import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
 import { restartOpenGameTable } from '@/src/capabilities/games/remote/remoteBankClient';
 import { remoteRematchPresentation } from '@/src/capabilities/games/remote/remoteGameLifecycle';
+import { KwiltLoader } from '../../../../ui/KwiltLoader';
 
 export function RemoteBankScreen() {
   const { sessionId, tableCode, hostUserId } = useLocalSearchParams<{ sessionId: string; tableCode?: string; hostUserId?: string }>();
@@ -45,7 +46,7 @@ export function RemoteBankScreen() {
     finally { setRestarting(false); }
   };
 
-  if (loading || !room || !game) return <GameBackdrop><SafeAreaView style={styles.loading}><ActivityIndicator color={gamesTheme.colors.coral} /><Text style={styles.loadingText}>{error ?? 'Joining the table…'}</Text></SafeAreaView></GameBackdrop>;
+  if (loading || !room || !game) return <GameBackdrop><SafeAreaView style={styles.loading}><KwiltLoader color={gamesTheme.colors.coral} /><Text style={styles.loadingText}>{error ?? 'Joining the table…'}</Text></SafeAreaView></GameBackdrop>;
 
   if (room.status === 'lobby') return <OpenBankTableLobby room={room} userId={userId} reload={reload} joinedTableCode={tableCode} />;
 

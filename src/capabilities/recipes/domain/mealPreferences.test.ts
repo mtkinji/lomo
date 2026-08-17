@@ -23,6 +23,7 @@ describe('meal preferences', () => {
 
   it('derives quantity from selected diners without adult or kid classes', () => {
     expect(resolveSuggestedMealServings({ selectedServings: 7, usualDinerPersonIds: ['a', 'b'] })).toBe(7);
+    expect(resolveSuggestedMealServings({ usualDinerCount: 7, usualDinerPersonIds: ['a', 'b'], numericFallback: 6 })).toBe(7);
     expect(resolveSuggestedMealServings({ usualDinerPersonIds: ['a', 'b', 'c'], numericFallback: 6 })).toBe(3);
     expect(resolveSuggestedMealServings({ numericFallback: 6 })).toBe(6);
   });

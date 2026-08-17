@@ -30,8 +30,7 @@ export function MealSetupDrawer({ visible, dinerSummary, foodNeedsSummary, onOpe
     <BottomDrawer visible={visible} onClose={onNotNow} dynamicSizing snapPoints={['65%']}>
       <BottomDrawerScrollView contentContainerStyle={styles.content}>
         <BottomDrawerHeader
-          title="Make Meals fit your household"
-          subtitle="Two quick choices help Kwilt suggest useful quantities and flag recorded food needs."
+          title="Make recipes fit your household"
           variant="minimal"
         />
         <View style={styles.group}>

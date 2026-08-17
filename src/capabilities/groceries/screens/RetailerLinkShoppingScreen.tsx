@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { useAppStore } from '../../../store/useAppStore';
@@ -34,6 +34,7 @@ import {
   getAffiliateRetailerLinkDisclosure,
   openAffiliateProductSearch,
 } from '../providers/affiliateRetailerProvider';
+import { KwiltLoader } from '../../../ui/KwiltLoader';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'RetailerLinkShopping'>;
 type GroceryItem = GroceryProjection['items'][number];
@@ -127,7 +128,7 @@ function AmazonBatchShopping({ navigation, route }: Props) {
       >
         {loading ? (
           <View style={styles.amazonMomentBody}>
-            <ActivityIndicator size="large" color={colors.textPrimary} />
+            <KwiltLoader size="large" color={colors.textPrimary} />
             <Heading variant="lg">Preparing your Amazon shop</Heading>
             <Text tone="secondary">Matching products and quantities…</Text>
           </View>

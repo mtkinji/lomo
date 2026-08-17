@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Alert, PixelRatio, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, PixelRatio, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
+import { KwiltRefreshFrame, useKwiltRefresh } from '../../../ui/KwiltRefresh';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { Heading, Text } from '../../../ui/Typography';
@@ -27,7 +28,6 @@ export function AlreadyHaveReviewScreen({ navigation, route }: Props) {
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const [list, setList] = useState<GroceryProjection | null>(null);
   const [busy, setBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [offline, setOffline] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const { width, fontScale } = useWindowDimensions();
@@ -52,6 +52,7 @@ export function AlreadyHaveReviewScreen({ navigation, route }: Props) {
       setOffline(Boolean(cachedList));
     }
   };
+  const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: load });
 
   useEffect(() => {
     void load();
@@ -88,7 +89,13 @@ export function AlreadyHaveReviewScreen({ navigation, route }: Props) {
   return (
     <AppShell>
       <PageHeader title="Get ingredients" titleMaxFontSizeMultiplier={1.6} onPressBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load().finally(() => setRefreshing(false)); }} />}>
+      <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          onScroll={onScroll}
+          refreshControl={refreshControl}
+          scrollEventThrottle={scrollEventThrottle}
+        >
         <Heading variant="md">What do you already have?</Heading>
         <Text tone="secondary">Check everything that is already in the house. This is a quick review, not a pantry you have to maintain.</Text>
         {offline || pendingCount ? <Text tone="secondary" accessibilityLiveRegion="polite">{pendingCount ? `${pendingCount} change${pendingCount === 1 ? '' : 's'} saved on this device.` : 'Showing the saved review.'}</Text> : null}
@@ -111,7 +118,8 @@ export function AlreadyHaveReviewScreen({ navigation, route }: Props) {
             <Text tone="secondary">{item.state === 'already_have' ? 'Have' : 'Need'}</Text>
           </Pressable>
         ))}
-      </ScrollView>
+        </ScrollView>
+      </KwiltRefreshFrame>
       <View style={styles.footer}>
         <Button disabled={!list || busy} onPress={() => { void finish(); }}>
           {busy ? 'Making list…' : offline || pendingCount ? 'Sync changes' : 'Make grocery list'}

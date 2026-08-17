@@ -46,7 +46,7 @@ function stringArray(value: unknown): string[] {
 export function buildDefaultMealOccasions(
   plan: MealPlanProjection,
   usualDinerPersonIds: readonly string[],
-  numericFallback: number,
+  usualDinerCount: number,
   makeId: () => string = () => Crypto.randomUUID(),
 ): EditableMealOccasion[] {
   if (plan.occasions.length) {
@@ -59,7 +59,7 @@ export function buildDefaultMealOccasions(
         const currentCandidate = plan.candidates.find((candidate) => candidate.id === dish.candidateId)
           ?? plan.candidates.find((candidate) => recipeVersionId && candidate.recipeSnapshot?.recipeVersionId === recipeVersionId)
           ?? plan.candidates.find((candidate) => candidate.title === dish.title);
-        return { ...dish, id: makeId(), candidateId: currentCandidate?.id ?? dish.candidateId, servings: dish.servings ?? Math.max(1, dish.dinerPersonIds.length || numericFallback), dinerPersonIds: [...dish.dinerPersonIds] };
+        return { ...dish, id: makeId(), candidateId: currentCandidate?.id ?? dish.candidateId, servings: dish.servings ?? Math.max(1, usualDinerCount), dinerPersonIds: [...dish.dinerPersonIds] };
       }),
     }));
   }
@@ -79,7 +79,7 @@ export function buildDefaultMealOccasions(
         candidateId: candidate.id,
         title: candidate.title,
         dinerPersonIds,
-        servings: resolveSuggestedMealServings({ selectedServings: typeof snapshot.selectedServings === 'number' ? snapshot.selectedServings : null, usualDinerPersonIds: dinerPersonIds, numericFallback }),
+        servings: resolveSuggestedMealServings({ selectedServings: typeof snapshot.selectedServings === 'number' ? snapshot.selectedServings : null, usualDinerCount, usualDinerPersonIds: dinerPersonIds }),
       }],
     };
   });
@@ -101,6 +101,7 @@ export function MealPlanFinalizeScreen({ navigation, route }: Props) {
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const addActivity = useAppStore((state) => state.addActivity);
   const usualDinerPersonIds = preferences?.usualDinerPersonIds ?? [];
+  const usualDinerCount = preferences?.usualDinerCount ?? Math.max(1, usualDinerPersonIds.length || 2);
   const members = preferences?.members ?? [];
   const { capture } = useAnalytics();
 
@@ -109,13 +110,13 @@ export function MealPlanFinalizeScreen({ navigation, route }: Props) {
       const found = plans.find((item) => item.id === route.params.planId) ?? null;
       setPlan(found);
       if (!found) return;
-      setOccasions(buildDefaultMealOccasions(found, usualDinerPersonIds, Math.max(1, usualDinerPersonIds.length || 2)));
+      setOccasions(buildDefaultMealOccasions(found, usualDinerPersonIds, usualDinerCount));
       if (found.activeRound) {
         const aggregate = await createMealPlanningRepository().aggregate(found.activeRound.id);
         setCounts(Object.fromEntries(aggregate.map((item) => [item.candidateId, item.pickCount])));
       }
     }).catch((error) => Alert.alert('Plan unavailable', error instanceof Error ? error.message : 'Please try again.'));
-  }, [route.params.planId, usualDinerPersonIds.join('|')]);
+  }, [route.params.planId, usualDinerCount, usualDinerPersonIds.join('|')]);
 
   const activeOccasion = occasions.find((occasion) => occasion.id === editing?.occasionId);
   const activeDish = activeOccasion?.dishes.find((dish) => dish.id === editing?.dishId);

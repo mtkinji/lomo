@@ -9,7 +9,7 @@ describe('household meal preferences repository', () => {
       personId: 'person-child', ingredientConcept: ' Peanut ', displayLabel: ' Peanuts ', present: true,
     });
     await repository.setPreferences({
-      householdId: 'household-1', usualDinerPersonIds: ['adult', 'child', 'child'], setupState: 'completed',
+      householdId: 'household-1', usualDinerCount: 7, usualDinerPersonIds: ['adult', 'child', 'child'], setupState: 'completed',
     });
 
     expect(rpc).toHaveBeenNthCalledWith(1, 'set_kwilt_person_food_need', {
@@ -21,6 +21,7 @@ describe('household meal preferences repository', () => {
     expect(rpc).toHaveBeenNthCalledWith(2, 'set_kwilt_meal_planner_preferences', {
       p_household_id: 'household-1',
       p_usual_diner_person_ids: ['adult', 'child'],
+      p_usual_diner_count: 7,
       p_setup_state: 'completed',
     });
   });

@@ -30,7 +30,8 @@ describe('Meal setup drawer', () => {
       onDone={onDone} onNotNow={onNotNow}
     />);
 
-    expect(screen.getByText('Make Meals fit your household')).toBeTruthy();
+    expect(screen.getByText('Make recipes fit your household')).toBeTruthy();
+    expect(screen.queryByText(/two quick choices|useful quantities/i)).toBeNull();
     fireEvent.press(screen.getByText('Usually cooking for'));
     fireEvent.press(screen.getByText('Food needs'));
     fireEvent.press(screen.getByText('Done'));

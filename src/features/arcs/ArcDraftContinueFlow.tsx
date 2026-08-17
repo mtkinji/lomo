@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import {
   ARCHETYPE_ADMIRED_QUALITIES,
   ARCHETYPE_ROLE_MODEL_TYPES,
@@ -14,6 +14,7 @@ import { colors, spacing, typography } from '../../theme';
 import { useWorkflowRuntime } from '../ai/WorkflowRuntimeContext';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
 import { useArcDraftClaimStore } from '../../store/useArcDraftClaimStore';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type ArcDraftContinueFlowProps = {
   chatControllerRef?: React.RefObject<ChatTimelineController | null>;
@@ -111,7 +112,7 @@ export function ArcDraftContinueFlow({ chatControllerRef }: ArcDraftContinueFlow
   return (
     <View style={styles.card}>
       <View style={styles.row}>
-        <ActivityIndicator color={colors.textSecondary} />
+        <KwiltLoader color={colors.textSecondary} />
         <Text style={styles.title}>Shaping your Arc…</Text>
       </View>
       <Text style={styles.body}>Using your answers from the survey to propose a first Arc.</Text>

@@ -4,6 +4,7 @@ const base = { pending: false, direction: 'outflow', budget_id: null, budget_mat
 
 Deno.test('classifier candidates exclude every higher-precedence assignment and split', () => {
   if (!isMoneyClassifierCandidate(base)) throw new Error('unresolved outflow should be eligible');
+  if (!isMoneyClassifierCandidate({ ...base, pending: true })) throw new Error('pending unresolved outflow should be eligible');
   const excluded = [
     { ...base, hasAllocation: true },
     { ...base, budget_match_source: 'corrected' },
@@ -12,7 +13,6 @@ Deno.test('classifier candidates exclude every higher-precedence assignment and 
     { ...base, budget_assignment_source: 'provider_policy' },
     { ...base, budget_assignment_governed: true },
     { ...base, budget_id: 'food' },
-    { ...base, pending: true },
   ];
   if (excluded.some(isMoneyClassifierCandidate)) throw new Error('higher-precedence row was eligible');
 });

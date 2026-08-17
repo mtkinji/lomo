@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   PanResponder,
   Platform,
   Pressable,
@@ -33,6 +32,7 @@ import {
   type ActivityLocationEditorController,
   type Coordinates,
 } from './useActivityLocationEditor';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type ActivityLocationSheetProps = {
   visible: boolean;
@@ -290,7 +290,7 @@ export function ActivityLocationSheet({
                     }
                   }}
                   options={[
-                    ...(controller.isSearching ? [{ value: '__location_searching__', label: 'Searching...', disabled: true, leftElement: <ActivityIndicator size="small" color={colors.textSecondary} /> }] : []),
+                    ...(controller.isSearching ? [{ value: '__location_searching__', label: 'Searching...', disabled: true, leftElement: <KwiltLoader size="small" color={colors.textSecondary} /> }] : []),
                     ...(controller.currentCoords ? [{ value: '__current_location__', label: 'Use current location', leftElement: <Icon name="locate" size={16} color={colors.textSecondary} /> }] : []),
                     ...controller.results.map((result) => ({ value: result.id, label: result.label, leftElement: <Icon name="pin" size={16} color={colors.textSecondary} /> })),
                   ]}

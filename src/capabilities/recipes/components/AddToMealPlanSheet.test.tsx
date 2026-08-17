@@ -28,7 +28,7 @@ describe('Add to Meal Plan household fit', () => {
     useHouseholdMealPreferencesStore.setState({
       userId: 'user', status: 'ready', error: null,
       projection: {
-        householdId: 'household', setupState: 'completed', usualDinerPersonIds: ['adult', 'child'],
+        householdId: 'household', setupState: 'completed', usualDinerCount: 7, usualDinerPersonIds: ['adult', 'child'],
         members: [
           { id: 'member-adult', personId: 'adult', displayName: 'Blair', kind: 'adult', role: 'owner' },
           { id: 'member-child', personId: 'child', displayName: 'Avery', kind: 'dependent', role: 'child' },
@@ -64,5 +64,12 @@ describe('Add to Meal Plan household fit', () => {
   it('uses the numeric household default even when only some diners have profiles', async () => {
     const screen = render(<AddToMealPlanSheet visible recipe={projection} defaultServings={6} onClose={jest.fn()} onAdded={jest.fn()} />);
     await waitFor(() => expect(screen.getByText('6')).toBeTruthy());
+  });
+
+  it('subtracts only the excluded named diner from an unnamed household quantity', async () => {
+    const screen = render(<AddToMealPlanSheet visible recipe={projection} defaultServings={7} onClose={jest.fn()} onAdded={jest.fn()} />);
+    await waitFor(() => expect(screen.getByText("Peanuts conflict with Avery's food needs.")).toBeTruthy());
+    fireEvent.press(screen.getByText('Make for everyone else'));
+    expect(screen.getByText('6')).toBeTruthy();
   });
 });

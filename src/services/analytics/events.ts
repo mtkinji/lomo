@@ -115,6 +115,7 @@ export const AnalyticsEvent = {
   MoneyRebalanceCancelled: 'money_rebalance_cancelled',
   MoneyRebalanceStaleRejected: 'money_rebalance_stale_rejected',
   MoneyBudgetRecoveryInvoked: 'money_budget_recovery_invoked',
+  MoneyTransactionClassificationCompleted: 'money_transaction_classification_completed',
 
   // Unified Chat agent reliability. Metadata only: request classes,
   // capability/tool ids, provider/outcome enums, booleans, and counts.

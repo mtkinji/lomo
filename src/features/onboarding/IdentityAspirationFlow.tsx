@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   Easing,
   Pressable,
@@ -99,6 +98,7 @@ import {
   type AspirationPayload,
 } from './identityAspirationParsing';
 import { buildIdentityArcGenerationPrompt } from './identityArcPrompt';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
 
@@ -3739,7 +3739,7 @@ export function IdentityAspirationFlow({
                 </View>
               </View>
               <View style={styles.loadingRow}>
-                {isGenerating ? <ActivityIndicator color={colors.textPrimary} /> : null}
+                {isGenerating ? <KwiltLoader color={colors.textPrimary} /> : null}
                 <Text style={styles.bodyText}>
                   {isGenerating ? 'Pulling the threads together…' : 'Ready when you are.'}
                 </Text>

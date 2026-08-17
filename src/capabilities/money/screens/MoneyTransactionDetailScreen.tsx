@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KwiltLoader } from '../../../ui/KwiltLoader';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
@@ -281,7 +282,6 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
             <Text style={[styles.amount, transaction.direction === 'inflow' ? styles.inflowAmount : null]}>
               {transaction.direction === 'inflow' ? '+' : '-'}{formatMoney(transaction.amountCents, transaction.currencyCode)}
             </Text>
-            {transaction.pending ? <Text style={styles.pendingText}>Pending</Text> : null}
           </View>
 
           <PaymentSourceCard transaction={transaction} />
@@ -598,7 +598,7 @@ function ReceiptRow({ label, value }: { label: string; value: string }) {
 }
 
 function CategoryCommand({ detail, disabled, icon, label, onPress, pending, selected }: { detail: string; disabled: boolean; icon: 'arrowDown' | 'refresh' | 'close'; label: string; onPress: () => void; pending: boolean; selected: boolean }) {
-  return <Pressable accessibilityRole="radio" accessibilityHint={detail} accessibilityState={{ checked: selected, disabled, busy: pending }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.commandRow, selected ? styles.commandSelected : null, pressed ? styles.pressed : null]}><Icon name={icon} size={18} color={selected ? colors.pine700 : colors.textSecondary} /><View style={styles.commandCopy}><Text style={styles.commandTitle}>{label}</Text><Text style={styles.commandDetail}>{detail}</Text></View>{pending ? <ActivityIndicator color={colors.pine700} /> : selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}</Pressable>;
+  return <Pressable accessibilityRole="radio" accessibilityHint={detail} accessibilityState={{ checked: selected, disabled, busy: pending }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.commandRow, selected ? styles.commandSelected : null, pressed ? styles.pressed : null]}><Icon name={icon} size={18} color={selected ? colors.pine700 : colors.textSecondary} /><View style={styles.commandCopy}><Text style={styles.commandTitle}>{label}</Text><Text style={styles.commandDetail}>{detail}</Text></View>{pending ? <KwiltLoader color={colors.pine700} /> : selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}</Pressable>;
 }
 
 function CategoryPickerRow({ category, disabled, onPress, pending, selected }: { category: MoneyCategory; disabled: boolean; onPress: () => void; pending: boolean; selected: boolean }) {
@@ -615,7 +615,7 @@ function CategoryPickerRow({ category, disabled, onPress, pending, selected }: {
         <Text style={styles.categoryRowTitle}>{category.name}</Text>
         <Text style={styles.categoryRowMeta}>{formatMoney(category.remainingCents)} left</Text>
       </View>
-      {pending ? <ActivityIndicator color={colors.pine700} /> : selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}
+      {pending ? <KwiltLoader color={colors.pine700} /> : selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}
     </Pressable>
   );
 }
@@ -679,7 +679,6 @@ const styles = StyleSheet.create({
   reviewedPill: { overflow: 'hidden', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3, backgroundColor: colors.pine50, color: colors.pine700, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600' },
   amount: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 48, lineHeight: 53, fontWeight: '700', letterSpacing: -1.6, fontVariant: ['tabular-nums'] },
   inflowAmount: { color: colors.pine700 },
-  pendingText: { color: colors.turmeric700, fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, fontWeight: '600' },
   sourceCard: { gap: spacing.md },
   sourceDescriptionField: { gap: spacing.md },
   sourceDescriptionBlock: { minHeight: 52, justifyContent: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },

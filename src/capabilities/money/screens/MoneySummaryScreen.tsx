@@ -50,7 +50,7 @@ import { MoneyCategoryReorderDrawer } from '../components/MoneyCategoryReorderDr
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
 export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
-  const { snapshot, refresh, reconcileGovernedPlanFoundation, reorderCategories, savingCategoryOrder } = useMoneyData();
+  const { snapshot, reconcileConnectedActivity, reorderCategories, savingCategoryOrder } = useMoneyData();
   const { capture } = useAnalytics();
   const { width: windowWidth } = useWindowDimensions();
   const [measuredPagerWidth, setMeasuredPagerWidth] = useState(0);
@@ -128,12 +128,13 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
     if (autoRefreshKeyRef.current === refreshKey) return;
     autoRefreshKeyRef.current = refreshKey;
     void refreshStaleMoneySummary({
-      reconcileGovernedPlanFoundation,
-      refreshSnapshot: refresh,
+      reconcileConnectedActivity: async () => {
+        await reconcileConnectedActivity({ trigger: 'stale_summary', sync: true });
+      },
     }).catch(() => {
       // Keep the last useful answer visible. Account-specific repair belongs in Accounts.
     });
-  }, [livingLimitAnswer, reconcileGovernedPlanFoundation, refresh, snapshot]);
+  }, [livingLimitAnswer, reconcileConnectedActivity, snapshot]);
 
   return (
     <>

@@ -66,9 +66,23 @@ describe('reconcileMoneyEconomicRoles', () => {
         reviewState: 'assigned',
         moneyMeaning: 'category_credit',
       }),
+      transaction('pending-refund', 2000, {
+        pending: true,
+        direction: 'inflow',
+        categoryId: 'groceries',
+        categoryName: 'Groceries',
+        reviewState: 'assigned',
+        moneyMeaning: 'category_credit',
+      }),
       transaction('gift', 5000, { reviewState: 'not_counted', moneyMeaning: 'not_counted' }),
       transaction('transfer', 7000, { moneyMeaning: 'transfer' }),
-      transaction('pending', 5000, { pending: true }),
+      transaction('pending-groceries', 5000, {
+        pending: true,
+        categoryId: 'groceries',
+        categoryName: 'Groceries',
+        reviewState: 'assigned',
+      }),
+      transaction('pending-unknown', 1500, { pending: true }),
       transaction('unknown', 1000),
     ];
 
@@ -84,10 +98,10 @@ describe('reconcileMoneyEconomicRoles', () => {
     expect(new Set(result.rows.map((row) => row.transactionId)).size).toBe(transactions.length);
     expect(result.totals).toEqual({
       protectedSpendingCents: 94000,
-      flexibleSpendingCents: 21496,
+      flexibleSpendingCents: 26496,
       outsidePlanCents: 5000,
-      neutralCents: 12000,
-      unresolvedInScopeCents: 1000,
+      neutralCents: 9000,
+      unresolvedInScopeCents: 2500,
     });
     expect(result.rows.find((row) => row.transactionId === 'costco')).toMatchObject({
       disposition: 'flexible_spending',
@@ -99,6 +113,17 @@ describe('reconcileMoneyEconomicRoles', () => {
     expect(result.rows.find((row) => row.transactionId === 'refund')).toMatchObject({
       disposition: 'not_spending',
       contributions: [{ role: 'flexible_spending', amountCents: 3000, spendDeltaCents: -3000 }],
+    });
+    expect(result.rows.find((row) => row.transactionId === 'pending-refund')).toMatchObject({
+      disposition: 'not_spending',
+      contributions: [],
+    });
+    expect(result.rows.find((row) => row.transactionId === 'pending-groceries')).toMatchObject({
+      disposition: 'flexible_spending',
+      contributions: [{ role: 'flexible_spending', amountCents: 5000, spendDeltaCents: 5000 }],
+    });
+    expect(result.rows.find((row) => row.transactionId === 'pending-unknown')).toMatchObject({
+      disposition: 'unresolved',
     });
   });
 

@@ -29,8 +29,19 @@ describe('Meal Plan finalization occasions', () => {
       expect.objectContaining({ candidateId: 'candidate-a', dinerPersonIds: ['adult', 'child'], servings: 4 }),
     ]);
     expect(occasions[1].dishes).toEqual([
-      expect.objectContaining({ candidateId: 'candidate-b', dinerPersonIds: ['adult', 'child'], servings: 2 }),
+      expect.objectContaining({ candidateId: 'candidate-b', dinerPersonIds: ['adult', 'child'], servings: 4 }),
     ]);
+  });
+
+  it('keeps the household count independent from the named diners', () => {
+    const [occasion] = buildDefaultMealOccasions(
+      { ...plan, candidates: [plan.candidates[1]] },
+      ['adult', 'child'],
+      7,
+      () => 'id',
+    );
+
+    expect(occasion.dishes[0]).toMatchObject({ dinerPersonIds: ['adult', 'child'], servings: 7 });
   });
 
   it('gives a revised plan new occasion and dish identities while preserving its choices', () => {

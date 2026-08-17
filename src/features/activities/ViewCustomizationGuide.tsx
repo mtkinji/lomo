@@ -4,7 +4,6 @@ import {
   Pressable,
   StyleSheet,
   Keyboard,
-  ActivityIndicator,
 } from 'react-native';
 import { HStack, VStack, Text, Textarea } from '../../ui/primitives';
 import { Icon, type IconName } from '../../ui/Icon';
@@ -15,6 +14,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { HapticsService } from '../../services/HapticsService';
 import type { ActivityView, FilterGroup, SortCondition } from '../../domain/types';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 export type ViewPreset = {
   id: string;
@@ -225,7 +225,7 @@ export function ViewCustomizationGuide({
                 editable={!isAiLoading}
                 trailingElement={
                   isAiLoading ? (
-                    <ActivityIndicator size="small" color={colors.accent} />
+                    <KwiltLoader size="small" color={colors.accent} />
                   ) : aiPrompt.trim().length > 0 ? (
                     <Pressable
                       onPress={handleAiSubmit}

@@ -8,9 +8,12 @@ function safePercent(value: number): number {
   return Math.max(0, Math.min(999, Math.round(value)));
 }
 
-function categoryStatus(percentUsed: number): GlanceableMoney['categories'][number]['status'] {
-  if (percentUsed > 100) return 'over';
-  if (percentUsed >= 90) return 'near_limit';
+function categoryStatus(
+  category: MoneySnapshot['categories'][number],
+  percentUsed: number,
+): GlanceableMoney['categories'][number]['status'] {
+  if (percentUsed >= 100 || category.remainingCents < 0 || category.forecast.status === 'over') return 'over';
+  if (category.forecast.status === 'watch') return 'near_limit';
   return 'on_track';
 }
 
@@ -38,7 +41,7 @@ export function buildMoneyGlanceableSnapshot(snapshot: MoneySnapshot, now = new 
             : categoryPercentUsed < 100
               ? 'on-track' as const
               : 'over' as const,
-          status: categoryStatus(categoryPercentUsed),
+          status: categoryStatus(category, categoryPercentUsed),
           plannedCents: safeCents(category.plannedCents),
           spentCents: safeCents(category.spentCents),
           remainingCents: signedCents(category.remainingCents),

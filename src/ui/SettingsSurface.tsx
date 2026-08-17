@@ -183,12 +183,14 @@ export function SettingsCopyField({
 }
 
 export function SettingsToggleRow({
+  description,
   disabled = false,
   enabled,
   onPress,
   switchTone,
   title,
 }: {
+  description?: string;
   disabled?: boolean;
   enabled: boolean;
   onPress: () => void;
@@ -204,9 +206,16 @@ export function SettingsToggleRow({
       onPress={onPress}
       style={({ pressed }) => [styles.row, disabled ? styles.disabled : null, pressed ? styles.pressed : null]}
     >
-      <Text selectable={false} numberOfLines={1} style={styles.rowTitle}>
-        {title}
-      </Text>
+      <View style={styles.rowCopy}>
+        <Text selectable={false} numberOfLines={1} style={styles.rowTitle}>
+          {title}
+        </Text>
+        {description ? (
+          <Text selectable={false} style={styles.rowDescription}>
+            {description}
+          </Text>
+        ) : null}
+      </View>
       <View pointerEvents="none">
         <SettingsToggle
           accessible={false}
@@ -341,6 +350,17 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 15,
     lineHeight: 20,
+  },
+  rowCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  rowDescription: {
+    color: colors.textSecondary,
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    lineHeight: 18,
   },
   rowTitleDestructive: {
     color: colors.destructive,

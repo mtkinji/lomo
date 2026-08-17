@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import { Pressable, TextInput, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 
 import { colors } from "../../../theme";
@@ -37,6 +37,7 @@ import {
 } from "../../meal-planning/domain/mealCommitments";
 import type { MealPeriod, MealTimingIntent } from "../../meal-planning/domain/mealPlanContracts";
 import type { CommittedMealPreview, GroceryPlanAction } from "../domain/mealPlanAffordance";
+import { KwiltLoader } from '../../../ui/KwiltLoader';
 
 export { MealPlanDrawer, type MealPlanTrayItem } from "./MealPlanDrawer";
 
@@ -179,7 +180,7 @@ export function RecipeFilterDrawer({
             accessibilityLabel="Updating meals"
             style={styles.filterProgress}
           >
-            <ActivityIndicator size="small" color={colors.textSecondary} />
+            <KwiltLoader size="small" color={colors.textSecondary} />
             <Text variant="label" tone="secondary">
               Updating meals…
             </Text>

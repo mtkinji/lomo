@@ -10,7 +10,6 @@ import {
   useState,
 } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
@@ -107,6 +106,7 @@ import {
   isSafeMarkdownLink,
   prepareMarkdownForRender,
 } from './safeMarkdown';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 export type { ActivitySuggestion, GoalProposalDraft } from './agentHandoffParsers';
 
@@ -3020,7 +3020,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                                 >
                                   <HStack space="xs" alignItems="center">
                                     {isRetryingWorkflowStep ? (
-                                      <ActivityIndicator size="small" color={CHAT_COLORS.textPrimary} />
+                                      <KwiltLoader size="small" color={CHAT_COLORS.textPrimary} />
                                     ) : (
                                       <Icon name="refresh" size={14} color={CHAT_COLORS.textPrimary} />
                                     )}
@@ -3210,7 +3210,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           >
                             <HStack space="xs" alignItems="center">
                               {isGeneratingActivitySuggestions ? (
-                                <ActivityIndicator color={CHAT_COLORS.textPrimary} />
+                                <KwiltLoader color={CHAT_COLORS.textPrimary} />
                               ) : (
                                 <Icon name="refresh" size={14} color={CHAT_COLORS.textPrimary} />
                               )}
@@ -3669,7 +3669,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                           activeOpacity={0.85}
                         >
                           {sending ? (
-                            <ActivityIndicator color={colors.canvas} />
+                            <KwiltLoader color={colors.canvas} />
                           ) : (
                             <Icon name="arrowUp" color={colors.canvas} size={16} />
                           )}

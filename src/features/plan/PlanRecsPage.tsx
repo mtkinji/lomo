@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, type RefObject } from 'react';
-import { ActivityIndicator, Alert, LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View, type TextInput } from 'react-native';
+import { Alert, LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View, type TextInput } from 'react-native';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
@@ -17,6 +17,7 @@ import {
   buildPlanPriorityPresentation,
   formatPlanNeedsTimeReason,
 } from '../../services/plan/planPriorityPresentation';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type PlanRecommendation = {
   activityId: string;
@@ -240,7 +241,7 @@ export function PlanRecsPage({
     return (
       <View style={[styles.emptyContainer, { padding: contentPadding }]}>
         <View style={styles.loadingContent}>
-          <ActivityIndicator size="small" color={colors.textSecondary} />
+          <KwiltLoader size="small" color={colors.textSecondary} />
           <Text style={styles.loadingText}>Loading your plan…</Text>
         </View>
       </View>
@@ -271,7 +272,7 @@ export function PlanRecsPage({
           <View style={styles.emptyContent}>
             <View style={styles.planEmptyIconWrap} accessibilityElementsHidden accessibilityRole="none">
               {isRefreshingAccess ? (
-                <ActivityIndicator size="small" color={colors.textSecondary} />
+                <KwiltLoader size="small" color={colors.textSecondary} />
               ) : (
                 <Icon name="refresh" size={32} color={colors.textSecondary} />
               )}

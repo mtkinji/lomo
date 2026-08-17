@@ -16,7 +16,6 @@ import { buildMealPlanRecipeCandidate } from '../domain/mealPlanRecipeCandidate'
 import { useHouseholdMealPreferencesStore } from '../../../features/household-food/runtime/useHouseholdMealPreferencesStore';
 import { deriveMealFit } from '../../../features/household-food/domain/householdMealFit';
 import { MealFitCallout } from '../../meal-planning/components/MealFitCallout';
-import { resolveSuggestedMealServings } from '../domain/mealPreferences';
 
 export function AddToMealPlanSheet({ visible, recipe, defaultServings, onClose, onAdded }: {
   visible: boolean; recipe: RecipeProjection; defaultServings: number; onClose(): void; onAdded(message: string, context: { planId: string; candidateId: string }): void;
@@ -94,7 +93,7 @@ export function AddToMealPlanSheet({ visible, recipe, defaultServings, onClose, 
         setDinerPersonIds(remaining);
         setExcludedDinerPersonIds(affected);
         setExcludedDinerResolution(null);
-        if (remaining.length) setServings(resolveSuggestedMealServings({ usualDinerPersonIds: remaining, numericFallback: servings }));
+        setServings((value) => Math.max(1, value - affected.length));
       }}
       onChooseAnother={onClose}
       onReviewIngredients={onClose}

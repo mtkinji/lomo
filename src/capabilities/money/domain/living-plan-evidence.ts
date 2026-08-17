@@ -50,9 +50,10 @@ export function getCompletedCategorySpendingGuidepost(input: {
 }
 
 export function buildLivingPlanEvidence(input: LivingPlanEvidenceInput): LivingPlanEvidence {
-  const canonical = input.transactions.filter((row) => !row.pending && Number.isFinite(row.amountCents) && row.amountCents >= 0);
+  const validRows = input.transactions.filter((row) => Number.isFinite(row.amountCents) && row.amountCents >= 0);
+  const postedRows = validRows.filter((row) => !row.pending);
   const inflowGroups = new Map<string, LivingPlanEvidenceTransaction[]>();
-  for (const row of canonical.filter((item) => item.direction === 'inflow')) {
+  for (const row of postedRows.filter((item) => item.direction === 'inflow')) {
     const description = `${row.description} ${row.providerCategory ?? ''}`.toLowerCase();
     const exceptional = /\b(brokerage|fidelity|schwab|vanguard|robinhood|investment|securities|stock sale|reserve withdrawal|savings withdrawal|bonus|gift|inheritance|windfall|loan proceeds|loan disbursement)\b/.test(description);
     const providerIncome = /^income(?:\b|_)/i.test(row.providerCategory ?? '');
@@ -89,7 +90,7 @@ export function buildLivingPlanEvidence(input: LivingPlanEvidenceInput): LivingP
     });
   }
   const spendGroups = new Map<string, LivingPlanEvidenceTransaction[]>();
-  for (const row of canonical.filter((item) => item.direction === 'outflow' && item.budgetId && item.moneyMeaning !== 'not_counted')) {
+  for (const row of validRows.filter((item) => item.direction === 'outflow' && item.budgetId && item.moneyMeaning !== 'not_counted')) {
     const group = spendGroups.get(row.budgetId!) ?? [];
     group.push(row);
     spendGroups.set(row.budgetId!, group);
@@ -97,7 +98,7 @@ export function buildLivingPlanEvidence(input: LivingPlanEvidenceInput): LivingP
   const currentPeriodId = input.nowIso.slice(0, 7);
   const completedPeriodIds = new Set<string>();
   for (const [categoryId, rows] of spendGroups) {
-    const completedRows = rows.filter((row) => row.date.slice(0, 7) < currentPeriodId);
+    const completedRows = rows.filter((row) => !row.pending && row.date.slice(0, 7) < currentPeriodId);
     completedRows.forEach((row) => completedPeriodIds.add(row.date.slice(0, 7)));
     const values = monthlyTotals(completedRows);
     const currentExposure = rows
@@ -119,7 +120,7 @@ export function buildLivingPlanEvidence(input: LivingPlanEvidenceInput): LivingP
     categories: sortedCategories,
     syncFresh,
     evidenceConfidence: Math.min(1, completedPeriodIds.size / 6),
-    evidenceHash: stableHash({ transactions: canonical.map(({ id, date, direction, amountCents, budgetId, moneyMeaning }) => ({ id, date, direction, amountCents, budgetId, moneyMeaning })).sort((a, b) => a.id.localeCompare(b.id)), forecastSettings: input.forecastSettings, overrides: input.overrides }),
+    evidenceHash: stableHash({ transactions: validRows.map(({ id, date, direction, amountCents, budgetId, moneyMeaning, pending }) => ({ id, date, direction, amountCents, budgetId, moneyMeaning, pending: pending === true })).sort((a, b) => a.id.localeCompare(b.id)), forecastSettings: input.forecastSettings, overrides: input.overrides }),
   };
 }
 

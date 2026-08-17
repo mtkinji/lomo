@@ -2,7 +2,7 @@ import { createHouseholdMealPreferencesStore } from './useHouseholdMealPreferenc
 import type { HouseholdMealPreferencesProjection } from '../data/householdMealPreferencesRepository';
 
 const projection: HouseholdMealPreferencesProjection = {
-  householdId: 'household-1', usualDinerPersonIds: ['adult'], setupState: 'unseen', foodNeeds: [], members: [],
+  householdId: 'household-1', usualDinerCount: 4, usualDinerPersonIds: ['adult'], setupState: 'unseen', foodNeeds: [], members: [],
 };
 
 describe('household meal preferences store', () => {
@@ -51,5 +51,30 @@ describe('household meal preferences store', () => {
     ]);
     await store.getState().setFoodNeed({ personId: 'child', ingredientConcept: 'peanut', displayLabel: 'Peanuts', present: false });
     expect(store.getState().projection?.foodNeeds).toEqual([]);
+  });
+
+  it('saves count and people atomically and rolls both back on failure', async () => {
+    const repository = {
+      load: jest.fn(), setPreferences: jest.fn().mockRejectedValue(new Error('offline')), setFoodNeed: jest.fn(),
+    };
+    const cache = { read: jest.fn(), write: jest.fn(), clear: jest.fn() };
+    const store = createHouseholdMealPreferencesStore(repository as never, cache as never);
+    store.setState({ userId: 'user-a', projection, status: 'ready' });
+
+    const update = store.getState().setUsualDiners({ usualDinerCount: 7, personIds: ['adult', 'child'] });
+    expect(store.getState().projection).toMatchObject({ usualDinerCount: 7, usualDinerPersonIds: ['adult', 'child'] });
+    await expect(update).rejects.toThrow('offline');
+    expect(store.getState().projection).toMatchObject({ usualDinerCount: 4, usualDinerPersonIds: ['adult'] });
+  });
+
+  it('rejects a count smaller than the selected people', async () => {
+    const repository = { load: jest.fn(), setPreferences: jest.fn(), setFoodNeed: jest.fn() };
+    const cache = { read: jest.fn(), write: jest.fn(), clear: jest.fn() };
+    const store = createHouseholdMealPreferencesStore(repository as never, cache as never);
+    store.setState({ userId: 'user-a', projection, status: 'ready' });
+
+    await expect(store.getState().setUsualDiners({ usualDinerCount: 1, personIds: ['adult', 'child'] }))
+      .rejects.toThrow('Count cannot be lower than selected people.');
+    expect(repository.setPreferences).not.toHaveBeenCalled();
   });
 });

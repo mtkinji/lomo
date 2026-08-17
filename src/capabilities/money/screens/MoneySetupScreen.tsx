@@ -18,7 +18,7 @@ import { MoneyScreenFrame } from './MoneyScreenFrame';
 type SetupStep = 'welcome' | 'target' | 'account' | 'build' | 'complete';
 
 export function MoneySetupScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySetup'>) {
-  const { reconcileGovernedPlanFoundation, refresh, snapshot } = useMoneyData();
+  const { reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, snapshot } = useMoneyData();
   const [step, setStep] = useState<SetupStep>('welcome');
   const [livingPercent, setLivingPercent] = useState(70);
   const [userId, setUserId] = useState<string | null>(null);
@@ -74,7 +74,7 @@ export function MoneySetupScreen({ navigation }: NativeStackScreenProps<MoneySta
       }
       setLinkedDuringSetup(true);
       setSkippedAccount(false);
-      await reconcileGovernedPlanFoundation();
+      await reconcileConnectedActivity({ trigger: 'account_connected', sync: false });
       setMessage(`${result.exchange.institutionName} connected and synced.`);
       setStep('build');
     } catch (error) {

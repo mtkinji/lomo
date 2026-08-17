@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,6 +9,7 @@ import { colors, spacing, typography } from '../../theme';
 import { VStack, Text, EmptyState } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
 import { Coachmark } from '../../ui/Coachmark';
+import { KwiltRefreshFrame, useKwiltRefresh } from '../../ui/KwiltRefresh';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,7 +87,6 @@ export function ChaptersScreen() {
   const showedUpToday = useShowedUpToday(lastShowUpDate);
   const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
   const repairWindowActive = useRepairWindowActive(streakBreakState);
-  const [refreshing, setRefreshing] = React.useState(false);
   const [hasLoadedChapters, setHasLoadedChapters] = React.useState(false);
   const [chaptersLoadFailed, setChaptersLoadFailed] = React.useState(false);
   const [chapters, setChapters] = React.useState<ChapterRow[]>([]);
@@ -158,8 +158,7 @@ export function ChaptersScreen() {
     }
   };
 
-  const refresh = React.useCallback(async (mode: 'background' | 'pull' = 'background') => {
-    if (mode === 'pull') setRefreshing(true);
+  const refresh = React.useCallback(async () => {
     try {
       // Best-effort fetch: we don't want to force an auth prompt just to view the page.
       const rows = await fetchMyChapters({ limit: 30, throwOnError: true });
@@ -178,10 +177,9 @@ export function ChaptersScreen() {
         hasLoadedChaptersRef.current = true;
         setHasLoadedChapters(true);
       }
-    } finally {
-      if (mode === 'pull') setRefreshing(false);
     }
   }, [capture]);
+  const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: refresh });
 
   const loadWeeklySettings = React.useCallback(async () => {
     try {
@@ -220,7 +218,7 @@ export function ChaptersScreen() {
       // yearly / manual factories are cut. The cron does the rest.
       void createDefaultWeeklyReflectionTemplate().catch(() => null);
       void loadWeeklySettings();
-      void refresh('background');
+      void refresh();
       return () => {};
     }, [loadWeeklySettings, refresh]),
   );
@@ -239,10 +237,13 @@ export function ChaptersScreen() {
         repairWindowActive={repairWindowActive}
         moreMenu={chapterSettingsMenu}
       />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh('pull')} />}
-      >
+      <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          onScroll={onScroll}
+          refreshControl={refreshControl}
+          scrollEventThrottle={scrollEventThrottle}
+        >
         <VStack space="lg" style={styles.contentStack}>
           {isInitialChaptersLoad ? (
             <View style={styles.loadingState}>
@@ -361,7 +362,8 @@ export function ChaptersScreen() {
             />
           )}
         </VStack>
-      </ScrollView>
+        </ScrollView>
+      </KwiltRefreshFrame>
       <Coachmark
         visible={showSettingsCoachmark}
         targetRef={moreMenuTargetRef}

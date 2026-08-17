@@ -27,6 +27,7 @@ jest.mock('../../../ui/DropdownMenu', () => {
 
 const menuProps = {
   defaultServings: 4,
+  minimumServings: 1,
   hiddenCount: 0,
   foodNeedsCount: 0,
   onChangeDefaultServings: jest.fn(),

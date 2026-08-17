@@ -10,6 +10,7 @@ describe('household meal preferences cache', () => {
     });
     const projection = {
       householdId: 'household-1',
+      usualDinerCount: 7,
       usualDinerPersonIds: ['adult', 'child'],
       setupState: 'completed' as const,
       foodNeeds: [{ id: 'need', personId: 'child', kind: 'must_avoid' as const, ingredientConcept: 'peanut', displayLabel: 'Peanuts' }],
@@ -20,5 +21,17 @@ describe('household meal preferences cache', () => {
     expect(householdMealPreferencesCacheKey('user-a')).not.toContain('Peanuts');
     await cache.write('user-a', projection);
     await expect(cache.read('user-a')).resolves.toEqual(projection);
+  });
+
+  it('drops cached state with an impossible count', async () => {
+    const cache = createHouseholdMealPreferencesCache({
+      getItem: async () => JSON.stringify({
+        householdId: 'household-1', usualDinerCount: 1, usualDinerPersonIds: ['adult', 'child'],
+        setupState: 'completed', foodNeeds: [], members: [],
+      }),
+      setItem: async () => undefined,
+      removeItem: jest.fn().mockResolvedValue(undefined),
+    });
+    await expect(cache.read('user-a')).resolves.toBeNull();
   });
 });

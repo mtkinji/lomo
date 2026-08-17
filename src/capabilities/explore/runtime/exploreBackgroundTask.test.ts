@@ -4,7 +4,9 @@ import { appendExplorePoint, beginExploreSession, createEmptyExploreData } from 
 import {
   enterExploreDeepSleep,
   startExploreBackgroundUpdates,
+  stopExploreBackgroundUpdates,
 } from './exploreLocationUpdates';
+import { KWILT_LABS_STORAGE_KEY } from '../../../labs/kwiltLabs';
 import {
   EXPLORE_BACKGROUND_TASK,
   EXPLORE_WAKE_REGION_ID,
@@ -50,6 +52,40 @@ describe('Explore background tasks', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     await AsyncStorage.clear();
+    await AsyncStorage.setItem(KWILT_LABS_STORAGE_KEY, JSON.stringify({
+      state: { enabledCapabilities: ['explore'] },
+      version: 1,
+    }));
+  });
+
+  it('stops stale background services without touching Explore data when the Lab is off', async () => {
+    const startedAt = '2026-07-28T12:00:00.000Z';
+    const state = beginExploreSession(createEmptyExploreData(), 'ambient-1', startedAt, 'ambient');
+    await AsyncStorage.removeItem(KWILT_LABS_STORAGE_KEY);
+    await AsyncStorage.setItem('kwilt-explore-v1', JSON.stringify({ state, version: 10 }));
+
+    await mockTasks[EXPLORE_BACKGROUND_TASK]({ data: { locations: [{
+      coords: {
+        latitude: 40.5,
+        longitude: -105.1,
+        altitude: 1500,
+        accuracy: 8,
+        altitudeAccuracy: 6,
+        speed: 2,
+        heading: 90,
+      },
+      timestamp: Date.parse(startedAt),
+    }] } });
+    await mockTasks[EXPLORE_WAKE_TASK]({
+      data: {
+        eventType: Location.GeofencingEventType.Exit,
+        region: { identifier: EXPLORE_WAKE_REGION_ID },
+      },
+    });
+
+    expect(stopExploreBackgroundUpdates).toHaveBeenCalledTimes(2);
+    expect((await storedState()).activeSession.points).toHaveLength(0);
+    expect(startExploreBackgroundUpdates).not.toHaveBeenCalled();
   });
 
   it('persists deep sleep and installs the low-power wake condition', async () => {

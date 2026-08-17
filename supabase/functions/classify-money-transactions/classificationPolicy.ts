@@ -10,8 +10,7 @@ export type ClassifierCandidateRow = {
 };
 
 export function isMoneyClassifierCandidate(row: ClassifierCandidateRow): boolean {
-  return !row.pending
-    && row.direction === 'outflow'
+  return row.direction === 'outflow'
     && row.budget_id == null
     && row.budget_match_source == null
     && row.budget_assignment_source == null

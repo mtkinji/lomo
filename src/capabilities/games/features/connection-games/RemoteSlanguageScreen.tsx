@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from '@/src/capabilities/games/navigation/gamesRouter';
 import { ArrowLeft, Check, Crown, Sparkles } from 'lucide-react-native';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   buildSlanguageTranslation,
@@ -20,6 +20,7 @@ import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';
 import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
 import { restartOpenGameTable } from '@/src/capabilities/games/remote/remoteBankClient';
 import { remoteRematchPresentation } from '@/src/capabilities/games/remote/remoteGameLifecycle';
+import { KwiltLoader } from '../../../../ui/KwiltLoader';
 
 function useClock(active: boolean) {
   const [now, setNow] = useState(Date.now());
@@ -40,7 +41,7 @@ export function RemoteSlanguageScreen() {
   const musicPhase = room?.state.phase;
   useGameMusic(musicPhase === 'build' || musicPhase === 'vote' ? 'game.slanguage' : null, soundEnabled);
 
-  if (loading || !room) return <GameBackdrop><SafeAreaView style={styles.loading}><ActivityIndicator color={gamesTheme.colors.coral} /><Text style={styles.loadingText}>{error ?? 'Opening Slanguage…'}</Text></SafeAreaView></GameBackdrop>;
+  if (loading || !room) return <GameBackdrop><SafeAreaView style={styles.loading}><KwiltLoader color={gamesTheme.colors.coral} /><Text style={styles.loadingText}>{error ?? 'Opening Slanguage…'}</Text></SafeAreaView></GameBackdrop>;
   if (room.state.phase === 'lobby') return <OpenSlanguageTableLobby
     room={room}
     userId={userId}
@@ -83,7 +84,7 @@ function BuildRound({ room, sending, error, submit }: { room: Room; sending: boo
     setSelectedSlot(room.prompt?.targets[0]?.id ?? 'opening');
   }, [room.prompt?.targets, room.state.roundIndex]);
 
-  if (!prompt) return <View style={styles.center}><ActivityIndicator color={gamesTheme.colors.coral} /><Text style={styles.loadingText}>Dealing the words…</Text></View>;
+  if (!prompt) return <View style={styles.center}><KwiltLoader color={gamesTheme.colors.coral} /><Text style={styles.loadingText}>Dealing the words…</Text></View>;
   const built = buildSlanguageTranslation(prompt, room.hand, placements);
   const sentenceParts = slanguageSentenceParts(prompt, room.hand, placements);
   const seconds = room.state.deadline ? Math.max(0, Math.ceil((new Date(room.state.deadline).getTime() - now) / 1000)) : 60;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Text } from './Typography';
 import { Icon } from './Icon';
@@ -11,6 +11,7 @@ import {
   type MediaRole,
 } from '../services/gifs';
 import { useAppStore } from '../store/useAppStore';
+import { KwiltLoader } from './KwiltLoader';
 
 type CelebrationGifProps = {
   role?: MediaRole;
@@ -173,7 +174,7 @@ export function CelebrationGif({
       >
         {isLoading ? (
           <View style={styles.loadingState}>
-            <ActivityIndicator color={colors.accent} />
+            <KwiltLoader color={colors.accent} />
           </View>
         ) : url ? (
           <Image source={{ uri: url }} style={styles.image} resizeMode="contain" />

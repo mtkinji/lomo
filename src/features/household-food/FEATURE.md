@@ -8,6 +8,7 @@ job_flows:
   - job-flow-maya-feed-household-with-less-work
   - job-flow-maya-move-family-life-forward
 serves:
+  - jtbd-move-the-few-things-that-matter
   - jtbd-carry-intentions-into-action
   - jtbd-capture-and-find-meaning
   - jtbd-invite-the-right-people-in
@@ -15,11 +16,12 @@ serves:
   - jtbd-trust-this-app-with-my-life
 briefs:
   - household-food-loop
+  - household-meal-count
   - shared-meal-cart
   - progressive-meal-commitment
   - live-family-meal-board
 status: draft
-last_reviewed: 2026-08-11
+last_reviewed: 2026-08-17
 ---
 
 # Household food

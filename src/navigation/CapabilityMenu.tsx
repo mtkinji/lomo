@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableProps,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -11,6 +11,7 @@ import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { ButtonLabel } from '../ui/Typography';
+import { KwiltLoader } from '../ui/KwiltLoader';
 
 type CapabilityMenuProps = {
   activeCapabilityId: CapabilityMenuDestinationId | null;
@@ -170,7 +171,7 @@ export function CapabilityMenu({
         </View>
         {chatsLoading && chats.length === 0 ? (
           <View style={styles.chatStateRow}>
-            <ActivityIndicator size="small" color={colors.textSecondary} />
+            <KwiltLoader size="small" color={colors.textSecondary} />
             <Text style={styles.chatStateText}>Loading chats…</Text>
           </View>
         ) : chatsError && chats.length === 0 ? (

@@ -1,7 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { Icon, type IconName } from '../../../ui/Icon';
 import {
@@ -18,14 +17,12 @@ import {
   MoneyInventoryListFrame,
 } from '../components/MoneyInventoryListFrame';
 import { useMoneyData } from '../data/MoneyDataContext';
-import { syncMoneyTransactions } from '../data/moneyPlaidApi';
-import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
 import { formatMoney, formatMoneyFreshness, type MoneyTransaction } from '../data/moneySnapshot';
 import { projectMoneyTransactionsForCategory } from '../domain/moneyPeriodView';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 
-type Filter = 'all' | 'unmatched' | 'matched' | 'outflow' | 'inflow' | 'pending';
+type Filter = 'all' | 'unmatched' | 'matched' | 'outflow' | 'inflow';
 type Sort = 'newest' | 'oldest' | 'amount_high' | 'merchant';
 type DateScope = 'current_month' | 'last_30_days' | 'last_12_months' | 'all';
 
@@ -35,7 +32,6 @@ const FILTER_OPTIONS: Array<{ value: Filter; label: string }> = [
   { value: 'matched', label: 'Matched' },
   { value: 'outflow', label: 'Spending' },
   { value: 'inflow', label: 'Income' },
-  { value: 'pending', label: 'Pending' },
 ];
 const SORT_OPTIONS: Array<{ value: Sort; label: string }> = [
   { value: 'newest', label: 'Newest first' },
@@ -51,7 +47,7 @@ const DATE_OPTIONS: Array<{ value: DateScope; label: string }> = [
 ];
 
 export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyTransactions'>) {
-  const { snapshot, reconcileGovernedPlanFoundation } = useMoneyData();
+  const { snapshot, reconcileConnectedActivity } = useMoneyData();
   const [dateScope, setDateScope] = useState<DateScope>('current_month');
   const [filter, setFilter] = useState<Filter>(route.params?.reviewState === 'needs_review' ? 'unmatched' : 'all');
   const [sort, setSort] = useState<Sort>('newest');
@@ -104,10 +100,9 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
     setSyncing(true);
     setActivityMessage('Checking…');
     try {
-      const result = await syncMoneyTransactions(getSupabaseClient());
-      await reconcileGovernedPlanFoundation();
-      await reconcileLivingPlan(getSupabaseClient(), 'sync_evidence_changed');
-      setActivityMessage(result.added > 0 ? `${result.added} new ${result.added === 1 ? 'transaction' : 'transactions'}` : 'Up to date');
+      const result = await reconcileConnectedActivity({ trigger: 'manual_sync', sync: true });
+      const added = result?.added ?? 0;
+      setActivityMessage(added > 0 ? `${added} new ${added === 1 ? 'transaction' : 'transactions'}` : 'Up to date');
     } catch {
       setActivityMessage('Unable to check right now');
     } finally {
@@ -176,8 +171,8 @@ function TransactionMenuItem({ active, iconName, label, onPress }: { active: boo
 }
 
 function TransactionInventoryRow({ onPress, transaction }: { onPress: () => void; transaction: MoneyTransaction }) {
-  const state = transaction.pending ? 'Pending' : transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.reviewState === 'not_counted' ? 'Not budgeted' : '';
-  const stateStyle = transaction.pending ? styles.pendingChip : transaction.reviewState === 'needs_review' ? styles.reviewChip : styles.neutralChip;
+  const state = transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.reviewState === 'not_counted' ? 'Not budgeted' : '';
+  const stateStyle = transaction.reviewState === 'needs_review' ? styles.reviewChip : styles.neutralChip;
   const amountCents = transaction.direction === 'inflow' ? transaction.amountCents : -transaction.amountCents;
   const assignment = transaction.categoryName ?? (state || 'Uncategorized');
   const amountLabel = `${amountCents > 0 ? '+' : ''}${formatMoney(amountCents, transaction.currencyCode)}`;
@@ -185,7 +180,9 @@ function TransactionInventoryRow({ onPress, transaction }: { onPress: () => void
     <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction, ${assignment}, ${amountLabel}`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.transactionRowPressed : null]}>
       <View style={styles.merchantBlock}>
         <Text numberOfLines={1} style={styles.merchant}>{transaction.merchantName}</Text>
-        {transaction.categoryName ? <Text numberOfLines={1} style={styles.assignmentMeta}>{transaction.categoryName}</Text> : null}
+        {transaction.categoryName && transaction.categoryName !== state
+          ? <Text numberOfLines={1} style={styles.assignmentMeta}>{transaction.categoryName}</Text>
+          : null}
       </View>
       {state ? <Text numberOfLines={1} style={[styles.assignmentChip, stateStyle]}>{state}</Text> : null}
       <Text style={[styles.amount, transaction.direction === 'inflow' ? styles.inflowAmount : null]}>{amountLabel}</Text>
@@ -197,7 +194,6 @@ function matchesFilter(transaction: MoneyTransaction, filter: Filter): boolean {
   if (filter === 'all') return true;
   if (filter === 'unmatched') return transaction.reviewState === 'needs_review';
   if (filter === 'matched') return transaction.reviewState === 'assigned';
-  if (filter === 'pending') return transaction.pending;
   return transaction.direction === filter;
 }
 
@@ -252,7 +248,6 @@ const styles = StyleSheet.create({
   merchant: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 21, fontWeight: '500', color: colors.textPrimary },
   assignmentMeta: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.textSecondary },
   assignmentChip: { maxWidth: 104, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, overflow: 'hidden', fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14 },
-  pendingChip: { backgroundColor: colors.turmeric50, color: colors.turmeric600 },
   reviewChip: { backgroundColor: colors.madder50, color: colors.madder600 },
   neutralChip: { backgroundColor: colors.fieldFill, color: colors.textSecondary },
   amount: { minWidth: 72, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, fontWeight: '600', fontVariant: ['tabular-nums'], color: colors.textPrimary },

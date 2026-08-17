@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
-  ActivityIndicator,
   Alert,
   ScrollView,
   StatusBar,
@@ -46,6 +45,7 @@ import { useAnalytics } from "../../../services/analytics/useAnalytics";
 import { STARTER_RECIPE_PROJECTIONS } from "../data/starterRecipeCatalog";
 import { resolveAvailableRecipe } from "../data/resolveAvailableRecipe";
 import { cookModeEducationCache } from "../data/cookModeEducationCache";
+import { KwiltLoader } from '../../../ui/KwiltLoader';
 
 type Props = NativeStackScreenProps<FoodStackParamList, "RecipeCookMode">;
 const LANDSCAPE_INGREDIENT_RAIL_WIDTH = 300;
@@ -109,7 +109,7 @@ export function RecipeCookModeExperience({
     return (
       <AppShell>
         <View style={styles.center}>
-          <ActivityIndicator color={colors.textSecondary} />
+          <KwiltLoader color={colors.textSecondary} />
           <Text tone="secondary">Restoring your place…</Text>
         </View>
       </AppShell>
