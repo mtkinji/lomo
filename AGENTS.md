@@ -98,15 +98,39 @@ npm run jtbd:lint
 
 Validates JTBD front-matter, `parent` references, and `serves:` references in feature briefs and any "JTBDs served" trailer sections across `docs/`.
 
-### Agent completion ritual
+### Tiered verification lifecycle
 
-Before handing work back, run:
+Match verification cost to the stage of work. Do not use the full repository suite as an inner-loop command.
+
+#### Tier 1 — implementation loop
+
+- Run the smallest test or check that exercises the behavior being changed.
+- Logic covered by the TDD posture stays red/green: run its focused regression first, implement, then rerun it.
+- For presentational UI, iterate in the relevant runtime and add focused tests only for meaningful state, branching, accessibility, or regression risk.
+- Do not run `npm run verify:changed -- --run` after every edit.
+
+#### Tier 2 — task completion
+
+When the intended slice is complete and ready to hand off or integrate, run once:
 
 ```bash
 npm run verify:changed -- --run
 ```
 
-This derives the right local verification gates from the current diff, including app typecheck, test typecheck, related Jest, product lint, architecture lint, Supabase function lint, and manual simulator/visual follow-ups when relevant. Use it as the default completion pass, then add broader checks like `npm test -- --runInBand` when shared config, shared stores/services, or test infrastructure changed.
+This derives the local gates from the current diff, including app typecheck, test typecheck, related Jest, product lint, architecture lint, Supabase function lint, and manual Simulator/visual follow-ups when relevant.
+
+Run it again only when the first run failed, its result was lost or incomplete, the diff changed afterward, or the integration base changed. State the reason for a repeated completion run.
+
+#### Tier 3 — integration and release
+
+Run broader checks such as `npm test -- --runInBand` only when:
+
+- shared Jest/runtime configuration or test infrastructure changed;
+- a broad shared store, service, package, or dependency boundary changed and affected-test selection cannot provide adequate confidence;
+- an integration/release gate explicitly requires the full suite; or
+- CI owns the repository-wide confirmation.
+
+A full-suite pass does not replace relevant Simulator, physical-device, backend, TestFlight, or production proof. Keep those gates separate and run them only at the lifecycle stage that needs them.
 
 ## Cursor Cloud specific instructions
 
