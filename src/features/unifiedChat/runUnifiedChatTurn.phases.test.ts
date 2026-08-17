@@ -3,6 +3,7 @@ import { materializeUnifiedChatOutcomePhase } from './turnOutcomePhase';
 import type { CreateUnifiedChatMessageInput, UnifiedChatThreadAggregate } from './types';
 import fs from 'node:fs';
 import path from 'node:path';
+import { AnalyticsEvent } from '../../services/analytics/events';
 
 const aggregate: UnifiedChatThreadAggregate = {
   thread: {
@@ -246,6 +247,186 @@ test('text turns keep the existing response ceiling and prompt', async () => {
   const options = calls[0]?.[1] ?? {};
   expect(options.maxOutputTokens).toBeUndefined();
   expect(options.launchContextSummary).not.toContain('Conversation mode:');
+});
+
+test('a tiny social turn uses an authored response without any model call', async () => {
+  const { repository, sendCoachChat } = harness();
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Yo', interactionMode: 'text' },
+    { repository: repository as never, sendCoachChat: sendCoachChat as never },
+  );
+
+  expect(sendCoachChat).not.toHaveBeenCalled();
+  expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+    role: 'assistant',
+    body: 'Hey! What’s up?',
+  }));
+});
+
+test('an eligible text task uses on-device generation without a paid model call', async () => {
+  const { repository, sendCoachChat } = harness();
+  const captureTelemetry = jest.fn();
+  const progress: Array<{ runId: string; text: string }> = [];
+  const generateOnDeviceResponse = jest.fn(async (_request, _signal, onUpdate) => {
+    onUpdate?.('I’m sorry,');
+    return {
+      status: 'completed' as const,
+      text: 'I’m sorry, but I can’t attend.',
+      durationMs: 240,
+      firstOutputMs: 120,
+      warmState: 'warm' as const,
+    };
+  });
+
+  await runUnifiedChatTurn(
+    {
+      aggregate,
+      prompt: 'Rewrite this more warmly: I cannot attend.',
+      interactionMode: 'text',
+      onResponseProgress: (update) => progress.push(update),
+    },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      generateOnDeviceResponse,
+      captureTelemetry,
+    },
+  );
+
+  expect(generateOnDeviceResponse).toHaveBeenCalledWith(expect.objectContaining({
+    task: 'rewrite',
+  }), undefined, expect.any(Function));
+  expect(progress).toEqual([{ runId: 'run-1', text: 'I’m sorry,' }]);
+  expect(sendCoachChat).not.toHaveBeenCalled();
+  expect(captureTelemetry).toHaveBeenCalledWith(
+    AnalyticsEvent.UnifiedChatResponseLatency,
+    expect.objectContaining({
+      provider: 'apple_foundation_models',
+      first_output_ms: 120,
+      total_ms: 240,
+      warm_state: 'warm',
+    }),
+  );
+  expect(repository.insertMessage).toHaveBeenCalledTimes(2);
+  expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+    role: 'assistant',
+    body: 'I’m sorry, but I can’t attend.',
+  }));
+});
+
+test('an unavailable on-device task falls back to the existing cloud model', async () => {
+  const { repository } = harness();
+  const captureTelemetry = jest.fn();
+  const onProviderFallback = jest.fn();
+  const progress: Array<{ runId: string; text: string }> = [];
+  const sendCoachChat = jest.fn(async (_history, options) => {
+    options?.onTextUpdate?.('Cloud partial');
+    return 'Cloud final';
+  });
+  const generateOnDeviceResponse = jest.fn(async () => ({
+    status: 'unavailable' as const,
+    reason: 'model_not_ready',
+  }));
+
+  await runUnifiedChatTurn(
+    {
+      aggregate,
+      prompt: 'Rewrite this more warmly: I cannot attend.',
+      interactionMode: 'text',
+      onResponseProgress: (update) => progress.push(update),
+      onProviderFallback,
+    },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      generateOnDeviceResponse,
+      captureTelemetry,
+    },
+  );
+
+  expect(generateOnDeviceResponse).toHaveBeenCalled();
+  expect(sendCoachChat).toHaveBeenCalledTimes(1);
+  expect(onProviderFallback).toHaveBeenCalledWith({
+    from: 'on_device',
+    to: 'cloud',
+    reason: 'model_not_ready',
+  });
+  expect(captureTelemetry).toHaveBeenCalledWith(
+    AnalyticsEvent.UnifiedChatResponseLatency,
+    expect.objectContaining({
+      provider: 'cloud',
+      outcome: 'completed',
+      first_output_ms: expect.any(Number),
+      total_ms: expect.any(Number),
+      fallback_ms: expect.any(Number),
+    }),
+  );
+  expect(progress).toEqual([{ runId: 'run-1', text: 'Cloud partial' }]);
+  expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+    role: 'assistant',
+    body: 'Cloud final',
+  }));
+});
+
+test('a cancelled on-device task stops without spending a cloud request', async () => {
+  const { repository, sendCoachChat } = harness();
+  const controller = new AbortController();
+  const generateOnDeviceResponse = jest.fn(async () => {
+    controller.abort();
+    return { status: 'cancelled' as const, reason: 'cancelled' };
+  });
+
+  await expect(runUnifiedChatTurn(
+    { aggregate, prompt: 'Rewrite this more warmly: I cannot attend.', interactionMode: 'text', signal: controller.signal },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      generateOnDeviceResponse,
+    },
+  )).rejects.toThrow('Response stopped.');
+
+  expect(sendCoachChat).not.toHaveBeenCalled();
+});
+
+test('an unexpected native cancellation falls back while the turn remains active', async () => {
+  const { repository, sendCoachChat } = harness();
+  const controller = new AbortController();
+  const generateOnDeviceResponse = jest.fn(async () => ({
+    status: 'cancelled' as const,
+    reason: 'cancelled',
+  }));
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Rewrite this more warmly: I cannot attend.', interactionMode: 'text', signal: controller.signal },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      generateOnDeviceResponse,
+    },
+  );
+
+  expect(sendCoachChat).toHaveBeenCalledTimes(1);
+});
+
+test('a local email rewrite stays plain text and does not trigger artifact recovery', async () => {
+  const { repository, sendCoachChat } = harness();
+  const generateOnDeviceResponse = jest.fn(async () => ({
+    status: 'completed' as const,
+    text: 'I’m sorry, but I can’t attend.',
+    durationMs: 240,
+  }));
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Rewrite this email: I cannot attend.', interactionMode: 'text' },
+    {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      generateOnDeviceResponse,
+    },
+  );
+
+  expect(sendCoachChat).not.toHaveBeenCalled();
 });
 
 test('outcome phase converts completion-looking action prose into a durable clarification', async () => {

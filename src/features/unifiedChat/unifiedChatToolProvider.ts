@@ -25,8 +25,20 @@ import {
   parseScreenTimePrerequisiteAgreementProposal,
   type ScreenTimeProposalOperation,
 } from './screenTimeProposal';
+import {
+  buildReviewedRecipeCreate,
+  buildReviewedRecipeUpdate,
+  recipePatchFieldLabels,
+  type RecipeProposalOperation,
+} from './recipeProposal';
 
 export type StagedUnifiedChatToolProposal =
+  | {
+      capabilityId: 'recipes';
+      title: string;
+      body: string;
+      operation: RecipeProposalOperation;
+    }
   | {
       capabilityId: 'money';
       title: string;
@@ -144,6 +156,70 @@ export function createUnifiedChatToolProvider({
     if (relationshipResult) return relationshipResult;
     const deviceResult = await deviceProvider.execute(call, tool);
     if (deviceResult) return deviceResult;
+    if (call.toolId === 'recipes.create') {
+      const reviewedData = buildReviewedRecipeCreate(call.arguments.recipe);
+      if (!reviewedData) {
+        return failed('invalid_recipe', 'Add a title, at least one ingredient, and at least one instruction before saving this Recipe.');
+      }
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'recipes', title: `Create ${reviewedData.title}`,
+        body: `${reviewedData.ingredients.length} ingredient${reviewedData.ingredients.length === 1 ? '' : 's'} · ${reviewedData.instructions.length} step${reviewedData.instructions.length === 1 ? '' : 's'} · private Recipe`,
+        operation: { type: 'create_recipe', targetId: null, expectedVersion: 0, payload: { reviewedData } },
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal: proposal as unknown as Record<string, unknown> };
+    }
+    if (call.toolId === 'recipes.update') {
+      const recipeId = typeof call.arguments.recipeId === 'string' ? call.arguments.recipeId : '';
+      const expectedVersion = call.arguments.expectedVersion;
+      const projection = snapshots.recipes?.recipes.find((item) => item.recipe.id === recipeId);
+      if (!projection || projection.recipe.lifecycle !== 'active') {
+        return failed('recipe_not_found', 'That private Recipe is no longer available.');
+      }
+      if (projection.recipe.provenance.rightsBasis === 'kwilt_authored' || projection.recipe.provenance.method === 'catalog') {
+        return failed('recipe_not_editable', 'Kwilt catalog Recipes cannot be changed in place. Save an independent copy first.');
+      }
+      if (!Number.isInteger(expectedVersion) || expectedVersion !== projection.currentVersion.version) {
+        return { status: 'failed', code: 'recipe_version_stale', message: `${projection.currentVersion.title} changed. Review the current Recipe before updating it.`, retryable: true };
+      }
+      const reviewedData = buildReviewedRecipeUpdate(projection, call.arguments.reviewedVersion);
+      if (!reviewedData) return failed('invalid_recipe_patch', 'Choose a supported Recipe field and keep at least one ingredient and instruction.');
+      const changedFields = recipePatchFieldLabels(call.arguments.reviewedVersion);
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'recipes', title: `Update ${projection.currentVersion.title}`,
+        body: 'Creates a reviewed new version and preserves the current Recipe history.',
+        operation: {
+          type: 'update_recipe', targetId: projection.recipe.id,
+          expectedVersion: projection.currentVersion.version, payload: { reviewedData, changedFields },
+        },
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal: proposal as unknown as Record<string, unknown> };
+    }
+    if (call.toolId === 'recipes.delete') {
+      const recipeId = typeof call.arguments.recipeId === 'string' ? call.arguments.recipeId : '';
+      const expectedVersion = call.arguments.expectedVersion;
+      const projection = snapshots.recipes?.recipes.find((item) => item.recipe.id === recipeId);
+      if (!projection || projection.recipe.lifecycle !== 'active') {
+        return failed('recipe_not_found', 'That private Recipe is no longer available.');
+      }
+      if (projection.recipe.provenance.rightsBasis === 'kwilt_authored' || projection.recipe.provenance.method === 'catalog') {
+        return failed('recipe_not_deletable', 'Kwilt catalog Recipes can be hidden, but they cannot be deleted as private Recipes.');
+      }
+      if (!Number.isInteger(expectedVersion) || expectedVersion !== projection.currentVersion.version) {
+        return { status: 'failed', code: 'recipe_version_stale', message: `${projection.currentVersion.title} changed. Review the current Recipe before deleting it.`, retryable: true };
+      }
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'recipes', title: `Delete ${projection.currentVersion.title}`,
+        body: 'This removes this private Recipe from your library after explicit approval.',
+        operation: {
+          type: 'delete_recipe', targetId: projection.recipe.id,
+          expectedVersion: projection.currentVersion.version, payload: {},
+        },
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal: proposal as unknown as Record<string, unknown> };
+    }
     if (call.toolId === 'recipes.read') {
       const recipeId = typeof call.arguments.recipeId === 'string' ? call.arguments.recipeId : '';
       const recipeVersionId = typeof call.arguments.recipeVersionId === 'string'

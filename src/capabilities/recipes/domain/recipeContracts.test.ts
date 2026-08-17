@@ -54,6 +54,29 @@ describe('Recipe contracts', () => {
     ]);
   });
 
+  test('preserves bounded equipment requirements with source evidence', () => {
+    const version = parseRecipeVersion({
+      ...familyRecipeFixture.version,
+      instructions: [{
+        ...familyRecipeFixture.version.instructions[0],
+        text: 'Cut the zucchini with a spiralizer.',
+      }],
+      equipmentRequirements: [{
+        id: 'spiralizer',
+        label: 'Spiralizer',
+        searchQuery: 'vegetable spiralizer',
+        necessity: 'required',
+        confidence: 0.94,
+        evidenceText: 'Cut the zucchini with a spiralizer.',
+        substitute: null,
+      }],
+    });
+
+    expect(version.equipmentRequirements).toEqual([
+      expect.objectContaining({ id: 'spiralizer', confidence: 0.94 }),
+    ]);
+  });
+
   test('rejects instruction cue positions that are not contiguous', () => {
     const invalidCues = {
       ...familyRecipeFixture.version,

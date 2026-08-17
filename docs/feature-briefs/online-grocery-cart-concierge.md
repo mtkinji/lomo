@@ -6,10 +6,10 @@ audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-feed-household-with-less-work
-serves: [jtbd-carry-intentions-into-action, jtbd-review-budget-reality-before-spending, jtbd-trust-this-app-with-my-life]
+serves: [jtbd-carry-intentions-into-action, jtbd-review-budget-reality-before-spending, jtbd-trust-this-app-with-my-life, jtbd-understand-why-ai-suggested-this]
 related_briefs: [household-food-loop, exact-store-retailer-handoff]
 owner: andrew
-last_updated: 2026-08-14
+last_updated: 2026-08-16
 ---
 
 ## Context
@@ -202,6 +202,40 @@ approved cart URL for specific product identifiers. Opening that URL means only
 contents, price, fulfillment, and checkout. A changed Grocery-list revision
 safely starts a fresh preparation rather than carrying stale assertions forward.
 
+### Recipe equipment below groceries
+
+When the current list has Recipe provenance, Groceries may show at most three
+specialized kitchen tools below the actual grocery rows. Each suggestion names
+the Recipe or Recipes that surfaced it. When Amazon's exact mobile surface and
+qualifying-link format are approved, `Search Amazon` opens a one-tool search in
+the Amazon app or system browser with the qualifying-link disclosure beside the
+Recipe provenance. The suggestion remains outside the Grocery list, and opening
+Amazon does not mark it covered, purchased, or carted. `View on Amazon` requires
+an exact product/ASIN from an approved provider; a generic equipment concept
+must remain `Search Amazon`. If the external handoff fails, `Add to list` may be
+offered as recovery rather than as a competing row action. The section is hidden
+when no approved or explicitly enabled testing link exists. The surface does not
+infer that the household lacks the tool and does not show products, prices, or
+sponsored ranking. Ordinary kitchen basics are excluded.
+
+Equipment extraction is evidence-first rather than an open-ended shopping
+recommendation. Recipe import makes one schema-constrained model call, then
+persists only validated, still-grounded evidence with the immutable Recipe
+version. Each immutable Recipe snapshot records a canonical
+tool concept, evidence text, required-versus-preferred classification, explicit
+substitute when present, confidence, and a brand-neutral search query. Exact
+size or capacity language such as `9-inch springform pan` survives into the
+query. Optional mentions, warnings against a tool, preferred conveniences, and
+tools with a stated ordinary substitute do not enter the shopping section.
+Required tools shared by more planned Recipes rank before one-Recipe tools;
+specificity and confidence break ties. Commission rate, retailer availability,
+brand, price, and sponsored status never participate in generation or ranking.
+The model call happens during import, never while opening Groceries. Manual,
+catalog, provider-unavailable, and legacy Recipe versions use the same
+deterministic instruction parser as a fallback. Legacy snapshots containing
+only a concept and label remain readable through conservative required-tool
+defaults.
+
 ### Privacy and monetization
 
 - Retailer priority is never changed by commission rate.
@@ -240,6 +274,11 @@ material time or trip reduction.
   not be generalized to imply provider-verified delivery origin.
 - Cross-retailer basket optimization, order-status ingestion, automatic
   checkout, and receipt reconciliation are excluded.
+- Recipe import requests equipment in the existing schema-constrained LLM call,
+  including for schema.org URL imports while preserving the deterministic
+  recipe transcription. Model output must quote a retained Recipe instruction
+  and pass the same necessity, substitute, confidence, and ranking rules before
+  it can persist or surface. Groceries never invokes the model at render time.
 - Amazon and Walmart have complete disabled-gate product flows: preference
   entry, primary-outcome routing, whole-list preparation, compact handoff receipt,
   disclosure, recovery, and alternatives. Active

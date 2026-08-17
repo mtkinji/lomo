@@ -134,6 +134,7 @@ export async function planUnifiedChatTurnPhase(
   const informationNeed = classifyCurrentInformationNeed(input.prompt);
   const currentPendingWorkSummary = pendingWorkSummary(input.aggregate);
   const planningStrategy = resolveConversationPlanningStrategy({
+    prompt: input.prompt,
     interactionMode: input.interactionMode,
     requestClass: deterministicPolicy.requestClass,
     usePrivateContext: deterministicPolicy.usePrivateContext,

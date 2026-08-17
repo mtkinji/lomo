@@ -38,4 +38,16 @@ describe('sanitizeAnalyticsProps', () => {
   it('drops strings under unknown keys even when short', () => {
     expect(sanitizeAnalyticsProps({ unexplained: 'looks harmless' })).toEqual({});
   });
+
+  it('keeps content-free local inference diagnostics', () => {
+    expect(sanitizeAnalyticsProps({
+      task: 'rewrite',
+      fallback_reason: 'model_not_ready',
+      duration_bucket: 'under_1s',
+    })).toEqual({
+      task: 'rewrite',
+      fallback_reason: 'model_not_ready',
+      duration_bucket: 'under_1s',
+    });
+  });
 });

@@ -1,0 +1,15 @@
+appId: com.andrewwatanabe.kwilt
+---
+- launchApp
+- openLink: "kwilt://food/recipe/kwilt-recipe-lu049/home"
+- scrollUntilVisible:
+    element:
+      text: "Tools"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: "KitchenAid 7-Cup Food Processor"
+- takeScreenshot: "recipe-editorial-pick"
+- tapOn: "View on Amazon"
+- assertVisible: "Opening Amazon"
+- assertVisible: "You’re about to open Amazon. This testing link is not an affiliate link."
+- takeScreenshot: "recipe-affiliate-disclosure"

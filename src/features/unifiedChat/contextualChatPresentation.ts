@@ -23,6 +23,10 @@ const DRAWER_COPY: Record<
     inventory: { title: 'Plan this week', placeholder: 'What should this plan account for?' },
     detail: { title: 'Chat about this meal plan', placeholder: 'Ask about this meal plan' },
   },
+  plan: {
+    inventory: { title: 'Chat about Plan', placeholder: 'Ask about your plan' },
+    detail: { title: 'Chat about this day', placeholder: 'What should this day account for?' },
+  },
   recipes: {
     inventory: { title: 'Chat about recipes', placeholder: 'Ask about these recipes' },
     detail: { title: 'Chat about this meal', placeholder: 'Ask about this meal' },

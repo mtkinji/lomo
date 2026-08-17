@@ -48,11 +48,14 @@ async function requestEphemeralSession(locale?: string): Promise<EphemeralSessio
   throw lastError;
 }
 
-export type LiveConversationConnection = { stop: () => Promise<void> };
+export type LiveConversationConnection = {
+  stop: () => Promise<void>;
+  setMicrophoneEnabled(enabled: boolean): void;
+};
 
 export async function startLiveConversationSession(input: {
   locale?: string;
-  onConnected: () => void;
+  onConnected: (connection: LiveConversationConnection) => void;
   onEvent: (event: LiveConversationProviderEvent) => void;
   onFailure: (error: Error) => void;
 }): Promise<LiveConversationConnection> {
@@ -67,11 +70,17 @@ export async function startLiveConversationSession(input: {
     stream = null;
     peer.close();
   };
+  const connection: LiveConversationConnection = {
+    stop,
+    setMicrophoneEnabled(enabled) {
+      stream?.getAudioTracks().forEach((track) => { track.enabled = enabled; });
+    },
+  };
   try {
     stream = await mediaDevices.getUserMedia({ audio: true, video: false });
     stream.getTracks().forEach((track) => peer.addTrack(track, stream!));
     const events = peer.createDataChannel('oai-events');
-    events.onopen = input.onConnected;
+    events.onopen = () => input.onConnected(connection);
     events.onmessage = (message: { data: unknown }) => {
       if (typeof message.data !== 'string') return;
       const event = parseOpenAiRealtimeEvent(message.data);
@@ -88,7 +97,7 @@ export async function startLiveConversationSession(input: {
     const answer = await response.text();
     if (!response.ok || !answer.trim()) throw new Error('Conversation connection could not be established.');
     await peer.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answer }));
-    return { stop };
+    return connection;
   } catch (error) {
     await stop();
     throw error;

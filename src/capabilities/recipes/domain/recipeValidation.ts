@@ -6,6 +6,7 @@ import {
   requiredString,
   type RecipeRightsBasis,
 } from './recipeContracts';
+import { parseRecipeEquipmentRequirements, type SpecializedRecipeEquipment } from './recipeEquipment';
 
 export type ReviewedRecipeIngredient = {
   id: string;
@@ -54,6 +55,7 @@ export type ReviewedRecipeData = {
   notes: string | null;
   ingredients: ReviewedRecipeIngredient[];
   instructions: ReviewedRecipeInstruction[];
+  equipmentRequirements: SpecializedRecipeEquipment[];
   provenance: {
     method: 'manual' | 'url' | 'photo' | 'scan' | 'text' | 'voice' | 'email' | 'copy' | 'catalog';
     sourceUrl: string | null;
@@ -89,6 +91,7 @@ export function parseReviewedRecipeData(value: unknown): ReviewedRecipeData {
   assertExactKeys(object, [
     'title', 'description', 'yieldQuantity', 'yieldUnit', 'prepMinutes', 'cookMinutes',
     'notes', 'ingredients', 'instructions', 'provenance', 'credits', 'lineage',
+    'equipmentRequirements',
   ], 'reviewedRecipe');
 
   const ingredients = optionalArray(object.ingredients, 'reviewedRecipe.ingredients', 200).map((entry, index) => {
@@ -126,6 +129,10 @@ export function parseReviewedRecipeData(value: unknown): ReviewedRecipeData {
       text: requiredString(step.text, `${path}.text`, 8_000),
     };
   });
+  const equipmentRequirements = parseRecipeEquipmentRequirements(
+    object.equipmentRequirements,
+    instructions.map((step) => step.text),
+  );
 
   const provenance = asRecord(object.provenance ?? {
     method: 'manual', sourceUrl: null, sourceTitle: null, sourceAuthor: null,
@@ -166,6 +173,7 @@ export function parseReviewedRecipeData(value: unknown): ReviewedRecipeData {
     notes: nullableString(object.notes ?? null, 'reviewedRecipe.notes', 20_000),
     ingredients,
     instructions,
+    equipmentRequirements,
     provenance: {
       method: provenance.method as ReviewedRecipeData['provenance']['method'],
       sourceUrl: nullableString(provenance.sourceUrl, 'reviewedRecipe.provenance.sourceUrl', 2_048),

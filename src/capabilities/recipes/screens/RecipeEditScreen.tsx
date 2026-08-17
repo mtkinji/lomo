@@ -21,6 +21,7 @@ import {
   type RecipeUpdateSuggestion,
 } from '../domain/recipeUpdateSuggestion';
 import { createRecipeUpdateSuggestionRepository } from '../data/recipeUpdateSuggestionRepository';
+import { deriveSpecializedRecipeEquipment, sanitizeRecipeEquipmentRequirements } from '../domain/recipeEquipment';
 
 function nextId(prefix: string): string { return `${prefix}-${Crypto.randomUUID()}`; }
 
@@ -32,7 +33,12 @@ export type RecipeEditorDraft = RecipeUpdateDraft & {
 export function reviewedDataFromEditorDraft(
   draft: RecipeEditorDraft,
   provenance: { method: 'manual' | 'url' | 'photo' | 'scan' | 'text' | 'voice'; sourceUrl?: string | null } = { method: 'manual' },
+  extractedEquipmentRequirements?: unknown,
 ) {
+  const instructionTexts = draft.instructions.filter((step) => step.text.trim()).map((step) => step.text.trim());
+  const equipmentRequirements = extractedEquipmentRequirements === undefined
+    ? deriveSpecializedRecipeEquipment(instructionTexts)
+    : sanitizeRecipeEquipmentRequirements(extractedEquipmentRequirements, instructionTexts);
   return {
     title: draft.title.trim(), description: draft.description.trim() || null,
     yieldQuantity: draft.servings.trim() ? Number(draft.servings) : null, yieldUnit: draft.servings.trim() ? 'servings' : null,
@@ -42,6 +48,7 @@ export function reviewedDataFromEditorDraft(
       unit: null, ingredientConcept: null, preparation: null, optional: false, parseConfidence: null,
     })),
     instructions: draft.instructions.filter((step) => step.text.trim()).map((step) => ({ id: step.id, sectionLabel: null, text: step.text.trim() })),
+    equipmentRequirements,
     provenance: {
       method: provenance.method, sourceUrl: provenance.sourceUrl ?? null, sourceTitle: draft.sourceTitle.trim() || null,
       sourceAuthor: draft.sourceAuthor.trim() || null, sourceContentHash: null,
@@ -238,6 +245,7 @@ export function RecipeEditScreen({ navigation, route }: Props) {
         prepMinutes: null, cookMinutes: null, notes: reviewedData.notes,
         ingredients: reviewedData.ingredients.map((line, position) => ({ ...line, recipeVersionId: versionId, position })),
         instructions: reviewedData.instructions.map((step, position) => ({ ...step, recipeVersionId: versionId, position })),
+        equipmentRequirements: reviewedData.equipmentRequirements,
         createdByPersonId: 'pending-owner', createdAt: now, contentHash: `pending:${now}`,
       },
     };

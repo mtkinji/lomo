@@ -14,7 +14,7 @@ const SENSITIVE_KEY = /(?:^|_)(?:access_?token|audio|balance|calendar|coordinate
 const SENSITIVE_CAMEL_KEY = /(?:accessToken|calendarEvent|coachContext|fullName|groceryItem|healthSummary|inviteCode|inviteToken|messageBody|precisePath|recipeText)/;
 const SENSITIVE_AMOUNT_KEY = /(?:amount|income|expense)(?:_|[A-Z]|$)/;
 
-const SAFE_STRING_KEY = /^(?:action|app_env|capability|capability_id|channel|code|error_code|event_name|job_intent|kind|method|mode|next_status|outcome|platform|product_id|provider|reason|route_name|source|source_kind|source_type|sourceType|state|status|store|surface|target_route|trigger|type|variant|visibilityContract|visibility_contract)$/;
+const SAFE_STRING_KEY = /^(?:action|app_env|capability|capability_id|channel|code|duration_bucket|error_code|event_name|fallback_reason|job_intent|kind|method|mode|next_status|outcome|platform|product_id|provider|reason|route_name|source|source_kind|source_type|sourceType|state|status|store|surface|target_route|task|trigger|type|variant|visibilityContract|visibility_contract|warm_state)$/;
 const SAFE_IDENTIFIER_KEY = /(?:_id|Id)$/;
 const SAFE_HASH_KEY = /(?:_hash|Hash)$/;
 

@@ -3,6 +3,10 @@ import {
   parseRecipeImportRequest,
   validateExternalRecipeUrl,
 } from '../recipeImport.ts';
+import {
+  buildRecipeImportExtractionSchema,
+  validateRecipeEquipmentRequirements,
+} from '../recipeEquipmentExtraction.ts';
 
 Deno.test('accepts a bounded URL import request', () => {
   const result = parseRecipeImportRequest({ method: 'url', sourceUrl: 'https://example.com/soup', idempotencyKey: 'import-1' });
@@ -32,4 +36,29 @@ Deno.test('extracts schema.org Recipe JSON-LD while preserving literal lines', (
   if (extracted.ingredients[1]?.originalText !== 'salt to taste') throw new Error('literal ingredient changed');
   if (extracted.instructions[0]?.text !== 'Simmer for 20 minutes.') throw new Error('instruction changed');
   if (extracted.sourceAuthor !== 'Ada') throw new Error('author evidence lost');
+});
+
+Deno.test('requires bounded equipment evidence in the strict recipe import schema', () => {
+  const schema = buildRecipeImportExtractionSchema() as Record<string, any>;
+  if (!schema.required.includes('equipmentRequirements')) throw new Error('equipment requirements are not required');
+  const equipment = schema.properties.equipmentRequirements;
+  if (equipment.type !== 'array' || equipment.maxItems !== 24) throw new Error('equipment requirements are not bounded');
+  if (!equipment.items.required.includes('evidenceText')) throw new Error('equipment evidence is not required');
+});
+
+Deno.test('keeps only equipment grounded in the reviewed recipe instructions', () => {
+  const requirements = validateRecipeEquipmentRequirements([
+    {
+      id: 'spiralizer', label: 'Spiralizer', searchQuery: 'vegetable spiralizer', necessity: 'required',
+      confidence: 0.94, evidenceText: 'Cut the zucchini with a spiralizer.', substitute: null,
+    },
+    {
+      id: 'air-fryer', label: 'Air fryer', searchQuery: 'air fryer', necessity: 'required',
+      confidence: 0.99, evidenceText: 'Cook in an air fryer.', substitute: null,
+    },
+  ], ['Cut the zucchini with a spiralizer.']);
+
+  if (requirements.length !== 1 || requirements[0]?.id !== 'spiralizer') {
+    throw new Error('ungrounded equipment evidence was accepted');
+  }
 });

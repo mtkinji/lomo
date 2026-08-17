@@ -1,6 +1,6 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { RecipeEditView, type RecipeEditorDraft } from './RecipeEditScreen';
+import { RecipeEditView, reviewedDataFromEditorDraft, type RecipeEditorDraft } from './RecipeEditScreen';
 import { recipeVersionContractFixture } from '../domain/recipeContractFixtures';
 
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'stable-id' }));
@@ -17,6 +17,22 @@ const renderEditor = (element: React.ReactElement) => render(
 );
 
 describe('Recipe editor', () => {
+  it('carries only still-grounded model equipment into the reviewed save payload', () => {
+    const draft: RecipeEditorDraft = {
+      ...empty,
+      title: 'Zucchini noodles',
+      instructions: [{ id: 'step-1', text: 'Cut the zucchini with a spiralizer.' }],
+    };
+    const reviewed = reviewedDataFromEditorDraft(draft, { method: 'text' }, [
+      { id: 'spiralizer', label: 'Spiralizer', searchQuery: 'vegetable spiralizer', necessity: 'required', confidence: 0.94, evidenceText: 'Cut the zucchini with a spiralizer.', substitute: null },
+      { id: 'air-fryer', label: 'Air fryer', searchQuery: 'air fryer', necessity: 'required', confidence: 0.99, evidenceText: 'Cook in an air fryer.', substitute: null },
+    ]);
+
+    expect(reviewed.equipmentRequirements).toEqual([
+      expect.objectContaining({ id: 'spiralizer', confidence: 0.94 }),
+    ]);
+  });
+
   it('requires only a title and preserves literal ingredient text', () => {
     const onSave = jest.fn();
     const screen = renderEditor(<RecipeEditView initial={empty} saving={false} error={null} onSave={onSave} onBack={jest.fn()} />);

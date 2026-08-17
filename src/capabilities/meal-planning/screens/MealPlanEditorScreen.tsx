@@ -24,6 +24,7 @@ import { buildMealPlanningRecipeInventory, orderMealPlanningRecipeInventory } fr
 import { buildEditorialMealPlanCandidates, mergeEditorialMealPlanCandidates } from '../domain/editorialMealPlanSeed';
 import { useAppStore } from '../../../store/useAppStore';
 import { resolveDefaultMealServings } from '../../recipes/domain/mealPreferences';
+import { buildMealPlanRecipeCandidate } from '../../recipes/domain/mealPlanRecipeCandidate';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'MealPlanEditor'>;
 
@@ -80,16 +81,10 @@ export function MealPlanEditorScreen({ navigation, route }: Props) {
     if (!recipe) return;
     setSelected((current) => current.some((item) => item.recipeSnapshot?.recipeId === recipeId)
       ? current.filter((item) => item.recipeSnapshot?.recipeId !== recipeId)
-      : [...current, { id: Crypto.randomUUID(), kind: 'recipe', title: recipe.currentVersion.title, recipeSnapshot: {
-        recipeId: recipe.recipe.id, recipeVersionId: recipe.currentVersion.id, recipeVersion: recipe.currentVersion.version,
-        title: recipe.currentVersion.title, yieldQuantity: recipe.currentVersion.yieldQuantity, yieldUnit: recipe.currentVersion.yieldUnit,
-        ownerPersonId: recipe.recipe.ownerPersonId, sourceType: recipe.recipe.provenance.method,
-        sourceAttribution: recipe.recipe.credits.find((credit) => credit.displayLabel)?.displayLabel ?? null,
-        media: recipe.recipe.mediaAssets.find((asset) => asset.lifecycle === 'active') ? (() => {
-          const asset = recipe.recipe.mediaAssets.find((item) => item.lifecycle === 'active')!;
-          return { assetId: asset.id, storageRef: asset.storageRef, mediaType: asset.mediaType, rightsBasis: asset.rightsBasis, attribution: asset.attribution, altText: asset.altText };
-        })() : null,
-      } }]);
+      : [...current, buildMealPlanRecipeCandidate(recipe, {
+        candidateId: Crypto.randomUUID(),
+        servings: defaultServings,
+      })]);
   };
   const addNote = () => { const title = note.trim(); if (!title) return; setSelected((current) => [...current, { id: Crypto.randomUUID(), kind: 'meal_note', title, recipeSnapshot: null }]); setNote(''); };
   const prepared = prepareMealCandidates({
@@ -114,14 +109,10 @@ export function MealPlanEditorScreen({ navigation, route }: Props) {
   const draftForRecipe = (recipeId: string): MealPlanCandidateDraft | null => {
     const recipe = recipes.find((item) => item.recipe.id === recipeId);
     if (!recipe) return null;
-    const asset = recipe.recipe.mediaAssets.find((item) => item.lifecycle === 'active');
-    return { id: Crypto.randomUUID(), kind: 'recipe', title: recipe.currentVersion.title, recipeSnapshot: {
-      recipeId: recipe.recipe.id, recipeVersionId: recipe.currentVersion.id, recipeVersion: recipe.currentVersion.version,
-      title: recipe.currentVersion.title, yieldQuantity: recipe.currentVersion.yieldQuantity, yieldUnit: recipe.currentVersion.yieldUnit,
-      ownerPersonId: recipe.recipe.ownerPersonId, sourceType: recipe.recipe.provenance.method,
-      sourceAttribution: recipe.recipe.credits.find((credit) => credit.displayLabel)?.displayLabel ?? null,
-      media: asset ? { assetId: asset.id, storageRef: asset.storageRef, mediaType: asset.mediaType, rightsBasis: asset.rightsBasis, attribution: asset.attribution, altText: asset.altText } : null,
-    } };
+    return buildMealPlanRecipeCandidate(recipe, {
+      candidateId: Crypto.randomUUID(),
+      servings: defaultServings,
+    });
   };
   const prepareStartingPoint = () => {
     const horizon = currentHorizon();

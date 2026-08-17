@@ -259,7 +259,17 @@ export async function materializeUnifiedChatOutcomePhase(
       permissionPolicy: { requiresExplicitApproval: true as const },
       outcomeStep: outcomeStepForToolProposal(index),
     };
-    if (proposal.capabilityId === 'money') {
+    if (proposal.capabilityId === 'recipes') {
+      await persistProposal({
+        ...common,
+        capabilityId: 'recipes',
+        operation: {
+          ...proposal.operation,
+          summary: proposal.title,
+          idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
+        },
+      });
+    } else if (proposal.capabilityId === 'money') {
       await persistProposal({
         ...common,
         capabilityId: 'money',

@@ -1,4 +1,5 @@
 import { createUnifiedChatRepository, UnifiedChatAuthError } from './threadRepository';
+import { buildReviewedRecipeCreate } from './recipeProposal';
 
 type Result = { data?: unknown; error?: { message: string; code?: string } | null };
 
@@ -666,6 +667,48 @@ describe('Unified Chat repository', () => {
           expectedUpdatedAt: '2026-07-21T13:00:00.000Z',
           _outcomeStep: { sequence: 2, dependsOnSequence: 1 },
         }),
+      })],
+    });
+  });
+
+  test('persists and maps a versioned Recipe proposal without losing reviewed data', async () => {
+    const reviewedData = buildReviewedRecipeCreate({
+      title: 'Potato Mochi', ingredients: ['2 potatoes', 'cheese'],
+      instructions: ['Mash the potatoes.', 'Fill and pan-fry.'],
+    })!;
+    const proposalRow = {
+      id: 'proposal-recipe', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',
+      capability_id: 'recipes', title: 'Create Potato Mochi', body: 'Private Recipe.',
+      status: 'pending', version: 1, created_at: '2026-08-16T12:00:00.000Z', updated_at: '2026-08-16T12:00:00.000Z',
+    };
+    const operationRow = {
+      id: 'operation-recipe', proposal_id: 'proposal-recipe', capability_id: 'recipes',
+      operation_type: 'create_recipe', target_type: 'recipe', target_id: null,
+      summary: 'Create Potato Mochi', payload: { reviewedData, expectedVersion: 0 },
+      idempotency_key: 'unified-chat:run-1:recipe:1', sequence: 1,
+    };
+    const { client, calls } = createClient([
+      { data: proposalRow, error: null }, { data: operationRow, error: null },
+    ]);
+    const repository = createUnifiedChatRepository(client as never);
+
+    await expect(repository.createProposal({
+      threadId: 'thread-1', runId: 'run-1', messageId: 'message-2', capabilityId: 'recipes',
+      title: 'Create Potato Mochi', body: 'Private Recipe.',
+      permissionPolicy: { requiresExplicitApproval: true },
+      operation: {
+        type: 'create_recipe', targetId: null, expectedVersion: 0, payload: { reviewedData },
+        summary: 'Create Potato Mochi', idempotencyKey: 'unified-chat:run-1:recipe:1',
+      },
+    })).resolves.toMatchObject({
+      capabilityId: 'recipes',
+      operation: { type: 'create_recipe', expectedVersion: 0, payload: { reviewedData } },
+    });
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_proposal_operations', method: 'insert',
+      args: [expect.objectContaining({
+        capability_id: 'recipes', operation_type: 'create_recipe', target_type: 'recipe',
+        payload: { reviewedData, expectedVersion: 0 },
       })],
     });
   });

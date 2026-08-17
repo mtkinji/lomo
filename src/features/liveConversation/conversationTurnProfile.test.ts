@@ -15,18 +15,21 @@ describe('conversationResponseContract', () => {
 
 describe('resolveConversationPlanningStrategy', () => {
   it.each([
-    ['conversation', 'general', false, 0, 'stable', 0, 0, false, 'fast_direct'],
-    ['text', 'general', false, 0, 'stable', 0, 0, false, 'full'],
-    ['conversation', 'general', false, 0, 'current', 0, 0, false, 'full'],
-    ['conversation', 'capability_question', true, 1, 'stable', 0, 1, false, 'full'],
-    ['conversation', 'capability_action', true, 1, 'stable', 0, 0, false, 'full'],
-    ['conversation', 'general', false, 0, 'stable', 1, 0, false, 'full'],
-    ['conversation', 'general', false, 0, 'stable', 0, 0, true, 'full'],
+    ['Yo', 'text', 'general', false, 0, 'stable', 0, 0, false, 'fast_direct'],
+    ['Rewrite this more warmly: I cannot attend.', 'text', 'general', false, 0, 'stable', 0, 0, false, 'fast_direct'],
+    ['Help me think through a hard decision', 'text', 'general', false, 0, 'stable', 0, 0, false, 'full'],
+    ['Anything', 'conversation', 'general', false, 0, 'stable', 0, 0, false, 'fast_direct'],
+    ['Anything', 'conversation', 'general', false, 0, 'current', 0, 0, false, 'full'],
+    ['Anything', 'conversation', 'capability_question', true, 1, 'stable', 0, 1, false, 'full'],
+    ['Anything', 'conversation', 'capability_action', true, 1, 'stable', 0, 0, false, 'full'],
+    ['Anything', 'conversation', 'general', false, 0, 'stable', 1, 0, false, 'full'],
+    ['Anything', 'conversation', 'general', false, 0, 'stable', 0, 0, true, 'full'],
   ] as const)(
     'selects %s %s as %s',
-    (interactionMode, requestClass, usePrivateContext, capabilityCount, informationNeed,
+    (prompt, interactionMode, requestClass, usePrivateContext, capabilityCount, informationNeed,
       attachmentCount, activeContextCount, hasPendingWork, expected) => {
       expect(resolveConversationPlanningStrategy({
+        prompt,
         interactionMode,
         requestClass,
         usePrivateContext,

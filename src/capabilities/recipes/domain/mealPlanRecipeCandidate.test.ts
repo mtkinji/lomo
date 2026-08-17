@@ -63,4 +63,58 @@ describe('meal plan recipe candidates', () => {
     });
     expect(JSON.stringify(candidate)).not.toContain('Avery');
   });
+
+  it('carries specialized equipment evidence into the immutable plan snapshot', () => {
+    const candidate = buildMealPlanRecipeCandidate({
+      ...projection,
+      currentVersion: {
+        ...projection.currentVersion,
+        instructions: [{
+          ...projection.currentVersion.instructions[0],
+          text: 'Blend until smooth with an immersion blender.',
+        }],
+      },
+    }, {
+      candidateId: 'candidate-equipment',
+      servings: 4,
+    });
+
+    expect(candidate.recipeSnapshot.equipmentSuggestions).toEqual([
+      expect.objectContaining({
+        id: 'immersion-blender',
+        label: 'Immersion blender',
+        searchQuery: 'immersion blender',
+        necessity: 'required',
+        confidence: 1,
+        evidenceText: 'Blend until smooth with an immersion blender.',
+        substitute: null,
+      }),
+    ]);
+  });
+
+  it('prefers reviewed equipment evidence persisted with the recipe version', () => {
+    const candidate = buildMealPlanRecipeCandidate({
+      ...projection,
+      currentVersion: {
+        ...projection.currentVersion,
+        equipmentRequirements: [{
+          id: 'spiralizer',
+          label: 'Spiralizer',
+          searchQuery: 'vegetable spiralizer',
+          necessity: 'required',
+          confidence: 0.94,
+          evidenceText: 'Cut the zucchini with a spiralizer.',
+          substitute: null,
+        }],
+        instructions: [{
+          ...projection.currentVersion.instructions[0],
+          text: 'Cut the zucchini with a spiralizer, then blend the sauce with an immersion blender.',
+        }],
+      },
+    }, { candidateId: 'candidate-model-equipment', servings: 4 });
+
+    expect(candidate.recipeSnapshot.equipmentSuggestions).toEqual([
+      expect.objectContaining({ id: 'spiralizer', confidence: 0.94 }),
+    ]);
+  });
 });

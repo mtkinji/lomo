@@ -1,0 +1,11 @@
+{
+  "name": "kwilt-foundation-models",
+  "version": "0.1.0",
+  "description": "Bounded on-device text generation for Kwilt",
+  "main": "index.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

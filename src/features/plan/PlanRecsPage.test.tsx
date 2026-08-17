@@ -172,4 +172,33 @@ describe('PlanRecsPage', () => {
     expect(onDismissForToday).toHaveBeenCalledWith('long-task');
     expect(onCommit).toHaveBeenCalledWith('scheduled-task');
   });
+
+  it('reports when an inline move picker opens and closes', () => {
+    const onMovePickerExpandedChange = jest.fn();
+    const { getByLabelText } = renderWithProviders(
+      <PlanRecsPage
+        {...defaultProps}
+        recommendations={[
+          {
+            activityId: 'activity-1',
+            title: 'Surface-prep the walnut console',
+            proposal: {
+              startDate: '2026-08-17T23:00:00.000Z',
+              endDate: '2026-08-17T23:30:00.000Z',
+            },
+            candidateStartDates: ['2026-08-17T23:00:00.000Z', '2026-08-18T00:00:00.000Z'],
+          },
+        ]}
+        onMovePickerExpandedChange={onMovePickerExpandedChange}
+      />,
+    );
+
+    expect(onMovePickerExpandedChange).toHaveBeenLastCalledWith(false);
+
+    fireEvent.press(getByLabelText('Change time for Surface-prep the walnut console'));
+    expect(onMovePickerExpandedChange).toHaveBeenLastCalledWith(true);
+
+    fireEvent.press(getByLabelText('Change time for Surface-prep the walnut console'));
+    expect(onMovePickerExpandedChange).toHaveBeenLastCalledWith(false);
+  });
 });

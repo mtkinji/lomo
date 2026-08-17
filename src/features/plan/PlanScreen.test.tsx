@@ -6,24 +6,62 @@ import { fireEvent } from '@testing-library/react-native';
 // ---------------------------------------------------------------------------
 jest.mock('./PlanPager', () => {
   const React = require('react');
-  const { View } = require('react-native');
+  const { Pressable, View } = require('react-native');
   return {
-    PlanPager: ({ entryPoint, recommendationsSheetSnapIndex, targetDate }: any) =>
-      React.createElement(View, {
-        testID: 'mock-plan-pager',
-        accessibilityValue: {
-          text: `entry=${entryPoint};snap=${recommendationsSheetSnapIndex};date=${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`,
+    PlanPager: ({ entryPoint, recommendationsSheetSnapIndex, targetDate, onRecommendationsCountChange }: {
+      entryPoint: string;
+      recommendationsSheetSnapIndex: number;
+      targetDate: Date;
+      onRecommendationsCountChange: (count: number) => void;
+    }) =>
+      React.createElement(
+        View,
+        {
+          testID: 'mock-plan-pager',
+          accessibilityValue: {
+            text: `entry=${entryPoint};snap=${recommendationsSheetSnapIndex};date=${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`,
+          },
         },
-      }),
+        React.createElement(Pressable, {
+          accessibilityLabel: 'Report two recommendations',
+          onPress: () => onRecommendationsCountChange(2),
+        }),
+      ),
   };
 });
 
 jest.mock('./PlanDateStrip', () => {
   const React = require('react');
+  const { Pressable, View } = require('react-native');
+  return {
+    PlanDateStrip: ({ onSelectDate }: { onSelectDate: (date: Date) => void }) =>
+      React.createElement(
+        View,
+        { testID: 'mock-plan-date-strip' },
+        React.createElement(Pressable, {
+          accessibilityLabel: 'Select August 18',
+          onPress: () => onSelectDate(new Date(2026, 7, 18, 12, 0, 0)),
+        }),
+      ),
+  };
+});
+
+jest.mock('../unifiedChat/UnifiedChatDrawer', () => {
+  const React = require('react');
   const { View } = require('react-native');
   return {
-    PlanDateStrip: () =>
-      React.createElement(View, { testID: 'mock-plan-date-strip' }),
+    UnifiedChatDrawer: ({ visible, launchContext, scopeLabel, threadId }: {
+      visible: boolean;
+      launchContext: unknown;
+      scopeLabel: string;
+      threadId: string | null;
+    }) =>
+      React.createElement(View, {
+        testID: 'mock-unified-chat-drawer',
+        accessibilityValue: {
+          text: JSON.stringify({ visible, launchContext, scopeLabel, threadId }),
+        },
+      }),
   };
 });
 
@@ -164,6 +202,67 @@ describe('PlanScreen openRecommendations route param', () => {
     navModule.__setRouteParams({ dateKey: '2026-07-24' });
     const { getByTestId } = renderWithProviders(<PlanScreen />);
     expect(getByTestId('mock-plan-pager').props.accessibilityValue.text).toContain('date=2026-07-24');
+  });
+});
+
+describe('PlanScreen day actions', () => {
+  beforeEach(() => {
+    resetAllStores();
+    navModule.__setRouteParams({ dateKey: '2026-08-17' });
+  });
+
+  test('restores the count-aware helper and opens recommendations directly', () => {
+    const { getByLabelText, getByTestId } = renderWithProviders(<PlanScreen />);
+
+    fireEvent.press(getByLabelText('Report two recommendations'));
+    fireEvent.press(getByLabelText('Plan this day · 2'));
+
+    expect(getByTestId('mock-plan-pager').props.accessibilityValue.text).toContain(
+      'entry=manual;snap=1',
+    );
+  });
+
+  test('opens contextual Chat with the exact selected Plan day', () => {
+    const { getByLabelText, getByTestId } = renderWithProviders(<PlanScreen />);
+
+    fireEvent.press(getByLabelText('Chat about this day'));
+
+    const drawerState = JSON.parse(
+      getByTestId('mock-unified-chat-drawer').props.accessibilityValue.text,
+    );
+    expect(drawerState).toMatchObject({
+      visible: true,
+      scopeLabel: 'Mon, Aug 17',
+      threadId: null,
+      launchContext: {
+        capabilityId: 'plan',
+        surface: 'detail',
+        object: { type: 'day', id: '2026-08-17' },
+        returnTarget: {
+          name: 'MainTabs',
+          params: { screen: 'PlanTab', params: { dateKey: '2026-08-17' } },
+        },
+      },
+    });
+  });
+
+  test('changes Chat scope and clears its in-visit thread when the day changes', () => {
+    const { getByLabelText, getByTestId } = renderWithProviders(<PlanScreen />);
+
+    fireEvent.press(getByLabelText('Select August 18'));
+    fireEvent.press(getByLabelText('Chat about this day'));
+
+    const drawerState = JSON.parse(
+      getByTestId('mock-unified-chat-drawer').props.accessibilityValue.text,
+    );
+    expect(drawerState).toMatchObject({
+      visible: true,
+      scopeLabel: 'Tue, Aug 18',
+      threadId: null,
+      launchContext: {
+        object: { type: 'day', id: '2026-08-18' },
+      },
+    });
   });
 });
 

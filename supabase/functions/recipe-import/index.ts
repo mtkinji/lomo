@@ -7,11 +7,18 @@ import {
   type ExtractedSchemaRecipe,
   type RecipeImportRequest,
 } from '../_shared/recipeImport.ts';
+import {
+  buildRecipeImportExtractionSchema,
+  recipeImportExtractionInstruction,
+  validateRecipeEquipmentRequirements,
+  type ExtractedRecipeEquipmentRequirement,
+} from '../_shared/recipeEquipmentExtraction.ts';
 
 type ExtractedRecipe = Omit<ExtractedSchemaRecipe, 'sourceUrl'> & {
   sourceUrl: string | null;
   fieldEvidence: Array<{ fieldPath: string; sourceText: string | null; confidence: number; warning: string | null }>;
   warnings: string[];
+  equipmentRequirements: ExtractedRecipeEquipmentRequirement[];
 };
 
 async function sha256(value: string): Promise<string> {
@@ -30,6 +37,7 @@ function deterministicExtraction(recipe: ExtractedSchemaRecipe): ExtractedRecipe
       ...recipe.instructions.map((step, index) => ({ fieldPath: `instructions[${index}].text`, sourceText: step.text, confidence: 1, warning: null })),
     ],
     warnings: [],
+    equipmentRequirements: [],
   };
 }
 
@@ -70,6 +78,7 @@ function validateAiExtraction(value: unknown, sourceUrl: string | null): Extract
     cookMinutes: Number.isInteger(row.cookMinutes) && Number(row.cookMinutes) >= 0 ? Number(row.cookMinutes) : null,
     ingredients,
     instructions,
+    equipmentRequirements: validateRecipeEquipmentRequirements(row.equipmentRequirements, instructions.map((step) => step.text)),
     sourceTitle: typeof row.sourceTitle === 'string' ? row.sourceTitle.slice(0, 512) : null,
     sourceAuthor: typeof row.sourceAuthor === 'string' ? row.sourceAuthor.slice(0, 512) : null,
     sourceUrl,
@@ -84,7 +93,7 @@ async function aiExtraction(request: RecipeImportRequest, sourceText: string | n
   const model = Deno.env.get('RECIPE_IMPORT_MODEL')?.trim() || 'gpt-4.1-mini';
   const content: Array<Record<string, unknown>> = [{
     type: 'text',
-    text: `Extract only facts visible in the supplied recipe evidence. Preserve ingredient and instruction wording. Use null when unknown. Every inferred field must have fieldEvidence, confidence, and a warning when uncertain. Never invent an author, time, yield, quantity, or ingredient.\n\nEvidence:\n${(sourceText ?? '').slice(0, 50_000)}`,
+    text: recipeImportExtractionInstruction(sourceText ?? ''),
   }];
   for (const imageUrl of request.imageDataUrls) content.push({ type: 'image_url', image_url: { url: imageUrl, detail: 'high' } });
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -98,18 +107,7 @@ async function aiExtraction(request: RecipeImportRequest, sourceText: string | n
         type: 'json_schema',
         json_schema: {
           name: 'recipe_import_draft', strict: true,
-          schema: {
-            type: 'object', additionalProperties: false,
-            required: ['title','description','yieldQuantity','yieldUnit','prepMinutes','cookMinutes','ingredients','instructions','sourceTitle','sourceAuthor','fieldEvidence','warnings'],
-            properties: {
-              title: { type: 'string' }, description: { type: ['string','null'] }, yieldQuantity: { type: ['number','null'] }, yieldUnit: { type: ['string','null'] },
-              prepMinutes: { type: ['integer','null'] }, cookMinutes: { type: ['integer','null'] }, sourceTitle: { type: ['string','null'] }, sourceAuthor: { type: ['string','null'] },
-              ingredients: { type: 'array', maxItems: 200, items: { type: 'object', additionalProperties: false, required: ['originalText'], properties: { originalText: { type: 'string' } } } },
-              instructions: { type: 'array', maxItems: 200, items: { type: 'object', additionalProperties: false, required: ['text'], properties: { text: { type: 'string' } } } },
-              fieldEvidence: { type: 'array', maxItems: 1000, items: { type: 'object', additionalProperties: false, required: ['fieldPath','sourceText','confidence','warning'], properties: { fieldPath: { type: 'string' }, sourceText: { type: ['string','null'] }, confidence: { type: 'number', minimum: 0, maximum: 1 }, warning: { type: ['string','null'] } } } },
-              warnings: { type: 'array', maxItems: 50, items: { type: 'string' } },
-            },
-          },
+          schema: buildRecipeImportExtractionSchema(),
         },
       },
     }),
@@ -146,7 +144,20 @@ serve(async (req) => {
       const fetched = await fetchRecipeHtml(parsed.value.sourceUrl);
       finalUrl = fetched.finalUrl;
       const schema = extractSchemaRecipe(fetched.html, fetched.finalUrl);
-      if (schema) recipe = deterministicExtraction(schema);
+      if (schema) {
+        recipe = deterministicExtraction(schema);
+        try {
+          const equipmentResult = await aiExtraction(parsed.value, JSON.stringify({
+            title: recipe.title,
+            ingredients: recipe.ingredients,
+            instructions: recipe.instructions,
+          }));
+          recipe = { ...recipe, equipmentRequirements: equipmentResult.recipe.equipmentRequirements };
+          model = equipmentResult.model;
+        } catch {
+          // Structured recipe data remains usable; the app's deterministic equipment fallback still applies.
+        }
+      }
       else sourceText = fetched.html.replace(/<script\b[\s\S]*?<\/script>/gi, ' ').replace(/<style\b[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50_000);
     }
     if (!recipe) { const result = await aiExtraction(parsed.value, sourceText); recipe = result.recipe; model = result.model; }
@@ -163,7 +174,7 @@ serve(async (req) => {
       owner_person_id: binding.person_id, state: 'needs_review', source_method: parsed.value.method,
       source_artifact_refs: artifacts, extracted_data: extractedData, evidence: { fields: evidence },
       field_confidence: Object.fromEntries(evidence.map((item) => [item.fieldPath, item.confidence])), warnings: recipe.warnings,
-      extractor_model: model, prompt_version: 'recipe-import-v1', extraction_idempotency_key: parsed.value.idempotencyKey, expires_at: expiresAt,
+      extractor_model: model, prompt_version: 'recipe-import-v2', extraction_idempotency_key: parsed.value.idempotencyKey, expires_at: expiresAt,
     }).select('*').single();
     if(error){if(uploadedPaths.length)await admin.storage.from('recipe-import-artifacts').remove(uploadedPaths);throw error;}
     return json(200, { draft, replayed: false });

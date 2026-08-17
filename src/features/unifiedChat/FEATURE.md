@@ -19,9 +19,10 @@ briefs:
   - chat-turn-coherent-timeline
   - chat-transcript-copy
   - unified-chat-operational-control-plane
+  - on-device-generative-routing
   - todo-contextual-chat
 status: shipping
-last_reviewed: 2026-08-11
+last_reviewed: 2026-08-15
 ---
 
 # Unified Chat

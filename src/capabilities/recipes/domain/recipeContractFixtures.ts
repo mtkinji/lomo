@@ -75,6 +75,7 @@ const baseVersion: RecipeVersion = {
     { id: 'step-1', recipeVersionId: 'rv-family-cake-1', position: 0, sectionLabel: 'Bake', text: 'Bake until the center springs back.' },
     { id: 'step-2', recipeVersionId: 'rv-family-cake-1', position: 1, sectionLabel: 'Finish', text: 'Cool completely before glazing.' },
   ],
+  equipmentRequirements: [],
   createdByPersonId: 'person-owner',
   createdAt: '2026-08-05T10:05:00.000Z',
   contentHash: 'sha256:family-cake-v1',

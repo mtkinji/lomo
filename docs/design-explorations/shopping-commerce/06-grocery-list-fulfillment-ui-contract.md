@@ -26,6 +26,66 @@ External exemplar ledger: Apple Reminders Groceries, reviewed 2026-08-09 -> pres
 
 Behavior sources: Check toggles are Andrew's explicit already-have/purchased model and the current grocery offline queue; they do not carry into the cart. Direct one-store fulfillment is Andrew's explicit decision and the Grocery Flywheel. One Kroger authorization supports Kroger-family banners; Smith's is the current local store, not a separate connection. Store search and matching precede authorization. Store-specific Product API results provide product imagery, regular/promo item prices, and curbside product availability at match time. Kwilt may total those observed item prices as an estimate, never a quote. The public Cart API accepts UPC, retail package quantity, and pickup modality but does not return cart contents, a quote, fees, taxes, time slots, or order evidence. A provider acknowledgement creates a separate per-item cart receipt and removes that item from the next matching pass without checking it off. The retailer owns substitutions, scheduling, payment, checkout, and current order status.
 
+## Recipe equipment suggestions
+
+Job: When a reviewed grocery list came from Recipes, the household needs to
+notice specialized kitchen equipment that may block cooking before the shopping
+trip is over.
+
+Authority chain: Andrew's explicit decision -> Household Food Loop and this
+contract -> iOS/accessibility -> Kwilt UI Constitution -> Inventory/list and
+progressive-section Candidate patterns.
+
+Three-second read: The groceries remain the list; a quiet `For these recipes`
+section below them names at most three specialized tools and the meals that
+surfaced them.
+
+Primary action: `Shop online · N items` remains the only dominant action.
+When Amazon's exact mobile surface and link format are approved, equipment rows
+use a quiet `Search Amazon` action that opens the Amazon app or system browser
+for that one tool. `View on Amazon` is reserved for a future exact product/ASIN
+with provider evidence. The link disclosure stays beside the Recipe provenance.
+
+Primary information: Grocery rows and their covered state. Secondary
+information: specialized equipment grounded in the Recipes that contributed to
+this list. Reveal later: `Add to list` appears only as recovery when Amazon fails
+to open; it is not a competing row action. Scan order: grocery groups -> `For
+these recipes` -> fixed shopping dock.
+
+Must not add: an affiliate shelf, product cards, prices, sponsored ranking,
+ordinary basics such as an oven/pot/skillet, inferred ownership, automatic list
+mutation, more than three suggestions, an unapproved paid link, an exact-product
+claim without provider evidence, or any purchase/cart completion inference.
+
+Generation contract: recipe import makes one schema-constrained model call and
+persists validated equipment evidence with the immutable Recipe version.
+Groceries reads that snapshot and never calls a model while rendering. Current
+Recipe instructions remain the deterministic fallback for manual, catalog,
+provider-unavailable, and legacy versions. A candidate carries canonical concept, human label, brand-neutral
+search query, required-versus-preferred status, confidence, exact instruction
+evidence, and any explicit substitute. Preserve recipe-stated size or capacity.
+Do not surface optional/preferred equipment, warned-against equipment, or a tool
+with an ordinary stated substitute. Rank the remaining blockers by number of
+contributing Recipes, then meaningful specification, then confidence and stable
+source order. Retailer economics and product availability are not ranking
+inputs. Existing-list suppression remains conservative and does not claim the
+household owns the tool.
+
+Reuse map: existing Grocery checklist and flat section rhythm; Canonical small
+ghost `Button`; `buildApprovedAffiliateProductSearch`,
+`openAffiliateProductSearch`, and `getAffiliateRetailerLinkDisclosure` for the
+approved external handoff; Meal Plan recipe snapshots for immutable equipment
+evidence; current Recipe instructions as a fallback for older/local plans.
+Nearest precedent: Inventory/list plus progressive section reveal and the
+existing Amazon product-link assistance boundary. No external exemplar.
+
+Required states: no source Recipe, no specialized equipment, no approved Amazon
+link, paid versus untracked testing disclosure, opening, open failure with
+secondary `Add to list`, stale list, and offline. Proof path: Groceries from a
+Meal Plan containing a specialized-equipment Recipe on the iPhone 17 Pro
+Simulator; open one suggestion and confirm the external Amazon handoff while the
+Grocery list remains unchanged.
+
 Provider capability levels: `cart_prepare` requires proved store/area evidence, fulfillment-filtered product evidence, and an acknowledged cart-write path. `product_links` requires exact-surface approval plus a configured qualifying-link format, opens only in the retailer app or system browser, and may remember explicit person-reported progress without claiming coverage. `remembered_only` remains an internal legacy or demand state and is excluded from the online priority list. `unavailable` identifies an integration or mode that is disabled, expired, unapproved, unconfigured, or unproved and is also excluded.
 
 Product-link handoff: The actionable starter list contains every currently executable destination, appends newly supported destinations without disturbing the person's existing order, and remembers explicit removal. When Amazon ranks first, `Shop online` bypasses the retailer overview and prepares the whole list in a transient interstitial. The moment reports real preparation, then the provider-supported ready count and exact remainder; it waits for explicit `Open Amazon` consent before opening an approved batch handoff. Every uncertain item stays on the Grocery list. On return, one compact receipt reports only that Amazon opened and what remains; it does not claim checkout or purchase. Internal builds without provider evidence identify that the Amazon cart handoff is not connected; they do not present example matches as ready, expose a disabled cart action, or open a fake cart. Walmart retains its explicit link-assistance pass until an equivalent batch provider contract is proved. `Use another retailer` reveals lower-ranked ready destinations as recovery.

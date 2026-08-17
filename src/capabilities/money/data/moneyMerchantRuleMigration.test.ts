@@ -4,7 +4,13 @@ import { resolve } from 'node:path';
 const migration = [
   'supabase/migrations/20260728051325_merchant_rules_apply_all_transactions.sql',
   'supabase/migrations/20260728052054_ensure_merchant_rule_backfill_on_rule_write.sql',
+  'supabase/migrations/20260816135619_optimize_merchant_rule_save.sql',
 ].map((path) => readFileSync(resolve(process.cwd(), path), 'utf8')).join('\n').toLowerCase();
+
+const optimizedMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260816135619_optimize_merchant_rule_save.sql'),
+  'utf8',
+).toLowerCase();
 
 describe('Money merchant rule persistence migration', () => {
   it('atomically saves a rule and reapplies it across matching history', () => {
@@ -40,5 +46,19 @@ describe('Money merchant rule persistence migration', () => {
     expect(migration).toContain('from public, anon');
     expect(migration).toContain('grant execute on function public.upsert_budget_transaction_match_rule');
     expect(migration).toContain('to authenticated');
+  });
+
+  it('updates only transactions affected by the written rule and does not repeat the history pass in the RPC', () => {
+    const rpcStart = optimizedMigration.indexOf('function public.upsert_budget_transaction_match_rule');
+    const rpcEnd = optimizedMigration.indexOf('revoke execute on function public.upsert_budget_transaction_match_rule', rpcStart);
+    const rpcBody = optimizedMigration.slice(rpcStart, rpcEnd);
+
+    expect(optimizedMigration).toContain("tg_op <> 'delete'");
+    expect(optimizedMigration).toContain('new.merchant_contains');
+    expect(optimizedMigration).toContain("tg_op <> 'insert'");
+    expect(optimizedMigration).toContain('old.merchant_contains');
+    expect(optimizedMigration).toContain("set_config('kwilt.merchant_rule_applied_count'");
+    expect(rpcBody).toContain("current_setting('kwilt.merchant_rule_applied_count', true)");
+    expect(rpcBody).not.toContain('with resolved as');
   });
 });

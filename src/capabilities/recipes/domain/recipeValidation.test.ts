@@ -11,6 +11,10 @@ const digestRepairMigrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20260807043600_fix_private_recipe_digest_schema.sql',
 );
+const equipmentMigrationPath = resolve(
+  process.cwd(),
+  'supabase/migrations/20260817034820_persist_recipe_equipment_requirements.sql',
+);
 
 describe('private Recipe persistence contract', () => {
   it('rejects unknown reviewed fields instead of silently persisting model output', () => {
@@ -52,6 +56,36 @@ describe('private Recipe persistence contract', () => {
       credits: [],
       lineage: [],
     })).toMatchObject({ title: 'Tomato toast', ingredients: [{ originalText: '2 ripe tomatoes' }] });
+  });
+
+  it('accepts reviewed equipment evidence and rejects ungrounded evidence', () => {
+    const reviewed = {
+      title: 'Zucchini noodles',
+      instructions: [{ id: 'step-1', sectionLabel: null, text: 'Cut the zucchini with a spiralizer.' }],
+      equipmentRequirements: [{
+        id: 'spiralizer', label: 'Spiralizer', searchQuery: 'vegetable spiralizer', necessity: 'required',
+        confidence: 0.94, evidenceText: 'Cut the zucchini with a spiralizer.', substitute: null,
+      }],
+    };
+
+    expect(parseReviewedRecipeData(reviewed).equipmentRequirements).toHaveLength(1);
+    expect(() => parseReviewedRecipeData({
+      ...reviewed,
+      equipmentRequirements: [{ ...reviewed.equipmentRequirements[0], evidenceText: 'Use an air fryer.' }],
+    })).toThrow('must quote a reviewed instruction');
+  });
+
+  it('migrates immutable Recipe versions and both save paths to persist equipment evidence', () => {
+    const sql = readFileSync(equipmentMigrationPath, 'utf8').toLowerCase();
+    expect(sql).toContain('create table public.kwilt_recipe_equipment_requirements');
+    expect(sql).toContain('create or replace function public.save_kwilt_recipe_with_equipment');
+    expect(sql).toContain('create or replace function public.approve_kwilt_recipe_import');
+    expect(sql).toContain("'equipmentrequirements'");
+    expect(sql).toContain("p_reviewed_data->'equipmentrequirements'");
+    expect(sql).toContain('alter table public.kwilt_recipe_equipment_requirements enable row level security');
+    expect(sql).toContain('create policy kwilt_recipe_equipment_explicit_read');
+    expect(sql).toContain('create trigger kwilt_recipe_equipment_immutable');
+    expect(sql).toContain('revoke insert, update, delete on public.kwilt_recipe_equipment_requirements');
   });
 
   it('defines private aggregates, immutable versions, explicit grants, and reviewed RPCs', () => {

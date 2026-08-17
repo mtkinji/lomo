@@ -96,6 +96,34 @@ const RESULT = {
   additionalProperties: false,
 } as const;
 
+const RECIPE_CHAT_FIELDS = {
+  title: { type: 'string', minLength: 1, maxLength: 160 },
+  description: { type: ['string', 'null'], maxLength: 4_000 },
+  yieldQuantity: { type: ['number', 'null'], minimum: 0 },
+  yieldUnit: { type: ['string', 'null'], maxLength: 80 },
+  prepMinutes: { type: ['integer', 'null'], minimum: 0, maximum: 100_000 },
+  cookMinutes: { type: ['integer', 'null'], minimum: 0, maximum: 100_000 },
+  notes: { type: ['string', 'null'], maxLength: 20_000 },
+  ingredients: {
+    type: 'array', minItems: 1, maxItems: 200,
+    items: { type: 'string', minLength: 1, maxLength: 1_000 },
+  },
+  instructions: {
+    type: 'array', minItems: 1, maxItems: 200,
+    items: { type: 'string', minLength: 1, maxLength: 8_000 },
+  },
+} as const;
+
+const RECIPE_CHAT_DRAFT = {
+  type: 'object', properties: RECIPE_CHAT_FIELDS,
+  required: ['title', 'ingredients', 'instructions'], additionalProperties: false,
+} as const;
+
+const RECIPE_CHAT_PATCH = {
+  type: 'object', properties: RECIPE_CHAT_FIELDS,
+  minProperties: 1, additionalProperties: false,
+} as const;
+
 function objectSchema(
   properties: Record<string, unknown>,
   required: readonly string[] = [],
@@ -129,10 +157,10 @@ function makeContract(input: Omit<FoodOperationContract, 'consequence' | 'confir
 export const FOOD_OPERATION_CONTRACTS: readonly FoodOperationContract[] = [
   makeContract({ id: 'recipes.search', owner: 'recipes', purpose: 'Search authorized private and published Recipe projections without expanding access.', authority: 'direct', effect: 'read', reversible: true, providers: ['device', 'server'], inputSchema: objectSchema({ query: { type: 'string', minLength: 1, maxLength: 500 }, limit: { type: 'integer', minimum: 1, maximum: 50 } }, ['query']), outputSchema: RESULT, sourceRefs: ['capability:recipes'] }),
   makeContract({ id: 'recipes.read', owner: 'recipes', purpose: 'Read one authorized Recipe and exact immutable version without exposing unrelated private content.', authority: 'direct', effect: 'read', reversible: true, providers: ['device', 'server'], inputSchema: targetSchema('recipeId', { recipeVersionId: { type: ['string', 'null'] } }), outputSchema: RESULT, sourceRefs: ['capability:recipes'] }),
-  makeContract({ id: 'recipes.create', owner: 'recipes', purpose: 'Create one reviewed private Recipe identity and immutable first version.', authority: 'reviewed', effect: 'write', reversible: true, providers: ['device', 'server'], inputSchema: objectSchema({ recipe: { type: 'object' }, version: { type: 'object' }, idempotencyKey: STRING_ID }, ['recipe', 'version', 'idempotencyKey']), outputSchema: RESULT, sourceRefs: ['domain:recipeContracts'] }),
+  makeContract({ id: 'recipes.create', owner: 'recipes', purpose: 'Create one reviewed private Recipe identity and immutable first version.', authority: 'reviewed', effect: 'write', reversible: true, providers: ['device', 'server'], inputSchema: objectSchema({ recipe: RECIPE_CHAT_DRAFT }, ['recipe']), outputSchema: RESULT, sourceRefs: ['domain:recipeContracts'] }),
   makeContract({ id: 'recipes.import.prepare', owner: 'recipes', purpose: 'Prepare an evidence-backed temporary Recipe import draft from user-supplied artifacts.', authority: 'direct', effect: 'write', reversible: true, providers: ['device', 'server', 'connector'], inputSchema: objectSchema({ method: { type: 'string', enum: ['url', 'photo', 'scan', 'text', 'voice', 'email'] }, sourceArtifactRefs: { type: 'array', minItems: 1, maxItems: 20, items: STRING_ID } }, ['method', 'sourceArtifactRefs']), outputSchema: RESULT, sourceRefs: ['domain:recipeImportContracts'] }),
   makeContract({ id: 'recipes.import.approve', owner: 'recipes', purpose: 'Approve one reviewed Recipe import draft idempotently into canonical private content.', authority: 'reviewed', effect: 'write', reversible: true, providers: ['device', 'server'], inputSchema: targetSchema('draftId', { expectedDraftVersion: VERSION, idempotencyKey: STRING_ID, reviewedRecipe: { type: 'object' }, reviewedVersion: { type: 'object' } }, ['expectedDraftVersion', 'idempotencyKey', 'reviewedRecipe', 'reviewedVersion']), outputSchema: RESULT, sourceRefs: ['domain:recipeImportContracts'] }),
-  makeContract({ id: 'recipes.update', owner: 'recipes', purpose: 'Create a reviewed immutable Recipe version using optimistic version authority.', authority: 'reviewed', effect: 'write', reversible: true, providers: ['device', 'server'], inputSchema: targetSchema('recipeId', { expectedVersion: VERSION, reviewedVersion: { type: 'object' }, idempotencyKey: STRING_ID }, ['expectedVersion', 'reviewedVersion', 'idempotencyKey']), outputSchema: RESULT, sourceRefs: ['domain:recipeContracts'] }),
+  makeContract({ id: 'recipes.update', owner: 'recipes', purpose: 'Create a reviewed immutable Recipe version using optimistic version authority.', authority: 'reviewed', effect: 'write', reversible: true, providers: ['device', 'server'], inputSchema: targetSchema('recipeId', { expectedVersion: VERSION, reviewedVersion: RECIPE_CHAT_PATCH }, ['expectedVersion', 'reviewedVersion']), outputSchema: RESULT, sourceRefs: ['domain:recipeContracts'] }),
   makeContract({ id: 'recipes.scale.preview', owner: 'recipes', purpose: 'Preview deterministic serving scaling without mutating original ingredient text.', authority: 'direct', effect: 'read', reversible: true, providers: ['device', 'server'], inputSchema: targetSchema('recipeVersionId', { targetYield: { type: 'number', exclusiveMinimum: 0 } }, ['targetYield']), outputSchema: RESULT, sourceRefs: ['domain:recipeContracts'] }),
   makeContract({ id: 'recipes.fork', owner: 'recipes', purpose: 'Prepare an independently owned reviewed Recipe fork with immutable lineage and credits.', authority: 'reviewed', effect: 'write', reversible: true, providers: ['device', 'server'], inputSchema: targetSchema('sourceRecipeVersionId', { idempotencyKey: STRING_ID }, ['idempotencyKey']), outputSchema: RESULT, sourceRefs: ['domain:recipePublicationContracts'] }),
   makeContract({ id: 'recipes.share_copy.prepare', owner: 'recipes', purpose: 'Prepare one attributed independent Recipe copy offer for a specifically selected person.', authority: 'reviewed', effect: 'write', reversible: true, providers: ['device', 'server', 'channel'], inputSchema: targetSchema('recipeVersionId', { recipientPersonId: STRING_ID }, ['recipientPersonId']), outputSchema: RESULT, sourceRefs: ['capability:recipes'] }),

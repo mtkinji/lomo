@@ -74,7 +74,10 @@ export type CapabilityOperationKind =
   | 'update_profile'
   | 'update_chapter_note'
   | 'create_money_category'
-  | 'rename_money_category';
+  | 'rename_money_category'
+  | 'create_recipe'
+  | 'update_recipe'
+  | 'delete_recipe';
 
 export type CapabilityNativeReturnTarget = {
   capabilityId: UnifiedChatCapabilityId;

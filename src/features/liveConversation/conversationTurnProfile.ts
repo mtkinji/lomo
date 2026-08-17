@@ -1,4 +1,5 @@
 import type { UnifiedChatRequestClass } from '../unifiedChat/requestPolicy';
+import { classifyOnDeviceChatTask } from '../unifiedChat/localChatRoute';
 
 export const conversationResponseContract = {
   maxOutputTokens: 96,
@@ -9,6 +10,7 @@ export const conversationResponseContract = {
 export type ConversationPlanningStrategy = 'fast_direct' | 'full';
 
 export type ConversationPlanningInput = {
+  prompt: string;
   interactionMode: 'text' | 'conversation';
   requestClass: UnifiedChatRequestClass;
   usePrivateContext: boolean;
@@ -19,10 +21,19 @@ export type ConversationPlanningInput = {
   hasPendingWork: boolean;
 };
 
+const LIGHTWEIGHT_SOCIAL_TURN_PATTERN = /^(?:(?:hey|hi|hello|yo|hiya|howdy)(?:\s+(?:there|kwilt))?|how(?:'s| is) it going|how are you|thanks?|thank you|got it|ok(?:ay)?|cool|sounds good|perfect|nice)[!?.\s]*$/i;
+
+function isLightweightSocialTurn(prompt: string): boolean {
+  return LIGHTWEIGHT_SOCIAL_TURN_PATTERN.test(prompt.trim());
+}
+
 export function resolveConversationPlanningStrategy(
   input: ConversationPlanningInput,
 ): ConversationPlanningStrategy {
-  return input.interactionMode === 'conversation' &&
+  const canAnswerWithoutPlanning = input.interactionMode === 'conversation' ||
+    isLightweightSocialTurn(input.prompt) ||
+    classifyOnDeviceChatTask(input.prompt) !== null;
+  return canAnswerWithoutPlanning &&
     input.requestClass === 'general' &&
     input.usePrivateContext === false &&
     input.participatingCapabilityCount === 0 &&

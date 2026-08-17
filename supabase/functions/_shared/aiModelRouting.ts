@@ -1,37 +1,16 @@
-export type KwiltAiJob =
-  | 'arc_generation'
-  | 'goal_generation'
-  | 'deep_planning'
-  | 'activity_generation'
-  | 'arc_image_query'
-  | 'conversation_summary'
-  | 'lightweight_helper'
-  | 'story_game'
-  | 'agent_judgment'
-  | 'current_information'
-  | 'unified_chat_attachment'
-  | 'default_chat';
+import {
+  getKwiltGenerationJobContract,
+  KWILT_GENERATION_JOB_CONTRACTS,
+  type KwiltGenerationJobId,
+} from '../../../packages/kwilt-agent-runtime/src/generationJobContracts.ts';
+
+export type KwiltAiJob = KwiltGenerationJobId;
 
 export type KwiltAiRoute = '/v1/chat/completions' | '/v1/images/generations' | '/v1/commit' | string;
 
-const CHAT_MODEL_BY_JOB: Record<KwiltAiJob, string> = {
-  arc_generation: 'gpt-4o',
-  goal_generation: 'gpt-4o',
-  deep_planning: 'gpt-5.2',
-  activity_generation: 'gpt-4o-mini',
-  arc_image_query: 'gpt-4o-mini',
-  conversation_summary: 'gpt-4o-mini',
-  lightweight_helper: 'gpt-4o-mini',
-  story_game: 'gpt-4o-mini',
-  agent_judgment: 'gpt-5.6-luna',
-  default_chat: 'gpt-4o-mini',
-  current_information: 'gpt-5.2',
-  unified_chat_attachment: 'gpt-5-mini',
-};
-
 export function normalizeKwiltAiJob(raw: unknown): KwiltAiJob {
   const value = typeof raw === 'string' ? raw.trim() : '';
-  if (value in CHAT_MODEL_BY_JOB) return value as KwiltAiJob;
+  if (value in KWILT_GENERATION_JOB_CONTRACTS) return value as KwiltAiJob;
   return 'default_chat';
 }
 
@@ -43,10 +22,10 @@ export function resolveKwiltAiModel(params: {
   if (params.route === '/v1/images/generations') return 'gpt-image-1';
   if (params.route === '/v1/responses') {
     return params.job === 'current_information' || params.job === 'unified_chat_attachment' || params.job === 'agent_judgment'
-      ? CHAT_MODEL_BY_JOB[params.job]
+      ? getKwiltGenerationJobContract(params.job).cloudModel
       : null;
   }
   if (params.route !== '/v1/chat/completions') return params.requestedModel ?? null;
 
-  return CHAT_MODEL_BY_JOB[normalizeKwiltAiJob(params.job)];
+  return getKwiltGenerationJobContract(normalizeKwiltAiJob(params.job)).cloudModel;
 }
