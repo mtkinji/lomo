@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
@@ -7,7 +7,8 @@ import { Heading, Text } from '../../../ui/Typography';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { useMoneyData } from '../data/MoneyDataContext';
-
+import { KwiltLoader } from '../../../ui/KwiltLoader';
+import { KwiltRefreshFrame, useKwiltRefresh } from '../../../ui/KwiltRefresh';
 export function MoneyScreenFrame({
   children,
   moreMenu,
@@ -20,7 +21,8 @@ export function MoneyScreenFrame({
   title: string;
 }) {
   const { openMenu } = useCapabilityShell();
-  const { error, refresh, refreshing, snapshot, status } = useMoneyData();
+  const { error, refresh, snapshot, status } = useMoneyData();
+  const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: refresh });
 
   return (
     <AppShell>
@@ -30,29 +32,35 @@ export function MoneyScreenFrame({
         onPressBack={onPressBack}
         onPressMenu={onPressBack ? undefined : openMenu}
       />
-      {status === 'loading' && !snapshot ? (
-        <MoneyFramePreview loading title={title} />
-      ) : status === 'error' && !snapshot ? (
-        <ScrollView
-          contentContainerStyle={styles.recoveryScrollContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.accent} />}
-        >
-          <MoneyFramePreview error={error} onRetry={refresh} title={title} />
-        </ScrollView>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.accent} />}
-        >
-          {error ? (
-            <View accessibilityRole="alert" style={styles.warning}>
-              <Text variant="label">Showing the last successful update</Text>
-              <Text tone="secondary">{error}</Text>
-            </View>
-          ) : null}
-          {children}
-        </ScrollView>
-      )}
+      <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
+        {status === 'loading' && !snapshot ? (
+          <MoneyFramePreview loading title={title} />
+        ) : status === 'error' && !snapshot ? (
+          <ScrollView
+            contentContainerStyle={styles.recoveryScrollContent}
+            onScroll={onScroll}
+            refreshControl={refreshControl}
+            scrollEventThrottle={scrollEventThrottle}
+          >
+            <MoneyFramePreview error={error} onRetry={refresh} title={title} />
+          </ScrollView>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.content}
+            onScroll={onScroll}
+            refreshControl={refreshControl}
+            scrollEventThrottle={scrollEventThrottle}
+          >
+            {error ? (
+              <View accessibilityRole="alert" style={styles.warning}>
+                <Text variant="label">Showing the last successful update</Text>
+                <Text tone="secondary">{error}</Text>
+              </View>
+            ) : null}
+            {children}
+          </ScrollView>
+        )}
+      </KwiltRefreshFrame>
     </AppShell>
   );
 }
@@ -79,7 +87,7 @@ function MoneyFramePreview({
       <View style={styles.previewMessage}>
         {loading ? (
           <View style={styles.loadingTitleRow}>
-            <ActivityIndicator color={colors.accent} size="small" />
+            <KwiltLoader color={colors.accent} size="small" />
             <View style={styles.messageCopy}>
               <Text variant="label">Getting your {title.toLowerCase()} ready</Text>
               <Text tone="secondary">Checking your plan and latest activity.</Text>

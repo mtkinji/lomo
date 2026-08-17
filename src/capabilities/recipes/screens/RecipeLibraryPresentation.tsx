@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import {
   FlatList,
   Pressable,
-  RefreshControl,
   ScrollView,
   View,
 } from "react-native";
@@ -16,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "../../../ui/DropdownMenu";
 import { Icon } from "../../../ui/Icon";
+import { KwiltRefreshFrame, useKwiltRefresh } from "../../../ui/KwiltRefresh";
 import { menuItemTextProps, menuStyles } from "../../../ui/menuStyles";
 import { Heading, Text } from "../../../ui/Typography";
 import type { RecipeProjection } from "../data/recipeCache";
@@ -51,7 +51,7 @@ export function RecipeLibraryView({
   recipes,
   onOpen,
   onRefresh,
-  refreshing,
+  refreshing: _refreshing,
   filters,
   sort,
   onOpenFilters,
@@ -71,7 +71,7 @@ export function RecipeLibraryView({
 }: {
   recipes: RecipeProjection[];
   onOpen(recipeId: string): void;
-  onRefresh(): void;
+  onRefresh(): Promise<unknown> | unknown;
   refreshing: boolean;
   filters: RecipeInventoryFilters;
   sort: RecipeInventorySortMode;
@@ -91,6 +91,7 @@ export function RecipeLibraryView({
   totalCount: number;
 }) {
   const hasFilters = countActiveRecipeInventoryFilters(filters) > 0;
+  const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh });
   const showShelves =
     browseMode === "shelves" &&
     sort === "featured" &&
@@ -126,15 +127,16 @@ export function RecipeLibraryView({
 
   if (showShelves) {
     return (
-      <ScrollView
-        testID="recipe-discovery-shelves"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={styles.discoveryList}
-        showsVerticalScrollIndicator={false}
-      >
-        {controls}
+      <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
+        <ScrollView
+          testID="recipe-discovery-shelves"
+          refreshControl={refreshControl}
+          contentContainerStyle={styles.discoveryList}
+          onScroll={onScroll}
+          scrollEventThrottle={scrollEventThrottle}
+          showsVerticalScrollIndicator={false}
+        >
+          {controls}
         <View testID="recipe-discovery-navigation" style={styles.discoveryNavigation}>
           <RecipeQuickFilterRow
             filters={filters}
@@ -187,25 +189,27 @@ export function RecipeLibraryView({
             );
           },
         )}
-      </ScrollView>
+        </ScrollView>
+      </KwiltRefreshFrame>
     );
   }
 
   return (
-    <FlatList
-      testID="recipe-results-grid"
-      data={recipes}
-      numColumns={2}
-      keyExtractor={(item) => item.recipe.id}
-      columnWrapperStyle={styles.gridRow}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-      contentContainerStyle={styles.list}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={
-        <View style={styles.libraryHeader}>
+    <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
+      <FlatList
+        testID="recipe-results-grid"
+        data={recipes}
+        numColumns={2}
+        keyExtractor={(item) => item.recipe.id}
+        columnWrapperStyle={styles.gridRow}
+        refreshControl={refreshControl}
+        contentContainerStyle={styles.list}
+        onScroll={onScroll}
+        scrollEventThrottle={scrollEventThrottle}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={
+          <View style={styles.libraryHeader}>
           {controls}
           <RecipeQuickFilterRow
             filters={filters}
@@ -236,7 +240,8 @@ export function RecipeLibraryView({
           isInPlan={isInPlan(item)}
         />
       )}
-    />
+      />
+    </KwiltRefreshFrame>
   );
 }
 export { MealPlanHeaderAction } from '../../../features/household-food/components/MealPlanHeaderAction';

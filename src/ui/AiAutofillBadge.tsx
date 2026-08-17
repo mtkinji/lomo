@@ -1,8 +1,9 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme';
 import { Icon } from './Icon';
+import { KwiltLoader } from './KwiltLoader';
 
 type Props = {
   accessibilityLabel: string;
@@ -58,7 +59,7 @@ export function AiAutofillBadge({
         />
       </View>
       {loading ? (
-        <ActivityIndicator size="small" color={colors.aiForeground} />
+        <KwiltLoader size="small" color={colors.aiForeground} />
       ) : (
         <Icon name="sparkles" size={14} color={colors.aiForeground} />
       )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, ActivityIndicator, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Pressable } from 'react-native';
 import { colors, typography, spacing } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { proposeSchedule, ProposedEvent } from '../../services/scheduling/schedulingEngine';
@@ -17,6 +17,7 @@ import { Button } from '../../ui/Button';
 import { Heading, VStack, Text, EmptyState, HStack, RelationPickerField, type PickerFieldOption } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import { inferActivitySchedulingDomainWithAI } from '../../services/ai';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type PlanScheduleApplyPageProps = {
   selectedActivityIds: string[];
@@ -331,7 +332,7 @@ export function PlanScheduleApplyPage({
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={colors.accent} />
+        <KwiltLoader color={colors.accent} />
       </View>
     );
   }

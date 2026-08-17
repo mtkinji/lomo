@@ -100,7 +100,11 @@ function reconcileTransaction(
   const amountCents = validCents(transaction.amountCents);
   const base = { transactionId: transaction.id, amountCents };
 
-  if (transaction.pending || transaction.moneyMeaning === 'transfer') {
+  if (transaction.moneyMeaning === 'transfer') {
+    return { ...base, disposition: 'not_spending', contributions: [] };
+  }
+
+  if (transaction.direction === 'inflow' && transaction.pending) {
     return { ...base, disposition: 'not_spending', contributions: [] };
   }
 

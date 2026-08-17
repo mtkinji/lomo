@@ -5,7 +5,6 @@ import {
   Pressable,
   StyleSheet,
   Keyboard,
-  ActivityIndicator,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { typography, fonts } from '../../theme/typography';
 import { HapticsService } from '../../services/HapticsService';
 import { templateToView, BLANK_TEMPLATES } from './viewTemplates';
 import type { ActivityView, Goal } from '../../domain/types';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 export type InlineViewCreatorProps = {
   /** User's goals for AI context */
@@ -186,7 +186,7 @@ export function InlineViewCreator({
                   autoFocus
                 />
                 {isAiLoading ? (
-                  <ActivityIndicator size="small" color={colors.accent} />
+                  <KwiltLoader size="small" color={colors.accent} />
                 ) : (
                   aiPrompt.trim().length > 0 && (
                     <Pressable

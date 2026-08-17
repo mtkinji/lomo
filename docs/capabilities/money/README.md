@@ -84,3 +84,10 @@ Plaid code and root cause still require an approved instrumented deployment and
 signed-device reproduction. Physical-device Face ID, widget refresh, Screen
 Time enforcement, archive/App Thinning, global export, household invite
 creation, and standalone retirement also remain separate boundaries.
+
+The accepted pending-commitment contract is currently an implementation target,
+not runtime proof: ordinary pending outflows should be categorized and included
+in current Money answers, while completed-period planning evidence remains
+posted-only. No temporary-hold treatment is authorized without explicit
+transaction-level evidence. Automated, authenticated Simulator, signed-device,
+TestFlight, and deployed-function proof remain separate gates.

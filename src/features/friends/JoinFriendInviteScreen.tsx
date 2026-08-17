@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
@@ -16,6 +16,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Text, VStack } from '../../ui/primitives';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type ScreenRoute = RouteProp<SettingsStackParamList, 'SettingsJoinFriend'>;
 type ScreenNavigation = NativeStackNavigationProp<SettingsStackParamList, 'SettingsJoinFriend'>;
@@ -68,7 +69,7 @@ export function JoinFriendInviteScreen() {
         <Card style={styles.card}>
           {state === 'previewing' ? (
             <VStack space="md" style={styles.centered}>
-              <ActivityIndicator color={colors.textSecondary} />
+              <KwiltLoader color={colors.textSecondary} />
               <Text style={styles.bodyCentered}>Reviewing this invitation…</Text>
             </VStack>
           ) : state === 'accepted' ? (
@@ -124,7 +125,7 @@ export function JoinFriendInviteScreen() {
 
               <Button fullWidth disabled={state === 'accepting'} onPress={() => void accept()}>
                 {state === 'accepting' ? (
-                  <ActivityIndicator color={colors.canvas} />
+                  <KwiltLoader color={colors.canvas} />
                 ) : (
                   'Accept friend invite'
                 )}

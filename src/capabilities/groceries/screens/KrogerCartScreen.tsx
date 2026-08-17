@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { openBrowserAsync } from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -56,6 +56,7 @@ import {
 import { resolveKrogerRetailQuantity } from '../domain/krogerCartProjection';
 import { classifyKrogerMatchReadiness } from '../domain/krogerMatchReadiness';
 import { generateCartSavingsSuggestions } from '../domain/cartSavingsSuggestions';
+import { KwiltLoader } from '../../../ui/KwiltLoader';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'KrogerCart'>;
 type Success = { cartUrl: string; count: number; remainingCount: number; retailerLabel: string; location: KrogerLocation };
@@ -296,7 +297,7 @@ function CartLoadingState({
         )}
       />
       <View style={styles.loadingContent}>
-        <ActivityIndicator
+        <KwiltLoader
           accessibilityLabel="Building your cart"
           color={colors.textPrimary}
           size="small"

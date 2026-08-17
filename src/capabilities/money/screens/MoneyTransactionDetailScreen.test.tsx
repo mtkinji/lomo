@@ -50,4 +50,12 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(source).toContain('Change how this transaction counts.');
     expect(source).not.toContain('<Text style={styles.sectionLabel}>Plan treatment</Text>');
   });
+
+  it('does not elevate pending or infer a temporary hold', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
+
+    expect(source).not.toContain('transaction.pending ? <Text style={styles.pendingText}>Pending</Text>');
+    expect(source).not.toContain('pendingText:');
+    expect(source).not.toContain('Temporary hold');
+  });
 });

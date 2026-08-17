@@ -1,4 +1,4 @@
-export const MONEY_TRANSACTION_CLASSIFIER_POLICY_VERSION = 'money-category-ai-v1';
+export const MONEY_TRANSACTION_CLASSIFIER_POLICY_VERSION = 'money-category-v2';
 export const MONEY_TRANSACTION_CLASSIFIER_LIMIT = 25;
 
 export type MoneyClassifierRole = 'protected_spending' | 'flexible_spending' | 'not_spending' | 'unresolved';

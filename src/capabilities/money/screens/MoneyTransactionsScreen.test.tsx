@@ -3,6 +3,7 @@ import { MoneyTransactionsScreen } from './MoneyTransactionsScreen';
 
 const mockRefresh = jest.fn(async () => undefined);
 const mockReconcileGovernedPlanFoundation = jest.fn(async () => undefined);
+const mockReconcileConnectedActivity = jest.fn(async () => null);
 const mockSnapshot = {
   accounts: [{ id: 'chase-savings', name: 'Chase Savings' }],
   categories: [],
@@ -14,6 +15,7 @@ jest.mock('../data/MoneyDataContext', () => ({
   useMoneyData: () => ({
     refresh: mockRefresh,
     reconcileGovernedPlanFoundation: mockReconcileGovernedPlanFoundation,
+    reconcileConnectedActivity: mockReconcileConnectedActivity,
     snapshot: mockSnapshot,
   }),
 }));
@@ -121,6 +123,23 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
 
     expect(screen.getByText('Flexible spending')).toBeTruthy();
     expect(screen.getByLabelText('Go back from Flexible spending')).toBeTruthy();
+  });
+
+  it('shows category truth for pending purchases instead of settlement status', () => {
+    mockSnapshot.transactions = [
+      { ...transaction('amazon', 'Amazon'), pending: true, categoryId: 'shopping', categoryName: 'Shopping', reviewState: 'assigned' },
+      { ...transaction('unknown', 'Unknown merchant'), pending: true },
+    ];
+    const navigation = { goBack: jest.fn(), navigate: jest.fn(), setParams: jest.fn() };
+    const route = { key: 'pending-truth', name: 'MoneyTransactions' as const, params: undefined };
+
+    const screen = render(<MoneyTransactionsScreen navigation={navigation as never} route={route as never} />);
+
+    expect(screen.getByText('Shopping')).toBeTruthy();
+    expect(screen.getByText('Needs review')).toBeTruthy();
+    expect(screen.queryByText('Pending')).toBeNull();
+    expect(screen.queryByText('Not counted')).toBeNull();
+    expect(screen.queryByText('Temporary hold')).toBeNull();
   });
 });
 

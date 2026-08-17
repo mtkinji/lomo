@@ -88,6 +88,23 @@ function snapshot(): MoneySnapshot {
 }
 
 describe('buildMoneyGlanceableSnapshot', () => {
+  it('publishes the same forecast-based meter status used by the app', () => {
+    const source = snapshot();
+    source.categories[0] = {
+      ...source.categories[0],
+      percentUsed: 57,
+      remainingCents: 17_200,
+      forecast: {
+        ...source.categories[0].forecast,
+        status: 'watch',
+      },
+    };
+
+    const result = buildMoneyGlanceableSnapshot(source, new Date(2026, 6, 24));
+
+    expect(result.categories.find((category) => category.id === 'groceries')?.status).toBe('near_limit');
+  });
+
   it('publishes exact display-safe flexible and category facts without transaction or account details', () => {
     const result = buildMoneyGlanceableSnapshot(snapshot(), new Date(2026, 6, 24));
 
@@ -121,7 +138,7 @@ describe('buildMoneyGlanceableSnapshot', () => {
           paceSentiment: 'on-track',
           percentUsed: 80,
           periodElapsedPercent: 77,
-          status: 'on_track',
+          status: 'near_limit',
           plannedCents: 40_000,
           spentCents: 32_000,
           remainingCents: 8_000,

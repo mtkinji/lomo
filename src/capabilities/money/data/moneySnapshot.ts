@@ -15,6 +15,7 @@ import {
 } from '../domain/categoryFunding';
 import type { MoneyPlanLimitAnswer } from '../domain/moneyPlanLimitAnswer';
 import { inferMoneyCategoryPlanRole, type MoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
+import { isCommittedOutflow } from '../domain/transactionCounting';
 
 export type MoneyCategoryRow = {
   id: string;
@@ -87,7 +88,7 @@ export type MoneyTransactionRow = {
   iso_currency_code: string;
   budget_id: string | null;
   budget_match_source?: 'confirmed' | 'corrected' | 'excluded' | 'merchant_rule' | null;
-  budget_assignment_source?: 'provider_policy' | 'merchant_rule' | 'ai_classifier' | null;
+  budget_assignment_source?: 'provider_policy' | 'merchant_rule' | 'merchant_history' | 'ai_classifier' | null;
   budget_assignment_policy_version?: string | null;
   budget_assignment_governed?: boolean | null;
   money_meaning: 'income' | 'category_credit' | 'transfer' | 'not_counted' | 'unknown' | null;
@@ -278,7 +279,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         return allocation ? [{ transaction, amountCents: allocation.amountCents }] : [];
       });
       const outflowCents = categoryTransactions
-        .filter(isCountedOutflow)
+        .filter(isCommittedRowOutflow)
         .reduce((sum, transaction) => sum + validCents(transaction.amount_cents), 0)
         + allocatedTransactions.reduce((sum, allocation) => sum + allocation.amountCents, 0);
       const creditCents = categoryTransactions
@@ -422,7 +423,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
     ) === 'needs_review',
   ).length;
   const outsidePlanTransactions = currentTransactions.filter(
-    (transaction) => isCountedOutflow(transaction)
+    (transaction) => isCommittedRowOutflow(transaction)
       && !allocationsByTransactionId.has(transaction.id)
       && (!transaction.budget_id || !categoryByAlias.has(transaction.budget_id)),
   );
@@ -558,7 +559,7 @@ function reviewStateFor(
   if (allocations?.length) return 'assigned';
   if (transaction.budget_match_source === 'excluded' || transaction.money_meaning === 'not_counted') return 'not_counted';
   if (transaction.budget_id && categories.has(transaction.budget_id)) return 'assigned';
-  return isCountedOutflow(transaction) ? 'needs_review' : 'not_counted';
+  return isCommittedRowOutflow(transaction) ? 'needs_review' : 'not_counted';
 }
 
 function buildValidAllocationsByTransactionId(
@@ -608,13 +609,12 @@ function normalizeConnection(connection: MoneyAccountRow['budget_financial_conne
   return Array.isArray(connection) ? connection[0] ?? null : connection ?? null;
 }
 
-function isCountedOutflow(transaction: MoneyTransactionRow): boolean {
-  return (
-    !transaction.pending &&
-    transaction.direction === 'outflow' &&
-    transaction.money_meaning !== 'transfer' &&
-    transaction.money_meaning !== 'not_counted'
-  );
+function isCommittedRowOutflow(transaction: MoneyTransactionRow): boolean {
+  return isCommittedOutflow({
+    direction: transaction.direction,
+    pending: transaction.pending,
+    moneyMeaning: transaction.money_meaning,
+  });
 }
 
 function validCents(value: number): number {
@@ -644,7 +644,7 @@ function countedCategorySpendBetween(input: {
     if (periodId < input.startPeriodId || periodId > input.endPeriodId) return;
     const assignedCategory = transaction.budget_id ? input.categoryByAlias.get(transaction.budget_id) : null;
     if (assignedCategory?.id === input.categoryId) {
-      if (isCountedOutflow(transaction)) outflowCents += validCents(transaction.amount_cents);
+      if (isCommittedRowOutflow(transaction)) outflowCents += validCents(transaction.amount_cents);
       if (!transaction.pending && transaction.direction === 'inflow' && transaction.money_meaning === 'category_credit') {
         creditCents += validCents(transaction.amount_cents);
       }

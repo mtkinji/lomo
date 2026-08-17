@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { colors, spacing } from '../../theme';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
@@ -11,6 +11,7 @@ import { PlanDateStrip } from '../plan/PlanDateStrip';
 import { DurationPicker, formatDurationMinutes } from './DurationPicker';
 import { styles } from './activityDetailStyles';
 import type { ActivityScheduleSheetController } from './useActivityScheduleSheetController';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type ActivityScheduleSheetProps = {
   visible: boolean;
@@ -136,7 +137,7 @@ export function ActivityScheduleSheet({
 
             {loading ? (
               <HStack alignItems="center" space="sm">
-                <ActivityIndicator color={colors.textSecondary} />
+                <KwiltLoader color={colors.textSecondary} />
                 <Text style={styles.sheetDescription}>Finding slots...</Text>
               </HStack>
             ) : !writeRef ? (

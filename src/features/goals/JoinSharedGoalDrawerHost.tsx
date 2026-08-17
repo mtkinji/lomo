@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Share, StyleSheet, View } from 'react-native';
+import { Alert, Share, StyleSheet, View } from 'react-native';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
 import { Text, VStack } from '../../ui/primitives';
@@ -18,6 +18,7 @@ import {
   getGoalInvitePreviewFailure,
   type GoalInvitePreviewFailure,
 } from './goalInvitePreviewFailure';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 export function JoinSharedGoalDrawerHost() {
   const { capture } = useAnalytics();
@@ -280,7 +281,7 @@ export function JoinSharedGoalDrawerHost() {
             <Button onPress={handleJoin} disabled={busy || previewBusy || alreadyHasGoal || preview.canJoin === false}>
               {busy ? (
                 <View style={styles.busyRow}>
-                  <ActivityIndicator color={colors.canvas} />
+                  <KwiltLoader color={colors.canvas} />
                   <Text style={styles.busyLabel}>Joining…</Text>
                 </View>
               ) : (

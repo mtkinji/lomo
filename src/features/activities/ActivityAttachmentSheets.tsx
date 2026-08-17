@@ -1,4 +1,4 @@
-import { ActivityIndicator, Image, Platform, View } from 'react-native';
+import { Image, Platform, View } from 'react-native';
 import { colors, spacing } from '../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
@@ -8,6 +8,7 @@ import { VStack } from '../../ui/primitives';
 import { Text } from '../../ui/Typography';
 import { styles } from './activityDetailStyles';
 import type { ActivityAttachmentsController } from './useActivityAttachmentsController';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type ActivityAttachmentSheetsProps = {
   detailsVisible: boolean;
@@ -64,7 +65,7 @@ export function ActivityAttachmentSheets({
               >
                 {controller.isLoadingDownloadUrl ? (
                   <View style={styles.attachmentPreviewPlaceholder}>
-                    <ActivityIndicator size="small" color={colors.textSecondary} />
+                    <KwiltLoader size="small" color={colors.textSecondary} />
                     <Text style={styles.attachmentPreviewPlaceholderText}>Loading...</Text>
                   </View>
                 ) : presentation.kind === 'photo' && controller.downloadUrl ? (

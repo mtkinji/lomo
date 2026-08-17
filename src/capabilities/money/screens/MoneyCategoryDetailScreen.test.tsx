@@ -39,17 +39,36 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).toContain('title="Category settings"');
   });
 
-  it('uses the shared floating object header and compact scroll-linked cover treatment', () => {
+  it('keeps the floating controls owned by the scroll-linked hero treatment', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
 
     expect(source).toContain('const CATEGORY_HERO_HEIGHT = 168;');
-    expect(source).toContain('<ObjectPageHeader');
-    expect(source).toContain('showFullWidthBackground={false}');
+    expect(source).toContain('style={[styles.heroHeader, { height: headerTotalHeight, paddingTop: insets.top }]}');
+    expect(source).not.toContain('<ObjectPageHeader');
     expect(source.match(/materialVariant="floatingWhite"/g)).toHaveLength(2);
     expect(source).toContain('heroParallaxTranslateY');
     expect(source).toContain('heroOpacity');
     expect(source).toContain('style={styles.categoryTitle}>{category.name}</Text>');
     expect(source).not.toContain('styles.headerSurface');
+  });
+
+  it('refreshes the real Money snapshot behind the branded pull interaction', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('useKwiltRefresh');
+    expect(source).toContain('refreshControl={refreshControl}');
+    expect(source.indexOf('style={[styles.heroHeader')).toBeGreaterThan(source.indexOf('<Animated.ScrollView'));
+    expect(source.indexOf('style={[styles.heroHeader')).toBeGreaterThan(source.indexOf('<View style={styles.heroStage}>'));
+    expect(source.indexOf('style={[styles.heroHeader')).toBeLessThan(source.indexOf('<View style={styles.summarySection}>'));
+    expect(source).toContain('contentContainerStyle={styles.scrollContent}');
+    expect(source).toContain('<View style={styles.refreshPage}>');
+    expect(source).toContain("refreshPage: {\n    flexGrow: 1,\n    position: 'relative',");
+    expect(source).not.toContain('refreshHeaderStyle');
+    expect(source).not.toContain("key={refreshing ? 'refreshing' : 'pulling'}");
+    expect(source).toContain('<KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>');
+    expect(source).not.toContain('{refreshIndicator}');
+    expect(source).not.toContain('refreshReveal');
+    expect(source).not.toContain('<KwiltPullToRefresh');
   });
 
   it('shows one plain rebalance consequence and commits the preview that was displayed', () => {
@@ -83,5 +102,13 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source.match(/style=\{styles\.drawerFixedHeader\}/g)).toHaveLength(2);
     expect(source).toContain('visible={settingsOpen}');
     expect(source).toContain('visible={forecastSettingsOpen}');
+  });
+
+  it('keeps settlement status out of category activity metadata', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+
+    expect(source).not.toContain("transaction.pending ? 'Pending'");
+    expect(source).toContain("transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.accountName");
+    expect(source).not.toContain('Temporary hold');
   });
 });

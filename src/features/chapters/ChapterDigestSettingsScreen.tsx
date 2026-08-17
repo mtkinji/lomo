@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -31,6 +30,7 @@ import {
   syncYesterdayHealthDailyToSupabase,
   type HealthPermissionStatus,
 } from '../../services/health/healthKit';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type Nav = NativeStackNavigationProp<MoreStackParamList, 'MoreChapterDigestSettings'>;
 
@@ -273,7 +273,7 @@ export function ChapterDigestSettingsScreen() {
       >
         {loading || !settings ? (
           <View style={styles.loadingBlock}>
-            <ActivityIndicator size="small" color={colors.accent} />
+            <KwiltLoader size="small" color={colors.accent} />
           </View>
         ) : (
           <VStack space="md">

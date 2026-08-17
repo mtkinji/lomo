@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, View } from 'react-native';
+import { Alert, Image, StyleSheet, View } from 'react-native';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { Text, VStack } from '../../ui/primitives';
@@ -13,6 +13,7 @@ import {
 } from '../../services/sharedGoals';
 import { declineTargetedGoalInvite } from '../../services/invites';
 import { useJoinSharedGoalDrawerStore } from '../../store/useJoinSharedGoalDrawerStore';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 export function GoalSharingSettingsSection() {
   const [items, setItems] = useState<GoalSharingItem[]>([]);
@@ -51,7 +52,7 @@ export function GoalSharingSettingsSection() {
   if (loading) {
     return (
       <View style={styles.loadingRow}>
-        <ActivityIndicator size="small" color={colors.muted} />
+        <KwiltLoader size="small" color={colors.muted} />
         <Text style={styles.secondary}>Loading Goal sharing…</Text>
       </View>
     );

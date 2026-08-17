@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   StyleSheet,
@@ -20,6 +19,7 @@ import {
   type HouseholdMember,
 } from '../../../features/household/data/household';
 import { createMealPlanningRepository } from '../data/mealPlanningRepository';
+import { KwiltLoader } from '../../../ui/KwiltLoader';
 
 export function MealPlanShareDrawer(props: {
   visible: boolean;
@@ -120,7 +120,7 @@ export function MealPlanShareDrawer(props: {
         <BottomDrawerScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {loading ? (
             <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color={colors.textSecondary} />
+              <KwiltLoader size="small" color={colors.textSecondary} />
               <Text tone="secondary">Finding your people…</Text>
             </View>
           ) : members.length ? (

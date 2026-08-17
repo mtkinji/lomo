@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import {
   Alert,
   View,
@@ -7,8 +7,8 @@ import {
   Text,
   Pressable,
   Linking,
-  ActivityIndicator,
 } from 'react-native';
+import { KwiltLoader } from '../ui/KwiltLoader';
 import { useAnalytics } from '../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../services/analytics/events';
 import {
@@ -150,6 +150,11 @@ import { GamesPlayerSettingsScreen } from '../capabilities/games/settings/GamesP
 import type { GamesStackParamList } from '../capabilities/games/navigation/types';
 import { FoodNavigator, type FoodStackParamList } from '../features/household-food/FoodNavigator';
 import { ExploreSettingsScreen } from '../capabilities/explore/screens/ExploreSettingsScreen';
+import {
+  KwiltLabsSettingsScreen,
+  KwiltLabsSettingsSurface,
+} from '../features/account/KwiltLabsSettingsScreen';
+import { useKwiltLabsStore } from '../labs/useKwiltLabsStore';
 import { useFeatureFlag } from '../services/analytics/useFeatureFlag';
 import { useNavigationOrientationPolicy } from './navigationOrientation';
 import { useFocusSessionStore } from '../features/activities/focusSessionStore';
@@ -343,6 +348,7 @@ export type ActivitiesStackParamList = {
 
 export type SettingsStackParamList = {
   SettingsHome: undefined;
+  SettingsKwiltLabs: undefined;
   SettingsExplore: { entrySurface?: 'explore-map' } | undefined;
   SettingsGames: undefined;
   SettingsMeals: undefined;
@@ -621,7 +627,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
     // Avoid a blank shell while restoring persisted navigation state.
     return (
       <View style={styles.navRestoreScreen}>
-        <ActivityIndicator size="small" color={colors.accent} />
+        <KwiltLoader size="small" color={colors.accent} />
         <Text style={styles.navRestoreText}>Opening your workspace...</Text>
       </View>
     );
@@ -974,11 +980,30 @@ function MoneyCapabilityHost() {
 }
 
 function ExploreCapabilityHost() {
+  const enabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('explore'));
+  if (!enabled) {
+    return (
+      <KwiltLabsSettingsSurface
+        onBack={() => {
+          if (rootNavigationRef.canGoBack()) rootNavigationRef.goBack();
+          else rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' });
+        }}
+      />
+    );
+  }
   return (
     <CapabilityShellProvider>
       <ExploreNavigator />
     </CapabilityShellProvider>
   );
+}
+
+function ExploreSettingsCapabilityHost(props: ComponentProps<typeof ExploreSettingsScreen>) {
+  const enabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('explore'));
+  if (!enabled) {
+    return <KwiltLabsSettingsSurface onBack={() => props.navigation.goBack()} />;
+  }
+  return <ExploreSettingsScreen {...props} />;
 }
 
 function GamesCapabilityHost() {
@@ -1025,8 +1050,9 @@ function SettingsStackNavigator() {
   return (
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
       <SettingsStack.Screen name="SettingsHome" component={SettingsHomeScreen} />
+      <SettingsStack.Screen name="SettingsKwiltLabs" component={KwiltLabsSettingsScreen} />
       <SettingsStack.Screen name="SettingsMeals" component={MealsSettingsScreen} />
-      <SettingsStack.Screen name="SettingsExplore" component={ExploreSettingsScreen} />
+      <SettingsStack.Screen name="SettingsExplore" component={ExploreSettingsCapabilityHost} />
       <SettingsStack.Screen name="SettingsGames" component={GamesPlayerSettingsScreen} />
       <SettingsStack.Screen
         name="SettingsAppearance"
@@ -1161,7 +1187,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const { capture } = useAnalytics();
   const { coverMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
-  const exploreEnabled = useFeatureFlag('explore-capability', __DEV__);
+  const exploreEnabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('explore'));
   const sharedHomeEnabled = useFeatureFlag('shared-home-v1', false);
   const chatRepository = useMemo(() => createUnifiedChatRepository(), []);
   const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);

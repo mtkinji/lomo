@@ -30,16 +30,14 @@ const initialSnapshot = {
 } as MoneySnapshot;
 
 let mockSnapshot = initialSnapshot;
-const mockRefresh = jest.fn(async () => undefined);
-const mockReconcileGovernedPlanFoundation = jest.fn(async () => undefined);
+const mockReconcileConnectedActivity = jest.fn(async () => null);
 const mockRefreshStaleMoneySummary = jest.fn(async (_input: unknown) => undefined);
 const mockReorderCategories = jest.fn(async (_categoryIds: string[]) => undefined);
 
 jest.mock('../data/MoneyDataContext', () => ({
   useMoneyData: () => ({
     snapshot: mockSnapshot,
-    refresh: mockRefresh,
-    reconcileGovernedPlanFoundation: mockReconcileGovernedPlanFoundation,
+    reconcileConnectedActivity: mockReconcileConnectedActivity,
     reorderCategories: mockReorderCategories,
     savingCategoryOrder: false,
   }),
@@ -74,8 +72,7 @@ jest.mock('../../../ui/BottomDrawer', () => {
 describe('MoneySummaryScreen living limit answer', () => {
   beforeEach(() => {
     mockSnapshot = initialSnapshot;
-    mockRefresh.mockClear();
-    mockReconcileGovernedPlanFoundation.mockClear();
+    mockReconcileConnectedActivity.mockClear();
     mockRefreshStaleMoneySummary.mockClear();
     mockReorderCategories.mockClear();
   });
@@ -169,7 +166,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     });
   });
 
-  it('quietly refreshes stale connected activity without adding a user decision', () => {
+  it('quietly refreshes stale connected activity without adding a user decision', async () => {
     mockSnapshot = {
       ...initialSnapshot,
       livingLimitAnswer: {
@@ -183,9 +180,11 @@ describe('MoneySummaryScreen living limit answer', () => {
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary', name: 'MoneySummary' } as never} />);
 
     expect(mockRefreshStaleMoneySummary).toHaveBeenCalledWith({
-      reconcileGovernedPlanFoundation: mockReconcileGovernedPlanFoundation,
-      refreshSnapshot: mockRefresh,
+      reconcileConnectedActivity: expect.any(Function),
     });
+    const input = mockRefreshStaleMoneySummary.mock.calls[0]?.[0] as { reconcileConnectedActivity: () => Promise<void> };
+    await input.reconcileConnectedActivity();
+    expect(mockReconcileConnectedActivity).toHaveBeenCalledWith({ trigger: 'stale_summary', sync: true });
     expect(screen.queryByText(/transactions need/i)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open connected accounts' })).toBeNull();
     expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$342.96 left');

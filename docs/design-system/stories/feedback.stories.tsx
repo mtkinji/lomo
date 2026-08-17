@@ -4,6 +4,7 @@ import { colors, spacing } from '../../../src/theme';
 import { Badge } from '../../../src/ui/Badge';
 import { EmptyState } from '../../../src/ui/EmptyState';
 import { Toast } from '../../../src/ui/Toast';
+import { KwiltLoader } from '../../../src/ui/KwiltLoader';
 import { Heading, Text } from '../../../src/ui/Typography';
 import { Card } from '../../../src/ui/Card';
 import { Specimen, StoryFrame, StoryGrid, StoryStack } from './storyHelpers';
@@ -22,6 +23,38 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+export const Loading: Story = {
+  render: () => (
+    <StoryFrame
+      title="KwiltLoader"
+      description="Canonical progress mark. Callers may choose a semantic color and size, but own the surrounding surface, copy, and error state."
+    >
+      <StoryGrid>
+        <Specimen label="inline">
+          <View style={styles.loaderSpecimen}>
+            <KwiltLoader size="small" />
+          </View>
+        </Specimen>
+        <Specimen label="surface">
+          <View style={styles.loaderSpecimen}>
+            <KwiltLoader size={32} />
+          </View>
+        </Specimen>
+        <Specimen label="inverse">
+          <View style={[styles.loaderSpecimen, styles.inverseLoaderSpecimen]}>
+            <KwiltLoader color={colors.parchment} size="large" />
+          </View>
+        </Specimen>
+        <Specimen label="pull watermark">
+          <View style={styles.loaderSpecimen}>
+            <KwiltLoader phase="idle" size={50} />
+          </View>
+        </Specimen>
+      </StoryGrid>
+    </StoryFrame>
+  ),
+};
 
 export const EmptyStates: Story = {
   render: () => (
@@ -120,6 +153,17 @@ export const Toasts: Story = {
 };
 
 const styles = {
+  loaderSpecimen: {
+    width: 120,
+    height: 88,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    borderRadius: 18,
+    backgroundColor: colors.card,
+  },
+  inverseLoaderSpecimen: {
+    backgroundColor: colors.sumi900,
+  },
   emptySpecimen: {
     width: 300,
     minHeight: 300,

@@ -53,4 +53,30 @@ describe('buildLivingPlanEvidence', () => {
       priorReserveCents: 30_000,
     });
   });
+
+  it('includes pending current outflows in exposure without training historical support', () => {
+    const evidence = buildLivingPlanEvidence({
+      nowIso: '2026-07-20T12:00:00.000Z',
+      lastSyncedAtIso: '2026-07-20T11:00:00.000Z',
+      transactions: [
+        { id: 'may', date: '2026-05-10', direction: 'outflow', amountCents: 10_000, description: 'Amazon', budgetId: 'shopping' },
+        { id: 'june', date: '2026-06-10', direction: 'outflow', amountCents: 12_000, description: 'Amazon', budgetId: 'shopping' },
+        { id: 'pending-july', date: '2026-07-19', direction: 'outflow', amountCents: 2_685, description: 'Amazon', budgetId: 'shopping', pending: true },
+        { id: 'pending-refund', date: '2026-07-19', direction: 'inflow', amountCents: 500, description: 'Amazon refund', budgetId: 'shopping', pending: true, moneyMeaning: 'category_credit' },
+      ],
+      forecastSettings: [],
+      existingPlanAmounts: [{ categoryId: 'shopping', amountCents: 15_000 }],
+      overrides: [],
+    });
+
+    expect(evidence.categories).toEqual([{
+      categoryId: 'shopping',
+      supportedFlexibleCents: 11_000,
+      exposureCents: 2_685,
+      starterWeight: 0,
+      fundingRhythm: 'monthly',
+      priorReserveCents: 0,
+    }]);
+    expect(evidence.sourceInputs).toEqual([]);
+  });
 });

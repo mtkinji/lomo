@@ -155,11 +155,25 @@ describe('createMoneyRepository transaction review', () => {
 
   it('requests unresolved classification through an authenticated optional background boundary', async () => {
     const { client, functionCalls } = createClient({
-      functionResult: { consideredCount: 3, assignedCount: 2, unresolvedCount: 1 },
+      functionResult: {
+        policyVersion: 'money-category-v2',
+        consideredCount: 4,
+        assignedCount: 2,
+        deterministicAssignedCount: 1,
+        aiAssignedCount: 1,
+        unresolvedCount: 1,
+        retryableCount: 1,
+      },
     });
 
     await expect(createMoneyRepository(client).classifyUnresolvedTransactions()).resolves.toEqual({
-      consideredCount: 3, assignedCount: 2, unresolvedCount: 1,
+      policyVersion: 'money-category-v2',
+      consideredCount: 4,
+      assignedCount: 2,
+      deterministicAssignedCount: 1,
+      aiAssignedCount: 1,
+      unresolvedCount: 1,
+      retryableCount: 1,
     });
     expect(functionCalls).toContainEqual({ name: 'classify-money-transactions', body: {} });
   });

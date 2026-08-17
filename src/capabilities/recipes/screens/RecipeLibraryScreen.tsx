@@ -12,7 +12,6 @@ import {
   Alert,
   FlatList,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   View,

@@ -10,7 +10,7 @@ job_step: connect-spend-source
 serves: [jtbd-trust-this-app-with-my-life, jtbd-review-budget-reality-before-spending, jtbd-carry-intentions-into-action]
 related_briefs: [brief-accounts-inventory-shell, brief-transaction-inventory-date-scope, brief-prediction-trust-contract]
 owner: andrew
-last_updated: 2026-08-04
+last_updated: 2026-08-17
 source_repo: mtkinji/kwilt-budget
 source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 ---
@@ -36,6 +36,26 @@ Kwilt Money needs a shared transaction freshness contract. User-facing budget cl
 
 When Maya knows she just spent money and opens Kwilt Money, a missing transaction makes the app feel untrustworthy. She does not care whether the technical gap is Plaid delay, sync cursor state, Supabase snapshot freshness, selected date scope, or connection health. She needs the app to answer: "Did Kwilt count this yet, and if not, what does that mean?"
 
+## Pending Commitment Contract
+
+An ordinary pending outflow is current household activity, not an exceptional
+state Maya must interpret. Kwilt shows it, categorizes it, and includes it in
+the current category and whole-plan answer immediately. Pending status remains
+bank lifecycle metadata; it is not a category, review state, or reason to call
+the purchase `Not counted`.
+
+Pending inflows do not increase available money. Completed-period history and
+forecast learning remain based on posted evidence, while current-period
+exposure includes pending outflows. When a pending purchase posts, changes
+amount, or disappears, Kwilt reconciles the provider inventory without counting
+the same economic event twice.
+
+Explicit user corrections, exclusions, splits, and merchant rules outrank
+automated categorization. Kwilt does not infer or display `Temporary hold` from
+merchant, amount, merchant type, or generic pending status. That treatment
+requires an explicit transaction-level provider signal or a user-confirmed
+designation. Neither signal exists in this implementation slice.
+
 ## User Experience
 
 Transactions:
@@ -46,7 +66,9 @@ Transactions:
 - Adds minimal list-level freshness copy near the inventory controls/count, such as `Last updated: 2 hr ago`.
 - Provides `Check for new activity` for signed-in connected users.
 - Shows result copy after checking: new transactions arrived, no new activity found, unable to check, or recent purchases may still be arriving.
-- Keeps transaction-row metadata focused on the row itself: pending/posted status, review state, category assignment, and merchant/amount/date. Do not repeat source freshness on every row.
+- Keeps transaction-row metadata focused on category assignment or a
+  consequential review state, plus merchant, amount, and date. Routine
+  pending/posted status and source freshness do not appear on every row.
 
 Accounts:
 
@@ -118,6 +140,13 @@ Avoid:
 - The shared freshness model is covered by focused tests.
 - Sync-result copy logic is covered by focused tests.
 - No analytics or logs include merchant names, exact amounts, account masks, or raw provider payloads.
+- A pending Amazon purchase assigned to Shopping appears as Shopping and reduces
+  both current Shopping room and the current whole-plan answer immediately.
+- A pending uncategorized outflow appears as `Needs review`, not `Not counted`.
+- Pending inflows do not increase available money, and completed-period planning
+  evidence remains posted-only.
+- No surface displays `Temporary hold` without explicit transaction-level
+  provider evidence or a user-confirmed designation.
 - `npm run lint` and `npm run test:forecast` pass before TestFlight build.
 - TestFlight verification confirms the installed app uses the deployed sync path.
 
@@ -129,6 +158,7 @@ Avoid:
 - Screen Time/app-control freshness gating.
 - Plaid repair center.
 - Monetization for refresh.
+- Heuristic temporary-hold detection or copy.
 
 ## Spec Refinement
 

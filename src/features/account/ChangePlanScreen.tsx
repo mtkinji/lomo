@@ -11,9 +11,15 @@ import { VStack, Text } from '../../ui/primitives';
 import { spacing, typography, colors } from '../../theme';
 import { hexToRgba } from '../../theme/colorUtils';
 import { SegmentedControl } from '../../ui/SegmentedControl';
+import {
+  SUBSCRIPTION_PRICING,
+  getAnnualMonthlyEquivalent,
+  getAnnualSavingsPercent,
+  type SubscriptionPlan,
+} from './subscriptionPricing';
 
 type BillingCadence = 'annual' | 'monthly';
-type PlanId = 'family' | 'individual';
+type PlanId = SubscriptionPlan;
 
 type PlanOption = {
   id: PlanId;
@@ -35,9 +41,8 @@ function formatYearly(amount: number): string {
   return `${formatMoney(amount)} / yr`;
 }
 
-function buildAnnualSubcopy(monthly: number): string {
-  const monthlyEquivalent = monthly * 0.75;
-  return `Equivalent to ${formatMoney(monthlyEquivalent)}/mo • Save 25%`;
+function buildAnnualSubcopy(plan: PlanId): string {
+  return `Equivalent to ${formatMoney(getAnnualMonthlyEquivalent(plan))}/mo • Save ${getAnnualSavingsPercent(plan)}%`;
 }
 
 function PlanCard({
@@ -54,7 +59,7 @@ function PlanCard({
   const priceLabel = billingCadence === 'annual'
     ? formatYearly(plan.annualPrice)
     : formatMonthly(plan.monthlyPrice);
-  const subcopy = billingCadence === 'annual' ? buildAnnualSubcopy(plan.monthlyPrice) : ' ';
+  const subcopy = billingCadence === 'annual' ? buildAnnualSubcopy(plan.id) : ' ';
   return (
     <Pressable
       accessibilityRole="button"
@@ -90,15 +95,15 @@ export function ChangePlanScreen() {
     {
       id: 'family',
       name: 'Family Plan',
-      monthlyPrice: 9.99,
-      annualPrice: 89.99,
+      monthlyPrice: SUBSCRIPTION_PRICING.family.monthly,
+      annualPrice: SUBSCRIPTION_PRICING.family.annual,
       badge: 'current',
     },
     {
       id: 'individual',
       name: 'Individual',
-      monthlyPrice: 4.99,
-      annualPrice: 44.99,
+      monthlyPrice: SUBSCRIPTION_PRICING.individual.monthly,
+      annualPrice: SUBSCRIPTION_PRICING.individual.annual,
       badge: 'most_popular',
     },
   ];
@@ -273,5 +278,3 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 });
-
-

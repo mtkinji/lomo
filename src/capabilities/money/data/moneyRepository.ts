@@ -94,9 +94,19 @@ export type ConfirmedCategoryOrderWrite = {
   categoryIds: string[];
 };
 
+export type MoneyClassificationReceipt = {
+  policyVersion: string;
+  consideredCount: number;
+  assignedCount: number;
+  deterministicAssignedCount: number;
+  aiAssignedCount: number;
+  unresolvedCount: number;
+  retryableCount: number;
+};
+
 export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
-  classifyUnresolvedTransactions(): Promise<{ consideredCount: number; assignedCount: number; unresolvedCount: number }>;
+  classifyUnresolvedTransactions(): Promise<MoneyClassificationReceipt>;
   ensureGovernedPlanFoundation(): Promise<void>;
   assignTransactionCategory(transactionId: string, categoryId: string): Promise<ConfirmedTransactionWrite>;
   markTransactionNotCounted(transactionId: string): Promise<ConfirmedTransactionWrite>;
@@ -280,13 +290,29 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       const { data, error } = await client.functions.invoke('classify-money-transactions', { body: {} });
       if (error) throw new Error(`Money could not classify transactions: ${error.message || 'Unknown server error'}`);
       const result = data as Record<string, unknown> | null;
+      const policyVersion = typeof result?.policyVersion === 'string' ? result.policyVersion.trim() : '';
       const consideredCount = Number(result?.consideredCount);
       const assignedCount = Number(result?.assignedCount);
+      const deterministicAssignedCount = Number(result?.deterministicAssignedCount);
+      const aiAssignedCount = Number(result?.aiAssignedCount);
       const unresolvedCount = Number(result?.unresolvedCount);
-      if (![consideredCount, assignedCount, unresolvedCount].every((value) => Number.isSafeInteger(value) && value >= 0)) {
+      const retryableCount = Number(result?.retryableCount);
+      const counts = [consideredCount, assignedCount, deterministicAssignedCount, aiAssignedCount, unresolvedCount, retryableCount];
+      if (!policyVersion
+        || !counts.every((value) => Number.isSafeInteger(value) && value >= 0)
+        || assignedCount !== deterministicAssignedCount + aiAssignedCount
+        || consideredCount !== assignedCount + unresolvedCount + retryableCount) {
         throw new Error('Money received an invalid classification receipt.');
       }
-      return { consideredCount, assignedCount, unresolvedCount };
+      return {
+        policyVersion,
+        consideredCount,
+        assignedCount,
+        deterministicAssignedCount,
+        aiAssignedCount,
+        unresolvedCount,
+        retryableCount,
+      };
     },
     async ensureGovernedPlanFoundation() {
       await requireSignedIn(client);

@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, Pressable, ActivityIndicator, RefreshControl, ScrollView, TextInput } from 'react-native';
+import { StyleSheet, View, Pressable, ScrollView, TextInput } from 'react-native';
 import { Text, HStack, VStack } from '../../ui/primitives';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { colors, spacing, typography, fonts, cardSurfaceStyle } from '../../theme';
@@ -28,7 +28,8 @@ import { HapticsService } from '../../services/HapticsService';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { Icon } from '../../ui/Icon';
-
+import { KwiltLoader } from '../../ui/KwiltLoader';
+import { KwiltRefreshFrame, useKwiltRefresh } from '../../ui/KwiltRefresh';
 // ─────────────────────────────────────────────────────────────────────────────
 // Simple relative time helper (avoids date-fns dependency)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,13 +88,10 @@ export function GoalFeedSection({
   const { capture } = useAnalytics();
   const [feedResult, setFeedResult] = useState<GoalFeedResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadFeed = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setIsRefreshing(true);
-    } else {
+    if (!isRefresh) {
       setIsLoading(true);
     }
     setError(null);
@@ -111,9 +109,9 @@ export function GoalFeedSection({
       setError('Unable to load check-ins. Check your connection and try again.');
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
     }
   }, [goalId, capture]);
+  const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: () => loadFeed(true) });
 
   // Initial load + refresh on key change
   useEffect(() => {
@@ -166,7 +164,7 @@ export function GoalFeedSection({
   if (isLoading && !feedResult) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color={colors.textSecondary} />
+        <KwiltLoader color={colors.textSecondary} />
       </View>
     );
   }
@@ -197,24 +195,26 @@ export function GoalFeedSection({
           </View>
         ) : null
       ) : (
-        <ScrollView
-          style={styles.feedScroll}
-          contentContainerStyle={styles.feedScrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={() => loadFeed(true)} />
-          }
-        >
-          {items.map((item) => (
-            <FeedItemCard
-              key={item.id}
-              goalId={goalId}
-              item={item}
-              onReaction={handleReaction}
-              onReplySubmitted={() => loadFeed(true)}
-            />
-          ))}
-        </ScrollView>
+        <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
+          <ScrollView
+            style={styles.feedScroll}
+            contentContainerStyle={styles.feedScrollContent}
+            onScroll={onScroll}
+            showsVerticalScrollIndicator={false}
+            refreshControl={refreshControl}
+            scrollEventThrottle={scrollEventThrottle}
+          >
+            {items.map((item) => (
+              <FeedItemCard
+                key={item.id}
+                goalId={goalId}
+                item={item}
+                onReaction={handleReaction}
+                onReplySubmitted={() => loadFeed(true)}
+              />
+            ))}
+          </ScrollView>
+        </KwiltRefreshFrame>
       )}
     </View>
   );

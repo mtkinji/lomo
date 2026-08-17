@@ -4,15 +4,16 @@ function getMoneyWidgetSwift(targetName) {
 // ---------------------------------------------------------------------------
 
 struct MoneyWidgetPalette {
-  static let calm = KwiltPalette.pine
-  static let near = Color(red: 181/255, green: 113/255, blue: 20/255)
-  static let over = Color(red: 218/255, green: 45/255, blue: 52/255)
+  static let brand = KwiltPalette.pine
+  static let onTrack = Color(red: 111/255, green: 165/255, blue: 146/255)
+  static let watch = Color(red: 169/255, green: 113/255, blue: 32/255)
+  static let over = Color(red: 220/255, green: 38/255, blue: 38/255)
   static let inactive = Color.secondary.opacity(0.16)
 
   static func category(_ status: String) -> Color {
     if status == "over" { return over }
-    if status == "near_limit" { return near }
-    return calm
+    if status == "near_limit" { return watch }
+    return onTrack
   }
 }
 
@@ -224,9 +225,9 @@ struct FlexibleMoneyAnswerCard: View {
   let entry: FlexibleMoneyEntry
 
   private var tone: Color {
-    guard let state = entry.flexibleMoney?.state else { return MoneyWidgetPalette.calm }
+    guard let state = entry.flexibleMoney?.state else { return .primary }
     if state == "over" || state == "plan_over" { return MoneyWidgetPalette.over }
-    return MoneyWidgetPalette.calm
+    return .primary
   }
 
   private var value: String? {
@@ -250,14 +251,14 @@ struct FlexibleMoneyAnswerCard: View {
         HStack(spacing: 8) {
           Text("Flexible money")
             .font(KwiltWidgetTypography.label)
-            .foregroundStyle(MoneyWidgetPalette.calm)
+            .foregroundStyle(MoneyWidgetPalette.brand)
             .lineLimit(1)
             .minimumScaleFactor(0.78)
           Spacer()
           if let logo = kwiltLogoImage() {
             ZStack {
               RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(MoneyWidgetPalette.calm)
+                .fill(MoneyWidgetPalette.brand)
               logo
                 .resizable()
                 .scaledToFit()
@@ -446,7 +447,7 @@ struct MoneyCategoryWidgetView: View {
   let entry: MoneyCategoryEntry
 
   private var tone: Color {
-    guard let category = entry.category else { return MoneyWidgetPalette.calm }
+    guard let category = entry.category else { return MoneyWidgetPalette.onTrack }
     return MoneyWidgetPalette.category(category.status)
   }
 

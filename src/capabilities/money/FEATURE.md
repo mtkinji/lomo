@@ -47,7 +47,7 @@ briefs:
   - transaction-rule-truth
   - transaction-truth-to-five
 status: shipping
-last_reviewed: 2026-08-04
+last_reviewed: 2026-08-17
 ---
 
 # Money
@@ -73,3 +73,9 @@ life into a finance hobby.
 Start at [`docs/capabilities/money/README.md`](../../../docs/capabilities/money/README.md)
 for the canonical brief catalog, topical design history, frozen-source boundary,
 and current proof limits.
+
+The pending-commitment contract is accepted but remains unshipped until current
+outflows are counted and categorized before settlement, historical planning
+stays posted-only, and the real sync path proves pending-to-posted replacement
+without a duplicate contribution. Temporary-hold treatment is excluded without
+explicit transaction-level evidence.

@@ -228,6 +228,57 @@ describe('projectMoneySnapshot', () => {
     expect(snapshot.transactions[0]?.reviewState).toBe('needs_review');
   });
 
+  it('counts pending purchases immediately without trusting pending inflows', () => {
+    const snapshot = projectMoneySnapshot({
+      categories,
+      plans,
+      accounts: [],
+      connections: [],
+      transactions: [
+        {
+          id: 'pending-amazon', financial_account_id: null, name: 'Amazon', merchant_name: 'Amazon',
+          amount_cents: 2685, direction: 'outflow', date: '2026-07-22', pending: true,
+          iso_currency_code: 'USD', budget_id: 'category-grocery-uuid', money_meaning: null,
+        },
+        {
+          id: 'pending-unknown', financial_account_id: null, name: 'Unknown', merchant_name: null,
+          amount_cents: 500, direction: 'outflow', date: '2026-07-22', pending: true,
+          iso_currency_code: 'USD', budget_id: null, money_meaning: null,
+        },
+        {
+          id: 'pending-credit', financial_account_id: null, name: 'Refund', merchant_name: null,
+          amount_cents: 1000, direction: 'inflow', date: '2026-07-22', pending: true,
+          iso_currency_code: 'USD', budget_id: 'groceries', money_meaning: 'category_credit',
+        },
+        {
+          id: 'pending-transfer', financial_account_id: null, name: 'Transfer', merchant_name: null,
+          amount_cents: 2000, direction: 'outflow', date: '2026-07-22', pending: true,
+          iso_currency_code: 'USD', budget_id: null, money_meaning: 'transfer',
+        },
+        {
+          id: 'pending-excluded', financial_account_id: null, name: 'Outside', merchant_name: null,
+          amount_cents: 3000, direction: 'outflow', date: '2026-07-22', pending: true,
+          iso_currency_code: 'USD', budget_id: null, budget_match_source: 'excluded', money_meaning: 'not_counted',
+        },
+      ],
+    }, new Date('2026-07-23T18:00:00.000Z'));
+
+    expect(snapshot.categories[0]).toMatchObject({ spentCents: 2685, remainingCents: 57315 });
+    expect(snapshot.totals).toMatchObject({ spentCents: 2685, remainingCents: 77315, needsReviewCount: 1 });
+    expect(snapshot.outsidePlan).toEqual({ spentCents: 500, transactionCount: 1 });
+    expect(snapshot.transactions.find((row) => row.id === 'pending-amazon')).toMatchObject({
+      categoryName: 'Groceries',
+      reviewState: 'assigned',
+    });
+    expect(snapshot.transactions.find((row) => row.id === 'pending-unknown')).toMatchObject({
+      categoryName: 'Needs review',
+      reviewState: 'needs_review',
+    });
+    expect(snapshot.transactions.find((row) => row.id === 'pending-transfer')).toMatchObject({
+      reviewState: 'not_counted',
+    });
+  });
+
   it('keeps an explicitly excluded transaction outside the review queue', () => {
     const snapshot = projectMoneySnapshot(
       {

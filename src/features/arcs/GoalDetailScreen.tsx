@@ -4,7 +4,6 @@ import {
   LayoutAnimation,
   StyleSheet,
   View,
-  ActivityIndicator,
   Platform,
   TextInput,
   TouchableOpacity,
@@ -197,6 +196,7 @@ import { buildGoalRefinementPrompt } from './goalRefinementPrompt';
 import { normalizeGoalSharePreviewImageUrl } from './goalSharePreviewUrl';
 import { selectGoalInviteDestinationUrls } from '../goals/goalInviteDestinationUrl';
 import { appendGoalInviteReferralCode } from '../goals/goalInviteReferralUrl';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -1943,7 +1943,7 @@ export function GoalDetailScreen() {
               <Icon name="arrowLeft" size={20} color={colors.textPrimary} />
             </Button>
             <View style={{ paddingTop: spacing.md }}>
-              <ActivityIndicator color={colors.textPrimary} />
+              <KwiltLoader color={colors.textPrimary} />
               <Text style={{ marginTop: spacing.lg }}>Loading Goal…</Text>
             </View>
           </VStack>
@@ -3367,7 +3367,7 @@ export function GoalDetailScreen() {
                               ]}
                             >
                               {isRemoving ? (
-                                <ActivityIndicator size="small" color={colors.madder} />
+                                <KwiltLoader size="small" color={colors.madder} />
                               ) : (
                                 <Text style={styles.removePartnerButtonText}>Remove</Text>
                               )}

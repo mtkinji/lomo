@@ -31,10 +31,21 @@ import {
   moneySnapshotCache as defaultMoneySnapshotCache,
   type MoneySnapshotCache,
 } from '../runtime/moneySnapshotCache';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
+import {
+  reconcileConnectedMoneyActivity,
+  type ConnectedMoneyActivityTrigger,
+} from '../runtime/reconcileConnectedMoneyActivity';
+import { captureMoneyClassification } from '../runtime/moneyClassificationTelemetry';
+import type { MoneyPlaidSyncResult } from './moneyPlaidApi';
 
 type MoneyDataContextValue = MoneyDataState & {
   refresh: () => Promise<void>;
   reconcileGovernedPlanFoundation: () => Promise<void>;
+  reconcileConnectedActivity: (input: {
+    trigger: ConnectedMoneyActivityTrigger;
+    sync: boolean;
+  }) => Promise<MoneyPlaidSyncResult | null>;
   reviewingTransactionId: string | null;
   assignTransactionCategory: (transactionId: string, categoryId: string) => Promise<void>;
   markTransactionNotCounted: (transactionId: string) => Promise<void>;
@@ -78,6 +89,7 @@ export function MoneyDataProvider({
   const [reviewingTransactionId, setReviewingTransactionId] = useState<string | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
   const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
+  const { capture } = useAnalytics();
   const resolvedRepository = useMemo(() => repository ?? createMoneyRepository(), [repository]);
   const mutationVersionRef = useRef(0);
   const initializationVersionRef = useRef(0);
@@ -145,11 +157,14 @@ export function MoneyDataProvider({
       if (initializationVersionRef.current !== initializationVersion) return;
       if (typeof resolvedRepository.classifyUnresolvedTransactions === 'function') {
         void resolvedRepository.classifyUnresolvedTransactions().then((result) => {
+          if (result.policyVersion) {
+            captureMoneyClassification(capture, { trigger: 'initialization', outcome: 'succeeded', receipt: result });
+          }
           if (result.assignedCount <= 0) return;
           const version = ++mutationVersionRef.current;
           refreshInBackground(version);
         }).catch(() => {
-          // Optional background classification never changes visible Money status.
+          captureMoneyClassification(capture, { trigger: 'initialization', outcome: 'failed' });
         });
       }
     } catch (error) {
@@ -159,13 +174,32 @@ export function MoneyDataProvider({
         message: error instanceof Error ? error.message : 'Money data could not be loaded.',
       });
     }
-  }, [acceptSnapshot, normalizedUserId, refreshInBackground, repository, resolvedRepository, snapshotCache]);
+  }, [acceptSnapshot, capture, normalizedUserId, refreshInBackground, repository, resolvedRepository, snapshotCache]);
 
   const reconcileGovernedPlanFoundation = useCallback(async () => {
     await resolvedRepository.ensureGovernedPlanFoundation();
     const snapshot = await resolvedRepository.loadSnapshot();
     acceptSnapshot(snapshot);
   }, [acceptSnapshot, resolvedRepository]);
+
+  const reconcileConnectedActivity = useCallback(async (input: {
+    trigger: ConnectedMoneyActivityTrigger;
+    sync: boolean;
+  }) => {
+    const result = await reconcileConnectedMoneyActivity({
+      client: getSupabaseClient(),
+      repository: resolvedRepository,
+      trigger: input.trigger,
+      sync: input.sync,
+    });
+    acceptSnapshot(result.snapshot);
+    captureMoneyClassification(capture, {
+      trigger: input.trigger,
+      outcome: result.classification.outcome,
+      ...(result.classification.outcome === 'succeeded' ? { receipt: result.classification.receipt } : {}),
+    });
+    return result.syncResult;
+  }, [acceptSnapshot, capture, resolvedRepository]);
 
   useEffect(() => {
     void initialize();
@@ -481,6 +515,7 @@ export function MoneyDataProvider({
     ...state,
     refresh,
     reconcileGovernedPlanFoundation,
+    reconcileConnectedActivity,
     reviewingTransactionId,
     assignTransactionCategory,
     markTransactionNotCounted,
@@ -497,7 +532,7 @@ export function MoneyDataProvider({
     updateCategoryPlan,
     previewCategoryPlanAmount,
     reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, previewCategoryPlanAmount, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

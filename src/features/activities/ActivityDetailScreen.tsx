@@ -6,7 +6,6 @@ import {
   LayoutAnimation,
   View,
   Text,
-  ActivityIndicator,
   Pressable,
   TextInput,
   Platform,
@@ -171,6 +170,7 @@ import {
   normalizeScreenTimeProtectionSettings,
   shouldShowScreenTimeSetupOffer,
 } from '../../services/screenTimeProtection';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type ActivityDetailRouteProp = RouteProp<
   { ActivityDetail: ActivityDetailRouteParams; ActivityDetailFromGoal: ActivityDetailRouteParams },
@@ -2521,7 +2521,7 @@ export function ActivityDetailScreen() {
         <AppShell>
           <PageHeader title="To-do" onPressBack={handleBackToActivities} />
           <View style={styles.emptyState}>
-            <ActivityIndicator color={colors.textPrimary} />
+            <KwiltLoader color={colors.textPrimary} />
             <Text style={[styles.emptyBody, { marginTop: spacing.lg }]}>Loading to-do…</Text>
           </View>
         </AppShell>

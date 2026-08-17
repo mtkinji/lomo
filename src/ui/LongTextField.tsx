@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   StyleSheet,
@@ -24,6 +23,7 @@ import { refineWritingWithAI, type WritingRefinePreset } from '../services/ai';
 import { RichTextBlock } from './RichTextBlock';
 import { htmlToPlainText, normalizeToHtml, sanitizeRichTextHtml } from './richText';
 import { useAppStore } from '../store/useAppStore';
+import { KwiltLoader } from './KwiltLoader';
 
 type AiHelpContext = {
   objectType: 'arc' | 'goal' | 'activity' | 'chapter';
@@ -449,7 +449,7 @@ export function LongTextField({
               >
                 <View style={styles.refineTriggerInner}>
                   {isRefining ? (
-                    <ActivityIndicator size="small" color={colors.primaryForeground} />
+                    <KwiltLoader size="small" color={colors.primaryForeground} />
                   ) : (
                     <Icon name="sparkles" size={14} color={colors.primaryForeground} />
                   )}

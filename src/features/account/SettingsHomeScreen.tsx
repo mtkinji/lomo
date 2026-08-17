@@ -71,7 +71,6 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: 'kwilt_features',
     title: 'Kwilt features',
     entries: [
-      { id: 'explore', title: 'Explore', route: 'SettingsExplore' },
       { id: 'games', title: 'Games', route: 'SettingsGames' },
       {
         id: 'screen_time_protection',
@@ -87,6 +86,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     entries: [
       { id: 'notifications', title: 'Notifications', route: 'SettingsNotifications' },
       { id: 'connected_tools', title: 'Apps & connections', route: 'SettingsConnectedTools' },
+      { id: 'kwilt_labs', title: 'Kwilt Labs', route: 'SettingsKwiltLabs' },
     ],
   },
 ];

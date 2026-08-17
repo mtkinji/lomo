@@ -44,8 +44,7 @@ import { registerKwiltBackgroundTasks } from './src/services/background/register
 import { LocationOfferService } from './src/services/locationOffers/LocationOfferService';
 import './src/services/locationOffers/locationOfferGeofenceTask';
 import './src/capabilities/explore/runtime/exploreBackgroundTask';
-import { ExploreAlwaysOnRuntimeHost } from './src/capabilities/explore/runtime/ExploreAlwaysOnRuntimeHost';
-import { ExploreSyncRuntimeHost } from './src/capabilities/explore/runtime/ExploreSyncRuntimeHost';
+import { ExploreLabsRuntimeHost } from './src/capabilities/explore/runtime/ExploreLabsRuntimeHost';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { CelebrationInterstitialHost } from './src/ui/CelebrationInterstitial';
@@ -632,8 +631,7 @@ export default function App() {
           {content}
           <FocusSessionRuntimeHost />
           <MoneyWidgetStateRuntimeHost userId={authIdentity?.userId ?? null} />
-          {authIdentity ? <ExploreAlwaysOnRuntimeHost /> : null}
-          {authIdentity ? <ExploreSyncRuntimeHost userId={authIdentity.userId} /> : null}
+          <ExploreLabsRuntimeHost userId={authIdentity?.userId ?? null} />
           <PortalHost />
         </BottomSheetModalProvider>
       </SafeAreaProvider>

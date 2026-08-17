@@ -5,11 +5,13 @@ personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-move-family-life-forward
 serves:
+  - jtbd-move-the-few-things-that-matter
   - jtbd-capture-and-find-meaning
   - jtbd-invite-the-right-people-in
   - jtbd-trust-this-app-with-my-life
 briefs:
   - explore-capability
+  - kwilt-labs-capability-gating
   - explore-recorded-path-playback
   - explore-earned-terrain-and-trace
   - explore-durable-history

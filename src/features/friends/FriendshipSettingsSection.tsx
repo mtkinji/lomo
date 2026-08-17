@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   Share,
@@ -26,6 +25,7 @@ import { Card } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { HStack, Text, VStack } from '../../ui/primitives';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 export function FriendshipSettingsSection() {
   const showToast = useToastStore((state) => state.showToast);
@@ -149,7 +149,7 @@ export function FriendshipSettingsSection() {
 
       {loading ? (
         <View style={styles.loadingState}>
-          <ActivityIndicator color={colors.textSecondary} />
+          <KwiltLoader color={colors.textSecondary} />
           <Text style={styles.body}>Loading sharing relationships…</Text>
         </View>
       ) : loadFailed ? (

@@ -1,11 +1,12 @@
 import React from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import type { ActivityAttachment } from '../../domain/types';
 import { getAttachmentDownloadUrl } from '../../services/attachments/activityAttachments';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { Icon } from '../../ui/Icon';
 import { Text } from '../../ui/Typography';
 import { buildActivityAttachmentPresentation } from './activityAttachmentPresentation';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type ActivityAttachmentCardProps = {
   attachment: ActivityAttachment;
@@ -73,7 +74,7 @@ export function ActivityAttachmentCard({
               resizeMode="cover"
             />
           ) : presentation.statusLabel === 'Uploading' ? (
-            <ActivityIndicator size="small" color={colors.textSecondary} />
+            <KwiltLoader size="small" color={colors.textSecondary} />
           ) : (
             <Icon
               name={presentation.mediaIcon}

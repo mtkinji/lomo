@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Platform,
@@ -34,6 +33,7 @@ import { useToastStore } from '../../store/useToastStore';
 import { createReferralCode } from '../../services/referrals';
 import { selectGoalInviteDestinationUrls } from './goalInviteDestinationUrl';
 import { appendGoalInviteReferralCode } from './goalInviteReferralUrl';
+import { KwiltLoader } from '../../ui/KwiltLoader';
 
 type Step = 'offer' | 'recipient' | 'email' | 'sent';
 type PreparedGenericInvite = {
@@ -402,7 +402,7 @@ export function ShareGoalDrawer(props: {
                 <View style={styles.channelCard}>
                   {recipientsLoading ? (
                     <View style={styles.recipientLoadingRow}>
-                      <ActivityIndicator size="small" color={colors.muted} />
+                      <KwiltLoader size="small" color={colors.muted} />
                       <Text style={styles.recipientKind}>Finding your people…</Text>
                     </View>
                   ) : recipients.map((recipient, index) => (
@@ -465,7 +465,7 @@ export function ShareGoalDrawer(props: {
               </Text>
             </View>
             <Button onPress={() => void sendTargetedInvite()} disabled={busy} fullWidth>
-              {busy ? <ActivityIndicator color={colors.canvas} /> : `Invite ${selectedRecipient.displayName}`}
+              {busy ? <KwiltLoader color={colors.canvas} /> : `Invite ${selectedRecipient.displayName}`}
             </Button>
             <Button
               onPress={() => {
@@ -493,7 +493,7 @@ export function ShareGoalDrawer(props: {
               editable={!busy}
             />
             <Button onPress={() => void sendEmail()} disabled={busy} fullWidth>
-              {busy ? <ActivityIndicator color={colors.canvas} /> : 'Send email invite'}
+              {busy ? <KwiltLoader color={colors.canvas} /> : 'Send email invite'}
             </Button>
             <Button onPress={() => setStep('offer')} variant="ghost" disabled={busy} fullWidth>
               Back
@@ -602,7 +602,7 @@ function ChannelRow(props: {
       </View>
       <Text style={[styles.channelLabel, disabled && styles.channelLabelDisabled]}>{label}</Text>
       {loading ? (
-        <ActivityIndicator size="small" color={colors.muted} />
+        <KwiltLoader size="small" color={colors.muted} />
       ) : (
         <Icon name="chevronRight" size={16} color={disabled ? colors.muted : colors.textSecondary} />
       )}

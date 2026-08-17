@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, BackHandler, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, BackHandler, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography } from '../../theme';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
+import { KwiltRefreshFrame, useKwiltRefresh } from '../../ui/KwiltRefresh';
 import { ButtonLabel, HStack, RelationPickerField, Text, VStack } from '../../ui/primitives';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import {
@@ -115,6 +116,7 @@ export function PlanCalendarSettingsScreen() {
       setIsRefreshing(false);
     }
   };
+  const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: handleRefresh });
 
   useEffect(() => {
     let mounted = true;
@@ -374,17 +376,14 @@ export function PlanCalendarSettingsScreen() {
     <AppShell>
       <View style={styles.screen}>
         <PageHeader title="Calendars" onPressBack={handleBack} />
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              tintColor={colors.textSecondary}
-            />
-          }
-        >
+        <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
+          <ScrollView
+            contentContainerStyle={styles.content}
+            onScroll={onScroll}
+            showsVerticalScrollIndicator={false}
+            refreshControl={refreshControl}
+            scrollEventThrottle={scrollEventThrottle}
+          >
           <Text style={styles.helperText}>
             Choose which calendars count as busy time and where Plan should write commitments.
           </Text>
@@ -548,7 +547,8 @@ export function PlanCalendarSettingsScreen() {
               )}
             </VStack>
           </View>
-        </ScrollView>
+          </ScrollView>
+        </KwiltRefreshFrame>
       </View>
     </AppShell>
   );

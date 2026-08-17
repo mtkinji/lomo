@@ -31,23 +31,23 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { usePaywallStore } from '../../store/usePaywallStore';
 import { SubscriptionLegalLinks } from '../paywall/SubscriptionLegalLinks';
+import {
+  SUBSCRIPTION_PRICING,
+  getAnnualSavingsPercent,
+  type SubscriptionPlan,
+} from './subscriptionPricing';
 
 type BillingCadence = 'annual' | 'monthly';
-type ProPlan = 'individual' | 'family';
+type ProPlan = SubscriptionPlan;
 
 const ANNUAL_NUDGE_STREAK_THRESHOLD = 3;
-
-const PLAN_PRICING: Record<ProPlan, { monthly: number; annual: number }> = {
-  individual: { monthly: 4.99, annual: 44.99 },
-  family: { monthly: 9.99, annual: 89.99 },
-};
 
 function formatMoney(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
 function formatPriceLabel(plan: ProPlan, cadence: BillingCadence): string {
-  const pricing = PLAN_PRICING[plan];
+  const pricing = SUBSCRIPTION_PRICING[plan];
   const amount = cadence === 'annual' ? pricing.annual : pricing.monthly;
   return cadence === 'annual' ? `${formatMoney(amount)}/yr` : `${formatMoney(amount)}/mo`;
 }
@@ -145,13 +145,14 @@ export function ManageSubscriptionScreen() {
   // Tenure-based nudge messaging: 30-day and 90-day milestones get more impactful copy.
   const annualNudgeCopy = React.useMemo(() => {
     const savingsLabel = formatPriceLabelWithRevenueCat({ plan, cadence: 'annual', skuPricing });
+    const savingsPercent = getAnnualSavingsPercent(plan);
     if (accountAgeDays >= 90) {
-      return `You\u2019ve been using Kwilt for ${accountAgeDays} days. Lock in annual and save 25% (${savingsLabel})`;
+      return `You\u2019ve been using Kwilt for ${accountAgeDays} days. Lock in annual and save ${savingsPercent}% (${savingsLabel})`;
     }
     if (accountAgeDays >= 30) {
-      return `One month in and still going \u2014 save 25% with annual (${savingsLabel})`;
+      return `One month in and still going \u2014 save ${savingsPercent}% with annual (${savingsLabel})`;
     }
-    return `Best value: Annual saves 25% (${savingsLabel})`;
+    return `Best value: Annual saves ${savingsPercent}% (${savingsLabel})`;
   }, [accountAgeDays, plan, skuPricing]);
 
   const currentKey = getMonthKey(new Date());

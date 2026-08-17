@@ -115,7 +115,10 @@ describe('MoneyDataProvider merchant-rule confirmation', () => {
     const cache = snapshotCache(cached);
     const repository = {
       loadSnapshot: jest.fn(() => refresh.promise),
-      classifyUnresolvedTransactions: jest.fn().mockResolvedValue({ consideredCount: 0, assignedCount: 0, unresolvedCount: 0 }),
+      classifyUnresolvedTransactions: jest.fn().mockResolvedValue({
+        policyVersion: 'money-category-v2', consideredCount: 0, assignedCount: 0,
+        deterministicAssignedCount: 0, aiAssignedCount: 0, unresolvedCount: 0, retryableCount: 0,
+      }),
     } as unknown as MoneyRepository;
     const screen = render(
       <MoneyDataProvider repository={repository} snapshotCache={cache} userId="user-a">
@@ -188,7 +191,10 @@ describe('MoneyDataProvider merchant-rule confirmation', () => {
   it('renders deterministic Money first, then refreshes only when background classification assigns rows', async () => {
     const repository = {
       loadSnapshot: jest.fn().mockResolvedValueOnce(snapshot).mockResolvedValueOnce({ ...snapshot, generatedAt: 'classified' }),
-      classifyUnresolvedTransactions: jest.fn().mockResolvedValue({ consideredCount: 2, assignedCount: 1, unresolvedCount: 1 }),
+      classifyUnresolvedTransactions: jest.fn().mockResolvedValue({
+        policyVersion: 'money-category-v2', consideredCount: 2, assignedCount: 1,
+        deterministicAssignedCount: 1, aiAssignedCount: 0, unresolvedCount: 1, retryableCount: 0,
+      }),
     } as unknown as MoneyRepository;
     const screen = render(
       <MoneyDataProvider repository={repository}>

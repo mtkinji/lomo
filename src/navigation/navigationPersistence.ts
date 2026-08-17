@@ -118,6 +118,7 @@ const FOOD_STACK_SCHEMA: ChildSchema = {
 const SETTINGS_STACK_SCHEMA: ChildSchema = {
   allowed: [
     'SettingsHome',
+    'SettingsKwiltLabs',
     'SettingsMeals',
     'SettingsExplore',
     'SettingsGames',

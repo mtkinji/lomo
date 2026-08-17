@@ -120,7 +120,16 @@ describe('SettingsHomeScreen planning group', () => {
     expect(queryByText('Screen Time Controls')).toBeNull();
   });
 
-  it('names the integrations destination in plain language', () => {
+  it('routes experimental capabilities through Kwilt Labs instead of exposing Explore directly', () => {
+    const { getByText, queryByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(getByText('Kwilt Labs')).toBeTruthy();
+    expect(queryByText('Explore')).toBeNull();
+    fireEvent.press(getByText('Kwilt Labs'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsKwiltLabs');
+  });
+
+  it('names the connections destination in plain language', () => {
     const { getByText, queryByText } = renderWithProviders(<SettingsHomeScreen />);
 
     expect(getByText('Apps & connections')).toBeTruthy();
