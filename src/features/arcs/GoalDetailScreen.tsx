@@ -186,6 +186,11 @@ import { selectGoalRouteCheckinApprovalAction } from './goalRouteCheckinApproval
 import { selectGoalPartnerPromptTrigger } from './goalPartnerPromptDecision';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
 import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
+import {
+  buildClearedGoalTargetDatePatch,
+  buildGoalTargetDateOffsetPatch,
+  buildGoalTargetDateSelectionPatch,
+} from './goalTargetDateMutations';
 import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
 import { mergeRefinedGoalProposal } from './goalProposalMerge';
 import { buildGoalRefinementPrompt } from './goalRefinementPrompt';
@@ -997,15 +1002,14 @@ export function GoalDetailScreen() {
   const setGoalTargetDateByOffsetDays = useCallback(
     (offsetDays: number) => {
       if (!goal?.id) return;
-      const date = new Date();
-      date.setDate(date.getDate() + offsetDays);
-      date.setHours(23, 0, 0, 0);
-      const timestamp = new Date().toISOString();
+      const now = new Date();
       updateGoal(goal.id, (prev) => ({
         ...prev,
-        targetDate: date.toISOString(),
-        qualityState: prev.metrics && prev.metrics.length > 0 ? 'ready' : 'draft',
-        updatedAt: timestamp,
+        ...buildGoalTargetDateOffsetPatch({
+          offsetDays,
+          hasMetrics: Boolean(prev.metrics?.length),
+          now,
+        }),
       }));
       setGoalTargetDateSheetVisible(false);
       setGoalTargetDateSheetStep('menu');
@@ -1015,12 +1019,10 @@ export function GoalDetailScreen() {
 
   const clearGoalTargetDate = useCallback(() => {
     if (!goal?.id) return;
-    const timestamp = new Date().toISOString();
+    const now = new Date();
     updateGoal(goal.id, (prev) => ({
       ...prev,
-      targetDate: undefined,
-      qualityState: 'draft',
-      updatedAt: timestamp,
+      ...buildClearedGoalTargetDatePatch({ now }),
     }));
     setGoalTargetDateSheetVisible(false);
     setGoalTargetDateSheetStep('menu');
@@ -3583,14 +3585,14 @@ export function GoalDetailScreen() {
                       return;
                     }
                     if (!goal?.id) return;
-                    const next = new Date(date);
-                    next.setHours(23, 0, 0, 0);
-                    const timestamp = new Date().toISOString();
+                    const now = new Date();
                     updateGoal(goal.id, (prev) => ({
                       ...prev,
-                      targetDate: next.toISOString(),
-                      qualityState: prev.metrics && prev.metrics.length > 0 ? 'ready' : 'draft',
-                      updatedAt: timestamp,
+                      ...buildGoalTargetDateSelectionPatch({
+                        date,
+                        hasMetrics: Boolean(prev.metrics?.length),
+                        now,
+                      }),
                     }));
                     setGoalTargetDateSheetVisible(false);
                     setGoalTargetDateSheetStep('menu');
