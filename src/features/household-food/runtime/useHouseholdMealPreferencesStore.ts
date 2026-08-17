@@ -8,6 +8,7 @@ import {
   type HouseholdMealPreferencesRepository,
   type MealSetupState,
 } from '../data/householdMealPreferencesRepository';
+import { clampDefaultMealServings } from '../../../capabilities/recipes/domain/mealPreferences';
 
 type Status = 'idle' | 'cached' | 'refreshing' | 'ready' | 'error';
 
@@ -19,7 +20,7 @@ export type HouseholdMealPreferencesStoreState = {
   setIdentity(userId: string | null): Promise<void>;
   refresh(): Promise<void>;
   setSetupState(state: MealSetupState): Promise<void>;
-  setUsualDiners(personIds: string[]): Promise<void>;
+  setUsualDiners(input: { usualDinerCount: number; personIds: string[] }): Promise<void>;
   setFoodNeed(input: { personId: string; ingredientConcept: string; displayLabel: string; present: boolean }): Promise<void>;
 };
 
@@ -80,17 +81,23 @@ function initializer(
         const optimistic = { ...current, setupState };
         await mutateProjection(optimistic, () => repository.setPreferences({
           householdId: current.householdId,
+          usualDinerCount: current.usualDinerCount,
           usualDinerPersonIds: current.usualDinerPersonIds,
           setupState,
         }));
       },
-      async setUsualDiners(personIds) {
+      async setUsualDiners(input) {
         const current = get().projection;
         if (!current) throw new Error('Household meal preferences are not available.');
-        const usualDinerPersonIds = [...new Set(personIds)];
-        const optimistic = { ...current, usualDinerPersonIds };
+        const usualDinerPersonIds = [...new Set(input.personIds)];
+        const usualDinerCount = clampDefaultMealServings(input.usualDinerCount);
+        if (usualDinerCount < usualDinerPersonIds.length) {
+          throw new Error('Count cannot be lower than selected people.');
+        }
+        const optimistic = { ...current, usualDinerCount, usualDinerPersonIds };
         await mutateProjection(optimistic, () => repository.setPreferences({
           householdId: current.householdId,
+          usualDinerCount,
           usualDinerPersonIds,
           setupState: current.setupState,
         }));

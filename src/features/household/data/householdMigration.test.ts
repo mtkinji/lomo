@@ -5,6 +5,10 @@ const migrationPath = resolve(
   process.cwd(),
   'supabase/migrations/20260728190000_household_foundation.sql',
 );
+const mealCountMigration = readFileSync(resolve(
+  process.cwd(),
+  'supabase/migrations/20260817180341_add_usual_diner_count.sql',
+), 'utf8');
 
 describe('Household foundation migration', () => {
   const migration = readFileSync(migrationPath, 'utf8');
@@ -97,5 +101,26 @@ describe('Household foundation migration', () => {
     ]) {
       expect(migration).toContain(`'${eventType}'`);
     }
+  });
+});
+
+describe('Household meal count migration', () => {
+  it('adds a bounded count and preserves the authority command boundary', () => {
+    expect(mealCountMigration).toContain('add column usual_diner_count integer');
+    expect(mealCountMigration).toContain('usual_diner_count between 1 and 20');
+    expect(mealCountMigration).toContain('cardinality(usual_diner_person_ids)');
+    expect(mealCountMigration).toContain('p_usual_diner_count integer');
+    expect(mealCountMigration).toContain("raise exception 'invalid_usual_diner_count'");
+    expect(mealCountMigration).toContain("perform public.kwilt_require_permanent_user()");
+    expect(mealCountMigration).toContain('public.kwilt_can_manage_meal_preferences(p_household_id)');
+    expect(mealCountMigration).toMatch(/revoke execute on function public\.set_kwilt_meal_planner_preferences\(uuid, uuid\[\], integer, text\) from public, anon;/);
+    expect(mealCountMigration).toMatch(/grant execute on function public\.set_kwilt_meal_planner_preferences\(uuid, uuid\[\], integer, text\) to authenticated;/);
+  });
+
+  it('keeps the released command compatible with older installed app versions', () => {
+    expect(mealCountMigration).not.toContain('drop function public.set_kwilt_meal_planner_preferences(uuid, uuid[], text)');
+    expect(mealCountMigration).toContain('greatest(');
+    expect(mealCountMigration).toMatch(/revoke execute on function public\.set_kwilt_meal_planner_preferences\(uuid, uuid\[\], text\) from public, anon;/);
+    expect(mealCountMigration).toMatch(/grant execute on function public\.set_kwilt_meal_planner_preferences\(uuid, uuid\[\], text\) to authenticated;/);
   });
 });

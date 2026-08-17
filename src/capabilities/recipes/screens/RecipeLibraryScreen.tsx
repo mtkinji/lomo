@@ -88,6 +88,7 @@ import {
   MIN_MEAL_SERVINGS,
   clampDefaultMealServings,
   resolveDefaultMealServings,
+  resolveSuggestedMealServings,
 } from "../domain/mealPreferences";
 import {
   buildRecipeRecommendations,
@@ -218,11 +219,16 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const planHeaderRef = useRef<View | null>(null);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const showToast = useToastStore((state) => state.showToast);
-  const defaultServings = useAppStore((state) =>
+  const profileDefaultServings = useAppStore((state) =>
     resolveDefaultMealServings(
       state.userProfile?.preferences?.meals?.defaultServings,
     ),
   );
+  const defaultServings = resolveSuggestedMealServings({
+    usualDinerCount: mealPreferences?.usualDinerCount,
+    usualDinerPersonIds: mealPreferences?.usualDinerPersonIds,
+    numericFallback: profileDefaultServings,
+  });
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const { capture } = useAnalytics();
   const mealChatLaunchContext = useMemo<UnifiedChatLaunchContext>(
@@ -286,8 +292,8 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     () => getMealEditorialEdition().placements,
     [],
   );
-  const dinerSummary = mealPreferences?.usualDinerPersonIds.length
-    ? `${mealPreferences.usualDinerPersonIds.length} ${mealPreferences.usualDinerPersonIds.length === 1 ? "person" : "people"}`
+  const dinerSummary = mealPreferences?.usualDinerCount
+    ? `${mealPreferences.usualDinerCount} ${mealPreferences.usualDinerCount === 1 ? "person" : "people"}`
     : "Choose";
   const foodNeedsSummary = mealPreferences?.foodNeeds.length
     ? `${mealPreferences.foodNeeds.length} recorded`
@@ -615,9 +621,17 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
             <MealsOverflowMenu
               hiddenCount={hiddenRecipes.length}
               defaultServings={defaultServings}
+              minimumServings={mealPreferences?.usualDinerPersonIds.length ?? 1}
               foodNeedsCount={mealPreferences?.foodNeeds.length ?? 0}
               onOpenHidden={() => setHiddenDrawerVisible(true)}
-              onChangeDefaultServings={(servings) =>
+              onChangeDefaultServings={(servings) => {
+                if (mealPreferences) {
+                  runPreferenceMutation(setUsualDiners({
+                    usualDinerCount: servings,
+                    personIds: mealPreferences.usualDinerPersonIds,
+                  }), "Usual quantity not saved");
+                  return;
+                }
                 updateUserProfile((current) => ({
                   ...current,
                   preferences: {
@@ -627,8 +641,8 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
                       defaultServings: servings,
                     },
                   },
-                }))
-              }
+                }));
+              }}
               onOpenFoodNeeds={() => setPreferenceDrawer("food_needs")}
             />
           }
@@ -831,11 +845,12 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       <UsualDinersDrawer
         visible={preferenceDrawer === "diners"}
         members={mealPreferences?.members ?? []}
+        usualDinerCount={mealPreferences?.usualDinerCount ?? defaultServings}
         selectedPersonIds={mealPreferences?.usualDinerPersonIds ?? []}
         onClose={() => setPreferenceDrawer(null)}
-        onSave={(personIds) => {
+        onSave={(input) => {
           runPreferenceMutation(
-            setUsualDiners(personIds),
+            setUsualDiners(input),
             "Usual diners not saved",
           );
           setPreferenceDrawer(null);

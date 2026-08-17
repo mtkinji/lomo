@@ -13,10 +13,12 @@ export function resolveDefaultMealServings(value: number | null | undefined): nu
 
 export function resolveSuggestedMealServings(input: {
   selectedServings?: number | null;
+  usualDinerCount?: number | null;
   usualDinerPersonIds?: readonly string[];
   numericFallback?: number | null;
 }): number {
   if (typeof input.selectedServings === 'number') return clampDefaultMealServings(input.selectedServings);
+  if (typeof input.usualDinerCount === 'number') return clampDefaultMealServings(input.usualDinerCount);
   if (input.usualDinerPersonIds?.length) return clampDefaultMealServings(new Set(input.usualDinerPersonIds).size);
   return resolveDefaultMealServings(input.numericFallback);
 }

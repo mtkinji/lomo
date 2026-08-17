@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { HouseholdMealPreferencesProjection, MealSetupState } from './householdMealPreferencesRepository';
+import { DEFAULT_MEAL_SERVINGS, MAX_MEAL_SERVINGS, MIN_MEAL_SERVINGS } from '../../../capabilities/recipes/domain/mealPreferences';
 
 type Storage = Pick<typeof AsyncStorage, 'getItem' | 'setItem' | 'removeItem'>;
 
@@ -24,9 +25,16 @@ function parse(value: unknown): HouseholdMealPreferencesProjection {
       || !['owner','caregiver','child'].includes(member.role))) {
     throw new Error('Invalid meal preferences cache');
   }
+  const uniqueDiners = [...new Set(candidate.usualDinerPersonIds)];
+  const usualDinerCount = candidate.usualDinerCount ?? (uniqueDiners.length || DEFAULT_MEAL_SERVINGS);
+  if (!Number.isInteger(usualDinerCount) || usualDinerCount < MIN_MEAL_SERVINGS
+    || usualDinerCount > MAX_MEAL_SERVINGS || usualDinerCount < uniqueDiners.length) {
+    throw new Error('Invalid meal preferences cache');
+  }
   return {
     householdId: candidate.householdId,
-    usualDinerPersonIds: [...new Set(candidate.usualDinerPersonIds)],
+    usualDinerCount,
+    usualDinerPersonIds: uniqueDiners,
     setupState: candidate.setupState,
     foodNeeds: candidate.foodNeeds.map((need) => ({ ...need })),
     members: candidate.members.map((member) => ({ ...member })),

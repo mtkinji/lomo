@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
+import { useAppStore } from '../../store/useAppStore';
 import { SettingsDivider, SettingsGroup, SettingsPage, SettingsRow } from '../../ui/SettingsSurface';
 import { FoodNeedsDrawer } from '../household-food/components/FoodNeedsDrawer';
 import { UsualDinersDrawer } from '../household-food/components/UsualDinersDrawer';
@@ -28,12 +29,18 @@ export function MealsSettingsView({ dinerSummary, foodNeedsSummary, onOpenDiners
 
 export function MealsSettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList, 'SettingsMeals'>>();
+  const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
+  const preferencesUserId = useHouseholdMealPreferencesStore((state) => state.userId);
   const projection = useHouseholdMealPreferencesStore((state) => state.projection);
+  const setIdentity = useHouseholdMealPreferencesStore((state) => state.setIdentity);
   const setUsualDiners = useHouseholdMealPreferencesStore((state) => state.setUsualDiners);
   const setFoodNeed = useHouseholdMealPreferencesStore((state) => state.setFoodNeed);
   const [drawer, setDrawer] = useState<'diners' | 'food_needs' | null>(null);
-  const dinerSummary = projection?.usualDinerPersonIds.length
-    ? `${projection.usualDinerPersonIds.length} ${projection.usualDinerPersonIds.length === 1 ? 'person' : 'people'}`
+  useEffect(() => {
+    if (preferencesUserId !== userId) void setIdentity(userId);
+  }, [preferencesUserId, setIdentity, userId]);
+  const dinerSummary = projection?.usualDinerCount
+    ? `${projection.usualDinerCount} ${projection.usualDinerCount === 1 ? 'person' : 'people'}`
     : 'Choose';
   const foodNeedsSummary = projection?.foodNeeds.length ? `${projection.foodNeeds.length} recorded` : 'Add';
   const run = (mutation: Promise<void>, title: string) => void mutation.catch((caught) => {
@@ -50,9 +57,10 @@ export function MealsSettingsScreen() {
       <UsualDinersDrawer
         visible={drawer === 'diners'}
         members={projection?.members ?? []}
+        usualDinerCount={projection?.usualDinerCount ?? 4}
         selectedPersonIds={projection?.usualDinerPersonIds ?? []}
         onClose={() => setDrawer(null)}
-        onSave={(personIds) => { run(setUsualDiners(personIds), 'Usual diners not saved'); setDrawer(null); }}
+        onSave={(input) => { run(setUsualDiners(input), 'Usual diners not saved'); setDrawer(null); }}
       />
       <FoodNeedsDrawer
         visible={drawer === 'food_needs'}

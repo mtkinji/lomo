@@ -87,13 +87,30 @@ describe('SettingsHomeScreen planning group', () => {
   });
 
   it('uses the shared grouped settings hierarchy', () => {
-    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    const { getByText, queryByText } = renderWithProviders(<SettingsHomeScreen />);
 
     expect(getByText('Planning')).toBeTruthy();
-    expect(getByText('People')).toBeTruthy();
-    expect(getByText('Integrations')).toBeTruthy();
-    expect(getByText('Personalization')).toBeTruthy();
+    expect(getByText('Household & sharing')).toBeTruthy();
+    expect(getByText('Money')).toBeTruthy();
+    expect(getByText('Kwilt features')).toBeTruthy();
+    expect(getByText('App')).toBeTruthy();
     expect(getByText('Account')).toBeTruthy();
+    expect(queryByText('People')).toBeNull();
+    expect(queryByText('Integrations')).toBeNull();
+    expect(queryByText('Personalization')).toBeNull();
+  });
+
+  it('uses concrete setting labels without repeating their section owner', () => {
+    const { getByText, queryByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(getByText('Activity areas')).toBeTruthy();
+    expect(getByText('Meal preferences')).toBeTruthy();
+    expect(getByText('Privacy lock')).toBeTruthy();
+    expect(getByText('Household access')).toBeTruthy();
+    expect(getByText('Profile & account')).toBeTruthy();
+    expect(getByText('Subscription')).toBeTruthy();
+    expect(queryByText('Money privacy')).toBeNull();
+    expect(queryByText('Money household')).toBeNull();
   });
 
   it('uses the cross-domain Screen Time label at the Settings root', () => {
@@ -116,11 +133,12 @@ describe('SettingsHomeScreen planning group', () => {
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsHousehold');
   });
 
-  it('keeps Household and Sharing together under People without retaining Family', () => {
+  it('keeps Household, meal preferences, and Sharing together without retaining Family', () => {
     const { getByText, getAllByText, queryByText } = renderWithProviders(<SettingsHomeScreen />);
 
     expect(queryByText('Family')).toBeNull();
     expect(getByText('Household')).toBeTruthy();
+    expect(getByText('Meal preferences')).toBeTruthy();
     expect(getAllByText('Sharing')).toHaveLength(1);
 
     fireEvent.press(getByText('Sharing'));
@@ -150,13 +168,19 @@ describe('SettingsHomeScreen planning group', () => {
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsPlanCalendars');
   });
 
+  it('navigates to household meal preferences from the shared settings root', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    fireEvent.press(getByText('Meal preferences'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsMeals');
+  });
+
   it('navigates to SettingsWeeklyChapters when Weekly Chapters is pressed', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     fireEvent.press(getByText('Weekly Chapters'));
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsWeeklyChapters');
   });
 
-  it('navigates to Games player settings from Personalization', () => {
+  it('navigates to Games player settings from Kwilt features', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     fireEvent.press(getByText('Games'));
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsGames');
@@ -168,15 +192,21 @@ describe('SettingsHomeScreen planning group', () => {
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsLegalPrivacy');
   });
 
-  it('navigates to capability-scoped Money privacy from the shared settings root', () => {
+  it('navigates to capability-scoped Money privacy from its concrete root label', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
-    fireEvent.press(getByText('Money privacy'));
+    fireEvent.press(getByText('Privacy lock'));
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsMoneyPrivacy');
+  });
+
+  it('navigates to Money household access from its concrete root label', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    fireEvent.press(getByText('Household access'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsMoneyHousehold');
   });
 
   it('keeps account deletion off the root Settings menu', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
-    expect(getByText('Account settings')).toBeTruthy();
+    expect(getByText('Profile & account')).toBeTruthy();
     expect(() => getByText('Delete account')).toThrow();
   });
 });

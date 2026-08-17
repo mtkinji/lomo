@@ -244,6 +244,7 @@ export { MealPlanHeaderAction } from '../../../features/household-food/component
 export function MealsOverflowMenu({
   hiddenCount,
   defaultServings,
+  minimumServings,
   foodNeedsCount,
   onOpenHidden,
   onChangeDefaultServings,
@@ -251,12 +252,13 @@ export function MealsOverflowMenu({
 }: {
   hiddenCount: number;
   defaultServings: number;
+  minimumServings: number;
   foodNeedsCount: number;
   onOpenHidden(): void;
   onChangeDefaultServings(servings: number): void;
   onOpenFoodNeeds(): void;
 }) {
-  const canDecrease = defaultServings > MIN_MEAL_SERVINGS;
+  const canDecrease = defaultServings > Math.max(MIN_MEAL_SERVINGS, minimumServings);
   const canIncrease = defaultServings < MAX_MEAL_SERVINGS;
   return (
     <DropdownMenu>
