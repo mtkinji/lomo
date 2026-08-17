@@ -226,6 +226,11 @@ function groundingSummary(
         'For direct family Screen Time controls, resolve the child and saved selection only from the authorized machine references below. Use screen_time.override.block or screen_time.override.allow with an exact future expiresAt and all resolved targets in one proposal. For a standing prerequisite such as using Gospel Library before Games, use screen_time.agreement.create with one resolved prerequisite selection, one resolved target selection, the current desired policy version, and daily reset. If any named app has no saved selection for that child, call screen_time.selection.open for that exact child instead of guessing. Use screen_time.device.setup.open when the user asks to connect a child device. Never use screen_time.configure for a direct app request. An allow affects only Kwilt family restrictions and may not override Apple or other controls. Never claim the child device changed until a device receipt says applied.',
       );
     }
+    if (participatingCapabilities.includes('recipes')) {
+      parts.push(
+        'For Recipe creation, include a title plus at least one ingredient and instruction. For updates and deletion, use bounded Recipe evidence and copy the exact recipeId and current version. Update only private Recipes, preserve every field outside the requested patch, and stage every create, update, or delete for explicit review. Never mutate a Kwilt catalog Recipe in place or claim a Recipe changed before an applied receipt exists.',
+      );
+    }
   }
   if (participatingCapabilities.includes('relationships')) {
     parts.push(
@@ -371,7 +376,8 @@ export async function executeUnifiedChatTurnPhase(
       (capability) => capability === 'arcs' || capability === 'todos' || capability === 'plan' ||
         capability === 'goals' || capability === 'profile' || capability === 'chapters' ||
         capability === 'screenTime' || capability === 'notifications' || capability === 'account' ||
-        capability === 'navigation' || capability === 'relationships' || capability === 'money',
+        capability === 'navigation' || capability === 'relationships' || capability === 'money' ||
+        capability === 'recipes',
     );
   const relationshipProvider = input.executeRelationshipTool
     ? { execute: input.executeRelationshipTool }

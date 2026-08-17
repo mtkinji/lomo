@@ -35,6 +35,7 @@ import type {
 import { isUnifiedChatCapabilityId } from './requestPolicy';
 import { parseStoredScreenTimeProposalOperation } from './screenTimeProposal';
 import { validateUnifiedChatAttachmentSet } from './unifiedChatAttachmentPolicy';
+import { parseReviewedRecipeData } from '../../capabilities/recipes/domain/recipeValidation';
 
 const THREAD_COLUMNS = 'id,title,title_source,status,archived_at,created_at,updated_at';
 const MESSAGE_COLUMNS =
@@ -299,6 +300,40 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
   };
   const { _outcomeStep: _storedOutcomeStep, ...payload } = rawPayload;
   if (
+    row.capability_id === 'recipes' &&
+    (row.operation_type === 'create_recipe' || row.operation_type === 'update_recipe') &&
+    Number.isInteger(payload.expectedVersion) && Number(payload.expectedVersion) >= 0 &&
+    (row.operation_type === 'create_recipe'
+      ? row.target_id == null && payload.expectedVersion === 0
+      : typeof row.target_id === 'string')
+  ) {
+    try {
+      const reviewedData = parseReviewedRecipeData(payload.reviewedData);
+      const changedFields = row.operation_type === 'update_recipe' && Array.isArray(payload.changedFields)
+        ? payload.changedFields.filter((field): field is string => typeof field === 'string' && field.length > 0)
+        : [];
+      if (row.operation_type === 'update_recipe' && changedFields.length === 0) return null;
+      return {
+        ...base, capabilityId: 'recipes', type: row.operation_type,
+        targetId: row.operation_type === 'create_recipe' ? null : String(row.target_id),
+        expectedVersion: Number(payload.expectedVersion),
+        payload: row.operation_type === 'update_recipe' ? { reviewedData, changedFields } : { reviewedData },
+      } as UnifiedChatProposalOperation;
+    } catch {
+      return null;
+    }
+  }
+  if (
+    row.capability_id === 'recipes' && row.operation_type === 'delete_recipe' &&
+    typeof row.target_id === 'string' && Number.isInteger(payload.expectedVersion) &&
+    Number(payload.expectedVersion) >= 1
+  ) {
+    return {
+      ...base, capabilityId: 'recipes', type: 'delete_recipe', targetId: row.target_id,
+      expectedVersion: Number(payload.expectedVersion), payload: {},
+    } as UnifiedChatProposalOperation;
+  }
+  if (
     row.capability_id === 'money' && row.operation_type === 'create_money_category' &&
     row.target_id == null && typeof payload.name === 'string' &&
     typeof payload.budgetCents === 'number' && Number.isInteger(payload.budgetCents) && payload.budgetCents >= 0
@@ -487,7 +522,7 @@ function mapReceipt(row: DbRow): UnifiedChatMutationReceipt | null {
   if (row.capability_id !== 'todos' && row.capability_id !== 'plan' && row.capability_id !== 'goals' &&
       row.capability_id !== 'arcs' && row.capability_id !== 'profile' && row.capability_id !== 'chapters' &&
       row.capability_id !== 'relationships' && row.capability_id !== 'screenTime' &&
-      row.capability_id !== 'money') return null;
+      row.capability_id !== 'money' && row.capability_id !== 'recipes') return null;
   const status = row.status === 'reserved' || row.status === 'undone' || row.status === 'failed'
     ? row.status
     : 'applied';
@@ -991,6 +1026,22 @@ export function createUnifiedChatRepository(
       const expectedUpdatedAt = 'expectedUpdatedAt' in input.operation
         ? input.operation.expectedUpdatedAt
         : undefined;
+      const storedPayload = input.capabilityId === 'recipes'
+        ? {
+            ...input.operation.payload,
+            expectedVersion: input.operation.expectedVersion,
+            ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
+          }
+        : input.capabilityId === 'screenTime'
+          ? {
+              ...input.operation.payload,
+              ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
+            }
+          : {
+              ...input.operation.payload,
+              expectedUpdatedAt,
+              ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
+            };
       const operationResult = await client
         .from('kwilt_agent_proposal_operations')
         .insert({
@@ -998,7 +1049,8 @@ export function createUnifiedChatRepository(
           proposal_id: proposalId,
           capability_id: input.capabilityId,
           operation_type: input.operation.type,
-          target_type: input.capabilityId === 'screenTime'
+          target_type: input.capabilityId === 'recipes' ? 'recipe'
+            : input.capabilityId === 'screenTime'
             ? input.operation.type === 'create_family_screen_time_prerequisite_agreement'
               ? 'family_screen_time_agreement'
               : 'family_screen_time_override'
@@ -1010,16 +1062,7 @@ export function createUnifiedChatRepository(
                   : 'activity',
           target_id: input.operation.targetId,
           summary: input.operation.summary,
-          payload: input.capabilityId === 'screenTime'
-            ? {
-                ...input.operation.payload,
-                ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
-              }
-            : {
-                ...input.operation.payload,
-                expectedUpdatedAt,
-                ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
-              },
+          payload: storedPayload,
           idempotency_key: input.operation.idempotencyKey,
           sequence: 1,
         })
@@ -1034,9 +1077,11 @@ export function createUnifiedChatRepository(
         capability_id: input.capabilityId,
         operation_type: input.operation.type,
         target_id: input.operation.targetId,
-        payload: input.capabilityId === 'screenTime'
-          ? input.operation.payload
-          : { ...input.operation.payload, expectedUpdatedAt },
+        payload: input.capabilityId === 'recipes'
+          ? { ...input.operation.payload, expectedVersion: input.operation.expectedVersion }
+          : input.capabilityId === 'screenTime'
+            ? input.operation.payload
+            : { ...input.operation.payload, expectedUpdatedAt },
       });
       if (!mappedOperation) {
         throw new UnifiedChatRepositoryError('Proposal operation was invalid after save.');

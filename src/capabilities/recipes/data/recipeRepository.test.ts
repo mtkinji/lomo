@@ -9,7 +9,7 @@ describe('Recipe repository', () => {
     const repository = createRecipeRepository({ rpc } as never);
     await repository.save({ recipeId: null, expectedVersion: 0, idempotencyKey: 'save-1', reviewedData: { title: 'Toast' } });
     await repository.delete('recipe-1', 1);
-    expect(rpc).toHaveBeenNthCalledWith(1, 'save_kwilt_recipe', expect.objectContaining({ p_expected_version: 0, p_idempotency_key: 'save-1' }));
+    expect(rpc).toHaveBeenNthCalledWith(1, 'save_kwilt_recipe_with_equipment', expect.objectContaining({ p_expected_version: 0, p_idempotency_key: 'save-1' }));
     expect(rpc).toHaveBeenNthCalledWith(2, 'delete_kwilt_recipe', { p_recipe_id: 'recipe-1', p_expected_version: 1 });
   });
 
@@ -43,6 +43,7 @@ describe('Recipe repository', () => {
     expect(selection).toContain(
       'lineage:kwilt_recipe_lineage!kwilt_recipe_lineage_recipe_version_id_fkey(*)',
     );
+    expect(selection).toContain('equipment_requirements:kwilt_recipe_equipment_requirements(*)');
   });
 
   it('accepts already-normalized projections from a typed boundary', async () => {

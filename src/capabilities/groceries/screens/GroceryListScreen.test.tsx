@@ -1,5 +1,6 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { Alert } from 'react-native';
 import { GroceryListScreen } from './GroceryListScreen';
 import { createGroceryRepository } from '../data/groceryRepository';
 import { groceryEducation } from '../data/groceryEducation';
@@ -14,6 +15,11 @@ const mockAddItem = jest.fn();
 const mockReadOnlineShoppingPreferences = jest.fn();
 const mockReadPreferredStore = jest.fn();
 const mockRuntimePolicies = jest.fn();
+const mockBuildAffiliateProductSearch = jest.fn();
+const mockOpenAffiliateProductSearch = jest.fn();
+const mockAffiliateLinkDisclosure = jest.fn();
+let mockMealPlans: Array<Record<string, unknown>> = [];
+let mockRecipes: unknown[] = [];
 
 type MockPageHeaderProps = {
   title: string;
@@ -40,7 +46,10 @@ jest.mock('../data/preferredGroceryStore', () => ({
   preferredGroceryStore: { read: (...args: unknown[]) => mockReadPreferredStore(...args) },
 }));
 jest.mock('../providers/affiliateRetailerProvider', () => ({
+  buildApprovedAffiliateProductSearch: (...args: unknown[]) => mockBuildAffiliateProductSearch(...args),
+  getAffiliateRetailerLinkDisclosure: (...args: unknown[]) => mockAffiliateLinkDisclosure(...args),
   getOnlineRetailerRuntimePolicies: (...args: unknown[]) => mockRuntimePolicies(...args),
+  openAffiliateProductSearch: (...args: unknown[]) => mockOpenAffiliateProductSearch(...args),
 }));
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => mockScreenFocused,
@@ -118,17 +127,15 @@ jest.mock('../../../features/activities/QuickAddDock', () => {
     ) : null,
   };
 });
+jest.mock('../../recipes/runtime/useRecipeStore', () => ({
+  useRecipeStore: (selector: (state: { recipes: unknown[] }) => unknown) => selector({ recipes: mockRecipes }),
+}));
+jest.mock('../../recipes/data/starterRecipeCatalog', () => ({
+  buildRecipeLibraryInventory: (recipes: unknown[]) => recipes,
+}));
 jest.mock('../../meal-planning/data/mealPlanningRepository', () => ({
   createMealPlanningRepository: () => ({
-    list: jest.fn().mockResolvedValue([
-      {
-        id: 'plan-1',
-        version: 1,
-        state: 'finalized',
-        entries: [{ id: 'meal-1' }, { id: 'meal-2' }],
-        occasions: [],
-      },
-    ]),
+    list: jest.fn(() => Promise.resolve(mockMealPlans)),
   }),
 }));
 jest.mock('../../../ui/layout/AppShell', () => ({
@@ -218,6 +225,9 @@ describe('Grocery List primary capability', () => {
     }));
     mockEnqueue.mockResolvedValue([]);
     mockAddItem.mockResolvedValue({});
+    mockBuildAffiliateProductSearch.mockReturnValue('https://www.amazon.com/s?k=immersion%20blender&tag=kwiltapp-20');
+    mockOpenAffiliateProductSearch.mockResolvedValue(true);
+    mockAffiliateLinkDisclosure.mockReturnValue('Paid link');
     mockReadOnlineShoppingPreferences.mockResolvedValue(null);
     mockReadPreferredStore.mockResolvedValue(null);
     mockRuntimePolicies.mockReturnValue([
@@ -225,6 +235,17 @@ describe('Grocery List primary capability', () => {
       { retailerId: 'kroger', capability: 'cart_prepare', supportedModes: ['pickup'], approvedSurface: true, productEvidence: true, cartWrite: true },
       { retailerId: 'walmart', capability: 'product_links', supportedModes: ['pickup', 'delivery'], approvedSurface: true, productEvidence: true, cartWrite: false },
     ]);
+    mockRecipes = [];
+    mockMealPlans = [
+      {
+        id: 'plan-1',
+        version: 1,
+        state: 'finalized',
+        entries: [{ id: 'meal-1' }, { id: 'meal-2' }],
+        occasions: [],
+        candidates: [],
+      },
+    ];
     (createGroceryRepository as jest.Mock).mockReturnValue({
       list: jest.fn().mockResolvedValue([
         {
@@ -451,6 +472,117 @@ describe('Grocery List primary capability', () => {
     expect(screen.queryByText('Why?')).toBeNull();
     fireEvent.press(screen.getByTestId('meal-plan-header-action'));
     expect(navigate).toHaveBeenCalledWith('RecipeLibrary', { openPlan: true });
+  });
+
+  it('offers specialized equipment below groceries and opens a truthful one-item Amazon search', async () => {
+    mockMealPlans = [
+      {
+        id: 'plan-1',
+        version: 1,
+        state: 'finalized',
+        entries: [{
+          id: 'meal-1',
+          candidateId: 'candidate-1',
+          title: 'Tomato soup',
+          recipeSnapshot: {
+            recipeVersionId: 'soup-v1',
+            equipmentSuggestions: [
+              { id: 'immersion-blender', label: 'Immersion blender' },
+            ],
+          },
+        }],
+        occasions: [],
+        candidates: [],
+      },
+    ];
+
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    expect(await screen.findByText('For these recipes')).toBeTruthy();
+    expect(screen.getByText('Immersion blender')).toBeTruthy();
+    expect(screen.getByText('Needed for Tomato soup · Paid link')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Search Amazon for Immersion blender'));
+
+    await waitFor(() => {
+      expect(mockOpenAffiliateProductSearch).toHaveBeenCalledWith('amazon', 'immersion blender');
+    });
+    expect(mockAddItem).not.toHaveBeenCalled();
+  });
+
+  it('does not expose recipe equipment when no approved Amazon link is available', async () => {
+    mockBuildAffiliateProductSearch.mockReturnValue('');
+    mockMealPlans = [
+      {
+        id: 'plan-1',
+        version: 1,
+        state: 'finalized',
+        entries: [{
+          id: 'meal-1',
+          title: 'Tomato soup',
+          recipeSnapshot: {
+            recipeVersionId: 'soup-v1',
+            equipmentSuggestions: [{ id: 'immersion-blender', label: 'Immersion blender' }],
+          },
+        }],
+        occasions: [],
+        candidates: [],
+      },
+    ];
+
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('ingredient-check-item-1')).toBeTruthy());
+    expect(screen.queryByText('For these recipes')).toBeNull();
+  });
+
+  it('offers Add to list only as recovery when Amazon cannot open', async () => {
+    mockOpenAffiliateProductSearch.mockResolvedValue(false);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockMealPlans = [
+      {
+        id: 'plan-1',
+        version: 1,
+        state: 'finalized',
+        entries: [{
+          id: 'meal-1',
+          title: 'Tomato soup',
+          recipeSnapshot: {
+            recipeVersionId: 'soup-v1',
+            equipmentSuggestions: [{ id: 'immersion-blender', label: 'Immersion blender' }],
+          },
+        }],
+        occasions: [],
+        candidates: [],
+      },
+    ];
+
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn() } as never}
+        route={{ params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    fireEvent.press(await screen.findByLabelText('Search Amazon for Immersion blender'));
+    await waitFor(() => expect(alert).toHaveBeenCalled());
+
+    const buttons = alert.mock.calls.at(-1)?.[2];
+    buttons?.find((button) => button.text === 'Add to list')?.onPress?.();
+
+    await waitFor(() => {
+      expect(mockAddItem).toHaveBeenCalledWith('list-1', 1, 'Immersion blender');
+    });
   });
 
   it('opens first-use setup when no online-shopping preference is saved', async () => {

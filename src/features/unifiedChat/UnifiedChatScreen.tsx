@@ -122,6 +122,9 @@ import {
 import { buildUnifiedChatTranscript } from './chatTranscript';
 import { createMoneyRepository } from '../../capabilities/money/data/moneyRepository';
 import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProposalDecision';
+import { executeRecipeProposalDecision } from './executeRecipeProposalDecision';
+import { createRecipeRepository } from '../../capabilities/recipes/data/recipeRepository';
+import { useRecipeStore } from '../../capabilities/recipes/runtime/useRecipeStore';
 import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
 import { buildFreshDrawerContext, getFreshDrawerCopy, getFreshDrawerOffers } from './contextualChatPresentation';
 import { UnifiedChatDrawerHeader } from './UnifiedChatDrawerHeader';
@@ -139,6 +142,14 @@ const activityStoreBoundary = {
   updateActivity: (id: string, updater: Parameters<ReturnType<typeof useAppStore.getState>['updateActivity']>[1]) =>
     useAppStore.getState().updateActivity(id, updater),
   removeActivity: (id: string) => useAppStore.getState().removeActivity(id),
+};
+
+const recipeMutationBoundary = {
+  save: (input: Parameters<ReturnType<typeof createRecipeRepository>['save']>[0]) =>
+    createRecipeRepository().save(input),
+  delete: (recipeId: string, expectedVersion: number) =>
+    createRecipeRepository().delete(recipeId, expectedVersion),
+  refresh: () => useRecipeStore.getState().refresh(),
 };
 
 const planStoreBoundary = {
@@ -1048,7 +1059,11 @@ export function UnifiedChatScreen({
         setError(null);
         try {
           const executeApprovedProposal = async (proposal: UnifiedChatProposal) => {
-            if (proposal.capabilityId === 'money') {
+            if (proposal.capabilityId === 'recipes') {
+              await executeRecipeProposalDecision({
+                proposal, action: 'approve', repository, recipes: recipeMutationBoundary,
+              });
+            } else if (proposal.capabilityId === 'money') {
               await executeMoneyCategoryProposalDecision({ proposal, action: 'approve', repository, moneyRepository });
             } else if (proposal.capabilityId === 'screenTime') {
               await executeScreenTimeProposalDecision({
@@ -1097,6 +1112,23 @@ export function UnifiedChatScreen({
       if (command.type === 'proposal.decide' && aggregate) {
         const proposal = (aggregate.proposals ?? []).find((item) => item.id === command.proposalId);
         if (!proposal || proposal.version !== command.expectedVersion) return;
+        if (proposal.capabilityId === 'recipes') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Recipe change.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeRecipeProposalDecision({
+              proposal, action: command.action, repository, recipes: recipeMutationBoundary,
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Recipe.');
+          }
+          return;
+        }
         if (proposal.capabilityId === 'money') {
           if (command.action === 'edit') {
             setError('Ask Kwilt to prepare a revised Money category change.');

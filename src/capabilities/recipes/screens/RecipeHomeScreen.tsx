@@ -35,6 +35,8 @@ import { RecipeActionsMenu } from "../components/RecipeActionsMenu";
 import { RecipeArtworkGallery } from "../components/RecipeArtworkGallery";
 import { RecipeHero } from "../components/RecipeHero";
 import { RecipeIngredientList } from "../components/RecipeIngredientList";
+import { RecipeAffiliateDisclosureGuide } from "../components/RecipeAffiliateDisclosureGuide";
+import { RecipeEditorialPickCard } from "../components/RecipeEditorialPickCard";
 import { RecipeMethodPreview } from "../components/RecipeMethodPreview";
 import { RecipeRecommendationsSection } from "../components/RecipeRecommendationsSection";
 import { RecipeSummaryBar } from "../components/RecipeSummaryBar";
@@ -78,6 +80,15 @@ import {
 } from "../domain/recipeNextAction";
 import { UnifiedChatDrawer } from "../../../features/unifiedChat/UnifiedChatDrawer";
 import type { UnifiedChatLaunchContext } from "../../../features/unifiedChat/launchContext";
+import {
+  resolveRecipeEditorialPicks,
+  type RecipeEditorialPick,
+} from "../domain/recipeEditorialPicks";
+import {
+  buildApprovedAffiliateProductDetail,
+  getAffiliateRetailerLinkDisclosure,
+  openAffiliateProductDetail,
+} from "../../groceries/providers/affiliateRetailerProvider";
 
 type HideToast = {
   message: string;
@@ -190,6 +201,8 @@ export function RecipeHomeView({
   onMore,
   onChat = () => undefined,
   onOpenRecipe = () => undefined,
+  editorialPicks,
+  onOpenEditorialPick,
 }: {
   projection: RecipeProjection;
   servings: number;
@@ -208,6 +221,8 @@ export function RecipeHomeView({
   onMore(): void;
   onChat?(): void;
   onOpenRecipe?(recipeId: string): void;
+  editorialPicks?: readonly RecipeEditorialPick[];
+  onOpenEditorialPick?(pick: RecipeEditorialPick): void;
 }) {
   const { recipe, currentVersion: version } = projection;
   const starterMetadata = getStarterRecipeMetadata(recipe.id);
@@ -220,6 +235,10 @@ export function RecipeHomeView({
       : "Notes";
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
+  const resolvedEditorialPicks = editorialPicks ?? resolveRecipeEditorialPicks({
+    equipmentRequirements: version.equipmentRequirements ?? [],
+    instructions: version.instructions.map((step) => step.text),
+  });
   return (
     <View style={styles.container}>
       <Animated.ScrollView
@@ -339,6 +358,18 @@ export function RecipeHomeView({
             checked={checkedIngredients}
             onToggle={onToggleIngredient}
           />
+          {onOpenEditorialPick && resolvedEditorialPicks.length ? (
+            <View style={styles.tools}>
+              <Heading variant="md">Tools</Heading>
+              {resolvedEditorialPicks.map((pick) => (
+                <RecipeEditorialPickCard
+                  key={pick.id}
+                  pick={pick}
+                  onPress={onOpenEditorialPick}
+                />
+              ))}
+            </View>
+          ) : null}
           <RecipeMethodPreview steps={version.instructions} />
           {version.notes ? (
             <View style={styles.note}>
@@ -425,6 +456,8 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   const [showMore, setShowMore] = useState(false);
   const [mealChatVisible, setMealChatVisible] = useState(false);
   const [mealChatThreadId, setMealChatThreadId] = useState<string | null>(null);
+  const [pendingEditorialPick, setPendingEditorialPick] =
+    useState<RecipeEditorialPick | null>(null);
   const [activePlan, setActivePlan] = useState<MealPlanProjection | null>(null);
   const [sharedCart, setSharedCart] = useState<SharedMealCartProjection | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -434,6 +467,13 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   const [cookCount, setCookCount] = useState(0);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const { capture } = useAnalytics();
+  const editorialPicks = useMemo(() => {
+    if (!projection) return [];
+    return resolveRecipeEditorialPicks({
+      equipmentRequirements: projection.currentVersion.equipmentRequirements ?? [],
+      instructions: projection.currentVersion.instructions.map((step) => step.text),
+    }).filter((pick) => Boolean(buildApprovedAffiliateProductDetail('amazon', pick.asin)));
+  }, [projection]);
   const mealChatLaunchContext = useMemo<UnifiedChatLaunchContext>(
     () => ({
       capabilityId: "recipes",
@@ -763,6 +803,8 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         onOpenRecipe={(recipeId) =>
           navigation.push("RecipeHome", { recipeId })
         }
+        editorialPicks={editorialPicks}
+        onOpenEditorialPick={setPendingEditorialPick}
       />
       <RecipeActionsMenu
         visible={showMore}
@@ -784,6 +826,17 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         source="recipe_detail_contextual_drawer"
         threadId={mealChatThreadId}
         onThreadIdChange={setMealChatThreadId}
+      />
+      <RecipeAffiliateDisclosureGuide
+        visible={pendingEditorialPick !== null}
+        affiliate={getAffiliateRetailerLinkDisclosure('amazon') === 'Paid link'}
+        pick={pendingEditorialPick}
+        onClose={() => setPendingEditorialPick(null)}
+        onContinue={() => {
+          const pick = pendingEditorialPick;
+          setPendingEditorialPick(null);
+          if (pick) void openAffiliateProductDetail('amazon', pick.asin);
+        }}
       />
     </AppShell>
   );
@@ -834,6 +887,7 @@ const styles = StyleSheet.create({
   },
   learningSubstitution: { gap: spacing.xs, paddingTop: spacing.xs },
   provenance: { gap: spacing.xs, paddingTop: spacing.sm },
+  tools: { gap: spacing.md },
   headerActions: {
     flexDirection: "row",
     alignItems: "center",

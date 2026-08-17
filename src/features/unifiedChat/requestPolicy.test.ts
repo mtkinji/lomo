@@ -11,6 +11,10 @@ describe('classifyUnifiedChatRequest', () => {
       .toMatchObject({ participatingCapabilities: ['meal_planning'] });
     expect(classifyUnifiedChatRequest({ prompt: 'Find my lemon pasta recipe' }))
       .toMatchObject({ participatingCapabilities: ['recipes'] });
+    expect(classifyUnifiedChatRequest({ prompt: 'Create a private recipe for Hokkaido cheese potato mochi' }))
+      .toMatchObject({ requestClass: 'capability_action', participatingCapabilities: ['recipes'] });
+    expect(classifyUnifiedChatRequest({ prompt: 'Delete my lemon pasta recipe' }))
+      .toMatchObject({ requestClass: 'capability_action', participatingCapabilities: ['recipes'], usePrivateContext: true });
   });
   test.each([
     'Am I within my income spending limit?',

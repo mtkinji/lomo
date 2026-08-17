@@ -7,6 +7,7 @@ import { PlanEventPeekDrawerHost } from './PlanEventPeekDrawerHost';
 const mockBottomDrawerProps: Array<Record<string, unknown>> = [];
 const mockScrollViewProps: Array<Record<string, unknown>> = [];
 const mockActivityPeekProps: Array<Record<string, unknown>> = [];
+const mockPlanRecsProps: Array<Record<string, unknown>> = [];
 
 jest.mock('../../ui/BottomDrawer', () => ({
   BottomDrawer: ({ children, ...props }: { children?: React.ReactNode } & Record<string, unknown>) => {
@@ -39,7 +40,12 @@ jest.mock('../../ui/layout/BottomDrawerHeader', () => ({
   },
 }));
 
-jest.mock('./PlanRecsPage', () => ({ PlanRecsPage: () => null }));
+jest.mock('./PlanRecsPage', () => ({
+  PlanRecsPage: (props: Record<string, unknown>) => {
+    mockPlanRecsProps.push(props);
+    return null;
+  },
+}));
 jest.mock('./ActivityEventPeek', () => ({
   ActivityEventPeek: (props: Record<string, unknown>) => {
     const React = require('react');
@@ -107,6 +113,54 @@ describe('PlanEventPeekDrawerHost slot capture', () => {
     mockBottomDrawerProps.length = 0;
     mockScrollViewProps.length = 0;
     mockActivityPeekProps.length = 0;
+    mockPlanRecsProps.length = 0;
+  });
+
+  it('expands recommendations to the full-height snap when the inline time picker opens', () => {
+    renderWithProviders(
+      <PlanEventPeekDrawerHost
+        visible
+        mode="recs"
+        onClose={jest.fn()}
+        recommendations={{
+          recommendationCount: 1,
+          targetDayLabel: 'Mon, Aug 17',
+          recommendations: [
+            {
+              activityId: 'activity-1',
+              title: 'Refine Screen Time review timing',
+              proposal: {
+                startDate: '2026-08-17T15:00:00.000Z',
+                endDate: '2026-08-17T15:30:00.000Z',
+              },
+              candidateStartDates: ['2026-08-17T15:00:00.000Z', '2026-08-18T00:00:00.000Z'],
+            },
+          ],
+          emptyState: null,
+          showAlreadyPlanned: false,
+          entryPoint: 'manual',
+          calendarStatus: 'connected',
+          onOpenCalendarSettings: jest.fn(),
+          onReviewPlan: jest.fn(),
+          onRerun: jest.fn(),
+          onCommit: jest.fn(),
+          onMove: jest.fn(),
+          onSkip: jest.fn(),
+        }}
+      />,
+    );
+
+    expect(mockBottomDrawerProps.at(-1)?.snapPoints).toEqual(['85%', '100%']);
+    expect(mockBottomDrawerProps.at(-1)?.snapIndex).toBe(0);
+
+    act(() => {
+      const onMovePickerExpandedChange = mockPlanRecsProps.at(-1)?.onMovePickerExpandedChange as
+        | ((expanded: boolean) => void)
+        | undefined;
+      onMovePickerExpandedChange?.(true);
+    });
+
+    expect(mockBottomDrawerProps.at(-1)?.snapIndex).toBe(1);
   });
 
   it('lets content use the bottom safe-area region without explanatory header copy', () => {

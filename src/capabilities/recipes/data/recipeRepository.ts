@@ -107,6 +107,15 @@ function mapRow(row: any): RecipeProjection {
       sectionLabel: step.section_label ?? null, text: step.step_text,
       mediaAssetIds: step.media_asset_ids ?? [],
     })).sort((a: { position: number }, b: { position: number }) => a.position - b.position),
+    equipmentRequirements: [...(versionRow.equipment_requirements ?? [])].sort((a: any, b: any) => a.position - b.position).map((item: any) => ({
+      id: item.concept_id,
+      label: item.label,
+      searchQuery: item.search_query,
+      necessity: item.necessity,
+      confidence: Number(item.confidence),
+      evidenceText: item.evidence_text,
+      substitute: item.substitute,
+    })),
     createdByPersonId: versionRow.created_by_person_id,
     createdAt: versionRow.created_at,
     contentHash: versionRow.content_hash,
@@ -127,6 +136,7 @@ export function createRecipeRepository(client: SupabaseClient = getSupabaseClien
               *,
               ingredients:kwilt_recipe_ingredients(*),
               instructions:kwilt_recipe_instructions(*),
+              equipment_requirements:kwilt_recipe_equipment_requirements(*),
               provenance:kwilt_recipe_provenance(*),
               credits:kwilt_recipe_credits(*),
               lineage:kwilt_recipe_lineage!kwilt_recipe_lineage_recipe_version_id_fkey(*)
@@ -146,7 +156,7 @@ export function createRecipeRepository(client: SupabaseClient = getSupabaseClien
     },
     async save(input: SaveRecipeInput): Promise<RecipeMutationReceipt> {
       const reviewedData: ReviewedRecipeData = parseReviewedRecipeData(input.reviewedData);
-      const { data, error } = await client.rpc('save_kwilt_recipe', {
+      const { data, error } = await client.rpc('save_kwilt_recipe_with_equipment', {
         p_recipe_id: input.recipeId,
         p_expected_version: input.expectedVersion,
         p_idempotency_key: input.idempotencyKey,

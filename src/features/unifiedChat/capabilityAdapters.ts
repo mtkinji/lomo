@@ -99,6 +99,7 @@ const ACTIVITY_OPERATIONS = [
   'delete_activity_step',
   'reorder_activity_steps',
 ] as const;
+const RECIPE_OPERATIONS = ['create_recipe', 'update_recipe', 'delete_recipe'] as const;
 
 function compact(values: Array<string | null | undefined>): string {
   return values.filter((value): value is string => Boolean(value?.trim())).join(' · ');
@@ -766,11 +767,11 @@ function recipeEvidence(projection: RecipeProjection): CapabilityEvidenceSource 
 
 export const recipesChatAdapter: CapabilityChatAdapter<RecipesChatSnapshot> = {
   capabilityId: 'recipes',
-  context: { dataClassification: 'private_kwilt_data', readOnly: true },
+  context: { dataClassification: 'private_kwilt_data', readOnly: false },
   evidence: { list: ({ recipes }) => recipes.map(recipeEvidence) },
-  proposal: { operationKinds: [] },
-  apply: { operationKinds: [] },
-  receipt: { reloadAuthoritativeObject: false },
+  proposal: { operationKinds: RECIPE_OPERATIONS },
+  apply: { operationKinds: RECIPE_OPERATIONS },
+  receipt: { reloadAuthoritativeObject: true },
   undo: { operationKinds: [] },
   return: {
     targetFor: (object) => ({

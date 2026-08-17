@@ -117,11 +117,16 @@ export function PlanEventPeekDrawerHost({
   sessionEdit?: PlanSessionEditModel;
   slotAdjustmentActive?: boolean;
 }) {
+  const [recommendationsSnapIndex, setRecommendationsSnapIndex] = useState(0);
   const [sessionSnapIndex, setSessionSnapIndex] = useState(1);
   const snapPoints = useMemo<BottomDrawerSnapPoint[]>(() => {
-    if (mode === 'recs') return ['85%'];
+    if (mode === 'recs') return ['85%', '100%'];
     return ['42%', '85%'];
   }, [mode]);
+
+  const handleMovePickerExpandedChange = React.useCallback((expanded: boolean) => {
+    setRecommendationsSnapIndex(expanded ? 1 : 0);
+  }, []);
 
   useEffect(() => {
     if (mode === 'sessionEdit') setSessionSnapIndex(1);
@@ -202,6 +207,9 @@ export function PlanEventPeekDrawerHost({
       visible={visible}
       onClose={onClose}
       snapPoints={snapPoints}
+      initialSnapIndex={mode === 'recs' ? 0 : undefined}
+      snapIndex={mode === 'recs' ? recommendationsSnapIndex : undefined}
+      onSnapIndexChange={mode === 'recs' ? setRecommendationsSnapIndex : undefined}
       presentation="modal"
       dismissable
       dismissOnBackdropPress
@@ -211,7 +219,7 @@ export function PlanEventPeekDrawerHost({
       handleStyle={styles.handle}
     >
       {mode === 'recs' && recommendations ? (
-        <View>
+        <View style={styles.recommendationsContent}>
           <BottomDrawerHeader
             title={
               <Text style={styles.sheetTitle}>Plan your day</Text>
@@ -253,6 +261,7 @@ export function PlanEventPeekDrawerHost({
             onCommit={recommendations.onCommit}
             onMove={recommendations.onMove}
             onSkip={recommendations.onSkip}
+            onMovePickerExpandedChange={handleMovePickerExpandedChange}
             committingActivityId={recommendations.committingActivityId}
           />
         </View>
@@ -277,6 +286,10 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   slotContent: {
+    flex: 1,
+    minHeight: 0,
+  },
+  recommendationsContent: {
     flex: 1,
     minHeight: 0,
   },

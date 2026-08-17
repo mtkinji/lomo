@@ -162,6 +162,49 @@ describe("Recipe Home", () => {
     );
   });
 
+  it('places a relevant Kwilt equipment pick between ingredients and instructions', () => {
+    const onOpenEditorialPick = jest.fn();
+    const version = {
+      ...recipeVersionContractFixture(),
+      equipmentRequirements: [{
+        id: 'food-processor',
+        label: 'Food processor',
+        searchQuery: 'food processor',
+        necessity: 'required' as const,
+        confidence: 0.97,
+        evidenceText: 'Pulse the filling in a food processor.',
+        substitute: null,
+      }],
+      instructions: [
+        ...recipeVersionContractFixture().instructions,
+        {
+          id: 'step-processor',
+          recipeVersionId: recipeVersionContractFixture().id,
+          position: 2,
+          sectionLabel: null,
+          text: 'Pulse the filling in a food processor.',
+        },
+      ],
+    };
+    const screen = render(
+      <RecipeHomeView
+        projection={{ recipe: recipeContractFixture(), currentVersion: version }}
+        servings={4}
+        {...defaultRecipeHomeDockProps}
+        onServingsChange={jest.fn()}
+        onMore={jest.fn()}
+        onOpenEditorialPick={onOpenEditorialPick}
+      />,
+    );
+
+    expect(screen.getByText('Tools')).toBeTruthy();
+    expect(screen.getByText('KitchenAid 7-Cup Food Processor')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('View KitchenAid 7-Cup Food Processor on Amazon'));
+    expect(onOpenEditorialPick).toHaveBeenCalledWith(expect.objectContaining({
+      asin: 'B07BW1ZPB5',
+    }));
+  });
+
   it("offers contextual Meals at the bottom without inventing ratings", () => {
     const onOpenRecipe = jest.fn();
     const recommendedRecipe = {

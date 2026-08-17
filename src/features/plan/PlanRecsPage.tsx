@@ -96,6 +96,7 @@ type PlanRecsPageProps = {
   onCommit: (activityId: string) => void;
   onMove: (activityId: string, newStart: Date) => void;
   onSkip: (activityId: string) => void;
+  onMovePickerExpandedChange?: (expanded: boolean) => void;
   committingActivityId?: string | null;
   /**
    * Extra padding applied by the page itself. When hosted inside `BottomDrawer`,
@@ -130,6 +131,7 @@ export function PlanRecsPage({
   onCommit,
   onMove,
   onSkip,
+  onMovePickerExpandedChange,
   committingActivityId = null,
   contentPadding = spacing.xl,
 }: PlanRecsPageProps) {
@@ -148,6 +150,10 @@ export function PlanRecsPage({
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
+
+  useEffect(() => {
+    onMovePickerExpandedChange?.(expandedMoveActivityId !== null);
+  }, [expandedMoveActivityId, onMovePickerExpandedChange]);
 
   const animateExpandCollapse = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -601,6 +607,8 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   scrollView: {
+    flex: 1,
+    minHeight: 0,
     overflow: 'visible',
   },
   emptyContainer: {
