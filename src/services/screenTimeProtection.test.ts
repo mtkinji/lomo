@@ -1,7 +1,10 @@
 import {
   DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+  addPersonalScreenTimeRule,
   buildMeaningfulFirstUnlock,
+  createPersonalScreenTimeRule,
   getActiveRestrictionReasons,
+  getAvailablePersonalScreenTimeRuleKinds,
   getScreenTimeSetupDefaults,
   getScreenTimeSetupRecoveryStep,
   isMeaningfulFirstUnlocked,
@@ -82,6 +85,46 @@ describe('screenTimeProtection.normalizeScreenTimeProtectionSettings', () => {
     });
 
     expect(settings.meaningfulFirst.currentUnlockUntilIso).toBeNull();
+  });
+});
+
+describe('screenTimeProtection personal rule construction', () => {
+  const focusRule = createPersonalScreenTimeRule({
+    kind: 'focus',
+    selectedApps: [{ token: 'reddit' }],
+    selectedCategories: [],
+    enabled: true,
+    setupCompleted: true,
+    nowIso: '2026-08-13T12:00:00.000Z',
+  });
+
+  it('lists only personal conditions that do not yet have a rule', () => {
+    expect(getAvailablePersonalScreenTimeRuleKinds(base())).toEqual(['real_step', 'focus']);
+    expect(getAvailablePersonalScreenTimeRuleKinds(base({ personalRules: [focusRule] })))
+      .toEqual(['real_step']);
+  });
+
+  it('adds a missing rule without changing its stable selection identity', () => {
+    const result = addPersonalScreenTimeRule(base(), focusRule);
+
+    expect(result.status).toBe('created');
+    expect(result.settings.personalRules).toEqual([
+      expect.objectContaining({
+        id: 'personal_focus',
+        selectionId: 'personal_focus',
+        selectedApps: [{ token: 'reddit' }],
+      }),
+    ]);
+  });
+
+  it('refuses a duplicate condition in the bounded builder release', () => {
+    const settings = base({ personalRules: [focusRule] });
+    const result = addPersonalScreenTimeRule(settings, {
+      ...focusRule,
+      selectedApps: [{ token: 'youtube' }],
+    });
+
+    expect(result).toEqual({ status: 'duplicate_kind', settings });
   });
 });
 

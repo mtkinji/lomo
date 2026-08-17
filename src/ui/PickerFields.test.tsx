@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { fireEvent, screen } from '@testing-library/react-native';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { renderWithProviders } from '../test/renderWithProviders';
-import { EnumPickerField, RelationPickerField } from './PickerFields';
+import { EnumPickerField, PickerFieldTrigger, RelationPickerField } from './PickerFields';
 
 jest.mock('./BottomDrawer', () => {
   const React = require('react');
@@ -17,6 +17,24 @@ jest.mock('./BottomDrawer', () => {
 });
 
 describe('PickerFields', () => {
+  it('aligns the disclosure icon to the canonical field inset', () => {
+    renderWithProviders(
+      <PickerFieldTrigger
+        value=""
+        options={[]}
+        placeholder="Condition"
+        accessibilityLabel="Choose condition"
+        allowDeselect={false}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(StyleSheet.flatten(screen.getByTestId('picker-field.chevron').props.style)).toMatchObject({
+      width: 16,
+      height: 28,
+    });
+  });
+
   it('renders fixed enum options without a search field', () => {
     renderWithProviders(
       <EnumPickerField

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
@@ -6,7 +6,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Button } from '../../ui/Button';
-import { Card } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { HStack, Text, VStack } from '../../ui/primitives';
@@ -20,6 +19,7 @@ import {
 } from '../../services/appleEcosystem/screenTimeProtection';
 import {
   createPersonalScreenTimeRule,
+  getAvailablePersonalScreenTimeRuleKinds,
   getPersonalScreenTimeRule,
   getScreenTimeSetupDefaults,
   getScreenTimeSetupRecoveryStep,
@@ -38,15 +38,17 @@ import {
   SettingsDivider,
   SettingsGroup,
   SettingsRow,
+  SettingsToggle,
 } from '../../ui/SettingsSurface';
 import {
   getHouseholdSnapshot,
   type HouseholdSnapshot,
 } from '../household/data/household';
+import { buildFamilyScreenTimeOverviewRows } from './screenTimeOverview';
 import {
-  buildFamilyScreenTimeOverviewRows,
-  buildMoneyScreenTimeOverview,
-} from './screenTimeOverview';
+  buildMyScreenTimeRuleInventory,
+  type ScreenTimeRuleInventoryRow,
+} from '../screen-time/domain/screenTimeRuleInventory';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
@@ -57,7 +59,6 @@ type RuleDraft = {
   realStep: boolean;
   focusSession: boolean;
 };
-
 function statusLabel(status: string): string {
   switch (status) {
     case 'approved':
@@ -86,24 +87,24 @@ function setupCopy(params: {
   if (params.setupIntent === 'meaningful_first_pattern_building') {
     return {
       title: 'Build the pattern you want.',
-      body: 'Block distracting apps until you take a real step.',
+      body: 'Block distracting apps until you complete a to-do, record progress, or finish Focus.',
     };
   }
   if (params.setupIntent === 'meaningful_first_parent_guided') {
     return {
       title: 'Help them start with what matters.',
-      body: 'Block distracting apps until a real step is done.',
+      body: 'Block distracting apps until they complete a to-do, record progress, or finish Focus.',
     };
   }
   if (params.entrySurface === 'scheduled_activity') {
     return {
       title: 'Start with this first.',
-      body: 'Block distracting apps until a real step is done.',
+      body: 'Block distracting apps until you complete a to-do, record progress, or finish Focus.',
     };
   }
   return {
     title: 'Do what matters first.',
-    body: 'Block distracting apps until you take a real step.',
+    body: 'Block distracting apps until you complete a to-do, record progress, or finish Focus.',
   };
 }
 
@@ -148,7 +149,7 @@ function doneBodyForRules(rules: RuleDraft): string {
   if (rules.focusSession) {
     return 'Selected apps will stay blocked while Focus is running.';
   }
-  return 'Selected apps will stay blocked until you take a real step.';
+  return 'Selected apps will stay blocked until you complete a to-do, record progress, or finish Focus.';
 }
 
 function setupStepCopy(params: {
@@ -332,26 +333,38 @@ export function ScreenTimeProtectionSettingsScreen() {
     return authorizationStatus;
   };
 
+  const openSetupRuleBuilder = () => {
+    const defaults = getScreenTimeSetupDefaults(setupIntent);
+    const suggestedKind: PersonalScreenTimeRuleKind | undefined = defaults.focusSession
+      ? 'focus'
+      : defaults.realStep
+        ? 'real_step'
+        : undefined;
+    setSetupPhase('manage');
+    navigation.navigate('SettingsScreenTimeRuleBuilder', {
+      entry: setupIntent === 'settings_discovery' ? 'inventory' : 'contextual',
+      suggestedKind,
+      setupIntent,
+      entrySurface,
+    });
+  };
+
   const continueFromIntro = () => {
     if (!isApproved) {
       setSetupPhase('permission');
       return;
     }
-    if (!hasTargets) {
-      setSetupPhase('apps');
-      return;
-    }
-    setSetupPhase('rules');
+    openSetupRuleBuilder();
   };
 
   const continueFromPermission = async () => {
     if (isApproved) {
-      setSetupPhase('apps');
+      openSetupRuleBuilder();
       return;
     }
     const authorizationStatus = await handleRequestPermission();
     if (authorizationStatus === 'approved') {
-      setSetupPhase('apps');
+      openSetupRuleBuilder();
     }
   };
 
@@ -483,19 +496,14 @@ export function ScreenTimeProtectionSettingsScreen() {
     reconcileAfterSettingsChange();
   };
 
+  const beginPersonalRuleDraft = () => {
+    if (!isApproved || availablePersonalRuleKinds.length === 0) return;
+    navigation.navigate('SettingsScreenTimeRuleBuilder', { entry: 'inventory' });
+  };
+
   const isBusy = setupStep !== 'idle';
   const progressStep = setupPhaseIndex(setupPhase);
   const isScreenTimeUnavailable = normalized.authorizationStatus === 'unavailable';
-  const managementTitle = !isApproved
-    ? 'Screen Time access is needed.'
-    : !hasTargets
-      ? 'Choose apps to turn controls on.'
-      : anyRuleEnabled
-        ? 'Screen Time Controls are on.'
-        : 'Screen Time Controls are off.';
-  const managementSubtitle = hasTargets
-    ? `${targetCount} apps or categories selected.`
-    : 'Choose apps to start blocking distractions.';
   const setupButtonLabel =
     setupPhase === 'permission'
       ? isScreenTimeUnavailable
@@ -533,18 +541,41 @@ export function ScreenTimeProtectionSettingsScreen() {
         ? 'Change apps'
       : null;
   const familyRows = buildFamilyScreenTimeOverviewRows(householdSnapshot);
-  const moneyOverview = buildMoneyScreenTimeOverview(moneyAppControls.settings);
+  const myRuleRows = buildMyScreenTimeRuleInventory({
+    personalSettings: normalized,
+    moneySettings: moneyAppControls.settings,
+  });
+  const availablePersonalRuleKinds = getAvailablePersonalScreenTimeRuleKinds(normalized);
 
-  const openMoneyAppControls = () => {
-    if (!moneyOverview || !rootNavigation) return;
-    if (moneyOverview.activePolicyIds.length === 1) {
-      rootNavigation.navigate('Money', {
+  const openRule = (row: ScreenTimeRuleInventoryRow) => {
+    if (row.destination.kind === 'money') {
+      rootNavigation?.navigate('Money', {
         screen: 'MoneyAppControl',
-        params: { categoryId: moneyOverview.activePolicyIds[0] },
+        params: { categoryId: row.destination.categorySourceId },
       });
       return;
     }
-    rootNavigation.navigate('Money', { screen: 'MoneySummary' });
+    void handleChooseRuleTargets(row.destination.ruleKind);
+  };
+
+  const toggleInventoryRule = (row: ScreenTimeRuleInventoryRow) => {
+    if (row.destination.kind !== 'personal') {
+      openRule(row);
+      return;
+    }
+    handleToggleRule(row.destination.ruleKind, !row.enabled);
+  };
+
+  const openHouseholdRuleBuilder = () => {
+    if (familyRows.length === 1) {
+      const row = familyRows[0];
+      navigation.navigate('SettingsFamilyScreenTime', {
+        childMembershipId: row.childMembershipId,
+        childDisplayName: row.displayName,
+      });
+      return;
+    }
+    navigation.navigate('SettingsHousehold');
   };
 
   const handleSetupPrimaryPress = () => {
@@ -589,76 +620,53 @@ export function ScreenTimeProtectionSettingsScreen() {
 
   const managementContent = (
     <>
-      <Text style={styles.sectionLabel}>My Screen Time</Text>
-      <View style={styles.managementHero}>
-        <HStack alignItems="center" space="sm">
-          <View style={styles.iconWrap}>
-            <Icon name="shield" size={20} color={colors.textPrimary} />
-          </View>
-          <VStack flex={1} space={0}>
-            <Text style={styles.title}>{managementTitle}</Text>
-            <Text style={styles.subtitle}>{managementSubtitle}</Text>
-          </VStack>
-          <View style={[styles.statusPill, isApproved ? styles.statusPillOn : null]}>
-            <Text style={[styles.statusText, isApproved ? styles.statusTextOn : null]}>
-              {statusLabel(normalized.authorizationStatus)}
-            </Text>
-          </View>
-        </HStack>
-      </View>
+      <SettingsGroup>
+        <SettingsRow
+          title="Screen Time access"
+          value={statusLabel(normalized.authorizationStatus)}
+          showsDisclosureIndicator={false}
+        />
+      </SettingsGroup>
 
-      <VStack space="sm">
-        <Text style={styles.cardTitle}>Rules</Text>
-        {realStepRule ? (
-          <PersonalRuleCard
-            title="Do a real step first"
-            subtitle="Complete a to-do, record progress, or finish Focus."
-            targetCount={realStepRule.selectedApps.length + realStepRule.selectedCategories.length}
-            enabled={realStepRule.enabled}
-            needsReview={realStepRule.needsSelectionReview}
-            disabled={isBusy || normalized.authorizationStatus === 'unavailable'}
-            onEdit={() => void handleChooseRuleTargets('real_step')}
-            onToggle={() => handleToggleRule('real_step', !realStepRule.enabled)}
-          />
-        ) : null}
-        {focusRule ? (
-          <PersonalRuleCard
-            title="Protect Focus"
-            subtitle="Selected apps wait only while Focus is running."
-            targetCount={focusRule.selectedApps.length + focusRule.selectedCategories.length}
-            enabled={focusRule.enabled}
-            needsReview={focusRule.needsSelectionReview}
-            disabled={isBusy || normalized.authorizationStatus === 'unavailable'}
-            onEdit={() => void handleChooseRuleTargets('focus')}
-            onToggle={() => handleToggleRule('focus', !focusRule.enabled)}
-          />
-        ) : null}
-        {normalized.personalRules.length === 0 ? (
-          <Card elevation="none" marginVertical={0} padding="sm">
-            <ManageRow
-              title="No rules yet"
-              subtitle="Add one rule for the apps and condition you want."
-              actionLabel="Set up"
-              onPress={() => setSetupPhase('intro')}
+      <RuleInventoryGroup
+        title={`My rules · ${myRuleRows.length}`}
+        addAccessibilityLabel="Add My rule"
+        addDisabled={!isApproved || availablePersonalRuleKinds.length === 0}
+        onAdd={beginPersonalRuleDraft}
+        emptyCopy="No personal rules yet."
+        isEmpty={myRuleRows.length === 0}
+      >
+        {myRuleRows.map((row, index) => (
+          <Fragment key={row.id}>
+            {index > 0 ? <SettingsDivider /> : null}
+            <RuleInventoryRow
+              row={row}
+              disabled={isBusy || normalized.authorizationStatus === 'unavailable'}
+              onPress={() => openRule(row)}
+              onToggle={() => toggleInventoryRule(row)}
             />
-          </Card>
-        ) : null}
-      </VStack>
+          </Fragment>
+        ))}
+      </RuleInventoryGroup>
+
+      <RuleInventoryGroup
+        title="Household rules · 0"
+        addAccessibilityLabel="Add Household rule"
+        onAdd={openHouseholdRuleBuilder}
+        emptyCopy="Shared rules will appear here after they are created."
+        isEmpty
+      />
 
       {householdLoadState === 'loading' ? (
-        <SettingsGroup title="Family">
+        <SettingsGroup title="Household setup">
           <SettingsRow disabled title="Household" value="Loading…" />
         </SettingsGroup>
       ) : householdLoadState === 'error' ? (
-        <SettingsGroup title="Family">
-          <SettingsRow
-            onPress={() => navigation.navigate('SettingsHousehold')}
-            title="Household"
-            value="Unavailable"
-          />
+        <SettingsGroup title="Household setup">
+          <SettingsRow onPress={() => navigation.navigate('SettingsHousehold')} title="Household" value="Unavailable" />
         </SettingsGroup>
       ) : familyRows.length > 0 ? (
-        <SettingsGroup title="Family">
+        <SettingsGroup title="Household setup">
           {familyRows.map((row, index) => (
             <Fragment key={row.childMembershipId}>
               {index > 0 ? <SettingsDivider /> : null}
@@ -672,20 +680,6 @@ export function ScreenTimeProtectionSettingsScreen() {
               />
             </Fragment>
           ))}
-        </SettingsGroup>
-      ) : null}
-
-      {!moneyAppControls.loaded ? (
-        <SettingsGroup title="Money">
-          <SettingsRow disabled title="Money app controls" value="Loading…" />
-        </SettingsGroup>
-      ) : moneyOverview ? (
-        <SettingsGroup title="Money">
-          <SettingsRow
-            onPress={openMoneyAppControls}
-            title="Money app controls"
-            value={moneyOverview.value}
-          />
         </SettingsGroup>
       ) : null}
     </>
@@ -729,14 +723,14 @@ export function ScreenTimeProtectionSettingsScreen() {
               {setupPhase === 'rules' ? (
                 <View style={styles.ftueRuleList}>
                   <RuleDraftRow
-                    title="A real step"
-                    subtitle="Complete a to-do, record progress, or finish Focus."
+                    title="Complete a to-do, record progress, or finish Focus"
+                    subtitle="Unlock selected apps afterward."
                     value={ruleDraft.realStep}
                     onValueChange={(value) => setRuleDraft((current) => ({ ...current, realStep: value }))}
                   />
                   <RuleDraftRow
-                    title="Focus"
-                    subtitle="Block selected apps while Focus is running."
+                    title="Pause until Focus ends"
+                    subtitle="Keep selected apps blocked while Focus is running."
                     value={ruleDraft.focusSession}
                     onValueChange={(value) => setRuleDraft((current) => ({ ...current, focusSession: value }))}
                   />
@@ -848,62 +842,83 @@ function RuleDraftRow(props: {
   );
 }
 
-function ManageRow(props: {
+function RuleInventoryGroup(props: {
   title: string;
-  subtitle: string;
-  actionLabel: string;
-  disabled?: boolean;
-  onPress: () => void;
+  addAccessibilityLabel: string;
+  addDisabled?: boolean;
+  emptyCopy: string;
+  isEmpty?: boolean;
+  onAdd: () => void;
+  children?: ReactNode;
 }) {
   return (
-    <View style={styles.manageRow}>
-      <VStack flex={1} space={0}>
-        <Text style={styles.rowTitle}>{props.title}</Text>
-        <Text style={styles.rowSubtitle}>{props.subtitle}</Text>
-      </VStack>
-      <Button size="sm" variant="secondary" disabled={props.disabled} onPress={props.onPress}>
-        {props.actionLabel}
-      </Button>
+    <View style={styles.ruleGroupBlock}>
+      <HStack alignItems="center" justifyContent="space-between">
+        <Text style={styles.ruleGroupLabel}>{props.title}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={props.addAccessibilityLabel}
+          accessibilityState={{ disabled: props.addDisabled }}
+          disabled={props.addDisabled}
+          onPress={props.onAdd}
+          style={({ pressed }) => [styles.addRuleButton, props.addDisabled ? styles.addRuleButtonDisabled : null, pressed ? styles.ruleDraftRowPressed : null]}
+        >
+          <Icon name="plus" size={16} color={colors.textPrimary} />
+          <Text style={styles.addRuleButtonText}>Add rule</Text>
+        </Pressable>
+      </HStack>
+      <View style={styles.ruleGroupSurface}>
+        {props.isEmpty ? <Text style={styles.ruleGroupEmpty}>{props.emptyCopy}</Text> : props.children}
+      </View>
     </View>
   );
 }
 
-function PersonalRuleCard(props: {
-  title: string;
-  subtitle: string;
-  targetCount: number;
-  enabled: boolean;
-  needsReview: boolean;
+function RuleInventoryRow(props: {
+  row: ScreenTimeRuleInventoryRow;
   disabled?: boolean;
-  onEdit: () => void;
+  onPress: () => void;
   onToggle: () => void;
 }) {
-  const targetCopy = props.targetCount === 1 ? '1 app or category' : `${props.targetCount} apps or categories`;
+  const copy = (
+    <VStack flex={1} space={0}>
+      <Text style={[styles.rowTitle, props.disabled ? styles.disabledText : null]}>{props.row.title}</Text>
+      <Text style={styles.rowSubtitle}>{props.row.detail}</Text>
+      <Text style={styles.ruleOwnerCopy}>{props.row.domain === 'money' ? 'Money' : 'Personal'}</Text>
+    </VStack>
+  );
+  if (props.row.domain === 'personal') {
+    return (
+      <View style={[styles.inventoryRow, !props.row.enabled ? styles.ruleCardDisabled : null]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={props.row.title}
+          disabled={props.disabled}
+          onPress={props.onPress}
+          style={({ pressed }) => [styles.inventoryRowMain, pressed ? styles.ruleDraftRowPressed : null]}
+        >
+          {copy}
+        </Pressable>
+        <SettingsToggle
+          accessibilityLabel={`${props.row.title} ${props.row.enabled ? 'on' : 'off'}`}
+          disabled={props.disabled}
+          value={props.row.enabled}
+          onPress={props.onToggle}
+        />
+      </View>
+    );
+  }
   return (
-    <Card elevation="none" marginVertical={0} padding="sm" style={!props.enabled ? styles.ruleCardDisabled : null}>
-      <VStack space="sm">
-        <HStack alignItems="flex-start" justifyContent="space-between" space="sm">
-          <VStack flex={1} space={0}>
-            <Text style={[styles.rowTitle, props.disabled ? styles.disabledText : null]}>{props.title}</Text>
-            <Text style={styles.rowSubtitle}>{props.subtitle}</Text>
-          </VStack>
-          <View style={[styles.ruleStatus, props.enabled ? styles.ruleStatusOn : null]}>
-            <Text style={styles.ruleStatusText}>{props.enabled ? 'On' : 'Off'}</Text>
-          </View>
-        </HStack>
-        <Text style={styles.ruleTargetCopy}>
-          {targetCopy}{props.needsReview ? ' · Review selection' : ''}
-        </Text>
-        <HStack justifyContent="flex-end" space="sm">
-          <Button size="sm" variant="ghost" disabled={props.disabled} onPress={props.onToggle}>
-            {props.enabled ? 'Turn off' : 'Turn on'}
-          </Button>
-          <Button size="sm" variant="secondary" disabled={props.disabled} onPress={props.onEdit}>
-            Edit apps
-          </Button>
-        </HStack>
-      </VStack>
-    </Card>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={props.row.title}
+      disabled={props.disabled}
+      onPress={props.onPress}
+      style={({ pressed }) => [styles.inventoryRow, !props.row.enabled ? styles.ruleCardDisabled : null, pressed ? styles.ruleDraftRowPressed : null]}
+    >
+      {copy}
+      <Icon name="chevronRight" size={17} color={colors.textSecondary} />
+    </Pressable>
   );
 }
 
@@ -1223,5 +1238,61 @@ const styles = StyleSheet.create({
   bodyMuted: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  ruleGroupBlock: {
+    rowGap: spacing.sm,
+  },
+  ruleGroupLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    paddingLeft: spacing.sm,
+  },
+  addRuleButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 999,
+  },
+  addRuleButtonDisabled: {
+    opacity: 0.42,
+  },
+  addRuleButtonText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: typography.titleSm.fontFamily,
+  },
+  ruleGroupSurface: {
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: 18,
+    backgroundColor: colors.canvas,
+  },
+  ruleGroupEmpty: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+  },
+  inventoryRow: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  inventoryRowMain: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 54,
+    justifyContent: 'center',
+  },
+  ruleOwnerCopy: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
 });

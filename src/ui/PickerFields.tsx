@@ -5,10 +5,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  type StyleProp,
   StyleSheet,
   TextInput,
   useWindowDimensions,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../theme';
@@ -42,7 +44,7 @@ type PickerFieldTriggerRenderArgs = {
   onPress: () => void;
 };
 
-type PickerFieldTriggerProps = {
+export type PickerFieldTriggerProps = {
   value: string;
   options: PickerFieldOption[];
   placeholder: string;
@@ -54,6 +56,7 @@ type PickerFieldTriggerProps = {
   fieldVariant?: PickerFieldVariant;
   onPress: () => void;
   onClear?: () => void;
+  style?: StyleProp<ViewStyle>;
 };
 
 type SinglePickerProps = {
@@ -105,7 +108,7 @@ function optionMatchesQuery(option: PickerFieldOption, query: string) {
   return (option.keywords ?? []).some((keyword) => keyword.toLowerCase().includes(query));
 }
 
-function PickerFieldTrigger({
+export function PickerFieldTrigger({
   value,
   options,
   placeholder,
@@ -117,6 +120,7 @@ function PickerFieldTrigger({
   fieldVariant = 'outline',
   onPress,
   onClear,
+  style,
 }: PickerFieldTriggerProps) {
   const selectedLabel = React.useMemo(() => getSelectedLabel(options, value), [options, value]);
   const showClear = Boolean(value) && allowDeselect && !disabled && onClear;
@@ -131,7 +135,7 @@ function PickerFieldTrigger({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       disabled={disabled}
-      style={[styles.trigger, disabled && styles.triggerDisabled]}
+      style={[styles.trigger, disabled && styles.triggerDisabled, style]}
     >
       <View pointerEvents="none">
         <Input
@@ -143,7 +147,7 @@ function PickerFieldTrigger({
           leadingIcon={leadingIcon}
           size={inputSize}
           containerStyle={[styles.valueContainer, fieldContainerStyle]}
-          inputStyle={inputStyle}
+          inputStyle={[inputStyle, !showClear ? styles.valueInputWithoutClear : null]}
         />
       </View>
       <View pointerEvents="box-none" style={styles.accessoryRow}>
@@ -161,7 +165,7 @@ function PickerFieldTrigger({
             <Icon name="close" size={16} color={colors.textSecondary} />
           </Pressable>
         ) : null}
-        <View pointerEvents="none" style={styles.chevronWrapper}>
+        <View testID="picker-field.chevron" pointerEvents="none" style={styles.chevronWrapper}>
           <Icon name="chevronsUpDown" size={16} color={colors.textSecondary} />
         </View>
       </View>
@@ -549,6 +553,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     paddingRight: spacing['2xl'] + spacing.lg,
   },
+  valueInputWithoutClear: {
+    paddingRight: spacing['2xl'],
+  },
   accessoryRow: {
     position: 'absolute',
     right: spacing.md,
@@ -567,7 +574,7 @@ const styles = StyleSheet.create({
   },
   chevronWrapper: {
     height: 28,
-    width: 28,
+    width: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
