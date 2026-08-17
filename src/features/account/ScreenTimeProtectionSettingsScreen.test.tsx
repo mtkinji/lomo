@@ -6,11 +6,13 @@ import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from '../../services/screenTi
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
 import { useAppStore } from '../../store/useAppStore';
+import { usePersonalRuleBuilderDrawerStore } from '../screen-time/rule-builder/usePersonalRuleBuilderDrawerStore';
 import type { HouseholdSnapshot } from '../household/data/household';
 import { ScreenTimeProtectionSettingsScreen } from './ScreenTimeProtectionSettingsScreen';
 
 const mockSettingsNavigate = jest.fn();
 const mockRootNavigate = jest.fn();
+const mockRootGoBack = jest.fn();
 const mockGetHouseholdSnapshot = jest.fn();
 const mockMoneySettings = jest.fn<MoneyAppControlSettings, []>();
 const mockGetScreenTimeAuthorizationStatus = jest.fn();
@@ -26,7 +28,7 @@ jest.mock('@react-navigation/native', () => {
     useNavigation: () => ({
       goBack: jest.fn(),
       navigate: mockSettingsNavigate,
-      getParent: () => ({ navigate: mockRootNavigate }),
+      getParent: () => ({ navigate: mockRootNavigate, goBack: mockRootGoBack }),
     }),
     useRoute: () => ({ params: mockRouteParams }),
   };
@@ -95,6 +97,8 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     resetAllStores();
     mockSettingsNavigate.mockReset();
     mockRootNavigate.mockReset();
+    mockRootGoBack.mockReset();
+    usePersonalRuleBuilderDrawerStore.getState().close();
     mockGetHouseholdSnapshot.mockReset().mockResolvedValue(household);
     mockMoneySettings.mockReset().mockReturnValue(money);
     mockGetScreenTimeAuthorizationStatus.mockReset().mockResolvedValue('approved');
@@ -262,7 +266,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(queryByText('Do what matters first.')).toBeNull();
   });
 
-  it('carries a Focus setup offer into the guided rule builder', async () => {
+  it('returns an authorized Focus offer to its Activity and opens the root rule drawer', async () => {
     mockRouteParams = {
       setupIntent: 'focus_sessions',
       entrySurface: 'focus_drawer',
@@ -287,12 +291,17 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     const { getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
     fireEvent.press(getByText('Set Up'));
 
-    expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', {
+    expect(mockRootGoBack).toHaveBeenCalledTimes(1);
+    expect(usePersonalRuleBuilderDrawerStore.getState().request?.params).toEqual({
       entry: 'contextual',
       suggestedKind: 'focus',
       setupIntent: 'focus_sessions',
       entrySurface: 'focus_drawer',
     });
+    expect(mockSettingsNavigate).not.toHaveBeenCalledWith(
+      'SettingsScreenTimeRuleBuilder',
+      expect.anything(),
+    );
   });
 
   it('continues from Screen Time permission into the contextual rule builder', async () => {

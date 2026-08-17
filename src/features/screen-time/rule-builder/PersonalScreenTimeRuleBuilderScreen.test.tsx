@@ -88,8 +88,10 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
       lineHeight: typography.titleMd.lineHeight,
       color: colors.textPrimary,
     });
-    expect(screen.getByText('Choose apps and categories')).toBeTruthy();
+    expect(screen.getByText('Apps and categories')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Apps and categories' })).toBeTruthy();
+    expect(screen.getByTestId('rule-choice-icon-layers', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByText('Open the Screen Time picker')).toBeNull();
     expect(screen.getByRole('button', { name: 'Close rule setup' })).toBeTruthy();
     expect(screen.getByLabelText('Rule setup progress').props.accessibilityValue)
       .toEqual({ min: 1, max: 3, now: 1 });
@@ -132,8 +134,12 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
 
     expect(await screen.findByText('When should Games be available?')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Unlock after a to-do, progress update, or Focus' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Pause until Focus ends' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'After a to-do, progress update, or Focus' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'After Focus ends' })).toBeTruthy();
+    expect(screen.getByTestId('rule-choice-icon-checklist', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByTestId('rule-choice-icon-focus', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByText('Apps unlock when you complete any one of these in Kwilt.')).toBeNull();
+    expect(screen.queryByText('Apps stay paused while Focus is running.')).toBeNull();
     expect(screen.queryByRole('radio')).toBeNull();
     expect(screen.getByRole('button', { name: 'Change apps' })).toBeTruthy();
     expect(screen.getByLabelText('Rule setup progress').props.accessibilityValue)
@@ -149,7 +155,7 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
 
     fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
-    fireEvent.press(await screen.findByText('Unlock after a to-do, progress update, or Focus'));
+    fireEvent.press(await screen.findByText('After a to-do, progress update, or Focus'));
     expect(screen.getByText('Games will unlock after you complete a to-do, record progress, or finish Focus.')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Add rule' }));
 
@@ -186,8 +192,8 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
 
-    expect(await screen.findByText('Unlock after a to-do, progress update, or Focus')).toBeTruthy();
-    expect(screen.queryByText('Pause until Focus ends')).toBeNull();
+    expect(await screen.findByText('After a to-do, progress update, or Focus')).toBeTruthy();
+    expect(screen.queryByText('After Focus ends')).toBeNull();
   });
 
   it('stays on the apps question when the picker is cancelled', async () => {

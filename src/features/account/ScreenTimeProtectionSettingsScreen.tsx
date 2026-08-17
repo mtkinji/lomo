@@ -49,6 +49,7 @@ import {
   buildMyScreenTimeRuleInventory,
   type ScreenTimeRuleInventoryRow,
 } from '../screen-time/domain/screenTimeRuleInventory';
+import { openPersonalScreenTimeRuleBuilder } from '../screen-time/rule-builder/usePersonalRuleBuilderDrawerStore';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
@@ -341,12 +342,20 @@ export function ScreenTimeProtectionSettingsScreen() {
         ? 'real_step'
         : undefined;
     setSetupPhase('manage');
-    navigation.navigate('SettingsScreenTimeRuleBuilder', {
+    const builderParams = {
       entry: setupIntent === 'settings_discovery' ? 'inventory' : 'contextual',
       suggestedKind,
       setupIntent,
       entrySurface,
-    });
+    } as const;
+
+    if (returnToActivityId && builderParams.entry === 'contextual') {
+      rootNavigation?.goBack();
+      openPersonalScreenTimeRuleBuilder(builderParams);
+      return;
+    }
+
+    navigation.navigate('SettingsScreenTimeRuleBuilder', builderParams);
   };
 
   const continueFromIntro = () => {

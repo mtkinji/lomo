@@ -58,6 +58,13 @@ subject is already Me, so the first question is which apps the rule should
 manage; after selection, the builder asks what should happen with those apps.
 From a contextual Focus or real-step offer, behavior is already known, so the
 builder asks only for apps and proceeds directly to a sentence receipt.
+When authorization already exists, these workflow offers present the same
+builder through a root drawer host so the originating workflow remains visible
+behind it. The originating To-do, Focus surface, or other offer context selects
+the suggested general rule; it does not become a saved criterion or bind the
+rule to that object. If authorization is still required, the existing
+full-screen explanation and Apple approval flow runs first, returns to the
+originating workflow, and then presents the contextual drawer.
 The large app-selection answer opens the picker. The picker's **Done** action confirms a
 valid selection and advances to the next unresolved question. Cancel or an
 empty selection stays on the apps question, avoiding a redundant second

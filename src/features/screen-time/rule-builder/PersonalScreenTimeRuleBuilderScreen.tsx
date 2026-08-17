@@ -18,7 +18,7 @@ import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
-import { Icon } from '../../../ui/Icon';
+import { Icon, type IconName } from '../../../ui/Icon';
 import { Text } from '../../../ui/primitives';
 import { colors, spacing, typography } from '../../../theme';
 import {
@@ -27,6 +27,7 @@ import {
   personalRuleBehaviorLabel,
   personalRuleSentence,
 } from './personalRuleBuilderModel';
+import type { PersonalScreenTimeRuleBuilderParams } from './personalRuleBuilderLaunch';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
@@ -49,6 +50,19 @@ function targetLabel(targets: RuleTargets): string {
 export function PersonalScreenTimeRuleBuilderScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
+
+  return (
+    <PersonalScreenTimeRuleBuilderDrawer
+      params={route.params}
+      onClose={() => navigation.goBack()}
+    />
+  );
+}
+
+export function PersonalScreenTimeRuleBuilderDrawer(props: {
+  params: PersonalScreenTimeRuleBuilderParams;
+  onClose: () => void;
+}) {
   const { capture } = useAnalytics();
   const settings = useAppStore((state) => state.screenTimeProtection);
   const setSettings = useAppStore((state) => state.setScreenTimeProtection);
@@ -57,8 +71,8 @@ export function PersonalScreenTimeRuleBuilderScreen() {
     () => getAvailablePersonalScreenTimeRuleKinds(normalized),
     [normalized],
   );
-  const entry = route.params.entry;
-  const suggestedKind = route.params.suggestedKind;
+  const entry = props.params.entry;
+  const suggestedKind = props.params.suggestedKind;
   const [kind, setKind] = useState<PersonalScreenTimeRuleKind | null>(() => (
     suggestedKind && availableKinds.includes(suggestedKind) ? suggestedKind : null
   ));
@@ -127,12 +141,12 @@ export function PersonalScreenTimeRuleBuilderScreen() {
     }
     setSettings(result.settings);
     capture(AnalyticsEvent.ScreenTimeSetupCompleted, {
-      setup_intent: route.params.setupIntent ?? 'settings_discovery',
-      surface: route.params.entrySurface ?? 'settings',
+      setup_intent: props.params.setupIntent ?? 'settings_discovery',
+      surface: props.params.entrySurface ?? 'settings',
       rule: kind === 'focus' ? 'focus_session' : 'real_step',
     });
     await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
-    navigation.goBack();
+    props.onClose();
   };
 
   const addRuleAction = step === 'review' ? (
@@ -153,7 +167,7 @@ export function PersonalScreenTimeRuleBuilderScreen() {
   return (
     <BottomDrawer
       visible
-      onClose={() => navigation.goBack()}
+      onClose={props.onClose}
       snapPoints={['82%']}
       presentation="modal"
       dismissable
@@ -179,7 +193,7 @@ export function PersonalScreenTimeRuleBuilderScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close rule setup"
-            onPress={() => navigation.goBack()}
+            onPress={props.onClose}
             style={({ pressed }) => [styles.closeButton, pressed ? styles.pressed : null]}
           >
             <Icon name="close" size={20} color={colors.textPrimary} />
@@ -199,10 +213,11 @@ export function PersonalScreenTimeRuleBuilderScreen() {
             <View style={styles.choiceStack}>
               <GuidedChoice
                 accessibilityLabel="Apps and categories"
-                label={choosingApps ? 'Opening picker…' : 'Choose apps and categories'}
-                detail={count > 0
-                  ? `${targetsLabel} currently selected`
-                  : 'Open the Screen Time picker'}
+                accessibilityHint={count > 0
+                  ? `${targetsLabel} currently selected. Opens the Screen Time picker.`
+                  : 'Opens the Screen Time picker.'}
+                icon="layers"
+                label={choosingApps ? 'Opening picker…' : 'Apps and categories'}
                 disabled={choosingApps}
                 onPress={() => void chooseApps()}
               />
@@ -213,15 +228,17 @@ export function PersonalScreenTimeRuleBuilderScreen() {
             <View style={styles.choiceStack}>
               {availableKinds.includes('real_step') ? (
                 <GuidedChoice
-                  label="Unlock after a to-do, progress update, or Focus"
-                  detail="Apps unlock when you complete any one of these in Kwilt."
+                  accessibilityHint="Apps unlock when you complete any one of these in Kwilt."
+                  icon="checklist"
+                  label="After a to-do, progress update, or Focus"
                   onPress={() => setKind('real_step')}
                 />
               ) : null}
               {availableKinds.includes('focus') ? (
                 <GuidedChoice
-                  label="Pause until Focus ends"
-                  detail="Apps stay paused while Focus is running."
+                  accessibilityHint="Apps stay paused while Focus is running."
+                  icon="focus"
+                  label="After Focus ends"
                   onPress={() => setKind('focus')}
                 />
               ) : null}
@@ -260,8 +277,9 @@ export function PersonalScreenTimeRuleBuilderScreen() {
 
 function GuidedChoice(props: {
   accessibilityLabel?: string;
+  accessibilityHint: string;
+  icon: IconName;
   label: string;
-  detail: string;
   disabled?: boolean;
   onPress: () => void;
 }) {
@@ -269,7 +287,7 @@ function GuidedChoice(props: {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={props.accessibilityLabel ?? props.label}
-      accessibilityHint={props.detail}
+      accessibilityHint={props.accessibilityHint}
       accessibilityState={{ disabled: props.disabled, busy: props.disabled }}
       disabled={props.disabled}
       onPress={props.onPress}
@@ -279,9 +297,16 @@ function GuidedChoice(props: {
         pressed ? styles.choiceCardPressed : null,
       ]}
     >
+      <View
+        testID={`rule-choice-icon-${props.icon}`}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.choiceIcon}
+      >
+        <Icon name={props.icon} size={24} color={colors.textPrimary} />
+      </View>
       <View style={styles.choiceCopy}>
         <Text style={styles.choiceLabel}>{props.label}</Text>
-        <Text style={styles.choiceDetail}>{props.detail}</Text>
       </View>
       <Icon name="chevronRight" size={20} color={colors.textSecondary} />
     </Pressable>
@@ -370,11 +395,12 @@ const styles = StyleSheet.create({
     marginTop: spacing['2xl'],
   },
   choiceCard: {
-    minHeight: 104,
+    minHeight: 80,
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: spacing.md,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     borderRadius: 20,
@@ -383,15 +409,16 @@ const styles = StyleSheet.create({
   choiceCopy: {
     flex: 1,
     minWidth: 0,
-    rowGap: spacing.xs,
+  },
+  choiceIcon: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   choiceLabel: {
     ...typography.titleSm,
     color: colors.textPrimary,
-  },
-  choiceDetail: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
   },
   choiceCardPressed: {
     backgroundColor: colors.shellAlt,
