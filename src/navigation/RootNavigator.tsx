@@ -54,6 +54,8 @@ import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { ScreenTimeProtectionSettingsScreen } from '../features/account/ScreenTimeProtectionSettingsScreen';
 import { PersonalScreenTimeRuleBuilderScreen } from '../features/screen-time/rule-builder/PersonalScreenTimeRuleBuilderScreen';
+import { PersonalScreenTimeRuleBuilderHost } from '../features/screen-time/rule-builder/PersonalScreenTimeRuleBuilderHost';
+import type { PersonalScreenTimeRuleBuilderParams } from '../features/screen-time/rule-builder/personalRuleBuilderLaunch';
 import type {
   ScreenTimeSetupIntent,
   ScreenTimeSetupOfferSurface,
@@ -355,12 +357,7 @@ export type SettingsStackParamList = {
         returnToActivityId?: string;
       }
     | undefined;
-  SettingsScreenTimeRuleBuilder: {
-    entry: 'inventory' | 'contextual';
-    suggestedKind?: 'focus' | 'real_step';
-    setupIntent?: ScreenTimeSetupIntent;
-    entrySurface?: ScreenTimeSetupOfferSurface;
-  };
+  SettingsScreenTimeRuleBuilder: PersonalScreenTimeRuleBuilderParams;
   SettingsHousehold: { inviteCode?: string } | undefined;
   SettingsFamilyScreenTime: {
     childMembershipId: string;
@@ -801,6 +798,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       <PaywallDrawerHost />
       <JoinSharedGoalDrawerHost />
       <AuthPromptDrawerHost />
+      <PersonalScreenTimeRuleBuilderHost />
       <ScreenTimeUnlockGuideHost />
       <ToastHost />
     </NavigationContainer>

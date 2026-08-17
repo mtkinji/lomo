@@ -158,7 +158,8 @@ import { createGroceryRepository } from '../../capabilities/groceries/data/groce
 import { exportGroceryMarkdown } from '../../capabilities/groceries/groceryExport';
 import { createMealPlanningActivityCardProvider } from '../../capabilities/meal-planning/activity/mealPlanningActivityCardProvider';
 import { createMealPlanningRepository } from '../../capabilities/meal-planning/data/mealPlanningRepository';
-import { screenTimeFocusSetupReturnTarget } from './actionCards/screenTimeActivityCardProvider';
+import { resolveContextualPersonalRuleBuilderLaunch } from '../screen-time/rule-builder/personalRuleBuilderLaunch';
+import { openPersonalScreenTimeRuleBuilder } from '../screen-time/rule-builder/usePersonalRuleBuilderDrawerStore';
 import {
   ACTIVITY_NEXT_BEST_ACTION_MENU_ORDER,
   ACTIVITY_NEXT_BEST_ACTIONS,
@@ -840,7 +841,18 @@ export function ActivityDetailScreen() {
           surface: 'focus_drawer',
           activity_id: activity?.id,
         });
-        rootNavigationRef.navigate('Settings', screenTimeFocusSetupReturnTarget(activity?.id ?? '') as any);
+        const launch = resolveContextualPersonalRuleBuilderLaunch({
+          authorizationStatus: normalizedScreenTimeProtection.authorizationStatus,
+          activityId: activity?.id ?? '',
+          suggestedKind: 'focus',
+          setupIntent: 'focus_sessions',
+          entrySurface: 'focus_drawer',
+        });
+        if (launch.kind === 'drawer') {
+          openPersonalScreenTimeRuleBuilder(launch.params);
+          return;
+        }
+        rootNavigationRef.navigate('Settings', launch.route as any);
       }}
       secondaryCtaLabel="Not now"
       secondaryCtaVariant="ghost"

@@ -27,6 +27,7 @@ import {
   personalRuleBehaviorLabel,
   personalRuleSentence,
 } from './personalRuleBuilderModel';
+import type { PersonalScreenTimeRuleBuilderParams } from './personalRuleBuilderLaunch';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
@@ -49,6 +50,19 @@ function targetLabel(targets: RuleTargets): string {
 export function PersonalScreenTimeRuleBuilderScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
+
+  return (
+    <PersonalScreenTimeRuleBuilderDrawer
+      params={route.params}
+      onClose={() => navigation.goBack()}
+    />
+  );
+}
+
+export function PersonalScreenTimeRuleBuilderDrawer(props: {
+  params: PersonalScreenTimeRuleBuilderParams;
+  onClose: () => void;
+}) {
   const { capture } = useAnalytics();
   const settings = useAppStore((state) => state.screenTimeProtection);
   const setSettings = useAppStore((state) => state.setScreenTimeProtection);
@@ -57,8 +71,8 @@ export function PersonalScreenTimeRuleBuilderScreen() {
     () => getAvailablePersonalScreenTimeRuleKinds(normalized),
     [normalized],
   );
-  const entry = route.params.entry;
-  const suggestedKind = route.params.suggestedKind;
+  const entry = props.params.entry;
+  const suggestedKind = props.params.suggestedKind;
   const [kind, setKind] = useState<PersonalScreenTimeRuleKind | null>(() => (
     suggestedKind && availableKinds.includes(suggestedKind) ? suggestedKind : null
   ));
@@ -127,12 +141,12 @@ export function PersonalScreenTimeRuleBuilderScreen() {
     }
     setSettings(result.settings);
     capture(AnalyticsEvent.ScreenTimeSetupCompleted, {
-      setup_intent: route.params.setupIntent ?? 'settings_discovery',
-      surface: route.params.entrySurface ?? 'settings',
+      setup_intent: props.params.setupIntent ?? 'settings_discovery',
+      surface: props.params.entrySurface ?? 'settings',
       rule: kind === 'focus' ? 'focus_session' : 'real_step',
     });
     await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
-    navigation.goBack();
+    props.onClose();
   };
 
   const addRuleAction = step === 'review' ? (
@@ -153,7 +167,7 @@ export function PersonalScreenTimeRuleBuilderScreen() {
   return (
     <BottomDrawer
       visible
-      onClose={() => navigation.goBack()}
+      onClose={props.onClose}
       snapPoints={['82%']}
       presentation="modal"
       dismissable
@@ -179,7 +193,7 @@ export function PersonalScreenTimeRuleBuilderScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close rule setup"
-            onPress={() => navigation.goBack()}
+            onPress={props.onClose}
             style={({ pressed }) => [styles.closeButton, pressed ? styles.pressed : null]}
           >
             <Icon name="close" size={20} color={colors.textPrimary} />
