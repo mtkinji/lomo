@@ -18,7 +18,7 @@ import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
-import { Icon } from '../../../ui/Icon';
+import { Icon, type IconName } from '../../../ui/Icon';
 import { Text } from '../../../ui/primitives';
 import { colors, spacing, typography } from '../../../theme';
 import {
@@ -199,10 +199,11 @@ export function PersonalScreenTimeRuleBuilderScreen() {
             <View style={styles.choiceStack}>
               <GuidedChoice
                 accessibilityLabel="Apps and categories"
-                label={choosingApps ? 'Opening picker…' : 'Choose apps and categories'}
-                detail={count > 0
-                  ? `${targetsLabel} currently selected`
-                  : 'Open the Screen Time picker'}
+                accessibilityHint={count > 0
+                  ? `${targetsLabel} currently selected. Opens the Screen Time picker.`
+                  : 'Opens the Screen Time picker.'}
+                icon="layers"
+                label={choosingApps ? 'Opening picker…' : 'Apps and categories'}
                 disabled={choosingApps}
                 onPress={() => void chooseApps()}
               />
@@ -213,15 +214,17 @@ export function PersonalScreenTimeRuleBuilderScreen() {
             <View style={styles.choiceStack}>
               {availableKinds.includes('real_step') ? (
                 <GuidedChoice
-                  label="Unlock after a to-do, progress update, or Focus"
-                  detail="Apps unlock when you complete any one of these in Kwilt."
+                  accessibilityHint="Apps unlock when you complete any one of these in Kwilt."
+                  icon="checklist"
+                  label="After a to-do, progress update, or Focus"
                   onPress={() => setKind('real_step')}
                 />
               ) : null}
               {availableKinds.includes('focus') ? (
                 <GuidedChoice
-                  label="Pause until Focus ends"
-                  detail="Apps stay paused while Focus is running."
+                  accessibilityHint="Apps stay paused while Focus is running."
+                  icon="focus"
+                  label="After Focus ends"
                   onPress={() => setKind('focus')}
                 />
               ) : null}
@@ -260,8 +263,9 @@ export function PersonalScreenTimeRuleBuilderScreen() {
 
 function GuidedChoice(props: {
   accessibilityLabel?: string;
+  accessibilityHint: string;
+  icon: IconName;
   label: string;
-  detail: string;
   disabled?: boolean;
   onPress: () => void;
 }) {
@@ -269,7 +273,7 @@ function GuidedChoice(props: {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={props.accessibilityLabel ?? props.label}
-      accessibilityHint={props.detail}
+      accessibilityHint={props.accessibilityHint}
       accessibilityState={{ disabled: props.disabled, busy: props.disabled }}
       disabled={props.disabled}
       onPress={props.onPress}
@@ -279,9 +283,16 @@ function GuidedChoice(props: {
         pressed ? styles.choiceCardPressed : null,
       ]}
     >
+      <View
+        testID={`rule-choice-icon-${props.icon}`}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.choiceIcon}
+      >
+        <Icon name={props.icon} size={24} color={colors.textPrimary} />
+      </View>
       <View style={styles.choiceCopy}>
         <Text style={styles.choiceLabel}>{props.label}</Text>
-        <Text style={styles.choiceDetail}>{props.detail}</Text>
       </View>
       <Icon name="chevronRight" size={20} color={colors.textSecondary} />
     </Pressable>
@@ -370,11 +381,12 @@ const styles = StyleSheet.create({
     marginTop: spacing['2xl'],
   },
   choiceCard: {
-    minHeight: 104,
+    minHeight: 80,
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: spacing.md,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     borderRadius: 20,
@@ -383,15 +395,16 @@ const styles = StyleSheet.create({
   choiceCopy: {
     flex: 1,
     minWidth: 0,
-    rowGap: spacing.xs,
+  },
+  choiceIcon: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   choiceLabel: {
     ...typography.titleSm,
     color: colors.textPrimary,
-  },
-  choiceDetail: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
   },
   choiceCardPressed: {
     backgroundColor: colors.shellAlt,
