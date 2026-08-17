@@ -1,0 +1,11 @@
+{
+  "name": "kwilt-seamless-loop",
+  "version": "0.1.0",
+  "description": "Native sample-timeline looping for Kwilt Focus soundscapes",
+  "main": "index.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

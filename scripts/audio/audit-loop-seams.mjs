@@ -45,6 +45,23 @@ function decodeWindow(file, startSeconds, durationSeconds, sampleRateHz, channel
   return new Float32Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 4)).slice();
 }
 
+function decodeFrameCount(file) {
+  const result = spawnSync(ffmpegPath, [
+    '-hide_banner', '-loglevel', 'info',
+    '-i', file,
+    '-vn', '-sn', '-dn',
+    '-af', 'ashowinfo',
+    '-f', 'null',
+    '-',
+  ], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (result.error) throw new Error(`ffmpeg could not start: ${result.error.message}`);
+  if (result.status !== 0) throw new Error(`ffmpeg failed: ${String(result.stderr).trim()}`);
+  const matches = [...result.stderr.matchAll(/pts:(\d+).*?nb_samples:(\d+)/g)];
+  const last = matches.at(-1);
+  if (!last) throw new Error(`ffmpeg did not report decoded frames for ${file}`);
+  return Number(last[1]) + Number(last[2]);
+}
+
 async function audit(fileArg, windowSeconds) {
   const file = path.resolve(repoRoot, fileArg);
   if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
@@ -72,6 +89,9 @@ async function audit(fileArg, windowSeconds) {
     durationSeconds: Number(durationSeconds.toFixed(3)),
     sampleRateHz,
     channels,
+    durationFrames: decodeFrameCount(file),
+    codec: metadata.format.codec ?? null,
+    bitrate: Number.isFinite(metadata.format.bitrate) ? Math.round(metadata.format.bitrate) : null,
     windowSeconds: measuredWindowSeconds,
     ...measurement,
     ...evaluateLoopSeam(measurement),
@@ -84,7 +104,7 @@ const report = await Promise.all(options.inputs.map((input) => audit(input, opti
 for (const item of report) {
   console.log(`${item.passes ? 'PASS' : 'REVIEW'} ${item.path}`);
   console.log(
-    `       boundary ${item.startRmsDbfs}/${item.endRmsDbfs} dBFS (${item.rmsDeltaDb} dB delta) | lead ${Math.round(item.leadingSilenceSeconds * 1_000)} ms | tail ${Math.round(item.trailingSilenceSeconds * 1_000)} ms | derivative ${item.derivativeJumpDbfs} dBFS`,
+    `       boundary ${item.startRmsDbfs}/${item.endRmsDbfs} dBFS (${item.rmsDeltaDb} dB delta) | lead ${Math.round(item.leadingSilenceSeconds * 1_000)} ms | tail ${Math.round(item.trailingSilenceSeconds * 1_000)} ms | endpoint ${item.worstEndpointJumpDbfs} dBFS (${item.endpointOutlierDb} dB local outlier) | derivative ${item.worstDerivativeJumpDbfs} dBFS`,
   );
   item.failures.forEach((failure) => console.log(`       - ${failure}`));
 }

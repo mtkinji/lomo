@@ -4,6 +4,7 @@ import {
   cacheAudioAsset,
   clearAudioAssetDeliveryStateForTests,
   resolveAudioAsset,
+  resolveLocalAudioAsset,
 } from './audioAssetDelivery';
 
 jest.mock('expo-file-system', () => {
@@ -116,6 +117,21 @@ describe('audio asset delivery', () => {
       { idempotent: true },
     );
     expect(fileSystemMock.__moveFile).toHaveBeenCalledWith(temporaryUri, cacheUri(entry.cacheFileName));
+  });
+
+  test('awaits an atomic download and returns only a verified local URI for loop playback', async () => {
+    const entry = REMOTE_AUDIO_ASSETS['focus.open-road'];
+    const temporaryUri = `${cacheUri(entry.cacheFileName)}.download`;
+    fileSystemMock.__downloadFileAsync.mockImplementationOnce(async () =>
+      downloadedFile(temporaryUri, entry.expectedBytes));
+
+    const resolved = await resolveLocalAudioAsset('focus.open-road');
+
+    expect(resolved).toEqual({
+      uri: cacheUri(entry.cacheFileName),
+      sourceKind: 'cache',
+    });
+    expect(resolved.uri.startsWith('file:')).toBe(true);
   });
 
   test('deduplicates concurrent cache requests', async () => {

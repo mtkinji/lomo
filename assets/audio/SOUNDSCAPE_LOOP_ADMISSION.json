@@ -1,0 +1,90 @@
+[
+  {
+    "id": "default",
+    "assetKey": "deep-work-drift-loop-c24a34f97230",
+    "source": { "kind": "bundled", "key": "deep-work-drift" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
+    "id": "copacabanaFocus",
+    "assetKey": "copacabana-focus-9714caeb0913",
+    "source": { "kind": "remote", "id": "focus.copacabana" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
+    "id": "focusFlowState",
+    "assetKey": "focus-tunnel-36e2e0d5c498",
+    "source": { "kind": "remote", "id": "focus.focus-tunnel" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
+    "id": "midnightStudySession",
+    "assetKey": "midnight-study-f415ecb449e4",
+    "source": { "kind": "remote", "id": "focus.midnight-study" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
+    "id": "openRoadFocus",
+    "assetKey": "open-road-focus-616130a69080",
+    "source": { "kind": "remote", "id": "focus.open-road" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
+    "id": "cedarWorkshop",
+    "assetKey": "cedar-workshop-279fdbb6ed7a",
+    "source": { "kind": "remote", "id": "focus.cedar-workshop" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
+    "id": "rainlitLibrary",
+    "assetKey": "rainlit-library-3bc31c4a550f",
+    "source": { "kind": "remote", "id": "focus.rainlit-library" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
+    "id": "quietRain",
+    "assetKey": "quiet-rain-bb036739700b",
+    "source": { "kind": "remote", "id": "focus.quiet-rain" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
+    "id": "canyonSpring",
+    "assetKey": "canyon-spring-stream-7e21d76f632c",
+    "source": { "kind": "bundled", "key": "canyon-spring" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
+    "id": "oceanWaves",
+    "assetKey": "ocean-waves-1bc54848be4d",
+    "source": { "kind": "remote", "id": "focus.ocean-waves" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  },
+  {
+    "id": "fireplace",
+    "assetKey": "fireplace-437701bb0f20",
+    "source": { "kind": "remote", "id": "focus.fireplace" },
+    "loopPlayback": "seamless",
+    "sampleRateHz": 48000,
+    "channels": 2
+  }
+]

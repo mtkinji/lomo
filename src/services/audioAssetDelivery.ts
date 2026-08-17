@@ -32,6 +32,12 @@ export async function resolveAudioAsset(id: RemoteAudioAssetId): Promise<Resolve
   return { uri: remoteAudioAsset(id).url, sourceKind: 'remote' };
 }
 
+export async function resolveLocalAudioAsset(id: RemoteAudioAssetId): Promise<ResolvedAudioAsset> {
+  const uri = await cacheAudioAsset(id);
+  if (!uri.startsWith('file:')) throw new Error('Audio cache did not return a local file URI');
+  return { uri, sourceKind: 'cache' };
+}
+
 export function prefetchAudioAsset(id: RemoteAudioAssetId) {
   return cacheAudioAsset(id).then(() => undefined);
 }

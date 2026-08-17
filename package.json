@@ -26,6 +26,8 @@
     "architecture:lint": "node --test scripts/architecture-lint-lib.test.mjs && node scripts/architecture-lint.mjs",
     "audio:audit": "node scripts/audio/audit-assets.mjs",
     "audio:audit:loops": "node scripts/audio/audit-loop-seams.mjs",
+    "audio:audit:soundscape-contract": "node scripts/audio/soundscape-loop-contract.mjs",
+    "audio:probe:rendered-loop": "node scripts/audio/rendered-loop-probe.mjs",
     "audio:master:loop": "node scripts/audio/master-loop.mjs",
     "audio:build:pattern-grooves": "node scripts/audio/build-pattern-grooves.mjs",
     "audio:audit:enforce": "node scripts/audio/audit-assets.mjs --enforce",
@@ -172,6 +174,7 @@
           "kwilt-nearby-table",
           "kwilt-place-search",
           "kwilt-route-reconstruction",
+          "kwilt-seamless-loop",
           "kwilt-share-sheet",
           "react-native-plaid-link-sdk"
         ]
