@@ -108,6 +108,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
               path: 'today',
               alias: ['todos'],
               parse: {
+                openQuickAdd: (v: string) => v === '1' || v === 'true',
                 autoStartStandaloneFocus: (v: string) => v === '1' || v === 'true',
                 openStandaloneFocus: (v: string) => v === '1' || v === 'true',
                 focusMinutes: (v: string) => {
@@ -254,6 +255,10 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         GroceryItemEdit: 'food/groceries/:listId/item/:itemId',
         GroceryHandoff: 'food/groceries/:listId/shop',
         KrogerCart: 'food/groceries/:listId/smiths',
+        OnlineShoppingSetup: 'food/groceries/:listId/online/setup',
+        OnlineStorePicker: 'food/groceries/:listId/online/store',
+        OnlineOrder: 'food/groceries/:listId/online/order',
+        RetailerLinkShopping: 'food/groceries/:listId/online/:retailerId',
       },
     },
     Settings: {

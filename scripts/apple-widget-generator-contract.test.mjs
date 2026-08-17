@@ -44,7 +44,7 @@ test('all widget families share the bundled Inter typography system', () => {
   assert.doesNotMatch(widgetGenerator, /design: \.rounded/);
 });
 
-test('non-meter Home Screen widgets carry the Kwilt mark', () => {
+test('launcher and To-dos widgets carry the Kwilt mark without redundant launcher labels', () => {
   const activitiesView = widgetGenerator.slice(
     widgetGenerator.indexOf('struct ActivitiesWidgetView'),
     widgetGenerator.indexOf('struct KwiltActivitiesWidget'),
@@ -62,9 +62,12 @@ test('non-meter Home Screen widgets carry the Kwilt mark', () => {
     moneyWidgetTemplate.indexOf('struct KwiltMoneyCategoryWidget'),
   );
 
-  for (const source of [activitiesView, streakView, focusWidgetTemplate, chatWidgetTemplate, flexibleView]) {
+  for (const source of [streakView, focusWidgetTemplate, chatWidgetTemplate, flexibleView]) {
     assert.match(source, /kwiltLogoImage\(\)/);
   }
+  assert.match(activitiesView, /kwiltLogoImage\(\)/);
+  assert.doesNotMatch(focusWidgetTemplate, /Text\("Kwilt"\)/);
+  assert.doesNotMatch(chatWidgetTemplate, /Text\("Kwilt"\)/);
   assert.doesNotMatch(categoryView, /kwiltLogoImage\(\)/);
 });
 
@@ -116,6 +119,7 @@ test('Money widgets keep the category clock tile centered and give Flexible Mone
   assert.doesNotMatch(percentValueBranch, /padding\(\.top/);
   assert.match(categoryView, /\.tracking\(-0\.7\)/);
   assert.match(categoryView, /category\.status == "over" \? MoneyWidgetPalette\.over : \.primary/);
+  assert.doesNotMatch(categoryView, /moneyFreshnessLabel|Updated/);
 });
 
 test('Budget Category rounds dollars and compacts thousands before rendering', () => {
@@ -127,11 +131,12 @@ test('Budget Category rounds dollars and compacts thousands before rendering', (
   assert.doesNotMatch(moneyWidgetTemplate, /formatCurrency\(cents: abs\(category\.remainingCents/);
 });
 
-test('Budget Category persists a category id without AppEntity registration', () => {
+test('Budget Category transports the selected category as a persisted scalar id', () => {
   assert.match(moneyWidgetTemplate, /struct MoneyCategoryOptionsProvider: DynamicOptionsProvider/);
-  assert.match(moneyWidgetTemplate, /IntentItem\(category\.id, title:/);
-  assert.match(moneyWidgetTemplate, /optionsProvider: MoneyCategoryOptionsProvider\(\)/);
+  assert.match(moneyWidgetTemplate, /IntentItem\([\s\S]*?category\.id,[\s\S]*?title: LocalizedStringResource/);
+  assert.match(moneyWidgetTemplate, /@Parameter\(title: "Category", optionsProvider: MoneyCategoryOptionsProvider\(\)\)/);
   assert.match(moneyWidgetTemplate, /var categoryId: String\?/);
+  assert.match(moneyWidgetTemplate, /let selectedId = configuration\.categoryId/);
   assert.doesNotMatch(moneyWidgetTemplate, /MoneyCategoryEntity/);
 });
 
@@ -161,7 +166,12 @@ test('generated Focus widget opens the in-app duration and audio decision moment
   assert.doesNotMatch(widgetGenerator, /today\?openStandaloneFocusSetup=1&source=widget/);
   assert.doesNotMatch(focusWidgetTemplate, /Surprise soundscape/);
   assert.doesNotMatch(focusWidgetTemplate, /Set your session/);
+  assert.doesNotMatch(focusWidgetTemplate, /Text\("Kwilt"\)/);
   assert.match(focusWidgetTemplate, /Text\("Start a Focus session"\)/);
+  assert.match(focusWidgetTemplate, /font\(KwiltWidgetTypography\.launcherTitle\)/);
+  assert.match(focusWidgetTemplate, /Text\("Start"\)[\s\S]*?Image\(systemName: "arrow\.right"\)/);
+  assert.match(focusWidgetTemplate, /Text\("Start"\)[\s\S]*?\.frame\(maxWidth: \.infinity, alignment: \.trailing\)/);
+  assert.doesNotMatch(focusWidgetTemplate, /Text\("Open"\)/);
   assert.doesNotMatch(focusWidgetTemplate, /Choose time and audio/);
   assert.match(focusWidgetTemplate, /Text\(timerInterval: start\.\.\.end, countsDown: true\)/);
   assert.match(focusWidgetTemplate, /FocusWidgetEntry\(date: end, focusSession: nil\)/);
@@ -198,11 +208,50 @@ test('generated Focus Live Activity balances compact identity and time, then rev
 test('generated Chat widget is a private static fresh-entry launcher', () => {
   assert.match(widgetGenerator, /getChatWidgetSwift\(targetName\)/);
   assert.match(chatWidgetTemplate, /struct KwiltChatWidget: Widget/);
-  assert.match(chatWidgetTemplate, /kwilt:\/\/chat\?entry=fresh&source=widget/);
-  assert.match(chatWidgetTemplate, /Text\("Chat"\)/);
-  assert.match(chatWidgetTemplate, /Text\("Ask Kwilt"\)/);
-  assert.match(chatWidgetTemplate, /Text\("Open"\)/);
+  assert.match(chatWidgetTemplate, /kwilt:\/\/chat\?entry=fresh&mode=conversation&source=widget/);
+  assert.doesNotMatch(chatWidgetTemplate, /Text\("Kwilt"\)/);
+  assert.match(chatWidgetTemplate, /Text\("Chat with Kwilt"\)/);
+  assert.match(chatWidgetTemplate, /font\(KwiltWidgetTypography\.launcherTitle\)/);
+  assert.match(chatWidgetTemplate, /Text\("Start"\)[\s\S]*?Image\(systemName: "arrow\.right"\)/);
+  assert.match(chatWidgetTemplate, /Text\("Start"\)[\s\S]*?\.frame\(maxWidth: \.infinity, alignment: \.trailing\)/);
+  assert.doesNotMatch(chatWidgetTemplate, /Text\("Open"\)/);
   assert.match(chatWidgetTemplate, /\.supportedFamilies\(\[\.systemSmall\]\)/);
   assert.doesNotMatch(chatWidgetTemplate, /thread|message|transcript|record/i);
   assert.match(widgetGenerator, /KwiltChatWidget\(\)/);
+});
+
+test('generated To-dos widget gives the ranked top three exact destinations', () => {
+  const activitiesSource = widgetGenerator.slice(
+    widgetGenerator.indexOf('struct ActivitiesEntry'),
+    widgetGenerator.indexOf('${getFocusWidgetSwift(targetName)}'),
+  );
+
+  assert.match(activitiesSource, /state\?\.suggested\?\.items/);
+  assert.doesNotMatch(activitiesSource, /state\?\.todaySummary\?\.top3/);
+  assert.match(activitiesSource, /struct Row \{ let activityId: String; let title: String \}/);
+  assert.match(activitiesSource, /prefix\(3\)\.map \{ ActivitiesEntry\.Row\(activityId: \$0\.activityId, title: \$0\.title\) \}/);
+  assert.match(activitiesSource, /Text\("To-dos"\)/);
+  assert.match(activitiesSource, /prefix\(3\)/);
+  assert.match(activitiesSource, /deepLinkQuickAdd\(\)/);
+  assert.match(activitiesSource, /Link\(destination: deepLinkToday\(\)!\)/);
+  assert.match(activitiesSource, /Link\(destination: deepLinkActivity\(row\.activityId\)!\)/);
+  assert.match(activitiesSource, /Text\("#.*index \+ 1.*"\)/);
+  assert.match(activitiesSource, /Text\(row\.title\)[\s\S]*?\.lineLimit\(1\)/);
+  assert.match(activitiesSource, /Text\("See all"\)[\s\S]*?Image\(systemName: "arrow\.right"\)/);
+  assert.match(activitiesSource, /StaticConfiguration\(/);
+  assert.match(activitiesSource, /\.supportedFamilies\(\[\.systemMedium\]\)/);
+  assert.match(activitiesSource, /\.contentMarginsDisabled\(\)/);
+  assert.match(activitiesSource, /\.padding\(\.horizontal, 16\)[\s\S]*?\.padding\(\.vertical, 10\)/);
+  assert.match(activitiesSource, /Divider\(\)/);
+  assert.match(activitiesSource, /kwiltLogoImage\(\)/);
+  assert.match(activitiesSource, /kwiltLogoImage\(\)[\s\S]*?\.renderingMode\(\.template\)[\s\S]*?\.foregroundStyle\(KwiltPalette\.pine\)/);
+  assert.doesNotMatch(activitiesSource, /RoundedRectangle\(cornerRadius: 5/);
+  assert.match(activitiesSource, /ForEach[\s\S]*?\.frame\(maxHeight: \.infinity\)/);
+  assert.doesNotMatch(activitiesSource, /Spacer\(minLength: 2\)/);
+  assert.match(activitiesSource, /Nothing here/);
+  assert.doesNotMatch(activitiesSource, /Image\(systemName: "square"\)/);
+  assert.doesNotMatch(activitiesSource, /\.widgetURL\(/);
+  assert.doesNotMatch(activitiesSource, /ActivityViewEntity|ActivitiesWidgetConfigurationIntent/);
+  assert.doesNotMatch(activitiesSource, /row\.meta|scheduledAtMs|more\"/);
+  assert.doesNotMatch(activitiesSource, /\.background\(KwiltPalette\.pine\)[\s\S]*?UnevenRoundedRectangle/);
 });

@@ -335,9 +335,14 @@ struct KwiltFlexibleMoneyWidget: Widget {
 struct MoneyCategoryOptionsProvider: DynamicOptionsProvider {
   func results() async throws -> IntentItemCollection<String> {
     let items = (readGlanceableState()?.money?.categories ?? []).map { category in
-      IntentItem(category.id, title: LocalizedStringResource(stringLiteral: category.name))
+      IntentItem(
+        category.id,
+        title: LocalizedStringResource(stringLiteral: category.name)
+      )
     }
-    return IntentItemCollection(sections: [IntentItemSection(items: items)])
+    return IntentItemCollection(sections: [
+      IntentItemSection(items: items)
+    ])
   }
 }
 
@@ -385,12 +390,12 @@ struct MoneyCategoryWidgetConfigurationIntent: WidgetConfigurationIntent {
 
   @Parameter(title: "Show", optionsProvider: MoneyCategoryDisplayOptionsProvider())
   var display: String?
+
 }
 
 @available(iOS 17.0, *)
 struct MoneyCategoryEntry: TimelineEntry {
   let date: Date
-  let updatedAtMs: Double
   let hasMoneySnapshot: Bool
   let category: GlanceableStateV1.Money.Category?
   let display: MoneyCategoryDisplay
@@ -403,7 +408,6 @@ struct MoneyCategoryWidgetProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> MoneyCategoryEntry {
     MoneyCategoryEntry(
       date: Date(),
-      updatedAtMs: Date().timeIntervalSince1970 * 1000,
       hasMoneySnapshot: true,
       category: .init(
         id: "groceries", name: "Groceries", percentUsed: 72,
@@ -430,7 +434,6 @@ struct MoneyCategoryWidgetProvider: AppIntentTimelineProvider {
     let display = moneyCategoryDisplay(from: configuration.display)
     return MoneyCategoryEntry(
       date: Date(),
-      updatedAtMs: state?.updatedAtMs ?? 0,
       hasMoneySnapshot: state?.money != nil,
       category: selected,
       display: display
@@ -532,17 +535,6 @@ struct MoneyCategoryWidgetView: View {
           .frame(maxWidth: .infinity, maxHeight: .infinity)
           .padding(14)
 
-          VStack {
-            Spacer()
-            if let freshness = moneyFreshnessLabel(updatedAtMs: entry.updatedAtMs) {
-              Text(freshness)
-                .font(KwiltWidgetTypography.meta)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            }
-          }
-          .padding(.horizontal, 14)
-          .padding(.bottom, 12)
         } else {
           VStack(alignment: .center, spacing: 4) {
             Text("Budget Category")

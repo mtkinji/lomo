@@ -1865,6 +1865,10 @@ func deepLinkToday() -> URL? {
   return URL(string: "kwilt://today?source=widget")
 }
 
+func deepLinkQuickAdd() -> URL? {
+  return URL(string: "kwilt://todos?openQuickAdd=1&source=widget")
+}
+
 func deepLinkActivity(_ activityId: String) -> URL? {
   return URL(string: "kwilt://activity/\\(activityId)?source=widget")
 }
@@ -1892,11 +1896,14 @@ func deepLinkFocusControls(_ focus: GlanceableStateV1.FocusSession) -> URL {
 struct KwiltPalette {
   static let pine: Color = Color(red: 49/255, green: 85/255, blue: 69/255)
   static let pineSoft: Color = Color(red: 49/255, green: 85/255, blue: 69/255, opacity: 0.12)
+  static let gray50: Color = Color(red: 250/255, green: 250/255, blue: 249/255)
+  static let gray800: Color = Color(red: 41/255, green: 37/255, blue: 36/255)
 }
 
 enum KwiltWidgetTypography {
   static let label = Font.custom("Inter-SemiBold", size: 12, relativeTo: .caption)
   static let title = Font.custom("Inter-Black", size: 27, relativeTo: .title2)
+  static let launcherTitle = Font.custom("Inter-Black", fixedSize: 18)
   static let value = Font.custom("Inter-Black", size: 30, relativeTo: .title)
   static let categoryValue = Font.custom("Inter-Black", size: 27, relativeTo: .title2)
   static let currencySymbol = Font.custom("Inter-SemiBold", size: 17, relativeTo: .headline)
@@ -1975,188 +1982,154 @@ func widgetContainer<Content: View>(@ViewBuilder content: () -> Content) -> some
   }
 }
 
-// MARK: - Activities widget (single widget for v1)
+@ViewBuilder
+func whiteWidgetContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+  if #available(iOS 17.0, *) {
+    content().containerBackground(Color.white, for: .widget)
+  } else {
+    content().background(Color.white)
+  }
+}
+
+// MARK: - To-dos widget
 
 struct ActivitiesEntry: TimelineEntry {
+  struct Row { let activityId: String; let title: String }
+
   let date: Date
-  let viewId: String
-  let viewName: String
-  let rows: [GlanceableStateV1.ActivitiesWidgetRow]
-  let totalCount: Int
+  let rows: [Row]
 }
 
-@available(iOS 16.0, *)
-struct ActivityViewEntity: AppEntity, Identifiable {
-  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Activity view"
-  static var defaultQuery = ActivityViewEntityQuery()
-
-  var id: String
-  var name: String
-
-  var displayRepresentation: DisplayRepresentation {
-    DisplayRepresentation(title: LocalizedStringResource(stringLiteral: name))
-  }
-}
-
-@available(iOS 16.0, *)
-struct ActivityViewEntityQuery: EntityQuery {
-  func suggestedEntities() async throws -> [ActivityViewEntity] {
-    let state = readGlanceableState()
-    let views = state?.activityViews ?? []
-    return views.map { ActivityViewEntity(id: $0.id, name: $0.name) }
-  }
-
-  func entities(for identifiers: [String]) async throws -> [ActivityViewEntity] {
-    let state = readGlanceableState()
-    let views = state?.activityViews ?? []
-    let byId = Dictionary(uniqueKeysWithValues: views.map { ($0.id, $0.name) })
-    return identifiers.compactMap { id in
-      guard let name = byId[id] else { return nil }
-      return ActivityViewEntity(id: id, name: name)
-    }
-  }
-}
-
-@available(iOS 17.0, *)
-struct ActivitiesWidgetConfigurationIntent: WidgetConfigurationIntent {
-  static var title: LocalizedStringResource = "Activities"
-  static var description = IntentDescription("Show activities from any of your views.")
-
-  @Parameter(title: "List")
-  var view: ActivityViewEntity?
-}
-
-@available(iOS 17.0, *)
-struct ActivitiesWidgetProvider: AppIntentTimelineProvider {
-  typealias Intent = ActivitiesWidgetConfigurationIntent
-
+struct ActivitiesWidgetProvider: TimelineProvider {
   func placeholder(in context: Context) -> ActivitiesEntry {
-    ActivitiesEntry(date: Date(), viewId: "default", viewName: "Default", rows: [], totalCount: 0)
+    ActivitiesEntry(
+      date: Date(),
+      rows: [
+        .init(activityId: "one", title: "Review the grocery list"),
+        .init(activityId: "two", title: "Pick meals for Friday"),
+        .init(activityId: "three", title: "Call Mom"),
+      ]
+    )
   }
 
-  func snapshot(for configuration: ActivitiesWidgetConfigurationIntent, in context: Context) async -> ActivitiesEntry {
-    return buildEntry(configuration: configuration)
+  func getSnapshot(in context: Context, completion: @escaping (ActivitiesEntry) -> Void) {
+    completion(buildEntry())
   }
 
-  func timeline(for configuration: ActivitiesWidgetConfigurationIntent, in context: Context) async -> Timeline<ActivitiesEntry> {
-    let entry = buildEntry(configuration: configuration)
+  func getTimeline(in context: Context, completion: @escaping (Timeline<ActivitiesEntry>) -> Void) {
+    let entry = buildEntry()
     let refresh = Date().addingTimeInterval(15 * 60)
-    return Timeline(entries: [entry], policy: .after(refresh))
+    completion(Timeline(entries: [entry], policy: .after(refresh)))
   }
 
-  private func buildEntry(configuration: ActivitiesWidgetConfigurationIntent) -> ActivitiesEntry {
+  private func buildEntry() -> ActivitiesEntry {
     let state = readGlanceableState()
-    let defaultView = state?.activityViews?.first?.id ?? "default"
-    let viewId = configuration.view?.id ?? defaultView
-    let viewName =
-      configuration.view?.name ??
-      state?.activityViews?.first(where: { $0.id == viewId })?.name ??
-      "Activities"
-
-    let payload = state?.activitiesWidgetByViewId?[viewId]
-    let rows = payload?.rows ?? []
-    let total = payload?.totalCount ?? rows.count
-
-    return ActivitiesEntry(date: Date(), viewId: viewId, viewName: viewName, rows: rows, totalCount: total)
+    let rows = (state?.suggested?.items ?? []).prefix(3).map { ActivitiesEntry.Row(activityId: $0.activityId, title: $0.title) }
+    return ActivitiesEntry(date: Date(), rows: rows)
   }
 }
 
 struct ActivitiesWidgetView: View {
   let entry: ActivitiesEntry
-  @Environment(\\.widgetFamily) var family
 
   var body: some View {
-    let url = deepLinkActivities(viewId: entry.viewId)
-    let limit = family == .systemLarge ? 10 : 5
-    let rows = Array(entry.rows.prefix(limit))
-    let remaining = max(0, entry.totalCount - rows.count)
+    let rows = Array(entry.rows.prefix(3))
 
-    widgetContainer {
+    whiteWidgetContainer {
       VStack(alignment: .leading, spacing: 0) {
-        // Kwilt-styled header (pine background + white logo mark).
-        HStack(spacing: 10) {
-#if canImport(UIKit)
-          if let logo = kwiltLogoImage() {
-            logo
-              .resizable()
-              .renderingMode(.original)
-              .aspectRatio(contentMode: .fit)
-              .frame(width: 22, height: 22)
+        HStack(spacing: 8) {
+          Link(destination: deepLinkToday()!) {
+            HStack(spacing: 7) {
+              if let logo = kwiltLogoImage() {
+                logo
+                  .resizable()
+                  .renderingMode(.template)
+                  .scaledToFit()
+                  .foregroundStyle(KwiltPalette.pine)
+                  .frame(width: 21, height: 21)
+              }
+
+              Text("To-dos")
+                .font(KwiltWidgetTypography.launcherTitle)
+                .foregroundStyle(KwiltPalette.gray800)
+                .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
           }
-#endif
-          VStack(alignment: .leading, spacing: 1) {
-            Text("Activities")
-              .font(KwiltWidgetTypography.sectionTitle)
-              .foregroundStyle(.white)
-              .lineLimit(1)
-            Text(entry.viewName)
-              .font(KwiltWidgetTypography.body)
-              .foregroundStyle(.white.opacity(0.85))
-              .lineLimit(1)
-          }
+
           Spacer()
+
+          Link(destination: deepLinkQuickAdd()!) {
+            Image(systemName: "plus")
+              .font(.system(size: 18, weight: .semibold))
+              .foregroundStyle(KwiltPalette.gray800)
+              .frame(width: 28, height: 24, alignment: .trailing)
+              .contentShape(Rectangle())
+          }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KwiltPalette.pine)
-        .clipShape(UnevenRoundedRectangle(cornerRadii: .init(topLeading: 24, topTrailing: 24)))
+        .buttonStyle(.plain)
+        .padding(.bottom, 5)
 
         if rows.isEmpty {
           Spacer()
-          Text("Open Kwilt to sync this widget.")
-            .font(KwiltWidgetTypography.body)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.leading)
+          VStack(alignment: .leading, spacing: 3) {
+            Text("Nothing here")
+              .font(KwiltWidgetTypography.emphasis)
+              .foregroundStyle(.primary)
+            Text("Open Kwilt to add a to-do.")
+              .font(KwiltWidgetTypography.body)
+              .foregroundStyle(.secondary)
+          }
           Spacer()
         } else {
-          VStack(alignment: .leading, spacing: 10) {
-            ForEach(Array(rows.enumerated()), id: \\.offset) { _, row in
-              HStack(alignment: .top, spacing: 10) {
-                Image(systemName: row.status == "done" ? "checkmark.circle.fill" : "circle")
-                  .foregroundStyle(row.status == "done" ? KwiltPalette.pine : .secondary)
-                  .padding(.top, 2)
+          VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \\.offset) { index, row in
+              Link(destination: deepLinkActivity(row.activityId)!) {
+                HStack(alignment: .center, spacing: 8) {
+                  Text("#\\(index + 1)")
+                    .font(Font.custom("Inter-SemiBold", fixedSize: 12))
+                    .foregroundStyle(KwiltPalette.gray50)
+                    .padding(.horizontal, 6)
+                    .frame(minWidth: 27, minHeight: 20)
+                    .background(KwiltPalette.gray800, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
 
-                VStack(alignment: .leading, spacing: 3) {
                   Text(row.title)
                     .font(KwiltWidgetTypography.rowTitle)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-
-                  HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if let meta = row.meta, !meta.isEmpty {
-                      Text(meta)
-                        .font(KwiltWidgetTypography.meta)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    }
-                    if let ms = row.scheduledAtMs, let label = formatTimeLabel(ms: ms) {
-                      if let meta = row.meta, !meta.isEmpty {
-                        Text("•")
-                          .font(KwiltWidgetTypography.meta)
-                          .foregroundStyle(.secondary)
-                      }
-                      Text(label)
-                        .font(KwiltWidgetTypography.meta)
-                        .foregroundStyle(.secondary)
-          .monospacedDigit()
-                        .lineLimit(1)
-                    }
-                  }
+                    .foregroundStyle(KwiltPalette.gray800)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .contentShape(Rectangle())
+              }
+              .buttonStyle(.plain)
+              .frame(maxHeight: .infinity)
+
+              if index < rows.count - 1 {
+                Divider()
+                  .padding(.leading, 35)
               }
             }
           }
+          .frame(maxHeight: .infinity)
+        }
+
+        HStack {
           Spacer()
-          if remaining > 0 {
-            Text("\\(remaining) more")
-              .font(KwiltWidgetTypography.body)
-              .foregroundStyle(.secondary)
-              .lineLimit(1)
+          Link(destination: deepLinkToday()!) {
+            HStack(spacing: 4) {
+              Text("See all")
+              Image(systemName: "arrow.right")
+            }
+            .font(KwiltWidgetTypography.action)
+            .foregroundStyle(KwiltPalette.gray800)
+            .contentShape(Rectangle())
           }
+          .buttonStyle(.plain)
         }
       }
-      .widgetURL(url)
+      .padding(.horizontal, 16)
+      .padding(.vertical, 10)
     }
   }
 }
@@ -2166,12 +2139,13 @@ struct KwiltActivitiesWidget: Widget {
   let kind: String = "${targetName}.activities"
 
   var body: some WidgetConfiguration {
-    AppIntentConfiguration(kind: kind, intent: ActivitiesWidgetConfigurationIntent.self, provider: ActivitiesWidgetProvider()) { entry in
+    StaticConfiguration(kind: kind, provider: ActivitiesWidgetProvider()) { entry in
       ActivitiesWidgetView(entry: entry)
     }
-    .configurationDisplayName("Activities")
-    .description("Show activities from any of your views.")
-    .supportedFamilies([.systemMedium, .systemLarge])
+    .configurationDisplayName("To-dos")
+    .description("See and open your top three to-dos.")
+    .supportedFamilies([.systemMedium])
+    .contentMarginsDisabled()
   }
 }
 

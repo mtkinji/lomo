@@ -44,7 +44,8 @@ export type KrogerLocation = {
   latitude?: number | null;
   longitude?: number | null;
 };
-export type KrogerProduct = { id: string; upc: string; title: string; brand: string | null; size: string | null; thumbnailUrl?: string | null; regularPriceCents: number | null; promoPriceCents: number | null; pickupAvailable: boolean };
+export type KrogerFulfillmentMode = 'pickup' | 'delivery';
+export type KrogerProduct = { id: string; upc: string; title: string; brand: string | null; size: string | null; thumbnailUrl?: string | null; regularPriceCents: number | null; promoPriceCents: number | null; pickupAvailable: boolean; deliveryAvailable?: boolean };
 
 const KROGER_BANNERS: Array<[RegExp, string]> = [
   [/baker/i, "Baker's"],
@@ -117,15 +118,15 @@ export function normalizeKrogerProducts(value: unknown): KrogerProduct[] {
     const row = record(raw); const variants = Array.isArray(row.items) ? row.items : []; const item = record(variants[0]); const price = record(item.price); const fulfillment = record(item.fulfillment);
     const id = text(row.productId); const upc = text(row.upc) || id; const title = text(row.description);
     if (!id || !upc || !title) return [];
-    return [{ id, upc, title, brand: text(row.brand) || null, size: text(item.size) || null, thumbnailUrl: productThumbnail(row.images), regularPriceCents: cents(price.regular), promoPriceCents: cents(price.promo), pickupAvailable: fulfillment.curbside === true }];
+    return [{ id, upc, title, brand: text(row.brand) || null, size: text(item.size) || null, thumbnailUrl: productThumbnail(row.images), regularPriceCents: cents(price.regular), promoPriceCents: cents(price.promo), pickupAvailable: fulfillment.curbside === true, deliveryAvailable: fulfillment.delivery === true }];
   });
 }
 
-export function buildKrogerCartPayload(items: Array<{ upc: string; quantity: number }>) {
+export function buildKrogerCartPayload(items: Array<{ upc: string; quantity: number }>, fulfillmentMode: KrogerFulfillmentMode) {
   if (!items.length) throw new Error('provider.cart_empty');
   return { items: items.map((item) => {
     const upc = item.upc.trim(); const quantity = Math.floor(item.quantity);
     if (!upc || !Number.isFinite(quantity) || quantity < 1) throw new Error('provider.cart_item_invalid');
-    return { upc, quantity, modality: 'PICKUP' as const };
+    return { upc, quantity, modality: fulfillmentMode === 'delivery' ? 'DELIVERY' as const : 'PICKUP' as const };
   }) };
 }

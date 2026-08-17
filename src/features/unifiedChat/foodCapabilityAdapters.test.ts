@@ -12,6 +12,7 @@ describe('Food capability adapters', () => {
     const execute=jest.fn();const adapters=createFoodCapabilityAdapters({recipes:{execute},meal_planning:{execute},groceries:{execute},savings:{execute}});
     await expect(adapters.execute({operationId:'food_scenario.accept',input:{scenarioId:'s',expectedVersion:1},confirmed:false,idempotencyKey:'k',origin:{channel:'unified_chat',threadId:'t'}})).rejects.toThrow('food_adapter.confirmation_required');
     expect(await adapters.execute({operationId:'groceries.handoff.open',input:{retailerHandoffId:'h'},confirmed:true,idempotencyKey:'k2',origin:{channel:'unified_chat',threadId:'t'}})).toEqual(expect.objectContaining({status:'pending_client_action',returnTarget:expect.objectContaining({capability:'groceries',screen:'GroceryHandoff'})}));
+    expect(await adapters.execute({operationId:'savings.coupon.open',input:{offerId:'o'},confirmed:true,idempotencyKey:'k3',origin:{channel:'unified_chat',threadId:'t'}})).toEqual(expect.objectContaining({status:'pending_client_action',returnTarget:expect.objectContaining({capability:'savings',screen:'GrocerySavings'})}));
     expect(execute).not.toHaveBeenCalled();
   });
   it('never adapts forbidden checkout, payment, rights attestation, or unsupported coupon application', async () => {

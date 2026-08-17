@@ -6,6 +6,14 @@ describe('Cook voice command parser', () => {
     ['pause cooking', 'pause_session'], ['resume cooking', 'resume_session'], ['we are done', 'finish'],
   ])('%s -> %s', (transcript, kind) => expect(parseCookVoiceCommand(transcript)).toMatchObject({ intent: { kind }, confidence: 'high' }));
 
+  test.each(['what?', 'huh?', 'sorry?', 'come again?'])(
+    'treats the conversational repair %s as a request to repeat',
+    (transcript) => expect(parseCookVoiceCommand(transcript)).toMatchObject({
+      intent: { kind: 'repeat_current' },
+      confidence: 'high',
+    }),
+  );
+
   it('parses ingredient, ordinal timer, and duration details', () => {
     expect(parseCookVoiceCommand('how much cumin?')).toMatchObject({ intent: { kind: 'read_ingredient', ingredientQuery: 'cumin' } });
     expect(parseCookVoiceCommand('start a ten minute timer')).toMatchObject({ intent: { kind: 'start_timer', durationSeconds: 600 } });

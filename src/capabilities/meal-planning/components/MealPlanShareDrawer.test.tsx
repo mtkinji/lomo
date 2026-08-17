@@ -1,22 +1,12 @@
 import React from 'react';
-import { Linking, Share } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { MealPlanShareDrawer } from './MealPlanShareDrawer';
 import { colors } from '../../../theme';
 
 const mockOpenRound = jest.fn();
-const mockCreateGuestFeedbackInvite = jest.fn();
-const mockGetGuestFeedbackSummary = jest.fn();
-const mockRevokeGuestFeedbackInvite = jest.fn();
 const mockGetHouseholdSnapshot = jest.fn();
 const mockBottomGuideProps: Array<Record<string, unknown>> = [];
-const mockShowToast = jest.fn();
-
-jest.mock('expo-clipboard', () => ({
-  setStringAsync: jest.fn().mockResolvedValue(undefined),
-}));
 
 jest.mock('../../../ui/BottomGuide', () => ({
   BottomGuide: ({ visible, children, ...props }: { visible: boolean; children: React.ReactNode }) => {
@@ -36,9 +26,6 @@ jest.mock('../../../ui/BottomDrawer', () => ({
 jest.mock('../data/mealPlanningRepository', () => ({
   createMealPlanningRepository: () => ({
     openRound: (...args: unknown[]) => mockOpenRound(...args),
-    createGuestFeedbackInvite: (...args: unknown[]) => mockCreateGuestFeedbackInvite(...args),
-    getGuestFeedbackSummary: (...args: unknown[]) => mockGetGuestFeedbackSummary(...args),
-    revokeGuestFeedbackInvite: (...args: unknown[]) => mockRevokeGuestFeedbackInvite(...args),
   }),
 }));
 
@@ -49,28 +36,6 @@ jest.mock('../../../features/household/data/household', () => ({
 
 jest.mock('../../../services/backend/supabaseClient', () => ({
   getSupabaseClient: () => ({ rpc: jest.fn() }),
-}));
-
-jest.mock('../../../store/useAppStore', () => ({
-  useAppStore: Object.assign(
-    (selector: (state: unknown) => unknown) => selector({
-      authIdentity: { userId: 'user-1', name: 'Andrew' },
-    }),
-    {
-      subscribe: jest.fn(() => () => undefined),
-      getState: jest.fn(() => ({ authIdentity: { userId: 'user-1', name: 'Andrew' } })),
-    },
-  ),
-}));
-
-jest.mock('../../../store/useToastStore', () => ({
-  useToastStore: Object.assign(
-    (selector: (state: unknown) => unknown) => selector({ showToast: mockShowToast }),
-    {
-      subscribe: jest.fn(() => () => undefined),
-      getState: jest.fn(() => ({ showToast: mockShowToast })),
-    },
-  ),
 }));
 
 const snapshot = {
@@ -91,19 +56,11 @@ describe('MealPlanShareDrawer', () => {
     mockBottomGuideProps.length = 0;
     mockGetHouseholdSnapshot.mockResolvedValue(snapshot);
     mockOpenRound.mockResolvedValue(undefined);
-    mockCreateGuestFeedbackInvite.mockResolvedValue({
-      inviteId: 'invite-1', token: 'guest-token', expiresAt: '2026-08-20T00:00:00.000Z',
-    });
-    mockGetGuestFeedbackSummary.mockResolvedValue({ candidates: [], invites: [] });
-    mockRevokeGuestFeedbackInvite.mockResolvedValue({ inviteId: 'invite-1', state: 'revoked' });
-    jest.spyOn(Linking, 'canOpenURL').mockResolvedValue(true);
-    jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
-    jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
   });
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('keeps Household people and external channels in one compact bottom guide', async () => {
+  it('opens as a household-only request and selects every eligible person by default', async () => {
     const screen = render(
       <MealPlanShareDrawer
         visible
@@ -113,30 +70,25 @@ describe('MealPlanShareDrawer', () => {
       />,
     );
 
-    expect(screen.getByRole('header', { name: 'Share Plan' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Ask household' })).toBeTruthy();
     expect(mockBottomGuideProps).toContainEqual(expect.objectContaining({
       visible: true,
       scrim: 'light',
       layout: 'floating',
       showDragHandle: false,
-      dynamicSizing: true,
+      snapPoints: ['46%'],
     }));
     await waitFor(() => expect(screen.getByText('Blaire')).toBeTruthy());
     expect(screen.getByText('Riley')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Messages' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Email' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'More options' })).toBeTruthy();
-    expect(screen.getAllByTestId('plan-share-channel-sms-icon').some(
-      (element) => element.props.stroke === colors.communicationText,
-    )).toBe(true);
-    expect(screen.getAllByTestId('plan-share-channel-email-icon').some(
-      (element) => element.props.stroke === colors.communicationEmail,
-    )).toBe(true);
-    expect(screen.queryByText('Ask the family')).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'Exclude Blaire' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Exclude Riley' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Ask 2 people' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Messages' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Email' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More options' })).toBeNull();
   });
 
-  it('hides the people section when nobody can be selected', async () => {
+  it('explains when nobody can receive a household request', async () => {
     mockGetHouseholdSnapshot.mockResolvedValueOnce({
       ...snapshot,
       members: [snapshot.members[0]],
@@ -151,41 +103,8 @@ describe('MealPlanShareDrawer', () => {
       />,
     );
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Messages' })).toBeEnabled());
-    expect(screen.queryByText('People in your Household')).toBeNull();
-    expect(screen.queryByText('No one in your Household is available yet.')).toBeNull();
-    expect(screen.getByText('Share outside your Household')).toBeTruthy();
-  });
-
-  it('shows the organizer what a guest chose and suggested', async () => {
-    mockGetGuestFeedbackSummary.mockResolvedValueOnce({
-      candidates: [{ id: 'candidate-1', title: 'Tacos' }],
-      invites: [{
-        id: 'invite-1',
-        state: 'active',
-        expiresAt: '2026-08-20T00:00:00.000Z',
-        responseCount: 1,
-        responses: [{
-          id: 'response-1',
-          displayName: 'Blaire',
-          selectedCandidateIds: ['candidate-1'],
-          pass: false,
-          suggestion: 'Breakfast for dinner',
-          updatedAt: '2026-08-12T20:00:00.000Z',
-        }],
-      }],
-    });
-
-    const screen = render(
-      <MealPlanShareDrawer visible planId="plan-1" planVersion={3} onClose={jest.fn()} />,
-    );
-
-    await waitFor(() => expect(mockGetGuestFeedbackSummary).toHaveBeenCalledWith('plan-1'));
-    expect(screen.getByText('Guest feedback')).toBeTruthy();
-    expect(screen.getByText('1 response')).toBeTruthy();
-    expect(screen.getByText('Blaire · Tacos')).toBeTruthy();
-    expect(screen.getByText('“Breakfast for dinner”')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Turn off guest link' })).toBeTruthy();
+    expect(await screen.findByText('No one else in your Household can respond in Kwilt yet.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Ask \d/ })).toBeNull();
   });
 
   it('asks the selected Household people without leaving for another screen', async () => {
@@ -201,7 +120,8 @@ describe('MealPlanShareDrawer', () => {
       />,
     );
 
-    fireEvent.press(await screen.findByRole('checkbox', { name: 'Include Blaire' }));
+    const riley = await screen.findByRole('checkbox', { name: 'Exclude Riley' });
+    fireEvent.press(riley);
     fireEvent.press(screen.getByRole('button', { name: 'Ask 1 person' }));
 
     await waitFor(() => expect(mockOpenRound).toHaveBeenCalledWith({
@@ -212,68 +132,5 @@ describe('MealPlanShareDrawer', () => {
     }));
     expect(onShared).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([
-    ['Messages', 'sms:'],
-    ['Email', 'mailto:'],
-  ])('creates a guest feedback link only after choosing %s', async (channel, urlPrefix) => {
-    const screen = render(
-      <MealPlanShareDrawer
-        visible
-        planId="plan-1"
-        planVersion={3}
-        onClose={jest.fn()}
-      />,
-    );
-
-    await screen.findByText('Blaire');
-    expect(mockCreateGuestFeedbackInvite).not.toHaveBeenCalled();
-    fireEvent.press(screen.getByRole('button', { name: channel }));
-
-    await waitFor(() => expect(mockCreateGuestFeedbackInvite).toHaveBeenCalledWith({
-      planId: 'plan-1', expectedVersion: 3, expiresAt: null,
-    }));
-    await waitFor(() => expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^${urlPrefix}`))));
-    const composerUrl = (Linking.openURL as jest.Mock).mock.calls[0][0] as string;
-    if (channel === 'Messages') {
-      expect(decodeURIComponent(composerUrl)).toContain('Help with our meal plan.');
-    } else {
-      expect(decodeURIComponent(composerUrl)).toContain('Andrew would like your help with a meal plan.');
-    }
-    expect(decodeURIComponent(composerUrl)).toContain('Choose the meals you’d eat or suggest one that’s missing.');
-    expect(decodeURIComponent(composerUrl)).toMatch(/https:\/\/go\.kwilt\.app\/meal-plan\/guest-token$/);
-  });
-
-  it('copies only the invitation link and keeps the guide open', async () => {
-    const onClose = jest.fn();
-    const screen = render(
-      <MealPlanShareDrawer visible planId="plan-1" planVersion={3} onClose={onClose} />,
-    );
-
-    const copyLink = await screen.findByRole('button', { name: 'Copy link' });
-    await waitFor(() => expect(copyLink).toBeEnabled());
-    fireEvent.press(copyLink);
-
-    await waitFor(() => expect(Clipboard.setStringAsync).toHaveBeenCalledWith(
-      'https://go.kwilt.app/meal-plan/guest-token',
-    ));
-    expect(mockShowToast).toHaveBeenCalledWith(expect.objectContaining({ message: 'Link copied' }));
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it('opens the native share sheet with the invitation URL as the rich-preview item', async () => {
-    const screen = render(
-      <MealPlanShareDrawer visible planId="plan-1" planVersion={3} onClose={jest.fn()} />,
-    );
-
-    const moreOptions = await screen.findByRole('button', { name: 'More options' });
-    await waitFor(() => expect(moreOptions).toBeEnabled());
-    fireEvent.press(moreOptions);
-
-    await waitFor(() => expect(Share.share).toHaveBeenCalledWith(
-      { url: 'https://go.kwilt.app/meal-plan/guest-token' },
-      { subject: 'Help with our meal plan' },
-    ));
   });
 });

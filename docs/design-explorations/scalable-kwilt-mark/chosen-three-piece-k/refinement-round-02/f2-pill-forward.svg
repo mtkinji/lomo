@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Kwilt three-piece K — F2 pill-forward</title>
+  <desc id="desc">The optically centered three-piece K with a complete pill-like stem crown and generous fair curves.</desc>
+  <g fill="#315545">
+    <path d="M55 10C80 10 100 30 100 55V188C100 218 80 242 52 248C30 253 10 244 10 227V55C10 30 30 10 55 10Z"/>
+    <path d="M159 10C136 11 118 30 118 53C117 77 117 101 118 124C119 138 127 145 138 139C164 126 190 110 212 90C232 72 244 48 244 24C244 15 237 10 228 10C205 8 182 8 159 10Z"/>
+    <path d="M158 147C177 138 199 135 219 136C234 137 244 149 244 164C245 180 245 197 243 213C241 233 225 247 205 248C175 251 145 251 115 248C104 247 99 237 104 227C112 210 121 193 130 177C137 163 147 153 158 147Z"/>
+  </g>
+</svg>

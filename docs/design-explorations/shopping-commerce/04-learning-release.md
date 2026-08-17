@@ -1,5 +1,12 @@
 # Learning Release: One Real Instacart Handoff
 
+> **Current-status note (2026-08-14):** Instacart's July 20, 2026 Developer
+> Platform documentation now says `Apply today` and estimates a 30–40 day
+> integration/approval path. The earlier closed-intake finding below is stale.
+> See
+> [`docs/research/online-grocery-acquisition-integration-state.md`](../../research/online-grocery-acquisition-integration-state.md)
+> for the current cross-provider assessment and evidence gates.
+
 ## Concept to build
 
 Prove the smallest complete commercial loop: a useful reviewed Kwilt Grocery
@@ -16,10 +23,11 @@ front end.
 - The production `grocery-handoff` function is deployed but deliberately cannot
   create links: no Instacart API credential is configured and the remote enable
   flag is not on.
-- Instacart's current developer-program page says it is not accepting new IDP
-  applications and offers no waitlist. Kwilt therefore cannot clear the
-  credential gate through the normal intake today; the integration remains a
-  prepared option, not an active launch commitment.
+- Instacart's current Developer Platform documentation publishes an `Apply
+  today` path and estimates 30–40 days from access request through demo approval
+  and production-key access. Kwilt has not yet proved that the current intake
+  will issue it a development key; the integration remains disabled until it
+  does.
 - The existing UI copy was not launch compliant. Instacart currently approves
   only **Shop ingredients** or **Shop on Instacart** and requires a 46-point,
   29.5-radius branded CTA with its 22-point full-color logo.
@@ -128,8 +136,8 @@ or opening. Instacart owns matching, substitutions, prices, and checkout.
 
 ## Release and evidence gates
 
-1. **Access gate:** confirm that IDP applications have reopened, or receive a
-   direct invitation from Instacart; then obtain a development API key for Kwilt.
+1. **Access gate:** attempt the currently published application/dashboard path
+   and obtain a development API key for Kwilt.
 2. **Technical gate:** create and open one real list page on a signed device.
 3. **Quality gate:** inspect matching and record every correction or omission.
 4. **Review gate:** submit Instacart's screen recording and list URL; obtain a

@@ -49,6 +49,8 @@ import { formatKitchenQuantity } from '../../recipes/domain/recipeScaling';
 import { createMealPlanningRepository } from '../../meal-planning/data/mealPlanningRepository';
 import { groceryCache } from '../data/groceryCache';
 import { groceryEducation } from '../data/groceryEducation';
+import { onlineShoppingPreferencesRepository } from '../data/onlineShoppingPreferencesRepository';
+import { preferredGroceryStore } from '../data/preferredGroceryStore';
 import {
   createGroceryRepository,
   type GroceryProjection,
@@ -60,6 +62,12 @@ import {
 } from '../data/groceryOfflineQueue';
 import { groceryFulfillmentSummary } from '../domain/groceryFulfillment';
 import { isOnlineShoppingCountryEligible } from '../domain/groceryOnlineShoppingEligibility';
+import { resolveOnlineShoppingLaunch } from '../domain/onlineShoppingLaunch';
+import { getOnlineRetailerRuntimePolicies } from '../providers/affiliateRetailerProvider';
+import {
+  getAffiliateRetailerTestingEnabled,
+  getAmazonBatchPreparationEnabled,
+} from '../../../utils/getEnv';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'GroceryList'>;
 
@@ -369,6 +377,12 @@ export function GroceryListScreen({ navigation, route }: Props) {
   }, [list?.items, list?.sourceKind, list?.sourceMealPlanId, list?.sourceMealPlanVersion]);
 
   const fulfillment = groceryFulfillmentSummary(list?.items ?? []);
+  const remainderCapturedRef = useRef(false);
+  useEffect(() => {
+    if (remainderCapturedRef.current || fulfillment.cartedCount === 0) return;
+    remainderCapturedRef.current = true;
+    capture(AnalyticsEvent.OnlineShoppingRemainderViewed, { acknowledged_count: fulfillment.cartedCount, count: fulfillment.remainingCount, outcome: fulfillment.remainingCount === 0 ? 'all_in_carts' : 'remainder_visible' });
+  }, [capture, fulfillment.cartedCount, fulfillment.remainingCount]);
   const coveredIds = useMemo(
     () =>
       new Set(
@@ -391,7 +405,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
         display: groceryItemDisplay(item),
         groupLabel: aisleLabels[aisle] ?? 'Other',
         supportingText: item.retailerCart
-          ? `In ${item.retailerCart.retailerLabel} cart`
+          ? `In ${item.retailerCart.retailerLabel} ${item.retailerCart.fulfillmentMode} cart`
           : null,
       })),
     );
@@ -452,7 +466,25 @@ export function GroceryListScreen({ navigation, route }: Props) {
       if (list.status === 'review_needed') {
         capture(AnalyticsEvent.GroceryListReviewed, { count: list.items.length });
       }
-      navigation.navigate('KrogerCart', { listId: list.id });
+      const preferences = await onlineShoppingPreferencesRepository.read(userId);
+      if (!preferences) {
+        navigation.navigate('OnlineShoppingSetup', { listId: list.id });
+        return;
+      }
+      const preferredStore = await preferredGroceryStore.read(userId);
+      const launch = resolveOnlineShoppingLaunch({
+        listId: list.id,
+        preferences,
+        policies: getOnlineRetailerRuntimePolicies(),
+        preferredStore,
+        amazonBatchPreparationEnabled:
+          getAffiliateRetailerTestingEnabled() || getAmazonBatchPreparationEnabled(),
+      });
+      if (launch.screen === 'RetailerLinkShopping') {
+        navigation.navigate(launch.screen, launch.params);
+      } else {
+        navigation.navigate(launch.screen, launch.params);
+      }
     } catch (error) {
       Alert.alert(
         'Shopping is not ready',

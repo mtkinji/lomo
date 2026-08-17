@@ -85,7 +85,10 @@ export function GroceryHandoffScreen({ navigation, route }: Props) {
         ) : null}
         {readyForSmiths ? (
           <>
-            <Button variant="primary" onPress={() => navigation.navigate("KrogerCart", { listId: list!.id })}>
+            <Button variant="primary" onPress={() => navigation.navigate("KrogerCart", {
+              listId: list!.id,
+              fulfillmentMode: 'pickup',
+            })}>
               Shop at Smith's
             </Button>
             <Text tone="secondary">

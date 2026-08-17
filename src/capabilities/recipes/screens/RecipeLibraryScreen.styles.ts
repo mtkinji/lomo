@@ -337,10 +337,20 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
+  planDrawerTitleIdentity: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
   planDrawerShareActionContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
+  },
+  planGuestSuggestions: {
+    gap: spacing.xs,
+    paddingTop: spacing.sm,
   },
   planDrawerContent: {
     flexGrow: 1,

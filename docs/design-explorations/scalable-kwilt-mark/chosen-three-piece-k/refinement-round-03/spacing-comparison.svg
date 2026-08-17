@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="760" viewBox="0 0 1536 760" role="img" aria-labelledby="title desc">
+  <title id="title">Kwilt chosen K — stem weight and spacing refinement</title>
+  <desc id="desc">Three refinements with progressively slimmer stems and more space between all three pieces.</desc>
+  <rect width="1536" height="760" fill="#F7F2E8"/>
+  <style>
+    .title { fill:#171817; font:700 30px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .label { fill:#171817; font:700 21px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .note { fill:#625F58; font:500 17px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .guide { fill:none; stroke:#D9D2C6; stroke-width:1; stroke-dasharray:5 5; }
+    .mark { fill:#315545; }
+  </style>
+  <defs>
+    <path id="stem" d="M55 10C79.853 10 100 30.147 100 55V190C100 220 78 244 50 248C28 251 10 242 10 226V55C10 30.147 30.147 10 55 10Z"/>
+    <path id="upper" d="M160 10C137 10 119 28 119 51C118 76 118 101 119 126C119 138 127 144 137 139C163 126 188 111 210 93C231 76 244 51 244 25C244 16 237 10 228 10C205 9 182 9 160 10Z"/>
+    <path id="lower" d="M159 148C177 139 199 136 218 136C233 136 244 148 244 163C245 179 245 196 244 212C243 232 227 247 207 248C176 250 145 250 115 248C105 247 100 237 105 228C113 211 121 195 130 179C137 165 147 154 159 148Z"/>
+    <symbol id="g1" viewBox="0 0 256 256"><g class="mark"><use href="#stem" transform="translate(.8 0) scale(.92 1)"/><use href="#upper"/><use href="#lower"/></g></symbol>
+    <symbol id="g2" viewBox="0 0 256 256"><g class="mark"><use href="#stem" transform="translate(1.2 0) scale(.88 1)"/><use href="#upper" transform="translate(3 -1.5)"/><use href="#lower" transform="translate(3 2.5)"/></g></symbol>
+    <symbol id="g3" viewBox="0 0 256 256"><g class="mark"><use href="#stem" transform="translate(1.6 0) scale(.84 1)"/><use href="#upper" transform="translate(5 -2.5)"/><use href="#lower" transform="translate(5 4)"/></g></symbol>
+  </defs>
+  <text class="title" x="768" y="58" text-anchor="middle">Option F1 · stem weight and spacing</text>
+  <text class="note" x="768" y="94" text-anchor="middle">Fair contours locked · progressively more air</text>
+  <rect class="guide" x="132" y="150" width="256" height="256"/><use href="#g1" x="132" y="150" width="256" height="256"/>
+  <rect class="guide" x="640" y="150" width="256" height="256"/><use href="#g2" x="640" y="150" width="256" height="256"/>
+  <rect class="guide" x="1148" y="150" width="256" height="256"/><use href="#g3" x="1148" y="150" width="256" height="256"/>
+  <text class="label" x="260" y="454" text-anchor="middle">G1 · Moderate air</text><text class="note" x="260" y="484" text-anchor="middle">8% slimmer stem</text>
+  <text class="label" x="768" y="454" text-anchor="middle">G2 · Balanced air</text><text class="note" x="768" y="484" text-anchor="middle">12% slimmer · all gaps opened</text>
+  <text class="label" x="1276" y="454" text-anchor="middle">G3 · Open air</text><text class="note" x="1276" y="484" text-anchor="middle">16% slimmer · maximum separation</text>
+  <text class="note" x="768" y="564" text-anchor="middle">28-pixel navigation-size comparison</text>
+  <use href="#g1" x="246" y="590" width="28" height="28"/><use href="#g2" x="754" y="590" width="28" height="28"/><use href="#g3" x="1262" y="590" width="28" height="28"/>
+</svg>

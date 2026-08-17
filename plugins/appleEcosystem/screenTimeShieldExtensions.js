@@ -215,8 +215,84 @@ private enum KwiltShieldCopy {
   }
 }
 
+private enum KwiltShieldArtwork {
+  private static let pine = UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
+  private static let parchment = UIColor(red: 0.980, green: 0.969, blue: 0.929, alpha: 1.0)
+  private static let parchmentDarker = UIColor(red: 0.965, green: 0.902, blue: 0.784, alpha: 1.0)
+  private static let sumi = UIColor(red: 0.110, green: 0.102, blue: 0.098, alpha: 1.0)
+
+  static func icon(appName: String) -> UIImage {
+    let trimmed = appName.trimmingCharacters(in: .whitespacesAndNewlines)
+    let appPrefix = String(trimmed.prefix(2))
+    let monogram = String(appPrefix.prefix(1)).uppercased() + String(appPrefix.dropFirst()).lowercased()
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 236, height: 176))
+
+    return renderer.image { rendererContext in
+      let context = rendererContext.cgContext
+
+      // The interrupted app leans behind Kwilt, like something gently set aside.
+      let blockedTile = CGRect(x: 48, y: 38, width: 112, height: 112)
+      context.saveGState()
+      context.translateBy(x: blockedTile.midX, y: blockedTile.midY)
+      context.rotate(by: -8 * .pi / 180)
+      context.translateBy(x: -blockedTile.midX, y: -blockedTile.midY)
+      context.setShadow(
+        offset: CGSize(width: 0, height: 5),
+        blur: 10,
+        color: UIColor.black.withAlphaComponent(0.22).cgColor
+      )
+      parchmentDarker.setFill()
+      UIBezierPath(roundedRect: blockedTile, cornerRadius: 28).fill()
+      context.setShadow(offset: .zero, blur: 0, color: nil)
+
+      let monogramText = monogram.isEmpty ? "•" : monogram
+      let monogramFont = UIFont(name: "Inter-Black", size: 42)
+        ?? UIFont.systemFont(ofSize: 42, weight: .black)
+      let attributes: [NSAttributedString.Key: Any] = [
+        .font: monogramFont,
+        .foregroundColor: sumi,
+      ]
+      let monogramSize = (monogramText as NSString).size(withAttributes: attributes)
+      (monogramText as NSString).draw(
+        at: CGPoint(
+          x: blockedTile.midX - monogramSize.width / 2,
+          y: blockedTile.midY - monogramSize.height / 2 - 1
+        ),
+        withAttributes: attributes
+      )
+      context.restoreGState()
+
+      // Kwilt owns the foreground because Kwilt is applying the pause.
+      let kwiltTile = CGRect(x: 82, y: 20, width: 132, height: 132)
+      context.saveGState()
+      context.setShadow(
+        offset: CGSize(width: -3, height: 6),
+        blur: 16,
+        color: UIColor.black.withAlphaComponent(0.28).cgColor
+      )
+      parchment.setFill()
+      UIBezierPath(roundedRect: kwiltTile, cornerRadius: 28).fill()
+      context.restoreGState()
+      UIImage(named: "KwiltShieldAppIcon")?
+        .withTintColor(pine, renderingMode: .alwaysOriginal)
+        .draw(in: kwiltTile.insetBy(dx: 28, dy: 28))
+
+      // A small, high-contrast state marker keeps the symbol readable at shield scale.
+      let badgeFrame = CGRect(x: 174, y: 112, width: 54, height: 54)
+      parchment.setFill()
+      UIBezierPath(ovalIn: badgeFrame).fill()
+      UIColor.black.setFill()
+      UIBezierPath(ovalIn: badgeFrame.insetBy(dx: 3, dy: 3)).fill()
+      parchment.setFill()
+      UIBezierPath(roundedRect: CGRect(x: 191, y: 127, width: 6, height: 24), cornerRadius: 3).fill()
+      UIBezierPath(roundedRect: CGRect(x: 205, y: 127, width: 6, height: 24), cornerRadius: 3).fill()
+    }
+  }
+}
+
 final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
   private let detailColor = UIColor(white: 1.0, alpha: 0.84)
+  private let pine = UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
 
   private func configuration(
     appName: String,
@@ -230,10 +306,6 @@ final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
       webDomainTokenKey: webDomainTokenKey
     )
     let reason = restrictions.first?.reason ?? KwiltShieldCopy.reason()
-    let isMoney = reason.hasPrefix("money_")
-    let accent = isMoney
-      ? UIColor(red: 0.106, green: 0.157, blue: 0.227, alpha: 1.0)
-      : UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
     let title: String
     let subtitle: String
     if restrictions.count > 1, let first = restrictions.first, restrictions.indices.contains(1) {
@@ -246,12 +318,12 @@ final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
       subtitle = KwiltShieldCopy.subtitle(for: reason, appName: appName)
     }
     return ShieldConfiguration(
-      backgroundBlurStyle: isMoney ? .systemMaterialDark : .dark,
-      backgroundColor: accent,
-      icon: UIImage(named: "KwiltShieldAppIcon") ?? UIImage(systemName: isMoney ? "creditcard.and.123" : "app.badge.clock")?.withTintColor(UIColor.white, renderingMode: .alwaysOriginal),
+      backgroundBlurStyle: .dark,
+      backgroundColor: pine,
+      icon: KwiltShieldArtwork.icon(appName: appName),
       title: ShieldConfiguration.Label(text: title, color: UIColor.white),
       subtitle: ShieldConfiguration.Label(text: subtitle, color: detailColor),
-      primaryButtonLabel: ShieldConfiguration.Label(text: KwiltShieldCopy.buttonLabel(for: reason), color: accent),
+      primaryButtonLabel: ShieldConfiguration.Label(text: KwiltShieldCopy.buttonLabel(for: reason), color: pine),
       primaryButtonBackgroundColor: UIColor.white,
       secondaryButtonLabel: nil
     )
@@ -503,7 +575,14 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
 `;
 }
 
-function infoPlist({ displayName, extensionPointIdentifier, principalClass }) {
+function infoPlist({ displayName, extensionPointIdentifier, principalClass, fonts = [] }) {
+  const fontEntries = fonts.length
+    ? `  <key>UIAppFonts</key>
+  <array>
+${fonts.map((font) => `    <string>${font}</string>`).join('\n')}
+  </array>
+`
+    : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -517,7 +596,7 @@ function infoPlist({ displayName, extensionPointIdentifier, principalClass }) {
   <key>CFBundlePackageType</key><string>XPC!</string>
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
-  <key>NSExtension</key>
+${fontEntries}  <key>NSExtension</key>
   <dict>
     <key>NSExtensionPointIdentifier</key><string>${extensionPointIdentifier}</string>
     <key>NSExtensionPrincipalClass</key><string>${principalClass}</string>
@@ -611,7 +690,14 @@ function withScreenTimeShieldExtensions(config) {
         suffix: 'shield-configuration',
         file: 'KwiltShieldConfiguration.swift',
         swift: buildConfigurationSwift,
-        resources: [{ source: 'assets/logo-white.png', file: 'KwiltShieldAppIcon.png' }],
+        resources: [
+          { source: 'assets/logo-white.png', file: 'KwiltShieldAppIcon.png' },
+          {
+            source: 'node_modules/@expo-google-fonts/inter/900Black/Inter_900Black.ttf',
+            file: 'KwiltShieldInterBlack.ttf',
+          },
+        ],
+        fonts: ['KwiltShieldInterBlack.ttf'],
         displayName: 'KwiltShieldConfiguration',
         extensionPointIdentifier: 'com.apple.ManagedSettingsUI.shield-configuration-service',
         principalClass: '$(PRODUCT_MODULE_NAME).KwiltShieldConfigurationExtension',
@@ -647,5 +733,6 @@ module.exports = {
   buildConfigurationSwift,
   buildDeviceActivityMonitorSwift,
   buildRestrictionLedgerSwift,
+  infoPlist,
   withScreenTimeShieldExtensions,
 };

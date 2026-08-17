@@ -55,6 +55,9 @@ describe('linkingConfig', () => {
     ['food/recipe/recipe-1/edit', 'RecipeEdit', { recipeId: 'recipe-1' }],
     ['food/import', 'RecipeImportReview', undefined],
     ['food/groceries/list-1/smiths', 'KrogerCart', { listId: 'list-1' }],
+    ['food/groceries/list-1/online/setup', 'OnlineShoppingSetup', { listId: 'list-1' }],
+    ['food/groceries/list-1/online/order', 'OnlineOrder', { listId: 'list-1' }],
+    ['food/groceries/list-1/online/amazon', 'RetailerLinkShopping', { listId: 'list-1', retailerId: 'amazon' }],
   ] as const)('resolves Food path %s', (path, routeName, params) => {
     const state = getStateFromPath(path, linkingConfig);
     const leaf = getLeafRoute(state);
@@ -257,6 +260,15 @@ describe('linkingConfig', () => {
       const leaf = parse('todos');
       expect(leaf?.name).toBe('ActivitiesList');
       expect(leaf?.path).toEqual(['MainTabs', 'ActivitiesTab', 'ActivitiesList']);
+    });
+
+    test('kwilt://todos?openQuickAdd=1 opens the To-dos composer from a widget', () => {
+      const leaf = parse('todos?openQuickAdd=1&source=widget');
+      expect(leaf?.name).toBe('ActivitiesList');
+      expect(leaf?.params).toMatchObject({
+        openQuickAdd: true,
+        source: 'widget',
+      });
     });
 
     test('kwilt://settings/screen-time opens the Screen Time controls', () => {

@@ -64,6 +64,7 @@ jest.mock('../../../ui/BottomDrawer', () => {
   };
 });
 import { colors, fonts, radii, spacing, typography } from '../../../theme';
+import { BUTTON_SIZE_TOKENS } from '../../../ui/buttonTokens';
 import { recipeContractFixture, recipeVersionContractFixture } from '../domain/recipeContractFixtures';
 import { buildRecipeLibraryInventory, DEFAULT_RECIPE_INVENTORY_FILTERS } from '../data/starterRecipeCatalog';
 import { EDITORIAL_MEAL_COLLECTIONS, getMealEditorialEdition } from '../data/editorialMealCollections';
@@ -666,8 +667,8 @@ describe('Recipe library', () => {
     expect(onRemove).toHaveBeenCalledWith(items[0]);
   });
 
-  it('gives the Plan a large header with a labeled right-anchored share button', () => {
-    const onRequestFeedback = jest.fn();
+  it('keeps household sharing inside the native Share entry point', () => {
+    const onSharePlan = jest.fn();
     const drawer = render(
       <MealPlanDrawer
         visible
@@ -679,7 +680,9 @@ describe('Recipe library', () => {
         canManage
         onClose={jest.fn()}
         onRemove={jest.fn()}
-        onRequestFeedback={onRequestFeedback}
+        onSharePlan={onSharePlan}
+        hasActiveGuestLink
+        onTurnOffGuestLink={jest.fn()}
       />,
     );
 
@@ -696,8 +699,71 @@ describe('Recipe library', () => {
       borderWidth: 0,
     });
     expect(drawer.getByTestId('plan-share-icon')).toBeTruthy();
+    expect(StyleSheet.flatten(drawer.getByText('Share').props.style)).toMatchObject({
+      fontFamily: BUTTON_SIZE_TOKENS.sm.text.fontFamily,
+      fontSize: BUTTON_SIZE_TOKENS.sm.text.fontSize,
+    });
+    expect(within(drawer.getByTestId('plan-drawer-title-cluster')).getByLabelText('Guest link options')).toBeTruthy();
     fireEvent.press(shareButton);
-    expect(onRequestFeedback).toHaveBeenCalledTimes(1);
+    expect(onSharePlan).toHaveBeenCalledTimes(1);
+
+    expect(drawer.queryByRole('button', { name: 'Ask household' })).toBeNull();
+  });
+
+  it('moves the grocery action below the translucent native share sheet without unmounting it', () => {
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[{
+          id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
+          lifecycle: 'idea', createdAt: '2026-08-12T12:00:00.000Z', sentAt: null,
+          voteCount: 0, missingItemCount: null, canRemove: true,
+        }]}
+        canManage
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+        onSharePlan={jest.fn()}
+        shareBusy
+        shareSheetVisible
+        onSendToGroceries={jest.fn()}
+      />,
+    );
+
+    const planDrawer = mockBottomDrawerProps.find((props) => (
+      props.visible && props.snapPoints?.[0] === '100%'
+    ));
+    expect(planDrawer?.bottomAccessory).toBeTruthy();
+    const transition = drawer.getByTestId(
+      'plan-grocery-action-transition',
+      { includeHiddenElements: true },
+    );
+    expect(StyleSheet.flatten(transition.props.style)).toMatchObject({
+      transform: [{ translateY: 96 }],
+    });
+  });
+
+  it('keeps guest suggestions in the Plan instead of the sharing surface', () => {
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[{
+          id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
+          lifecycle: 'idea', createdAt: '2026-08-12T12:00:00.000Z', sentAt: null,
+          voteCount: 0, missingItemCount: null, canRemove: true,
+        }]}
+        canManage
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+        guestSuggestions={[{
+          id: 'response-1',
+          displayName: 'Blaire',
+          suggestion: 'Breakfast for dinner',
+        }]}
+      />,
+    );
+
+    expect(drawer.getByText('Guest suggestions')).toBeTruthy();
+    expect(drawer.getByText('Blaire · “Breakfast for dinner”')).toBeTruthy();
   });
 
   it('bounds long Plan titles beside a top-aligned thumbnail and anchored actions', () => {

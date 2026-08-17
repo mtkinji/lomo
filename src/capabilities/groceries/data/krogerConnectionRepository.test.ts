@@ -19,8 +19,20 @@ describe('Kroger connection repository', () => {
     const invoke = jest.fn().mockResolvedValue({ data: { state: 'confirmed' }, error: null });
     const repository = createKrogerConnectionRepository({ functions: { invoke } } as unknown as SupabaseClient);
     const location={id:'store-1',name:'Smiths',banner:"Smith's",address:'689 N Redwood Rd'};
-    await repository.confirmMapping('list-1', 'item-1', { id:'p',upc:'001',title:'Milk',brand:null,size:null,regularPriceCents:null,promoPriceCents:null,pickupAvailable:true }, 2, location);
+    await repository.confirmMapping('list-1', 'item-1', { id:'p',upc:'001',title:'Milk',brand:null,size:null,regularPriceCents:null,promoPriceCents:null,pickupAvailable:true,deliveryAvailable:false }, 2, location);
     expect(invoke).toHaveBeenCalledWith('kroger-api', { body: expect.objectContaining({ action: 'confirm_mapping', groceryItemId: 'item-1', quantity: 2, location }) });
+  });
+
+  it('passes fulfillment mode into product preparation', async () => {
+    const invoke = jest.fn().mockResolvedValue({ data: { matches: [] }, error: null });
+    const repository = createKrogerConnectionRepository({ functions: { invoke } } as unknown as SupabaseClient);
+    const location={id:'store-1',name:'Smiths',banner:"Smith's",address:'689 N Redwood Rd'};
+
+    await repository.prepareMatches('list-1', 2, location, 'delivery');
+
+    expect(invoke).toHaveBeenCalledWith('kroger-api', { body: {
+      action: 'prepare_matches', groceryListId: 'list-1', expectedRevision: 2, location, fulfillmentMode: 'delivery',
+    } });
   });
 
   it('sends the exact user-confirmed store with the cart mutation', async () => {
@@ -28,12 +40,13 @@ describe('Kroger connection repository', () => {
     const repository = createKrogerConnectionRepository({ functions: { invoke } } as unknown as SupabaseClient);
     const location={id:'store-1',name:'Smiths',banner:"Smith's",address:'689 N Redwood Rd'};
 
-    await repository.cartAdd('list-1', 2, location);
+    await repository.cartAdd('list-1', 2, location, 'pickup');
 
     expect(invoke).toHaveBeenCalledWith('kroger-api', { body: {
       action: 'cart_add',
       groceryListId: 'list-1',
       expectedRevision: 2,
+      fulfillmentMode: 'pickup',
       locationConfirmation: { locationId: 'store-1', authority: 'user_confirmed' },
     } });
   });

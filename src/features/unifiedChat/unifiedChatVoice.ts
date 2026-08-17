@@ -79,7 +79,9 @@ export async function cancelUnifiedChatVoiceRecording(): Promise<void> {
   current.release();
 }
 
-export async function stopAndTranscribeUnifiedChatVoice(): Promise<string> {
+export async function stopAndTranscribeUnifiedChatVoice(options?: {
+  onRecordingStopped?(): void | Promise<void>;
+}): Promise<string> {
   const current = recording;
   recording = null;
   stopMeteringUpdates();
@@ -90,6 +92,11 @@ export async function stopAndTranscribeUnifiedChatVoice(): Promise<string> {
     uri = current.uri;
   } finally {
     current.release();
+  }
+  try {
+    await options?.onRecordingStopped?.();
+  } catch {
+    // Feedback is best-effort and must never block transcription.
   }
   if (!uri) throw new Error('The recording could not be read.');
   const file = new File(uri);

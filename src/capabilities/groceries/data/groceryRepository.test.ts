@@ -2,11 +2,28 @@ import { createGroceryRepository, mapGroceryProjectionRows } from './groceryRepo
 
 describe('Grocery repository', () => {
   it('projects retailer cart acknowledgement without changing grocery state', () => {
-    const [list] = mapGroceryProjectionRows([{id:'list-1',revision:1,status:'ready',updated_at:'2026-08-09',items:[{id:'item-1',position:0,concept:'milk',quantity_min:1,quantity_max:null,unit:'gallon',aisle:'dairy_eggs',state:'needed',sources:[],cart_entries:[{provider:'kroger',retailer_label:"Smith's",location_name:'Saratoga Springs',state:'cart_add_acknowledged',created_at:'2026-08-09T12:00:00Z'}]}]}]);
+    const [list] = mapGroceryProjectionRows([{id:'list-1',revision:1,status:'ready',updated_at:'2026-08-09',items:[{id:'item-1',position:0,concept:'milk',quantity_min:1,quantity_max:null,unit:'gallon',aisle:'dairy_eggs',state:'needed',sources:[],cart_entries:[{provider:'kroger',retailer_label:"Smith's",location_name:'Saratoga Springs',fulfillment_mode:'delivery',state:'cart_add_acknowledged',created_at:'2026-08-09T12:00:00Z'}]}]}]);
     expect(list.items[0]).toMatchObject({
       state: 'needed',
-      retailerCart: { provider: 'kroger', retailerLabel: "Smith's", locationName: 'Saratoga Springs', state: 'cart_add_acknowledged' },
+      retailerCart: { provider: 'kroger', retailerLabel: "Smith's", locationName: 'Saratoga Springs', fulfillmentMode: 'delivery', state: 'cart_add_acknowledged' },
     });
+  });
+
+  it('keeps legacy retailer receipts readable while fulfillment-mode migration is pending', async () => {
+    const chain={
+      select:jest.fn(),
+      order:jest.fn().mockResolvedValue({
+        data:[{id:'list-1',revision:1,status:'ready',updated_at:'2026-08-09',items:[{id:'item-1',position:0,concept:'milk',quantity_min:1,quantity_max:null,unit:'gallon',aisle:'dairy_eggs',state:'needed',sources:[],cart_entries:[{provider:'kroger',retailer_label:"Smith's",location_name:'Saratoga Springs',state:'cart_add_acknowledged',created_at:'2026-08-09T12:00:00Z'}]}]}],
+        error:null,
+      }),
+    };
+    chain.select.mockReturnValue(chain);
+    const repository=createGroceryRepository({from:jest.fn().mockReturnValue(chain)} as never);
+
+    const [list]=await repository.list();
+
+    expect(chain.select).toHaveBeenCalledWith(expect.stringContaining('cart_entries:kwilt_retailer_handoff_items(*)'));
+    expect(list.items[0].retailerCart?.fulfillmentMode).toBe('pickup');
   });
 
   it('compiles through the server boundary and mutates only through revisioned RPCs', async () => {

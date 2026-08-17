@@ -47,3 +47,34 @@ export type SavingsOption = {
   nextAction: ReturnType<typeof savingsActionLabel>;
   assumptions: string[];
 };
+
+type CartSavingsCandidateBase = {
+  id: string;
+  productId: string;
+  observedAt: string;
+  expiresAt: string | null;
+  coverageItemCount: number;
+  totalCartItemCount: number;
+  fulfillmentMode: 'pickup' | 'delivery';
+  memberOnly: boolean;
+  membershipConfirmed: boolean | null;
+  includesFees: boolean;
+};
+
+export type CartSavingsCandidate = CartSavingsCandidateBase & (
+  | { kind: 'selected_promotion'; regularPriceCents: number; promoPriceCents: number; retailQuantity: number }
+  | { kind: 'reviewed_alternative' | 'consolidation'; alternativeProductId: string; selectedTotalCents: number; alternativeTotalCents: number; requiredBaseUnits: number; alternativeRequiredBaseUnits: number; baseUnit: 'count' | 'g' | 'ml' | null; alternativeBaseUnit: 'count' | 'g' | 'ml' | null }
+);
+
+export type CartSavingsSuggestion = {
+  id: string;
+  kind: CartSavingsCandidate['kind'];
+  productId: string;
+  savingsCents: number;
+  decisionChanges: number;
+  observedAt: string;
+  expiresAt: string | null;
+  coverageItemCount: number;
+  totalCartItemCount: number;
+  merchandiseOnly: true;
+};

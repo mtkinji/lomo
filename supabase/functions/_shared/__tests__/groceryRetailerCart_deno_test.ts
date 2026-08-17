@@ -13,13 +13,19 @@ Deno.test('retailer cart receipts remove only acknowledged items from later pass
   );
 });
 
+Deno.test('opened or dismissed retailer links do not remove grocery items', () => {
+  const nonReceipts = [{ grocery_item_id: 'milk', state: 'opened_for_product_review' }, { grocery_item_id: 'bread', state: 'dismissed' }];
+  assertEquals(excludeCartedGroceryItems([{ id: 'milk' }, { id: 'bread' }], nonReceipts), [{ id: 'milk' }, { id: 'bread' }]);
+});
+
 Deno.test('replayed later passes count the remainder across every acknowledged cart', () => {
   assertEquals(
     retailerCartCounts(
       ['milk', 'bread', 'eggs'],
       [{ grocery_item_id: 'milk' }, { grocery_item_id: 'bread' }],
       [{ grocery_item_id: 'bread' }],
+      'delivery',
     ),
-    { addedItemCount: 1, acknowledgedItemIds: ['bread'], remainingItemCount: 1 },
+    { addedItemCount: 1, acknowledgedItemIds: ['bread'], remainingItemCount: 1, fulfillmentMode: 'delivery' },
   );
 });
