@@ -13,16 +13,31 @@ It’s intentionally **layered** so you can start small and expand coverage with
 
 - **Confidence without exhaustive manual QA**
 - **Fast feedback** on PRs (minutes)
+- **A short implementation loop** that does not repeatedly pay integration costs
 - **High-signal E2E coverage** for native interaction regressions (keyboard + gestures + overlays)
 - Preserve the app’s fundamental UX layering:
   - **App shell**: primary nav + margins around the page canvas
   - **App canvas**: the main interaction surface
 
+## Verification cadence
+
+The layers below describe *what* each kind of test proves. Run them at the stage where that proof is needed:
+
+| Stage | Default verification | Full Jest suite? |
+|---|---|---|
+| Implementation loop | One focused test file, `--findRelatedTests` for the touched seam, or the relevant runtime interaction | No |
+| Task completion | `npm run verify:changed -- --run`, once after the intended diff is complete | Only when selected by the diff-aware verifier |
+| Integration / release | Required CI gates plus relevant native, backend, TestFlight, or production proof | Yes when required by risk or the integration gate |
+
+Logic, branching hooks, sync/queue behavior, shared packages, backend functions, notification rules, and bug fixes keep their regression-first posture. Presentational UI, layout, animation, copy, color, and padding may be implemented and visually iterated before focused automation unless they contain meaningful behavior.
+
+Do not repeat the task-completion gate without a reason. Valid reasons are a failed run, incomplete or lost output, a subsequent code change, or a changed integration base. External waiting and physical-device acceptance are separate proof stages, not reasons to rerun unrelated automated tests.
+
 ---
 
 ## Testing layers (what goes where)
 
-### 1) “Static” checks (always-on, cheapest)
+### 1) “Static” checks (always-on at the PR gate, focused during implementation)
 
 - **Typecheck**: `npm run lint` (currently `tsc --noEmit`)
 - Optional but recommended as the codebase grows:
