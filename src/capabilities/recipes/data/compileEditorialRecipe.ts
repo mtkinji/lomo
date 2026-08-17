@@ -97,6 +97,7 @@ export function compileEditorialRecipeProjection(
           text: cueText,
         })),
       })),
+      equipmentRequirements: [],
       createdByPersonId: CATALOG_OWNER_ID,
       createdAt: CATALOG_CREATED_AT,
       contentHash,

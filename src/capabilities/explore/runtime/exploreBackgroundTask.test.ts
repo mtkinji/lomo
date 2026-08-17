@@ -10,6 +10,7 @@ import {
   EXPLORE_WAKE_REGION_ID,
   EXPLORE_WAKE_TASK,
 } from './exploreLocationTaskNames';
+import { useExploreStore } from './useExploreStore';
 
 type TaskBody = { data?: unknown; error?: Error | null };
 type TaskHandler = (body: TaskBody) => Promise<void> | void;
@@ -177,5 +178,35 @@ describe('Explore background tasks', () => {
       speedMps: 11.176,
       courseDeg: 88,
     }));
+  });
+
+  it('persists one copy of a background batch while the live Explore store is hydrated', async () => {
+    const startedAt = '2026-07-28T12:00:00.000Z';
+    const state = beginExploreSession(createEmptyExploreData(), 'ambient-1', startedAt, 'ambient');
+    await AsyncStorage.setItem('kwilt-explore-v1', JSON.stringify({ state, version: 10 }));
+    jest.clearAllMocks();
+    (useExploreStore.persist.hasHydrated as jest.Mock).mockReturnValue(true);
+    (useExploreStore.setState as jest.Mock).mockImplementation(async (nextState) => {
+      await AsyncStorage.setItem('kwilt-explore-v1', JSON.stringify({ state: nextState, version: 10 }));
+    });
+
+    await mockTasks[EXPLORE_BACKGROUND_TASK]({ data: { locations: [{
+      coords: {
+        latitude: 40.5,
+        longitude: -105.1,
+        altitude: 1500,
+        accuracy: 8,
+        altitudeAccuracy: 6,
+        speed: 11.176,
+        heading: 88,
+      },
+      timestamp: Date.parse(startedAt),
+    }] } });
+
+    expect(AsyncStorage.setItem).toHaveBeenCalledTimes(1);
+    expect(useExploreStore.setState).toHaveBeenCalledWith(expect.objectContaining({
+      lastPointDecision: 'background-location',
+    }));
+    expect((await storedState()).activeSession.points).toHaveLength(1);
   });
 });

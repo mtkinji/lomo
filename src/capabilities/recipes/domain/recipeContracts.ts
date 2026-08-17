@@ -1,3 +1,5 @@
+import { parseRecipeEquipmentRequirements, type SpecializedRecipeEquipment } from './recipeEquipment';
+
 export type RecipeLifecycle = 'active' | 'archived' | 'deleted';
 export type RecipeRightsBasis =
   | 'user_authored'
@@ -118,6 +120,7 @@ export type RecipeVersion = {
   notes: string | null;
   ingredients: RecipeIngredientLine[];
   instructions: RecipeInstructionStep[];
+  equipmentRequirements: SpecializedRecipeEquipment[];
   createdByPersonId: string;
   createdAt: string;
   contentHash: string;
@@ -415,7 +418,7 @@ function parseInstruction(value: unknown, index: number): RecipeInstructionStep 
 
 export function parseRecipeVersion(value: unknown): RecipeVersion {
   const object = asRecord(value, 'recipeVersion');
-  assertExactKeys(object, ['id', 'recipeId', 'version', 'title', 'description', 'yieldQuantity', 'yieldUnit', 'prepMinutes', 'cookMinutes', 'notes', 'ingredients', 'instructions', 'createdByPersonId', 'createdAt', 'contentHash'], 'recipeVersion');
+  assertExactKeys(object, ['id', 'recipeId', 'version', 'title', 'description', 'yieldQuantity', 'yieldUnit', 'prepMinutes', 'cookMinutes', 'notes', 'ingredients', 'instructions', 'equipmentRequirements', 'createdByPersonId', 'createdAt', 'contentHash'], 'recipeVersion');
   if (typeof object.title !== 'string' || object.title.trim().length === 0 || object.title.length > 160) {
     throw new RecipeContractError('recipe.title.invalid', 'Recipe title must be between 1 and 160 characters.', 'recipeVersion.title');
   }
@@ -427,6 +430,10 @@ export function parseRecipeVersion(value: unknown): RecipeVersion {
   }
   const ingredients = object.ingredients.map(parseIngredient);
   const instructions = object.instructions.map(parseInstruction);
+  const equipmentRequirements = parseRecipeEquipmentRequirements(
+    object.equipmentRequirements,
+    instructions.map((step) => step.text),
+  );
   orderedPositions(ingredients, 'recipe.ingredients.position_invalid', 'recipeVersion.ingredients');
   orderedPositions(instructions, 'recipe.instructions.position_invalid', 'recipeVersion.instructions');
   const id = requiredString(object.id, 'recipeVersion.id', 128);
@@ -446,6 +453,7 @@ export function parseRecipeVersion(value: unknown): RecipeVersion {
     notes: nullableString(object.notes, 'recipeVersion.notes', 20_000),
     ingredients,
     instructions,
+    equipmentRequirements,
     createdByPersonId: requiredString(object.createdByPersonId, 'recipeVersion.createdByPersonId', 128),
     createdAt: isoDateString(object.createdAt, 'recipeVersion.createdAt'),
     contentHash: requiredString(object.contentHash, 'recipeVersion.contentHash', 256),

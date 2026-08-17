@@ -45,8 +45,13 @@ import { Text } from '../../../ui/Typography';
 import { EmptyState } from '../../../ui/EmptyState';
 import { useAccessibilityPreferences } from '../../../ui/hooks/useAccessibilityPreferences';
 import { RecipeIngredientChecklist } from '../../recipes/components/RecipeIngredientList';
+import { buildRecipeLibraryInventory } from '../../recipes/data/starterRecipeCatalog';
 import { formatKitchenQuantity } from '../../recipes/domain/recipeScaling';
-import { createMealPlanningRepository } from '../../meal-planning/data/mealPlanningRepository';
+import { useRecipeStore } from '../../recipes/runtime/useRecipeStore';
+import {
+  createMealPlanningRepository,
+  type MealPlanProjection,
+} from '../../meal-planning/data/mealPlanningRepository';
 import { groceryCache } from '../data/groceryCache';
 import { groceryEducation } from '../data/groceryEducation';
 import { onlineShoppingPreferencesRepository } from '../data/onlineShoppingPreferencesRepository';
@@ -62,8 +67,18 @@ import {
 } from '../data/groceryOfflineQueue';
 import { groceryFulfillmentSummary } from '../domain/groceryFulfillment';
 import { isOnlineShoppingCountryEligible } from '../domain/groceryOnlineShoppingEligibility';
+import {
+  buildRecipeEquipmentSuggestions,
+  collectRecipeEquipmentSources,
+  formatEquipmentRecipeProvenance,
+} from '../domain/recipeEquipmentSuggestions';
 import { resolveOnlineShoppingLaunch } from '../domain/onlineShoppingLaunch';
-import { getOnlineRetailerRuntimePolicies } from '../providers/affiliateRetailerProvider';
+import {
+  buildApprovedAffiliateProductSearch,
+  getAffiliateRetailerLinkDisclosure,
+  getOnlineRetailerRuntimePolicies,
+  openAffiliateProductSearch,
+} from '../providers/affiliateRetailerProvider';
 import {
   getAffiliateRetailerTestingEnabled,
   getAmazonBatchPreparationEnabled,
@@ -221,7 +236,9 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const { openMenu } = useCapabilityShell();
   const capabilityMenuOpen = useCapabilityMenuOpen();
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
+  const personalRecipes = useRecipeStore((state) => state.recipes);
   const [list, setList] = useState<GroceryProjection | null>(null);
+  const [sourcePlan, setSourcePlan] = useState<MealPlanProjection | null>(null);
   const [offline, setOffline] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -235,6 +252,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const [alreadyHaveEducationSeen, setAlreadyHaveEducationSeen] = useState(true);
   const [cartFlowStarted, setCartFlowStarted] = useState(true);
   const [sourcePlanMealCount, setSourcePlanMealCount] = useState(0);
+  const [equipmentActionId, setEquipmentActionId] = useState<string | null>(null);
   const requestedListId = route.params?.listId;
   const onlineShoppingCountryEligible = isOnlineShoppingCountryEligible(
     getLocales()[0]?.regionCode,
@@ -344,14 +362,8 @@ export function GroceryListScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    if (list?.sourceKind === 'household_plan') {
-      const candidateIds = new Set(
-        list.items.flatMap((item) => item.sources.map((source) => source.planCandidateId).filter(Boolean)),
-      );
-      setSourcePlanMealCount(candidateIds.size);
-      return () => { cancelled = true; };
-    }
     if (!list?.sourceMealPlanId) {
+      setSourcePlan(null);
       setSourcePlanMealCount(0);
       return () => {
         cancelled = true;
@@ -366,15 +378,68 @@ export function GroceryListScreen({ navigation, route }: Props) {
             plan.id === list.sourceMealPlanId &&
             (list.sourceMealPlanVersion === null || plan.version === list.sourceMealPlanVersion),
         );
-        setSourcePlanMealCount(sourcePlan?.entries.length ?? 0);
+        setSourcePlan(sourcePlan ?? null);
+        if (list.sourceKind === 'household_plan') {
+          const candidateIds = new Set(
+            list.items.flatMap((item) =>
+              (item.sources ?? []).flatMap((source) => source.planCandidateId ? [source.planCandidateId] : []),
+            ),
+          );
+          setSourcePlanMealCount(candidateIds.size);
+        } else {
+          setSourcePlanMealCount(sourcePlan?.entries.length ?? 0);
+        }
       })
       .catch(() => {
-        if (!cancelled) setSourcePlanMealCount(0);
+        if (!cancelled) {
+          setSourcePlan(null);
+          setSourcePlanMealCount(0);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [list?.items, list?.sourceKind, list?.sourceMealPlanId, list?.sourceMealPlanVersion]);
+
+  const recipeInventory = useMemo(
+    () => buildRecipeLibraryInventory(personalRecipes),
+    [personalRecipes],
+  );
+  const contributingCandidateIds = useMemo(
+    () => [...new Set((list?.items ?? []).flatMap((item) =>
+      (item.sources ?? []).flatMap((source) => source.planCandidateId ? [source.planCandidateId] : []),
+    ))],
+    [list?.items],
+  );
+  const equipmentSources = useMemo(
+    () => collectRecipeEquipmentSources({
+      sourceKind: list?.sourceKind ?? '',
+      sourceRecipeVersionId: list?.sourceRecipeVersionId ?? null,
+      sourceTitle: list?.sourceTitle ?? null,
+      contributingCandidateIds,
+      plan: sourcePlan,
+    }),
+    [contributingCandidateIds, list?.sourceKind, list?.sourceRecipeVersionId, list?.sourceTitle, sourcePlan],
+  );
+  const equipmentSuggestions = useMemo(
+    () => buildRecipeEquipmentSuggestions({
+      sources: equipmentSources,
+      recipes: recipeInventory.map((projection) => ({
+        versionId: projection.currentVersion.id,
+        instructions: projection.currentVersion.instructions.map((step) => step.text),
+      })),
+      existingItemConcepts: (list?.items ?? []).map((item) => item.concept),
+      limit: 3,
+    }),
+    [equipmentSources, list?.items, recipeInventory],
+  );
+  const actionableEquipmentSuggestions = useMemo(
+    () => equipmentSuggestions.filter((suggestion) => Boolean(
+      buildApprovedAffiliateProductSearch('amazon', suggestion.searchQuery),
+    )),
+    [equipmentSuggestions],
+  );
+  const amazonEquipmentLinkDisclosure = getAffiliateRetailerLinkDisclosure('amazon');
 
   const fulfillment = groceryFulfillmentSummary(list?.items ?? []);
   const remainderCapturedRef = useRef(false);
@@ -513,6 +578,50 @@ export function GroceryListScreen({ navigation, route }: Props) {
     }
   };
 
+  const addEquipmentSuggestion = async (id: string, label: string) => {
+    if (!list || equipmentActionId || busy || offline || list.status === 'stale') return;
+    setEquipmentActionId(id);
+    try {
+      await createGroceryRepository().addItem(list.id, list.revision, label);
+      await load();
+    } catch (error) {
+      Alert.alert(
+        'Kitchen item did not save',
+        error instanceof Error ? error.message : 'Refresh and try again.',
+      );
+    } finally {
+      setEquipmentActionId(null);
+    }
+  };
+
+  const openEquipmentOnAmazon = async (actionId: string, label: string, searchQuery: string) => {
+    if (equipmentActionId || busy) return;
+    setEquipmentActionId(actionId);
+    try {
+      const opened = await openAffiliateProductSearch('amazon', searchQuery);
+      if (opened) return;
+      throw new Error('amazon.product_link_unavailable');
+    } catch {
+      Alert.alert(
+        "Amazon didn't open",
+        offline
+          ? 'Try again when you are back online.'
+          : `You can add ${label} to your grocery list instead.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          ...(!offline ? [{
+            text: 'Add to list',
+            onPress: () => {
+              void addEquipmentSuggestion(actionId, label);
+            },
+          }] : []),
+        ],
+      );
+    } finally {
+      setEquipmentActionId(null);
+    }
+  };
+
   const shopLabel = list?.status === 'stale'
     ? 'Update from Plan'
     : list
@@ -626,6 +735,46 @@ export function GroceryListScreen({ navigation, route }: Props) {
               instructions="Add an item when something comes to mind."
               style={styles.empty}
             />
+          ) : null}
+          {list && !reviewingCovered && list.status !== 'stale' && actionableEquipmentSuggestions.length ? (
+            <View testID="recipe-equipment-suggestions" style={styles.equipmentSection}>
+              <View style={styles.equipmentHeading}>
+                <Text variant="label" tone="secondary">For these recipes</Text>
+                <Text variant="bodySm" tone="secondary">
+                  Kitchen tools to check before you cook.
+                </Text>
+              </View>
+              {actionableEquipmentSuggestions.map((suggestion) => (
+                <View
+                  key={`${suggestion.id}:${suggestion.searchQuery}`}
+                  style={styles.equipmentRow}
+                >
+                  <View style={styles.equipmentCopy}>
+                    <Text>{suggestion.label}</Text>
+                    <Text variant="bodySm" tone="secondary" numberOfLines={3}>
+                      {`${formatEquipmentRecipeProvenance(suggestion.recipeTitles)} · ${amazonEquipmentLinkDisclosure}`}
+                    </Text>
+                  </View>
+                  <Button
+                    accessibilityLabel={`Search Amazon for ${suggestion.label}`}
+                    disabled={Boolean(equipmentActionId)}
+                    loading={equipmentActionId === `${suggestion.id}:${suggestion.searchQuery}`}
+                    loadingLabel="Opening…"
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => {
+                      void openEquipmentOnAmazon(
+                        `${suggestion.id}:${suggestion.searchQuery}`,
+                        suggestion.label,
+                        suggestion.searchQuery,
+                      );
+                    }}
+                  >
+                    Search Amazon
+                  </Button>
+                </View>
+              ))}
+            </View>
           ) : null}
       </ScrollView>
 
@@ -796,6 +945,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  equipmentSection: {
+    gap: spacing.sm,
+    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.cardBorder,
+  },
+  equipmentHeading: { gap: spacing.xs },
+  equipmentRow: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  equipmentCopy: { flex: 1, gap: 2 },
   disabled: { opacity: 0.45 },
   pressed: { transform: [{ scale: 0.985 }] },
 });

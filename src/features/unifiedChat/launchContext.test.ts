@@ -42,6 +42,27 @@ describe('resolveUnifiedChatLaunchAttachment', () => {
     });
   });
 
+  test('projects the selected Plan day without loading a private object', () => {
+    const planReturnTarget = {
+      name: 'MainTabs',
+      params: { screen: 'PlanTab', params: { dateKey: '2026-08-17' } },
+    };
+
+    expect(resolveUnifiedChatLaunchAttachment({
+      capabilityId: 'plan',
+      surface: 'detail',
+      object: { type: 'day', id: '2026-08-17' },
+      returnTarget: planReturnTarget,
+    }, { goals: [], activities: [], chapters: [] })).toEqual({
+      capabilityId: 'plan',
+      objectType: 'day',
+      objectId: '2026-08-17',
+      label: 'Mon, Aug 17',
+      secondaryLabel: 'Plan day',
+      returnTarget: planReturnTarget,
+    });
+  });
+
   test.each([
     ['goals', { type: 'goal', id: 'goal-1' }, 'Read together'],
     ['todos', { type: 'activity', id: 'activity-1' }, 'Visit the library'],

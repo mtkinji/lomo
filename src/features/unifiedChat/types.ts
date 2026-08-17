@@ -9,6 +9,7 @@ import type { ProfileProposalOperation } from './profileProposal';
 import type { ChapterProposalOperation } from './chapterProposal';
 import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 import type { ScreenTimeProposalOperation } from './screenTimeProposal';
+import type { RecipeProposalOperation } from './recipeProposal';
 
 export type UnifiedChatThreadStatus = 'active' | 'archived';
 export type UnifiedChatThreadTitleSource = 'default' | 'generated' | 'user';
@@ -233,7 +234,7 @@ export type UnifiedChatMutationReceipt = {
   id: string;
   proposalId: string;
   operationId: string;
-  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'screenTime' | 'money';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'screenTime' | 'money' | 'recipes';
   idempotencyKey: string;
   status: 'reserved' | 'applied' | 'failed' | 'undone';
   resultingObjectType: string | null;
@@ -275,7 +276,7 @@ export type TransitionUnifiedChatRunInput = {
 };
 
 export type PersistUnifiedChatMutationReceiptInput = {
-  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'screenTime' | 'money';
+  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'screenTime' | 'money' | 'recipes';
   threadId: string;
   proposalId: string;
   operationId: string;
@@ -403,6 +404,7 @@ export type PlanRemoveActivityPayload = {
 };
 
 export type UnifiedChatProposalOperation = UnifiedChatProposalOperationBase & (
+  | ({ capabilityId: 'recipes' } & RecipeProposalOperation)
   | {
       capabilityId: 'money'; type: 'create_money_category'; targetId: null;
       payload: { name: string; budgetCents: number };
@@ -545,6 +547,10 @@ type UnifiedChatProposalBase = {
 
 export type UnifiedChatProposal = UnifiedChatProposalBase & (
   | {
+      capabilityId: 'recipes';
+      operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'recipes' }>;
+    }
+  | {
       capabilityId: 'money';
       operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'money' }>;
     }
@@ -603,6 +609,10 @@ type CreatePlanProposalOperationInput = (
 ) & { summary: string; idempotencyKey: string };
 
 export type CreateUnifiedChatProposalInput = CreateUnifiedChatProposalInputBase & (
+  | {
+      capabilityId: 'recipes';
+      operation: RecipeProposalOperation & { summary: string; idempotencyKey: string };
+    }
   | {
       capabilityId: 'money';
       operation: (

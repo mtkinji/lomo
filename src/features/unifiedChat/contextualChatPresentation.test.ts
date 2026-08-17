@@ -35,6 +35,18 @@ describe('contextual Chat presentation', () => {
     });
   });
 
+  test('uses selected-day language for the Plan drawer', () => {
+    expect(getFreshDrawerCopy({
+      capabilityId: 'plan',
+      surface: 'detail',
+      object: { type: 'day', id: '2026-08-17' },
+      returnTarget: { name: 'MainTabs', params: { screen: 'PlanTab' } },
+    })).toEqual({
+      title: 'Chat about this day',
+      placeholder: 'What should this day account for?',
+    });
+  });
+
   test('offers editable recipe-specific ways into a fresh Recipe detail chat', () => {
     const launchContext = {
       capabilityId: 'recipes' as const,

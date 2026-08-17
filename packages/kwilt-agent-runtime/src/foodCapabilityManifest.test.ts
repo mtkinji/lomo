@@ -22,4 +22,16 @@ describe('canonical Food capability manifest', () => {
       expect(tools).toHaveLength(contract.authority === 'excluded' ? 0 : 1);
     }
   });
+
+  test('gives Recipe Chat writes a bounded buildable schema', () => {
+    const byId = new Map(FOOD_OPERATION_CONTRACTS.map((contract) => [contract.id, contract]));
+    expect(byId.get('recipes.create')?.inputSchema).toMatchObject({
+      required: ['recipe'],
+      properties: { recipe: { required: ['title', 'ingredients', 'instructions'] } },
+    });
+    expect(byId.get('recipes.update')?.inputSchema).toMatchObject({
+      required: ['recipeId', 'expectedVersion', 'reviewedVersion'],
+      properties: { reviewedVersion: { minProperties: 1 } },
+    });
+  });
 });

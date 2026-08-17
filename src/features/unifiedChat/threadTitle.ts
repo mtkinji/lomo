@@ -40,7 +40,12 @@ const MAX_THREAD_TITLE_CHARACTERS = 36;
 
 export function normalizeSuggestedThreadTitle(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  const title = value.replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '').trim();
+  const title = value
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^title\s*:\s*/i, '')
+    .replace(/[.!?]+$/, '')
+    .trim();
   if (!title || title.length > MAX_THREAD_TITLE_CHARACTERS ||
       QUOTED_TITLE.test(title) || GENERIC_TITLE.test(title)) {
     return null;
@@ -67,6 +72,28 @@ export function buildOpeningTitleMessages(turns: readonly ThreadTitleTurn[]): Th
     },
     { role: 'user', content: transcript(turns) },
   ];
+}
+
+export function buildOnDeviceThreadTitlePrompt(
+  turns: readonly ThreadTitleTurn[],
+  maximumCharacters = 2_400,
+): string {
+  return transcript(turns).slice(0, maximumCharacters).trim();
+}
+
+export async function resolveOpeningThreadTitle(input: {
+  generateLocal?: () => Promise<string | null>;
+  generateCloud: () => Promise<string | null>;
+}): Promise<string | null> {
+  if (input.generateLocal) {
+    try {
+      const localTitle = normalizeSuggestedThreadTitle(await input.generateLocal());
+      if (localTitle) return localTitle;
+    } catch {
+      // Background metadata may fall through to the existing cloud helper.
+    }
+  }
+  return normalizeSuggestedThreadTitle(await input.generateCloud());
 }
 
 export function parseOpeningTitleResponse(raw: string): string | null {

@@ -1,4 +1,4 @@
-import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput, Switch } from 'react-native';
+import { Alert, ScrollView, Share, StyleSheet, View, Pressable, TextInput, Switch } from 'react-native';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -51,6 +51,11 @@ import {
   celebrateStreakSaved,
 } from '../../store/useCelebrationStore';
 import { FamilyScreenTimeDevControls } from '../household/screenTime/FamilyScreenTimeDevControls';
+import foundationModelsModule from '../../../modules/kwilt-foundation-models';
+import {
+  buildOnDeviceGenerationBenchmarkPayload,
+  buildOnDeviceTitleGateBenchmarkPayload,
+} from '../unifiedChat/onDeviceGenerationBenchmark';
 
 type DevToolSectionId = 'seed' | 'preview' | 'simulate' | 'experiments' | 'diagnostics';
 
@@ -209,6 +214,7 @@ export function DevToolsScreen() {
   }, []);
   const [screenshotSeeding, setScreenshotSeeding] = useState(false);
   const [healthChapterSeeding, setHealthChapterSeeding] = useState(false);
+  const [onDeviceBenchmarkRunning, setOnDeviceBenchmarkRunning] = useState(false);
   const screenshotPackInstalled = useAppStore((state) =>
     SCREENSHOT_PACK_ARC_IDS.some((id) => state.arcs.some((a) => a.id === id))
   );
@@ -228,6 +234,31 @@ export function DevToolsScreen() {
       setChatHistory([]);
     } finally {
       setIsLoadingHistory(false);
+    }
+  };
+
+  const runOnDeviceBenchmark = async (mode: 'quick' | 'title_gate') => {
+    if (!foundationModelsModule) {
+      showDevToast('Apple Foundation Models are unavailable in this build.', 'warning');
+      return;
+    }
+    try {
+      setOnDeviceBenchmarkRunning(true);
+      const payload = mode === 'title_gate'
+        ? buildOnDeviceTitleGateBenchmarkPayload()
+        : buildOnDeviceGenerationBenchmarkPayload(2);
+      const resultPath = await foundationModelsModule.runBenchmark(JSON.stringify(payload));
+      const fileUrl = resultPath.startsWith('file://') ? resultPath : `file://${resultPath}`;
+      await Share.share({
+        title: mode === 'title_gate' ? 'On-device title latency gate' : 'On-device generation benchmark',
+        url: fileUrl,
+      });
+      showDevToast('Benchmark complete. Results are ready to share.', 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Benchmark failed.';
+      showDevToast(message, 'warning');
+    } finally {
+      setOnDeviceBenchmarkRunning(false);
     }
   };
 
@@ -1433,10 +1464,40 @@ export function DevToolsScreen() {
           <DevToolSection
             title="Diagnostics"
             description="Inspect local agent history and workflow feedback."
-            count={1}
+            count={2}
             expanded={expandedSections.diagnostics}
             onToggle={() => toggleSection('diagnostics')}
           >
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardEyebrow}>On-device generation latency</Text>
+                  <Text style={styles.cardBody}>
+                    Export cold and prewarmed measurements from this physical iPhone. The title gate runs 30 samples per state.
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.benchmarkActions}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={onDeviceBenchmarkRunning}
+                  onPress={() => void runOnDeviceBenchmark('quick')}
+                >
+                  <Text style={styles.secondaryButtonLabel}>
+                    {onDeviceBenchmarkRunning ? 'Running…' : 'Quick benchmark'}
+                  </Text>
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={onDeviceBenchmarkRunning}
+                  onPress={() => void runOnDeviceBenchmark('title_gate')}
+                >
+                  <Text style={styles.secondaryButtonLabel}>30-run title gate</Text>
+                </Button>
+              </View>
+            </View>
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
                 <Text style={styles.cardEyebrow}>Agent chat history</Text>
@@ -1785,6 +1846,11 @@ const styles = StyleSheet.create({
   cardAction: {
     alignSelf: 'flex-start',
     marginTop: 0,
+  },
+  benchmarkActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   historyList: {
     marginTop: spacing.md,

@@ -9,11 +9,12 @@ import {
   todosChatAdapter,
 } from './capabilityAdapters';
 import type { AttachUnifiedChatContextInput } from './types';
+import { dateKeyToLocalDate, formatDayLabel, toLocalDateKey } from '../../services/plan/planDates';
 
 export type UnifiedChatLaunchContext = {
-  capabilityId: Extract<UnifiedChatCapabilityId, 'goals' | 'todos' | 'chapters' | 'meal_planning' | 'recipes'>;
+  capabilityId: Extract<UnifiedChatCapabilityId, 'goals' | 'todos' | 'chapters' | 'meal_planning' | 'plan' | 'recipes'>;
   surface: 'inventory' | 'detail';
-  object?: { type: 'goal' | 'activity' | 'chapter' | 'recipe'; id: string };
+  object?: { type: 'goal' | 'activity' | 'chapter' | 'day' | 'recipe'; id: string };
   returnTarget: Record<string, unknown>;
 };
 
@@ -36,7 +37,7 @@ export type UnifiedChatLaunchSnapshots = {
 
 export type UnifiedChatAttachableContext = {
   capabilityId: UnifiedChatLaunchContext['capabilityId'];
-  objectType: 'goal' | 'activity' | 'chapter' | 'recipe';
+  objectType: 'goal' | 'activity' | 'chapter' | 'day' | 'recipe';
   objectId: string;
   label: string;
   secondaryLabel: string | null;
@@ -50,6 +51,7 @@ const CAPABILITY_LABELS: Record<UnifiedChatLaunchContext['capabilityId'], string
   todos: 'To-dos',
   chapters: 'Chapters',
   meal_planning: 'Meals',
+  plan: 'Plan',
   recipes: 'Recipes',
 };
 
@@ -68,6 +70,20 @@ export function resolveUnifiedChatLaunchAttachment(
       objectId: launch.capabilityId,
       label: CAPABILITY_LABELS[launch.capabilityId],
       secondaryLabel: 'Current capability',
+      returnTarget: launch.returnTarget,
+    };
+  }
+
+  if (launch.capabilityId === 'plan') {
+    if (launch.object.type !== 'day') return null;
+    const day = dateKeyToLocalDate(launch.object.id);
+    if (toLocalDateKey(day) !== launch.object.id) return null;
+    return {
+      capabilityId: launch.capabilityId,
+      objectType: 'day',
+      objectId: launch.object.id,
+      label: formatDayLabel(day),
+      secondaryLabel: 'Plan day',
       returnTarget: launch.returnTarget,
     };
   }

@@ -1,8 +1,10 @@
 import { Linking } from 'react-native';
 import {
+  buildApprovedAffiliateProductDetail,
   buildApprovedAffiliateProductSearch,
   getAffiliateRetailerLinkDisclosure,
   getOnlineRetailerRuntimePolicies,
+  openAffiliateProductDetail,
   openAffiliateProductSearch,
 } from './affiliateRetailerProvider';
 
@@ -14,6 +16,7 @@ jest.mock('../../../services/affiliateLinks', () => ({
   buildRetailerSearchUrl: jest.fn((retailer: string) => `https://www.${retailer}.com/search?q=milk`),
   buildAffiliateRetailerSearchUrl: jest.fn(() => 'https://amazon.com/s?k=milk&tag=kwilt-20'),
   buildApprovedWalmartAffiliateSearchUrl: jest.fn(() => 'https://goto.walmart.example/search/milk'),
+  withAffiliateTracking: jest.fn((_retailer: string, url: string) => `${url}?tag=kwilt-20`),
 }));
 jest.mock('../../../utils/getEnv', () => ({
   getAmazonAssociatesTag: () => mockGetAmazonAssociatesTag(),
@@ -26,6 +29,7 @@ jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
 
 describe('affiliate retailer provider', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     mockGetAmazonAssociatesTag.mockReturnValue(undefined);
     mockGetWalmartAffiliateSearchTemplate.mockReturnValue(undefined);
     mockGetAffiliateRetailerTestingEnabled.mockReturnValue(false);
@@ -53,6 +57,39 @@ describe('affiliate retailer provider', () => {
 
     expect(getAffiliateRetailerLinkDisclosure('amazon', approvals)).toBe('Paid link');
     expect(getAffiliateRetailerLinkDisclosure('walmart', approvals)).toBe('Paid link');
+  });
+
+  it('keeps direct Amazon products untagged in testing and tags them only after mobile approval', () => {
+    mockGetAffiliateRetailerTestingEnabled.mockReturnValue(true);
+    expect(buildApprovedAffiliateProductDetail('amazon', 'B07BW1ZPB5')).toBe(
+      'https://www.amazon.com/dp/B07BW1ZPB5',
+    );
+    mockGetAmazonAssociatesTag.mockReturnValue('kwilt-20');
+    expect(buildApprovedAffiliateProductDetail(
+      'amazon',
+      'B07BW1ZPB5',
+      { amazonMobileApproved: true, walmartSurfaceApproved: false },
+      false,
+    )).toContain('tag=kwilt-20');
+  });
+
+  it('rejects malformed product identifiers and production links before mobile approval', () => {
+    expect(buildApprovedAffiliateProductDetail('amazon', '../cart')).toBe('');
+    expect(buildApprovedAffiliateProductDetail(
+      'amazon',
+      'B07BW1ZPB5',
+      { amazonMobileApproved: false, walmartSurfaceApproved: false },
+      false,
+    )).toBe('');
+  });
+
+  it('opens a direct product only when the runtime gate yields a destination', async () => {
+    await expect(openAffiliateProductDetail('amazon', 'B07BW1ZPB5')).resolves.toBe(false);
+    expect(Linking.openURL).not.toHaveBeenCalled();
+
+    mockGetAffiliateRetailerTestingEnabled.mockReturnValue(true);
+    await expect(openAffiliateProductDetail('amazon', 'B07BW1ZPB5')).resolves.toBe(true);
+    expect(Linking.openURL).toHaveBeenCalledWith('https://www.amazon.com/dp/B07BW1ZPB5');
   });
 
   it('defaults both mobile surfaces to disabled', () => {

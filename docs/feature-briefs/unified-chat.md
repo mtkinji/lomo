@@ -60,6 +60,16 @@ The judgment pass uses the server-routed `gpt-5.6-luna` model at low reasoning e
 
 The first release is gated by the standing 60-case operation corpus plus the analysis/action behavior families in `unifiedChatBehaviorEvalCases.ts`, a live redacted Luna evaluation, and separate signed Simulator and physical-device proof. Source completion alone does not establish production reliability.
 
+### Local-first inference learning-release contract
+
+For small interactions where cloud inference adds cost and network latency without adding useful authority, Chat may answer through a lower layer before the default cloud response:
+
+- a deliberately tiny authored set handles greetings and acknowledgements without a model;
+- Apple Foundation Models may handle explicit, self-contained rewriting, proofreading, shortening, summarization, and small ideation on an eligible device and locale;
+- any unavailable, unsupported, cancelled, invalid, or failed local result falls through to the existing cloud route in the same turn.
+
+This is an invisible execution optimization, not a second Chat mode. The first slice never gives the local model private Kwilt evidence, conversation history, attachments, capability actions, current-information work, tools, proposals, or receipts. It does not prewarm at app launch or expose a provider selector. Capability policy remains deterministic, and cloud/tool execution remains authoritative. The design and proof gates live in [`docs/design-explorations/unified-chat-local-first-inference/`](../design-explorations/unified-chat-local-first-inference/).
+
 ## MVP reset — conversational app control
 
 The first MVP proof is that a user can control capabilities already present in Kwilt using ordinary language and can see which request caused every answer, evidence set, proposal, receipt, and correction. Runtime completeness is not required, but causal presentation and action truth are part of the trust contract rather than optional polish.

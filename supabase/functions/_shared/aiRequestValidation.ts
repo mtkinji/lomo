@@ -68,6 +68,9 @@ export function validateKwiltAiRequestShape(
         return invalid('message.content too large');
       }
     }
+    if (parsed.stream === true && (parsed.tools != null || parsed.response_format != null)) {
+      return invalid('streaming is allowed only for plain chat completions');
+    }
     return { ok: true };
   }
 

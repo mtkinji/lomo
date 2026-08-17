@@ -13,12 +13,13 @@ serves:
   - jtbd-invite-the-right-people-in
   - jtbd-review-budget-reality-before-spending
   - jtbd-trust-this-app-with-my-life
+  - jtbd-understand-why-ai-suggested-this
 briefs:
   - household-food-loop
   - exact-store-retailer-handoff
   - online-grocery-cart-concierge
 status: draft
-last_reviewed: 2026-08-08
+last_reviewed: 2026-08-16
 ---
 
 # Groceries

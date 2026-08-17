@@ -14,6 +14,7 @@ serves:
   - jtbd-invite-the-right-people-in
   - jtbd-review-budget-reality-before-spending
   - jtbd-trust-this-app-with-my-life
+  - jtbd-understand-why-ai-suggested-this
 briefs:
   - household-food-loop
   - family-recipe-capture
@@ -22,8 +23,10 @@ briefs:
   - object-detail-media-shell
   - compound-recipe-instructions
   - contextual-recipe-chat
+  - chat-recipe-management
+  - online-grocery-cart-concierge
 status: draft
-last_reviewed: 2026-08-12
+last_reviewed: 2026-08-16
 ---
 
 # Recipes

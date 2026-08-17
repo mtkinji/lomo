@@ -1,5 +1,6 @@
 import type { MealPlanCandidateDraft } from '../../meal-planning/data/mealPlanningRepository';
 import type { RecipeProjection } from '../data/recipeCache';
+import { deriveSpecializedRecipeEquipment } from './recipeEquipment';
 
 export function buildMealPlanRecipeCandidate(
   projection: RecipeProjection,
@@ -29,6 +30,9 @@ export function buildMealPlanRecipeCandidate(
         originalText: line.originalText,
         optional: line.optional,
       })),
+      equipmentSuggestions: projection.currentVersion.equipmentRequirements.length
+        ? projection.currentVersion.equipmentRequirements
+        : deriveSpecializedRecipeEquipment(projection.currentVersion.instructions.map((step) => step.text)),
       title: projection.currentVersion.title,
       yieldQuantity: projection.currentVersion.yieldQuantity,
       yieldUnit: projection.currentVersion.yieldUnit,

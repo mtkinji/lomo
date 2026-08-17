@@ -26,6 +26,7 @@ import { buildFreshWorkbenchSnapshot, buildWorkbenchSnapshot } from './buildWork
 import { createFreshEntryThreadGate } from './freshEntryThread';
 import { createUnifiedChatRepository } from './threadRepository';
 import { runUnifiedChatTurn } from './runUnifiedChatTurn';
+import { prewarmOnDeviceChatModel } from './onDeviceChatProvider';
 import type {
   UnifiedChatClientAction,
   UnifiedChatProposal,
@@ -111,6 +112,7 @@ import { appendUnifiedChatVoiceLevel } from './unifiedChatVoiceMetering';
 import { startLiveConversationSession, type LiveConversationConnection } from '../liveConversation/liveConversationSessionClient';
 import { sweepLegacyCookVoiceCacheOnce } from '../../capabilities/recipes/voice/cookVoiceCacheCleanup';
 import { conversationProgressSpeech, liveConversationSpeech } from '../liveConversation/conversationSpeechRuntime';
+import { conversationActivationFeedback } from '../liveConversation/conversationActivationFeedbackRuntime';
 import type { ConversationProgressCueId } from '../liveConversation/conversationProgressCue';
 import { createConversationLatencyTracker, type ActiveConversationLatency } from '../liveConversation/conversationLatency';
 import {
@@ -120,6 +122,9 @@ import {
 import { buildUnifiedChatTranscript } from './chatTranscript';
 import { createMoneyRepository } from '../../capabilities/money/data/moneyRepository';
 import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProposalDecision';
+import { executeRecipeProposalDecision } from './executeRecipeProposalDecision';
+import { createRecipeRepository } from '../../capabilities/recipes/data/recipeRepository';
+import { useRecipeStore } from '../../capabilities/recipes/runtime/useRecipeStore';
 import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
 import { buildFreshDrawerContext, getFreshDrawerCopy, getFreshDrawerOffers } from './contextualChatPresentation';
 import { UnifiedChatDrawerHeader } from './UnifiedChatDrawerHeader';
@@ -137,6 +142,14 @@ const activityStoreBoundary = {
   updateActivity: (id: string, updater: Parameters<ReturnType<typeof useAppStore.getState>['updateActivity']>[1]) =>
     useAppStore.getState().updateActivity(id, updater),
   removeActivity: (id: string) => useAppStore.getState().removeActivity(id),
+};
+
+const recipeMutationBoundary = {
+  save: (input: Parameters<ReturnType<typeof createRecipeRepository>['save']>[0]) =>
+    createRecipeRepository().save(input),
+  delete: (recipeId: string, expectedVersion: number) =>
+    createRecipeRepository().delete(recipeId, expectedVersion),
+  refresh: () => useRecipeStore.getState().refresh(),
 };
 
 const planStoreBoundary = {
@@ -241,6 +254,8 @@ export function UnifiedChatScreen({
   const conversationResponseGenerationRef = useRef(0);
   const [threads, setThreads] = useState<UnifiedChatThread[]>([]);
   const [aggregate, setAggregate] = useState<UnifiedChatThreadAggregate | null>(null);
+  const [streamingResponse, setStreamingResponse] = useState<{ runId: string; text: string } | null>(null);
+  const [processingNotice, setProcessingNotice] = useState<string | null>(null);
   const aggregateRef = useRef<UnifiedChatThreadAggregate | null>(null);
   const [prompt, setPrompt] = useState('');
   const voiceInsertionRef = useRef<UnifiedChatVoiceInsertion | null>(null);
@@ -265,6 +280,10 @@ export function UnifiedChatScreen({
   const clearVoiceTimer = useCallback(() => {
     if (voiceTimer.current) clearInterval(voiceTimer.current);
     voiceTimer.current = null;
+  }, []);
+
+  useEffect(() => {
+    void prewarmOnDeviceChatModel();
   }, []);
 
   const publishConversationLatency = useCallback((
@@ -347,11 +366,15 @@ export function UnifiedChatScreen({
     (next: UnifiedChatThreadAggregate, type: 'host.initialize' | 'host.snapshot') => {
       const message = makeAgentWorkbenchHostMessage(
         type,
-        buildWorkbenchSnapshot(next, prompt, { voice, attachments }),
+        buildWorkbenchSnapshot(next, prompt, {
+          voice,
+          attachments,
+          ...(streamingResponse ? { streamingResponse } : {}),
+        }),
       );
       webViewRef.current?.postMessage(JSON.stringify(message));
     },
-    [attachments, prompt, voice],
+    [attachments, prompt, streamingResponse, voice],
   );
 
   const freshWorkbenchContext = useMemo(
@@ -493,11 +516,13 @@ export function UnifiedChatScreen({
     void cancelUnifiedChatVoiceRecording();
     void liveConversation.current?.stop();
     liveConversation.current = null;
+    conversationActivationFeedback.cancel();
     conversationProgressSpeech.stop();
     void liveConversationSpeech.stop();
   }, [clearVoiceTimer]);
 
   const stopConversation = useCallback(async () => {
+    conversationActivationFeedback.stop();
     clearVoiceTimer();
     const current = liveConversation.current;
     liveConversation.current = null;
@@ -511,6 +536,7 @@ export function UnifiedChatScreen({
 
   const startConversation = useCallback(async () => {
     if (liveConversation.current || voice.state === 'connecting') return;
+    conversationActivationFeedback.begin();
     await cancelUnifiedChatVoiceRecording();
     await sweepLegacyCookVoiceCacheOnce();
     conversationProgressHistoryRef.current = [];
@@ -518,8 +544,9 @@ export function UnifiedChatScreen({
     setVoice({ state: 'connecting', elapsedSeconds: 0, levels: [], message: 'Connecting…' });
     try {
       const connection = await startLiveConversationSession({
-        onConnected: () => {
+        onConnected: (connection) => {
           setVoice((current) => ({ ...current, state: 'listening', message: 'Listening' }));
+          void conversationActivationFeedback.ready(connection);
           voiceTimer.current = setInterval(() => {
             setVoice((current) => current.state === 'idle' || current.state === 'error'
               ? current
@@ -566,6 +593,7 @@ export function UnifiedChatScreen({
       });
       liveConversation.current = connection;
     } catch (conversationError) {
+      conversationActivationFeedback.fail();
       setVoice({ state: 'error', elapsedSeconds: 0, levels: [],
         message: conversationError instanceof Error ? conversationError.message : 'Conversation mode is unavailable.' });
     }
@@ -1031,7 +1059,11 @@ export function UnifiedChatScreen({
         setError(null);
         try {
           const executeApprovedProposal = async (proposal: UnifiedChatProposal) => {
-            if (proposal.capabilityId === 'money') {
+            if (proposal.capabilityId === 'recipes') {
+              await executeRecipeProposalDecision({
+                proposal, action: 'approve', repository, recipes: recipeMutationBoundary,
+              });
+            } else if (proposal.capabilityId === 'money') {
               await executeMoneyCategoryProposalDecision({ proposal, action: 'approve', repository, moneyRepository });
             } else if (proposal.capabilityId === 'screenTime') {
               await executeScreenTimeProposalDecision({
@@ -1080,6 +1112,23 @@ export function UnifiedChatScreen({
       if (command.type === 'proposal.decide' && aggregate) {
         const proposal = (aggregate.proposals ?? []).find((item) => item.id === command.proposalId);
         if (!proposal || proposal.version !== command.expectedVersion) return;
+        if (proposal.capabilityId === 'recipes') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Recipe change.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeRecipeProposalDecision({
+              proposal, action: command.action, repository, recipes: recipeMutationBoundary,
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Recipe.');
+          }
+          return;
+        }
         if (proposal.capabilityId === 'money') {
           if (command.action === 'edit') {
             setError('Ask Kwilt to prepare a revised Money category change.');
@@ -1400,6 +1449,8 @@ export function UnifiedChatScreen({
       let retryRunId = retryRun?.id;
       let turnAttachments = command.type === 'run.send' ? attachments : [];
       while (turnPrompt.trim()) {
+        setStreamingResponse(null);
+        setProcessingNotice(null);
         const controller = new AbortController();
         const turnState = {
           runId: null as string | null,
@@ -1459,6 +1510,10 @@ export function UnifiedChatScreen({
             },
             onRunProgress: (progressAggregate) => {
               setAggregate(progressAggregate);
+            },
+            onResponseProgress: setStreamingResponse,
+            onProviderFallback: () => {
+              setProcessingNotice('On-device processing couldn’t complete this request, so this response is using cloud processing.');
             },
             onThreadTitleUpdated: (updatedThread) => {
               setAggregate((current) => current?.thread.id === updatedThread.id
@@ -1523,6 +1578,7 @@ export function UnifiedChatScreen({
             setError(turnError instanceof Error ? turnError.message : 'Response interrupted.');
           }
         } finally {
+          setStreamingResponse(null);
           if (activeTurn.current === turnState) activeTurn.current = null;
         }
 
@@ -1625,6 +1681,17 @@ export function UnifiedChatScreen({
           style={styles.errorBar}
         >
           <Text style={styles.errorText}>{error}</Text>
+        </Pressable>
+      ) : null}
+
+      {processingNotice ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss processing notice"
+          onPress={() => setProcessingNotice(null)}
+          style={styles.processingNoticeBar}
+        >
+          <Text style={styles.processingNoticeText}>{processingNotice}</Text>
         </Pressable>
       ) : null}
 
@@ -1806,6 +1873,14 @@ const styles = StyleSheet.create({
   webView: { backgroundColor: colors.canvas },
   errorBar: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.scheduleYellow },
   errorText: { ...typography.bodySm, color: colors.textPrimary },
+  processingNoticeBar: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.infoSurface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  processingNoticeText: { ...typography.bodySm, color: colors.textSecondary },
   centeredState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing['2xl'], gap: spacing.md },
   recoveryState: { flex: 1, justifyContent: 'center', marginTop: 0, padding: spacing['2xl'] },
   stateTitle: { ...typography.titleMd, color: colors.textPrimary, textAlign: 'center' },

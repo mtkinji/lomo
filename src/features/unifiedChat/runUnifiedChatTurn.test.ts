@@ -764,6 +764,11 @@ describe('runUnifiedChatTurn', () => {
   test('persists model title suggestions without allowing automation to own manual names', async () => {
     const { repository, send } = dependencies();
     const onThreadTitleUpdated = jest.fn();
+    const generateOnDeviceResponse = jest.fn(async () => ({
+      status: 'completed' as const,
+      text: 'Planning the School Week',
+      durationMs: 180,
+    }));
 
     await runUnifiedChatTurn(
       {
@@ -771,14 +776,27 @@ describe('runUnifiedChatTurn', () => {
         prompt: 'Can you help plan the school week?',
         onThreadTitleUpdated,
       },
-      { repository: repository as never, sendCoachChat: send as never },
+      {
+        repository: repository as never,
+        sendCoachChat: send as never,
+        generateOnDeviceResponse,
+      },
     );
 
     const options = send.mock.calls[0]?.[1] as {
       conversationTitlePolicy?: {
+        generateOpeningTitle?: (turns: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<string | null>;
         onSuggestedTitle: (title: string, source: 'opening' | 'summary') => Promise<void>;
       };
     };
+    await expect(options.conversationTitlePolicy?.generateOpeningTitle?.([
+      { role: 'user', content: 'Can you help plan the school week?' },
+      { role: 'assistant', content: 'Let’s start with fixed commitments.' },
+    ])).resolves.toBe('Planning the School Week');
+    expect(generateOnDeviceResponse).toHaveBeenCalledWith(expect.objectContaining({
+      task: 'thread_title',
+      prompt: expect.stringContaining('plan the school week'),
+    }), undefined);
     await options.conversationTitlePolicy?.onSuggestedTitle('Planning the School Week', 'opening');
     expect(repository.applyGeneratedThreadTitle).toHaveBeenCalledWith(
       'thread-1',
