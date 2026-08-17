@@ -12,11 +12,14 @@ import { IconButton } from '../../ui/Button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import type { MainTabsParamList } from '../../navigation/RootNavigator';
 import { PlanDateStrip } from './PlanDateStrip';
-import { dateKeyToLocalDate } from '../../services/plan/planDates';
+import { dateKeyToLocalDate, formatDayLabel, toLocalDateKey } from '../../services/plan/planDates';
 import { useAppStore } from '../../store/useAppStore';
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { StreakWeeklyRecapCard } from './StreakWeeklyRecapCard';
 import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
+import { PlanActionDock } from './PlanActionDock';
+import { UnifiedChatDrawer } from '../unifiedChat/UnifiedChatDrawer';
+import type { UnifiedChatLaunchContext } from '../unifiedChat/launchContext';
 export function PlanScreen() {
   const capabilityShell = useCapabilityShellOptional();
   const navigation = useNavigation();
@@ -29,6 +32,8 @@ export function PlanScreen() {
   );
   const [recsSheetSnapIndex, setRecsSheetSnapIndex] = useState(0);
   const [recsCount, setRecsCount] = useState(0);
+  const [planChatVisible, setPlanChatVisible] = useState(false);
+  const [planChatThreadId, setPlanChatThreadId] = useState<string | null>(null);
   const [entryPoint, setEntryPoint] = useState<'manual' | 'kickoff'>(() =>
     route?.params?.openRecommendations ? 'kickoff' : 'manual',
   );
@@ -45,6 +50,17 @@ export function PlanScreen() {
   const repairWindowActive = useRepairWindowActive(streakBreakState);
   const lastWeeklyRecapDismissedWeekKey = useAppStore((s) => s.lastWeeklyRecapDismissedWeekKey);
   const dismissWeeklyRecap = useAppStore((s) => s.dismissWeeklyRecap);
+  const selectedDateKey = useMemo(() => toLocalDateKey(selectedDate), [selectedDate]);
+  const selectedDayLabel = useMemo(() => formatDayLabel(selectedDate), [selectedDate]);
+  const planChatLaunchContext = useMemo<UnifiedChatLaunchContext>(() => ({
+    capabilityId: 'plan',
+    surface: 'detail',
+    object: { type: 'day', id: selectedDateKey },
+    returnTarget: {
+      name: 'MainTabs',
+      params: { screen: 'PlanTab', params: { dateKey: selectedDateKey } },
+    },
+  }), [selectedDateKey]);
 
   const showWeeklyRecap = useMemo(() => {
     const now = new Date();
@@ -89,6 +105,22 @@ export function PlanScreen() {
       setSelectedDate(dateKeyToLocalDate(routeDateKey));
     }
   }, [routeDateKey]);
+
+  React.useEffect(() => {
+    setPlanChatVisible(false);
+    setPlanChatThreadId(null);
+  }, [selectedDateKey]);
+
+  const handleOpenRecommendations = useCallback(() => {
+    setPlanChatVisible(false);
+    setEntryPoint('manual');
+    setRecsSheetSnapIndex(1);
+  }, []);
+
+  const handleOpenPlanChat = useCallback(() => {
+    setRecsSheetSnapIndex(0);
+    setPlanChatVisible(true);
+  }, []);
 
   return (
     <AppShell>
@@ -151,6 +183,20 @@ export function PlanScreen() {
         onRecommendationsSheetSnapIndexChange={setRecsSheetSnapIndex}
         onRecommendationsCountChange={setRecsCount}
         onNavigateDay={(delta) => shiftDays(delta)}
+      />
+      <PlanActionDock
+        recommendationsCount={recsCount}
+        onOpenRecommendations={handleOpenRecommendations}
+        onOpenChat={handleOpenPlanChat}
+      />
+      <UnifiedChatDrawer
+        visible={planChatVisible}
+        onClose={() => setPlanChatVisible(false)}
+        launchContext={planChatLaunchContext}
+        scopeLabel={selectedDayLabel}
+        source="plan_day_contextual_drawer"
+        threadId={planChatThreadId}
+        onThreadIdChange={setPlanChatThreadId}
       />
     </AppShell>
   );
