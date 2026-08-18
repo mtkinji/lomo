@@ -8,7 +8,12 @@ import { getAccessToken } from '../../services/backend/auth';
 import { getEdgeFunctionUrl, getEdgeFunctionUrlCandidates } from '../../services/edgeFunctions';
 import { getInstallId } from '../../services/installId';
 import { getSupabasePublishableKey } from '../../utils/getEnv';
-import { parseOpenAiRealtimeEvent, type LiveConversationProviderEvent } from './openAiRealtimeEvents';
+import {
+  buildLiveConversationSessionUpdate,
+  parseOpenAiRealtimeEvent,
+  type LiveConversationProviderEvent,
+} from './openAiRealtimeEvents';
+import { waitForLiveConversationDataChannel } from './liveConversationConnection';
 
 type EphemeralSession = { clientSecret: string };
 
@@ -80,7 +85,6 @@ export async function startLiveConversationSession(input: {
     stream = await mediaDevices.getUserMedia({ audio: true, video: false });
     stream.getTracks().forEach((track) => peer.addTrack(track, stream!));
     const events = peer.createDataChannel('oai-events');
-    events.onopen = () => input.onConnected(connection);
     events.onmessage = (message: { data: unknown }) => {
       if (typeof message.data !== 'string') return;
       const event = parseOpenAiRealtimeEvent(message.data);
@@ -97,6 +101,10 @@ export async function startLiveConversationSession(input: {
     const answer = await response.text();
     if (!response.ok || !answer.trim()) throw new Error('Conversation connection could not be established.');
     await peer.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answer }));
+    await waitForLiveConversationDataChannel(events);
+    events.send(JSON.stringify(buildLiveConversationSessionUpdate()));
+    events.onerror = () => input.onFailure(new Error('Conversation connection interrupted.'));
+    input.onConnected(connection);
     return connection;
   } catch (error) {
     await stop();

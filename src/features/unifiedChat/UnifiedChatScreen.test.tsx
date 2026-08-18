@@ -277,6 +277,12 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('openMenu');
   });
 
+  test('surfaces an interrupted realtime connection as a retryable error instead of fake reconnection', () => {
+    expect(screenSource).not.toContain("message: 'Reconnecting…'");
+    expect(screenSource).toContain("message = 'Check your microphone or connection, then try again.'");
+    expect(screenSource).toContain("setVoice({ state: 'error'");
+  });
+
   test('offers a local full-chat copy from the conversation options menu', () => {
     expect(screenSource).toContain("import * as Clipboard from 'expo-clipboard'");
     expect(screenSource).toContain("text: 'Copy chat'");

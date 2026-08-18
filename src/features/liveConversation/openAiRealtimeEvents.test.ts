@@ -1,7 +1,30 @@
-import { parseOpenAiRealtimeEvent } from './openAiRealtimeEvents';
+import { buildLiveConversationSessionUpdate, parseOpenAiRealtimeEvent } from './openAiRealtimeEvents';
 
 describe('OpenAI Realtime event normalization', () => {
+  it('uses semantic turn detection to leave room for a thinking pause', () => {
+    expect(buildLiveConversationSessionUpdate()).toEqual({
+      type: 'session.update',
+      session: {
+        type: 'transcription',
+        audio: {
+          input: {
+            turn_detection: {
+              type: 'semantic_vad',
+              eagerness: 'medium',
+            },
+          },
+        },
+      },
+    });
+  });
+
   it('normalizes provisional and final input transcripts', () => {
+    expect(parseOpenAiRealtimeEvent(JSON.stringify({
+      type: 'input_audio_buffer.speech_started', item_id: 'item-1',
+    }))).toEqual({ type: 'speech_started', itemId: 'item-1' });
+    expect(parseOpenAiRealtimeEvent(JSON.stringify({
+      type: 'input_audio_buffer.speech_stopped', item_id: 'item-1',
+    }))).toEqual({ type: 'speech_stopped', itemId: 'item-1' });
     expect(parseOpenAiRealtimeEvent(JSON.stringify({
       type: 'conversation.item.input_audio_transcription.delta', item_id: 'item-1', delta: 'Hello',
     }))).toEqual({ type: 'transcript_delta', itemId: 'item-1', delta: 'Hello' });
