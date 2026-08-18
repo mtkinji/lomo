@@ -1,5 +1,4 @@
 import {
-  getMoneyAppControlPresetCopy,
   hasMoneyAppControlTargets,
   moneyAppControlSelectionId,
   type MoneyAppControlSettings,
@@ -7,7 +6,7 @@ import {
 } from '../../../capabilities/money/domain/moneyAppControl';
 import {
   hasPersonalRuleTargets,
-  type PersonalScreenTimeRuleKind,
+  type ScreenTimeToken,
   type ScreenTimeProtectionSettings,
 } from '../../../services/screenTimeProtection';
 
@@ -18,8 +17,9 @@ export type ScreenTimeRuleInventoryRow = {
   detail: string;
   targetCount: number;
   enabled: boolean;
+  contextLabel: string | null;
   destination:
-    | { kind: 'personal'; ruleKind: PersonalScreenTimeRuleKind }
+    | { kind: 'personal'; ruleId: string }
     | { kind: 'money'; categorySourceId: string };
 };
 
@@ -27,29 +27,27 @@ function targetLabel(count: number): string {
   return `${count} ${count === 1 ? 'app or category' : 'apps or categories'}`;
 }
 
+function targetSummary(selectedApps: ScreenTimeToken[], selectedCategories: ScreenTimeToken[]): string {
+  const targets = [...selectedApps, ...selectedCategories];
+  const firstLabel = targets[0]?.label?.trim();
+  if (targets.length === 1) return firstLabel || targetLabel(1);
+  return firstLabel ? `${firstLabel} + ${targets.length - 1}` : targetLabel(targets.length);
+}
+
 function readableCategoryName(categorySourceId: string): string {
   const words = categorySourceId.replace(/[_-]+/g, ' ').toLowerCase();
   return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
 }
 
-function moneyRuleTitle(preset: MoneyAppControlPreset, categoryName: string): string {
-  if (preset === 'always_review') return `Review ${categoryName} before access`;
-  if (preset === 'when_hot') return `Pause when ${categoryName} is hot`;
-  if (preset === 'at_95_percent') return `Pause when ${categoryName} reaches 95%`;
-  if (preset === 'when_over') return `Pause when ${categoryName} is over`;
-  return `Pause when ${categoryName} needs review`;
-}
-
 function moneyRuleDetail(
   preset: MoneyAppControlPreset,
   categoryName: string,
-  count: number,
 ): string {
-  if (preset === 'always_review') {
-    return `Pause ${targetLabel(count)} until ${categoryName} is reviewed.`;
-  }
-  const detail = getMoneyAppControlPresetCopy(preset).detail.replace(/^Pause\s+/i, '');
-  return `Pause ${targetLabel(count)} ${detail.charAt(0).toLowerCase()}${detail.slice(1)}`;
+  if (preset === 'always_review') return `Pause until ${categoryName} is reviewed.`;
+  if (preset === 'when_hot') return `Pause when ${categoryName} spending runs ahead of the month.`;
+  if (preset === 'at_95_percent') return `Pause when ${categoryName} reaches 95% of its plan.`;
+  if (preset === 'when_over') return `Pause when ${categoryName} is over its monthly plan.`;
+  return `Pause while ${categoryName} has transactions to review.`;
 }
 
 export function buildMyScreenTimeRuleInventory(params: {
@@ -65,19 +63,16 @@ export function buildMyScreenTimeRuleInventory(params: {
       return {
         id: rule.id,
         domain: 'personal',
-        title: focus
-          ? 'Pause until Focus ends'
-          : dailyLimit
-            ? `Pause after ${rule.limitMinutes} minute${rule.limitMinutes === 1 ? '' : 's'} each day`
-            : 'Unlock after a to-do, progress update, or Focus',
+        title: targetSummary(rule.selectedApps, rule.selectedCategories),
         detail: focus
-          ? `Pause ${targetLabel(targetCount)} while Focus is running.`
+          ? 'Pause while Focus is running.'
           : dailyLimit
-            ? `Pause ${targetLabel(targetCount)} after ${rule.limitMinutes} minutes of use each day.`
-            : `Unlock ${targetLabel(targetCount)} after you complete any one of these in Kwilt.`,
+            ? `Pause after ${rule.limitMinutes} minute${rule.limitMinutes === 1 ? '' : 's'} of use each day.`
+            : 'Unlock after a to-do, progress update, or Focus.',
         targetCount,
         enabled: rule.enabled,
-        destination: { kind: 'personal', ruleKind: rule.kind },
+        contextLabel: null,
+        destination: { kind: 'personal', ruleId: rule.id },
       };
     });
 
@@ -88,10 +83,11 @@ export function buildMyScreenTimeRuleInventory(params: {
     return [{
       id: moneyAppControlSelectionId(categorySourceId),
       domain: 'money' as const,
-      title: moneyRuleTitle(policy.preset, categoryName),
-      detail: moneyRuleDetail(policy.preset, categoryName, targetCount),
+      title: targetSummary(policy.selectedApps, policy.selectedCategories),
+      detail: moneyRuleDetail(policy.preset, categoryName),
       targetCount,
       enabled: policy.enabled,
+      contextLabel: 'Money',
       destination: { kind: 'money' as const, categorySourceId },
     }];
   });

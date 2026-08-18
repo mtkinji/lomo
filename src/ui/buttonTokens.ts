@@ -3,7 +3,7 @@ import { colors, fonts, spacing } from '../theme';
 /**
  * Logical button sizes that control both container dimensions and typography.
  */
-export type ButtonSizeToken = 'xs' | 'sm' | 'md' | 'lg';
+export type ButtonSizeToken = 'inline' | 'xs' | 'sm' | 'md' | 'lg';
 
 export const BUTTON_SIZE_TOKENS: Record<
   ButtonSizeToken,
@@ -18,6 +18,16 @@ export const BUTTON_SIZE_TOKENS: Record<
     };
   }
 > = {
+  inline: {
+    height: 24,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    text: {
+      fontFamily: fonts.medium,
+      fontSize: 12,
+      lineHeight: 16,
+    },
+  },
   xs: {
     height: 32,
     // More generous horizontal padding to match the "ample margin" feel of
@@ -154,4 +164,3 @@ export const BUTTON_VARIANT_TOKENS: Record<
     textTone: 'default',
   },
 };
-

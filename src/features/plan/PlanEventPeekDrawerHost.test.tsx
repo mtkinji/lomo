@@ -163,6 +163,53 @@ describe('PlanEventPeekDrawerHost slot capture', () => {
     expect(mockBottomDrawerProps.at(-1)?.snapIndex).toBe(1);
   });
 
+  it('keeps the recommendations drawer anchored when Quick Add opens the keyboard', () => {
+    renderWithProviders(
+      <PlanEventPeekDrawerHost
+        visible
+        mode="recs"
+        onClose={jest.fn()}
+        recommendations={{
+          recommendationCount: 1,
+          targetDayLabel: 'Mon, Aug 17',
+          quickAdd: {
+            value: '',
+            onChangeText: jest.fn(),
+            inputRef: React.createRef<TextInput | null>(),
+            isFocused: true,
+            setIsFocused: jest.fn(),
+            onSubmit: jest.fn(),
+            onCollapse: jest.fn(),
+            selectedAiActions: ['steps'],
+            onSelectedAiActionsChange: jest.fn(),
+          },
+          recommendations: [
+            {
+              activityId: 'activity-1',
+              title: 'Family histories and conversations',
+              proposal: {
+                startDate: '2026-08-17T16:00:00.000Z',
+                endDate: '2026-08-17T16:30:00.000Z',
+              },
+            },
+          ],
+          emptyState: null,
+          showAlreadyPlanned: false,
+          entryPoint: 'manual',
+          calendarStatus: 'connected',
+          onOpenCalendarSettings: jest.fn(),
+          onReviewPlan: jest.fn(),
+          onRerun: jest.fn(),
+          onCommit: jest.fn(),
+          onMove: jest.fn(),
+          onSkip: jest.fn(),
+        }}
+      />,
+    );
+
+    expect(mockBottomDrawerProps.at(-1)?.keyboardBehavior).toBe('extend');
+  });
+
   it('lets content use the bottom safe-area region without explanatory header copy', () => {
     const { queryByText } = renderWithProviders(
       <PlanEventPeekDrawerHost

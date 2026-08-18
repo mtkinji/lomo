@@ -214,6 +214,7 @@ export function PlanEventPeekDrawerHost({
       dismissable
       dismissOnBackdropPress
       enableContentPanningGesture
+      keyboardBehavior={mode === 'recs' ? 'extend' : undefined}
       sheetStyle={styles.sheet}
       handleContainerStyle={styles.handleContainer}
       handleStyle={styles.handle}

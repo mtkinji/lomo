@@ -155,6 +155,10 @@ private enum KwiltShieldCopy {
     }
   }
 
+  static func sentenceStart(_ value: String) -> String {
+    value.prefix(1).uppercased() + String(value.dropFirst())
+  }
+
   static func buttonLabel(for reason: String) -> String {
     if reason == "focus_session_active" || reason == "focus" { return "Open Focus" }
     if reason == "family_prerequisite" { return "Open Screen Time" }
@@ -317,10 +321,10 @@ final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
     let title: String
     let subtitle: String
     if restrictions.count > 1, let first = restrictions.first, restrictions.indices.contains(1) {
-      title = "\\(KwiltShieldCopy.countWord(restrictions.count)) things before \\(appName)."
+      title = "\\(KwiltShieldCopy.countWord(restrictions.count)) rules are pausing \\(appName)."
       let remaining = restrictions.count - 2
-      let suffix = remaining > 0 ? " \\(remaining) more rules will still apply." : ""
-      subtitle = "First, \\(KwiltShieldCopy.nextAction(for: first)). Then \\(KwiltShieldCopy.nextAction(for: restrictions[1])).\\(suffix)"
+      let suffix = remaining > 0 ? " \\(remaining) more rules also apply." : ""
+      subtitle = "\\(KwiltShieldCopy.sentenceStart(KwiltShieldCopy.nextAction(for: first))). Also \\(KwiltShieldCopy.nextAction(for: restrictions[1])).\\(suffix)"
     } else {
       title = KwiltShieldCopy.title(for: reason)
       subtitle = KwiltShieldCopy.subtitle(for: reason, appName: appName)

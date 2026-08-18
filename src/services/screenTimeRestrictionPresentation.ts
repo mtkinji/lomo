@@ -35,6 +35,10 @@ const lowerInitial = (value: string): string => value
   ? `${value.charAt(0).toLocaleLowerCase()}${value.slice(1)}`
   : value;
 
+const upperInitial = (value: string): string => value
+  ? `${value.charAt(0).toLocaleUpperCase()}${value.slice(1)}`
+  : value;
+
 const nextAction = (restriction: ActiveScreenTimeRestriction): string => {
   if (restriction.reason === 'focus_session_active' || restriction.reason === 'focus') {
     return 'return to Focus in Kwilt';
@@ -96,11 +100,11 @@ export function projectScreenTimeShieldPresentation(params: {
   }
 
   const remaining = ordered.length - 2;
-  const suffix = remaining > 0 ? ` ${remaining} more rules will still apply.` : '';
+  const suffix = remaining > 0 ? ` ${remaining} more rules also apply.` : '';
   return {
     leadReason: lead.reason,
-    title: `${numberWord(ordered.length)} things before ${params.appName}.`,
-    subtitle: `First, ${nextAction(lead)}. Then ${nextAction(ordered[1])}.${suffix}`,
+    title: `${numberWord(ordered.length)} rules are pausing ${params.appName}.`,
+    subtitle: `${upperInitial(nextAction(lead))}. Also ${nextAction(ordered[1])}.${suffix}`,
     buttonLabel: singleCopy(lead, params.appName).buttonLabel,
     destination,
   };

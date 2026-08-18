@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { fireEvent, screen } from '@testing-library/react-native';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { colors } from '../theme';
@@ -84,5 +84,56 @@ describe('ActivityListItem completion treatment', () => {
       color: colors.textSecondary,
       textDecorationLine: 'line-through',
     });
+  });
+
+  it('supports the shared flat inventory shell and a non-checkbox leading state', () => {
+    renderWithProviders(
+      <ActivityListItem
+        title="Tidy the shoes"
+        meta="1 token · Waiting for approval"
+        surface="flat"
+        showCheckbox={false}
+        leadingAccessory={<View testID="pending-review-indicator" />}
+        rowAccessibilityLabel="Open details for Tidy the shoes"
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Open details for Tidy the shoes')).toBeTruthy();
+    expect(screen.getByTestId('pending-review-indicator')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByTestId('activity-list-item-surface').props.style))
+      .toMatchObject({
+        minHeight: 68,
+        borderWidth: 0,
+        borderRadius: 0,
+        backgroundColor: colors.canvas,
+      });
+  });
+
+  it('keeps a compact row action on the metadata line', () => {
+    renderWithProviders(
+      <ActivityListItem
+        title="Water the porch plants"
+        metaAccessory={<View testID="compact-meta-action" />}
+      />,
+    );
+
+    expect(screen.getByTestId('activity-meta-row')).toContainElement(
+      screen.getByTestId('compact-meta-action'),
+    );
+  });
+
+  it('labels a read-only completed checkbox with capability-owned language', () => {
+    renderWithProviders(
+      <ActivityListItem
+        title="Put away the breakfast dishes"
+        isCompleted
+        completionAccessibilityLabel="Put away the breakfast dishes, completed"
+      />,
+    );
+
+    const completionControl = screen.getByLabelText('Put away the breakfast dishes, completed');
+    expect(completionControl.props.accessibilityRole).toBe('checkbox');
+    expect(completionControl.props.accessibilityState).toEqual({ checked: true });
   });
 });

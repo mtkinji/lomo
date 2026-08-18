@@ -163,35 +163,60 @@ export async function resolveSoundscapeSource(id: SoundscapeId): Promise<{ uri: 
 }
 
 async function prepareWithFallback(id: SoundscapeId, operationGeneration: number) {
-  let selectedId = id;
+  let selectedError: unknown;
   try {
-    const asset = await prepareSoundscapeLoopAsset(selectedId);
+    const asset = await prepareSoundscapeLoopAsset(id);
     if (operationGeneration !== generation) return;
-    await ensureTransport().prepare(asset);
-    return;
-  } catch (selectedError) {
-    if (operationGeneration !== generation) return;
-    if (selectedId !== 'default') {
-      selectedId = 'default';
-      try {
-        const fallback = await prepareSoundscapeLoopAsset(selectedId);
+    const selectedTransport = ensureTransport();
+    try {
+      await selectedTransport.prepare(asset);
+      return;
+    } catch (error) {
+      selectedError = error;
+      if (selectedTransport.name === 'native' && configuredTransportMode() !== 'native-only') {
+        const rollbackTransport = await replaceWithRollbackTransport();
         if (operationGeneration !== generation) return;
-        await ensureTransport().prepare(fallback);
+        await rollbackTransport.prepare(asset);
         return;
-      } catch {
-        // Continue to the rollout transport below.
       }
     }
-    if (ensureTransport().name === 'native' && configuredTransportMode() !== 'native-only') {
-      await releaseTransport();
-      transport = createSoundscapeLoopTransport({ mode: 'expo-only' });
+  } catch (error) {
+    selectedError = error;
+  }
+
+  if (operationGeneration !== generation) return;
+  if (id !== 'default') {
+    try {
       const fallback = await prepareSoundscapeLoopAsset('default');
       if (operationGeneration !== generation) return;
-      await transport.prepare(fallback);
+      await ensureTransport().prepare(fallback);
       return;
+    } catch {
+      // Continue to the rollout transport below.
     }
-    throw selectedError;
   }
+  if (ensureTransport().name === 'native' && configuredTransportMode() !== 'native-only') {
+    const rollbackTransport = await replaceWithRollbackTransport();
+    try {
+      const fallback = await prepareSoundscapeLoopAsset('default');
+      if (operationGeneration !== generation) return;
+      await rollbackTransport.prepare(fallback);
+      return;
+    } catch {
+      // Preserve the selected failure below.
+    }
+  }
+  throw selectedError;
+}
+
+async function replaceWithRollbackTransport() {
+  await releaseTransport();
+  const rollbackTransport = createSoundscapeLoopTransport({ mode: 'expo-only' });
+  transport = rollbackTransport;
+  transportSubscription = rollbackTransport.subscribe((diagnostics) => {
+    if (diagnostics.state === 'error') status = 'error';
+  });
+  return rollbackTransport;
 }
 
 async function releaseTransport() {

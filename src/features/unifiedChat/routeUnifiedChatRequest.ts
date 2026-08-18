@@ -20,6 +20,7 @@ const CAPABILITY_DESCRIPTIONS: Readonly<Record<UnifiedChatCapabilityId, string>>
   todos: 'Read, capture, schedule, and update Activities and To-dos.',
   plan: 'Review and shape a feasible day using Activities, Goals, availability, and calendar constraints.',
   chapters: 'Read and reflect on the user\'s saved Chapters, experiments, and learning.',
+  chores: 'Discuss household chore routines. Chore inventory is not yet readable or actionable in Chat.',
   profile: 'Read the user\'s bounded coaching profile and update an explicitly requested display name or age range.',
   relationships: 'Read explicitly saved People, facts, dates, and follow-up cadences; remember, correct, or forget only details the user explicitly identifies.',
   money: 'Read the current Budget answer, including whether the plan fits the chosen income or living limit, plus current-month spending aggregates. Merchant, account, and mutation workflows remain native and bounded.',

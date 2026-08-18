@@ -55,6 +55,8 @@ jest.mock('../../../services/screenTimeProtectionRuntime', () => ({
   reconcileScreenTimeRestrictions: jest.fn(async () => []),
 }));
 
+jest.mock('expo-crypto', () => ({ randomUUID: () => 'rule-uuid' }));
+
 jest.mock('../../../services/analytics/useAnalytics', () => ({
   useAnalytics: () => ({ capture: jest.fn() }),
 }));
@@ -218,7 +220,7 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     expect(mockGoBack).toHaveBeenCalled();
   });
 
-  it('does not offer a behavior whose rule already exists', async () => {
+  it('offers a behavior even when another rule already uses that condition', async () => {
     useAppStore.setState({
       screenTimeProtection: {
         ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
@@ -241,7 +243,41 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
 
     expect(await screen.findByText('After a to-do, progress update, or Focus')).toBeTruthy();
-    expect(screen.queryByText('After Focus ends')).toBeNull();
+    expect(screen.getByText('After Focus ends')).toBeTruthy();
+  });
+
+  it('saves a second same-kind rule under an independent picker identity', async () => {
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'approved',
+        personalRules: [createPersonalScreenTimeRule({
+          id: 'focus-social', selectionId: 'focus-social', kind: 'focus',
+          selectedApps: [{ token: 'social', label: 'Social' }], selectedCategories: [],
+          enabled: true, setupCompleted: true,
+        })],
+      },
+    });
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [{ token: 'games', label: 'Games' }], selectedCategories: [],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    fireEvent.press(await screen.findByText('After Focus ends'));
+    fireEvent.press(screen.getByRole('button', { name: 'Add rule' }));
+
+    await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalRules).toEqual([
+      expect.objectContaining({ id: 'focus-social', selectionId: 'focus-social' }),
+      expect.objectContaining({
+        id: 'personal_rule_rule-uuid', selectionId: 'personal_rule_rule-uuid',
+        kind: 'focus', selectedApps: [{ token: 'games', label: 'Games' }],
+      }),
+    ]));
+    expect(presentScreenTimeActivityPicker).toHaveBeenCalledWith(
+      expect.anything(),
+      { selectionId: 'personal_rule_rule-uuid' },
+    );
   });
 
   it('stays on the apps question when the picker is cancelled', async () => {

@@ -23,6 +23,8 @@ export type ActivityPriorityIndicator = {
 };
 
 type ActivityListItemProps = {
+  /** Use the shared card shell or a quiet, divider-owned list row. */
+  surface?: 'card' | 'flat';
   /**
    * Visual density / information level.
    * - compact: single-row card (default)
@@ -65,6 +67,15 @@ type ActivityListItemProps = {
    * Preferred multi-icon support for the meta row (e.g. calendar/bell + paperclip).
    */
   metaLeadingIconNames?: Array<import('./Icon').IconName>;
+  /** Optional size override for capability-owned metadata iconography. */
+  metaLeadingIconSize?: number;
+  /** Optional capability-owned identity or status presented before metadata text. */
+  metaLeadingAccessory?: React.ReactNode;
+  /**
+   * Optional compact action rendered at the trailing edge of the metadata line.
+   * Use for quiet row-scoped actions that should not compete with the title.
+   */
+  metaAccessory?: React.ReactNode;
   /**
    * Low-noise priority position indicator for Priority-ordered lists.
    * Reasons stay inspectable behind an info affordance instead of being inline metadata.
@@ -116,10 +127,16 @@ type ActivityListItemProps = {
    * When false, the checkbox is completely hidden.
    */
   showCheckbox?: boolean;
+  /** Optional capability-owned state shown in the checkbox position. */
+  leadingAccessory?: React.ReactNode;
+  /** Capability-owned label for the completion control. */
+  completionAccessibilityLabel?: string;
   /**
    * Optional handler for tapping anywhere on the row (excluding the checkbox).
    */
   onPress?: () => void;
+  /** Capability-owned label for opening the row. Defaults to the title. */
+  rowAccessibilityLabel?: string;
   /**
    * Optional handler for long-pressing the row. Used by DraggableActivityListItem
    * to initiate drag-and-drop.
@@ -143,6 +160,7 @@ type ActivityListItemProps = {
 };
 
 export function ActivityListItem({
+  surface = 'card',
   variant = 'compact',
   title,
   meta,
@@ -153,6 +171,11 @@ export function ActivityListItem({
   onEstimatePress,
   estimateAccessibilityLabel,
   notes,
+  metaLeadingIconName,
+  metaLeadingIconNames,
+  metaLeadingIconSize = 13,
+  metaLeadingAccessory,
+  metaAccessory,
   priorityIndicator,
   metaLoading = false,
   isCompleted = false,
@@ -164,7 +187,10 @@ export function ActivityListItem({
   rightAccessory,
   showPriorityControl = true,
   showCheckbox = true,
+  leadingAccessory,
+  completionAccessibilityLabel,
   onPress,
+  rowAccessibilityLabel,
   onLongPress,
   onDelete,
   isDueToday = false,
@@ -246,10 +272,14 @@ export function ActivityListItem({
   });
 
   const showNotes = variant === 'full' && Boolean(notes && notes.trim().length > 0);
+  const resolvedMetaLeadingIconNames = metaLeadingIconNames
+    ?? (metaLeadingIconName ? [metaLeadingIconName] : []);
   const priorityReasons = priorityIndicator?.reasons?.filter(Boolean) ?? [];
   const hasPriorityReasons = priorityReasons.length > 0;
   const showStarredMeta = Boolean(showPriorityControl && onTogglePriority && isPriorityOne);
-  const showMetaRow = Boolean(meta || estimateMeta || priorityIndicator || showStarredMeta);
+  const showMetaRow = Boolean(
+    meta || estimateMeta || priorityIndicator || showStarredMeta || metaLeadingAccessory || metaAccessory,
+  );
 
   // Determine the meta color: due today shows in red (destructive), completed is muted, otherwise secondary
   const metaColor = isCompleted
@@ -352,15 +382,10 @@ export function ActivityListItem({
     [isPriorityOne, onSchedule, onStartFocus, onTogglePriority, showPriorityControl, title],
   );
 
-  const content = (
-    <Card
-      style={[
-        styles.card,
-        variant === 'full' && styles.cardFull,
-        isCompleted && styles.cardCompleted,
-        isGhost && styles.ghostCard,
-      ]}
-    >
+  const completionLabel = completionAccessibilityLabel
+    ?? (isCompleted ? 'Mark to-do as not done' : 'Mark to-do as done');
+
+  const activityContent = (
       <HStack
         space="md"
         alignItems={variant === 'full' ? 'flex-start' : 'center'}
@@ -369,14 +394,18 @@ export function ActivityListItem({
         <HStack
           space="md"
           alignItems={variant === 'full' ? 'flex-start' : 'center'}
-          style={[styles.leftCluster, !showCheckbox && styles.leftClusterNoCheckbox]}
+          style={[
+            styles.leftCluster,
+            !showCheckbox && !leadingAccessory && styles.leftClusterNoCheckbox,
+          ]}
         >
+          {leadingAccessory}
           {showCheckbox ? (
             <View style={styles.checkboxWrapper}>
               {onToggleComplete ? (
                 <Pressable
                   accessibilityRole="checkbox"
-                  accessibilityLabel={isCompleted ? 'Mark to-do as not done' : 'Mark to-do as done'}
+                  accessibilityLabel={completionLabel}
                   accessibilityState={{ checked: isCompleted }}
                   hitSlop={8}
                   onPress={handlePressComplete}
@@ -396,6 +425,11 @@ export function ActivityListItem({
                 </Pressable>
               ) : (
                 <View
+                  accessible
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={completionLabel}
+                  accessibilityState={{ checked: isCompleted }}
+                  testID="activity-completion-indicator"
                   style={[
                     styles.checkboxBase,
                     isCompleted ? styles.checkboxCompleted : styles.checkboxPlanned,
@@ -436,7 +470,14 @@ export function ActivityListItem({
               {title}
             </Text>
             {showMetaRow ? (
-              <HStack space={8} alignItems="center" style={styles.metaRow}>
+              <HStack
+                testID="activity-meta-row"
+                accessible={Boolean(metaAccessibilityLabel && !onMetaPress && !metaAccessory)}
+                accessibilityLabel={!onMetaPress && !metaAccessory ? metaAccessibilityLabel : undefined}
+                space={8}
+                alignItems="center"
+                style={styles.metaRow}
+              >
                 {priorityIndicator ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -478,6 +519,10 @@ export function ActivityListItem({
                     ) : null}
                   </DropdownMenu>
                 ) : null}
+                {metaLeadingAccessory}
+                {resolvedMetaLeadingIconNames.map((iconName) => (
+                  <Icon key={iconName} name={iconName} size={metaLeadingIconSize} color={metaColor} />
+                ))}
                 {meta ? (
                   onMetaPress ? (
                     <Pressable
@@ -504,6 +549,8 @@ export function ActivityListItem({
                     </Pressable>
                   ) : (
                     <Text
+                      accessible={Boolean(metaAccessory && metaAccessibilityLabel)}
+                      accessibilityLabel={metaAccessory ? metaAccessibilityLabel : undefined}
                       numberOfLines={1}
                       style={[
                         styles.meta,
@@ -545,6 +592,7 @@ export function ActivityListItem({
                     color={colors.turmeric}
                   />
                 ) : null}
+                {metaAccessory ? <View style={styles.metaAccessory}>{metaAccessory}</View> : null}
               </HStack>
             ) : metaLoading ? (
               <HStack space={4} alignItems="center">
@@ -571,6 +619,30 @@ export function ActivityListItem({
 
         {rightAccessory ? rightAccessory : null}
       </HStack>
+  );
+
+  const content = surface === 'flat' ? (
+    <View
+      testID="activity-list-item-surface"
+      style={[
+        styles.card,
+        styles.flatSurface,
+        variant === 'full' && styles.cardFull,
+        isGhost && styles.ghostCard,
+      ]}
+    >
+      {activityContent}
+    </View>
+  ) : (
+    <Card
+      style={[
+        styles.card,
+        variant === 'full' && styles.cardFull,
+        isCompleted && styles.cardCompleted,
+        isGhost && styles.ghostCard,
+      ]}
+    >
+      {activityContent}
     </Card>
   );
 
@@ -580,7 +652,7 @@ export function ActivityListItem({
       onLongPress={onLongPress}
       delayLongPress={300}
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={rowAccessibilityLabel ?? title}
       accessibilityActions={[
         ...(onMetaPress ? [{ name: 'editDueDate', label: 'Edit due date' }] : []),
         ...(onEstimatePress ? [{ name: 'editDuration', label: 'Edit duration' }] : []),
@@ -704,6 +776,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
+  flatSurface: {
+    minHeight: 68,
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: colors.canvas,
+    paddingHorizontal: 0,
+    paddingVertical: spacing.md,
+  },
   cardCompleted: {
     backgroundColor: colors.shellAlt,
   },
@@ -814,6 +894,10 @@ const styles = StyleSheet.create({
   metaRow: {
     maxWidth: '100%',
     minWidth: 0,
+  },
+  metaAccessory: {
+    marginLeft: 'auto',
+    flexShrink: 0,
   },
   estimateMeta: {
     ...typography.bodySm,

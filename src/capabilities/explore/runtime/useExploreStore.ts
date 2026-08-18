@@ -321,6 +321,11 @@ export const useExploreStore = create<ExploreStore>()(
       name: 'kwilt-explore-v1',
       version: 10,
       storage: createJSONStorage(() => AsyncStorage),
+      // Explore history can grow to tens of megabytes. Loading it while the app shell
+      // starts blocks the JS thread even when the user is opening another capability.
+      // ExploreNavigator explicitly hydrates this store when Explore is opened; native
+      // background tasks continue to read and write the same storage key directly.
+      skipHydration: true,
       migrate: (persistedState: unknown) => {
         const persisted = (persistedState ?? {}) as Partial<ExploreData>;
         const defaults = createEmptyExploreData();

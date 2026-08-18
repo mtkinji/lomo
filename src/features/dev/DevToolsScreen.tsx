@@ -56,6 +56,7 @@ import {
   buildOnDeviceGenerationBenchmarkPayload,
   buildOnDeviceTitleGateBenchmarkPayload,
 } from '../unifiedChat/onDeviceGenerationBenchmark';
+import { LaunchTransitionLab } from './LaunchTransitionLab';
 
 type DevToolSectionId = 'seed' | 'preview' | 'simulate' | 'experiments' | 'diagnostics';
 
@@ -215,6 +216,12 @@ export function DevToolsScreen() {
   const [screenshotSeeding, setScreenshotSeeding] = useState(false);
   const [healthChapterSeeding, setHealthChapterSeeding] = useState(false);
   const [onDeviceBenchmarkRunning, setOnDeviceBenchmarkRunning] = useState(false);
+  const [launchTransitionLabVisible, setLaunchTransitionLabVisible] = useState(false);
+  useEffect(() => {
+    if ((route.params as { launchTransition?: string } | undefined)?.launchTransition === '1') {
+      setLaunchTransitionLabVisible(true);
+    }
+  }, [route.params]);
   const screenshotPackInstalled = useAppStore((state) =>
     SCREENSHOT_PACK_ARC_IDS.some((id) => state.arcs.some((a) => a.id === id))
   );
@@ -1123,10 +1130,26 @@ export function DevToolsScreen() {
           <DevToolSection
             title="Preview flows"
             description="Fire user-facing moments without walking the full app path."
-            count={22}
+            count={23}
             expanded={expandedSections.preview}
             onToggle={() => toggleSection('preview')}
           >
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Launch transition lab</Text>
+              <Text style={styles.cardBody}>
+                Preview the Kwilt mark opening into an already-ready app surface. Compare quick,
+                delayed, and reduced-motion paths without changing production startup behavior.
+              </Text>
+              <Button
+                testID="dev.launchTransition.open"
+                variant="accent"
+                onPress={() => setLaunchTransitionLabVisible(true)}
+                style={styles.cardAction}
+              >
+                <ButtonLabel size="md" tone="inverse">Play launch transition</ButtonLabel>
+              </Button>
+            </View>
+
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>Guided Overture onboarding lab</Text>
               <Text style={styles.cardBody}>
@@ -1661,6 +1684,10 @@ export function DevToolsScreen() {
         bottomOffset={insets.bottom + spacing.lg}
         durationMs={3000}
         onDismiss={() => setDevToastMessage('')}
+      />
+      <LaunchTransitionLab
+        visible={launchTransitionLabVisible}
+        onClose={() => setLaunchTransitionLabVisible(false)}
       />
     </AppShell>
   );

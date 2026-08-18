@@ -43,6 +43,9 @@ export type CapabilityNavigationTarget =
       params: { screen: 'GamesShelf' };
     }
   | {
+      name: 'Chores';
+    }
+  | {
       name: 'Food';
       params: {
         screen: 'RecipeLibrary' | 'NextMeals' | 'GroceryList';
@@ -70,6 +73,9 @@ export function resolveCapabilityNavigation(id: CapabilityNavigationId): Capabil
   }
   if (rootRoute.root === 'Games') {
     return { name: 'Games', params: { screen: rootRoute.screen } };
+  }
+  if (rootRoute.root === 'Chores') {
+    return { name: 'Chores' };
   }
   if (rootRoute.root === 'Food') {
     if (id === 'groceries') {

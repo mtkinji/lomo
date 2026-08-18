@@ -23,6 +23,7 @@ jest.mock('expo-location', () => ({
 describe('ExploreAlwaysOnRuntimeHost', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(useExploreStore.persist, 'hasHydrated').mockReturnValue(true);
     act(() => {
       useExploreStore.getState().clearHistory();
       useExploreStore.getState().updatePreferences({ recording: 'automatic' });

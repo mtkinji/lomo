@@ -9,7 +9,7 @@ job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-put-intention-before-impulse, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-screen-time-controls]
 owner: andrew
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 ---
 
 # Screen Time Rule Governance
@@ -49,7 +49,7 @@ Settings > Screen Time contains one compact authorization row followed by two co
 - **My rules · N** — private personal, Focus, To-do, and Money rules.
 - **Household rules · N** — shared child rules visible to authorized owners/caregivers.
 
-Each collection has its own **Add rule** action. The action carries scope into the common builder system. Rule rows show a readable sentence, owner/subject context, target count, state, one direct enabled control when authority permits, and one disclosure path.
+Each collection has its own **Add rule** action. The action carries scope into the common builder system. Rule rows lead with the selected apps or categories, then state the concrete behavior. Capability or subject context appears only when it disambiguates ownership, such as Money or a child. Each row has one direct enabled control when authority permits and one disclosure path.
 
 The scoped add action opens one structured, full-screen guided builder after
 the established initial Screen Time setup pattern. It continues from entry
@@ -93,6 +93,19 @@ Examples:
 
 Condition owners define compatible fields and deterministic semantics. The builder does not combine independently owned Focus and Money claims into one rule. The control plane continues to preserve each named restriction and AND enforcement across overlapping rules.
 
+Personal rule kinds are repeatable. A person may create multiple Focus,
+real-step, or daily-limit rules when the targets or configuration differ. Every
+saved rule owns a stable rule ID and native selection ID; editing, toggling,
+reconciling, and clearing act on that identity rather than on its condition
+kind. Only an exact duplicate of kind, targets, and condition configuration is
+rejected.
+
+Overlapping rules are unordered. An app remains paused while any applicable
+rule is active; satisfying one rule never implies that another rule was
+cleared. The native shield summarizes how many rules apply and names the first
+actionable blockers without using sequential language. The in-app guide lists
+the concrete rules so the person can inspect every remaining blocker.
+
 Personal rules are private to the signed-in person. Household rules are shared with authorized caregivers. Money rules remain personal unless Money later defines an explicitly shared scope. Children see only their understandable agreement and current next action.
 
 Temporary **Allow until…** and **Pause until…** actions remain versioned,
@@ -110,16 +123,17 @@ Job: When Screen Time is set up, the user needs to see and govern the rules affe
 
 Authority chain: accepted Screen Time briefs and control plane -> Kwilt Settings components/tokens -> iOS Family Controls conventions -> shadcn Item/Field anatomy as upstream quality reference.
 
-Three-second read: Screen Time is allowed; I have N private rules and N Household rules; each rule's condition and owner are recognizable.
+Three-second read: Screen Time is allowed; I have N private rules and N Household rules; I can see which targets each concrete rule governs and what it does.
 
 Primary actions: **Add rule** within each collection.
 
-Primary information: rule sentence, scope/subject, state, target count; in the
+Primary information: target summary, concrete behavior, and state; in the
 shipping personal builder, the current unanswered question and accumulated
 answers. The expanded Household builder adds criteria, agreement, and a
 truthful current-state result.
 
-Secondary information: authorization and delivery detail.
+Secondary information: capability/subject context when useful, authorization,
+and delivery detail.
 
 Reveal later: app selection, condition configuration, deletion, temporary
 override duration, and technical recovery detail.
@@ -169,6 +183,9 @@ state.
   kind requires no rewrite of older records. Chat may carry a self subject,
   suggested app label, bounded minute allowance, and daily reset into the same
   native builder; Apple token selection and save remain native-only.
+- Personal condition kinds are repeatable. A qualifying real-step event updates
+  every enabled rule for which that event satisfies the rule's own release
+  policy; rule IDs, selections, and unlock state remain independent.
 - Household Add rule retains the child-specific authority path, then opens the
   same builder screen with a Household adapter. Typed V2 Household agreement JSON
   is introduced behind normalization and legacy reading; IDs, selections, and
@@ -191,5 +208,3 @@ state.
 
 - Which child responsibility collection supplies `complete today` truth?
 - Do school hours come from a stored family schedule or a named rule preset?
-- When multiple personal rules share one condition, should qualifying one update
-  all matching rules or require independent release policies?

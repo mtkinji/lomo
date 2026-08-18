@@ -93,6 +93,10 @@ export const CAPABILITY_REGISTRY = [
     id: 'groceries', label: 'Groceries', group: 'food', icon: 'cart', availability: 'active',
     rootRoute: { root: 'Food', screen: 'GroceryList' }, deepLinks: [], agent: currentKwiltAgentContract, lifecycle: {},
   },
+  {
+    id: 'chores', label: 'Chores', group: null, icon: 'home', availability: 'active',
+    rootRoute: { root: 'Chores' }, deepLinks: ['kwilt://chores'], agent: currentKwiltAgentContract, lifecycle: {},
+  },
 ] as const satisfies readonly CapabilityDefinition[];
 
 function currentCapabilityMenuDestination(
@@ -112,7 +116,7 @@ function currentCapabilityMenuDestination(
 }
 
 export const CAPABILITY_MENU_REGISTRY = [
-  ...(['arcs', 'goals', 'todos', 'plan', 'chapters', 'recipes', 'groceries', 'explore', 'games'] as const).map(
+  ...(['arcs', 'goals', 'todos', 'plan', 'chapters', 'recipes', 'groceries', 'explore', 'games', 'chores'] as const).map(
     (id) => currentCapabilityMenuDestination(id, id === 'plan' ? 'Plans' : undefined),
   ),
   {

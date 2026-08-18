@@ -84,7 +84,7 @@ const money: MoneyAppControlSettings = {
       enabled: true,
       preset: 'always_review',
       unlockWindowMinutes: 20,
-      selectedApps: [{ token: 'amazon' }],
+      selectedApps: [{ token: 'amazon', label: 'Amazon' }],
       selectedCategories: [],
       lastReview: null,
     },
@@ -114,7 +114,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
       screenTimeProtection: {
         ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
         authorizationStatus: 'approved',
-        selectedApps: [{ token: 'social' }],
+        selectedApps: [{ token: 'social', label: 'Social' }],
         focusProtection: {
           ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS.focusProtection,
           enabled: true,
@@ -132,7 +132,8 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(getByText('Household rules · 0')).toBeTruthy();
     expect(await waitFor(() => getByText('Charlie'))).toBeTruthy();
     expect(getByText('Set up')).toBeTruthy();
-    expect(getByText('Review Shopping before access')).toBeTruthy();
+    expect(getByText('Amazon')).toBeTruthy();
+    expect(getByText('Pause until Shopping is reviewed.')).toBeTruthy();
     expect(getByText('Household setup')).toBeTruthy();
     expect(queryByText('Family')).toBeNull();
     expect(queryByText('Shopping policy')).toBeNull();
@@ -148,7 +149,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
       childDisplayName: 'Charlie',
     });
 
-    fireEvent.press(getByText('Review Shopping before access'));
+    fireEvent.press(getByText('Amazon'));
     expect(mockRootNavigate).toHaveBeenCalledWith('Money', {
       screen: 'MoneyAppControl',
       params: { categoryId: 'shopping' },
@@ -181,7 +182,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     await waitFor(() => expect(mockGetHouseholdSnapshot).toHaveBeenCalled());
 
     expect(queryByText('Household setup')).toBeNull();
-    expect(queryByText('Review Shopping before access')).toBeNull();
+    expect(queryByText('Pause until Shopping is reviewed.')).toBeNull();
   });
 
   it('shows a recoverable Household row when family state cannot load', async () => {
@@ -339,5 +340,55 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsScreenTimeRuleBuilder', {
       entry: 'inventory',
     });
+  });
+
+  it('keeps Add available and toggles one repeated rule by identity', () => {
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'approved',
+        personalRules: [
+          {
+            id: 'focus-social',
+            kind: 'focus',
+            selectionId: 'focus-social',
+            selectedApps: [{ token: 'social', label: 'Social' }],
+            selectedCategories: [],
+            enabled: true,
+            setupCompleted: true,
+            temporaryOpenAllowed: true,
+            temporaryOpenMinutes: 20,
+            currentUnlockUntilIso: null,
+            needsSelectionReview: false,
+            lastUpdated: null,
+            lastAppliedSessionId: null,
+          },
+          {
+            id: 'focus-video',
+            kind: 'focus',
+            selectionId: 'focus-video',
+            selectedApps: [{ token: 'video', label: 'YouTube' }],
+            selectedCategories: [],
+            enabled: true,
+            setupCompleted: true,
+            temporaryOpenAllowed: true,
+            temporaryOpenMinutes: 20,
+            currentUnlockUntilIso: null,
+            needsSelectionReview: false,
+            lastUpdated: null,
+            lastAppliedSessionId: null,
+          },
+        ],
+      },
+    });
+
+    const screen = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    expect(screen.getByLabelText('Add My rule').props.accessibilityState.disabled).toBe(false);
+
+    fireEvent.press(screen.getByLabelText('YouTube on'));
+
+    const rules = useAppStore.getState().screenTimeProtection.personalRules;
+    expect(rules.find((rule) => rule.id === 'focus-social')?.enabled).toBe(true);
+    expect(rules.find((rule) => rule.id === 'focus-video')?.enabled).toBe(false);
   });
 });

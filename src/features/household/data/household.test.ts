@@ -18,8 +18,8 @@ const snapshot = {
   household: { id: 'household-1', name: 'My household' },
   currentMembershipId: 'owner-1',
   members: [
-    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner' },
-    { id: 'child-1', personId: 'person-2', displayName: 'Riley', kind: 'dependent', role: 'child' },
+    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner', avatarUrl: null, avatarSource: 'initials' },
+    { id: 'child-1', personId: 'person-2', displayName: 'Riley', kind: 'dependent', role: 'child', avatarUrl: null, avatarSource: 'initials' },
   ],
   activations: [
     { childMembershipId: 'child-1', capabilityId: 'todos', state: 'active' },

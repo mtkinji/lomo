@@ -1,7 +1,7 @@
 ---
 id: brief-chores-as-recurring-activities
 title: Chores as Activity-backed Household Work
-status: draft
+status: accepted
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-foundation, brief-household-activity-assignment, brief-family-screen-time-controls, brief-shared-household-device-profiles]
 owner: andrew
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 ---
 
 # Chores as Activity-backed Household Work
@@ -68,7 +68,11 @@ Detailed decision ledger: [Activity-backed Chores system design](../design-explo
 - **Trusted completion:** local completion immediately becomes qualifying truth unless later corrected through explicit history.
 - **Caregiver review:** the child submits completion; the occurrence remains **Waiting for approval** until an authorized caregiver approves or returns it for rework.
 
+Returning work uses the child-legible state **Needs another pass**, not rejection language. The original performer and performance time remain attached to the occurrence. An approval records the reviewing caregiver and review time but qualifies the original performance fact.
+
 Review is a Chore policy on the Activity series or occurrence, not a universal Activity requirement. Approval qualifies the original performer and performance time, not the caregiver or approval time.
+
+A child may optionally attach one photo to the occurrence before or after submitting review-required work. The photo is evidence offered by the child, not a required proof gate and not input to automated judgment. In review, the submitted photo and a compact performer identity pill replace explanatory authorship copy.
 
 One qualifying completion:
 
@@ -80,19 +84,53 @@ One qualifying completion:
 ### Surfaces
 
 - Chores is a direct capability in the main capability menu rather than a subsection of To-dos.
-- Chores uses the quiet inventory grammar of Groceries: a simple header, compact progress, grouped rows, direct completion, and no dashboard chrome.
-- The child-facing sections are **For [member]** for assigned/claimed occurrences and **Household** for currently available open work with a direct **Take** action.
+- Chores uses the quiet inventory grammar of Groceries and To-dos: a simple header, grouped shared rows, direct completion, and no dashboard chrome.
+- The child-facing sections are **My chores** for assigned/claimed occurrences and **Choose a chore** for currently available open work with a direct **Take** action.
 - To-dos continues to present personal Activity responsibility and canonical occurrence completion.
 - An assigned chore occurrence appears in the child's To-dos.
 - An open-pool chore remains in Chores until the child claims it; the claimed occurrence then also appears in their To-dos.
 - Mere eligibility for the pool does not flood To-dos with every household chore.
 - **Assigned to me** appears only after inbound assigned work exists and auto-hides when empty.
 - Assigning a recurring Activity to a child removes its daily occurrences from the creator's personal views; the caregiver inspects them through the authorized child/member scope.
-- Chores presents the current agreement, assigned chores, shared pool, claim/release, review state, chore progress, and tokens.
-- Token value remains quiet trailing row metadata. Recurrence, availability policy, and agreement configuration stay out of the inventory.
+- Chores presents the current agreement, assigned chores, shared pool, take/return lifecycle, review state, qualifying chore facts, and optional tokens.
+- Tapping a chore row opens one detail drawer rather than a full detail route. Attempting completion from the row opens that same taller drawer without changing state. The canonical compact drawer header contains only the chore title and standard close action; eligibility, assignment, and status never appear as a header subtitle. Before completion, the body shows who may do the chore, a concise definition of done, meaningful timing, optional token value, and an easy optional **Take a photo** affordance before one explicit **Mark done** or **Submit for approval** action. For review-required work, only that explicit submission shows `Waiting for approval`; caregiver approval produces the checked completed state and completion credit. A completed drawer becomes a truthful receipt: the performer avatar pill, completion time, approval time and caregiver when applicable, and **Earned** token language replace eligibility and future-tense reward copy. Evidence appears as a compact attachment; tapping it opens a dedicated full-screen photo viewer with pinch-to-zoom inspection. A genuinely completed check remains reversible from the row.
+- Chore completion is a universal fact, but an expectation count exists only when the household has configured one. The child screen does not infer a daily or weekly target from the visible rows. Instead, an anchored bottom agreement bar composes only the active expectation clauses: assigned work remaining today, an open-pool choice quota or all-qualifying-work quota by an explicit deadline, pending approval, and an optional connected benefit. Tapping the bar opens **How my chores work** with the full active agreement. No active expectation means no progress language.
+- The distinction between `Choose 3 more by Friday` and `3 chores left by Friday` is data-backed: the first is scoped to open-pool choices, while the second allows any qualifying chore. Kwilt never infers whether assigned work counts toward a quota.
+- **Use tokens** is a household-level optional program and is off by default. When disabled, token values, balances, token vocabulary, and token iconography disappear completely. When enabled, a quiet monochrome circle-dollar-sign outline pairs with explicit text such as `2 tokens` on each row and `8 tokens` for the child's current held balance in the bottom bar. Accessibility labels retain the earning distinction: `Earns 2 tokens` for a chore and `8 tokens` for the balance.
+- A claimed open-pool row uses a quiet ellipsis menu containing the neutral minus-icon **Return to family list** action. It is reversible, never destructive, and returns the occurrence to **Choose a chore** with a brief Undo path.
+- Caregiver attention stays capability-owned: a caregiver-only count badge on Chores and a contextual floating guide open one review drawer. Child Household Mode never exposes caregiver review counts or controls.
+- One pending approval opens directly to its review detail. The title remains alone in the header; the submitted photo, when present, is the dominant review evidence and a compact avatar/name pill identifies the child below the chore criteria. Several approvals open a scroll-safe queue; each item can be approved directly or opened in the same drawer for **Needs another pass**. The primary **Approve** action includes a checkmark. The first slice does not include blind bulk approval.
 - The child sees only currently relevant occurrences, not future copies of the recurrence series.
 - Adult personal To-dos receives no chore chrome merely because a Household exists.
 - No household KPI dashboard, Chore-specific streak, score, ranking, or overdue shame.
+
+### Caregiver creation
+
+The caregiver Chores inventory owns one bottom action region:
+
+- the existing To-do `QuickAddDock` component with **Add a chore** copy;
+- a conditional full-circle **Review requests** action when child submissions are waiting; and
+- a stable far-right **Chat about chores** action.
+
+Submitting the direct composer does not insert an Activity or Chore into the inventory. It immediately opens the actual full-height **New chore** editor drawer with the entered text retained. This is the creation surface, not a preview or confirmation step. Its keyboard-aware body scrolls behind one fixed **Add chore** footer; **Add chore** is the first commit that creates the local or production Chore definition and its Activity/occurrence behavior.
+
+The editor requires only:
+
+- **Chore** — child-readable title;
+- **For** — one named household member or **Household**; and
+- **Repeats** — the existing To-do recurrence system, presented as **One time**, **Daily**, **Weekdays**, **Weekly**, **Monthly**, **Yearly**, or **Custom…**.
+
+**What done means**, trusted versus caregiver-reviewed completion, and token value are progressively disclosed. Token value is absent when the household token program is off. Expectations, Screen Time criteria, token-program setup, rotation, reminders, priority, estimates, tags, Goals, and Arcs do not enter single-chore creation.
+
+The direct dock reuses the existing Quick Add AI operations for steps, triggers, and details, expressed in Chores as **Add steps**, **Set a routine**, and **Clarify done**. While enrichment runs, the editor remains fully usable and shows the canonical Kwilt loading spinner with **Adding details…**. AI fills only untouched fields. A caregiver edit wins immediately; dismissing or saving invalidates late results. AI may extract explicit participant and recurrence language but may not invent an assignee, recurrence, token value, review requirement, photo evidence, or Screen Time consequence. Missing participation defaults visibly to **Household** and missing recurrence defaults visibly to **One time**.
+
+The caregiver projection is one flat routine inventory rather than a completion log or permanent child-by-child grouping. Its quiet scope filter offers **All chores**, each child, and **Household**. Every row begins its metadata with one compact assignee pill: a named child uses the shared `ProfileAvatar` and name, while **Household** uses the same pill silhouette with a house mark. Missing-photo avatars use a flat, muted Kwilt brand surface and the first two letters of the first name so children who share an initial remain distinguishable. Completed occurrences continue to show the routine cadence, while **Waiting for review** and **Needs another pass** replace cadence only when caregiver action is useful. Completion receipts and history remain in chore detail.
+
+Contextual Chat may discuss a broader household situation and prepare a typed Chore draft only after Chores has an explicit capability contract. Its **Edit in Chores** action opens this same editor; Chat never commits the chore. Until that handoff exists truthfully, contextual Chat remains discussion-only and must not claim that it created, assigned, or scheduled work.
+
+The conditional review action replaces the caregiver-only floating guide inside Chores. One request opens directly to the existing review detail; several open its queue. The capability-menu badge remains the out-of-capability attention signal. Child projections expose none of the caregiver dock, AI loading, draft state, Chat context, or review controls.
+
+Detailed contract: [Caregiver Chores Action Dock And Editor](../design-explorations/parent-chore-creation/06-ui-contract.md).
 
 ### Household Mode and member switching
 
@@ -125,18 +163,43 @@ Observed independent child participation is required before proposing a job-flow
 ## Non-goals
 
 - Automated allowance or payment, generic reward catalogs, separate Chore streaks, penalties, or rankings.
-- Photo/AI proof.
+- Required photo proof or AI/photo adjudication. A child-offered photo remains optional context.
 - Rotations, team chores, or chore marketplaces in the learning release.
 - Claiming that Screen Time eligibility proves device enforcement.
 - A new Chore domain object.
 - A separate family account, household master credential, or full multi-account switcher.
 - Exposing caregiver Chat, Chapters, Money, or private capability data in Household Mode.
 
+## Learning release
+
+The current build is a local, Kwilt-Labs-gated inventory learning release. Its next slice replaces the misleading fixed top progress meter with a child-readable expectation projection, **My chores** / **Choose a chore**, direct **Take**, a secondary **Return to family list** menu action, and one semantic token balance. It uses realistic simulated household members, versioned local occurrence records, and explicit local expectation fixtures. It does not claim household-authorized persistence, To-dos projection, shared-device security, offline reconciliation, or Screen Time delivery.
+
+See [Learning Release: Child-readable Chore Agreement](../design-explorations/chores-capability/04-learning-release.md) and [Evaluate Learning: Child-readable Chore Agreement](../design-explorations/chores-capability/05-evaluate-learning.md).
+
+## Spec refinement
+
+- **Chosen first-slice assumption:** simulate the child member switcher inside an authenticated local build; do not ship a fake caregiver lock.
+- **Canonical seam:** every learning row has a stable Activity occurrence id and the state transitions operate on that record. The local adapter must be replaceable by household-authorized Activity projections without changing the screen contract.
+- **Accepted temporary boundary:** claimed work does not enter production To-dos in this slice. The UI must not imply that it did.
+- **Accepted detail contract:** row tap opens one capability-owned detail drawer; no Chores detail route is added.
+- **Accepted expectation contract:** a versioned learning expectation stores assigned-work cadence, optional quota scope and threshold, explicit deadline copy, and optional benefit copy as independent facts. The UI projects these facts and never reverse-engineers a time window from row count.
+- **Accepted reward contract:** the local caregiver may turn the optional token program on or off; off means no residual token UI. When on, the child sees current held balance rather than earnings for an arbitrary period.
+- **Accepted action contract:** `Take` directly claims available open work. A claimed row's quiet ellipsis progressively discloses `Return to family list`, which reverses only a current claim and is paired with a neutral minus icon and Undo.
+- **Accepted bottom-surface contract:** the agreement is an anchored, divider-separated capability surface, not a floating card or dashboard. The list is the first focal point; agreement detail is disclosed through **How my chores work**.
+- **Accepted review contract:** the learning adapter simulates a caregiver actor, capability badge, contextual review guide, one/many approval drawer, approval, and **Needs another pass**. It does not simulate caregiver authentication or production notifications.
+- **Accepted caregiver-dock contract:** the caregiver projection directly reuses `QuickAddDock` for **Add a chore**, places a conditional **Review requests** circle immediately left of the stable far-right Chat circle, and removes the separate Chores `BottomGuide`. The child projection has no caregiver dock.
+- **Accepted editor contract:** direct submit opens the actual **New chore** editor immediately and does not add anything to the inventory. The editor remains editable while the canonical loader shows **Adding details…**; asynchronous enrichment may fill only untouched fields. **Add chore** is the first commit.
+- **Accepted recurrence contract:** Chores directly reuses the To-do recurrence types, labels, preset/custom editor, and one-active-occurrence lifecycle. Trusted completion advances immediately; review-required completion advances only after caregiver approval. Missed copies do not pile up.
+- **Accepted AI-authoring contract:** Chores reuses the existing steps/triggers/details enrichment boundary, ignores unrelated To-do enrichment fields, uses visible **Household** and **One time** fallbacks, and never lets AI invent household consequences. Save or dismissal invalidates late results.
+- **Accepted contextual-Chat boundary:** the dock may open truthful Chores context for discussion, but a typed **Edit in Chores** draft handoff remains unavailable until it has an explicit operation/capability contract. The Labs release must not fake or imply that handoff.
+- **Acceptance evidence:** focused domain and screen tests for expectation composition and state transitions, product and architecture lint, diff-aware completion verification, and an operated iPhone Simulator path through Settings > Kwilt Labs > Chores.
+- **Acceptance evidence for caregiver creation:** focused pure tests for draft defaults, explicit member/recurrence inference, enrichment mapping, touched-field protection, caregiver-only publication, and persisted migration; component tests for dock visibility, immediate editor opening, loading state, save/dismiss races, child projection, and review action; real Simulator operation of the loading and failure states.
+- **Deferred user-owned decisions:** series-versus-occurrence assignment, claim expiry, production notification cadence, correction history, real Household Mode relock, batch Chat creation, and production Chat draft handoff remain outside this slice.
+
 ## Open questions
 
 - How should the UI ask whether assignment applies only to today's occurrence or this and future occurrences?
 - When should an abandoned shared-pool claim expire?
-- Where should caregiver review live without turning the caregiver's To-dos into an approval inbox?
 - Should bounded weekly availability show three slots or one chore card with `3 left`?
 - How should Kwilt explain a correction that changes tokens, a backdated show-up streak, or Screen Time eligibility?
 - What exact inactivity/background policy returns a temporarily unlocked caregiver account to Household Mode?

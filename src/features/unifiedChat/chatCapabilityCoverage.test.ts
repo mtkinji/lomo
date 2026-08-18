@@ -87,4 +87,22 @@ describe('CHAT_CAPABILITY_COVERAGE', () => {
     }));
     expect(row?.toolIds).toEqual([]);
   });
+
+  it('keeps the local Chores learning slice outside conversational authority', () => {
+    const row = CHAT_CAPABILITY_COVERAGE.find((candidate) => candidate.id === 'chores.open');
+
+    expect(row).toEqual(expect.objectContaining({
+      owner: 'chores',
+      toolIds: [],
+      sourceRefs: ['capability:chores'],
+    }));
+    expect(row?.channels.mobile).toEqual(expect.objectContaining({
+      state: 'pending_provider',
+      outcome: 'honest_boundary',
+    }));
+    expect(row?.channels.phone).toEqual(expect.objectContaining({
+      state: 'pending_provider',
+      outcome: 'honest_boundary',
+    }));
+  });
 });

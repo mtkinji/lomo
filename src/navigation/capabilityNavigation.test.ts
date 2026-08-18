@@ -33,6 +33,7 @@ describe('resolveCapabilityNavigation', () => {
     ['money-accounts', { name: 'Money', params: { screen: 'MoneyAccounts' } }],
     ['explore', { name: 'Explore', params: { screen: 'ExploreMap' } }],
     ['games', { name: 'Games', params: { screen: 'GamesShelf' } }],
+    ['chores', { name: 'Chores' }],
     ['recipes', { name: 'Food', params: { screen: 'RecipeLibrary' } }],
     ['meal-planning', { name: 'Food', params: { screen: 'NextMeals' } }],
     ['groceries', { name: 'Food', params: { screen: 'GroceryList', params: { entryPoint: 'capability-menu' } } }],

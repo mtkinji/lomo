@@ -46,6 +46,7 @@ import { deriveCapabilityAgentContext, resolveCapabilityAgentReturn } from '../f
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { MealsSettingsScreen } from '../features/account/MealsSettingsScreen';
 import { HouseholdSettingsScreen } from '../features/household/HouseholdSettingsScreen';
+import { HouseholdMemberDetailScreen } from '../features/household/HouseholdMemberDetailScreen';
 import { FamilyScreenTimeLearningScreen } from '../features/household/screenTime/FamilyScreenTimeLearningScreen';
 import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
 import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
@@ -158,6 +159,9 @@ import { useKwiltLabsStore } from '../labs/useKwiltLabsStore';
 import { useFeatureFlag } from '../services/analytics/useFeatureFlag';
 import { useNavigationOrientationPolicy } from './navigationOrientation';
 import { useFocusSessionStore } from '../features/activities/focusSessionStore';
+import { ChoresScreen } from '../capabilities/chores/screens/ChoresScreen';
+import { projectChoreReviewQueue } from '../capabilities/chores/domain/choreLearning';
+import { useChoreLearningStore } from '../capabilities/chores/runtime/useChoreLearningStore';
 
 export type RootDrawerParamList = {
   StandaloneFocus: { source?: string } | undefined;
@@ -172,6 +176,7 @@ export type RootDrawerParamList = {
   Money: NavigatorScreenParams<MoneyStackParamList> | undefined;
   Explore: NavigatorScreenParams<ExploreStackParamList> | undefined;
   Games: NavigatorScreenParams<GamesStackParamList> | undefined;
+  Chores: undefined;
   Food: NavigatorScreenParams<FoodStackParamList> | undefined;
   /**
    * Hidden (no nav surface entry). Kept to preserve `kwilt://agent` deep links and
@@ -365,6 +370,7 @@ export type SettingsStackParamList = {
     | undefined;
   SettingsScreenTimeRuleBuilder: PersonalScreenTimeRuleBuilderParams;
   SettingsHousehold: { inviteCode?: string } | undefined;
+  SettingsHouseholdMember: { membershipId: string };
   SettingsFamilyScreenTime: {
     childMembershipId: string;
     childDisplayName: string;
@@ -773,6 +779,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               options={{ title: 'Games', drawerItemStyle: { display: 'none' } }}
             />
             <Drawer.Screen
+              name="Chores"
+              component={ChoresCapabilityHost}
+              options={{ title: 'Chores', drawerItemStyle: { display: 'none' } }}
+            />
+            <Drawer.Screen
               name="Food"
               component={FoodCapabilityHost}
               options={{ title: 'Food', drawerItemStyle: { display: 'none' } }}
@@ -1014,6 +1025,25 @@ function GamesCapabilityHost() {
   );
 }
 
+function ChoresCapabilityHost() {
+  const enabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('chores'));
+  if (!enabled) {
+    return (
+      <KwiltLabsSettingsSurface
+        onBack={() => {
+          if (rootNavigationRef.canGoBack()) rootNavigationRef.goBack();
+          else rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' });
+        }}
+      />
+    );
+  }
+  return (
+    <CapabilityShellProvider>
+      <ChoresScreen />
+    </CapabilityShellProvider>
+  );
+}
+
 function FoodCapabilityHost() {
   return (
     <CapabilityShellProvider>
@@ -1084,6 +1114,7 @@ function SettingsStackNavigator() {
         }}
       />
       <SettingsStack.Screen name="SettingsHousehold" component={HouseholdSettingsScreen} />
+      <SettingsStack.Screen name="SettingsHouseholdMember" component={HouseholdMemberDetailScreen} />
       <SettingsStack.Screen
         name="SettingsFamilyScreenTime"
         component={FamilyScreenTimeLearningScreen}
@@ -1188,6 +1219,12 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const { coverMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
   const exploreEnabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('explore'));
+  const choresEnabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('chores'));
+  const choreRecord = useChoreLearningStore((state) => state.record);
+  const choresAttentionCount = useMemo(
+    () => projectChoreReviewQueue(choreRecord, choreRecord.activeMemberId).length,
+    [choreRecord],
+  );
   const sharedHomeEnabled = useFeatureFlag('shared-home-v1', false);
   const chatRepository = useMemo(() => createUnifiedChatRepository(), []);
   const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);
@@ -1319,7 +1356,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         chatsLoading={chatsLoading}
         chatsError={chatsError}
         displayName={displayName}
-        avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
+        avatarUrl={userProfile?.avatarUrl || authIdentity?.avatarUrl}
         onSelectCapability={(id) => {
           const capability = resolveCapabilityNavigation(id);
           capture(AnalyticsEvent.CapabilitySelected, {
@@ -1379,6 +1416,8 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           coverMenu();
         }}
         exploreEnabled={exploreEnabled}
+        choresEnabled={choresEnabled}
+        choresAttentionCount={choresAttentionCount}
       />
     </View>
   );

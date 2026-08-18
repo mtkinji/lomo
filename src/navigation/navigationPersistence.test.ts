@@ -71,6 +71,7 @@ describe('navigationPersistence', () => {
       'Money',
       'Explore',
       'Games',
+      'Chores',
       'Food',
       'Settings',
     ]);
@@ -86,6 +87,7 @@ describe('navigationPersistence', () => {
           'Money',
           'Explore',
           'Games',
+          'Chores',
           'Food',
           'Settings',
         ]),
@@ -94,11 +96,12 @@ describe('navigationPersistence', () => {
     ).toBe(true);
   });
 
-  test.each(['StandaloneFocus', 'SharedHome'])('restores the %s production root', async (routeName) => {
+  test.each(['StandaloneFocus', 'SharedHome', 'Chores'])('restores the %s production root', async (routeName) => {
     const root = nestedState('drawer', routeName, [
       route('StandaloneFocus'),
       route('MainTabs'),
       route('SharedHome'),
+      route('Chores'),
       route('Settings'),
     ]);
 

@@ -98,10 +98,10 @@ describe('screenTimeProtection personal rule construction', () => {
     nowIso: '2026-08-13T12:00:00.000Z',
   });
 
-  it('lists only personal conditions that do not yet have a rule', () => {
+  it('keeps every personal condition available when same-kind rules already exist', () => {
     expect(getAvailablePersonalScreenTimeRuleKinds(base())).toEqual(['real_step', 'focus', 'daily_limit']);
     expect(getAvailablePersonalScreenTimeRuleKinds(base({ personalRules: [focusRule] })))
-      .toEqual(['real_step', 'daily_limit']);
+      .toEqual(['real_step', 'focus', 'daily_limit']);
   });
 
   it('creates and normalizes a reusable daily allowance without changing its selected apps', () => {
@@ -137,14 +137,31 @@ describe('screenTimeProtection personal rule construction', () => {
     ]);
   });
 
-  it('refuses a duplicate condition in the bounded builder release', () => {
+  it('adds a second rule with the same condition when its selected targets differ', () => {
     const settings = base({ personalRules: [focusRule] });
     const result = addPersonalScreenTimeRule(settings, {
       ...focusRule,
+      id: 'focus-youtube',
+      selectionId: 'focus-youtube',
       selectedApps: [{ token: 'youtube' }],
     });
 
-    expect(result).toEqual({ status: 'duplicate_kind', settings });
+    expect(result.status).toBe('created');
+    expect(result.settings.personalRules.map((rule) => rule.id)).toEqual([
+      'personal_focus',
+      'focus-youtube',
+    ]);
+  });
+
+  it('refuses only an exact duplicate rule', () => {
+    const settings = base({ personalRules: [focusRule] });
+    const result = addPersonalScreenTimeRule(settings, {
+      ...focusRule,
+      id: 'focus-copy',
+      selectionId: 'focus-copy',
+    });
+
+    expect(result).toEqual({ status: 'duplicate_rule', existingRuleId: focusRule.id, settings });
   });
 });
 
@@ -193,6 +210,32 @@ describe('screenTimeProtection setup defaults and recovery', () => {
         } as any),
       ),
     ).toBe('ready');
+  });
+
+  it('treats setup as ready when any repeated personal rule is enabled', () => {
+    expect(getScreenTimeSetupRecoveryStep(base({
+      authorizationStatus: 'approved',
+      personalRules: [
+        createPersonalScreenTimeRule({
+          id: 'focus-social',
+          selectionId: 'focus-social',
+          kind: 'focus',
+          selectedApps: [{ token: 'social', label: 'Social' }],
+          selectedCategories: [],
+          enabled: false,
+          setupCompleted: true,
+        }),
+        createPersonalScreenTimeRule({
+          id: 'focus-youtube',
+          selectionId: 'focus-youtube',
+          kind: 'focus',
+          selectedApps: [{ token: 'youtube', label: 'YouTube' }],
+          selectedCategories: [],
+          enabled: true,
+          setupCompleted: true,
+        }),
+      ],
+    }))).toBe('ready');
   });
 });
 
@@ -446,6 +489,38 @@ describe('screenTimeProtection meaningful-first unlocks', () => {
 
     expect(afterActivity).toBe(settings);
     expect(afterShortFocus).toBe(settings);
+  });
+
+  it('unlocks every applicable same-kind rule without changing independent identities', () => {
+    const first = createPersonalScreenTimeRule({
+      id: 'real-step-social',
+      selectionId: 'real-step-social',
+      kind: 'real_step',
+      selectedApps: [{ token: 'instagram' }],
+      selectedCategories: [],
+      enabled: true,
+      setupCompleted: true,
+    });
+    const second = createPersonalScreenTimeRule({
+      id: 'real-step-games',
+      selectionId: 'real-step-games',
+      kind: 'real_step',
+      selectedApps: [{ token: 'games' }],
+      selectedCategories: [],
+      enabled: true,
+      setupCompleted: true,
+    });
+    const settings = base({ personalRules: [first, second] });
+
+    const next = recordMeaningfulFirstQualification(settings, {
+      action: 'activity_completed',
+      occurredAt: dayStart,
+    });
+
+    expect(next.personalRules).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'real-step-games', lastQualifiedAtIso: dayStart.toISOString() }),
+      expect.objectContaining({ id: 'real-step-social', lastQualifiedAtIso: dayStart.toISOString() }),
+    ]));
   });
 
   it('supports temporary bypass without marking the day qualified', () => {

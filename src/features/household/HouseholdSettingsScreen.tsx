@@ -16,6 +16,7 @@ import {
   SettingsToggleRow,
 } from '../../ui/SettingsSurface';
 import { Text } from '../../ui/primitives';
+import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import {
   acceptHouseholdMemberInvite,
   addDependentChild,
@@ -31,6 +32,7 @@ import {
   type HouseholdInvitationPreview,
   type HouseholdSnapshot,
 } from './data/household';
+import { resolveHouseholdAvatars, type HouseholdAvatarMap } from './data/householdAvatars';
 
 const CAPABILITIES: readonly { id: ChildCapabilityId; name: string }[] = [
   { id: 'todos', name: 'To-dos' },
@@ -80,6 +82,32 @@ function stateDescription(state: ChildCapabilityState | undefined): string {
   }
 }
 
+function HouseholdMemberRow({
+  member,
+  onPress,
+}: {
+  member: HouseholdSnapshot['members'][number];
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={member.displayName}
+      onPress={onPress}
+      style={({ pressed }) => [styles.memberRow, pressed ? styles.pressed : null]}
+    >
+      <ProfileAvatar name={member.displayName} avatarUrl={member.avatarUrl} size={42} />
+      <View style={styles.memberCopy}>
+        <Text numberOfLines={1} style={styles.memberName}>{member.displayName}</Text>
+        <Text numberOfLines={1} style={styles.memberRole}>
+          {member.role === 'owner' ? 'Organizer' : member.role === 'caregiver' ? 'Caregiver' : 'Child'}
+        </Text>
+      </View>
+      <Icon color={colors.textSecondary} name="chevronRight" size={17} />
+    </Pressable>
+  );
+}
+
 export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreenProps<SettingsStackParamList, 'SettingsHousehold'>) {
   const authIdentity = useAppStore((state) => state.authIdentity);
   const linkedInviteCode = route.params?.inviteCode?.trim().toUpperCase() ?? '';
@@ -105,7 +133,12 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
     if (!client) return;
     setLoading(true);
     try {
-      setSnapshot(await getHouseholdSnapshot(client));
+      const base = await getHouseholdSnapshot(client);
+      const avatars = await resolveHouseholdAvatars().catch((): HouseholdAvatarMap => ({}));
+      setSnapshot({
+        ...base,
+        members: base.members.map((member) => ({ ...member, ...(avatars[member.id] ?? {}) })),
+      });
     } catch (error) {
       Alert.alert('Unable to load your household', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -437,11 +470,21 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
             <Text style={styles.privacyText}>Only your family roster is shared. The rest of Kwilt stays private.</Text>
           </View>
         </View>
-      ) : (
-        <SettingsGroup title="Your family">
-          <SettingsRow title={snapshot.household.name} value={currentMember?.role ?? 'Member'} />
+      ) : null}
+
+      {snapshot?.household ? (
+        <SettingsGroup footer={snapshot.household.name} title="Your family">
+          {snapshot.members.map((member, index) => (
+            <Fragment key={member.id}>
+              <HouseholdMemberRow
+                member={member}
+                onPress={() => navigation.navigate('SettingsHouseholdMember', { membershipId: member.id })}
+              />
+              {index < snapshot.members.length - 1 ? <SettingsDivider /> : null}
+            </Fragment>
+          ))}
         </SettingsGroup>
-      )}
+      ) : null}
 
       {!loading ? (
         <View style={styles.entrySection}>
@@ -705,5 +748,27 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.68,
+  },
+  memberRow: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  memberCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  memberName: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  memberRole: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
 });

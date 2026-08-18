@@ -44,4 +44,11 @@ describe('Screen Time prerequisite native generation', () => {
     expect(extensionPlugin).toContain('applyPersonalUsageLimitShield');
     expect(bridgePlugin).toContain('includesPastActivity: true');
   });
+
+  it('describes overlapping restrictions without implying an unlock order', () => {
+    expect(extensionPlugin).toContain('rules are pausing');
+    expect(extensionPlugin).toContain('more rules also apply');
+    expect(extensionPlugin).not.toContain('First,');
+    expect(extensionPlugin).not.toContain('will still apply');
+  });
 });

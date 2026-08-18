@@ -352,7 +352,7 @@ export function ActivitiesScreen() {
   });
   const activityViews = useAppStore((state) => state.activityViews);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
-  const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const avatarUrl = userProfile?.avatarUrl || authIdentity?.avatarUrl;
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
   const streakGrace = useAppStore((state) => state.streakGrace);

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import * as Crypto from 'expo-crypto';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../../../navigation/RootNavigator';
@@ -81,17 +82,11 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
     && Number(props.params.suggestedLimitMinutes) <= 1440
     ? Number(props.params.suggestedLimitMinutes)
     : 10;
+  const [draftRuleId] = useState(() => `personal_rule_${Crypto.randomUUID()}`);
   const [kind, setKind] = useState<PersonalScreenTimeRuleKind | null>(() => (
     suggestedKind && availableKinds.includes(suggestedKind) ? suggestedKind : null
   ));
-  const [targets, setTargets] = useState<RuleTargets>(() => (
-    entry === 'contextual'
-      ? {
-          selectedApps: normalized.selectedApps,
-          selectedCategories: normalized.selectedCategories,
-        }
-      : { selectedApps: [], selectedCategories: [] }
-  ));
+  const [targets, setTargets] = useState<RuleTargets>({ selectedApps: [], selectedCategories: [] });
   const [appsConfirmed, setAppsConfirmed] = useState(false);
   const [choosingApps, setChoosingApps] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -125,15 +120,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
         return;
       }
     }
-    const selection = await presentScreenTimeActivityPicker(targets, {
-      selectionId: kind === 'focus'
-        ? 'personal_focus'
-        : kind === 'real_step'
-          ? 'personal_real_step'
-          : kind === 'daily_limit'
-            ? 'personal_daily_limit'
-            : 'personal_rule_draft',
-    });
+    const selection = await presentScreenTimeActivityPicker(targets, { selectionId: draftRuleId });
     setChoosingApps(false);
     if (!selection) return;
     const nextTargets = {
@@ -151,6 +138,8 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
     const result = addPersonalScreenTimeRule(
       normalizeScreenTimeProtectionSettings(useAppStore.getState().screenTimeProtection),
       createPersonalScreenTimeRule({
+        id: draftRuleId,
+        selectionId: draftRuleId,
         kind,
         selectedApps: targets.selectedApps,
         selectedCategories: targets.selectedCategories,
@@ -160,9 +149,9 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
         nowIso,
       }),
     );
-    if (result.status === 'duplicate_kind') {
+    if (result.status === 'duplicate_rule') {
       setSaving(false);
-      Alert.alert('Rule already exists', 'Open the existing rule to change its apps.');
+      Alert.alert('Rule already exists', 'The same apps and condition are already saved.');
       return;
     }
     setSettings(result.settings);

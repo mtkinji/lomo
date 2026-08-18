@@ -41,6 +41,7 @@ import {
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import { getAvailabilityForDate, getWindowsForMode, resolvePlanModeForArea } from '../../services/plan/planAvailability';
 import {
+  filterVisiblePlanProposals,
   getPlanCandidateEligibility,
   proposeDailyPlan,
   type DailyPlanProposal,
@@ -608,16 +609,11 @@ export function PlanPager({
   ]);
 
   const scheduleProposals = useMemo(() => {
-    const activityById = new Map(activities.map((a) => [a.id, a]));
-    const byActivityId = new Map<string, DailyPlanProposal>();
-    for (const p of [...sheetCreatedProposals, ...proposals]) {
-      const activity = activityById.get(p.activityId);
-      if (!activity) continue;
-      if (activity.status === 'done' || activity.status === 'cancelled' || activity.scheduledAt) continue;
-      if (skippedIds.has(p.activityId)) continue;
-      if (!byActivityId.has(p.activityId)) byActivityId.set(p.activityId, p);
-    }
-    return Array.from(byActivityId.values());
+    return filterVisiblePlanProposals({
+      proposals: [...sheetCreatedProposals, ...proposals],
+      activities,
+      skippedActivityIds: skippedIds,
+    });
   }, [activities, proposals, sheetCreatedProposals, skippedIds]);
 
   const recommendations = useMemo<PlanRecommendation[]>(() => {

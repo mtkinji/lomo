@@ -541,11 +541,18 @@ export function getPersonalScreenTimeRule<K extends PersonalScreenTimeRuleKind>(
     ?? null;
 }
 
+export function getPersonalScreenTimeRuleById(
+  settings: Pick<ScreenTimeProtectionSettings, 'personalRules'>,
+  ruleId: string,
+): PersonalScreenTimeRule | null {
+  return settings.personalRules.find((rule) => rule.id === ruleId) ?? null;
+}
+
 export function replacePersonalScreenTimeRule(
   settings: ScreenTimeProtectionSettings,
   nextRule: PersonalScreenTimeRule,
 ): ScreenTimeProtectionSettings {
-  const withoutRule = settings.personalRules.filter((rule) => rule.id !== nextRule.id && rule.kind !== nextRule.kind);
+  const withoutRule = settings.personalRules.filter((rule) => rule.id !== nextRule.id);
   return normalizeScreenTimeProtectionSettings({
     ...settings,
     personalRules: [...withoutRule, nextRule].sort((left, right) => {
@@ -557,6 +564,8 @@ export function replacePersonalScreenTimeRule(
 }
 
 export function createPersonalScreenTimeRule(params: {
+  id?: string;
+  selectionId?: string;
   kind: PersonalScreenTimeRuleKind;
   selectedApps: ScreenTimeToken[];
   selectedCategories: ScreenTimeToken[];
@@ -566,18 +575,19 @@ export function createPersonalScreenTimeRule(params: {
   nowIso?: string;
 }): PersonalScreenTimeRule {
   const nowIso = validIsoOrNull(params.nowIso) ?? new Date().toISOString();
+  const fallbackId = params.kind === 'real_step'
+    ? PERSONAL_REAL_STEP_RULE_ID
+    : params.kind === 'focus'
+      ? PERSONAL_FOCUS_RULE_ID
+      : PERSONAL_DAILY_LIMIT_RULE_ID;
+  const id = typeof params.id === 'string' && params.id.trim() ? params.id.trim() : fallbackId;
+  const selectionId = typeof params.selectionId === 'string' && params.selectionId.trim()
+    ? params.selectionId.trim()
+    : id;
   const rule = normalizePersonalRule({
-    id: params.kind === 'real_step'
-      ? PERSONAL_REAL_STEP_RULE_ID
-      : params.kind === 'focus'
-        ? PERSONAL_FOCUS_RULE_ID
-        : PERSONAL_DAILY_LIMIT_RULE_ID,
+    id,
     kind: params.kind,
-    selectionId: params.kind === 'real_step'
-      ? PERSONAL_REAL_STEP_RULE_ID
-      : params.kind === 'focus'
-        ? PERSONAL_FOCUS_RULE_ID
-        : PERSONAL_DAILY_LIMIT_RULE_ID,
+    selectionId,
     selectedApps: params.selectedApps,
     selectedCategories: params.selectedCategories,
     enabled: params.enabled === true,
@@ -603,10 +613,24 @@ export function createPersonalScreenTimeRule(params: {
 const PERSONAL_SCREEN_TIME_RULE_KIND_ORDER: PersonalScreenTimeRuleKind[] = ['real_step', 'focus', 'daily_limit'];
 
 export function getAvailablePersonalScreenTimeRuleKinds(
-  settings: Pick<ScreenTimeProtectionSettings, 'personalRules'>,
+  _settings: Pick<ScreenTimeProtectionSettings, 'personalRules'>,
 ): PersonalScreenTimeRuleKind[] {
-  const configured = new Set(settings.personalRules.map((rule) => rule.kind));
-  return PERSONAL_SCREEN_TIME_RULE_KIND_ORDER.filter((kind) => !configured.has(kind));
+  return [...PERSONAL_SCREEN_TIME_RULE_KIND_ORDER];
+}
+
+function ruleTargetFingerprint(rule: PersonalScreenTimeRule): string {
+  const apps = rule.selectedApps.map((token) => token.token).sort();
+  const categories = rule.selectedCategories.map((token) => token.token).sort();
+  const condition = rule.kind === 'daily_limit'
+    ? { limitMinutes: rule.limitMinutes, reset: rule.reset }
+    : rule.kind === 'real_step'
+      ? {
+          qualifyingActions: [...rule.qualifyingActions].sort(),
+          minFocusMinutes: rule.minFocusMinutes,
+          unlockPolicy: rule.unlockPolicy,
+        }
+      : {};
+  return JSON.stringify({ kind: rule.kind, apps, categories, condition });
 }
 
 export function addPersonalScreenTimeRule(
@@ -614,9 +638,11 @@ export function addPersonalScreenTimeRule(
   rule: PersonalScreenTimeRule,
 ):
   | { status: 'created'; settings: ScreenTimeProtectionSettings }
-  | { status: 'duplicate_kind'; settings: ScreenTimeProtectionSettings } {
-  if (settings.personalRules.some((candidate) => candidate.kind === rule.kind)) {
-    return { status: 'duplicate_kind', settings };
+  | { status: 'duplicate_rule'; existingRuleId: string; settings: ScreenTimeProtectionSettings } {
+  const fingerprint = ruleTargetFingerprint(rule);
+  const duplicate = settings.personalRules.find((candidate) => ruleTargetFingerprint(candidate) === fingerprint);
+  if (duplicate) {
+    return { status: 'duplicate_rule', existingRuleId: duplicate.id, settings };
   }
   return {
     status: 'created',
@@ -661,38 +687,47 @@ export function isMeaningfulFirstUnlocked(settings: ScreenTimeProtectionSettings
   return Number.isFinite(unlockUntilMs) && now.getTime() < unlockUntilMs;
 }
 
-function qualifies(settings: ScreenTimeProtectionSettings, qualification: MeaningfulFirstQualification): boolean {
-  const meaningfulFirst = settings.meaningfulFirst;
-  if (!meaningfulFirst.enabled) return false;
-  if (!meaningfulFirst.qualifyingActions.includes(qualification.action)) return false;
+function qualifiesRealStepRule(
+  rule: PersonalRealStepScreenTimeRule,
+  qualification: MeaningfulFirstQualification,
+): boolean {
+  if (!rule.enabled) return false;
+  if (!rule.qualifyingActions.includes(qualification.action)) return false;
   if (qualification.action === 'focus_session_completed') {
     const minutes = Number(qualification.focusMinutes);
-    return Number.isFinite(minutes) && minutes >= meaningfulFirst.minFocusMinutes;
+    return Number.isFinite(minutes) && minutes >= rule.minFocusMinutes;
   }
   return true;
+}
+
+function realStepUnlockUntil(rule: PersonalRealStepScreenTimeRule, now: Date): Date {
+  if (rule.unlockPolicy.type === 'duration') {
+    return new Date(now.getTime() + rule.unlockPolicy.minutes * 60_000);
+  }
+  return startOfNextLocalDay(now);
 }
 
 export function recordMeaningfulFirstQualification(
   settings: ScreenTimeProtectionSettings,
   qualification: MeaningfulFirstQualification,
 ): ScreenTimeProtectionSettings {
-  if (!qualifies(settings, qualification)) return settings;
-  const meaningfulFirst = buildMeaningfulFirstUnlock(settings, {
-    now: qualification.occurredAt,
-    reason: 'qualified',
+  let changed = false;
+  const occurredAtIso = qualification.occurredAt.toISOString();
+  const personalRules = settings.personalRules.map((rule) => {
+    if (rule.kind !== 'real_step' || !qualifiesRealStepRule(rule, qualification)) return rule;
+    changed = true;
+    return {
+      ...rule,
+      currentUnlockUntilIso: realStepUnlockUntil(rule, qualification.occurredAt).toISOString(),
+      lastQualifiedAtIso: occurredAtIso,
+      lastUpdated: occurredAtIso,
+    };
   });
-  const next = normalizeScreenTimeProtectionSettings({
+  if (!changed) return settings;
+  return normalizeScreenTimeProtectionSettings({
     ...settings,
-    meaningfulFirst,
-    lastUpdated: qualification.occurredAt.toISOString(),
-  });
-  const rule = getPersonalScreenTimeRule(next, 'real_step');
-  if (!rule) return next;
-  return replacePersonalScreenTimeRule(next, {
-    ...rule,
-    currentUnlockUntilIso: meaningfulFirst.currentUnlockUntilIso,
-    lastQualifiedAtIso: meaningfulFirst.lastQualifiedAtIso,
-    lastUpdated: qualification.occurredAt.toISOString(),
+    personalRules,
+    lastUpdated: occurredAtIso,
   });
 }
 
@@ -700,20 +735,19 @@ export function recordMeaningfulFirstBypass(
   settings: ScreenTimeProtectionSettings,
   now: Date,
 ): ScreenTimeProtectionSettings {
-  if (!settings.meaningfulFirst.enabled || !settings.meaningfulFirst.allowBypass) return settings;
-  const meaningfulFirst = buildMeaningfulFirstUnlock(settings, { now, reason: 'bypass' });
-  const next = normalizeScreenTimeProtectionSettings({
-    ...settings,
-    meaningfulFirst,
-    lastUpdated: now.toISOString(),
+  let changed = false;
+  const nowIso = now.toISOString();
+  const personalRules = settings.personalRules.map((rule) => {
+    if (rule.kind !== 'real_step' || !rule.enabled || !rule.temporaryOpenAllowed) return rule;
+    changed = true;
+    return {
+      ...rule,
+      currentUnlockUntilIso: new Date(now.getTime() + DEFAULT_TEMPORARY_OPEN_MINUTES * 60_000).toISOString(),
+      lastUpdated: nowIso,
+    };
   });
-  const rule = getPersonalScreenTimeRule(next, 'real_step');
-  if (!rule) return next;
-  return replacePersonalScreenTimeRule(next, {
-    ...rule,
-    currentUnlockUntilIso: meaningfulFirst.currentUnlockUntilIso,
-    lastUpdated: now.toISOString(),
-  });
+  if (!changed) return settings;
+  return normalizeScreenTimeProtectionSettings({ ...settings, personalRules, lastUpdated: nowIso });
 }
 
 export type ActivePersonalScreenTimeRestriction = {
@@ -785,16 +819,16 @@ export function getScreenTimeSetupRecoveryStep(settings: ScreenTimeProtectionSet
   }
   if (normalized.authorizationStatus !== 'approved') return 'permission';
   if (!hasSelectedScreenTimeTargets(normalized)) return 'apps';
-  if (!normalized.meaningfulFirst.enabled && !normalized.focusProtection.enabled) return 'rules';
+  if (!normalized.personalRules.some((rule) => rule.enabled)) return 'rules';
   return 'ready';
 }
 
 function isSetupIntentAlreadyEnabled(settings: ScreenTimeProtectionSettings, intent: ScreenTimeSetupIntent): boolean {
-  if (intent === 'focus_sessions') return settings.focusProtection.enabled;
+  if (intent === 'focus_sessions') return settings.personalRules.some((rule) => rule.kind === 'focus' && rule.enabled);
   if (intent === 'settings_discovery') {
-    return settings.focusProtection.enabled || settings.meaningfulFirst.enabled;
+    return settings.personalRules.some((rule) => rule.enabled);
   }
-  return settings.meaningfulFirst.enabled;
+  return settings.personalRules.some((rule) => rule.kind === 'real_step' && rule.enabled);
 }
 
 function hasCompletedSharedScreenTimeSetup(settings: ScreenTimeProtectionSettings): boolean {

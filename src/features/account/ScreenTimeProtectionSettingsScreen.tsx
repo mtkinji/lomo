@@ -19,8 +19,7 @@ import {
 } from '../../services/appleEcosystem/screenTimeProtection';
 import {
   createPersonalScreenTimeRule,
-  getAvailablePersonalScreenTimeRuleKinds,
-  getPersonalScreenTimeRule,
+  getPersonalScreenTimeRuleById,
   getScreenTimeSetupDefaults,
   getScreenTimeSetupRecoveryStep,
   normalizeScreenTimeProtectionSettings,
@@ -227,11 +226,8 @@ export function ScreenTimeProtectionSettingsScreen() {
   const targetCount = normalized.selectedApps.length + normalized.selectedCategories.length;
   const hasTargets = targetCount > 0;
   const isApproved = normalized.authorizationStatus === 'approved';
-  const focusRule = getPersonalScreenTimeRule(normalized, 'focus');
-  const realStepRule = getPersonalScreenTimeRule(normalized, 'real_step');
-  const focusEnabled = focusRule?.enabled ?? false;
-  const meaningfulFirstEnabled = realStepRule?.enabled ?? false;
-  const anyRuleEnabled = focusEnabled || meaningfulFirstEnabled;
+  const focusEnabled = normalized.personalRules.some((rule) => rule.kind === 'focus' && rule.enabled);
+  const meaningfulFirstEnabled = normalized.personalRules.some((rule) => rule.kind === 'real_step' && rule.enabled);
   const hasCompletedRulesSetup = normalized.personalRules.some((rule) => rule.setupCompleted);
   const setupCompleted = isApproved && hasTargets && hasCompletedRulesSetup;
   const [setupPhase, setSetupPhase] = useState<SetupPhase>(() => (setupCompleted ? 'manage' : 'intro'));
@@ -455,10 +451,14 @@ export function ScreenTimeProtectionSettingsScreen() {
     setSetupPhase('done');
   };
 
-  const handleToggleRule = (kind: PersonalScreenTimeRuleKind, enabled: boolean) => {
+  const handleToggleRule = (ruleId: string, enabled: boolean) => {
     const nowIso = new Date().toISOString();
+    const ruleKind = getPersonalScreenTimeRuleById(
+      normalizeScreenTimeProtectionSettings(useAppStore.getState().screenTimeProtection),
+      ruleId,
+    )?.kind;
     setSettings((current) => {
-      const existing = getPersonalScreenTimeRule(current, kind);
+      const existing = getPersonalScreenTimeRuleById(current, ruleId);
       if (!existing) return current;
       return replacePersonalScreenTimeRule(current, {
         ...existing,
@@ -467,20 +467,24 @@ export function ScreenTimeProtectionSettingsScreen() {
         lastUpdated: nowIso,
       });
     });
-    if (enabled) {
+    if (enabled && ruleKind) {
       capture(AnalyticsEvent.ScreenTimeSetupCompleted, {
         setup_intent: setupIntent,
         surface: entrySurface,
-        rule: kind === 'focus' ? 'focus_session' : kind === 'daily_limit' ? 'daily_limit' : 'real_step',
+        rule: ruleKind === 'focus'
+          ? 'focus_session'
+          : ruleKind === 'daily_limit'
+            ? 'daily_limit'
+            : 'real_step',
       });
     }
     reconcileAfterSettingsChange();
   };
 
-  const handleChooseRuleTargets = async (kind: PersonalScreenTimeRuleKind) => {
-    const rule = getPersonalScreenTimeRule(
+  const handleChooseRuleTargets = async (ruleId: string) => {
+    const rule = getPersonalScreenTimeRuleById(
       normalizeScreenTimeProtectionSettings(useAppStore.getState().screenTimeProtection),
-      kind,
+      ruleId,
     );
     if (!rule) return;
     setSetupStep('selection');
@@ -492,7 +496,7 @@ export function ScreenTimeProtectionSettingsScreen() {
     if (!selection) return;
     const nowIso = new Date().toISOString();
     setSettings((current) => {
-      const currentRule = getPersonalScreenTimeRule(current, kind);
+      const currentRule = getPersonalScreenTimeRuleById(current, ruleId);
       if (!currentRule) return current;
       return replacePersonalScreenTimeRule(current, {
         ...currentRule,
@@ -506,7 +510,7 @@ export function ScreenTimeProtectionSettingsScreen() {
   };
 
   const beginPersonalRuleDraft = () => {
-    if (!isApproved || availablePersonalRuleKinds.length === 0) return;
+    if (!isApproved) return;
     navigation.navigate('SettingsScreenTimeRuleBuilder', { entry: 'inventory' });
   };
 
@@ -554,8 +558,6 @@ export function ScreenTimeProtectionSettingsScreen() {
     personalSettings: normalized,
     moneySettings: moneyAppControls.settings,
   });
-  const availablePersonalRuleKinds = getAvailablePersonalScreenTimeRuleKinds(normalized);
-
   const openRule = (row: ScreenTimeRuleInventoryRow) => {
     if (row.destination.kind === 'money') {
       rootNavigation?.navigate('Money', {
@@ -564,7 +566,7 @@ export function ScreenTimeProtectionSettingsScreen() {
       });
       return;
     }
-    void handleChooseRuleTargets(row.destination.ruleKind);
+    void handleChooseRuleTargets(row.destination.ruleId);
   };
 
   const toggleInventoryRule = (row: ScreenTimeRuleInventoryRow) => {
@@ -572,7 +574,7 @@ export function ScreenTimeProtectionSettingsScreen() {
       openRule(row);
       return;
     }
-    handleToggleRule(row.destination.ruleKind, !row.enabled);
+    handleToggleRule(row.destination.ruleId, !row.enabled);
   };
 
   const openHouseholdRuleBuilder = () => {
@@ -640,7 +642,7 @@ export function ScreenTimeProtectionSettingsScreen() {
       <RuleInventoryGroup
         title={`My rules · ${myRuleRows.length}`}
         addAccessibilityLabel="Add My rule"
-        addDisabled={!isApproved || availablePersonalRuleKinds.length === 0}
+        addDisabled={!isApproved}
         onAdd={beginPersonalRuleDraft}
         emptyCopy="No personal rules yet."
         isEmpty={myRuleRows.length === 0}
@@ -893,7 +895,7 @@ function RuleInventoryRow(props: {
     <VStack flex={1} space={0}>
       <Text style={[styles.rowTitle, props.disabled ? styles.disabledText : null]}>{props.row.title}</Text>
       <Text style={styles.rowSubtitle}>{props.row.detail}</Text>
-      <Text style={styles.ruleOwnerCopy}>{props.row.domain === 'money' ? 'Money' : 'Personal'}</Text>
+      {props.row.contextLabel ? <Text style={styles.ruleOwnerCopy}>{props.row.contextLabel}</Text> : null}
     </VStack>
   );
   if (props.row.domain === 'personal') {
@@ -901,7 +903,7 @@ function RuleInventoryRow(props: {
       <View style={[styles.inventoryRow, !props.row.enabled ? styles.ruleCardDisabled : null]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={props.row.title}
+          accessibilityLabel={`${props.row.title}. ${props.row.detail}`}
           disabled={props.disabled}
           onPress={props.onPress}
           style={({ pressed }) => [styles.inventoryRowMain, pressed ? styles.ruleDraftRowPressed : null]}
@@ -920,7 +922,7 @@ function RuleInventoryRow(props: {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={props.row.title}
+      accessibilityLabel={`${props.row.title}. ${props.row.detail}${props.row.contextLabel ? `. ${props.row.contextLabel}` : ''}`}
       disabled={props.disabled}
       onPress={props.onPress}
       style={({ pressed }) => [styles.inventoryRow, !props.row.enabled ? styles.ruleCardDisabled : null, pressed ? styles.ruleDraftRowPressed : null]}

@@ -1,5 +1,5 @@
 import type { Activity, ActivityArea, Goal, UserProfile } from '../../domain/types';
-import { proposeDailyPlan, proposeSlotsForActivity } from './planScheduling';
+import { filterVisiblePlanProposals, proposeDailyPlan, proposeSlotsForActivity } from './planScheduling';
 
 const TARGET_DATE = new Date('2026-06-22T12:00:00.000Z');
 
@@ -52,6 +52,26 @@ function profile(): UserProfile {
 }
 
 describe('planScheduling', () => {
+  it('keeps an unfinished recommendation visible after its previous block has passed', () => {
+    const staleActivity = activity({
+      id: 'stale-schedule',
+      title: 'Still needs doing',
+      scheduledAt: '2026-06-21T09:00:00.000Z',
+    });
+    const proposal = {
+      activityId: staleActivity.id,
+      title: staleActivity.title,
+      startDate: '2026-06-22T09:00:00.000Z',
+      endDate: '2026-06-22T09:30:00.000Z',
+      calendarId: 'calendar-1',
+      domain: 'personal' as const,
+    };
+
+    expect(
+      filterVisiblePlanProposals({ proposals: [proposal], activities: [staleActivity], now: TARGET_DATE }),
+    ).toEqual([proposal]);
+  });
+
   it('recovers an unfinished activity after its scheduled block has passed', () => {
     const result = proposeDailyPlan({
       activities: [
