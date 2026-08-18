@@ -5,7 +5,6 @@ import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
 import { useCapabilityMenuOpen } from '../../../navigation/CapabilityMenuStateContext';
 import { useAppStore } from '../../../store/useAppStore';
 import { colors, radii, spacing } from '../../../theme';
-import { BottomDrawer } from '../../../ui/BottomDrawer';
 import { BottomGuide } from '../../../ui/BottomGuide';
 import { ActivityListItem } from '../../../ui/ActivityListItem';
 import { Button, IconButton } from '../../../ui/Button';
@@ -13,10 +12,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '../../../ui/DropdownMenu';
 import { Icon } from '../../../ui/Icon';
-import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { ProfileAvatar } from '../../../ui/ProfileAvatar';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { CanvasScrollView } from '../../../ui/layout/CanvasScrollView';
@@ -43,22 +42,58 @@ import { useToastStore } from '../../../store/useToastStore';
 
 type ChoresScreenProps = { now?: () => Date };
 
-function MemberControl({ member, avatarUrl, onPress }: {
+function MemberMenu({ member, members, caregiverAvatarUrl, onSelect }: {
   member: ChoreMember;
-  avatarUrl?: string | null;
-  onPress: () => void;
+  members: ChoreMember[];
+  caregiverAvatarUrl?: string | null;
+  onSelect: (memberId: string) => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Switch household member, ${member.displayName}`}
-      onPress={onPress}
-      style={({ pressed }) => [styles.memberControl, pressed && styles.pressed]}
-    >
-      <ProfileAvatar name={member.displayName} avatarUrl={avatarUrl} size={30} />
-      <Text variant="label">{member.displayName}</Text>
-      <Icon name="chevronDown" size={15} color={colors.textSecondary} />
-    </Pressable>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Switch household member, ${member.displayName}`}
+          hitSlop={{ top: 6, bottom: 6 }}
+          style={({ pressed }) => [styles.memberControl, pressed && styles.pressed]}
+        >
+          <ProfileAvatar
+            name={member.displayName}
+            avatarUrl={member.role === 'caregiver' ? caregiverAvatarUrl : undefined}
+            size={24}
+          />
+          <Text variant="label">{member.displayName}</Text>
+          <Icon name="chevronDown" size={15} color={colors.textSecondary} />
+        </Pressable>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        testID="chores.member.menu"
+        side="bottom"
+        sideOffset={6}
+        align="end"
+        style={styles.memberMenu}
+      >
+        <DropdownMenuLabel>View chores as</DropdownMenuLabel>
+        {members.map((option) => (
+          <DropdownMenuItem
+            key={option.id}
+            accessibilityLabel={`Switch to ${option.displayName}`}
+            selected={option.id === member.id}
+            onPress={() => onSelect(option.id)}
+          >
+            <View style={styles.memberMenuItemContent}>
+              <ProfileAvatar
+                name={option.displayName}
+                avatarUrl={option.role === 'caregiver' ? caregiverAvatarUrl : undefined}
+                size={24}
+              />
+              <Text>{option.displayName}</Text>
+              {option.role === 'caregiver' ? <Text tone="secondary">· Caregiver</Text> : null}
+            </View>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -216,7 +251,6 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const approve = useChoreLearningStore((state) => state.approve);
   const requestAnotherPass = useChoreLearningStore((state) => state.requestAnotherPass);
   const setEvidencePhoto = useChoreLearningStore((state) => state.setEvidencePhoto);
-  const [memberDrawerOpen, setMemberDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [agreementOpen, setAgreementOpen] = useState(false);
@@ -271,10 +305,11 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
           </IconButton>
         ) : undefined}
         rightElement={(
-          <MemberControl
+          <MemberMenu
             member={projection.member}
-            avatarUrl={isCaregiver ? caregiverAvatarUrl : undefined}
-            onPress={() => setMemberDrawerOpen(true)}
+            members={record.members}
+            caregiverAvatarUrl={caregiverAvatarUrl}
+            onSelect={selectMember}
           />
         )}
       />
@@ -350,38 +385,6 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         </View>
       </BottomGuide>
 
-      <BottomDrawer visible={memberDrawerOpen} onClose={() => setMemberDrawerOpen(false)} snapPoints={['44%']}>
-        <View testID="chores.member.drawer" style={styles.drawerContent}>
-          <BottomDrawerHeader variant="withClose" title="View chores as" onClose={() => setMemberDrawerOpen(false)} />
-          <View style={styles.memberList}>
-            {record.members.map((member) => {
-              const selected = member.id === projection.member.id;
-              return (
-                <Pressable
-                  key={member.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Switch to ${member.displayName}`}
-                  accessibilityState={{ selected }}
-                  onPress={() => { selectMember(member.id); setMemberDrawerOpen(false); }}
-                  style={({ pressed }) => [styles.memberRow, selected && styles.memberRowSelected, pressed && styles.pressed]}
-                >
-                  <ProfileAvatar
-                    name={member.displayName}
-                    avatarUrl={member.role === 'caregiver' ? caregiverAvatarUrl : undefined}
-                    size={38}
-                  />
-                  <View style={styles.memberName}>
-                    <Text variant="body">{member.displayName}</Text>
-                    {member.role === 'caregiver' ? <Text tone="secondary">Caregiver</Text> : null}
-                  </View>
-                  {selected ? <Icon name="check" size={18} color={colors.primary} /> : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      </BottomDrawer>
-
       <ChoreDetailDrawer
         member={projection.member}
         occurrence={selectedOccurrence}
@@ -418,7 +421,9 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
 
 const styles = StyleSheet.create({
   content: { gap: spacing['2xl'], paddingHorizontal: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.xl },
-  memberControl: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radii.pill, backgroundColor: colors.gray100 },
+  memberControl: { height: 32, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingLeft: spacing.xs, paddingRight: spacing.sm, borderRadius: radii.pill, backgroundColor: colors.gray100 },
+  memberMenu: { minWidth: 220 },
+  memberMenuItemContent: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   pressed: { opacity: 0.7 },
   caregiverIntro: { gap: spacing.xs },
   section: { gap: spacing.md },
@@ -426,11 +431,6 @@ const styles = StyleSheet.create({
   row: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   stateIndicator: { width: 22, height: 22, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 7, borderWidth: 1, borderColor: colors.gray300, backgroundColor: colors.gray100 },
   householdIndicator: { borderWidth: 0 },
-  drawerContent: { gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
-  memberList: { gap: spacing.sm },
-  memberRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.md, borderRadius: radii.input },
-  memberRowSelected: { backgroundColor: colors.gray100 },
-  memberName: { flex: 1, gap: spacing.xs },
   guideContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingBottom: spacing.lg },
   guideCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
   actionLabel: { flexDirection: 'row', alignItems: 'center', gap: 3 },

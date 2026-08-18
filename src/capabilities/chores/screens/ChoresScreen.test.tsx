@@ -84,19 +84,30 @@ jest.mock('../../../ui/DropdownMenu', () => {
         children,
       );
     },
-    DropdownMenuContent: ({ children }: { children: ReactNode }) => {
+    DropdownMenuContent: ({ children, testID }: { children: ReactNode; testID?: string }) => {
       const { open } = React.useContext(MenuContext);
-      return open ? React.createElement(View, null, children) : null;
+      return open ? React.createElement(View, { testID }, children) : null;
     },
-    DropdownMenuItem: ({ label, accessibilityLabel, onPress }: {
-      label: string;
+    DropdownMenuLabel: ({ children }: { children: ReactNode }) => React.createElement(Text, null, children),
+    DropdownMenuItem: ({ children, label, accessibilityLabel, selected, onPress }: {
+      children?: ReactNode;
+      label?: string;
       accessibilityLabel?: string;
+      selected?: boolean;
       onPress?: () => void;
-    }) => React.createElement(
-      Pressable,
-      { accessibilityLabel: accessibilityLabel ?? label, accessibilityRole: 'menuitem', onPress },
-      React.createElement(Text, null, label),
-    ),
+    }) => {
+      const { setOpen } = React.useContext(MenuContext);
+      return React.createElement(
+        Pressable,
+        {
+          accessibilityLabel: accessibilityLabel ?? label,
+          accessibilityRole: 'menuitem',
+          accessibilityState: { selected },
+          onPress: () => { onPress?.(); setOpen(false); },
+        },
+        children ?? React.createElement(Text, null, label),
+      );
+    },
   };
 });
 
@@ -129,11 +140,11 @@ describe('ChoresScreen', () => {
   it('uses the shared To-do row grammar and keeps rewards in one metadata line', () => {
     const screen = render(<ChoresScreen />);
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
-    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Andrew'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
     fireEvent.press(screen.getByLabelText('Chore settings'));
     fireEvent.press(within(screen.getByTestId('chores.settings.drawer')).getByLabelText('Use tokens'));
     fireEvent.press(screen.getByLabelText('Switch household member, Andrew'));
-    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Charlie'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Charlie'));
 
     const readyRow = screen.getByTestId('chores.occurrence.activity-occurrence-charlie-feed-scout-2026-08-17');
     expect(within(readyRow).getByText('2')).toBeTruthy();
@@ -169,7 +180,7 @@ describe('ChoresScreen', () => {
     const screen = render(<ChoresScreen />);
 
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
-    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Andrew'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
     expect(screen.UNSAFE_getAllByType(Image).some((avatar) => (
       avatar.props.source?.uri === 'https://example.test/andrew.jpg'
@@ -233,11 +244,11 @@ describe('ChoresScreen', () => {
     const screen = render(<ChoresScreen />);
 
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
-    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Andrew'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
     fireEvent.press(screen.getByLabelText('Chore settings'));
     fireEvent.press(within(screen.getByTestId('chores.settings.drawer')).getByLabelText('Use tokens'));
     fireEvent.press(screen.getByLabelText('Switch household member, Andrew'));
-    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Charlie'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Charlie'));
 
     expect(screen.getByLabelText('8 tokens')).toBeTruthy();
     expect(screen.getAllByLabelText('Earns 2 tokens').length).toBeGreaterThan(0);
@@ -262,7 +273,7 @@ describe('ChoresScreen', () => {
     const screen = render(<ChoresScreen now={() => new Date('2026-08-17T19:00:00.000Z')} />);
 
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
-    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Andrew'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
     expect(within(screen.getByTestId('chores.review.guide')).getByText('1 chore ready for review')).toBeTruthy();
     fireEvent.press(screen.getByText('Review'));
@@ -280,7 +291,7 @@ describe('ChoresScreen', () => {
   it('keeps the review guide off the launcher and other capabilities', () => {
     const screen = render(<ChoresScreen />);
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
-    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Andrew'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
     expect(screen.getByTestId('chores.review.guide')).toBeTruthy();
 
     mockCapabilityMenuOpen = true;
@@ -301,7 +312,7 @@ describe('ChoresScreen', () => {
     const submittedRow = screen.getByTestId('chores.occurrence.activity-occurrence-household-kitchen-counters-2026-08-17');
     await waitFor(() => expect(within(submittedRow).getByText('Waiting for approval')).toBeTruthy());
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
-    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Andrew'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
     expect(screen.getByText('2 chores ready for review')).toBeTruthy();
     fireEvent.press(screen.getByText('Review'));
@@ -317,11 +328,15 @@ describe('ChoresScreen', () => {
     expect(screen.getByText('1 chore ready for review')).toBeTruthy();
   });
 
-  it('switches the simulated active child from the member drawer', () => {
+  it('opens an anchored member menu and switches the simulated active child', () => {
     const screen = render(<ChoresScreen />);
 
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
-    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Olive'));
+    const menu = within(screen.getByTestId('chores.member.menu'));
+    expect(menu.getByText('View chores as')).toBeTruthy();
+    expect(menu.getByLabelText('Switch to Charlie').props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.queryByTestId('chores.member.drawer')).toBeNull();
+    fireEvent.press(menu.getByLabelText('Switch to Olive'));
 
     expect(screen.getByLabelText('Switch household member, Olive')).toBeTruthy();
     expect(screen.getByText('My chores')).toBeTruthy();
