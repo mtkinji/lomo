@@ -21,6 +21,16 @@ describe('Button accessibility contract', () => {
     expect(button.props.hitSlop).toMatchObject({ top: 6, bottom: 6, left: 6, right: 6 });
   });
 
+  it('keeps inline actions visually small while preserving a 44 point target', () => {
+    const { getByRole } = render(<Button size="inline">Take</Button>);
+    const button = getByRole('button');
+    const style = StyleSheet.flatten(button.props.style);
+
+    expect(style.minHeight).toBe(24);
+    expect(style.paddingHorizontal).toBe(8);
+    expect(button.props.hitSlop).toMatchObject({ top: 10, bottom: 10, left: 10, right: 10 });
+  });
+
   it('uses the canonical Sumi pill appearance by default', () => {
     const { getByRole } = render(<Button>Continue</Button>);
     const style = StyleSheet.flatten(getByRole('button').props.style);

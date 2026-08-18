@@ -1,11 +1,12 @@
 import React from 'react';
-import Svg, { Circle, Defs, G, Mask, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Defs, G, LinearGradient, Mask, Path, Rect, Stop } from 'react-native-svg';
 import type { KwiltIconProps } from './types';
 
 export const KwiltIcons = {
   focus: FocusIcon,
   sendTo: SendToIcon,
   sendToCalendar: SendToCalendarIcon,
+  token: TokenIcon,
 } as const;
 
 export type KwiltIconName = keyof typeof KwiltIcons;
@@ -49,6 +50,55 @@ function FocusIcon(props: KwiltIconProps) {
       <Path d="M4 8.75C7 6.75 10 6.75 12 8.75C14 10.75 17 10.75 20 8.75" />
       <Path d="M4 15.25C7 13.25 10 13.25 12 15.25C14 17.25 17 17.25 20 15.25" />
     </BaseSvg>
+  );
+}
+
+/**
+ * token
+ * - Metallic face, inset ring, and highlight: a tangible gold coin
+ * - Embossed center mark: Kwilt's three quilt pieces
+ * Intrinsic colors keep reward meaning intact inside otherwise muted metadata.
+ */
+function TokenIcon({ size = 24 }: KwiltIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Defs>
+        <LinearGradient
+          id="kwilt-token-gold"
+          x1={5}
+          y1={4}
+          x2={19}
+          y2={20}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset={0} stopColor="#FFF7C7" />
+          <Stop offset={0.24} stopColor="#FFDC67" />
+          <Stop offset={0.58} stopColor="#ECAF27" />
+          <Stop offset={1} stopColor="#A96005" />
+        </LinearGradient>
+      </Defs>
+      <Circle
+        cx={12}
+        cy={12}
+        r={10}
+        fill="url(#kwilt-token-gold)"
+        stroke="#C78412"
+        strokeWidth={0.7}
+      />
+      <Circle cx={12} cy={12} r={8.15} stroke="#FFE89A" strokeWidth={0.7} opacity={0.9} />
+      <Path
+        d="M6.5 8.7C7.2 6.8 8.8 5.7 10.5 5.35"
+        stroke="#FFFDF0"
+        strokeWidth={1.15}
+        strokeLinecap="round"
+        opacity={0.9}
+      />
+      <G transform="translate(7 7) scale(0.0390625)" fill="#704000">
+        <Path transform="translate(1 -2)" d="M49 9C70 9 87 26 87 47V187C87 217 70 241 47 247C26 252 10 244 10 228V48C10 26 27 9 49 9Z" />
+        <Path transform="translate(-2 -3)" d="M166 9C143 10 126 28 126 51V121C126 136 135 143 147 137C172 124 197 108 218 89C236 72 246 49 246 25C246 16 239 10 230 9C209 7 187 7 166 9Z" />
+        <Path transform="translate(9 0)" d="M218 140C234 139 246 149 246 164V215C246 233 232 247 214 247H113C104 247 100 238 104 229C127 178 168 144 218 140Z" />
+      </G>
+    </Svg>
   );
 }
 
@@ -112,6 +162,3 @@ function SendToCalendarIcon(props: KwiltIconProps) {
     </BaseSvg>
   );
 }
-
-
-

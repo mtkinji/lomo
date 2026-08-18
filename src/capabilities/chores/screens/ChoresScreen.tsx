@@ -7,18 +7,30 @@ import { useAppStore } from '../../../store/useAppStore';
 import { colors, radii, spacing } from '../../../theme';
 import { BottomDrawer } from '../../../ui/BottomDrawer';
 import { BottomGuide } from '../../../ui/BottomGuide';
+import { ActivityListItem } from '../../../ui/ActivityListItem';
 import { Button, IconButton } from '../../../ui/Button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../../ui/DropdownMenu';
 import { Icon } from '../../../ui/Icon';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { ProfileAvatar } from '../../../ui/ProfileAvatar';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { CanvasScrollView } from '../../../ui/layout/CanvasScrollView';
 import { PageHeader } from '../../../ui/layout/PageHeader';
-import { Heading, Text } from '../../../ui/primitives';
+import { ButtonLabel, Heading, Text } from '../../../ui/primitives';
 import { ChoreDetailDrawer } from '../components/ChoreDetailDrawer';
 import { ChoreReviewDrawer } from '../components/ChoreReviewDrawer';
 import { ChoreSettingsDrawer } from '../components/ChoreSettingsDrawer';
 import {
+  ChoreAgreementBar,
+  ChoreAgreementDrawer,
+} from '../components/ChoreAgreementSurface';
+import {
+  projectChoreAgreement,
   projectChoreInventory,
   projectChoreReviewQueue,
   type ChoreMember,
@@ -27,12 +39,9 @@ import {
 import { useChoreLearningStore } from '../runtime/useChoreLearningStore';
 import { getImagePickerMediaTypesImages } from '../../../utils/imagePickerMediaTypes';
 import { persistImageUri } from '../../../utils/persistImageUri';
+import { useToastStore } from '../../../store/useToastStore';
 
 type ChoresScreenProps = { now?: () => Date };
-
-function tokenLabel(value: number): string {
-  return `${value} token${value === 1 ? '' : 's'}`;
-}
 
 function MemberControl({ member, avatarUrl, onPress }: {
   member: ChoreMember;
@@ -53,57 +62,112 @@ function MemberControl({ member, avatarUrl, onPress }: {
   );
 }
 
-function CompletionControl({ occurrence, onComplete }: { occurrence: ChoreOccurrence; onComplete: () => void }) {
-  if (occurrence.state === 'completed') {
-    return (
-      <View accessible accessibilityLabel={`${occurrence.title}, completed`} style={[styles.completionControl, styles.completionControlDone]}>
-        <Icon name="check" size={17} color={colors.primaryForeground} />
-      </View>
-    );
+function rowMetadata(occurrence: ChoreOccurrence, tokensEnabled: boolean): string | undefined {
+  const parts: string[] = [];
+  if (tokensEnabled) parts.push(String(occurrence.tokenValue));
+  if (occurrence.state === 'waiting_approval') parts.push('Waiting for approval');
+  if (occurrence.state === 'needs_another_pass') parts.push('Needs another pass');
+  return parts.length ? parts.join(' · ') : undefined;
+}
+
+function rowMetadataAccessibilityLabel(
+  occurrence: ChoreOccurrence,
+  tokensEnabled: boolean,
+): string | undefined {
+  const parts: string[] = [];
+  if (tokensEnabled) {
+    parts.push(`Earns ${occurrence.tokenValue} token${occurrence.tokenValue === 1 ? '' : 's'}`);
   }
-  if (occurrence.state === 'waiting_approval') {
-    return <View style={[styles.completionControl, styles.completionControlWaiting]}><Icon name="clock" size={16} color={colors.textSecondary} /></View>;
-  }
+  if (occurrence.state === 'waiting_approval') parts.push('Waiting for approval');
+  if (occurrence.state === 'needs_another_pass') parts.push('Needs another pass');
+  return parts.length ? parts.join('. ') : undefined;
+}
+
+function TakeActionLabel() {
   return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityLabel={`Complete ${occurrence.title}`}
-      accessibilityState={{ checked: false }}
-      hitSlop={6}
-      onPress={onComplete}
-      style={({ pressed }) => [styles.completionControl, pressed && styles.completionControlPressed]}
-    />
+    <View style={styles.actionLabel}>
+      <Icon name="plus" size={11} color={colors.textPrimary} />
+      <ButtonLabel>Take</ButtonLabel>
+    </View>
   );
 }
 
-function ForMemberRow({ occurrence, tokensEnabled, onOpen, onComplete, onRelease }: {
+function ChoreStateIndicator({ kind }: { kind: 'waiting' | 'household' }) {
+  const label = kind === 'waiting' ? 'Waiting for approval' : 'Available to the household';
+  return (
+    <View
+      accessible
+      accessibilityLabel={label}
+      style={[styles.stateIndicator, kind === 'household' && styles.householdIndicator]}
+    >
+      <Icon
+        name={kind === 'waiting' ? 'clock' : 'home'}
+        size={14}
+        color={colors.textSecondary}
+      />
+    </View>
+  );
+}
+
+function ForMemberRow({ occurrence, tokensEnabled, onOpen, onComplete, onReturnToFamilyList }: {
   occurrence: ChoreOccurrence;
   tokensEnabled: boolean;
   onOpen: () => void;
   onComplete: () => void;
-  onRelease: () => void;
+  onReturnToFamilyList: () => void;
 }) {
   const isCompleted = occurrence.state === 'completed';
+  const waitingForApproval = occurrence.state === 'waiting_approval';
+  const canComplete = occurrence.state === 'ready' || occurrence.state === 'claimed' || occurrence.state === 'needs_another_pass';
   return (
     <View style={styles.row} testID={`chores.occurrence.${occurrence.activityOccurrenceId}`}>
-      <CompletionControl occurrence={occurrence} onComplete={onComplete} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Open details for ${occurrence.title}`}
+      <ActivityListItem
+        surface="flat"
+        title={occurrence.title}
+        meta={rowMetadata(occurrence, tokensEnabled)}
+        metaLeadingIconName={tokensEnabled ? 'token' : undefined}
+        metaLeadingIconSize={16}
+        metaAccessibilityLabel={rowMetadataAccessibilityLabel(occurrence, tokensEnabled)}
+        isCompleted={isCompleted}
+        showPriorityControl={false}
+        showCheckbox={!waitingForApproval}
+        leadingAccessory={waitingForApproval ? <ChoreStateIndicator kind="waiting" /> : undefined}
+        onToggleComplete={canComplete ? onComplete : undefined}
+        completionAccessibilityLabel={isCompleted
+          ? `${occurrence.title}, completed`
+          : `Complete ${occurrence.title}`}
         onPress={onOpen}
-        style={({ pressed }) => [styles.rowCopy, pressed && styles.pressed]}
-      >
-        <Text variant="body" style={isCompleted ? styles.completedTitle : undefined}>{occurrence.title}</Text>
-        {occurrence.state === 'waiting_approval' ? <Text tone="secondary">Waiting for approval</Text> : null}
-        {occurrence.state === 'needs_another_pass' ? <Text tone="secondary">Needs another pass</Text> : null}
-        {occurrence.state === 'claimed' ? (
-          <Button accessibilityLabel={`Release ${occurrence.title}`} onPress={onRelease} size="xs" style={styles.releaseButton} variant="ghost">Release</Button>
-        ) : null}
-      </Pressable>
-      <View style={styles.rowMeta}>
-        {tokensEnabled ? <Text tone="secondary">{tokenLabel(occurrence.tokenValue)}</Text> : null}
-        {isCompleted ? <Text tone="secondary">Done</Text> : null}
-      </View>
+        rowAccessibilityLabel={`Open details for ${occurrence.title}`}
+        rightAccessory={occurrence.state === 'claimed' ? (
+          <View style={styles.claimedMenuAccessory}>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                accessibilityLabel={`More options for ${occurrence.title}`}
+                hitSlop={10}
+              >
+                <View pointerEvents="none">
+                  <Button
+                    accessible={false}
+                    iconButtonSize={24}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <Icon name="more" size={16} color={colors.textSecondary} />
+                  </Button>
+                </View>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                <DropdownMenuItem
+                  accessibilityLabel={`Return ${occurrence.title} to the family list`}
+                  icon="minus"
+                  label="Return to family list"
+                  onPress={onReturnToFamilyList}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </View>
+        ) : undefined}
+      />
     </View>
   );
 }
@@ -116,17 +180,24 @@ function HouseholdRow({ occurrence, tokensEnabled, onOpen, onTake }: {
 }) {
   return (
     <View style={styles.row} testID={`chores.occurrence.${occurrence.activityOccurrenceId}`}>
-      <View style={[styles.completionControl, styles.availableControl]}><Icon name="home" size={16} color={colors.textSecondary} /></View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Open details for ${occurrence.title}`}
+      <ActivityListItem
+        surface="flat"
+        title={occurrence.title}
+        meta={tokensEnabled ? String(occurrence.tokenValue) : undefined}
+        metaLeadingIconName={tokensEnabled ? 'token' : undefined}
+        metaLeadingIconSize={16}
+        metaAccessibilityLabel={rowMetadataAccessibilityLabel(occurrence, tokensEnabled)}
+        showPriorityControl={false}
+        showCheckbox={false}
+        leadingAccessory={<ChoreStateIndicator kind="household" />}
         onPress={onOpen}
-        style={({ pressed }) => [styles.rowCopy, pressed && styles.pressed]}
-      >
-        <Text variant="body">{occurrence.title}</Text>
-        {tokensEnabled ? <Text tone="secondary">{tokenLabel(occurrence.tokenValue)}</Text> : null}
-      </Pressable>
-      <Button accessibilityLabel={`Take ${occurrence.title}`} onPress={onTake} size="sm" variant="secondary">Take</Button>
+        rowAccessibilityLabel={`Open details for ${occurrence.title}`}
+        metaAccessory={(
+          <Button accessibilityLabel={`Take ${occurrence.title}`} onPress={onTake} size="inline" variant="outline">
+            <TakeActionLabel />
+          </Button>
+        )}
+      />
     </View>
   );
 }
@@ -148,16 +219,26 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const [memberDrawerOpen, setMemberDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [agreementOpen, setAgreementOpen] = useState(false);
+  const [agreementBarHeight, setAgreementBarHeight] = useState(0);
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<string | null>(null);
   const projection = useMemo(() => projectChoreInventory(record, record.activeMemberId), [record]);
+  const agreement = useMemo(() => projectChoreAgreement(record, record.activeMemberId), [record]);
   const reviewQueue = useMemo(() => projectChoreReviewQueue(record, record.activeMemberId), [record]);
   const selectedOccurrence = record.occurrences.find((item) => item.activityOccurrenceId === selectedOccurrenceId) ?? null;
   const isCaregiver = projection.member.role === 'caregiver';
   const caregiverAvatarUrl = userProfile?.avatarUrl || authIdentity?.avatarUrl;
-  const progressRatio = projection.progress.expectedCount > 0
-    ? Math.min(1, projection.progress.completedCount / projection.progress.expectedCount)
-    : 0;
   const completeOccurrence = (id: string) => complete(id, now().toISOString());
+  const returnOccurrenceToFamilyList = (id: string) => {
+    release(id);
+    useToastStore.getState().showToast({
+      message: 'Returned to the family list',
+      variant: 'light',
+      actionLabel: 'Undo',
+      actionOnPress: () => take(id),
+      bottomOffset: agreementBarHeight + spacing.md,
+    });
+  };
   const addEvidencePhoto = async (occurrence: ChoreOccurrence) => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync().catch(() => null);
     if (!permission?.granted) {
@@ -197,27 +278,25 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
           />
         )}
       />
-      <CanvasScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {!isCaregiver ? (
-          <View style={styles.progressBlock}>
-            <View style={styles.progressCopy}>
-              <Text variant="label">{`${projection.progress.completedCount} of ${projection.progress.expectedCount} chores`}</Text>
-              {record.tokensEnabled && projection.tokenBalance != null ? (
-                <Text tone="secondary">{`${tokenLabel(projection.tokenBalance)} earned`}</Text>
-              ) : null}
-            </View>
-            <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} /></View>
-          </View>
-        ) : (
+      <CanvasScrollView
+        contentContainerStyle={styles.content}
+        extraBottomPadding={isCaregiver && reviewQueue.length > 0
+          ? spacing['3xl'] * 3
+          : !isCaregiver && (agreement.headline || agreement.tokenBalance != null)
+            ? agreementBarHeight + spacing.lg
+            : 0}
+        showsVerticalScrollIndicator={false}
+      >
+        {isCaregiver ? (
           <View style={styles.caregiverIntro}>
             <Heading variant="sm">Household chores</Heading>
             <Text tone="secondary">See what is open. Reviews appear here when a child asks for one.</Text>
           </View>
-        )}
+        ) : null}
 
         {!isCaregiver ? (
           <View style={styles.section} testID="chores.section.for-member">
-            <Heading variant="sm">{`For ${projection.member.displayName}`}</Heading>
+            <Heading variant="sm">My chores</Heading>
             <View style={styles.rows}>
               {projection.forMember.length ? projection.forMember.map((occurrence) => (
                 <ForMemberRow
@@ -226,7 +305,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                   tokensEnabled={record.tokensEnabled}
                   onOpen={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
                   onComplete={() => completeOccurrence(occurrence.activityOccurrenceId)}
-                  onRelease={() => release(occurrence.activityOccurrenceId)}
+                  onReturnToFamilyList={() => returnOccurrenceToFamilyList(occurrence.activityOccurrenceId)}
                 />
               )) : <Text tone="secondary">Nothing is waiting for you right now.</Text>}
             </View>
@@ -234,7 +313,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         ) : null}
 
         <View style={styles.section} testID="chores.section.household">
-          <Heading variant="sm">Household</Heading>
+          <Heading variant="sm">{isCaregiver ? 'Household' : 'Choose a chore'}</Heading>
           <View style={styles.rows}>
             {projection.household.length ? projection.household.map((occurrence) => (
               <HouseholdRow
@@ -248,6 +327,14 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
           </View>
         </View>
       </CanvasScrollView>
+
+      {!isCaregiver ? (
+        <ChoreAgreementBar
+          agreement={agreement}
+          onOpen={() => setAgreementOpen(true)}
+          onLayout={(event) => setAgreementBarHeight(event.nativeEvent.layout.height)}
+        />
+      ) : null}
 
       <BottomGuide
         visible={activeCapabilityId === 'chores' && isCaregiver && reviewQueue.length > 0 && !reviewOpen && !capabilityMenuOpen}
@@ -302,8 +389,13 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         onClose={() => setSelectedOccurrenceId(null)}
         onTake={() => { if (selectedOccurrence) take(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
         onComplete={() => { if (selectedOccurrence) completeOccurrence(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
-        onRelease={() => { if (selectedOccurrence) release(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
+        onReturnToFamilyList={() => { if (selectedOccurrence) returnOccurrenceToFamilyList(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
         onAddPhoto={() => { if (selectedOccurrence) void addEvidencePhoto(selectedOccurrence); }}
+      />
+      <ChoreAgreementDrawer
+        visible={agreementOpen}
+        agreement={agreement}
+        onClose={() => setAgreementOpen(false)}
       />
       <ChoreReviewDrawer
         visible={reviewOpen}
@@ -325,26 +417,15 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  content: { gap: spacing['2xl'], paddingHorizontal: spacing.sm, paddingTop: spacing.sm, paddingBottom: 180 },
+  content: { gap: spacing['2xl'], paddingHorizontal: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.xl },
   memberControl: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radii.pill, backgroundColor: colors.gray100 },
   pressed: { opacity: 0.7 },
-  progressBlock: { gap: spacing.sm },
-  progressCopy: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
-  progressTrack: { height: 5, overflow: 'hidden', borderRadius: radii.pill, backgroundColor: colors.gray200 },
-  progressFill: { height: '100%', borderRadius: radii.pill, backgroundColor: colors.primary },
   caregiverIntro: { gap: spacing.xs },
   section: { gap: spacing.md },
   rows: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  row: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  completionControl: { width: 28, height: 28, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: radii.pill, borderWidth: 1.5, borderColor: colors.gray400, backgroundColor: colors.canvas },
-  completionControlPressed: { backgroundColor: colors.gray100 },
-  completionControlDone: { borderColor: colors.primary, backgroundColor: colors.primary },
-  completionControlWaiting: { borderColor: colors.gray300, backgroundColor: colors.gray100 },
-  availableControl: { borderWidth: 0, backgroundColor: colors.gray100 },
-  rowCopy: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', gap: spacing.xs },
-  rowMeta: { flexShrink: 0, alignItems: 'flex-end', gap: spacing.xs },
-  completedTitle: { color: colors.textSecondary, textDecorationLine: 'line-through' },
-  releaseButton: { alignSelf: 'flex-start', marginLeft: -spacing.sm },
+  row: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  stateIndicator: { width: 22, height: 22, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 7, borderWidth: 1, borderColor: colors.gray300, backgroundColor: colors.gray100 },
+  householdIndicator: { borderWidth: 0 },
   drawerContent: { gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
   memberList: { gap: spacing.sm },
   memberRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.md, borderRadius: radii.input },
@@ -352,4 +433,6 @@ const styles = StyleSheet.create({
   memberName: { flex: 1, gap: spacing.xs },
   guideContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingBottom: spacing.lg },
   guideCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
+  actionLabel: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  claimedMenuAccessory: { alignSelf: 'flex-start', flexShrink: 0 },
 });

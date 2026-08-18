@@ -1,9 +1,10 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { Image } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 import { ChoresScreen } from './ChoresScreen';
 import { resetChoreLearningStoreForTests } from '../runtime/useChoreLearningStore';
 import { useAppStore } from '../../../store/useAppStore';
+import { colors } from '../../../theme';
 
 const mockOpenMenu = jest.fn();
 const mockRequestMediaLibraryPermissionsAsync = jest.fn();
@@ -59,6 +60,46 @@ jest.mock('../../../ui/BottomGuide', () => {
   };
 });
 
+jest.mock('../../../ui/DropdownMenu', () => {
+  const React = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  const MenuContext = React.createContext({
+    open: false,
+    setOpen: (_open: boolean) => undefined,
+  });
+
+  return {
+    DropdownMenu: ({ children }: { children: ReactNode }) => {
+      const [open, setOpen] = React.useState(false);
+      return React.createElement(MenuContext.Provider, { value: { open, setOpen } }, children);
+    },
+    DropdownMenuTrigger: ({ children, accessibilityLabel }: {
+      children: ReactNode;
+      accessibilityLabel?: string;
+    }) => {
+      const { setOpen } = React.useContext(MenuContext);
+      return React.createElement(
+        Pressable,
+        { accessibilityLabel, accessibilityRole: 'button', onPress: () => setOpen(true) },
+        children,
+      );
+    },
+    DropdownMenuContent: ({ children }: { children: ReactNode }) => {
+      const { open } = React.useContext(MenuContext);
+      return open ? React.createElement(View, null, children) : null;
+    },
+    DropdownMenuItem: ({ label, accessibilityLabel, onPress }: {
+      label: string;
+      accessibilityLabel?: string;
+      onPress?: () => void;
+    }) => React.createElement(
+      Pressable,
+      { accessibilityLabel: accessibilityLabel ?? label, accessibilityRole: 'menuitem', onPress },
+      React.createElement(Text, null, label),
+    ),
+  };
+});
+
 describe('ChoresScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -75,12 +116,46 @@ describe('ChoresScreen', () => {
 
     expect(screen.getByText('Chores')).toBeTruthy();
     expect(screen.getByLabelText('Switch household member, Charlie')).toBeTruthy();
-    expect(screen.getByText('1 of 3 chores')).toBeTruthy();
-    expect(screen.getByText('For Charlie')).toBeTruthy();
-    expect(screen.getByText('Household')).toBeTruthy();
+    expect(screen.queryByText('1 of 3 chores')).toBeNull();
+    expect(screen.getByText('My chores')).toBeTruthy();
+    expect(screen.getByText('Choose a chore')).toBeTruthy();
+    expect(screen.getByText('1 chore left today · Choose 3 more by Friday')).toBeTruthy();
+    expect(screen.getByText('1 waiting for approval · Needed for weekend Screen Time')).toBeTruthy();
     expect(screen.getByText('Waiting for approval')).toBeTruthy();
     expect(screen.queryByText(/token/i)).toBeNull();
     expect(screen.queryByText(/dashboard|ranking|streak/i)).toBeNull();
+  });
+
+  it('uses the shared To-do row grammar and keeps rewards in one metadata line', () => {
+    const screen = render(<ChoresScreen />);
+    fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
+    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Andrew'));
+    fireEvent.press(screen.getByLabelText('Chore settings'));
+    fireEvent.press(within(screen.getByTestId('chores.settings.drawer')).getByLabelText('Use tokens'));
+    fireEvent.press(screen.getByLabelText('Switch household member, Andrew'));
+    fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Charlie'));
+
+    const readyRow = screen.getByTestId('chores.occurrence.activity-occurrence-charlie-feed-scout-2026-08-17');
+    expect(within(readyRow).getByText('2')).toBeTruthy();
+    expect(within(readyRow).getByLabelText('Earns 2 tokens')).toBeTruthy();
+    expect(StyleSheet.flatten(within(readyRow).getByTestId('activity-completion-indicator').props.style))
+      .toMatchObject({ width: 22, height: 22, borderRadius: 7 });
+
+    const waitingRow = screen.getByTestId('chores.occurrence.activity-occurrence-charlie-entry-shoes-2026-08-17');
+    expect(within(waitingRow).getByText('1 · Waiting for approval')).toBeTruthy();
+    expect(within(waitingRow).getByLabelText('Earns 1 token. Waiting for approval')).toBeTruthy();
+
+    const completedRow = screen.getByTestId('chores.occurrence.activity-occurrence-charlie-breakfast-dishes-2026-08-17');
+    expect(within(completedRow).getByText('1')).toBeTruthy();
+    expect(within(completedRow).queryByText('Done')).toBeNull();
+    expect(StyleSheet.flatten(within(completedRow).getByTestId('activity-completion-indicator').props.style))
+      .toMatchObject({
+        width: 22,
+        height: 22,
+        borderRadius: 7,
+        borderColor: colors.primary,
+        backgroundColor: colors.primary,
+      });
   });
 
   it('shows the signed-in caregiver avatar when viewing chores as that caregiver', () => {
@@ -135,16 +210,22 @@ describe('ChoresScreen', () => {
 
     expect(within(screen.getByTestId('chores.section.for-member')).getByText('Take the recycling to the blue bin')).toBeTruthy();
     expect(within(screen.getByTestId('chores.section.household')).queryByText('Take the recycling to the blue bin')).toBeNull();
-    expect(screen.getByLabelText('Release Take the recycling to the blue bin')).toBeTruthy();
+    const claimedRow = screen.getByTestId('chores.occurrence.activity-occurrence-household-recycling-2026-08-17');
+    const claimedMenu = within(claimedRow).getByLabelText('More options for Take the recycling to the blue bin');
+    expect(within(claimedRow).queryByTestId('activity-meta-row')).toBeNull();
+    fireEvent.press(claimedMenu);
+    expect(screen.getByText('Return to family list')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Return Take the recycling to the blue bin to the family list'));
+    expect(within(screen.getByTestId('chores.section.household')).getByText('Take the recycling to the blue bin')).toBeTruthy();
   });
 
-  it('completes trusted assigned work from the row control', () => {
+  it('completes trusted assigned work from the row control', async () => {
     const screen = render(<ChoresScreen now={() => new Date('2026-08-17T18:00:00.000Z')} />);
 
     fireEvent.press(screen.getByLabelText('Complete Feed Scout and refill the water bowl'));
 
-    expect(screen.getByLabelText('Feed Scout and refill the water bowl, completed')).toBeTruthy();
-    expect(screen.getByText('2 of 3 chores')).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText('Feed Scout and refill the water bowl, completed')).toBeTruthy());
+    expect(screen.getByText('Daily chores submitted · Choose 3 more by Friday')).toBeTruthy();
     expect(screen.queryByText(/token/i)).toBeNull();
   });
 
@@ -158,8 +239,23 @@ describe('ChoresScreen', () => {
     fireEvent.press(screen.getByLabelText('Switch household member, Andrew'));
     fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Charlie'));
 
-    expect(screen.getByText('1 token earned')).toBeTruthy();
-    expect(screen.getAllByText('2 tokens').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('8 tokens')).toBeTruthy();
+    expect(screen.getAllByLabelText('Earns 2 tokens').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/earned/i)).toBeNull();
+  });
+
+  it('opens the active agreement without exposing inactive policy vocabulary', () => {
+    const screen = render(<ChoresScreen />);
+
+    fireEvent.press(screen.getByLabelText('How my chores work'));
+
+    const drawer = screen.getByTestId('chores.agreement.drawer');
+    expect(within(drawer).getByText('Every day')).toBeTruthy();
+    expect(within(drawer).getByText('Finish your daily chores.')).toBeTruthy();
+    expect(within(drawer).getByText('By Friday')).toBeTruthy();
+    expect(within(drawer).getByText('Choose 12 chores from the family list.')).toBeTruthy();
+    expect(within(drawer).getByText('Weekend Screen Time')).toBeTruthy();
+    expect(within(drawer).queryByText(/token/i)).toBeNull();
   });
 
   it('shows caregiver review attention and resolves a single approval in detail', () => {
@@ -197,11 +293,13 @@ describe('ChoresScreen', () => {
     expect(screen.queryByTestId('chores.review.guide')).toBeNull();
   });
 
-  it('presents a queue for many approvals and returns one chore for another pass', () => {
+  it('presents a queue for many approvals and returns one chore for another pass', async () => {
     const screen = render(<ChoresScreen now={() => new Date('2026-08-17T20:00:00.000Z')} />);
 
     fireEvent.press(screen.getByLabelText('Take Wipe the kitchen counters after snack'));
     fireEvent.press(screen.getByLabelText('Complete Wipe the kitchen counters after snack'));
+    const submittedRow = screen.getByTestId('chores.occurrence.activity-occurrence-household-kitchen-counters-2026-08-17');
+    await waitFor(() => expect(within(submittedRow).getByText('Waiting for approval')).toBeTruthy());
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Andrew'));
 
@@ -226,7 +324,8 @@ describe('ChoresScreen', () => {
     fireEvent.press(within(screen.getByTestId('chores.member.drawer')).getByLabelText('Switch to Olive'));
 
     expect(screen.getByLabelText('Switch household member, Olive')).toBeTruthy();
-    expect(screen.getByText('For Olive')).toBeTruthy();
+    expect(screen.getByText('My chores')).toBeTruthy();
+    expect(screen.getByText('1 chore left today')).toBeTruthy();
     expect(screen.queryByText('Feed Scout and refill the water bowl')).toBeNull();
   });
 });

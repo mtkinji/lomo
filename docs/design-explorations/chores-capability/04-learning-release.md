@@ -1,93 +1,129 @@
-# Learning Release: Activity-backed Chores
+# Learning Release: Child-readable Chore Agreement
 
 ## Concept To Build
 
-Build a quiet, child-legible Chores inventory where a child can inspect, take, and complete current household work while a simulated caregiver can optionally enable tokens and resolve review-required completions without leaving Chores.
+Build a quiet Chores inventory where the list remains primary and an anchored bottom agreement bar tells the child what remains, by when, why it matters, and—when enabled—their current token balance.
 
 ## Capability Delta
 
-Today, the user cannot:
+Today, the child can:
 
-- open Chores as a direct Kwilt capability;
-- judge the accepted `For [member]` and `Household` inventory hierarchy in a real native bundle; or
-- operate the claim and completion lifecycle from that inventory.
+- open the Kwilt-Labs-gated Chores capability;
+- distinguish personal rows from available household rows after explanation;
+- take, release, and complete local sample occurrences; and
+- see token values and a fixed progress calculation.
 
-After this release, the user can:
+Today, the child cannot reliably:
 
-- enable Chores in Kwilt Labs and open it from the capability menu;
-- switch between a small set of simulated household members;
-- see assigned and already-claimed occurrences under `For [member]`;
-- take an available household occurrence and complete trusted work; and
-- see pending-review and completed states without dashboard chrome.
-- open a lightweight chore drawer for context without navigating away;
-- experience a household with tokens fully on or fully absent; and
-- switch to a simulated caregiver view to review one or several submitted chores.
+- understand what period the progress calculation describes;
+- tell whether the count is a daily assignment, weekly choice quota, or all-time total;
+- understand `Release` without caregiver explanation; or
+- see the actual household agreement without allowing progress chrome to dominate the list.
+
+After this release, the child can:
+
+- read assigned and claimed work under **My chores**;
+- understand **Choose a chore** as the available family pool;
+- use **Take** and a secondary **Return to family list** menu action to move an open chore into or out of their list;
+- read one next-action sentence assembled from the active expectation;
+- distinguish daily assigned work from an additional weekly choice quota;
+- see why the agreement matters when it is connected to Screen Time;
+- see their current token balance and each chore's token value through one consistent token icon; and
+- open **How my chores work** for the full agreement only when they need it.
 
 Still intentionally not supported:
 
-- real Household Mode security, member codes, or caregiver biometric re-entry;
+- production caregiver configuration of expectations;
+- Screen Time policy evaluation or device enforcement;
 - household-authorized backend reads or writes;
-- projection into the production To-dos inventory;
-- recurrence creation, production caregiver authentication, remote notifications, corrections history, token redemption, or Screen Time enforcement.
+- projection into production To-dos;
+- production recurrence, claim expiry, corrections, notification delivery, token redemption, or shared-device authentication.
 
 ## User Experience
 
-Chores is enabled from Settings > Kwilt Labs, then appears as a direct capability between the grouped product areas and Chats. The screen opens with `Chores`, a compact active-member control, one factual expectation line, `For [member]`, and `Household`.
+The screen opens with `Chores`, the existing active-member control, **My chores**, and **Choose a chore**. The current top progress labels and progress bar are removed.
 
-Assigned and claimed rows use a direct completion control. Available household rows use one quiet `Take` action. Tapping any row opens a stateful detail drawer with a concise definition of done and the same current action. Taking a row moves that occurrence into `For [member]`; completing trusted work updates the same occurrence record.
+Rows retain the shared To-do visual grammar. Assigned and claimed rows use the shared squared completion control. Available rows use a plus icon with **Take**. A claimed open-pool row uses a quiet ellipsis; its menu contains a neutral minus-icon **Return to family list** action. It never uses a trash icon or red styling. Returning a chore removes it from **My chores**, restores it to **Choose a chore**, and briefly offers `Undo`.
 
-Review-required work becomes `Waiting for approval`. In the simulated caregiver view, a Chores count badge and floating `BottomGuide` open a scroll-safe review drawer. One pending item opens directly; several open as a queue. Approval qualifies the original child/performance time, while `Needs another pass` returns the same occurrence with a short child-facing note.
+When tokens are enabled, each row shows the semantic token icon and numeric value, such as `[token] 2`, without the visible word `tokens`. The anchored agreement bar shows the same icon with the child's current balance, such as `[token] 8`. Accessibility labels retain the full meaning: `Earns 2 tokens` and `8 tokens`.
 
-The review detail is evidence-first: no `Done by` subtitle or explanatory approval copy. It shows the chore title, definition of done, an optional child-submitted photo, a compact avatar/name pill, and the two decisions. Children can add or change one optional photo from their chore detail. The photo is contextual evidence only; it never becomes mandatory or machine-judged.
+The bottom agreement bar is part of the screen structure, separated by a quiet top divider rather than presented as a floating card. It composes only the clauses that are active for the selected child:
 
-Chore count remains visible in every household. Tokens are off by default and can be enabled only from the simulated caregiver's title-adjacent Chores settings. When off, token value and balance copy are absent rather than zeroed or disabled.
+- assigned daily work: `1 chore left today`, `2 chores left today`, or `Daily chores done`;
+- a quota scoped specifically to the open family pool: `Choose 3 more by Friday`;
+- a quota that includes any qualifying chore: `3 chores left by Friday`;
+- pending reviewed work: `1 waiting for approval`;
+- completed agreement: `All chores done for this week`; and
+- connected benefit: `Needed for weekend Screen Time`.
+
+The distinction between `Choose 3 more` and `3 chores left` is derived from the expectation's qualifying scope. The interface must not infer whether assigned chores count toward a quota.
+
+Tapping the agreement text opens **How my chores work**. For the first mixed sample agreement, the sheet reads:
+
+- **Every day** — `Finish your daily chores.`
+- **By Friday** — `Choose 12 chores from the family list.`
+- **Weekend Screen Time** — `Finish both parts for weekend Screen Time.`
+- **Your tokens** — the token icon and current balance, followed by `Each chore shows how many tokens it earns.`
+
+Only applicable sections appear. If tokens are disabled, token vocabulary and iconography disappear. If no expectation is active, progress language and the agreement sheet disappear rather than inventing a target. A token-enabled household with no expectation may show a small balance-only treatment without a full-width agreement message.
+
+Review-required work becomes `Waiting for approval`. The agreement bar acknowledges the pending state so completion never appears to have been ignored. Token balance and any approval-gated qualifying count update only after approval. The caregiver review experience remains otherwise unchanged in this slice.
 
 ## Existing Product Relationship
 
-The screen borrows Groceries' quiet inventory grammar and Kwilt's existing capability shell, header, button, drawer, typography, and token layers. The learning adapter uses explicit Activity occurrence identifiers so it can be replaced by the household-authorized Activity projection without changing the screen's interaction contract.
+This release refines the existing Chores learning screen rather than introducing another destination. It keeps the shared Activity/To-do row grammar, capability shell, active-member control, local occurrence adapter, detail drawer, and caregiver review flow.
 
-It does not alter ordinary personal To-dos, Household settings, Screen Time, the show-up streak, or production Activity sync.
+It replaces the misleading fixed top progress calculation with an expectation projection. Chores owns the child-facing completion and token facts. Screen Time still owns access policy and device enforcement; no Chores copy claims that device access has been applied.
 
 ## Buildable Slice
 
 Must be real:
 
-- Kwilt Labs activation and capability-menu navigation;
-- persisted learning records with stable Activity occurrence identity;
-- deterministic `Take`, `Release`, trusted completion, pending-review, approval, return-for-another-pass, progress, optional-token, and member/caregiver projection logic;
-- native Chores inventory, member switcher, detail drawer, caregiver settings, approval guide, and one/many review drawer;
-- focused domain, navigation, Labs, and screen tests;
-- Simulator operation through the real capability menu.
+- removal of the current top labels and progress bar;
+- **My chores** and **Choose a chore** section hierarchy;
+- plus-icon **Take** and a claimed-chore ellipsis containing the neutral minus-icon **Return to family list** action;
+- a reusable semantic token icon used for row values and current balance;
+- an explicit sample expectation with separate assigned-work, choice-quota, deadline, qualifying-scope, benefit, and token-policy facts;
+- deterministic projection of the applicable agreement-bar clauses;
+- the anchored bottom agreement bar and **How my chores work** sheet;
+- incomplete, partially complete, complete, pending-approval, tokens-disabled, and no-expectation behavior;
+- accessibility labels that preserve meaning when visible copy relies on iconography; and
+- focused logic and screen tests plus Simulator evaluation through the real capability menu.
 
 Can be thin or temporary:
 
-- two realistic simulated household members and starter occurrences;
-- local-only persistence behind the Labs gate;
-- member switching without member codes or Local Authentication.
-- a local simulated caregiver actor and local notification badge instead of authenticated caregiver delivery or remote notification infrastructure.
+- realistic local-only expectation fixtures behind Kwilt Labs;
+- Charlie's mixed agreement as the primary visual scenario;
+- one secondary member fixture demonstrating omitted clauses or disabled tokens;
+- local persistence and simulated caregiver approval; and
+- a provisional semantic token glyph that can be visually refined without changing its meaning.
 
 Intentionally excluded:
 
-- a second production task/completion database;
-- caregiver authentication, household membership management, and background or remote notification delivery;
-- generic reward catalog, rankings, penalties, streaks, or household dashboards;
-- blind bulk approval, analytics beyond existing capability-shell events, or production migrations.
+- a generic caregiver rules builder;
+- a dashboard, percentage, progress bar, streak, leaderboard, or reward catalog;
+- duplicate completion truth or a second production task store;
+- claims that Screen Time is unlocked or delivered;
+- production data migrations, household authorization, or notification infrastructure; and
+- broader redesign of caregiver review, child photo evidence, or chore creation.
 
 ## Release Channel
 
-`Local build`, gated behind Kwilt Labs. This is the safest channel for evaluating hierarchy, child comprehension, and interaction rhythm before household authority, canonical To-dos projection, and shared-device security are ready.
+`Local build`, gated behind Kwilt Labs. The next session should run in the native Simulator or a signed local device with realistic state transitions. This is sufficient to test child comprehension before committing to production expectation persistence or caregiver configuration.
 
 ## Brand-Goodwill Guardrails
 
-- The capability is opt-in and reversible.
-- The screen presents a coherent inventory rather than exposed debug controls.
-- No copy implies that simulated actions synced to a child account, changed Screen Time, or paid money.
-- The ordinary To-dos experience remains unchanged.
+- The list remains visually more important than the agreement bar.
+- The bar states the next useful fact; it does not score the child.
+- Missing or late work receives no shame, urgency color, or loss framing.
+- Tokens remain optional and disappear completely when disabled.
+- The interface never infers which chores count toward an agreement.
+- Screen Time language describes the agreement, not enforcement success.
 
 ## Reversibility
 
-Turning off the Chores Lab hides the capability. The local learning record is isolated behind a versioned storage key and can be removed without migrating production Activity or Household data. The screen consumes a small adapter-shaped record so the simulated repository can be replaced by the canonical Activity occurrence projection.
+The agreement projection consumes explicit learning-fixture facts behind the existing Labs gate. The top progress treatment can be removed without migrating production data, and the local expectation adapter can later be replaced by household-authorized expectation and Screen Time references without changing the child-facing composition contract.
 
 ## Permanent Product Threshold
 
-Promote Chores beyond Labs only after the same interaction runs against household-authorized Activity occurrences, assigned and claimed work appears in the correct child's To-dos without duplication, Household Mode protects caregiver data, and signed-device/offline evidence proves performer attribution and reconciliation.
+Promote the expectation experience beyond Labs only after children can explain what remains, the relevant time window, the difference between assigned and chosen work, and the purpose of the agreement without caregiver coaching. Permanent implementation also requires household-authorized expectation versions, truthful token-ledger balance, deterministic approval/correction handling, and Screen Time criteria that remain separate from device-delivery proof.

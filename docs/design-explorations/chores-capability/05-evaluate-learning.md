@@ -1,49 +1,65 @@
-# Evaluate Learning: Activity-backed Chores
+# Evaluate Learning: Child-readable Chore Agreement
 
 ## Learning questions
 
-1. Can a child distinguish `For me` work from household work they may take without explanation?
-2. Does `Take` feel like a temporary responsibility rather than an immediate completion?
-3. Are chore count, completion state, review state, and token value legible as separate facts?
-4. Does the Groceries-like inventory feel calm enough for repeat daily use?
-5. Is the active-member control clear without making the surface feel like caregiver impersonation?
-6. Does row tap reveal enough context without making Chores feel like a task-management app?
-7. When tokens are off, does the surface read as complete rather than as a disabled reward system?
-8. Can a caregiver understand and clear one or several approvals without treating Chores as an inbox?
-9. Does optional child-submitted photo evidence make review faster without making children feel surveilled or blocked from completion?
+1. Can Charlie distinguish **My chores** from **Choose a chore** without caregiver explanation?
+2. Can Charlie find **Return to family list** in the claimed-chore ellipsis when he changes his mind, and does the wording avoid sounding like the chore itself will be deleted?
+3. Can Charlie explain what remains, by when, and why after reading the agreement bar?
+4. Does the anchored agreement bar remain visibly subordinate to the chore list?
+5. Does Charlie understand the token icon as both a per-chore earning and his current balance without needing the visible word `tokens`?
+6. Does `1 waiting for approval` reassure Charlie that his completion was received while remaining truthful about credit and tokens?
+7. Does **How my chores work** answer questions that the compact bar cannot without becoming required reading?
+8. Do omitted clauses make the screen feel simpler rather than incomplete when tokens, Screen Time, or an expectation are disabled?
 
 ## Evidence plan
 
 Supporting evidence:
 
-- Andrew and at least one child can describe what is theirs and what is available after a three-second read;
-- they can take and complete a chore without coaching;
-- they correctly explain that `Waiting for approval` is not complete and that tokens are not the chore count;
-- the list remains scannable with realistic long titles and completed rows.
-- a child can explain `Waiting for approval` and `Needs another pass` without punitive language;
-- a child can attach or change a photo but can still submit without one, and a caregiver can identify the performer from the avatar/name pill without reading authorship copy;
-- the caregiver can find pending review from the capability badge and contextual guide, then resolve the queue without coaching;
-- turning tokens off removes every token reference while chore progress remains legible.
+- after a three-second read, Charlie points to which chores are his and which he may choose;
+- Charlie takes a chore, finds it under **My chores**, and uses the ellipsis plus **Return to family list** without coaching;
+- Charlie can restate both parts of the sample agreement: daily assigned chores and twelve additional family-list choices by Friday;
+- Charlie identifies the token balance as how many tokens he has, not how many he earned today or this week;
+- Charlie understands that a row token value is what that chore earns;
+- Charlie can explain that `Waiting for approval` means the work was submitted but has not added its approval-gated credit yet;
+- the list receives attention before the agreement bar in an initial scan;
+- tapping the bar resolves a question about the rules without caregiver explanation; and
+- tokens-disabled and no-expectation fixtures contain no residual progress or reward language.
 
 Disconfirming evidence:
 
-- available household work is mistaken for assigned work;
-- `Take` is interpreted as completion;
-- the member control is interpreted as unrestricted account switching;
-- progress or tokens dominate the real-world responsibility;
-- the surface needs persistent helper copy or management chrome to make sense.
-- the detail drawer duplicates the row without adding decision-useful context;
-- the caregiver review queue encourages blind approval or feels like a global notification inbox.
-- photo evidence feels mandatory, becomes a proxy for surveillance, or invites automated adjudication.
+- Charlie interprets the bar as an all-time score or another unexplained progress meter;
+- `Choose 3 more` is mistaken for assigned work, or the daily and weekly requirements blur together;
+- `Return to family list` is interpreted as deleting the chore itself or undoing prior completed work;
+- the token icon is mistaken for money, priority, a rating, or chore count;
+- Charlie assumes Screen Time has already been technically unlocked because the agreement is complete;
+- pending approval feels like the completion failed or disappeared;
+- the bottom bar competes with the list or feels like a dashboard; or
+- the expanded sheet is necessary for ordinary use rather than occasional clarification.
+
+## Session plan
+
+Use the real native screen with no advance explanation of the revised elements.
+
+1. Ask Charlie what he thinks the two lists mean.
+2. Ask what he still needs to do and when it needs to be done.
+3. Ask what the token icon and number mean in a row and in the bottom bar.
+4. Ask him to take a chore and then change his mind.
+5. Move one chore into `Waiting for approval` and ask what he thinks happened.
+6. Ask what completing the agreement means for Screen Time.
+7. Only after his unaided interpretation, let him tap the bar and evaluate whether the expanded explanation resolves remaining uncertainty.
+
+Avoid defining `time period`, `quota`, `claim`, `qualifying`, or `agreement` before he answers. The learning is whether the product communicates those ideas in ordinary language.
 
 ## Instrumentation
 
-Use direct observation, short child retell, and captured Simulator screenshots for this local release. Do not add behavioral analytics for simulated family activity. Record only interaction defects and comprehension notes needed to decide the next slice.
+Use direct observation, short child retell, and captured Simulator screenshots. Record moments of hesitation, incorrect interpretations, caregiver explanation, and successful self-correction. Do not add behavioral analytics for simulated family activity, record child audio by default, or measure speed as a performance score.
 
 ## Decision rule
 
-- Proceed to the household-authorized Activity adapter when the inventory and lifecycle are understood without coaching.
-- Revise labels, grouping, or action placement when the underlying lifecycle is understood but the surface causes hesitation.
-- Reframe the concept if children treat Chores as a reward catalog, caregiver surveillance, or a second To-dos list.
+- Proceed to production expectation design when Charlie can independently explain the two lists, the daily and weekly requirements, the deadline, and the token balance.
+- Revise hierarchy or copy when the underlying family model is understood but a particular label or placement causes hesitation.
+- Simplify the bar when it attracts more attention than the list or requires parsing like a dashboard.
+- Revisit the token glyph when its meaning is not learned from the row-value and balance pairing.
+- Reframe the expectation presentation if the expanded sheet is required for every visit or Screen Time wording repeatedly implies device enforcement.
 
-The next decision follows one Andrew self-use session plus at least one observed child walkthrough. This evidence does not raise the job-flow delivery score; real independent participation is still required.
+One successful Charlie session is enough to continue the local learning slice. Before permanent product promotion, repeat the comprehension check with at least one child who did not participate in designing the feature.

@@ -99,7 +99,7 @@ export const useChoreLearningStore = create<ChoreLearningState>()(
     }),
     {
       name: CHORE_LEARNING_STORAGE_KEY,
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: ({ record }) => ({ record }),
       migrate: (persisted) => ({

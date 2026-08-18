@@ -2,6 +2,7 @@ import {
   approveChoreOccurrence,
   completeChoreOccurrence,
   createChoreLearningRecord,
+  projectChoreAgreement,
   projectChoreInventory,
   projectChoreReviewQueue,
   releaseChoreOccurrence,
@@ -12,6 +13,71 @@ import {
 } from './choreLearning';
 
 describe('Chores learning domain', () => {
+  it('projects Charlie’s daily work and additional family-list quota as separate clauses', () => {
+    const agreement = projectChoreAgreement(createChoreLearningRecord(), 'member-charlie');
+
+    expect(agreement).toMatchObject({
+      headline: '1 chore left today · Choose 3 more by Friday',
+      supporting: '1 waiting for approval · Needed for weekend Screen Time',
+      tokenBalance: null,
+    });
+    expect(agreement.sections).toEqual([
+      { id: 'assigned', label: 'Every day', body: 'Finish your daily chores.' },
+      { id: 'quota', label: 'By Friday', body: 'Choose 12 chores from the family list.' },
+      { id: 'benefit', label: 'Weekend Screen Time', body: 'Finish both parts for weekend Screen Time.' },
+    ]);
+  });
+
+  it('uses all-qualifying copy only when the expectation says assigned work counts', () => {
+    const record = createChoreLearningRecord();
+    record.expectations = [{
+      memberId: 'member-charlie',
+      assigned: null,
+      quota: {
+        targetCount: 12,
+        qualifyingScope: 'all_qualifying',
+        deadlineLabel: 'by Friday',
+        sheetLabel: 'By Friday',
+        creditedBeforeCurrentOccurrences: 8,
+      },
+      benefit: null,
+    }];
+
+    expect(projectChoreAgreement(record, 'member-charlie').headline).toBe('3 chores left by Friday');
+  });
+
+  it('updates current token balance and approval-gated agreement facts without period language', () => {
+    const enabled = setChoreTokensEnabled(createChoreLearningRecord(), true, 'member-andrew');
+    expect(projectChoreAgreement(enabled, 'member-charlie')).toMatchObject({
+      tokenBalance: 8,
+      supporting: '1 waiting for approval · Needed for weekend Screen Time',
+    });
+
+    const approved = approveChoreOccurrence(
+      enabled,
+      'activity-occurrence-charlie-entry-shoes-2026-08-17',
+      'member-andrew',
+      '2026-08-17T14:00:00.000Z',
+    );
+    expect(projectChoreAgreement(approved, 'member-charlie')).toMatchObject({
+      headline: '1 chore left today · Choose 3 more by Friday',
+      supporting: 'Needed for weekend Screen Time',
+      tokenBalance: 9,
+    });
+  });
+
+  it('omits agreement and token language when neither is active', () => {
+    const record = createChoreLearningRecord();
+    record.expectations = record.expectations.filter(({ memberId }) => memberId !== 'member-olive');
+
+    expect(projectChoreAgreement(record, 'member-olive')).toEqual({
+      headline: null,
+      supporting: null,
+      tokenBalance: null,
+      sections: [],
+    });
+  });
+
   it('starts with stable Activity occurrence identities, optional tokens off, and a caregiver actor', () => {
     const record = createChoreLearningRecord();
     const charlie = projectChoreInventory(record, 'member-charlie');
@@ -21,8 +87,9 @@ describe('Chores learning domain', () => {
       'activity-occurrence-charlie-breakfast-dishes-2026-08-17',
       'activity-occurrence-charlie-entry-shoes-2026-08-17',
     ]);
-    expect(charlie.progress).toEqual({ completedCount: 1, expectedCount: 3 });
     expect(charlie.tokenBalance).toBeNull();
+    expect(projectChoreAgreement(record, 'member-charlie').headline)
+      .toBe('1 chore left today · Choose 3 more by Friday');
     expect(charlie.household).toHaveLength(3);
     expect(record.members.find((member) => member.id === 'member-andrew'))
       .toMatchObject({ displayName: 'Andrew', role: 'caregiver' });
@@ -36,7 +103,7 @@ describe('Chores learning domain', () => {
 
     const enabled = setChoreTokensEnabled(record, true, 'member-andrew');
     expect(enabled.tokensEnabled).toBe(true);
-    expect(projectChoreInventory(enabled, 'member-charlie').tokenBalance).toBe(1);
+    expect(projectChoreInventory(enabled, 'member-charlie').tokenBalance).toBe(8);
 
     const disabled = setChoreTokensEnabled(enabled, false, 'member-andrew');
     expect(projectChoreInventory(disabled, 'member-charlie').tokenBalance).toBeNull();
@@ -95,7 +162,8 @@ describe('Chores learning domain', () => {
         performedByMemberId: 'member-charlie',
         performedAtIso: '2026-08-17T14:30:00.000Z',
       });
-    expect(projection.progress).toEqual({ completedCount: 2, expectedCount: 3 });
+    expect(projectChoreAgreement(replayed, 'member-charlie').headline)
+      .toBe('Daily chores submitted · Choose 3 more by Friday');
     expect(projection.tokenBalance).toBeNull();
   });
 
@@ -116,7 +184,8 @@ describe('Chores learning domain', () => {
 
     expect(projection.forMember.find((item) => item.activityOccurrenceId === occurrenceId))
       .toMatchObject({ state: 'waiting_approval', performedByMemberId: 'member-charlie' });
-    expect(projection.progress).toEqual({ completedCount: 1, expectedCount: 3 });
+    expect(projectChoreAgreement(submitted, 'member-charlie').supporting)
+      .toBe('2 waiting for approval · Needed for weekend Screen Time');
     expect(projection.tokenBalance).toBeNull();
   });
 
@@ -167,7 +236,8 @@ describe('Chores learning domain', () => {
         reviewedByMemberId: 'member-andrew',
         reviewedAtIso: '2026-08-17T14:00:00.000Z',
       });
-    expect(projectChoreInventory(approved, 'member-charlie').progress.completedCount).toBe(2);
+    expect(projectChoreAgreement(approved, 'member-charlie').supporting)
+      .toBe('Needed for weekend Screen Time');
   });
 
   it('returns the same occurrence for another pass and permits the original child to resubmit it', () => {

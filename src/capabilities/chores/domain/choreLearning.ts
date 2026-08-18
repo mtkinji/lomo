@@ -1,8 +1,25 @@
 export type ChoreMember = {
   id: string;
   displayName: string;
-  expectedChoreCount: number;
+  startingTokenBalance: number;
   role: 'child' | 'caregiver';
+};
+
+export type ChoreExpectation = {
+  memberId: string;
+  assigned: { cadence: 'daily' } | null;
+  quota: {
+    targetCount: number;
+    qualifyingScope: 'open_pool' | 'all_qualifying';
+    deadlineLabel: string;
+    sheetLabel: string;
+    creditedBeforeCurrentOccurrences: number;
+  } | null;
+  benefit: {
+    label: string;
+    sheetLabel: string;
+    sheetBody: string;
+  } | null;
 };
 
 export type ChoreReviewPolicy = 'trusted' | 'caregiver_review';
@@ -34,10 +51,11 @@ export type ChoreOccurrence = {
 };
 
 export type ChoreLearningRecord = {
-  version: 3;
+  version: 4;
   activeMemberId: string;
   tokensEnabled: boolean;
   members: ChoreMember[];
+  expectations: ChoreExpectation[];
   occurrences: ChoreOccurrence[];
 };
 
@@ -45,17 +63,49 @@ export type ChoreInventoryProjection = {
   member: ChoreMember;
   forMember: ChoreOccurrence[];
   household: ChoreOccurrence[];
-  progress: {
-    completedCount: number;
-    expectedCount: number;
-  };
   tokenBalance: number | null;
 };
 
+export type ChoreAgreementProjection = {
+  headline: string | null;
+  supporting: string | null;
+  tokenBalance: number | null;
+  sections: Array<{
+    id: 'assigned' | 'quota' | 'benefit' | 'tokens';
+    label: string;
+    body: string;
+  }>;
+};
+
 const MEMBERS: ChoreMember[] = [
-  { id: 'member-charlie', displayName: 'Charlie', expectedChoreCount: 3, role: 'child' },
-  { id: 'member-olive', displayName: 'Olive', expectedChoreCount: 2, role: 'child' },
-  { id: 'member-andrew', displayName: 'Andrew', expectedChoreCount: 0, role: 'caregiver' },
+  { id: 'member-charlie', displayName: 'Charlie', startingTokenBalance: 7, role: 'child' },
+  { id: 'member-olive', displayName: 'Olive', startingTokenBalance: 3, role: 'child' },
+  { id: 'member-andrew', displayName: 'Andrew', startingTokenBalance: 0, role: 'caregiver' },
+];
+
+const EXPECTATIONS: ChoreExpectation[] = [
+  {
+    memberId: 'member-charlie',
+    assigned: { cadence: 'daily' },
+    quota: {
+      targetCount: 12,
+      qualifyingScope: 'open_pool',
+      deadlineLabel: 'by Friday',
+      sheetLabel: 'By Friday',
+      creditedBeforeCurrentOccurrences: 9,
+    },
+    benefit: {
+      label: 'Needed for weekend Screen Time',
+      sheetLabel: 'Weekend Screen Time',
+      sheetBody: 'Finish both parts for weekend Screen Time.',
+    },
+  },
+  {
+    memberId: 'member-olive',
+    assigned: { cadence: 'daily' },
+    quota: null,
+    benefit: null,
+  },
 ];
 
 type ChoreOccurrenceSeed = Omit<
@@ -191,10 +241,16 @@ function cloneOccurrence(occurrence: ChoreOccurrenceSeed | ChoreOccurrence): Cho
 
 export function createChoreLearningRecord(): ChoreLearningRecord {
   return {
-    version: 3,
+    version: 4,
     activeMemberId: MEMBERS[0].id,
     tokensEnabled: false,
     members: MEMBERS.map((member) => ({ ...member })),
+    expectations: EXPECTATIONS.map((expectation) => ({
+      ...expectation,
+      assigned: expectation.assigned ? { ...expectation.assigned } : null,
+      quota: expectation.quota ? { ...expectation.quota } : null,
+      benefit: expectation.benefit ? { ...expectation.benefit } : null,
+    })),
     occurrences: OCCURRENCES.map(cloneOccurrence),
   };
 }
@@ -245,12 +301,13 @@ function migrateLegacyChoreLearningRecord(value: Record<string, unknown>): Chore
 
 export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecord {
   if (!value || typeof value !== 'object') return createChoreLearningRecord();
-  if ([1, 2].includes((value as { version?: number }).version ?? -1)) {
+  if ([1, 2, 3].includes((value as { version?: number }).version ?? -1)) {
     return migrateLegacyChoreLearningRecord(value as Record<string, unknown>);
   }
   const candidate = value as Partial<ChoreLearningRecord>;
-  if (candidate.version !== 3 || typeof candidate.tokensEnabled !== 'boolean'
-    || !Array.isArray(candidate.members) || !Array.isArray(candidate.occurrences)) {
+  if (candidate.version !== 4 || typeof candidate.tokensEnabled !== 'boolean'
+    || !Array.isArray(candidate.members) || !Array.isArray(candidate.expectations)
+    || !Array.isArray(candidate.occurrences)) {
     return createChoreLearningRecord();
   }
   const membersValid = candidate.members.length > 0 && candidate.members.every((member) => (
@@ -258,10 +315,29 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
     && typeof member.id === 'string'
     && typeof member.displayName === 'string'
     && ['child', 'caregiver'].includes(member.role)
-    && Number.isSafeInteger(member.expectedChoreCount)
-    && member.expectedChoreCount >= 0
+    && Number.isSafeInteger(member.startingTokenBalance)
+    && member.startingTokenBalance >= 0
   ));
   const memberIds = new Set(candidate.members.map((member) => member.id));
+  const expectationsValid = candidate.expectations.every((expectation) => (
+    expectation != null
+    && memberIds.has(expectation.memberId)
+    && (expectation.assigned === null || expectation.assigned?.cadence === 'daily')
+    && (expectation.quota === null || (
+      Number.isSafeInteger(expectation.quota?.targetCount)
+      && (expectation.quota?.targetCount ?? 0) > 0
+      && ['open_pool', 'all_qualifying'].includes(expectation.quota?.qualifyingScope ?? '')
+      && typeof expectation.quota?.deadlineLabel === 'string'
+      && typeof expectation.quota?.sheetLabel === 'string'
+      && Number.isSafeInteger(expectation.quota?.creditedBeforeCurrentOccurrences)
+      && (expectation.quota?.creditedBeforeCurrentOccurrences ?? -1) >= 0
+    ))
+    && (expectation.benefit === null || (
+      typeof expectation.benefit?.label === 'string'
+      && typeof expectation.benefit?.sheetLabel === 'string'
+      && typeof expectation.benefit?.sheetBody === 'string'
+    ))
+  ));
   const occurrencesValid = candidate.occurrences.every((occurrence) => (
     occurrence != null
     && typeof occurrence.activityOccurrenceId === 'string'
@@ -281,17 +357,35 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
     && (occurrence.reviewNote === null || typeof occurrence.reviewNote === 'string')
     && (occurrence.evidencePhotoUri === null || typeof occurrence.evidencePhotoUri === 'string')
   ));
-  if (!membersValid || !occurrencesValid || !candidate.activeMemberId
+  if (!membersValid || !expectationsValid || !occurrencesValid || !candidate.activeMemberId
     || !memberIds.has(candidate.activeMemberId)) {
     return createChoreLearningRecord();
   }
   return {
-    version: 3,
+    version: 4,
     activeMemberId: candidate.activeMemberId,
     tokensEnabled: candidate.tokensEnabled,
     members: candidate.members.map((member) => ({ ...member })),
+    expectations: candidate.expectations.map((expectation) => ({
+      ...expectation,
+      assigned: expectation.assigned ? { ...expectation.assigned } : null,
+      quota: expectation.quota ? { ...expectation.quota } : null,
+      benefit: expectation.benefit ? { ...expectation.benefit } : null,
+    })),
     occurrences: candidate.occurrences.map(cloneOccurrence),
   };
+}
+
+function tokenBalanceForMember(
+  record: ChoreLearningRecord,
+  member: ChoreMember,
+): number | null {
+  if (!record.tokensEnabled) return null;
+  return record.occurrences
+    .filter((occurrence) => (
+      occurrence.state === 'completed' && occurrence.performedByMemberId === member.id
+    ))
+    .reduce((total, occurrence) => total + occurrence.tokenValue, member.startingTokenBalance);
 }
 
 export function projectChoreInventory(
@@ -304,21 +398,123 @@ export function projectChoreInventory(
     || occurrence.claimedByMemberId === member.id
     || occurrence.performedByMemberId === member.id
   ));
-  const completed = forMember.filter((occurrence) => occurrence.state === 'completed');
-
   return {
     member,
     forMember,
     household: record.occurrences.filter((occurrence) => (
       occurrence.participation === 'open' && occurrence.state === 'available'
     )),
-    progress: {
-      completedCount: completed.length,
-      expectedCount: member.expectedChoreCount,
-    },
-    tokenBalance: record.tokensEnabled
-      ? completed.reduce((total, occurrence) => total + occurrence.tokenValue, 0)
-      : null,
+    tokenBalance: tokenBalanceForMember(record, member),
+  };
+}
+
+function countLabel(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+export function projectChoreAgreement(
+  record: ChoreLearningRecord,
+  memberId: string,
+): ChoreAgreementProjection {
+  const member = record.members.find((candidate) => candidate.id === memberId) ?? record.members[0];
+  if (member.role !== 'child') {
+    return { headline: null, supporting: null, tokenBalance: null, sections: [] };
+  }
+
+  const expectation = record.expectations.find((candidate) => candidate.memberId === member.id);
+  const tokenBalance = tokenBalanceForMember(record, member);
+  const sections: ChoreAgreementProjection['sections'] = [];
+  const headlineParts: string[] = [];
+  const supportingParts: string[] = [];
+
+  const memberOccurrences = record.occurrences.filter((occurrence) => (
+    occurrence.assignedMemberId === member.id
+    || occurrence.claimedByMemberId === member.id
+    || occurrence.performedByMemberId === member.id
+  ));
+  const pendingCount = memberOccurrences.filter(
+    (occurrence) => occurrence.state === 'waiting_approval',
+  ).length;
+
+  if (expectation?.assigned) {
+    const assignedOccurrences = memberOccurrences.filter((occurrence) => (
+      occurrence.participation === 'assigned' && occurrence.assignedMemberId === member.id
+    ));
+    const remainingCount = assignedOccurrences.filter((occurrence) => (
+      occurrence.state === 'ready' || occurrence.state === 'needs_another_pass'
+    )).length;
+    const assignedComplete = remainingCount === 0 && pendingCount === 0;
+    headlineParts.push(
+      remainingCount > 0
+        ? `${countLabel(remainingCount, 'chore', 'chores')} left today`
+        : assignedComplete
+          ? 'Daily chores done'
+          : 'Daily chores submitted',
+    );
+    sections.push({ id: 'assigned', label: 'Every day', body: 'Finish your daily chores.' });
+  }
+
+  if (expectation?.quota) {
+    const qualifyingVisibleCount = memberOccurrences.filter((occurrence) => (
+      occurrence.state === 'completed'
+      && occurrence.performedByMemberId === member.id
+      && (
+        expectation.quota?.qualifyingScope === 'all_qualifying'
+        || occurrence.participation === 'open'
+      )
+    )).length;
+    const remainingCount = Math.max(
+      0,
+      expectation.quota.targetCount
+        - expectation.quota.creditedBeforeCurrentOccurrences
+        - qualifyingVisibleCount,
+    );
+    headlineParts.push(
+      remainingCount === 0
+        ? 'Weekly chores done'
+        : expectation.quota.qualifyingScope === 'open_pool'
+          ? `Choose ${remainingCount} more ${expectation.quota.deadlineLabel}`
+          : `${countLabel(remainingCount, 'chore', 'chores')} left ${expectation.quota.deadlineLabel}`,
+    );
+    sections.push({
+      id: 'quota',
+      label: expectation.quota.sheetLabel,
+      body: expectation.quota.qualifyingScope === 'open_pool'
+        ? `Choose ${expectation.quota.targetCount} chores from the family list.`
+        : `Finish ${expectation.quota.targetCount} chores that count.`,
+    });
+  }
+
+  if (headlineParts.length === 2
+    && headlineParts[0] === 'Daily chores done'
+    && headlineParts[1] === 'Weekly chores done') {
+    headlineParts.splice(0, headlineParts.length, 'All chores done for this week');
+  }
+
+  if (pendingCount > 0 && expectation) {
+    supportingParts.push(`${countLabel(pendingCount, 'waiting', 'waiting')} for approval`);
+  }
+  if (expectation?.benefit) {
+    supportingParts.push(expectation.benefit.label);
+    sections.push({
+      id: 'benefit',
+      label: expectation.benefit.sheetLabel,
+      body: expectation.benefit.sheetBody,
+    });
+  }
+  if (tokenBalance != null) {
+    sections.push({
+      id: 'tokens',
+      label: 'Your tokens',
+      body: 'Each chore shows how many tokens it earns.',
+    });
+  }
+
+  return {
+    headline: headlineParts.length ? headlineParts.join(' · ') : null,
+    supporting: supportingParts.length ? supportingParts.join(' · ') : null,
+    tokenBalance,
+    sections,
   };
 }
 

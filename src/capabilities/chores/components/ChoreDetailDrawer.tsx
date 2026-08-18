@@ -8,6 +8,7 @@ import { Text } from '../../../ui/primitives';
 import type { ChoreMember, ChoreOccurrence } from '../domain/choreLearning';
 import { Icon } from '../../../ui/Icon';
 import { ChoreEvidencePhoto } from './ChoreEvidencePhoto';
+import { ChoreTokenValue } from './ChoreAgreementSurface';
 
 type Props = {
   member: ChoreMember;
@@ -16,13 +17,9 @@ type Props = {
   onClose: () => void;
   onTake: () => void;
   onComplete: () => void;
-  onRelease: () => void;
+  onReturnToFamilyList: () => void;
   onAddPhoto: () => void;
 };
-
-function tokenLabel(value: number): string {
-  return `${value} token${value === 1 ? '' : 's'}`;
-}
 
 export function ChoreDetailDrawer({
   member,
@@ -31,7 +28,7 @@ export function ChoreDetailDrawer({
   onClose,
   onTake,
   onComplete,
-  onRelease,
+  onReturnToFamilyList,
   onAddPhoto,
 }: Props) {
   const canTake = occurrence?.state === 'available';
@@ -64,7 +61,12 @@ export function ChoreDetailDrawer({
             {canTake ? <Button fullWidth onPress={onTake}>Take chore</Button> : null}
             {canComplete ? <Button fullWidth onPress={onComplete}>Mark done</Button> : null}
             {canRelease ? (
-              <Button fullWidth variant="ghost" onPress={onRelease}>Release chore</Button>
+              <Button fullWidth variant="secondary" onPress={onReturnToFamilyList}>
+                <View style={styles.buttonLabel}>
+                  <Icon name="minus" size={17} color={colors.textPrimary} />
+                  <Text variant="label">Return to family list</Text>
+                </View>
+              </Button>
             ) : null}
           </View>
         </BottomDrawerFooter>
@@ -107,8 +109,8 @@ export function ChoreDetailDrawer({
           ) : null}
           {tokensEnabled ? (
             <View style={styles.block}>
-              <Text variant="label">Reward</Text>
-              <Text>{tokenLabel(occurrence.tokenValue)}</Text>
+              <Text variant="label">Earns</Text>
+              <ChoreTokenValue value={occurrence.tokenValue} context="earning" />
             </View>
           ) : null}
           {occurrence.state === 'waiting_approval' ? (

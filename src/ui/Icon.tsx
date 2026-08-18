@@ -91,6 +91,7 @@ import MessageCircle from 'lucide-react-native/dist/cjs/icons/message-circle';
 import MessageSquare from 'lucide-react-native/dist/cjs/icons/message-square';
 import MessagesSquare from 'lucide-react-native/dist/cjs/icons/messages-square';
 import Mic from 'lucide-react-native/dist/cjs/icons/mic';
+import Minus from 'lucide-react-native/dist/cjs/icons/minus';
 import Minimize2 from 'lucide-react-native/dist/cjs/icons/minimize-2';
 import Nut from 'lucide-react-native/dist/cjs/icons/nut';
 import OctagonAlert from 'lucide-react-native/dist/cjs/icons/octagon-alert';
@@ -208,6 +209,7 @@ const iconMap = {
   arrowLeft: { library: 'lucide', icon: ArrowLeft },
   arrowRight: { library: 'lucide', icon: ArrowRight },
   plus: { library: 'lucide', icon: Plus },
+  minus: { library: 'lucide', icon: Minus },
   navPlus: { library: 'lucide', icon: Plus },
   tag: { library: 'lucide', icon: Tag },
   more: { library: 'lucide', icon: Ellipsis },
@@ -239,6 +241,7 @@ const iconMap = {
   checkCircle: { library: 'lucide', icon: CircleCheck },
   dev: { library: 'lucide', icon: Code },
   sparkles: { library: 'lucide', icon: Sparkles },
+  token: { library: 'kwilt', name: 'token' },
   plan: { library: 'lucide', icon: Calendar },
   navPlan: { library: 'lucide', icon: Calendar },
   meal: { library: 'lucide', icon: Utensils },

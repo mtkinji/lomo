@@ -12,6 +12,7 @@ import { ButtonLabel } from '../../../ui/Typography';
 import { ProfileAvatar } from '../../../ui/ProfileAvatar';
 import type { ChoreMember, ChoreOccurrence } from '../domain/choreLearning';
 import { ChoreEvidencePhoto } from './ChoreEvidencePhoto';
+import { ChoreTokenValue } from './ChoreAgreementSurface';
 
 type Props = {
   visible: boolean;
@@ -22,10 +23,6 @@ type Props = {
   onAnotherPass: (id: string, note: string | null) => void;
   onClose: () => void;
 };
-
-function tokenLabel(value: number): string {
-  return `${value} token${value === 1 ? '' : 's'}`;
-}
 
 function PerformerPill({ name }: { name: string }) {
   return (
@@ -127,7 +124,7 @@ export function ChoreReviewDrawer({
             {tokensEnabled ? (
               <View style={styles.block}>
                 <Text variant="label">Reward after approval</Text>
-                <Text>{tokenLabel(selected.tokenValue)}</Text>
+                <ChoreTokenValue value={selected.tokenValue} context="earning" />
               </View>
             ) : null}
             <Input
@@ -158,7 +155,9 @@ export function ChoreReviewDrawer({
                     <Text variant="body">{occurrence.title}</Text>
                     {name ? <PerformerPill name={name} /> : null}
                   </View>
-                  {tokensEnabled ? <Text tone="secondary">{tokenLabel(occurrence.tokenValue)}</Text> : null}
+                  {tokensEnabled ? (
+                    <ChoreTokenValue value={occurrence.tokenValue} context="earning" />
+                  ) : null}
                 </Pressable>
               );
             })}
