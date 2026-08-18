@@ -65,7 +65,9 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).toContain("refreshPage: {\n    flexGrow: 1,\n    position: 'relative',");
     expect(source).not.toContain('refreshHeaderStyle');
     expect(source).not.toContain("key={refreshing ? 'refreshing' : 'pulling'}");
-    expect(source).toContain('<KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>');
+    expect(source).toContain('<KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing} style={styles.refreshBackdrop}>');
+    expect(source).toContain('refreshBackdrop: { backgroundColor: colors.parchment },');
+    expect(source).toContain('backgroundColor: colors.canvas,');
     expect(source).not.toContain('{refreshIndicator}');
     expect(source).not.toContain('refreshReveal');
     expect(source).not.toContain('<KwiltPullToRefresh');

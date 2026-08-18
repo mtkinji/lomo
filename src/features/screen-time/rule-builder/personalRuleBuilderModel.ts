@@ -17,7 +17,19 @@ export function getPersonalRuleBuilderCopy(params: {
   kind: PersonalScreenTimeRuleKind | null;
   step: PersonalRuleBuilderStep;
   targetLabel?: string;
+  limitMinutes?: number;
+  suggestedAppLabel?: string;
 }): { title: string; question: string; support: string | null } {
+  if (params.entry === 'contextual' && params.kind === 'daily_limit') {
+    const minutes = params.limitMinutes ?? 10;
+    return {
+      title: 'Set a daily app limit',
+      question: params.suggestedAppLabel
+        ? `Choose ${params.suggestedAppLabel} in Screen Time`
+        : 'Which apps should have this limit?',
+      support: `It will pause after ${minutes} minute${minutes === 1 ? '' : 's'} of use each day.`,
+    };
+  }
   if (params.step === 'review') {
     return {
       title: params.entry === 'contextual' && params.kind === 'focus'
@@ -57,7 +69,10 @@ export function getPersonalRuleBuilderCopy(params: {
   };
 }
 
-export function personalRuleBehaviorLabel(kind: PersonalScreenTimeRuleKind): string {
+export function personalRuleBehaviorLabel(kind: PersonalScreenTimeRuleKind, limitMinutes = 10): string {
+  if (kind === 'daily_limit') {
+    return `Pause after ${limitMinutes} minute${limitMinutes === 1 ? '' : 's'} each day`;
+  }
   return kind === 'focus'
     ? 'Pause until Focus ends'
     : 'Unlock after a to-do, progress update, or Focus';
@@ -66,7 +81,11 @@ export function personalRuleBehaviorLabel(kind: PersonalScreenTimeRuleKind): str
 export function personalRuleSentence(
   kind: PersonalScreenTimeRuleKind,
   targetLabel: string,
+  limitMinutes = 10,
 ): string {
+  if (kind === 'daily_limit') {
+    return `${targetLabel} will pause after ${limitMinutes} minute${limitMinutes === 1 ? '' : 's'} of use each day.`;
+  }
   return kind === 'focus'
     ? `${targetLabel} will pause while Focus is running.`
     : `${targetLabel} will unlock after you complete a to-do, record progress, or finish Focus.`;

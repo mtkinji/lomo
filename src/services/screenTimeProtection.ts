@@ -19,6 +19,7 @@ export type ScreenTimeRestrictionReason =
   | 'focus_session_active'
   | 'meaningful_first_locked'
   | 'meaningful_first_bypass'
+  | 'personal_usage_limit_reached'
   | 'money_review_required'
   | 'money_over_limit'
   | 'money_ahead_of_pace'
@@ -46,7 +47,7 @@ export type MeaningfulFirstSettings = {
   lastUpdated: string | null;
 };
 
-export type PersonalScreenTimeRuleKind = 'real_step' | 'focus';
+export type PersonalScreenTimeRuleKind = 'real_step' | 'focus' | 'daily_limit';
 
 type PersonalScreenTimeRuleBase = {
   id: string;
@@ -77,9 +78,16 @@ export type PersonalFocusScreenTimeRule = PersonalScreenTimeRuleBase & {
   lastAppliedSessionId: string | null;
 };
 
+export type PersonalDailyLimitScreenTimeRule = PersonalScreenTimeRuleBase & {
+  kind: 'daily_limit';
+  limitMinutes: number;
+  reset: 'daily';
+};
+
 export type PersonalScreenTimeRule =
   | PersonalRealStepScreenTimeRule
-  | PersonalFocusScreenTimeRule;
+  | PersonalFocusScreenTimeRule
+  | PersonalDailyLimitScreenTimeRule;
 
 export type ScreenTimeProtectionSettings = {
   authorizationStatus: ScreenTimeAuthorizationStatus;
@@ -307,16 +315,28 @@ function normalizeSetupOffer(value: unknown): ScreenTimeSetupOfferState {
 
 const PERSONAL_REAL_STEP_RULE_ID = 'personal_real_step';
 const PERSONAL_FOCUS_RULE_ID = 'personal_focus';
+const PERSONAL_DAILY_LIMIT_RULE_ID = 'personal_daily_limit';
+
+function normalizeDailyLimitMinutes(value: unknown): number {
+  const minutes = Number(value);
+  return Number.isInteger(minutes) && minutes >= 1 && minutes <= 1440 ? minutes : 10;
+}
 
 function normalizePersonalRule(value: unknown): PersonalScreenTimeRule | null {
   const raw = value && typeof value === 'object' ? (value as any) : {};
-  const kind: PersonalScreenTimeRuleKind | null = raw.kind === 'real_step' || raw.kind === 'focus'
+  const kind: PersonalScreenTimeRuleKind | null = raw.kind === 'real_step'
+    || raw.kind === 'focus'
+    || raw.kind === 'daily_limit'
     ? raw.kind
     : null;
   if (!kind) return null;
   const id = typeof raw.id === 'string' && raw.id.trim()
     ? raw.id.trim()
-    : kind === 'real_step' ? PERSONAL_REAL_STEP_RULE_ID : PERSONAL_FOCUS_RULE_ID;
+    : kind === 'real_step'
+      ? PERSONAL_REAL_STEP_RULE_ID
+      : kind === 'focus'
+        ? PERSONAL_FOCUS_RULE_ID
+        : PERSONAL_DAILY_LIMIT_RULE_ID;
   const selectionId = typeof raw.selectionId === 'string' && raw.selectionId.trim()
     ? raw.selectionId.trim()
     : id;
@@ -341,6 +361,15 @@ function normalizePersonalRule(value: unknown): PersonalScreenTimeRule | null {
       lastAppliedSessionId: typeof raw.lastAppliedSessionId === 'string' && raw.lastAppliedSessionId
         ? raw.lastAppliedSessionId
         : null,
+    };
+  }
+  if (kind === 'daily_limit') {
+    return {
+      ...base,
+      kind: 'daily_limit',
+      temporaryOpenAllowed: false,
+      limitMinutes: normalizeDailyLimitMinutes(raw.limitMinutes),
+      reset: 'daily',
     };
   }
   const meaningful = normalizeMeaningfulFirst(raw);
@@ -477,15 +506,23 @@ export function hasPersonalRuleTargets(rule: PersonalScreenTimeRule): boolean {
 }
 
 export function projectPersonalScreenTimeRule(rule: PersonalScreenTimeRule): ScreenTimeRule {
+  const title = rule.kind === 'focus'
+    ? 'Finish Focus'
+    : rule.kind === 'daily_limit'
+      ? 'Daily app limit'
+      : 'Do a real step';
+  const trigger = rule.kind === 'focus'
+    ? { type: 'focus_active' as const }
+    : rule.kind === 'daily_limit'
+      ? { type: 'daily_usage_limit' as const, minutes: rule.limitMinutes, reset: 'daily' as const }
+      : { type: 'real_step_pending' as const, minFocusMinutes: rule.minFocusMinutes };
   return {
     id: rule.id,
     domain: 'personal',
     subject: { kind: 'self' },
     selectionId: rule.selectionId,
-    title: rule.kind === 'focus' ? 'Finish Focus' : 'Do a real step',
-    trigger: rule.kind === 'focus'
-      ? { type: 'focus_active' }
-      : { type: 'real_step_pending', minFocusMinutes: rule.minFocusMinutes },
+    title,
+    trigger,
     temporaryOpen: {
       allowed: rule.temporaryOpenAllowed,
       durationMinutes: DEFAULT_TEMPORARY_OPEN_MINUTES,
@@ -511,9 +548,10 @@ export function replacePersonalScreenTimeRule(
   const withoutRule = settings.personalRules.filter((rule) => rule.id !== nextRule.id && rule.kind !== nextRule.kind);
   return normalizeScreenTimeProtectionSettings({
     ...settings,
-    personalRules: [...withoutRule, nextRule].sort((left, right) => (
-      left.kind === right.kind ? left.id.localeCompare(right.id) : left.kind === 'real_step' ? -1 : 1
-    )),
+    personalRules: [...withoutRule, nextRule].sort((left, right) => {
+      const order: Record<PersonalScreenTimeRuleKind, number> = { real_step: 0, focus: 1, daily_limit: 2 };
+      return left.kind === right.kind ? left.id.localeCompare(right.id) : order[left.kind] - order[right.kind];
+    }),
     lastUpdated: nextRule.lastUpdated ?? settings.lastUpdated,
   });
 }
@@ -524,13 +562,22 @@ export function createPersonalScreenTimeRule(params: {
   selectedCategories: ScreenTimeToken[];
   enabled?: boolean;
   setupCompleted?: boolean;
+  limitMinutes?: number;
   nowIso?: string;
 }): PersonalScreenTimeRule {
   const nowIso = validIsoOrNull(params.nowIso) ?? new Date().toISOString();
   const rule = normalizePersonalRule({
-    id: params.kind === 'real_step' ? PERSONAL_REAL_STEP_RULE_ID : PERSONAL_FOCUS_RULE_ID,
+    id: params.kind === 'real_step'
+      ? PERSONAL_REAL_STEP_RULE_ID
+      : params.kind === 'focus'
+        ? PERSONAL_FOCUS_RULE_ID
+        : PERSONAL_DAILY_LIMIT_RULE_ID,
     kind: params.kind,
-    selectionId: params.kind === 'real_step' ? PERSONAL_REAL_STEP_RULE_ID : PERSONAL_FOCUS_RULE_ID,
+    selectionId: params.kind === 'real_step'
+      ? PERSONAL_REAL_STEP_RULE_ID
+      : params.kind === 'focus'
+        ? PERSONAL_FOCUS_RULE_ID
+        : PERSONAL_DAILY_LIMIT_RULE_ID,
     selectedApps: params.selectedApps,
     selectedCategories: params.selectedCategories,
     enabled: params.enabled === true,
@@ -544,6 +591,8 @@ export function createPersonalScreenTimeRule(params: {
     lastQualifiedAtIso: null,
     lastPromptDismissedAtIso: null,
     lastAppliedSessionId: null,
+    limitMinutes: params.limitMinutes,
+    reset: 'daily',
     needsSelectionReview: false,
     lastUpdated: nowIso,
   });
@@ -551,7 +600,7 @@ export function createPersonalScreenTimeRule(params: {
   return rule;
 }
 
-const PERSONAL_SCREEN_TIME_RULE_KIND_ORDER: PersonalScreenTimeRuleKind[] = ['real_step', 'focus'];
+const PERSONAL_SCREEN_TIME_RULE_KIND_ORDER: PersonalScreenTimeRuleKind[] = ['real_step', 'focus', 'daily_limit'];
 
 export function getAvailablePersonalScreenTimeRuleKinds(
   settings: Pick<ScreenTimeProtectionSettings, 'personalRules'>,
@@ -683,6 +732,7 @@ export function getActivePersonalScreenTimeRestrictions(
   ));
   orderedRules.forEach((rule) => {
     if (!rule.enabled || !hasPersonalRuleTargets(rule)) return;
+    if (rule.kind === 'daily_limit') return;
     const unlockUntilMs = rule.currentUnlockUntilIso ? Date.parse(rule.currentUnlockUntilIso) : Number.NaN;
     if (Number.isFinite(unlockUntilMs) && params.now.getTime() < unlockUntilMs) return;
     if (rule.kind === 'focus') {

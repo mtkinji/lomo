@@ -34,6 +34,7 @@ type KwiltRefreshFrameProps = {
 };
 
 const REFRESH_REVEAL_HEIGHT = 96;
+export const KWILT_REFRESH_LOADING_CYCLE_MS = 2_000;
 
 export function KwiltRefreshFrame({ children, refreshOverlay, refreshing, style }: KwiltRefreshFrameProps) {
   const { reduceMotionEnabled } = useAccessibilityPreferences();
@@ -95,24 +96,43 @@ export function useKwiltRefresh({
   const runRefresh = useCallback(async () => {
     if (phaseRef.current !== 'idle') return;
     const cycle = ++cycleRef.current;
-    const startedAtMs = Date.now();
     phaseRef.current = 'loading';
     setPhase('loading');
 
+    let refreshPromise: Promise<unknown>;
     try {
-      await onRefresh();
+      refreshPromise = Promise.resolve(onRefresh());
     } catch {
-      // The owning surface remains responsible for presenting its refresh error.
+      refreshPromise = Promise.resolve();
     }
+    let refreshSettled = false;
+    const guardedRefresh = refreshPromise
+      .catch(() => undefined)
+      .then(() => {
+        refreshSettled = true;
+      });
 
-    await waitForMs(Math.max(0, KWILT_REFRESH_MINIMUM_MS - (Date.now() - startedAtMs)));
-    if (cycleRef.current !== cycle) return;
-    phaseRef.current = 'completing';
-    setPhase('completing');
-    await waitForMs(KWILT_REFRESH_COMPLETION_MS);
-    if (cycleRef.current !== cycle) return;
-    phaseRef.current = 'idle';
-    setPhase('idle');
+    while (cycleRef.current === cycle) {
+      const loadingStartedAtMs = Date.now();
+      await waitForPromiseOrTimeout(guardedRefresh, KWILT_REFRESH_LOADING_CYCLE_MS);
+      const minimumRemainingMs = KWILT_REFRESH_MINIMUM_MS - (Date.now() - loadingStartedAtMs);
+      if (minimumRemainingMs > 0) await waitForMs(minimumRemainingMs);
+      if (cycleRef.current !== cycle) return;
+
+      phaseRef.current = 'completing';
+      setPhase('completing');
+      await waitForMs(KWILT_REFRESH_COMPLETION_MS);
+      if (cycleRef.current !== cycle) return;
+
+      if (refreshSettled) {
+        phaseRef.current = 'idle';
+        setPhase('idle');
+        return;
+      }
+
+      phaseRef.current = 'loading';
+      setPhase('loading');
+    }
   }, [onRefresh]);
 
   const refreshControl = useMemo(() => (
@@ -146,16 +166,18 @@ export function useKwiltRefresh({
         { height: refreshStageHeight },
       ]}
     >
-      <Animated.View
-        testID="kwilt-refresh-pull"
-        style={[
-          styles.layer,
-          { opacity: pullOpacity, paddingTop: overlayTopOffset },
-          backgroundColor ? { backgroundColor } : null,
-        ]}
-      >
-        <KwiltLoader phase="idle" size={50} />
-      </Animated.View>
+      {phase === 'idle' ? (
+        <Animated.View
+          testID="kwilt-refresh-pull"
+          style={[
+            styles.layer,
+            { opacity: pullOpacity, paddingTop: overlayTopOffset },
+            backgroundColor ? { backgroundColor } : null,
+          ]}
+        >
+          <KwiltLoader phase="idle" size={50} />
+        </Animated.View>
+      ) : null}
       {phase !== 'idle' ? (
         <View
           testID="kwilt-refresh-active"
@@ -182,6 +204,17 @@ export function useKwiltRefresh({
 
 function waitForMs(durationMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, durationMs));
+}
+
+async function waitForPromiseOrTimeout(promise: Promise<unknown>, durationMs: number): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    promise,
+    new Promise<void>((resolve) => {
+      timeout = setTimeout(resolve, durationMs);
+    }),
+  ]);
+  if (timeout) clearTimeout(timeout);
 }
 
 const styles = StyleSheet.create({

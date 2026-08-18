@@ -10,6 +10,18 @@ const restriction = (
 ): ActiveScreenTimeRestriction => ({ id, reason, label: label ?? null });
 
 describe('projectScreenTimeShieldPresentation', () => {
+  it('explains a reached personal daily limit without implying a Kwilt prerequisite', () => {
+    expect(projectScreenTimeShieldPresentation({
+      appName: 'Instagram',
+      restrictions: [restriction('daily', 'personal_usage_limit_reached', 'Daily app limit')],
+    })).toMatchObject({
+      title: 'That’s today’s limit.',
+      subtitle: 'You can use Instagram again tomorrow, or change this rule in Kwilt.',
+      buttonLabel: 'Open Screen Time',
+      destination: 'kwilt://settings/screen-time',
+    });
+  });
+
   it('leads with the more specific Money action and discloses the remaining Kwilt action', () => {
     const result = projectScreenTimeShieldPresentation({
       appName: 'Home Depot',

@@ -12,7 +12,10 @@ import {
   type PersonalScreenTimeRuleKind,
   type ScreenTimeToken,
 } from '../../../services/screenTimeProtection';
-import { presentScreenTimeActivityPicker } from '../../../services/appleEcosystem/screenTimeProtection';
+import {
+  presentScreenTimeActivityPicker,
+  requestScreenTimeAuthorization,
+} from '../../../services/appleEcosystem/screenTimeProtection';
 import { reconcileScreenTimeRestrictions } from '../../../services/screenTimeProtectionRuntime';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
@@ -73,6 +76,11 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
   );
   const entry = props.params.entry;
   const suggestedKind = props.params.suggestedKind;
+  const suggestedLimitMinutes = Number.isInteger(props.params.suggestedLimitMinutes)
+    && Number(props.params.suggestedLimitMinutes) >= 1
+    && Number(props.params.suggestedLimitMinutes) <= 1440
+    ? Number(props.params.suggestedLimitMinutes)
+    : 10;
   const [kind, setKind] = useState<PersonalScreenTimeRuleKind | null>(() => (
     suggestedKind && availableKinds.includes(suggestedKind) ? suggestedKind : null
   ));
@@ -95,6 +103,8 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
     kind,
     step,
     targetLabel: appsConfirmed && count > 0 ? targetsLabel : undefined,
+    limitMinutes: suggestedLimitMinutes,
+    suggestedAppLabel: props.params.suggestedAppLabel,
   });
   const isContextualFlow = entry === 'contextual' && Boolean(suggestedKind);
   const totalSteps = isContextualFlow ? 2 : 3;
@@ -102,12 +112,27 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
 
   const chooseApps = async () => {
     setChoosingApps(true);
+    if (normalized.authorizationStatus !== 'approved') {
+      const authorizationStatus = await requestScreenTimeAuthorization();
+      setSettings((current) => ({
+        ...current,
+        authorizationStatus,
+        lastUpdated: new Date().toISOString(),
+      }));
+      if (authorizationStatus !== 'approved') {
+        setChoosingApps(false);
+        Alert.alert('Screen Time access needed', 'Allow Screen Time access to choose apps for this rule.');
+        return;
+      }
+    }
     const selection = await presentScreenTimeActivityPicker(targets, {
       selectionId: kind === 'focus'
         ? 'personal_focus'
         : kind === 'real_step'
           ? 'personal_real_step'
-          : 'personal_rule_draft',
+          : kind === 'daily_limit'
+            ? 'personal_daily_limit'
+            : 'personal_rule_draft',
     });
     setChoosingApps(false);
     if (!selection) return;
@@ -131,6 +156,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
         selectedCategories: targets.selectedCategories,
         enabled: true,
         setupCompleted: true,
+        limitMinutes: kind === 'daily_limit' ? suggestedLimitMinutes : undefined,
         nowIso,
       }),
     );
@@ -143,7 +169,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
     capture(AnalyticsEvent.ScreenTimeSetupCompleted, {
       setup_intent: props.params.setupIntent ?? 'settings_discovery',
       surface: props.params.entrySurface ?? 'settings',
-      rule: kind === 'focus' ? 'focus_session' : 'real_step',
+      rule: kind === 'focus' ? 'focus_session' : kind === 'daily_limit' ? 'daily_limit' : 'real_step',
     });
     await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
     props.onClose();
@@ -241,12 +267,22 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
                   onPress={() => setKind('focus')}
                 />
               ) : null}
+              {availableKinds.includes('daily_limit') ? (
+                <GuidedChoice
+                  accessibilityHint="Apps pause after the chosen amount of use each day."
+                  icon="clock"
+                  label="After a daily time limit"
+                  onPress={() => setKind('daily_limit')}
+                />
+              ) : null}
             </View>
           ) : null}
 
           {step === 'review' && kind ? (
             <View style={styles.receipt}>
-              <Text style={styles.receiptSentence}>{personalRuleSentence(kind, targetsLabel)}</Text>
+              <Text style={styles.receiptSentence}>
+                {personalRuleSentence(kind, targetsLabel, suggestedLimitMinutes)}
+              </Text>
             </View>
           ) : null}
 
@@ -262,7 +298,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
               {step === 'review' && kind ? (
                 <AnswerSummary
                   label="Rule behavior"
-                  value={personalRuleBehaviorLabel(kind)}
+                  value={personalRuleBehaviorLabel(kind, suggestedLimitMinutes)}
                   accessibilityLabel={isContextualFlow ? undefined : 'Change rule behavior'}
                   onPress={isContextualFlow ? undefined : () => setKind(null)}
                 />

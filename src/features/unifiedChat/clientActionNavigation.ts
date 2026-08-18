@@ -65,6 +65,34 @@ export function resolveClientActionOpenInstruction(
           params: { setupIntent: 'settings_discovery', entrySurface: 'settings' },
         },
       };
+    case 'open_personal_screen_time_limit': {
+      const subject = action.payload.subject;
+      const limitMinutes = Number(action.payload.limitMinutes);
+      const suggestedAppLabel = typeof action.payload.suggestedAppLabel === 'string'
+        ? action.payload.suggestedAppLabel.trim()
+        : '';
+      if (action.targetId !== 'self'
+        || action.targetType !== 'personal_screen_time_device'
+        || subject == null
+        || typeof subject !== 'object'
+        || (subject as { kind?: unknown }).kind !== 'self'
+        || !Number.isInteger(limitMinutes)
+        || limitMinutes < 1
+        || limitMinutes > 1440
+        || action.payload.reset !== 'daily') return null;
+      return {
+        kind: 'navigate', name: 'Settings', params: {
+          screen: 'SettingsScreenTimeRuleBuilder', params: {
+            entry: 'contextual',
+            suggestedKind: 'daily_limit',
+            suggestedLimitMinutes: limitMinutes,
+            ...(suggestedAppLabel ? { suggestedAppLabel } : {}),
+            setupIntent: 'settings_discovery',
+            entrySurface: 'settings',
+          },
+        },
+      };
+    }
     case 'open_family_screen_time_setup': {
       const childDisplayName = typeof action.payload.childDisplayName === 'string'
         ? action.payload.childDisplayName.trim()

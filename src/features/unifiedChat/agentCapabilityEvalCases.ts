@@ -221,6 +221,7 @@ export const OPERATION_LANGUAGE_CASES: readonly OperationLanguageCase[] = [
   languageCase('account.delete', 'Delete my Kwilt account.'),
   languageCase('screen_time.read', 'What Screen Time rules are active for Charlie?'),
   languageCase('screen_time.personal.setup.open', 'Set up Screen Time controls for me on this phone.'),
+  languageCase('screen_time.personal.limit.open', 'Let me use Instagram for 10 minutes each day before it pauses.'),
   languageCase('screen_time.agreement.create', 'On school nights, block Charlie\'s saved Games selection after 8 PM.'),
   languageCase('screen_time.agreement.update', 'Change Charlie\'s school-night game cutoff to 7:30 PM.'),
   languageCase('screen_time.agreement.deactivate', 'Turn off Charlie\'s recurring school-night game rule.'),

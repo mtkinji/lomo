@@ -7,7 +7,10 @@ import {
   DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
   createPersonalScreenTimeRule,
 } from '../../../services/screenTimeProtection';
-import { presentScreenTimeActivityPicker } from '../../../services/appleEcosystem/screenTimeProtection';
+import {
+  presentScreenTimeActivityPicker,
+  requestScreenTimeAuthorization,
+} from '../../../services/appleEcosystem/screenTimeProtection';
 import { colors, typography } from '../../../theme';
 import { PersonalScreenTimeRuleBuilderScreen } from './PersonalScreenTimeRuleBuilderScreen';
 
@@ -26,6 +29,7 @@ jest.mock('@react-navigation/native', () => {
 
 jest.mock('../../../services/appleEcosystem/screenTimeProtection', () => ({
   presentScreenTimeActivityPicker: jest.fn(),
+  requestScreenTimeAuthorization: jest.fn(),
 }));
 
 jest.mock('../../../ui/BottomDrawer', () => {
@@ -62,6 +66,7 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     mockBottomDrawerProps.length = 0;
     mockRouteParams = { entry: 'inventory' };
     (presentScreenTimeActivityPicker as jest.Mock).mockReset().mockResolvedValue(null);
+    (requestScreenTimeAuthorization as jest.Mock).mockReset().mockResolvedValue('approved');
     useAppStore.setState({
       screenTimeProtection: {
         ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
@@ -100,6 +105,26 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     expect(screen.queryByRole('button', { name: 'Add rule' })).toBeNull();
   });
 
+  it('requests personal Screen Time authorization before opening a Chat-authored selection', async () => {
+    useAppStore.setState({
+      screenTimeProtection: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        authorizationStatus: 'notDetermined',
+      },
+    });
+    mockRouteParams = {
+      entry: 'contextual', suggestedKind: 'daily_limit', suggestedLimitMinutes: 10,
+      suggestedAppLabel: 'Instagram',
+    };
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+
+    await waitFor(() => expect(requestScreenTimeAuthorization).toHaveBeenCalledTimes(1));
+    expect(presentScreenTimeActivityPicker).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().screenTimeProtection.authorizationStatus).toBe('approved');
+  });
+
   it('uses contextual Focus intent and skips the behavior question', async () => {
     mockRouteParams = {
       entry: 'contextual',
@@ -122,6 +147,29 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     expect(screen.getByText('Pause until Focus ends')).toBeTruthy();
     expect(screen.getByLabelText('Rule setup progress').props.accessibilityValue)
       .toEqual({ min: 1, max: 2, now: 2 });
+  });
+
+  it('carries a Chat-authored daily allowance through native app selection and save', async () => {
+    mockRouteParams = {
+      entry: 'contextual', suggestedKind: 'daily_limit', suggestedLimitMinutes: 10,
+      suggestedAppLabel: 'Instagram', setupIntent: 'settings_discovery', entrySurface: 'settings',
+    };
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [{ token: 'instagram', label: 'Instagram' }], selectedCategories: [],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    expect(screen.getByText('Choose Instagram in Screen Time')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    expect(await screen.findByText('Instagram will pause after 10 minutes of use each day.')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Add rule' }));
+
+    await waitFor(() => expect(useAppStore.getState().screenTimeProtection.personalRules).toEqual([
+      expect.objectContaining({
+        kind: 'daily_limit', limitMinutes: 10, reset: 'daily', enabled: true,
+        selectedApps: [{ token: 'instagram', label: 'Instagram' }],
+      }),
+    ]));
   });
 
   it('asks what should happen after an inventory target is selected', async () => {

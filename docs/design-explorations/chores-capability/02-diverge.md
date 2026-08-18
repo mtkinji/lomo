@@ -201,6 +201,10 @@ Each alternative must eventually demonstrate all of the following with the same 
 
 No option earns convergence merely because it reuses more code. The winner must remove mental load at both ends of the relationship: simple enough for the child to act, simple enough for the caregiver to stop carrying it.
 
+## Subsequent convergence note
+
+The accepted direction combines the **Chores Lens** foundation with the child-simple inventory qualities of **Responsibility Cards**. Chores is now a direct capability using a Groceries-like list with **For [member]** and **Household** sections. On a designated shared iPad, one active-member control appears in both the capability-menu avatar and Chores header; the device uses the caregiver-anchored Household Mode defined in [shared household device convergence](../shared-household-device-profiles/03-converge.md).
+
 ## User evidence after divergence
 
 Andrew described the household's current operating behavior:
@@ -210,6 +214,14 @@ Andrew described the household's current operating behavior:
 - In summer, a child must complete at least two chores on each day they want Screen Time.
 - During the school year, a child must complete at least twelve chores before Screen Time can be unlocked on Friday night or Saturday.
 
-This evidence rejects **Chores Lens** as the canonical model. Activity assignment and dated personal occurrences are the wrong center. It also sharpens **Responsibility Cards**: the Chores-owned object should represent an available household contribution, and completion should be an attributed event against an explicit eligibility window. **Household Rhythm** remains useful as presentation, while **Contextual Handoff** becomes secondary because the core behavior is self-selection rather than handoff.
+This evidence rejected the *original*, assignment-centered version of **Chores Lens**. Activity assignment alone and one serialized personal occurrence were the wrong center. It sharpened the need for open household eligibility, claiming, bounded availability, performer attribution, and explicit eligibility windows.
 
-The threshold is factual family-policy state, not generic gamification. Kwilt should show the child's understandable progress toward the current agreement, but it should not translate chores into points, money, spendable credits, or a minute-per-chore balance.
+Subsequent conversation clarified three additional system facts:
+
+- To-dos are already the only product representation of the underlying Activity object; there is no separate Activities surface.
+- Assigned chores, and pooled chores after a child claims them, should appear in that child's To-dos.
+- Qualifying completion should advance the performing child's existing show-up streak regardless of whether the occurrence was assigned or claimed.
+
+That later evidence selects a revised **Chores Lens** foundation: Activity and occurrence remain canonical, while the Responsibility Cards/shared-pool behavior becomes the Chores-owned profile and experience layer. **Household Rhythm** remains a possible presentation extension, while **Contextual Handoff** remains secondary because self-selection is a primary household behavior.
+
+The threshold is factual family-policy state, not generic gamification. Kwilt should show the child's understandable progress toward the current agreement. Household-defined tokens may remain a separate ledger and cash-redemption record, but they must not be confused with chore-count progress, the existing daily show-up streak, or a minute-per-chore balance.

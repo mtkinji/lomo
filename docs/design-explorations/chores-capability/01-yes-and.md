@@ -93,4 +93,6 @@ Andrew described the household's actual system after this expansion:
 - during summer, a child completes at least two chores on each day they want Screen Time; and
 - during the school year, a child completes at least twelve chores before Screen Time can be unlocked on Friday night or Saturday.
 
-This evidence changes the recommendation. The work is not primarily assigned recurring Activities. It requires a shared pool, member-attributed completions, and seasonal threshold windows. Continue with a **Chores-owned model** and retain Activities only as an optional interoperability surface.
+This evidence first moved the recommendation away from a purely assigned-Activity lens. Further conversation then clarified that To-dos are already the product representation of the underlying Activity object, that assigned and claimed chores should appear in the child's To-dos, and that any qualifying chore completion should advance the performing child's existing show-up streak.
+
+The revised recommendation is an **Activity-backed Chores capability**: preserve one canonical Activity/occurrence truth, add household and Chore policy around it, and give Chores its own child/caregiver experience. The shared pool is a participation mode, not evidence that Kwilt needs a second foundational doing object.

@@ -19,6 +19,7 @@ const priority = (reason: ActiveScreenTimeRestriction['reason']): number => {
   if (reason === 'focus_session_active' || reason === 'focus') return 400;
   if (reason === 'family_prerequisite') return 300;
   if (reason.startsWith('money_')) return 200;
+  if (reason === 'personal_usage_limit_reached') return 150;
   if (reason === 'meaningful_first_locked' || reason === 'meaningful_first_bypass') return 100;
   return 0;
 };
@@ -45,6 +46,9 @@ const nextAction = (restriction: ActiveScreenTimeRestriction): string => {
     return `review ${restriction.label?.trim() || 'the required category'} in Kwilt Money`;
   }
   if (restriction.reason === 'meaningful_first_bypass') return 'wait for the Kwilt pause to end';
+  if (restriction.reason === 'personal_usage_limit_reached') {
+    return 'wait until tomorrow or change this limit in Kwilt';
+  }
   return 'complete a to-do, record progress, or finish Focus in Kwilt';
 };
 
@@ -63,6 +67,13 @@ const singleCopy = (
   }
   if (restriction.reason === 'meaningful_first_bypass') {
     return { title: 'Your Kwilt pause is active.', subtitle: 'Wait for this short pause to end, or open Kwilt to change it.', buttonLabel: 'Open Screen Time' };
+  }
+  if (restriction.reason === 'personal_usage_limit_reached') {
+    return {
+      title: 'That’s today’s limit.',
+      subtitle: `You can use ${appName} again tomorrow, or change this rule in Kwilt.`,
+      buttonLabel: 'Open Screen Time',
+    };
   }
   return {
     title: 'Do one thing first.',

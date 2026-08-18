@@ -292,7 +292,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       <AppShell fullBleedCanvas>
         <StatusBar style={statusBarStyle} animated />
         <View style={styles.screen}>
-          <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
+          <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing} style={styles.refreshBackdrop}>
             <Animated.ScrollView
               contentInsetAdjustmentBehavior="never"
               scrollEnabled={!chartScrubbing}
@@ -762,6 +762,7 @@ function naturalList(values: string[]): string {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
+  refreshBackdrop: { backgroundColor: colors.parchment },
   scrollContent: { flexGrow: 1 },
   refreshPage: {
     flexGrow: 1,

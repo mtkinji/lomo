@@ -103,7 +103,7 @@ export function selectAgentJudgmentTools(
 }
 
 const SELF_DIRECTED_DEVICE_PATTERN =
-  /\b(?:for me|myself|my (?:phone|device)|on this (?:phone|device))\b/i;
+  /\b(?:for me|myself|my (?:phone|device)|on this (?:phone|device)|allow(?:s|ed|ing)? me to|let(?:s|ting)? me(?: to)?|i (?:can|may|want to|need to) use)\b/i;
 
 export function selectSubjectSafeRuntimeTools(
   tools: readonly AgentToolDefinition[],
@@ -113,7 +113,8 @@ export function selectSubjectSafeRuntimeTools(
   return tools.filter((tool) =>
     tool.capabilityId !== 'screenTime' ||
     tool.id === 'screen_time.read' ||
-    tool.id === 'screen_time.personal.setup.open');
+    tool.id === 'screen_time.personal.setup.open' ||
+    tool.id === 'screen_time.personal.limit.open');
 }
 
 function selectAgentJudgmentWriteTools(
@@ -223,7 +224,7 @@ function groundingSummary(
     }
     if (participatingCapabilities.includes('screenTime')) {
       parts.push(
-        'For direct family Screen Time controls, resolve the child and saved selection only from the authorized machine references below. Use screen_time.override.block or screen_time.override.allow with an exact future expiresAt and all resolved targets in one proposal. For a standing prerequisite such as using Gospel Library before Games, use screen_time.agreement.create with one resolved prerequisite selection, one resolved target selection, the current desired policy version, and daily reset. If any named app has no saved selection for that child, call screen_time.selection.open for that exact child instead of guessing. Use screen_time.device.setup.open when the user asks to connect a child device. Never use screen_time.configure for a direct app request. An allow affects only Kwilt family restrictions and may not override Apple or other controls. Never claim the child device changed until a device receipt says applied.',
+        'For a self-directed daily app allowance, use screen_time.personal.limit.open with subject self, the named app label, the requested minutes, and daily reset. Use screen_time.personal.setup.open only for generic personal setup without a concrete allowance. Never substitute a child for the signed-in person. For direct family Screen Time controls, resolve the child and saved selection only from the authorized machine references below. Use screen_time.override.block or screen_time.override.allow with an exact future expiresAt and all resolved targets in one proposal. For a standing prerequisite such as using Gospel Library before Games, use screen_time.agreement.create with one resolved prerequisite selection, one resolved target selection, the current desired policy version, and daily reset. If any named app has no saved selection for that child, call screen_time.selection.open for that exact child instead of guessing. Use screen_time.device.setup.open when the user asks to connect a child device. Never use screen_time.configure for a direct app request. An allow affects only Kwilt family restrictions and may not override Apple or other controls. Never claim the child device changed until a device receipt says applied.',
       );
     }
     if (participatingCapabilities.includes('recipes')) {
@@ -613,7 +614,8 @@ export async function executeUnifiedChatTurnPhase(
     ...(usesRuntimeToolLoop
       ? {
           runtimeTools,
-          ...(input.requestPolicy.requestClass === 'capability_action' && plannedWriteTools.length > 0
+          ...((input.requestPolicy.requestClass === 'capability_action'
+            || input.requestPolicy.requestClass === 'native_control') && plannedWriteTools.length > 0
             ? { runtimeToolChoice: 'required' as const }
             : {}),
           executeRuntimeTool: executeTurnTool,
@@ -772,7 +774,8 @@ export async function executeUnifiedChatTurnPhase(
     }
   }
   if (
-    input.requestPolicy.requestClass === 'capability_action' &&
+    (input.requestPolicy.requestClass === 'capability_action'
+      || input.requestPolicy.requestClass === 'native_control') &&
     plannedWriteTools.length > 0 &&
     toolProvider.proposals().length === 0 &&
     toolProvider.clientActions().length === 0 &&

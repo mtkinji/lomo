@@ -9,6 +9,14 @@ private struct KwiltPrerequisiteMonitorConfiguration: Codable {
   let targetLabel: String
   let thresholdMinutes: Int
 }
+
+private struct KwiltPersonalUsageLimitConfiguration: Codable {
+  let ruleId: String
+  let selectionId: String
+  let targetSelection: FamilyActivitySelection
+  let limitMinutes: Int
+  let restrictionLabel: String
+}
 #endif
 `;
 
@@ -18,6 +26,7 @@ const PREREQUISITE_PROPERTIES_SWIFT = `
   private let prerequisiteLabelKey = "kwilt_screen_time_prerequisite_label_v1"
   private let targetLabelKey = "kwilt_screen_time_target_label_v1"
   private let prerequisiteMinutesKey = "kwilt_screen_time_prerequisite_minutes_v1"
+  private let personalUsageLimitConfigPrefix = "kwilt_screen_time_personal_limit_config_v1."
 `;
 
 const PREREQUISITE_HELPERS_SWIFT = `
@@ -46,6 +55,18 @@ const PREREQUISITE_HELPERS_SWIFT = `
   @available(iOS 16.0, *)
   private func prerequisiteActivityName(for agreementId: String) -> DeviceActivityName {
     DeviceActivityName("kwilt.prerequisite.\\(safeIdentifier(agreementId))")
+  }
+
+  @available(iOS 16.0, *)
+  private func personalUsageLimitStore(for ruleId: String) -> ManagedSettingsStore {
+    ManagedSettingsStore(named: ManagedSettingsStore.Name(
+      "kwilt.personal.limit.\(safeIdentifier(ruleId))"
+    ))
+  }
+
+  @available(iOS 16.0, *)
+  private func personalUsageLimitActivityName(for ruleId: String) -> DeviceActivityName {
+    DeviceActivityName("kwilt.personal.limit.\(safeIdentifier(ruleId))")
   }
 
   @available(iOS 16.0, *)
@@ -210,6 +231,116 @@ const PREREQUISITE_METHODS_SWIFT = `
     shared.removeObject(forKey: prerequisiteEventKey)
     resolve(try? JSONSerialization.jsonObject(with: data, options: []))
   }
+
+  @objc(applyPersonalUsageLimit:resolver:rejecter:)
+  func applyPersonalUsageLimit(
+    _ json: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+#if canImport(DeviceActivity) && canImport(FamilyControls) && canImport(ManagedSettings)
+    if #available(iOS 16.0, *) {
+      guard isAuthorized(), let payload = payload(from: json),
+            let rawRuleId = payload["ruleId"] as? String,
+            let rawSelectionId = payload["selectionId"] as? String,
+            let limitMinutes = payload["limitMinutes"] as? Int,
+            payload["reset"] as? String == "daily",
+            limitMinutes >= 1, limitMinutes <= 1440 else {
+        resolve(false)
+        return
+      }
+      let ruleId = safeIdentifier(rawRuleId)
+      let selectionId = safeIdentifier(rawSelectionId)
+      let selection = loadSelection(for: selectionId)
+      let isEmpty = selection.applicationTokens.isEmpty
+        && selection.categoryTokens.isEmpty && selection.webDomainTokens.isEmpty
+      guard !isEmpty, let shared = UserDefaults(suiteName: appGroupIdentifier) else {
+        resolve(false)
+        return
+      }
+      let activity = personalUsageLimitActivityName(for: ruleId)
+      let label = String(((payload["restrictionLabel"] as? String) ?? "Daily app limit").prefix(80))
+      let configuration = KwiltPersonalUsageLimitConfiguration(
+        ruleId: ruleId,
+        selectionId: selectionId,
+        targetSelection: selection,
+        limitMinutes: limitMinutes,
+        restrictionLabel: label
+      )
+      guard let data = try? JSONEncoder().encode(configuration) else {
+        resolve(false)
+        return
+      }
+      shared.set(data, forKey: "\(personalUsageLimitConfigPrefix)\(activity.rawValue)")
+      personalUsageLimitStore(for: ruleId).clearAllSettings()
+      KwiltRestrictionLedger.remove(id: "personal_limit.\(ruleId)")
+      let schedule = DeviceActivitySchedule(
+        intervalStart: DateComponents(hour: 0, minute: 0),
+        intervalEnd: DateComponents(hour: 23, minute: 59),
+        repeats: true
+      )
+      let event: DeviceActivityEvent
+      if #available(iOS 17.4, *) {
+        event = DeviceActivityEvent(
+          applications: selection.applicationTokens,
+          categories: selection.categoryTokens,
+          webDomains: selection.webDomainTokens,
+          threshold: DateComponents(minute: limitMinutes),
+          includesPastActivity: true
+        )
+      } else {
+        event = DeviceActivityEvent(
+          applications: selection.applicationTokens,
+          categories: selection.categoryTokens,
+          webDomains: selection.webDomainTokens,
+          threshold: DateComponents(minute: limitMinutes)
+        )
+      }
+      let center = DeviceActivityCenter()
+      center.stopMonitoring([activity])
+      do {
+        try center.startMonitoring(
+          activity,
+          during: schedule,
+          events: [DeviceActivityEvent.Name("personal_daily_limit"): event]
+        )
+        resolve(true)
+      } catch {
+        shared.removeObject(forKey: "\(personalUsageLimitConfigPrefix)\(activity.rawValue)")
+        resolve(false)
+      }
+      return
+    }
+#endif
+    resolve(false)
+  }
+
+  @objc(clearPersonalUsageLimit:resolver:rejecter:)
+  func clearPersonalUsageLimit(
+    _ json: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+#if canImport(DeviceActivity) && canImport(ManagedSettings)
+    if #available(iOS 16.0, *) {
+      guard let payload = payload(from: json), let rawRuleId = payload["ruleId"] as? String else {
+        resolve(false)
+        return
+      }
+      let ruleId = safeIdentifier(rawRuleId)
+      let activity = personalUsageLimitActivityName(for: ruleId)
+      DeviceActivityCenter().stopMonitoring([activity])
+      personalUsageLimitStore(for: ruleId).clearAllSettings()
+      KwiltRestrictionLedger.remove(id: "personal_limit.\(ruleId)")
+      UserDefaults(suiteName: appGroupIdentifier)?.removeObject(
+        forKey: "\(personalUsageLimitConfigPrefix)\(activity.rawValue)"
+      )
+      resolve(true)
+      return
+    }
+#endif
+    resolve(false)
+  }
 `;
 
 const PREREQUISITE_EXTERN = `
@@ -227,6 +358,18 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
   consumePrerequisiteRuleEvent:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  applyPersonalUsageLimit:(NSString *)json
+  resolver:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  clearPersonalUsageLimit:(NSString *)json
+  resolver:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
 )
 `;

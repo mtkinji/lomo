@@ -142,6 +142,7 @@ describe('Unified Chat Turn Contract', () => {
   test.each([
     ['Can you try that again?', 'retry'],
     ['Close, but put the emoji at the beginning instead of the end.', 'correction'],
+    ['I meant for me, not for Charlie.', 'correction'],
     ['What is the weather?', null],
   ] as const)('classifies structural turn reference: %s', (prompt, expected) => {
     expect(classifyTurnReference(prompt)).toBe(expected);

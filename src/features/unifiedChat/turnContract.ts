@@ -46,7 +46,7 @@ export type ResolvedUnifiedChatTurnContract = {
 
 const RETRY_PATTERN = /\b(?:retry|try\s+(?:that|it|this)?\s*again)\b/i;
 const CORRECTION_PATTERN =
-  /(?:\bclose,?\s+but\b|\binstead\s+of\b|\b(?:move|put)\b[^.!?]{0,100}\b(?:front|beginning|end)\b|\b(?:correct|change)\s+(?:that|it|those|them)\b)/i;
+  /(?:\bi meant\b|\bclose,?\s+but\b|\binstead\s+of\b|\b(?:move|put)\b[^.!?]{0,100}\b(?:front|beginning|end)\b|\b(?:correct|change)\s+(?:that|it|those|them)\b)/i;
 const ALL_MATCHING_PATTERN = /\b(?:all|every|each|everything|remaining)\b|\bthe\s+rest\s+of\b/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {

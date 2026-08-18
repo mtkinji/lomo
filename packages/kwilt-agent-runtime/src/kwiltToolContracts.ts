@@ -423,6 +423,27 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
     }, outputSchema: OBJECT_SCHEMA,
   },
   {
+    id: 'screen_time.personal.limit.open', version: 1, capabilityId: 'screenTime',
+    purpose: 'Open native review for a reusable daily usage limit on user-selected apps for the signed-in person on this device.',
+    providers: ['device'], effect: 'write', consequence: 'low', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        subject: {
+          type: 'object', additionalProperties: false,
+          properties: { kind: { type: 'string', enum: ['self'] } }, required: ['kind'],
+        },
+        suggestedAppLabel: { type: ['string', 'null'], maxLength: 80 },
+        limitMinutes: { type: 'integer', minimum: 1, maximum: 1440 },
+        reset: { type: 'string', enum: ['daily'] },
+      },
+      required: ['subject', 'suggestedAppLabel', 'limitMinutes', 'reset'],
+      additionalProperties: false,
+    },
+    outputSchema: OBJECT_SCHEMA,
+  },
+  {
     id: 'screen_time.selection.open', version: 1, capabilityId: 'screenTime',
     purpose: 'Open the native Apple app-selection flow for one child when a caregiver label has no saved selection.',
     providers: ['device'], effect: 'write', consequence: 'low', reversible: true,

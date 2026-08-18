@@ -1,22 +1,22 @@
 ---
 id: brief-chores-as-recurring-activities
-title: Chores as Recurring Assigned Activities
+title: Chores as Activity-backed Household Work
 status: draft
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
-related_briefs: [brief-household-foundation, brief-household-activity-assignment, brief-family-screen-time-controls]
+related_briefs: [brief-household-foundation, brief-household-activity-assignment, brief-family-screen-time-controls, brief-shared-household-device-profiles]
 owner: andrew
-last_updated: 2026-07-23
+last_updated: 2026-08-17
 ---
 
-# Chores as Recurring Assigned Activities
+# Chores as Activity-backed Household Work
 
 ## Context
 
-Families repeat ordinary responsibilities and need today's work to be legible to a child. Kwilt should support that rhythm without creating a separate chore database or turning responsibilities into points and screen-time currency.
+Families repeat ordinary responsibilities and need current household work to be legible to a child. Some chores are assigned; others are chosen from a shared pool. Kwilt should support that rhythm without creating a separate task/completion database or confusing chore completion, token earnings, Screen Time eligibility, and device enforcement.
 
 ## Target audience
 
@@ -24,11 +24,11 @@ Families repeat ordinary responsibilities and need today's work to be legible to
 
 ## Representative persona
 
-Maya wants her child to know that feeding the dog is theirs today, complete it independently, and have tomorrow's responsibility remain intact.
+Maya wants each child to see assigned responsibilities alongside their personal To-dos, choose additional work from a shared family pool, complete it independently, and receive truthful credit without Maya manually recounting the week.
 
 ## Aspirational design challenge
 
-How might we make recurring assigned Activities clear and doable for Maya's family while keeping Activities canonical and avoiding a transactional chore economy?
+How might we let Maya's family assign or choose recurring household work while keeping Activity occurrences canonical, the child's personal responsibility list coherent, and every form of credit understandable?
 
 ## Hero JTBD
 
@@ -36,45 +36,78 @@ How might we make recurring assigned Activities clear and doable for Maya's fami
 
 ## Job flow step
 
-`job-flow-maya-move-family-life-forward` scores **Family participation** 2/5 and **Know the next doable action** 2/5. A child-friendly projection of today's assigned occurrences targets both gaps.
+`job-flow-maya-move-family-life-forward` scores **Family participation** 3/5. Household participation foundations exist, but ordinary household responsibility and a child-friendly projection of the next doable chore remain early.
 
 ## JTBD framing
 
-When a family responsibility repeats, Maya wants the right person to see and complete today's occurrence without recreating it or arguing about its state, so the household rhythm moves with less reminding.
+When household work needs doing, Maya wants each child to see what is theirs, choose what is available, and receive trustworthy credit without duplicate lists or repeated negotiation, so the household rhythm moves with less reminding.
 
 ## Design
 
-### Domain stance
+### Product and domain stance
 
-A chore is an assigned recurring Activity presented for household use. Activities remain the canonical object; dated occurrences remain the canonical completion unit.
+A chore is an Activity with a household-aware Chore profile. Activities remain the canonical underlying object; occurrences remain the canonical execution and completion unit. Kwilt does not expose a generic Activities surface: **To-dos** is the current representation of ordinary Activities, while **Chores** is the household-work representation.
 
-The first release may use an Activity type/preset named `chore` if that improves presentation and defaults, but it must not create a second task or completion store.
+The Chore profile owns open-pool participation, chore availability, optional review, chore-count credit, token value, and current-agreement participation. It must not create a second task or completion store. Chore availability, a person's expectation, and a benefit link may each have an optional effective period; there is no required Season object.
+
+Detailed decision ledger: [Activity-backed Chores system design](../design-explorations/chores-capability/activity-backed-system-design.md).
 
 ### Recurrence and occurrence contract
 
 - Stable recurring series.
 - Dated occurrence identity.
-- Assignment and review policy inherited from the series with explicit occurrence overrides.
+- Assignment, open-pool eligibility, availability, and review policy inherited from the series with explicit occurrence overrides.
 - Completion of one occurrence never completes future occurrences.
 - Reassign today versus this and future occurrences is explicit.
 - Schedule/time-zone changes have deterministic occurrence behavior.
+- Chore recurrence can express daily, once-weekly, bounded-repeat, cooldown, and manual availability without copying one checkbox.
+- One occurrence may be projected into Chores and To-dos, but it retains one identity and completion history.
 
 ### Completion policy
 
-- **Child can complete:** local completion immediately becomes canonical unless later invalidated by an explicit conflict rule.
-- **Caregiver review:** child submits completion; the occurrence remains awaiting review until an authorized caregiver decides.
+- **Trusted completion:** local completion immediately becomes qualifying truth unless later corrected through explicit history.
+- **Caregiver review:** the child submits completion; the occurrence remains **Waiting for approval** until an authorized caregiver approves or returns it for rework.
 
-Review is a policy on the Activity/series, not a universal requirement. The learning release defaults to child completion without review.
+Review is a Chore policy on the Activity series or occurrence, not a universal Activity requirement. Approval qualifies the original performer and performance time, not the caregiver or approval time.
+
+One qualifying completion:
+
+- contributes one occurrence to chore progress unless the household explicitly chooses token-weighted criteria;
+- advances the performing child's existing Kwilt show-up streak once for the local performance day;
+- appends the configured token earning; and
+- may become a Screen Time input fact without claiming that device enforcement changed.
 
 ### Surfaces
 
-- Canonical To-dos continues to own Activity detail and completion.
+- Chores is a direct capability in the main capability menu rather than a subsection of To-dos.
+- Chores uses the quiet inventory grammar of Groceries: a simple header, compact progress, grouped rows, direct completion, and no dashboard chrome.
+- The child-facing sections are **For [member]** for assigned/claimed occurrences and **Household** for currently available open work with a direct **Take** action.
+- To-dos continues to present personal Activity responsibility and canonical occurrence completion.
+- An assigned chore occurrence appears in the child's To-dos.
+- An open-pool chore remains in Chores until the child claims it; the claimed occurrence then also appears in their To-dos.
+- Mere eligibility for the pool does not flood To-dos with every household chore.
 - **Assigned to me** appears only after inbound assigned work exists and auto-hides when empty.
 - Assigning a recurring Activity to a child removes its daily occurrences from the creator's personal views; the caregiver inspects them through the authorized child/member scope.
-- The child sees only currently relevant dated occurrences, not future copies of the recurrence series.
-- Do not add a global **Chores** capability for the first release. A restrained child-facing **Responsibilities** or **Chores** projection may show today's work only if testing demonstrates that the canonical role-aware To-dos/Today view is not understandable.
+- Chores presents the current agreement, assigned chores, shared pool, claim/release, review state, chore progress, and tokens.
+- Token value remains quiet trailing row metadata. Recurrence, availability policy, and agreement configuration stay out of the inventory.
+- The child sees only currently relevant occurrences, not future copies of the recurrence series.
 - Adult personal To-dos receives no chore chrome merely because a Household exists.
-- No household KPI dashboard, scores, streaks, rankings, or overdue shame.
+- No household KPI dashboard, Chore-specific streak, score, ranking, or overdue shame.
+
+### Household Mode and member switching
+
+On a designated shared iPad, one assigned caregiver account remains authenticated beneath a restricted Household Mode. The existing capability-menu avatar and the Chores-header member chip are two presentations of one identity control and open the same switcher.
+
+- The switcher contains eligible dependent children and the assigned caregiver only.
+- Selecting a child establishes a bounded actor context and asks for that child's household member code when configured.
+- Selecting the caregiver invokes fresh Face ID, Touch ID, or device-passcode authentication; success exits Household Mode into the caregiver's full ordinary Kwilt.
+- Cancellation or failure retains the current child context.
+- Device biometrics protect caregiver re-entry; they do not identify children or prove which enrolled adult supplied the authentication.
+- A caregiver viewing another member's chores on a personal device remains a caregiver view/management scope and must not be presented as acting as that child.
+
+Household Mode also admits the selected child's own activated Arcs, Goals, and To-dos plus household-approved/shared Recipes, shared Meal Plan, and shared Groceries. Chat, Chapters, Money, and every other capability remain excluded until each has an accepted household-safe projection.
+
+Full shared-device contract: [Caregiver-anchored Household Mode](shared-household-device-profiles.md).
 
 ### Offline contract
 
@@ -85,20 +118,25 @@ Review is a policy on the Activity/series, not a universal requirement. The lear
 
 ## Success signal
 
-A child can answer “What is mine today?” and complete a recurring responsibility during a fully offline day without caregiver help. A caregiver sees the same eventual truth after reconnection without recreating or correcting the chore.
+A child can answer “What is mine?” in To-dos, choose additional work in Chores, and complete either during a fully offline day. A caregiver sees the same eventual occurrence, performer, review, chore credit, token, streak, and Screen Time input truth after reconnection without recreating or reconciling duplicate tasks.
 
 Observed independent child participation is required before proposing a job-flow score increase.
 
 ## Non-goals
 
-- Allowance, money, points, rewards, streaks, penalties, or rankings.
+- Automated allowance or payment, generic reward catalogs, separate Chore streaks, penalties, or rankings.
 - Photo/AI proof.
-- Rotations, multiple assignees, or chore marketplaces in the learning release.
-- Automatic Screen Time consequences.
+- Rotations, team chores, or chore marketplaces in the learning release.
+- Claiming that Screen Time eligibility proves device enforcement.
 - A new Chore domain object.
+- A separate family account, household master credential, or full multi-account switcher.
+- Exposing caregiver Chat, Chapters, Money, or private capability data in Household Mode.
 
 ## Open questions
 
-- Is **Chores** a useful child-facing label/shortcut, or should every surface continue to say To-dos/responsibilities?
-- Which recurrence horizon is sufficient for normal offline use without creating stale future state?
-- Should a caregiver be able to undo a trusted child completion, and how should that affect a dependent access agreement?
+- How should the UI ask whether assignment applies only to today's occurrence or this and future occurrences?
+- When should an abandoned shared-pool claim expire?
+- Where should caregiver review live without turning the caregiver's To-dos into an approval inbox?
+- Should bounded weekly availability show three slots or one chore card with `3 left`?
+- How should Kwilt explain a correction that changes tokens, a backdated show-up streak, or Screen Time eligibility?
+- What exact inactivity/background policy returns a temporarily unlocked caregiver account to Household Mode?

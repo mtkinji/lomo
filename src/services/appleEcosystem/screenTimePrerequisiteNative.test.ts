@@ -35,4 +35,13 @@ describe('Screen Time prerequisite native generation', () => {
     expect(bridgePlugin).toContain('thresholdMinutes');
     expect(bridgePlugin).not.toContain('Gospel Library');
   });
+
+  it('starts a separate personal daily-limit monitor that shields only after threshold', () => {
+    expect(bridgePlugin).toContain('applyPersonalUsageLimit');
+    expect(bridgePlugin).toContain('clearPersonalUsageLimit');
+    expect(extensionPlugin).toContain('KwiltPersonalUsageLimitConfiguration');
+    expect(extensionPlugin).toContain('personal_usage_limit_reached');
+    expect(extensionPlugin).toContain('applyPersonalUsageLimitShield');
+    expect(bridgePlugin).toContain('includesPastActivity: true');
+  });
 });

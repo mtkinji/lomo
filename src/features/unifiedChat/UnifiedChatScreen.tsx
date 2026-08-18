@@ -115,6 +115,7 @@ import { conversationProgressSpeech, liveConversationSpeech } from '../liveConve
 import { conversationActivationFeedback } from '../liveConversation/conversationActivationFeedbackRuntime';
 import type { ConversationProgressCueId } from '../liveConversation/conversationProgressCue';
 import { createConversationLatencyTracker, type ActiveConversationLatency } from '../liveConversation/conversationLatency';
+import { createConversationTurnFinalizer } from '../liveConversation/conversationTurnFinalizer';
 import {
   insertUnifiedChatTranscriptAtSelection,
   type UnifiedChatVoiceInsertion,
@@ -276,6 +277,23 @@ export function UnifiedChatScreen({
     finalizedUtterance?: { id: string; text: string };
     message?: string;
   }>({ state: 'idle', elapsedSeconds: 0, levels: [] });
+  const conversationTurnFinalizerRef = useRef<ReturnType<typeof createConversationTurnFinalizer> | null>(null);
+  if (!conversationTurnFinalizerRef.current) {
+    conversationTurnFinalizerRef.current = createConversationTurnFinalizer({
+      fallbackDelayMs: 2_000,
+      onFinalized: ({ itemId, transcript, source }) => {
+        const activeLatency = conversationLatencyRef.current;
+        if (activeLatency && !activeLatency.published) {
+          activeLatency.tracker.mark('transcript_final');
+          if (source === 'frozen_provisional') activeLatency.fallbackUsed = true;
+        }
+        conversationAssistantCountRef.current = aggregateRef.current?.messages
+          .filter((item) => item.role === 'assistant').length ?? 0;
+        setVoice((current) => ({ ...current, state: 'thinking', provisionalTranscript: '',
+          finalizedUtterance: { id: itemId, text: transcript }, message: 'Thinking…' }));
+      },
+    });
+  }
 
   const clearVoiceTimer = useCallback(() => {
     if (voiceTimer.current) clearInterval(voiceTimer.current);
@@ -516,6 +534,7 @@ export function UnifiedChatScreen({
     void cancelUnifiedChatVoiceRecording();
     void liveConversation.current?.stop();
     liveConversation.current = null;
+    conversationTurnFinalizerRef.current?.reset();
     conversationActivationFeedback.cancel();
     conversationProgressSpeech.stop();
     void liveConversationSpeech.stop();
@@ -526,6 +545,7 @@ export function UnifiedChatScreen({
     clearVoiceTimer();
     const current = liveConversation.current;
     liveConversation.current = null;
+    conversationTurnFinalizerRef.current?.reset();
     conversationResponseGenerationRef.current += 1;
     conversationProgressHistoryRef.current = [];
     conversationProgressSpeech.stop();
@@ -534,17 +554,30 @@ export function UnifiedChatScreen({
     setVoice({ state: 'idle', elapsedSeconds: 0, levels: [] });
   }, [clearVoiceTimer, publishConversationLatency]);
 
+  const failConversation = useCallback((message = 'Check your microphone or connection, then try again.') => {
+    const failedConnection = liveConversation.current;
+    liveConversation.current = null;
+    clearVoiceTimer();
+    conversationTurnFinalizerRef.current?.reset();
+    conversationActivationFeedback.fail();
+    conversationProgressSpeech.stop();
+    void Promise.all([failedConnection?.stop(), liveConversationSpeech.stop()]);
+    setVoice({ state: 'error', elapsedSeconds: 0, levels: [], message });
+  }, [clearVoiceTimer]);
+
   const startConversation = useCallback(async () => {
     if (liveConversation.current || voice.state === 'connecting') return;
     conversationActivationFeedback.begin();
     await cancelUnifiedChatVoiceRecording();
     await sweepLegacyCookVoiceCacheOnce();
     conversationProgressHistoryRef.current = [];
+    conversationTurnFinalizerRef.current?.reset();
     clearVoiceTimer();
     setVoice({ state: 'connecting', elapsedSeconds: 0, levels: [], message: 'Connecting…' });
     try {
       const connection = await startLiveConversationSession({
         onConnected: (connection) => {
+          liveConversation.current = connection;
           setVoice((current) => ({ ...current, state: 'listening', message: 'Listening' }));
           void conversationActivationFeedback.ready(connection);
           voiceTimer.current = setInterval(() => {
@@ -554,6 +587,7 @@ export function UnifiedChatScreen({
           }, 1000);
         },
         onEvent: (event) => {
+          conversationTurnFinalizerRef.current?.handle(event);
           if (event.type === 'speech_started') {
             conversationResponseGenerationRef.current += 1;
             conversationProgressSpeech.stop();
@@ -576,34 +610,25 @@ export function UnifiedChatScreen({
             };
             setVoice((current) => ({ ...current, state: 'thinking', message: 'Thinking…' }));
           } else if (event.type === 'transcript_delta') {
-            setVoice((current) => ({ ...current, state: 'listening',
+            setVoice((current) => ({ ...current,
+              state: current.state === 'thinking' ? 'thinking' : 'listening',
               provisionalTranscript: `${current.provisionalTranscript ?? ''}${event.delta}` }));
           } else if (event.type === 'transcript_final') {
-            const activeLatency = conversationLatencyRef.current;
-            if (activeLatency && !activeLatency.published) {
-              activeLatency.tracker.mark('transcript_final');
-            }
-            conversationAssistantCountRef.current = aggregateRef.current?.messages.filter((item) => item.role === 'assistant').length ?? 0;
-            setVoice((current) => ({ ...current, state: 'thinking', provisionalTranscript: '',
-              finalizedUtterance: { id: event.itemId, text: event.transcript }, message: 'Thinking…' }));
           } else if (event.type === 'provider_error') {
-            conversationActivationFeedback.recovering();
-            setVoice((current) => ({ ...current, state: 'recovering', message: 'Reconnecting…' }));
+            failConversation();
           }
         },
         onFailure: () => {
-          conversationActivationFeedback.recovering();
-          setVoice((current) => ({ ...current,
-            state: 'recovering', message: 'Connection interrupted.' }));
+          failConversation();
         },
       });
-      liveConversation.current = connection;
+      if (!liveConversation.current) liveConversation.current = connection;
     } catch (conversationError) {
       conversationActivationFeedback.fail();
       setVoice({ state: 'error', elapsedSeconds: 0, levels: [],
         message: conversationError instanceof Error ? conversationError.message : 'Conversation mode is unavailable.' });
     }
-  }, [clearVoiceTimer, publishConversationLatency, voice.state]);
+  }, [clearVoiceTimer, failConversation, publishConversationLatency, voice.state]);
 
   useEffect(() => {
     if (routeParams?.mode !== 'conversation' || !surfaceReady || conversationAutoStartRef.current) return;

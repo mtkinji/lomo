@@ -19,7 +19,7 @@ Deno.test('OpenAI session uses dedicated live transcription so Chat remains auth
   const transcription = request.session.audio.input.transcription as Record<string, unknown>;
   if ((transcription.languages as string[] | undefined)?.[0] !== 'en') throw new Error('locale not normalized');
   if ('language' in transcription) throw new Error('unsupported singular language retained');
-  if ('turn_detection' in request.session.audio.input) throw new Error('provider-rejected custom VAD retained');
+  if ('turn_detection' in request.session.audio.input) throw new Error('connection-only setting sent to client-secret endpoint');
 });
 
 Deno.test('ephemeral response exposes only the bounded client credential', () => {

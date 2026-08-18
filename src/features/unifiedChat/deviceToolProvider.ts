@@ -14,7 +14,7 @@ export type StagedUnifiedChatClientAction = {
 
 const DEVICE_TOOL_IDS = new Set([
   'money.app_control.review',
-  'screen_time.personal.setup.open',
+  'screen_time.personal.setup.open', 'screen_time.personal.limit.open',
   'screen_time.configure', 'screen_time.selection.open', 'screen_time.device.setup.open',
   'screen_time.device.release.open', 'notifications.configure', 'navigation.search.open',
   'navigation.account_settings.open', 'account.subscription.open', 'account.delete.open',
@@ -77,6 +77,31 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
         title: 'Set up My Screen Time',
         consequenceSummary: 'Kwilt will open Screen Time setup on this device. Apple permission and app selection remain under your review.',
         payload: { subject: { kind: 'self' } },
+      });
+    }
+    if (call.toolId === 'screen_time.personal.limit.open') {
+      const subject = call.arguments.subject as Record<string, unknown> | undefined;
+      const limitMinutes = Number(call.arguments.limitMinutes);
+      const suggestedAppLabel = typeof call.arguments.suggestedAppLabel === 'string'
+        ? call.arguments.suggestedAppLabel.trim().slice(0, 80)
+        : null;
+      if (subject?.kind !== 'self' || !Number.isInteger(limitMinutes)
+        || limitMinutes < 1 || limitMinutes > 1440 || call.arguments.reset !== 'daily') {
+        return {
+          status: 'failed', code: 'invalid_personal_screen_time_limit',
+          message: 'Personal Screen Time limits require the signed-in person, a daily reset, and a valid minute allowance.',
+          retryable: false,
+        };
+      }
+      return stage({
+        capabilityId: 'screenTime', actionType: 'open_personal_screen_time_limit',
+        targetType: 'personal_screen_time_device', targetId: 'self',
+        title: `Review ${limitMinutes}-minute app limit`,
+        consequenceSummary: 'Kwilt will open native rule review on this device. You still choose the apps and save the rule there.',
+        payload: {
+          subject: { kind: 'self' }, limitMinutes, reset: 'daily',
+          ...(suggestedAppLabel ? { suggestedAppLabel } : {}),
+        },
       });
     }
     if (call.toolId.startsWith('activities.')) {

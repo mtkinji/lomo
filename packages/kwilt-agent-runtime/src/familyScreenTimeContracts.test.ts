@@ -24,12 +24,24 @@ describe('family Screen Time agent contracts', () => {
     }
     for (const id of [
       'screen_time.personal.setup.open',
+      'screen_time.personal.limit.open',
       'screen_time.selection.open',
       'screen_time.device.setup.open',
       'screen_time.device.release.open',
     ]) {
       expect(operation(id)).toMatchObject({ owner: 'screenTime', confirmation: 'native' });
     }
+  });
+
+  it('carries a bounded self usage limit into native review without an Apple token', () => {
+    const contract = tool('screen_time.personal.limit.open');
+    expect(contract).toMatchObject({
+      capabilityId: 'screenTime', providers: ['device'], effect: 'write', confirmation: 'explicit',
+    });
+    expect(JSON.stringify(contract?.inputSchema)).toContain('"kind":{"type":"string","enum":["self"]}');
+    expect(JSON.stringify(contract?.inputSchema)).toContain('"limitMinutes":{"type":"integer","minimum":1,"maximum":1440}');
+    expect(JSON.stringify(contract?.inputSchema)).toContain('"reset":{"type":"string","enum":["daily"]}');
+    expect(JSON.stringify(contract?.inputSchema)).not.toMatch(/token/i);
   });
 
   it('requires stable child, selection, and version identifiers before staging a direct control', () => {

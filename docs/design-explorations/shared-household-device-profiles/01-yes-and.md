@@ -77,3 +77,7 @@ The bigger job is not “multiple profiles on an iPad.” It is letting a real h
 ## Frame recommendation
 
 **Run the design-thinking loop with the original frame.** The strongest adjacencies clarify safety, continuity, and activation, but they do not justify expanding the first frame into a broad family platform. The next phase should compare distinct ways to establish and switch bounded sessions on an enrolled shared device. Under-13 managed identities and household succession should remain compatibility requirements, not first-release scope.
+
+## Subsequent decision
+
+The later conversation selected a caregiver-anchored restricted layer rather than a separate household-device credential or parallel family account. One assigned caregiver remains authenticated beneath Household Mode. Eligible children receive bounded actor sessions; returning to the caregiver requires fresh Face ID, Touch ID, or device-passcode authentication and restores the caregiver's ordinary full Kwilt. See [02-diverge.md](02-diverge.md) and [03-converge.md](03-converge.md).
