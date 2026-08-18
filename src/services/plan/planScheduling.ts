@@ -75,6 +75,27 @@ export type PlanUnplacedPriorityCandidate = {
   priorityPosition: number;
 };
 
+export function filterVisiblePlanProposals(params: {
+  proposals: DailyPlanProposal[];
+  activities: Activity[];
+  skippedActivityIds?: ReadonlySet<string>;
+  now?: Date;
+}): DailyPlanProposal[] {
+  const activityById = new Map(params.activities.map((activity) => [activity.id, activity]));
+  const byActivityId = new Map<string, DailyPlanProposal>();
+  const now = params.now ?? new Date();
+
+  for (const proposal of params.proposals) {
+    const activity = activityById.get(proposal.activityId);
+    if (!activity) continue;
+    if (!getPlanCandidateEligibility({ activity, now }).eligible) continue;
+    if (params.skippedActivityIds?.has(proposal.activityId)) continue;
+    if (!byActivityId.has(proposal.activityId)) byActivityId.set(proposal.activityId, proposal);
+  }
+
+  return Array.from(byActivityId.values());
+}
+
 export function proposeDailyPlan(params: {
   activities: Activity[];
   goals: Goal[];
