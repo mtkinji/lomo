@@ -9,6 +9,7 @@ export type ScreenTimeRuleSubject =
 export type ScreenTimeRuleTrigger =
   | { type: 'focus_active' }
   | { type: 'real_step_pending'; minFocusMinutes: number }
+  | { type: 'daily_usage_limit'; minutes: number; reset: 'daily' }
   | { type: 'money_review'; categorySourceId: string }
   | { type: 'family_agreement'; agreementId: string };
 
@@ -62,6 +63,13 @@ function normalizeTrigger(value: unknown): ScreenTimeRuleTrigger | null {
       minFocusMinutes: positiveInteger(value.minFocusMinutes, 10),
     };
   }
+  if (value.type === 'daily_usage_limit') {
+    return {
+      type: 'daily_usage_limit',
+      minutes: Math.min(1440, positiveInteger(value.minutes, 10)),
+      reset: 'daily',
+    };
+  }
   if (value.type === 'money_review') {
     const categorySourceId = cleanString(value.categorySourceId);
     return categorySourceId ? { type: 'money_review', categorySourceId } : null;
@@ -78,7 +86,9 @@ const triggerMatchesDomain = (
   trigger: ScreenTimeRuleTrigger,
 ): boolean => {
   if (domain === 'personal') {
-    return trigger.type === 'focus_active' || trigger.type === 'real_step_pending';
+    return trigger.type === 'focus_active'
+      || trigger.type === 'real_step_pending'
+      || trigger.type === 'daily_usage_limit';
   }
   if (domain === 'money') return trigger.type === 'money_review';
   return trigger.type === 'family_agreement';
@@ -121,4 +131,3 @@ export function normalizeScreenTimeRule(value: unknown): ScreenTimeRule | null {
     appliedVersion,
   };
 }
-

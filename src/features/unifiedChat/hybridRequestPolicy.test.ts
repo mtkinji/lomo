@@ -192,6 +192,37 @@ describe('resolveHybridRequestPolicy', () => {
     });
   });
 
+  it('keeps a self-subject correction attached to the previous Screen Time control', () => {
+    const prompt = 'I meant for me, not for Charlie.';
+    const deterministicPolicy = classifyUnifiedChatRequest({ prompt });
+
+    expect(resolveHybridRequestPolicy({
+      prompt,
+      deterministicPolicy,
+      semanticRoute: null,
+      previousPolicy: {
+        requestClass: 'native_control', participatingCapabilities: ['screenTime'], usePrivateContext: true,
+      },
+      previousTurnContract: {
+        schemaVersion: 2,
+        userJob: 'Limit Instagram use to 10 minutes',
+        desiredOutcome: 'Instagram pauses after 10 minutes of use',
+        constraints: ['Instagram', '10 minutes'],
+        requestClass: 'native_control',
+        participatingCapabilities: ['screenTime'],
+        usePrivateContext: true,
+        authorization: 'none', evidenceScope: 'focused', responseContract: 'evidence_linked',
+        action: null,
+        referent: null,
+      },
+    })).toMatchObject({
+      requestClass: 'native_control',
+      participatingCapabilities: ['screenTime'],
+      usePrivateContext: true,
+      policyReason: 'conversation-follow-up:screenTime',
+    });
+  });
+
   it.each([
     ['Plan a lighter day for me tomorrow', route({ participatingCapabilities: ['plan'] })],
     ['Can you put the school call somewhere after lunch?', route({ requestClass: 'capability_action', participatingCapabilities: ['todos', 'plan'] })],

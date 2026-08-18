@@ -9,7 +9,7 @@ job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-put-intention-before-impulse, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-screen-time-controls]
 owner: andrew
-last_updated: 2026-08-16
+last_updated: 2026-08-17
 ---
 
 # Screen Time Rule Governance
@@ -164,8 +164,11 @@ state.
 - The agreement sentence is a read-only receipt. The current-state receipt uses
   the same deterministic evaluation semantics as enforcement and composes with
   other active restriction claims.
-- Personal conditions initially remain Focus and real step. Existing personal
-  records derive their mode, so the first slice requires no persistence migration.
+- Personal conditions include Focus, real step, and a device-local daily usage
+  allowance. Existing personal records derive their mode, so adding the allowance
+  kind requires no rewrite of older records. Chat may carry a self subject,
+  suggested app label, bounded minute allowance, and daily reset into the same
+  native builder; Apple token selection and save remain native-only.
 - Household Add rule retains the child-specific authority path, then opens the
   same builder screen with a Household adapter. Typed V2 Household agreement JSON
   is introduced behind normalization and legacy reading; IDs, selections, and
@@ -177,6 +180,9 @@ state.
   persisted control.
 - Temporary Allow/Pause actions are overrides, not builder modes.
 - Logic projections and personal rule mutations require tests first; UI composition may be implemented directly with component tests for key states.
+- A Chat handoff is not a saved rule or enforcement receipt. It reports only
+  that native review opened; the builder owns persistence and signed-device
+  monitoring remains a separate proof gate.
 - Completion requires representative-case verification, diff-aware source gates,
   Simulator visual/accessibility evidence, and signed-device enforcement proof
   kept as a separate gate.

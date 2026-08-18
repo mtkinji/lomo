@@ -90,6 +90,7 @@ private enum KwiltRestrictionLedger {
     if reason == "focus_session_active" || reason == "focus" { return 400 }
     if reason == "family_prerequisite" { return 300 }
     if reason.hasPrefix("money_") { return 200 }
+    if reason == "personal_usage_limit_reached" { return 150 }
     if reason.hasPrefix("meaningful_first_") { return 100 }
     return 0
   }
@@ -147,6 +148,8 @@ private enum KwiltShieldCopy {
       return "review \\(entry.label ?? "the required category") in Kwilt Money"
     case "meaningful_first_bypass":
       return "wait for the Kwilt pause to end"
+    case "personal_usage_limit_reached":
+      return "wait until tomorrow or change this limit in Kwilt"
     default:
       return "complete a to-do, record progress, or finish Focus in Kwilt"
     }
@@ -157,6 +160,7 @@ private enum KwiltShieldCopy {
     if reason == "family_prerequisite" { return "Open Screen Time" }
     if reason.hasPrefix("money_") { return "Review in Money" }
     if reason == "meaningful_first_locked" { return "Open Today" }
+    if reason == "personal_usage_limit_reached" { return "Open Screen Time" }
     return "Open Kwilt"
   }
 
@@ -188,6 +192,8 @@ private enum KwiltShieldCopy {
     case "family_prerequisite":
       let label = UserDefaults(suiteName: appGroupIdentifier)?.string(forKey: prerequisiteLabelKey)
       return "Use \\(label ?? "the required app") first."
+    case "personal_usage_limit_reached":
+      return "That’s today’s limit."
     default:
       return "Do one thing first."
     }
@@ -209,6 +215,8 @@ private enum KwiltShieldCopy {
       let target = defaults?.string(forKey: targetLabelKey) ?? appName
       let minutes = max(1, defaults?.integer(forKey: thresholdMinutesKey) ?? 1)
       return "Use \\(prerequisite) for \\(minutes) minute\\(minutes == 1 ? "" : "s") to open \\(target)."
+    case "personal_usage_limit_reached":
+      return "You can use \\(appName) again tomorrow, or change this rule in Kwilt."
     default:
       return "Complete a to-do, record progress, or finish Focus in Kwilt to open \\(appName) today."
     }
@@ -469,6 +477,61 @@ private struct KwiltPrerequisiteMonitorReceipt: Codable {
   let occurredAtMs: Double
 }
 
+private struct KwiltPersonalUsageLimitConfiguration: Codable {
+  let ruleId: String
+  let selectionId: String
+  let targetSelection: FamilyActivitySelection
+  let limitMinutes: Int
+  let restrictionLabel: String
+}
+
+private enum KwiltPersonalUsageLimitRuntime {
+  static let appGroupIdentifier = "${appGroupId}"
+  static let configPrefix = "kwilt_screen_time_personal_limit_config_v1."
+  static let shieldReasonKey = "kwilt_screen_time_shield_reason_v1"
+
+  static func defaults() -> UserDefaults? {
+    UserDefaults(suiteName: appGroupIdentifier)
+  }
+
+  static func configuration(for activity: DeviceActivityName) -> KwiltPersonalUsageLimitConfiguration? {
+    guard let data = defaults()?.data(forKey: "\(configPrefix)\(activity.rawValue)") else { return nil }
+    return try? JSONDecoder().decode(KwiltPersonalUsageLimitConfiguration.self, from: data)
+  }
+
+  static func store(for configuration: KwiltPersonalUsageLimitConfiguration) -> ManagedSettingsStore {
+    ManagedSettingsStore(named: ManagedSettingsStore.Name(
+      "kwilt.personal.limit.\(KwiltPrerequisiteMonitorRuntime.safeIdentifier(configuration.ruleId))"
+    ))
+  }
+
+  static func clear(for configuration: KwiltPersonalUsageLimitConfiguration) {
+    store(for: configuration).clearAllSettings()
+    KwiltRestrictionLedger.remove(id: "personal_limit.\(configuration.ruleId)")
+  }
+
+  static func applyPersonalUsageLimitShield(for configuration: KwiltPersonalUsageLimitConfiguration) {
+    let selection = configuration.targetSelection
+    let managedStore = store(for: configuration)
+    managedStore.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
+    managedStore.shield.applicationCategories = selection.categoryTokens.isEmpty
+      ? nil
+      : .specific(selection.categoryTokens, except: Set<ApplicationToken>())
+    managedStore.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
+    defaults()?.set("personal_usage_limit_reached", forKey: shieldReasonKey)
+    KwiltRestrictionLedger.upsert(
+      id: "personal_limit.\(configuration.ruleId)",
+      ruleId: configuration.ruleId,
+      selectionId: configuration.selectionId,
+      reason: "personal_usage_limit_reached",
+      label: configuration.restrictionLabel,
+      applicationTokenKeys: KwiltRestrictionLedger.tokenKeys(selection.applicationTokens),
+      categoryTokenKeys: KwiltRestrictionLedger.tokenKeys(selection.categoryTokens),
+      webDomainTokenKeys: KwiltRestrictionLedger.tokenKeys(selection.webDomainTokens)
+    )
+  }
+}
+
 private enum KwiltPrerequisiteMonitorRuntime {
   static let appGroupIdentifier = "${appGroupId}"
   static let configPrefix = "kwilt_screen_time_prerequisite_config_v1."
@@ -547,6 +610,10 @@ private enum KwiltPrerequisiteMonitorRuntime {
 final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
   override func intervalDidStart(for activity: DeviceActivityName) {
     super.intervalDidStart(for: activity)
+    if let usageLimit = KwiltPersonalUsageLimitRuntime.configuration(for: activity) {
+      KwiltPersonalUsageLimitRuntime.clear(for: usageLimit)
+      return
+    }
     guard let configuration = KwiltPrerequisiteMonitorRuntime.configuration(for: activity) else { return }
     KwiltPrerequisiteMonitorRuntime.applyTarget(for: configuration)
     KwiltPrerequisiteMonitorRuntime.record(kind: "interval_started", configuration: configuration)
@@ -557,6 +624,10 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
     activity: DeviceActivityName
   ) {
     super.eventDidReachThreshold(event, activity: activity)
+    if let usageLimit = KwiltPersonalUsageLimitRuntime.configuration(for: activity) {
+      KwiltPersonalUsageLimitRuntime.applyPersonalUsageLimitShield(for: usageLimit)
+      return
+    }
     guard let configuration = KwiltPrerequisiteMonitorRuntime.configuration(for: activity) else { return }
     let store = KwiltPrerequisiteMonitorRuntime.store(for: configuration)
     store.clearAllSettings()
@@ -566,6 +637,10 @@ final class KwiltDeviceActivityMonitorExtension: DeviceActivityMonitor {
 
   override func intervalDidEnd(for activity: DeviceActivityName) {
     super.intervalDidEnd(for: activity)
+    if let usageLimit = KwiltPersonalUsageLimitRuntime.configuration(for: activity) {
+      KwiltPersonalUsageLimitRuntime.clear(for: usageLimit)
+      return
+    }
     guard let configuration = KwiltPrerequisiteMonitorRuntime.configuration(for: activity) else { return }
     KwiltPrerequisiteMonitorRuntime.store(for: configuration).clearAllSettings()
     KwiltRestrictionLedger.remove(id: "prerequisite.\\(configuration.agreementId)")

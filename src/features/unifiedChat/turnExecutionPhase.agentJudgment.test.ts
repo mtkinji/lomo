@@ -76,6 +76,18 @@ test('self-directed Screen Time requests cannot receive child-control tools', ()
     'screen_time.configure',
     'screen_time.override.allow',
   ]));
+
+  const screenshotPrompt = 'Set a screen time rule that allows me to use Instagram for 10 minutes before I have to turn it off.';
+  const screenshotTools = selectSubjectSafeRuntimeTools(screenTimeTools, screenshotPrompt).map((tool) => tool.id);
+  expect(screenshotTools).toEqual(expect.arrayContaining([
+    'screen_time.read',
+    'screen_time.personal.limit.open',
+  ]));
+  expect(screenshotTools).not.toEqual(expect.arrayContaining([
+    'screen_time.selection.open',
+    'screen_time.device.setup.open',
+    'screen_time.override.allow',
+  ]));
 });
 
 test('grounds evidence-linked reasoning and no-change truth without capability-specific wording', () => {

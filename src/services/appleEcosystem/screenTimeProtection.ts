@@ -48,6 +48,8 @@ type KwiltScreenTimeProtectionNativeModule = {
   } | null | undefined>;
   applyPrerequisiteRule?: (json: string) => Promise<boolean>;
   clearPrerequisiteRule?: (json: string) => Promise<boolean>;
+  applyPersonalUsageLimit?: (json: string) => Promise<boolean>;
+  clearPersonalUsageLimit?: (json: string) => Promise<boolean>;
   consumePrerequisiteRuleEvent?: () => Promise<unknown>;
 };
 
@@ -196,6 +198,44 @@ export async function clearScreenTimeRestrictions(): Promise<boolean> {
   if (!native?.clearRestrictions) return false;
   try {
     return Boolean(await native.clearRestrictions());
+  } catch {
+    return false;
+  }
+}
+
+export async function applyPersonalScreenTimeUsageLimit(params: {
+  settings: Pick<ScreenTimeProtectionSettings, 'selectedApps' | 'selectedCategories'>;
+  selectionId: string;
+  ruleId: string;
+  limitMinutes: number;
+  reset: 'daily';
+  restrictionLabel?: string;
+}): Promise<boolean> {
+  if (Platform.OS !== 'ios' || !native?.applyPersonalUsageLimit) return false;
+  if (!params.selectionId.trim() || !params.ruleId.trim()
+    || !Number.isInteger(params.limitMinutes)
+    || params.limitMinutes < 1 || params.limitMinutes > 1440
+    || params.reset !== 'daily') return false;
+  try {
+    const normalized = normalizeScreenTimeProtectionSettings(params.settings);
+    return Boolean(await native.applyPersonalUsageLimit(JSON.stringify({
+      selectedApps: normalized.selectedApps,
+      selectedCategories: normalized.selectedCategories,
+      selectionId: params.selectionId.trim(),
+      ruleId: params.ruleId.trim(),
+      limitMinutes: params.limitMinutes,
+      reset: 'daily',
+      restrictionLabel: params.restrictionLabel?.trim().slice(0, 80),
+    })));
+  } catch {
+    return false;
+  }
+}
+
+export async function clearPersonalScreenTimeUsageLimit(ruleId: string): Promise<boolean> {
+  if (Platform.OS !== 'ios' || !native?.clearPersonalUsageLimit || !ruleId.trim()) return false;
+  try {
+    return Boolean(await native.clearPersonalUsageLimit(JSON.stringify({ ruleId: ruleId.trim() })));
   } catch {
     return false;
   }

@@ -100,6 +100,27 @@ test('stages personal Screen Time setup for self without substituting a child', 
   expect(provider.actions()[0].title).toBe('Set up My Screen Time');
 });
 
+test('stages a bounded personal daily app limit for native review', async () => {
+  const provider = createDeviceToolProvider({ snapshots });
+  await expect(provider.execute({
+    id: 'personal-limit', toolId: 'screen_time.personal.limit.open',
+    arguments: {
+      subject: { kind: 'self' }, suggestedAppLabel: 'Instagram', limitMinutes: 10, reset: 'daily',
+    },
+  }, tool('screen_time.personal.limit.open'))).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: expect.objectContaining({
+      actionType: 'open_personal_screen_time_limit',
+      targetType: 'personal_screen_time_device', targetId: 'self',
+      payload: {
+        subject: { kind: 'self' }, suggestedAppLabel: 'Instagram', limitMinutes: 10, reset: 'daily',
+      },
+    }),
+  });
+  expect(provider.actions()[0].title).toBe('Review 10-minute app limit');
+  expect(provider.actions()[0].consequenceSummary).toContain('choose the apps');
+});
+
 test('stages a self Money condition and Screen Time effect in the canonical category editor', async () => {
   const provider = createDeviceToolProvider({
     snapshots: {

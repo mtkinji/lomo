@@ -247,6 +247,41 @@ describe('Unified Chat action reliability', () => {
     }));
   });
 
+  test('requires the personal Screen Time handoff for the dogfood wording', async () => {
+    const sender = jest.fn(async (_history: unknown, options: {
+      runtimeTools?: Array<{ id: string }>;
+      runtimeToolChoice?: 'auto' | 'required';
+      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
+    }) => {
+      expect(options.runtimeToolChoice).toBe('required');
+      const tool = options.runtimeTools?.find((candidate) => candidate.id === 'screen_time.personal.limit.open');
+      expect(tool).toBeDefined();
+      await options.executeRuntimeTool?.({
+        id: 'personal-limit', toolId: 'screen_time.personal.limit.open', arguments: {
+          subject: { kind: 'self' }, suggestedAppLabel: 'Instagram', limitMinutes: 10, reset: 'daily',
+        },
+      }, tool);
+      return 'I opened the personal Screen Time rule for review.';
+    });
+    const { repository, sendCoachChat } = harness(sender);
+
+    await runUnifiedChatTurn({
+      aggregate,
+      prompt: 'Set a screen time rule that allows me to use Instagram for 10 minutes before I have to turn it off.',
+    }, {
+      repository: repository as never,
+      sendCoachChat: sendCoachChat as never,
+      enableRuntimeTools: true,
+      loadCapabilitySnapshots: snapshots,
+    });
+
+    expect(repository.createClientAction).toHaveBeenCalledWith(expect.objectContaining({
+      actionType: 'open_personal_screen_time_limit',
+      targetId: 'self',
+      payload: expect.objectContaining({ limitMinutes: 10, reset: 'daily' }),
+    }));
+  });
+
   test('finishes with a clarification when bounded recovery still cannot stage work', async () => {
     const sender = jest.fn(async () => 'Done. I updated the Goal.');
     const { repository, sendCoachChat } = harness(sender);

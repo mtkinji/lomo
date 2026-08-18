@@ -61,5 +61,19 @@ describe('personalRuleBuilderModel', () => {
       .toBe('Instagram + 1 will pause while Focus is running.');
     expect(personalRuleSentence('real_step', 'Games'))
       .toBe('Games will unlock after you complete a to-do, record progress, or finish Focus.');
+    expect(personalRuleBehaviorLabel('daily_limit', 10)).toBe('Pause after 10 minutes each day');
+    expect(personalRuleSentence('daily_limit', 'Instagram', 10))
+      .toBe('Instagram will pause after 10 minutes of use each day.');
+  });
+
+  it('preserves a contextual daily limit while asking only for private app selection', () => {
+    expect(getPersonalRuleBuilderCopy({
+      entry: 'contextual', kind: 'daily_limit', step: 'apps', limitMinutes: 10,
+      suggestedAppLabel: 'Instagram',
+    })).toEqual({
+      title: 'Set a daily app limit',
+      question: 'Choose Instagram in Screen Time',
+      support: 'It will pause after 10 minutes of use each day.',
+    });
   });
 });

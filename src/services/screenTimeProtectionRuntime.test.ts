@@ -2,6 +2,8 @@ jest.mock('./appleEcosystem/screenTimeProtection', () => ({
   applyScreenTimeRestrictions: jest.fn().mockResolvedValue(true),
   clearScreenTimeRestrictions: jest.fn().mockResolvedValue(true),
   clearScreenTimeRestrictionsForSelection: jest.fn().mockResolvedValue(true),
+  applyPersonalScreenTimeUsageLimit: jest.fn().mockResolvedValue(true),
+  clearPersonalScreenTimeUsageLimit: jest.fn().mockResolvedValue(true),
 }));
 
 import {
@@ -112,6 +114,59 @@ describe('screenTimeProtectionRuntime', () => {
         bridge,
       }),
     ).resolves.toEqual([]);
+  });
+
+  it('schedules a daily usage limit without immediately shielding its apps', async () => {
+    const settings = normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved',
+      personalRules: [{
+        id: 'personal_daily_limit', kind: 'daily_limit', selectionId: 'personal_daily_limit',
+        selectedApps: [{ token: 'instagram', label: 'Instagram' }], selectedCategories: [],
+        enabled: true, setupCompleted: true, limitMinutes: 10, reset: 'daily',
+      }],
+    });
+    const bridge = {
+      apply: jest.fn().mockResolvedValue(true),
+      clearSelection: jest.fn().mockResolvedValue(true),
+      applyUsageLimit: jest.fn().mockResolvedValue(true),
+      clearUsageLimit: jest.fn().mockResolvedValue(true),
+    };
+
+    await expect(reconcileScreenTimeRestrictionsForSettings({
+      settings, focusSessionActive: false, now, bridge,
+    })).resolves.toEqual([]);
+
+    expect(bridge.applyUsageLimit).toHaveBeenCalledWith({
+      settings: {
+        selectedApps: [{ token: 'instagram', label: 'Instagram' }], selectedCategories: [],
+      },
+      selectionId: 'personal_daily_limit', ruleId: 'personal_daily_limit',
+      limitMinutes: 10, reset: 'daily', restrictionLabel: 'Daily app limit',
+    });
+    expect(bridge.apply).not.toHaveBeenCalled();
+    expect(bridge.clearSelection).not.toHaveBeenCalled();
+  });
+
+  it('clears a disabled daily usage monitor', async () => {
+    const settings = normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved',
+      personalRules: [{
+        id: 'personal_daily_limit', kind: 'daily_limit', selectionId: 'personal_daily_limit',
+        selectedApps: [{ token: 'instagram' }], selectedCategories: [],
+        enabled: false, setupCompleted: true, limitMinutes: 10, reset: 'daily',
+      }],
+    });
+    const bridge = {
+      apply: jest.fn().mockResolvedValue(true),
+      clearSelection: jest.fn().mockResolvedValue(true),
+      applyUsageLimit: jest.fn().mockResolvedValue(true),
+      clearUsageLimit: jest.fn().mockResolvedValue(true),
+    };
+
+    await reconcileScreenTimeRestrictionsForSettings({ settings, focusSessionActive: false, now, bridge });
+
+    expect(bridge.clearUsageLimit).toHaveBeenCalledWith('personal_daily_limit');
+    expect(bridge.clearSelection).not.toHaveBeenCalled();
   });
 
   it('applies Meaningful First on foreground without clearing unrelated Focus restrictions', async () => {

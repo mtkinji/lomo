@@ -52,6 +52,23 @@ test('family Screen Time setup opens the exact child and requested native step',
   });
 });
 
+test('personal Screen Time limit opens the canonical builder with typed intent', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_personal_screen_time_limit', 'self'),
+    capabilityId: 'screenTime', targetType: 'personal_screen_time_device',
+    payload: {
+      subject: { kind: 'self' }, suggestedAppLabel: 'Instagram', limitMinutes: 10, reset: 'daily',
+    },
+  })).toEqual({
+    kind: 'navigate', name: 'Settings', params: {
+      screen: 'SettingsScreenTimeRuleBuilder', params: {
+        entry: 'contextual', suggestedKind: 'daily_limit', suggestedLimitMinutes: 10,
+        suggestedAppLabel: 'Instagram', setupIntent: 'settings_discovery', entrySurface: 'settings',
+      },
+    },
+  });
+});
+
 test('Money-owned self control opens the exact category app-control editor', () => {
   expect(resolveClientActionOpenInstruction({
     ...action('review_money_app_control', 'shopping'),

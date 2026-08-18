@@ -471,7 +471,7 @@ export function ScreenTimeProtectionSettingsScreen() {
       capture(AnalyticsEvent.ScreenTimeSetupCompleted, {
         setup_intent: setupIntent,
         surface: entrySurface,
-        rule: kind === 'focus' ? 'focus_session' : 'real_step',
+        rule: kind === 'focus' ? 'focus_session' : kind === 'daily_limit' ? 'daily_limit' : 'real_step',
       });
     }
     reconcileAfterSettingsChange();

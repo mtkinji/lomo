@@ -50,6 +50,15 @@ describe('buildMyScreenTimeRuleInventory', () => {
         setupCompleted: true,
         nowIso: '2026-08-13T12:00:00.000Z',
       }),
+      createPersonalScreenTimeRule({
+        kind: 'daily_limit',
+        selectedApps: [{ token: 'instagram' }],
+        selectedCategories: [],
+        limitMinutes: 10,
+        enabled: true,
+        setupCompleted: true,
+        nowIso: '2026-08-13T12:00:00.000Z',
+      }),
     ];
 
     expect(buildMyScreenTimeRuleInventory({
@@ -73,6 +82,15 @@ describe('buildMyScreenTimeRuleInventory', () => {
         targetCount: 1,
         enabled: false,
         destination: { kind: 'personal', ruleKind: 'focus' },
+      },
+      {
+        id: 'personal_daily_limit',
+        domain: 'personal',
+        title: 'Pause after 10 minutes each day',
+        detail: 'Pause 1 app or category after 10 minutes of use each day.',
+        targetCount: 1,
+        enabled: true,
+        destination: { kind: 'personal', ruleKind: 'daily_limit' },
       },
       {
         id: 'money_shopping',

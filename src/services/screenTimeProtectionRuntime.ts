@@ -3,6 +3,8 @@ import {
   applyScreenTimeRestrictions,
   clearScreenTimeRestrictions,
   clearScreenTimeRestrictionsForSelection,
+  applyPersonalScreenTimeUsageLimit,
+  clearPersonalScreenTimeUsageLimit,
 } from './appleEcosystem/screenTimeProtection';
 import {
   getActivePersonalScreenTimeRestrictions,
@@ -23,6 +25,15 @@ type ScreenTimeProtectionBridge = {
   }) => Promise<boolean>;
   clear?: () => Promise<boolean>;
   clearSelection?: (selectionId: string) => Promise<boolean>;
+  applyUsageLimit?: (params: {
+    settings: Pick<ScreenTimeProtectionSettings, 'selectedApps' | 'selectedCategories'>;
+    selectionId: string;
+    ruleId: string;
+    limitMinutes: number;
+    reset: 'daily';
+    restrictionLabel?: string;
+  }) => Promise<boolean>;
+  clearUsageLimit?: (ruleId: string) => Promise<boolean>;
 };
 
 export async function reconcileScreenTimeRestrictionsForSettings(params: {
@@ -39,6 +50,24 @@ export async function reconcileScreenTimeRestrictionsForSettings(params: {
     });
     const activeByRuleId = new Map(active.map((restriction) => [restriction.rule.id, restriction]));
     await Promise.all(settings.personalRules.map(async (rule) => {
+      if (rule.kind === 'daily_limit') {
+        if (rule.enabled && params.bridge.applyUsageLimit) {
+          await params.bridge.applyUsageLimit({
+            settings: {
+              selectedApps: rule.selectedApps,
+              selectedCategories: rule.selectedCategories,
+            },
+            selectionId: rule.selectionId,
+            ruleId: rule.id,
+            limitMinutes: rule.limitMinutes,
+            reset: rule.reset,
+            restrictionLabel: 'Daily app limit',
+          }).catch(() => false);
+        } else if (params.bridge.clearUsageLimit) {
+          await params.bridge.clearUsageLimit(rule.id).catch(() => false);
+        }
+        return;
+      }
       const restriction = activeByRuleId.get(rule.id);
       if (restriction) {
         await params.bridge.apply({
@@ -87,6 +116,8 @@ export async function reconcileScreenTimeRestrictions(params: {
       apply: applyScreenTimeRestrictions,
       clear: clearScreenTimeRestrictions,
       clearSelection: clearScreenTimeRestrictionsForSelection,
+      applyUsageLimit: applyPersonalScreenTimeUsageLimit,
+      clearUsageLimit: clearPersonalScreenTimeUsageLimit,
     },
   });
 }

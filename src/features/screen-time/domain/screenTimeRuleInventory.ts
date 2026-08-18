@@ -61,13 +61,20 @@ export function buildMyScreenTimeRuleInventory(params: {
     .map((rule): ScreenTimeRuleInventoryRow => {
       const targetCount = rule.selectedApps.length + rule.selectedCategories.length;
       const focus = rule.kind === 'focus';
+      const dailyLimit = rule.kind === 'daily_limit';
       return {
         id: rule.id,
         domain: 'personal',
-        title: focus ? 'Pause until Focus ends' : 'Unlock after a to-do, progress update, or Focus',
+        title: focus
+          ? 'Pause until Focus ends'
+          : dailyLimit
+            ? `Pause after ${rule.limitMinutes} minute${rule.limitMinutes === 1 ? '' : 's'} each day`
+            : 'Unlock after a to-do, progress update, or Focus',
         detail: focus
           ? `Pause ${targetLabel(targetCount)} while Focus is running.`
-          : `Unlock ${targetLabel(targetCount)} after you complete any one of these in Kwilt.`,
+          : dailyLimit
+            ? `Pause ${targetLabel(targetCount)} after ${rule.limitMinutes} minutes of use each day.`
+            : `Unlock ${targetLabel(targetCount)} after you complete any one of these in Kwilt.`,
         targetCount,
         enabled: rule.enabled,
         destination: { kind: 'personal', ruleKind: rule.kind },

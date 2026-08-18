@@ -99,9 +99,29 @@ describe('screenTimeProtection personal rule construction', () => {
   });
 
   it('lists only personal conditions that do not yet have a rule', () => {
-    expect(getAvailablePersonalScreenTimeRuleKinds(base())).toEqual(['real_step', 'focus']);
+    expect(getAvailablePersonalScreenTimeRuleKinds(base())).toEqual(['real_step', 'focus', 'daily_limit']);
     expect(getAvailablePersonalScreenTimeRuleKinds(base({ personalRules: [focusRule] })))
-      .toEqual(['real_step']);
+      .toEqual(['real_step', 'daily_limit']);
+  });
+
+  it('creates and normalizes a reusable daily allowance without changing its selected apps', () => {
+    const rule = createPersonalScreenTimeRule({
+      kind: 'daily_limit',
+      selectedApps: [{ token: 'instagram', label: 'Instagram' }],
+      selectedCategories: [],
+      limitMinutes: 10,
+      enabled: true,
+      setupCompleted: true,
+      nowIso: '2026-08-17T12:00:00.000Z',
+    });
+
+    expect(rule).toEqual(expect.objectContaining({
+      id: 'personal_daily_limit', kind: 'daily_limit', selectionId: 'personal_daily_limit',
+      limitMinutes: 10, reset: 'daily', selectedApps: [{ token: 'instagram', label: 'Instagram' }],
+    }));
+    expect(normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved', personalRules: [rule],
+    }).personalRules[0]).toEqual(expect.objectContaining({ limitMinutes: 10, reset: 'daily' }));
   });
 
   it('adds a missing rule without changing its stable selection identity', () => {

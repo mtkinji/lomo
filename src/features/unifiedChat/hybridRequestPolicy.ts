@@ -51,6 +51,19 @@ function conversationFollowUpPolicy({
 }): UnifiedChatRequestPolicy | null {
   const typedReference = classifyTurnReference(prompt);
   if (
+    typedReference === 'correction' &&
+    previousTurnContract?.requestClass === 'native_control' &&
+    previousTurnContract.participatingCapabilities.includes('screenTime')
+  ) {
+    return {
+      requestClass: 'native_control',
+      participatingCapabilities: ['screenTime'],
+      usePrivateContext: true,
+      clarification: null,
+      policyReason: 'conversation-follow-up:screenTime',
+    };
+  }
+  if (
     typedReference &&
     previousTurnContract?.requestClass === 'capability_action' &&
     previousTurnContract.action &&

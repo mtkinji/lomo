@@ -8,6 +8,8 @@ import type {
 export type PersonalScreenTimeRuleBuilderParams = {
   entry: 'inventory' | 'contextual';
   suggestedKind?: PersonalScreenTimeRuleKind;
+  suggestedLimitMinutes?: number;
+  suggestedAppLabel?: string;
   setupIntent?: ScreenTimeSetupIntent;
   entrySurface?: ScreenTimeSetupOfferSurface;
 };
