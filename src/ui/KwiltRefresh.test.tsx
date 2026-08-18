@@ -2,7 +2,11 @@ import { act, render, renderHook } from '@testing-library/react-native';
 import { Animated, View } from 'react-native';
 
 import { KwiltLoader } from './KwiltLoader';
-import { KwiltRefreshFrame, useKwiltRefresh } from './KwiltRefresh';
+import {
+  KWILT_REFRESH_LOADING_CYCLE_MS,
+  KwiltRefreshFrame,
+  useKwiltRefresh,
+} from './KwiltRefresh';
 
 describe('useKwiltRefresh', () => {
   beforeEach(() => {
@@ -56,6 +60,45 @@ describe('useKwiltRefresh', () => {
     expect(result.current.refreshControl.props.refreshing).toBe(false);
     const [, activeLayerAfterRefresh] = result.current.refreshOverlay.props.children;
     expect(activeLayerAfterRefresh).toBeNull();
+  });
+
+  it('completes and restarts the animation after two seconds while one refresh remains pending', async () => {
+    let finishRefresh: (() => void) | undefined;
+    const onRefresh = jest.fn(() => new Promise<void>((resolve) => {
+      finishRefresh = resolve;
+    }));
+    const { result } = renderHook(() => useKwiltRefresh({ onRefresh }));
+
+    act(() => {
+      result.current.refreshControl.props.onRefresh();
+    });
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(KWILT_REFRESH_LOADING_CYCLE_MS - 1);
+    });
+    expect(result.current.refreshOverlay.props.children[1].props.children.props.phase).toBe('loading');
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1);
+    });
+    expect(result.current.refreshOverlay.props.children[1].props.children.props.phase).toBe('completing');
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(440);
+    });
+    expect(result.current.refreshOverlay.props.children[1].props.children.props.phase).toBe('loading');
+    expect(result.current.refreshControl.props.refreshing).toBe(true);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      finishRefresh?.();
+      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(940);
+      await jest.advanceTimersByTimeAsync(440);
+    });
+
+    expect(result.current.refreshControl.props.refreshing).toBe(false);
+    expect(result.current.refreshOverlay.props.children[1]).toBeNull();
   });
 
   it('gives the refresh stage more room without resizing native layout or drawing corner masks', () => {
