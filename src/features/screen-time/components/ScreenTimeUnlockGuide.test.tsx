@@ -59,4 +59,22 @@ describe('ScreenTimeUnlockGuide', () => {
     fireEvent.press(screen.getByText('Open for 20 min'));
     expect(onOpenTemporarily).toHaveBeenCalledTimes(1);
   });
+
+  it('explains a personal daily limit as a limit rather than a family agreement', () => {
+    const dailyRule: ScreenTimeRule = {
+      id: 'daily-social', domain: 'personal', subject: { kind: 'self' },
+      selectionId: 'daily-social', title: 'Daily app limit',
+      trigger: { type: 'daily_usage_limit', minutes: 15, reset: 'daily' },
+      temporaryOpen: { allowed: false, durationMinutes: 20 }, active: true,
+      desiredVersion: 1, appliedVersion: null,
+    };
+
+    renderWithProviders(<ScreenTimeUnlockGuide
+      visible rules={[dailyRule]} unresolvedCount={0} result={null} busy={false}
+      actions={projectScreenTimeGuideActions({ actor: { kind: 'self_adult' }, activeRules: [dailyRule] })}
+      onDismiss={jest.fn()} onDoThisFirst={jest.fn()} onOpenTemporarily={jest.fn()}
+    />);
+
+    expect(screen.getByText('Wait until tomorrow or change the daily limit.')).toBeTruthy();
+  });
 });

@@ -28,6 +28,7 @@ import {
 import type { MoneySavedCheck } from '../capabilities/money/domain/moneySavedCheck';
 import { moneySavedCheckStorage } from '../capabilities/money/runtime/moneySavedCheckStorage';
 import { getSupabaseClient } from './backend/supabaseClient';
+import { buildActivityReminderStartupPlan } from './notifications/activityReminderStartupReconciliation';
 
 type OsPermissionStatus = 'notRequested' | 'authorized' | 'denied' | 'restricted';
 
@@ -755,11 +756,14 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshotExtend
     return;
   }
 
-  const when = new Date(activity.reminderAt!);
-
   // Cancel any existing scheduled notification(s) for this activity first.
   await cancelAllScheduledActivityReminders(activity.id, 'reschedule');
 
+  await scheduleActivityReminderWithoutCancel(activity);
+}
+
+async function scheduleActivityReminderWithoutCancel(activity: ActivitySnapshotExtended) {
+  const when = new Date(activity.reminderAt!);
   try {
     const state = useAppStore.getState();
     const goal = activity.goalId ? state.goals.find((g) => g.id === activity.goalId) : null;
@@ -818,6 +822,50 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshotExtend
         activityId: activity.id,
         error,
       });
+    }
+  }
+}
+
+export async function reconcileActivityRemindersAfterHydration(
+  activities: ActivitySnapshotExtended[],
+  prefs: NotificationPreferences,
+): Promise<void> {
+  try {
+    // One native inventory read replaces one read per hydrated Activity.
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const plan = buildActivityReminderStartupPlan({
+      activities,
+      preferences: prefs,
+      scheduled,
+    });
+    const scheduledByIdentifier = new Map(scheduled.map((request) => [request.identifier, request]));
+
+    await Promise.all(plan.cancelIdentifiers.map(async (identifier) => {
+      await Notifications.cancelScheduledNotificationAsync(identifier).catch(() => undefined);
+      const request = scheduledByIdentifier.get(identifier);
+      const data = request?.content.data as Partial<NotificationData> | undefined;
+      const activityId = data?.type === 'activityReminder' && 'activityId' in data
+        ? data.activityId
+        : null;
+      if (activityId) {
+        activityNotificationIds.delete(activityId);
+        await markActivityReminderCancelled(activityId, new Date().toISOString());
+      }
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'activityReminder',
+        notification_id: identifier,
+        activity_id: activityId,
+        reason: 'reschedule',
+      });
+    }));
+
+    await Promise.all(
+      plan.activitiesToSchedule.map((activity) =>
+        scheduleActivityReminderWithoutCancel(activity as ActivitySnapshotExtended)),
+    );
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to reconcile hydrated to-do reminders', { error });
     }
   }
 }
@@ -1652,8 +1700,9 @@ function attachStoreSubscription() {
     }, 600);
   };
 
-  let prevActivities: ActivitySnapshotExtended[] = useAppStore
-    .getState()
+  const initial = useAppStore.getState();
+  let previousDomainHydrated = initial.domainHydrated === true;
+  let prevActivities: ActivitySnapshotExtended[] = initial
     .activities.map((activity) => ({
       id: activity.id,
       title: activity.title,
@@ -1664,7 +1713,6 @@ function attachStoreSubscription() {
       status: activity.status,
     }));
 
-  const initial = useAppStore.getState();
   let prevFocusDateKey = initial.lastCompletedFocusSessionDate;
   let prevFocusPrefKey = JSON.stringify({
     notificationsEnabled: initial.notificationPreferences.notificationsEnabled,
@@ -1753,6 +1801,22 @@ function attachStoreSubscription() {
         void runExclusive('streakAtRisk', async () => cancelAllScheduledStreakAtRisk('explicit_cancel'));
         void runExclusive('reactivation', async () => cancelAllScheduledReactivation('explicit_cancel'));
       }
+    }
+
+    // The domain store starts empty, then hydrates all Activities at once. Treating that
+    // transition as dozens of individual additions caused a native notification query per
+    // Activity. Reconcile the collection once, then resume incremental updates.
+    if (!state.domainHydrated) {
+      previousDomainHydrated = false;
+      prevActivities = [];
+      return;
+    }
+    if (!previousDomainHydrated) {
+      previousDomainHydrated = true;
+      prevActivities = nextActivities;
+      void runExclusive('activity:startup-reconcile', async () =>
+        reconcileActivityRemindersAfterHydration(nextActivities, prefs));
+      return;
     }
 
     const prevById = new Map(prevActivities.map((a) => [a.id, a]));

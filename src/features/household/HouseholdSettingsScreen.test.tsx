@@ -15,6 +15,7 @@ const mockAcceptCaregiverInvite = jest.fn();
 const mockCreateHouseholdMemberInvite = jest.fn();
 const mockPreviewHouseholdInvite = jest.fn();
 const mockAcceptHouseholdMemberInvite = jest.fn();
+const mockResolveHouseholdAvatars = jest.fn();
 
 jest.mock('../../services/backend/supabaseClient', () => ({
   getSupabaseClient: () => ({ rpc: jest.fn() }),
@@ -32,6 +33,9 @@ jest.mock('./data/household', () => ({
   acceptHouseholdMemberInvite: (...args: unknown[]) => mockAcceptHouseholdMemberInvite(...args),
   buildHouseholdInviteUrl: (code: string) => `https://go.kwilt.app/open/household/${code.trim().toUpperCase()}`,
 }));
+jest.mock('./data/householdAvatars', () => ({
+  resolveHouseholdAvatars: (...args: unknown[]) => mockResolveHouseholdAvatars(...args),
+}));
 
 const emptySnapshot: HouseholdSnapshot = {
   household: null,
@@ -45,9 +49,9 @@ const familySnapshot: HouseholdSnapshot = {
   household: { id: 'household-1', name: 'My household' },
   currentMembershipId: 'owner-1',
   members: [
-    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner' },
-    { id: 'child-1', personId: 'person-2', displayName: 'Riley', kind: 'dependent', role: 'child' },
-    { id: 'child-2', personId: 'person-3', displayName: 'Casey', kind: 'dependent', role: 'child' },
+    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner', avatarUrl: null, avatarSource: 'initials' },
+    { id: 'child-1', personId: 'person-2', displayName: 'Riley', kind: 'dependent', role: 'child', avatarUrl: null, avatarSource: 'initials' },
+    { id: 'child-2', personId: 'person-3', displayName: 'Casey', kind: 'dependent', role: 'child', avatarUrl: null, avatarSource: 'initials' },
   ],
   activations: [],
   grants: [],
@@ -78,6 +82,7 @@ describe('HouseholdSettingsScreen', () => {
       expiresAt: '2026-08-05T00:00:00Z',
     });
     mockAcceptHouseholdMemberInvite.mockReset().mockResolvedValue(familySnapshot);
+    mockResolveHouseholdAvatars.mockReset().mockResolvedValue({});
     screenProps.navigation.navigate.mockReset();
   });
 
@@ -94,7 +99,7 @@ describe('HouseholdSettingsScreen', () => {
       displayName: 'Riley',
       ownerDisplayName: 'Andrew',
     }));
-    expect(await waitFor(() => getByText('Riley'))).toBeTruthy();
+    expect(await waitFor(() => getByLabelText('Riley'))).toBeTruthy();
   });
 
   it('invites a child who already uses Kwilt without creating a profile', async () => {
@@ -180,8 +185,8 @@ describe('HouseholdSettingsScreen', () => {
 
   it('activates Screen Time for only the selected child', async () => {
     mockGetHouseholdSnapshot.mockResolvedValue(familySnapshot);
-    const { getAllByLabelText, getByText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
-    await waitFor(() => expect(getByText('Casey')).toBeTruthy());
+    const { getAllByLabelText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
+    await waitFor(() => expect(getAllByLabelText('Casey').length).toBeGreaterThan(0));
 
     fireEvent.press(getAllByLabelText('Screen Time')[0]);
 
@@ -191,6 +196,22 @@ describe('HouseholdSettingsScreen', () => {
       enabled: true,
     }));
     expect(mockSetChildCapabilityActivation).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the resolved family roster and opens the selected person detail', async () => {
+    mockGetHouseholdSnapshot.mockResolvedValue(familySnapshot);
+    mockResolveHouseholdAvatars.mockResolvedValue({
+      'child-1': { avatarSource: 'dependent', avatarUrl: 'https://signed.test/riley' },
+      'child-2': { avatarSource: 'account', avatarUrl: 'https://signed.test/casey' },
+    });
+    const { getByLabelText, getByText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
+
+    await waitFor(() => expect(getByText('Your family')).toBeTruthy());
+    fireEvent.press(getByLabelText('Riley'));
+
+    expect(screenProps.navigation.navigate).toHaveBeenCalledWith('SettingsHouseholdMember', {
+      membershipId: 'child-1',
+    });
   });
 
   it('opens the selected child Screen Time setup after activation', async () => {
@@ -219,7 +240,7 @@ describe('HouseholdSettingsScreen', () => {
       ...familySnapshot,
       members: [
         ...familySnapshot.members,
-        { id: 'caregiver-1', personId: 'person-4', displayName: 'Blaire', kind: 'adult', role: 'caregiver' },
+        { id: 'caregiver-1', personId: 'person-4', displayName: 'Blaire', kind: 'adult', role: 'caregiver', avatarUrl: null, avatarSource: 'initials' },
       ],
     };
     mockGetHouseholdSnapshot.mockResolvedValue(withCaregiver);

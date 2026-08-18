@@ -29,6 +29,7 @@ describe('capability registry', () => {
       'recipes',
       'meal-planning',
       'groceries',
+      'chores',
     ]);
   });
 
@@ -158,6 +159,7 @@ describe('capability registry', () => {
       ['recipes', { root: 'Food', screen: 'RecipeLibrary' }],
       ['meal-planning', { root: 'Food', screen: 'NextMeals' }],
       ['groceries', { root: 'Food', screen: 'GroceryList' }],
+      ['chores', { root: 'Chores' }],
     ]);
   });
 });

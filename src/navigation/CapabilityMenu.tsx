@@ -12,6 +12,7 @@ import { Icon } from '../ui/Icon';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { ButtonLabel } from '../ui/Typography';
 import { KwiltLoader } from '../ui/KwiltLoader';
+import { Badge } from '../ui/Badge';
 
 type CapabilityMenuProps = {
   activeCapabilityId: CapabilityMenuDestinationId | null;
@@ -32,6 +33,8 @@ type CapabilityMenuProps = {
   onOpenChat: () => void;
   sharedHomeEnabled?: boolean;
   exploreEnabled?: boolean;
+  choresEnabled?: boolean;
+  choresAttentionCount?: number;
 };
 
 export type CapabilityMenuChat = {
@@ -59,6 +62,8 @@ export function CapabilityMenu({
   onOpenChat,
   sharedHomeEnabled = false,
   exploreEnabled = false,
+  choresEnabled = false,
+  choresAttentionCount = 0,
 }: CapabilityMenuProps) {
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<CapabilityGroupId>>(
     () => new Set(CAPABILITY_GROUPS.map(({ id }) => id)),
@@ -77,14 +82,16 @@ export function CapabilityMenu({
     const capability = CAPABILITY_MENU_REGISTRY.find((candidate) => candidate.id === id);
     if (!capability || capability.availability !== 'active') return null;
     if (capability.id === 'explore' && !exploreEnabled) return null;
+    if (capability.id === 'chores' && !choresEnabled) return null;
     const selected = activeCapabilityId === capability.id;
     const label = capability.label;
+    const attentionCount = capability.id === 'chores' ? choresAttentionCount : 0;
 
     return (
       <Pressable
         key={capability.id}
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={attentionCount > 0 ? `${label}, ${attentionCount} ready for review` : label}
         accessibilityState={{ selected }}
         testID={`capability.menu.${capability.id}`}
         onPress={() => onSelectCapability(capability.id)}
@@ -102,6 +109,15 @@ export function CapabilityMenu({
         <Text style={[styles.capabilityLabel, selected && styles.capabilityLabelSelected]}>
           {label}
         </Text>
+        {attentionCount > 0 ? (
+          <Badge
+            variant="secondary"
+            testID="capability.menu.chores.attention"
+            style={styles.attentionBadge}
+          >
+            {attentionCount}
+          </Badge>
+        ) : null}
       </Pressable>
     );
   };
@@ -386,8 +402,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray100,
   },
   capabilityLabel: {
+    flex: 1,
     ...typography.bodySm,
     color: colors.textPrimary,
+  },
+  attentionBadge: {
+    minWidth: 24,
+    alignSelf: 'center',
   },
   capabilityLabelSelected: {
     fontFamily: fonts.medium,

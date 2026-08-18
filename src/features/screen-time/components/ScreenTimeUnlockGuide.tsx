@@ -13,6 +13,7 @@ const triggerDetail = (rule: ScreenTimeRule): string => {
   if (rule.trigger.type === 'focus_active') return 'Finish or end the current Focus.';
   if (rule.trigger.type === 'real_step_pending') return 'Complete a to-do, record progress, or finish Focus.';
   if (rule.trigger.type === 'money_review') return 'Review the category in Money.';
+  if (rule.trigger.type === 'daily_usage_limit') return 'Wait until tomorrow or change the daily limit.';
   return 'Complete the family agreement.';
 };
 

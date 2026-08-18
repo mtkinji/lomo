@@ -78,6 +78,7 @@ export function prepareIncomingNavigationUrl(
 
 export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
   screens: {
+    Chores: 'chores',
     StandaloneFocus: {
       path: 'focus',
       parse: {

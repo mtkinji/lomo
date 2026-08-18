@@ -205,7 +205,50 @@ describe('screenTimeProtectionRuntime', () => {
     });
     expect(clearScreenTimeRestrictions).not.toHaveBeenCalled();
   });
-});
+
+  it('applies every locked Meaningful First rule independently on foreground', async () => {
+    useAppStore.getState().setScreenTimeProtection(normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved',
+      personalRules: [
+        {
+          id: 'real-step-social',
+          kind: 'real_step',
+          selectionId: 'real-step-social',
+          selectedApps: [{ token: 'instagram', label: 'Instagram' }],
+          selectedCategories: [],
+          enabled: true,
+          setupCompleted: true,
+          currentUnlockUntilIso: null,
+          temporaryOpenAllowed: true,
+          temporaryOpenMinutes: 20,
+        },
+        {
+          id: 'real-step-video',
+          kind: 'real_step',
+          selectionId: 'real-step-video',
+          selectedApps: [{ token: 'youtube', label: 'YouTube' }],
+          selectedCategories: [],
+          enabled: true,
+          setupCompleted: true,
+          currentUnlockUntilIso: null,
+          temporaryOpenAllowed: true,
+          temporaryOpenMinutes: 20,
+        },
+      ],
+    }));
+
+    await expect(applyMeaningfulFirstRestrictionsIfLocked({ now })).resolves.toBe(true);
+    expect(applyScreenTimeRestrictions).toHaveBeenCalledTimes(2);
+    expect(applyScreenTimeRestrictions).toHaveBeenCalledWith(expect.objectContaining({
+      selectionId: 'real-step-social',
+      ruleId: 'real-step-social',
+    }));
+    expect(applyScreenTimeRestrictions).toHaveBeenCalledWith(expect.objectContaining({
+      selectionId: 'real-step-video',
+      ruleId: 'real-step-video',
+    }));
+  });
+
   it('reconciles independently selected personal rules without a global clear', async () => {
     const settings = normalizeScreenTimeProtectionSettings({
       authorizationStatus: 'approved',
@@ -254,3 +297,4 @@ describe('screenTimeProtectionRuntime', () => {
     expect(clearScreenTimeRestrictionsForSelection).toHaveBeenCalledWith('personal_focus');
     expect(clearScreenTimeRestrictions).not.toHaveBeenCalled();
   });
+});

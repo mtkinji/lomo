@@ -6,6 +6,11 @@ export const KWILT_LAB_CAPABILITIES = [
     title: 'Explore',
     description: 'Build a private map of the places and paths you discover.',
   },
+  {
+    id: 'chores',
+    title: 'Chores',
+    description: 'Try a shared household-work inventory with sample family data.',
+  },
 ] as const;
 
 export type KwiltLabCapabilityId = (typeof KWILT_LAB_CAPABILITIES)[number]['id'];

@@ -142,6 +142,43 @@ describe('CapabilityMenu', () => {
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('games');
   });
 
+  it('shows Chores as a direct capability only after explicit Labs activation', () => {
+    const hidden = render(
+      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
+    );
+    expect(hidden.queryByLabelText('Chores')).toBeNull();
+
+    const enabled = render(
+      <CapabilityMenu
+        activeCapabilityId="chores"
+        choresEnabled
+        displayName="Andy"
+        chats={chats}
+        {...handlers}
+      />,
+    );
+    expect(enabled.getByLabelText('Chores').props.accessibilityState).toEqual({ selected: true });
+    fireEvent.press(enabled.getByLabelText('Chores'));
+    expect(handlers.onSelectCapability).toHaveBeenCalledWith('chores');
+  });
+
+  it('shows a caregiver review count on Chores without creating a global inbox', () => {
+    const menu = render(
+      <CapabilityMenu
+        activeCapabilityId={null}
+        choresEnabled
+        choresAttentionCount={2}
+        displayName="Andy"
+        chats={chats}
+        {...handlers}
+      />,
+    );
+
+    expect(menu.getByLabelText('Chores, 2 ready for review')).toBeTruthy();
+    expect(menu.getByTestId('capability.menu.chores.attention')).toBeTruthy();
+    expect(menu.queryByText(/notification|inbox/i)).toBeNull();
+  });
+
   it('always shows Recipes and Groceries as separate Food destinations', () => {
     const enabled = render(
       <CapabilityMenu activeCapabilityId="recipes" displayName="Andy" chats={chats} {...handlers} />,

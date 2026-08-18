@@ -15,6 +15,7 @@ export type KwiltOperationOwner =
   | 'money'
   | 'explore'
   | 'games'
+  | 'chores'
   | 'account'
   | 'screenTime'
   | 'notifications'
@@ -80,7 +81,7 @@ function ownerForOperation(id: string): KwiltOperationOwner {
   if (id.startsWith('cook_session.')) return 'recipes';
   const owner = id.split('.')[0];
   if (owner === 'general' || owner === 'relationships' || owner === 'profile' || owner === 'arcs' ||
-      owner === 'goals' || owner === 'plan' || owner === 'chapters' || owner === 'money' || owner === 'explore' || owner === 'games' || owner === 'account' ||
+      owner === 'goals' || owner === 'plan' || owner === 'chapters' || owner === 'money' || owner === 'explore' || owner === 'games' || owner === 'chores' || owner === 'account' ||
       owner === 'notifications' || owner === 'recipes' || owner === 'meal_planning' ||
       owner === 'groceries' || owner === 'savings') {
     return owner;
@@ -409,6 +410,7 @@ const CAPABILITY_ROWS = [
 
   bounded('pending_provider', { id: 'explore.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:explore'] }, 'Explore is available from the native capability menu and kwilt://explore, but Chat does not yet receive or control precise location history.'),
   bounded('pending_provider', { id: 'games.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:games'] }, 'Games is available from the native capability menu and kwilt://games, but Chat does not yet open sessions, seat players, or act on game state.'),
+  bounded('pending_provider', { id: 'chores.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:chores'] }, 'Chores is available as a local Labs learning surface, but Chat cannot read, claim, complete, or award from simulated inventory. Conversational access waits for the Activity-backed Household authorization boundary.'),
 
   ...FOOD_OPERATION_CONTRACTS.map(foodCapabilityRow),
 

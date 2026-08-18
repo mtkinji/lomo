@@ -57,7 +57,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useToastStore } from '../store/useToastStore';
 import { navigateWhenReady } from '../navigation/rootNavigationRef';
 import { loadSystemNudgeLedger } from './notifications/NotificationDeliveryLedger';
-import { NotificationService } from './NotificationService';
+import { NotificationService, reconcileActivityRemindersAfterHydration } from './NotificationService';
 import { getSuggestedNextStep } from './recommendations/nextStep';
 import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from './screenTimeProtection';
 import { createWeeklyMoneySavedCheck } from '../capabilities/money/domain/moneySavedCheck';
@@ -95,6 +95,32 @@ describe('NotificationService system-nudge policy', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setStoreState();
+  });
+
+  it('reads the native notification inventory once when a large Activity cache hydrates', async () => {
+    const activities: Parameters<typeof reconcileActivityRemindersAfterHydration>[0] = Array.from(
+      { length: 80 },
+      (_, index) => ({
+      id: `activity-${index}`,
+      title: `Activity ${index}`,
+      goalId: null,
+      status: 'planned' as const,
+      reminderAt: null,
+      repeatRule: undefined,
+      repeatCustom: undefined,
+      }),
+    );
+    const getScheduled = jest.spyOn(Notifications, 'getAllScheduledNotificationsAsync')
+      .mockResolvedValue([]);
+    const preferences = {
+      ...useAppStore.getState().notificationPreferences,
+      allowActivityReminders: true,
+    };
+
+    await reconcileActivityRemindersAfterHydration(activities, preferences);
+
+    expect(getScheduled).toHaveBeenCalledTimes(1);
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
   it('schedules recurring Activity reminders as one-shot reminders for the current occurrence', async () => {

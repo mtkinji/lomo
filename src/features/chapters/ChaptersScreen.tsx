@@ -79,7 +79,7 @@ export function ChaptersScreen() {
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
-  const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const avatarUrl = userProfile?.avatarUrl || authIdentity?.avatarUrl;
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
   const streakGrace = useAppStore((state) => state.streakGrace);

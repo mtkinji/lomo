@@ -35,6 +35,7 @@ import {
   setSupabaseAutoRefreshEnabled,
 } from './src/services/backend/supabaseClient';
 import { deriveAuthIdentityFromSession } from './src/services/backend/auth';
+import { resolveSelfAvatar } from './src/features/household/data/householdAvatars';
 import { getAdminProCodesStatus } from './src/services/proCodes';
 import { clearAdminEntitlementsOverrideTier } from './src/services/entitlements';
 import {
@@ -198,6 +199,14 @@ export default function App() {
           avatarUrl: current.avatarUrl ?? (nextAvatar ? nextAvatar : undefined),
         };
       });
+      // Refresh the short-lived private URL at auth hydration so every surface,
+      // including Chores, uses the account holder's canonical Kwilt photo.
+      void resolveSelfAvatar()
+        .then((resolved) => {
+          if (!resolved.avatarUrl || useAppStore.getState().authIdentity?.userId !== identity.userId) return;
+          updateUserProfile((current) => ({ ...current, avatarUrl: resolved.avatarUrl ?? undefined }));
+        })
+        .catch(() => undefined);
       setSupabaseAutoRefreshEnabled(true);
       setAuthStartupState('signedIn');
       // Attach the Supabase user_id to PostHog so server-side email events

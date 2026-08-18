@@ -28,6 +28,9 @@ export type HouseholdMember = {
   displayName: string;
   kind: HouseholdPersonKind;
   role: HouseholdRole;
+  /** Additive presentation fields; fresh snapshots normalize both values. */
+  avatarUrl?: string | null;
+  avatarSource?: 'account' | 'dependent' | 'initials';
 };
 
 export type ChildCapabilityActivation = {
@@ -119,7 +122,14 @@ function parseSnapshot(value: unknown): HouseholdSnapshot {
     || !(candidate.currentMembershipId === null || isString(candidate.currentMembershipId))) {
     throw new Error('Invalid Household snapshot');
   }
-  return candidate as HouseholdSnapshot;
+  return {
+    ...candidate,
+    members: (candidate.members as HouseholdMember[]).map((member) => ({
+      ...member,
+      avatarUrl: null,
+      avatarSource: 'initials' as const,
+    })),
+  } as HouseholdSnapshot;
 }
 
 async function snapshotRpc(

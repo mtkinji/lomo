@@ -109,6 +109,17 @@ serve(async (req) => {
   }
 
   await removeStoragePrefix(admin, 'hero_images', userId);
+  const { data: accountAvatar } = await admin
+    .from('kwilt_account_avatars')
+    .select('storage_path')
+    .eq('user_id', userId)
+    .maybeSingle();
+  const accountAvatarPath = typeof accountAvatar?.storage_path === 'string'
+    ? accountAvatar.storage_path.trim()
+    : '';
+  if (accountAvatarPath) {
+    await admin.storage.from('household-avatars').remove([accountAvatarPath]);
+  }
   await admin.from('kwilt_install_identities').delete().eq('user_id', userId);
 
   const { error: deleteErr } = await admin.auth.admin.deleteUser(userId);

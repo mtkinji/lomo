@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
+import { File as ExpoFile } from 'expo-file-system';
 import type { RootDrawerParamList, SettingsStackParamList } from '../../navigation/RootNavigator';
 import { getAdminProCodesStatus } from '../../services/proCodes';
 import { ensureSignedInWithPrompt, signOut } from '../../services/backend/auth';
@@ -24,6 +25,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Heading, Text, VStack } from '../../ui/primitives';
 import { persistImageUri } from '../../utils/persistImageUri';
+import { removeAvatar, resolveSelfAvatar, uploadAvatar } from '../household/data/householdAvatars';
 
 type SettingsNavigationProp = NativeStackNavigationProp<SettingsStackParamList, 'SettingsHome'>;
 type SettingsRoute = Exclude<keyof SettingsStackParamList, 'SettingsPaywall'>;
@@ -101,6 +103,20 @@ export function SettingsHomeScreen() {
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const [showSuperAdmin, setShowSuperAdmin] = useState(false);
+  const [canonicalAvatarUrl, setCanonicalAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authIdentity?.userId) { setCanonicalAvatarUrl(null); return; }
+    let active = true;
+    void resolveSelfAvatar()
+      .then((resolved) => {
+        if (!active) return;
+        setCanonicalAvatarUrl(resolved.avatarUrl);
+        if (resolved.avatarUrl) updateUserProfile((current) => ({ ...current, avatarUrl: resolved.avatarUrl ?? undefined }));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [authIdentity?.userId, updateUserProfile]);
 
   useEffect(() => {
     if (!authIdentity?.userId) {
@@ -136,7 +152,7 @@ export function SettingsHomeScreen() {
 
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const profileSubtitle = authIdentity?.email?.trim() || userProfile?.email?.trim() || 'Not signed in';
-  const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
+  const avatarUrl = canonicalAvatarUrl || userProfile?.avatarUrl || authIdentity?.avatarUrl;
   const avatarSource = avatarUrl ? { uri: avatarUrl } : null;
   const authEmailLower = (authIdentity?.email ?? '').trim().toLowerCase();
   const isDevKnownSuperAdminEmail =
@@ -150,11 +166,19 @@ export function SettingsHomeScreen() {
     if (result.canceled) return;
     const asset = result.assets?.[0];
     if (!asset?.uri) return;
-    const stableUri = await persistImageUri({
-      uri: asset.uri,
-      subdir: 'avatars',
-      namePrefix: 'avatar',
-    });
+    if (authIdentity?.userId) {
+      const file = new ExpoFile(asset.uri);
+      const resolved = await uploadAvatar({
+        source: 'account',
+        fileUri: asset.uri,
+        mimeType: asset.mimeType ?? file.type ?? 'image/jpeg',
+        sizeBytes: asset.fileSize ?? file.size,
+      });
+      setCanonicalAvatarUrl(resolved.avatarUrl);
+      updateAvatar(resolved.avatarUrl ?? undefined);
+      return;
+    }
+    const stableUri = await persistImageUri({ uri: asset.uri, subdir: 'avatars', namePrefix: 'avatar' });
     updateAvatar(stableUri);
   };
 
@@ -205,6 +229,26 @@ export function SettingsHomeScreen() {
       setShowSuperAdmin(status.role === 'super_admin');
     } catch {
       // Cancellation leaves Settings unchanged.
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (isUpdatingAvatar) return;
+    if (!authIdentity?.userId) {
+      updateAvatar(undefined);
+      setAvatarSheetVisible(false);
+      return;
+    }
+    try {
+      setIsUpdatingAvatar(true);
+      const resolved = await removeAvatar({ source: 'account' });
+      setCanonicalAvatarUrl(resolved.avatarUrl);
+      updateAvatar(undefined);
+      setAvatarSheetVisible(false);
+    } catch (error) {
+      Alert.alert('Unable to remove photo', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setIsUpdatingAvatar(false);
     }
   };
 
@@ -371,10 +415,7 @@ export function SettingsHomeScreen() {
                 <Pressable
                   accessibilityRole="button"
                   disabled={isUpdatingAvatar}
-                  onPress={() => {
-                    updateAvatar(undefined);
-                    setAvatarSheetVisible(false);
-                  }}
+                  onPress={() => void handleRemoveAvatar()}
                   style={[styles.sheetOption, styles.sheetOptionDanger]}
                 >
                   <Text style={styles.sheetOptionTitleDanger}>Remove photo</Text>

@@ -18,6 +18,17 @@ const mockTransport = {
   getDiagnostics: jest.fn(() => mockDiagnostics('ready')),
 };
 
+const mockRollbackTransport = {
+  name: 'rollback' as const,
+  prepare: jest.fn(async () => mockDiagnostics('ready')),
+  play: jest.fn(async () => mockDiagnostics('playing')),
+  pause: jest.fn(async () => mockDiagnostics('paused')),
+  setVolume: jest.fn(async () => mockDiagnostics('playing')),
+  unload: jest.fn(async () => mockDiagnostics('idle', null)),
+  subscribe: jest.fn(() => jest.fn()),
+  getDiagnostics: jest.fn(() => mockDiagnostics('ready')),
+};
+
 const mockPrepareAsset = jest.fn(async (id: string) => ({
   uri: `file:///cache/${id}.mp3`,
   assetKey: `${id}-key`,
@@ -75,6 +86,25 @@ describe('Focus soundscape playback', () => {
     await stopSoundscapeLoop({ unload: true });
     expect(mockTransport.pause).toHaveBeenCalledWith(700);
     expect(mockTransport.unload).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the selected soundscape when native preparation needs the rollback transport', async () => {
+    const { createSoundscapeLoopTransport } =
+      require('./soundscapeLoopTransport') as typeof import('./soundscapeLoopTransport');
+    (createSoundscapeLoopTransport as jest.Mock).mockImplementation(
+      ({ mode }: { mode?: string } = {}) => mode === 'expo-only' ? mockRollbackTransport : mockTransport,
+    );
+    mockTransport.prepare.mockRejectedValueOnce(new Error('native decode failed'));
+    const { startSoundscapeLoop } = require('./soundscape') as typeof import('./soundscape');
+
+    await startSoundscapeLoop({ soundscapeId: 'quietRain', fadeInMs: 0 });
+
+    expect(mockPrepareAsset).toHaveBeenCalledTimes(1);
+    expect(mockPrepareAsset).toHaveBeenCalledWith('quietRain');
+    expect(mockRollbackTransport.prepare).toHaveBeenCalledWith(expect.objectContaining({
+      assetKey: 'quietRain-key',
+    }));
+    expect(mockRollbackTransport.play).toHaveBeenCalledTimes(1);
   });
 
   test('cancels a late prepare after Focus audio is stopped', async () => {

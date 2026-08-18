@@ -3,6 +3,10 @@ import type { ExploreData } from '../domain/types';
 import { useExploreStore } from './useExploreStore';
 
 describe('Explore store persistence', () => {
+  it('does not hydrate the heavy Explore history during app module startup', () => {
+    expect(useExploreStore.persist.getOptions().skipHydration).toBe(true);
+  });
+
   it('migrates unknown completed sessions conservatively while retaining an active policy', async () => {
     const startedAt = '2026-08-01T12:00:00.000Z';
     const completed = completeExploreSession(

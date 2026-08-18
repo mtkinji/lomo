@@ -126,13 +126,13 @@ export async function applyMeaningfulFirstRestrictionsIfLocked(params: {
   now?: Date;
 } = {}): Promise<boolean> {
   const settings = normalizeScreenTimeProtectionSettings(useAppStore.getState().screenTimeProtection);
-  const restriction = getActivePersonalScreenTimeRestrictions(settings, {
+  const restrictions = getActivePersonalScreenTimeRestrictions(settings, {
     now: params.now ?? new Date(),
     focusSessionActive: false,
-  }).find(({ rule }) => rule.kind === 'real_step');
+  }).filter(({ rule }) => rule.kind === 'real_step');
 
-  if (!restriction) return false;
-  return applyScreenTimeRestrictions({
+  if (restrictions.length === 0) return false;
+  const results = await Promise.all(restrictions.map((restriction) => applyScreenTimeRestrictions({
     settings: {
       selectedApps: restriction.rule.selectedApps,
       selectedCategories: restriction.rule.selectedCategories,
@@ -142,5 +142,6 @@ export async function applyMeaningfulFirstRestrictionsIfLocked(params: {
     ruleId: restriction.rule.id,
     reason: restriction.reasons[0],
     restrictionLabel: 'A real step',
-  }).catch(() => false);
+  }).catch(() => false)));
+  return results.every(Boolean);
 }

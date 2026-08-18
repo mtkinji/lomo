@@ -1,4 +1,26 @@
-import { fireEvent } from '@testing-library/react-native';
+import { fireEvent, waitFor } from '@testing-library/react-native';
+
+const mockResolveSelfAvatar = jest.fn();
+const mockUploadAvatar = jest.fn();
+const mockRemoveAvatar = jest.fn();
+const mockLaunchImageLibrary = jest.fn();
+
+jest.mock('../household/data/householdAvatars', () => ({
+  resolveSelfAvatar: (...args: unknown[]) => mockResolveSelfAvatar(...args),
+  uploadAvatar: (...args: unknown[]) => mockUploadAvatar(...args),
+  removeAvatar: (...args: unknown[]) => mockRemoveAvatar(...args),
+}));
+
+jest.mock('expo-image-picker', () => ({
+  requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  launchCameraAsync: jest.fn(),
+  launchImageLibraryAsync: (...args: unknown[]) => mockLaunchImageLibrary(...args),
+}));
+
+jest.mock('expo-file-system', () => ({
+  File: class { size = 123; type = 'image/jpeg'; },
+}));
 
 jest.mock('../../ui/layout/AppShell', () => {
   const React = require('react');
@@ -67,6 +89,7 @@ jest.mock('@react-navigation/native', () => {
 
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
+import { useAppStore } from '../../store/useAppStore';
 import { SettingsHomeScreen } from './SettingsHomeScreen';
 
 const navModule = require('@react-navigation/native') as {
@@ -77,6 +100,10 @@ describe('SettingsHomeScreen planning group', () => {
   beforeEach(() => {
     resetAllStores();
     navModule.__navMocks.navigate.mockReset();
+    mockResolveSelfAvatar.mockReset().mockResolvedValue({ avatarSource: 'initials', avatarUrl: null });
+    mockUploadAvatar.mockReset();
+    mockRemoveAvatar.mockReset();
+    mockLaunchImageLibrary.mockReset();
     jest.restoreAllMocks();
   });
 
@@ -217,5 +244,25 @@ describe('SettingsHomeScreen planning group', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     expect(getByText('Profile & account')).toBeTruthy();
     expect(() => getByText('Delete account')).toThrow();
+  });
+
+  it('loads and updates a signed-in account photo through canonical private storage', async () => {
+    useAppStore.getState().setAuthIdentity({ userId: 'user-1', name: 'Andrew' });
+    mockResolveSelfAvatar.mockResolvedValue({ avatarSource: 'account', avatarUrl: 'https://signed.test/old' });
+    mockLaunchImageLibrary.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///picked.jpg', mimeType: 'image/jpeg', fileSize: 123 }],
+    });
+    mockUploadAvatar.mockResolvedValue({ avatarSource: 'account', avatarUrl: 'https://signed.test/new' });
+    const { getByLabelText, getByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    await waitFor(() => expect(useAppStore.getState().userProfile?.avatarUrl).toBe('https://signed.test/old'));
+    fireEvent.press(getByLabelText('Change profile photo'));
+    fireEvent.press(getByText('Choose from library'));
+
+    await waitFor(() => expect(mockUploadAvatar).toHaveBeenCalledWith({
+      source: 'account', fileUri: 'file:///picked.jpg', mimeType: 'image/jpeg', sizeBytes: 123,
+    }));
+    expect(useAppStore.getState().userProfile?.avatarUrl).toBe('https://signed.test/new');
   });
 });

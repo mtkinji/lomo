@@ -30,6 +30,7 @@ jest.mock('expo-location', () => ({
 describe('useExploreRecorder recording modes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(useExploreStore.persist, 'hasHydrated').mockReturnValue(true);
     act(() => {
       useExploreStore.getState().clearHistory();
       useExploreStore.getState().updatePreferences({ recording: 'manual' });

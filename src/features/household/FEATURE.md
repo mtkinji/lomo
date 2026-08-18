@@ -5,6 +5,7 @@ personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-move-family-life-forward
 serves:
+  - jtbd-move-the-few-things-that-matter
   - jtbd-put-intention-before-impulse
   - jtbd-carry-intentions-into-action
   - jtbd-invite-the-right-people-in
@@ -15,8 +16,9 @@ briefs:
   - chores-as-recurring-activities
   - family-screen-time-controls
   - family-screen-time-simple-administration
+  - household-member-photos
 status: shipping
-last_reviewed: 2026-08-17
+last_reviewed: 2026-08-18
 ---
 
 # household
@@ -25,7 +27,7 @@ Gives Maya a private family boundary with explicit membership, child-by-child ca
 
 ## Surfaces in this folder
 
-- `HouseholdSettingsScreen.tsx` - parent-facing roster, dependent setup, child capability activation, shareable installed-app invitations, and explicit review-before-join.
+- `HouseholdSettingsScreen.tsx` - parent-facing roster, dependent setup, accepted private member-photo detail entry point, child capability activation, shareable installed-app invitations, and explicit review-before-join; connected account avatars remain account-owned.
 - `screenTime/` - child-specific family agreement, delivery-state learning, and child-facing explanation.
 - `data/household.ts` - typed client boundary for server-authorized Household commands.
 - `data/householdMigration.test.ts` - authorization and privacy contract for the canonical Household schema.

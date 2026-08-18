@@ -15,6 +15,7 @@ describe('ExploreSyncRuntimeHost', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    jest.spyOn(useExploreStore.persist, 'hasHydrated').mockReturnValue(true);
     useExploreStore.setState({ ...createEmptyExploreData(), lastPointDecision: null });
   });
 

@@ -22,7 +22,7 @@ describe('projectScreenTimeShieldPresentation', () => {
     });
   });
 
-  it('leads with the more specific Money action and discloses the remaining Kwilt action', () => {
+  it('leads with the more specific Money action without inventing an order for overlapping rules', () => {
     const result = projectScreenTimeShieldPresentation({
       appName: 'Home Depot',
       restrictions: [
@@ -33,8 +33,8 @@ describe('projectScreenTimeShieldPresentation', () => {
 
     expect(result).toEqual({
       leadReason: 'money_review_required',
-      title: 'Two things before Home Depot.',
-      subtitle: 'First, review Groceries in Kwilt Money. Then complete a to-do, record progress, or finish Focus in Kwilt.',
+      title: 'Two rules are pausing Home Depot.',
+      subtitle: 'Review Groceries in Kwilt Money. Also complete a to-do, record progress, or finish Focus in Kwilt.',
       buttonLabel: 'Review in Money',
       destination: 'kwilt://money?source=screen-time',
     });
@@ -67,8 +67,8 @@ describe('projectScreenTimeShieldPresentation', () => {
     });
 
     expect(result.leadReason).toBe('focus_session_active');
-    expect(result.title).toBe('Four things before YouTube.');
-    expect(result.subtitle).toBe('First, return to Focus in Kwilt. Then use Gospel Library for 5 minutes. 2 more rules will still apply.');
+    expect(result.title).toBe('Four rules are pausing YouTube.');
+    expect(result.subtitle).toBe('Return to Focus in Kwilt. Also use Gospel Library for 5 minutes. 2 more rules also apply.');
     expect(result.buttonLabel).toBe('Open Focus');
     expect(result.destination).toBe('kwilt://focus?source=screen-time');
   });

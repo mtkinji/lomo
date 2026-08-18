@@ -167,6 +167,7 @@ const PRODUCTION_ROOT_SCHEMAS = {
   Money: MONEY_STACK_SCHEMA,
   Explore: EXPLORE_STACK_SCHEMA,
   Games: GAMES_STACK_SCHEMA,
+  Chores: null,
   Food: FOOD_STACK_SCHEMA,
   Settings: SETTINGS_STACK_SCHEMA,
 } satisfies Record<ProductionRootRouteName, ChildSchema | null>;
