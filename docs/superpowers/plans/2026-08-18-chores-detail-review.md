@@ -103,7 +103,7 @@ Proof path: Settings > Kwilt Labs > Chores on iPhone 17 Pro Simulator; inspect r
 
 - [ ] Add component expectations for row-tap detail, stateful drawer actions, total removal of token copy when disabled, caregiver-only settings, one/many review entry, approval, and another-pass copy.
 - [ ] Implement capability-local drawer anatomy using Canonical drawer headers, scroll helpers, footer geometry, buttons, and settings toggle row.
-- [ ] Keep row completion as the direct child shortcut; make the row body a separate 44-point detail affordance with an explicit accessibility label.
+- [ ] Treat row completion as intent: open the taller detail drawer without mutating state, make optional camera capture easy, and require the drawer's explicit completion/submission action.
 - [ ] Add a caregiver-only floating guide that opens one direct review or a multi-item queue without adding a global inbox or bulk approval.
 - [ ] Run the focused screen tests and correct hierarchy or accessibility failures.
 

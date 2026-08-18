@@ -1,11 +1,10 @@
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Alert, Pressable, StyleSheet, View, type TextInput } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
 import { useCapabilityMenuOpen } from '../../../navigation/CapabilityMenuStateContext';
 import { useAppStore } from '../../../store/useAppStore';
 import { colors, radii, spacing } from '../../../theme';
-import { BottomGuide } from '../../../ui/BottomGuide';
 import { ActivityListItem } from '../../../ui/ActivityListItem';
 import { Button, IconButton } from '../../../ui/Button';
 import {
@@ -22,6 +21,8 @@ import { CanvasScrollView } from '../../../ui/layout/CanvasScrollView';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { ButtonLabel, Heading, Text } from '../../../ui/primitives';
 import { ChoreDetailDrawer } from '../components/ChoreDetailDrawer';
+import { ChoreEditorDrawer } from '../components/ChoreEditorDrawer';
+import { ChoreMemberPill } from '../components/ChoreMemberPill';
 import { ChoreReviewDrawer } from '../components/ChoreReviewDrawer';
 import { ChoreSettingsDrawer } from '../components/ChoreSettingsDrawer';
 import {
@@ -30,6 +31,7 @@ import {
 } from '../components/ChoreAgreementSurface';
 import {
   projectChoreAgreement,
+  projectCaregiverChoreInventory,
   projectChoreInventory,
   projectChoreReviewQueue,
   type ChoreMember,
@@ -39,8 +41,33 @@ import { useChoreLearningStore } from '../runtime/useChoreLearningStore';
 import { getImagePickerMediaTypesImages } from '../../../utils/imagePickerMediaTypes';
 import { persistImageUri } from '../../../utils/persistImageUri';
 import { useToastStore } from '../../../store/useToastStore';
+import { QuickAddDock } from '../../../features/activities/QuickAddDock';
+import { FloatingDockActionButton } from '../../../features/activities/FloatingDockActionButton';
+import {
+  DEFAULT_QUICK_ADD_AI_ACTIONS,
+  type QuickAddAiAction,
+} from '../../../features/activities/useQuickAddDockController';
+import { enrichActivityWithAI } from '../../../services/ai';
+import {
+  applyChoreDraftEnrichment,
+  createChoreDraft,
+  type ChoreDraft,
+  type ChoreDraftField,
+} from '../domain/choreCreation';
+import {
+  RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+  RESTING_COMPOSER_HEIGHT_PX,
+  RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+} from '../../../ui/layout/restingComposerMetrics';
+import { UnifiedChatDrawer } from '../../../features/unifiedChat/UnifiedChatDrawer';
+import type { UnifiedChatLaunchContext } from '../../../features/unifiedChat/launchContext';
+import { formatActivityRepeatLabel } from '../../../features/activities/activityRepeatLabels';
 
 type ChoresScreenProps = { now?: () => Date };
+
+function tokenCount(value: number): string {
+  return `${value} token${value === 1 ? '' : 's'}`;
+}
 
 function MemberMenu({ member, members, caregiverAvatarUrl, onSelect }: {
   member: ChoreMember;
@@ -99,7 +126,7 @@ function MemberMenu({ member, members, caregiverAvatarUrl, onSelect }: {
 
 function rowMetadata(occurrence: ChoreOccurrence, tokensEnabled: boolean): string | undefined {
   const parts: string[] = [];
-  if (tokensEnabled) parts.push(String(occurrence.tokenValue));
+  if (tokensEnabled) parts.push(tokenCount(occurrence.tokenValue));
   if (occurrence.state === 'waiting_approval') parts.push('Waiting for approval');
   if (occurrence.state === 'needs_another_pass') parts.push('Needs another pass');
   return parts.length ? parts.join(' · ') : undefined;
@@ -127,28 +154,24 @@ function TakeActionLabel() {
   );
 }
 
-function ChoreStateIndicator({ kind }: { kind: 'waiting' | 'household' }) {
-  const label = kind === 'waiting' ? 'Waiting for approval' : 'Available to the household';
+function ChoreWaitingIndicator() {
   return (
     <View
       accessible
-      accessibilityLabel={label}
-      style={[styles.stateIndicator, kind === 'household' && styles.householdIndicator]}
+      accessibilityLabel="Waiting for approval"
+      style={styles.stateIndicator}
     >
-      <Icon
-        name={kind === 'waiting' ? 'clock' : 'home'}
-        size={14}
-        color={colors.textSecondary}
-      />
+      <Icon name="clock" size={14} color={colors.textSecondary} />
     </View>
   );
 }
 
-function ForMemberRow({ occurrence, tokensEnabled, onOpen, onComplete, onReturnToFamilyList }: {
+function ForMemberRow({ occurrence, tokensEnabled, onOpen, onAttemptComplete, onReopen, onReturnToFamilyList }: {
   occurrence: ChoreOccurrence;
   tokensEnabled: boolean;
   onOpen: () => void;
-  onComplete: () => void;
+  onAttemptComplete: () => void;
+  onReopen: () => void;
   onReturnToFamilyList: () => void;
 }) {
   const isCompleted = occurrence.state === 'completed';
@@ -160,16 +183,16 @@ function ForMemberRow({ occurrence, tokensEnabled, onOpen, onComplete, onReturnT
         surface="flat"
         title={occurrence.title}
         meta={rowMetadata(occurrence, tokensEnabled)}
-        metaLeadingIconName={tokensEnabled ? 'token' : undefined}
-        metaLeadingIconSize={16}
+        metaLeadingIconName={tokensEnabled ? 'circleDollarSign' : undefined}
+        metaLeadingIconSize={15}
         metaAccessibilityLabel={rowMetadataAccessibilityLabel(occurrence, tokensEnabled)}
         isCompleted={isCompleted}
         showPriorityControl={false}
         showCheckbox={!waitingForApproval}
-        leadingAccessory={waitingForApproval ? <ChoreStateIndicator kind="waiting" /> : undefined}
-        onToggleComplete={canComplete ? onComplete : undefined}
+        leadingAccessory={waitingForApproval ? <ChoreWaitingIndicator /> : undefined}
+        onToggleComplete={isCompleted ? onReopen : canComplete ? onAttemptComplete : undefined}
         completionAccessibilityLabel={isCompleted
-          ? `${occurrence.title}, completed`
+          ? `Mark ${occurrence.title} incomplete`
           : `Complete ${occurrence.title}`}
         onPress={onOpen}
         rowAccessibilityLabel={`Open details for ${occurrence.title}`}
@@ -218,13 +241,12 @@ function HouseholdRow({ occurrence, tokensEnabled, onOpen, onTake }: {
       <ActivityListItem
         surface="flat"
         title={occurrence.title}
-        meta={tokensEnabled ? String(occurrence.tokenValue) : undefined}
-        metaLeadingIconName={tokensEnabled ? 'token' : undefined}
-        metaLeadingIconSize={16}
+        meta={tokensEnabled ? tokenCount(occurrence.tokenValue) : undefined}
+        metaLeadingIconName={tokensEnabled ? 'circleDollarSign' : undefined}
+        metaLeadingIconSize={15}
         metaAccessibilityLabel={rowMetadataAccessibilityLabel(occurrence, tokensEnabled)}
         showPriorityControl={false}
         showCheckbox={false}
-        leadingAccessory={<ChoreStateIndicator kind="household" />}
         onPress={onOpen}
         rowAccessibilityLabel={`Open details for ${occurrence.title}`}
         metaAccessory={(
@@ -234,6 +256,123 @@ function HouseholdRow({ occurrence, tokensEnabled, onOpen, onTake }: {
         )}
       />
     </View>
+  );
+}
+
+function caregiverRepeatLabel(occurrence: ChoreOccurrence): string {
+  const label = formatActivityRepeatLabel({
+    repeatRule: occurrence.repeatRule,
+    repeatCustom: occurrence.repeatCustom,
+  });
+  return label === 'Off' ? 'One time' : label;
+}
+
+function CaregiverRow({ occurrence, members, tokensEnabled, onOpen }: {
+  occurrence: ChoreOccurrence;
+  members: ChoreMember[];
+  tokensEnabled: boolean;
+  onOpen: () => void;
+}) {
+  const assignedMember = occurrence.assignedMemberId
+    ? members.find((member) => member.id === occurrence.assignedMemberId) ?? null
+    : null;
+  const assignee = assignedMember?.displayName ?? 'Household';
+  const status = occurrence.state === 'waiting_approval'
+    ? 'Waiting for review'
+    : occurrence.state === 'needs_another_pass'
+      ? 'Needs another pass'
+      : caregiverRepeatLabel(occurrence);
+  const metadata = `${status}${tokensEnabled ? ` · ${tokenCount(occurrence.tokenValue)}` : ''}`;
+  const accessibilityMetadata = `${assignee} · ${metadata}`;
+  return (
+    <View style={styles.row} testID={`chores.occurrence.${occurrence.activityOccurrenceId}`}>
+      <ActivityListItem
+        surface="flat"
+        title={occurrence.title}
+        meta={metadata}
+        metaLeadingAccessory={(
+          <ChoreMemberPill
+            accessible={false}
+            kind={assignedMember ? 'member' : 'household'}
+            name={assignee}
+            size="compact"
+            testID={assignedMember
+              ? `chores.assignee.${assignedMember.id}`
+              : 'chores.assignee.household'}
+          />
+        )}
+        showPriorityControl={false}
+        showCheckbox={false}
+        onPress={onOpen}
+        rowAccessibilityLabel={`Open details for ${occurrence.title}. ${accessibilityMetadata}`}
+      />
+    </View>
+  );
+}
+
+type CaregiverChoreFilter = 'all' | 'household' | string;
+
+function CaregiverInventoryFilter({ value, members, onChange }: {
+  value: CaregiverChoreFilter;
+  members: ChoreMember[];
+  onChange: (value: CaregiverChoreFilter) => void;
+}) {
+  const selectedMember = members.find((member) => member.id === value);
+  const label = value === 'all'
+    ? 'All chores'
+    : value === 'household'
+      ? 'Household'
+      : selectedMember?.displayName ?? 'All chores';
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Filter chores, ${label}`}
+          style={({ pressed }) => [styles.inventoryFilter, pressed && styles.pressed]}
+        >
+          {selectedMember ? <ProfileAvatar name={selectedMember.displayName} size={20} /> : null}
+          {value === 'household' ? <Icon name="home" size={16} color={colors.pine800} /> : null}{/* @kwilt-brand-moment: household filter identity uses the requested pine mark. */}
+          <Text variant="label">{label}</Text>
+          <Icon name="chevronDown" size={14} color={colors.textSecondary} />
+        </Pressable>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="bottom" sideOffset={6} align="start">
+        <DropdownMenuLabel>Show chores for</DropdownMenuLabel>
+        <DropdownMenuItem
+          accessibilityLabel="Show all chores"
+          selected={value === 'all'}
+          onPress={() => onChange('all')}
+        >
+          <Text>All chores</Text>
+        </DropdownMenuItem>
+        {members.filter((member) => member.role === 'child').map((member) => (
+          <DropdownMenuItem
+            key={member.id}
+            accessibilityLabel={`Show ${member.displayName} chores`}
+            selected={value === member.id}
+            onPress={() => onChange(member.id)}
+          >
+            <View style={styles.filterMenuItem}>
+              <ProfileAvatar name={member.displayName} size={24} />
+              <Text>{member.displayName}</Text>
+            </View>
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuItem
+          accessibilityLabel="Show household chores"
+          selected={value === 'household'}
+          onPress={() => onChange('household')}
+        >
+          <View style={styles.filterMenuItem}>
+            <View style={styles.householdFilterMark}>
+              <Icon name="home" size={15} color={colors.pine800} /> {/* @kwilt-brand-moment: household filter identity uses the requested pine mark. */}
+            </View>
+            <Text>Household</Text>
+          </View>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -247,22 +386,109 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const take = useChoreLearningStore((state) => state.take);
   const release = useChoreLearningStore((state) => state.release);
   const complete = useChoreLearningStore((state) => state.complete);
+  const reopen = useChoreLearningStore((state) => state.reopen);
   const setTokensEnabled = useChoreLearningStore((state) => state.setTokensEnabled);
   const approve = useChoreLearningStore((state) => state.approve);
   const requestAnotherPass = useChoreLearningStore((state) => state.requestAnotherPass);
   const setEvidencePhoto = useChoreLearningStore((state) => state.setEvidencePhoto);
+  const addChore = useChoreLearningStore((state) => state.addChore);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [agreementOpen, setAgreementOpen] = useState(false);
   const [agreementBarHeight, setAgreementBarHeight] = useState(0);
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<string | null>(null);
-  const projection = useMemo(() => projectChoreInventory(record, record.activeMemberId), [record]);
-  const agreement = useMemo(() => projectChoreAgreement(record, record.activeMemberId), [record]);
+  const [quickAddValue, setQuickAddValue] = useState('');
+  const [quickAddFocused, setQuickAddFocused] = useState(false);
+  const [quickAddAiActions, setQuickAddAiActions] = useState<QuickAddAiAction[]>(
+    DEFAULT_QUICK_ADD_AI_ACTIONS,
+  );
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [choreDraft, setChoreDraft] = useState<ChoreDraft | null>(null);
+  const [enrichingDraft, setEnrichingDraft] = useState(false);
+  const [dockReservedHeight, setDockReservedHeight] = useState(0);
+  const [chatVisible, setChatVisible] = useState(false);
+  const [chatThreadId, setChatThreadId] = useState<string | null>(null);
+  const [caregiverFilter, setCaregiverFilter] = useState<CaregiverChoreFilter>('all');
+  const quickAddInputRef = useRef<TextInput | null>(null);
+  const touchedDraftFieldsRef = useRef(new Set<ChoreDraftField>());
+  const enrichmentRunRef = useRef(0);
+  const projectionNow = now();
+  const projection = projectChoreInventory(record, record.activeMemberId, projectionNow);
+  const agreement = projectChoreAgreement(record, record.activeMemberId, projectionNow);
   const reviewQueue = useMemo(() => projectChoreReviewQueue(record, record.activeMemberId), [record]);
   const selectedOccurrence = record.occurrences.find((item) => item.activityOccurrenceId === selectedOccurrenceId) ?? null;
   const isCaregiver = projection.member.role === 'caregiver';
+  const chatLaunchContext = useMemo<UnifiedChatLaunchContext>(() => ({
+    capabilityId: 'chores',
+    surface: 'inventory',
+    returnTarget: { name: 'Chores' },
+  }), []);
   const caregiverAvatarUrl = userProfile?.avatarUrl || authIdentity?.avatarUrl;
+  const caregiverInventory = useMemo(
+    () => projectCaregiverChoreInventory(record, record.activeMemberId),
+    [record],
+  );
+  const caregiverOccurrences = useMemo(() => {
+    if (caregiverFilter === 'all') return caregiverInventory;
+    if (caregiverFilter === 'household') {
+      return caregiverInventory.filter((occurrence) => occurrence.assignedMemberId == null);
+    }
+    return caregiverInventory.filter((occurrence) => occurrence.assignedMemberId === caregiverFilter);
+  }, [caregiverFilter, caregiverInventory]);
   const completeOccurrence = (id: string) => complete(id, now().toISOString());
+  const closeChoreEditor = () => {
+    enrichmentRunRef.current += 1;
+    setEnrichingDraft(false);
+    setEditorOpen(false);
+    setChoreDraft(null);
+    touchedDraftFieldsRef.current.clear();
+  };
+  const changeChoreDraft = <Field extends ChoreDraftField>(
+    field: Field,
+    value: ChoreDraft[Field],
+  ) => {
+    touchedDraftFieldsRef.current.add(field);
+    setChoreDraft((current) => current ? { ...current, [field]: value } : current);
+  };
+  const submitQuickAdd = (options?: { aiActions?: QuickAddAiAction[] }) => {
+    const sourceText = quickAddValue.trim();
+    if (!sourceText) return;
+    const initialDraft = createChoreDraft(sourceText, record.members);
+    const selectedActions = (options?.aiActions ?? [])
+      .filter((action): action is Exclude<QuickAddAiAction, 'cover_image'> => action !== 'cover_image');
+    const runId = enrichmentRunRef.current + 1;
+    enrichmentRunRef.current = runId;
+    touchedDraftFieldsRef.current.clear();
+    setChoreDraft(initialDraft);
+    setEditorOpen(true);
+    setQuickAddFocused(false);
+    setQuickAddValue('');
+    setEnrichingDraft(selectedActions.length > 0);
+    if (selectedActions.length === 0) return;
+
+    void enrichActivityWithAI({
+      title: sourceText,
+      goalId: null,
+      selectedActions,
+    }).then((enrichment) => {
+      if (enrichmentRunRef.current !== runId) return;
+      setChoreDraft((current) => current
+        ? applyChoreDraftEnrichment(current, enrichment, touchedDraftFieldsRef.current)
+        : current);
+    }).finally(() => {
+      if (enrichmentRunRef.current === runId) setEnrichingDraft(false);
+    });
+  };
+  const commitChoreDraft = () => {
+    if (!choreDraft?.title.trim()) return;
+    const createdAt = now();
+    addChore(
+      choreDraft,
+      createdAt.toISOString(),
+      `chore-${createdAt.getTime().toString(36)}-${record.occurrences.length + 1}`,
+    );
+    closeChoreEditor();
+  };
   const returnOccurrenceToFamilyList = (id: string) => {
     release(id);
     useToastStore.getState().showToast({
@@ -273,25 +499,42 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
       bottomOffset: agreementBarHeight + spacing.md,
     });
   };
-  const addEvidencePhoto = async (occurrence: ChoreOccurrence) => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync().catch(() => null);
-    if (!permission?.granted) {
-      Alert.alert('Photo access needed', 'Allow photo library access to attach a chore photo.');
-      return;
+  const addEvidencePhoto = async (
+    occurrence: ChoreOccurrence,
+    source: 'camera' | 'library',
+  ) => {
+    try {
+      const permission = source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Photo access needed',
+          source === 'camera'
+            ? 'Allow camera access in Settings to take a chore photo.'
+            : 'Allow photo library access in Settings to choose a chore photo.',
+        );
+        return;
+      }
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: getImagePickerMediaTypesImages(),
+        quality: 0.82,
+      };
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+      if (result.canceled) return;
+      const uri = result.assets?.[0]?.uri;
+      if (!uri) return;
+      const stableUri = await persistImageUri({
+        uri,
+        subdir: 'chores/evidence',
+        namePrefix: occurrence.activityOccurrenceId,
+      });
+      setEvidencePhoto(occurrence.activityOccurrenceId, stableUri);
+    } catch {
+      Alert.alert('Unable to add photo', 'Something went wrong. Please try again.');
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: getImagePickerMediaTypesImages(),
-      quality: 0.82,
-    });
-    if (result.canceled) return;
-    const uri = result.assets?.[0]?.uri;
-    if (!uri) return;
-    const stableUri = await persistImageUri({
-      uri,
-      subdir: 'chores/evidence',
-      namePrefix: occurrence.activityOccurrenceId,
-    });
-    setEvidencePhoto(occurrence.activityOccurrenceId, stableUri);
   };
 
   return (
@@ -316,19 +559,14 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
       <CanvasScrollView
         contentContainerStyle={styles.content}
         extraBottomPadding={isCaregiver && reviewQueue.length > 0
-          ? spacing['3xl'] * 3
+          ? Math.max(dockReservedHeight, spacing['3xl'] * 3)
+          : isCaregiver
+            ? dockReservedHeight
           : !isCaregiver && (agreement.headline || agreement.tokenBalance != null)
             ? agreementBarHeight + spacing.lg
             : 0}
         showsVerticalScrollIndicator={false}
       >
-        {isCaregiver ? (
-          <View style={styles.caregiverIntro}>
-            <Heading variant="sm">Household chores</Heading>
-            <Text tone="secondary">See what is open. Reviews appear here when a child asks for one.</Text>
-          </View>
-        ) : null}
-
         {!isCaregiver ? (
           <View style={styles.section} testID="chores.section.for-member">
             <Heading variant="sm">My chores</Heading>
@@ -339,7 +577,8 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                   occurrence={occurrence}
                   tokensEnabled={record.tokensEnabled}
                   onOpen={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
-                  onComplete={() => completeOccurrence(occurrence.activityOccurrenceId)}
+                  onAttemptComplete={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
+                  onReopen={() => reopen(occurrence.activityOccurrenceId)}
                   onReturnToFamilyList={() => returnOccurrenceToFamilyList(occurrence.activityOccurrenceId)}
                 />
               )) : <Text tone="secondary">Nothing is waiting for you right now.</Text>}
@@ -348,17 +587,35 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         ) : null}
 
         <View style={styles.section} testID="chores.section.household">
-          <Heading variant="sm">{isCaregiver ? 'Household' : 'Choose a chore'}</Heading>
+          {isCaregiver ? (
+            <CaregiverInventoryFilter
+              value={caregiverFilter}
+              members={record.members}
+              onChange={setCaregiverFilter}
+            />
+          ) : <Heading variant="sm">Choose a chore</Heading>}
           <View style={styles.rows}>
-            {projection.household.length ? projection.household.map((occurrence) => (
-              <HouseholdRow
-                key={occurrence.activityOccurrenceId}
-                occurrence={occurrence}
-                tokensEnabled={record.tokensEnabled}
-                onOpen={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
-                onTake={() => take(occurrence.activityOccurrenceId)}
-              />
-            )) : <Text tone="secondary">No household chores are open right now.</Text>}
+            {isCaregiver ? (
+              caregiverOccurrences.length ? caregiverOccurrences.map((occurrence) => (
+                <CaregiverRow
+                  key={occurrence.activityOccurrenceId}
+                  occurrence={occurrence}
+                  members={record.members}
+                  tokensEnabled={record.tokensEnabled}
+                  onOpen={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
+                />
+              )) : <Text tone="secondary">No chores have been created yet.</Text>
+            ) : (
+              projection.household.length ? projection.household.map((occurrence) => (
+                <HouseholdRow
+                  key={occurrence.activityOccurrenceId}
+                  occurrence={occurrence}
+                  tokensEnabled={record.tokensEnabled}
+                  onOpen={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
+                  onTake={() => take(occurrence.activityOccurrenceId)}
+                />
+              )) : <Text tone="secondary">No household chores are open right now.</Text>
+            )}
           </View>
         </View>
       </CanvasScrollView>
@@ -371,34 +628,99 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         />
       ) : null}
 
-      <BottomGuide
-        visible={activeCapabilityId === 'chores' && isCaregiver && reviewQueue.length > 0 && !reviewOpen && !capabilityMenuOpen}
-        showDragHandle={false}
-        dynamicSizing
-      >
-        <View style={styles.guideContent}>
-          <View style={styles.guideCopy}>
-            <Text variant="label">{reviewQueue.length === 1 ? '1 chore ready for review' : `${reviewQueue.length} chores ready for review`}</Text>
-            <Text tone="secondary">A child marked this work done.</Text>
-          </View>
-          <Button onPress={() => setReviewOpen(true)} size="sm">Review</Button>
-        </View>
-      </BottomGuide>
+      {activeCapabilityId === 'chores'
+        && isCaregiver
+        && !capabilityMenuOpen
+        && !editorOpen
+        && !reviewOpen
+        && !settingsOpen
+        && !chatVisible
+        && selectedOccurrence == null ? (
+          <>
+            <QuickAddDock
+              placement="bottomDock"
+              placeholder="Add a chore"
+              value={quickAddValue}
+              onChangeText={setQuickAddValue}
+              inputRef={quickAddInputRef}
+              isFocused={quickAddFocused}
+              setIsFocused={setQuickAddFocused}
+              onSubmit={submitQuickAdd}
+              onCollapse={() => setQuickAddFocused(false)}
+              selectedAiActions={quickAddAiActions}
+              onSelectedAiActionsChange={setQuickAddAiActions}
+              availableAiActions={['steps', 'triggers', 'details']}
+              aiActionLabels={{
+                details: 'Clarify done',
+                triggers: 'Set a routine',
+                steps: 'Add steps',
+              }}
+              showLeadingAffordance={false}
+              inputAccessibilityLabel="Chore description"
+              submitAccessibilityLabel="Continue creating chore"
+              floatingRightInsetPx={RESTING_COMPOSER_HORIZONTAL_INSET_PX
+                + (reviewQueue.length > 0 ? 2 : 1) * (RESTING_COMPOSER_HEIGHT_PX + spacing.sm)}
+              collapsedBottomOffsetPx={RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX}
+              onReservedHeightChange={setDockReservedHeight}
+            />
+            {!quickAddFocused ? (
+              <View testID="chores.dock.actions" style={styles.dockActions}>
+                {reviewQueue.length > 0 ? (
+                  <View>
+                    <FloatingDockActionButton
+                      testID="chores.review.action"
+                      accessibilityLabel={`${reviewQueue.length} ${reviewQueue.length === 1 ? 'chore' : 'chores'} ready for review`}
+                      accessibilityHint="Opens work submitted by children"
+                      icon="inbox"
+                      isProminent
+                      onPress={() => setReviewOpen(true)}
+                      size={RESTING_COMPOSER_HEIGHT_PX}
+                    />
+                    <View pointerEvents="none" style={styles.reviewBadge}>
+                      <Text style={styles.reviewBadgeText}>{reviewQueue.length}</Text>
+                    </View>
+                  </View>
+                ) : null}
+                <FloatingDockActionButton
+                  testID="chores.chat.action"
+                  accessibilityLabel="Chat about chores"
+                  accessibilityHint="Opens contextual Chat for chores"
+                  icon="navAiGuide"
+                  isProminent
+                  onPress={() => setChatVisible(true)}
+                  size={RESTING_COMPOSER_HEIGHT_PX}
+                />
+              </View>
+            ) : null}
+          </>
+        ) : null}
 
       <ChoreDetailDrawer
         member={projection.member}
+        members={record.members}
         occurrence={selectedOccurrence}
         tokensEnabled={record.tokensEnabled}
         onClose={() => setSelectedOccurrenceId(null)}
         onTake={() => { if (selectedOccurrence) take(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
         onComplete={() => { if (selectedOccurrence) completeOccurrence(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
         onReturnToFamilyList={() => { if (selectedOccurrence) returnOccurrenceToFamilyList(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
-        onAddPhoto={() => { if (selectedOccurrence) void addEvidencePhoto(selectedOccurrence); }}
+        onTakePhoto={() => { if (selectedOccurrence) void addEvidencePhoto(selectedOccurrence, 'camera'); }}
+        onChoosePhoto={() => { if (selectedOccurrence) void addEvidencePhoto(selectedOccurrence, 'library'); }}
       />
       <ChoreAgreementDrawer
         visible={agreementOpen}
         agreement={agreement}
         onClose={() => setAgreementOpen(false)}
+      />
+      <ChoreEditorDrawer
+        visible={editorOpen}
+        draft={choreDraft}
+        members={record.members}
+        tokensEnabled={record.tokensEnabled}
+        enriching={enrichingDraft}
+        onChange={changeChoreDraft}
+        onAdd={commitChoreDraft}
+        onClose={closeChoreEditor}
       />
       <ChoreReviewDrawer
         visible={reviewOpen}
@@ -415,6 +737,15 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         onChangeTokens={setTokensEnabled}
         onClose={() => setSettingsOpen(false)}
       />
+      <UnifiedChatDrawer
+        visible={chatVisible}
+        onClose={() => setChatVisible(false)}
+        launchContext={chatLaunchContext}
+        scopeLabel="Chores"
+        source="chores_contextual_drawer"
+        threadId={chatThreadId}
+        onThreadIdChange={setChatThreadId}
+      />
     </AppShell>
   );
 }
@@ -425,14 +756,54 @@ const styles = StyleSheet.create({
   memberMenu: { minWidth: 220 },
   memberMenuItemContent: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   pressed: { opacity: 0.7 },
-  caregiverIntro: { gap: spacing.xs },
   section: { gap: spacing.md },
   rows: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   row: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   stateIndicator: { width: 22, height: 22, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 7, borderWidth: 1, borderColor: colors.gray300, backgroundColor: colors.gray100 },
-  householdIndicator: { borderWidth: 0 },
-  guideContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingBottom: spacing.lg },
-  guideCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
+  inventoryFilter: {
+    alignSelf: 'flex-start',
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.gray100,
+  },
+  filterMenuItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  householdFilterMark: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.pill,
+    backgroundColor: colors.pine100, // @kwilt-brand-moment: household filter identity uses the requested pine surface.
+  },
+  dockActions: {
+    position: 'absolute',
+    zIndex: 51,
+    elevation: 51,
+    right: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+    bottom: RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  reviewBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: colors.canvas,
+    backgroundColor: colors.primary,
+  },
+  reviewBadgeText: { color: colors.primaryForeground, fontSize: 10, lineHeight: 12 },
   actionLabel: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   claimedMenuAccessory: { alignSelf: 'flex-start', flexShrink: 0 },
 });

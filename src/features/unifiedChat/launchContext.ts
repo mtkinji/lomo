@@ -12,7 +12,7 @@ import type { AttachUnifiedChatContextInput } from './types';
 import { dateKeyToLocalDate, formatDayLabel, toLocalDateKey } from '../../services/plan/planDates';
 
 export type UnifiedChatLaunchContext = {
-  capabilityId: Extract<UnifiedChatCapabilityId, 'goals' | 'todos' | 'chapters' | 'meal_planning' | 'plan' | 'recipes'>;
+  capabilityId: Extract<UnifiedChatCapabilityId, 'goals' | 'todos' | 'chapters' | 'meal_planning' | 'plan' | 'recipes' | 'chores'>;
   surface: 'inventory' | 'detail';
   object?: { type: 'goal' | 'activity' | 'chapter' | 'day' | 'recipe'; id: string };
   returnTarget: Record<string, unknown>;
@@ -50,6 +50,7 @@ const CAPABILITY_LABELS: Record<UnifiedChatLaunchContext['capabilityId'], string
   goals: 'Goals',
   todos: 'To-dos',
   chapters: 'Chapters',
+  chores: 'Chores',
   meal_planning: 'Meals',
   plan: 'Plan',
   recipes: 'Recipes',

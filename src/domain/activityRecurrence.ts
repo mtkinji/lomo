@@ -1,4 +1,19 @@
-import type { Activity, ActivityRepeatCustom } from './types';
+import type {
+  Activity,
+  ActivityRepeatBasis,
+  ActivityRepeatCustom,
+  ActivityRepeatRule,
+} from './types';
+
+export type RepeatScheduleSource = {
+  repeatRule?: ActivityRepeatRule | null;
+  repeatCustom?: ActivityRepeatCustom | null;
+  repeatBasis?: ActivityRepeatBasis | null;
+  scheduledDate?: string | null;
+  reminderAt?: string | null;
+  scheduledAt?: string | null;
+  createdAt?: string | null;
+};
 
 const CLOSED_STATUSES = new Set(['done', 'skipped', 'cancelled']);
 
@@ -24,7 +39,7 @@ function pad2(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-function localDateKey(date: Date): string {
+export function localDateKey(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
@@ -97,7 +112,7 @@ function normalizeWeekdays(days: unknown, fallback: number): number[] {
   return picked.length > 0 ? picked : [fallback];
 }
 
-function activityAnchor(activity: Activity): Date | null {
+function activityAnchor(activity: RepeatScheduleSource): Date | null {
   const dateAnchor = parseDate(activity.scheduledDate) ?? parseDate(activity.reminderAt) ?? parseDate(activity.createdAt);
   if (!dateAnchor) return null;
   return copyTime(parseDate(activity.reminderAt) ?? parseDate(activity.scheduledAt), dateAnchor);
@@ -182,7 +197,7 @@ export function isClosedActivityStatus(status: Activity['status']): boolean {
   return CLOSED_STATUSES.has(status);
 }
 
-export function hasRepeatSchedule(activity: Activity): boolean {
+export function hasRepeatSchedule(activity: RepeatScheduleSource): boolean {
   if (!activity.repeatRule) return false;
   return activity.repeatRule !== 'custom' || Boolean(activity.repeatCustom);
 }
@@ -192,7 +207,7 @@ export function getRepeatSeriesId(activity: Activity): string {
 }
 
 export function getNextOccurrenceDate(params: {
-  activity: Activity;
+  activity: RepeatScheduleSource;
   closedAt: Date;
 }): Date | null {
   const { activity, closedAt } = params;
@@ -216,7 +231,11 @@ export function getNextOccurrenceDate(params: {
     case 'yearly':
       return nextEveryNYears(basis === 'after_completion' ? copyTime(anchor, closedAt) : anchor, after, 1);
     case 'custom':
-      return nextForCustom(basis === 'after_completion' ? copyTime(anchor, closedAt) : anchor, after, activity.repeatCustom);
+      return nextForCustom(
+        basis === 'after_completion' ? copyTime(anchor, closedAt) : anchor,
+        after,
+        activity.repeatCustom ?? undefined,
+      );
     default:
       return null;
   }

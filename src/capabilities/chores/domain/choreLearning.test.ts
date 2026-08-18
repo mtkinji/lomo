@@ -2,9 +2,12 @@ import {
   approveChoreOccurrence,
   completeChoreOccurrence,
   createChoreLearningRecord,
+  normalizeChoreLearningRecord,
   projectChoreAgreement,
+  projectCaregiverChoreInventory,
   projectChoreInventory,
   projectChoreReviewQueue,
+  reopenChoreOccurrence,
   releaseChoreOccurrence,
   returnChoreOccurrenceForAnotherPass,
   setChoreEvidencePhoto,
@@ -13,6 +16,135 @@ import {
 } from './choreLearning';
 
 describe('Chores learning domain', () => {
+  it('migrates legacy availability into the shared to-do recurrence contract', () => {
+    const current = createChoreLearningRecord();
+    const legacy = {
+      ...current,
+      version: 6,
+      occurrences: current.occurrences.map((occurrence, index) => ({
+        ...occurrence,
+        availability: index === 0 ? 'daily' : 'as_needed',
+        repeatRule: undefined,
+        repeatCustom: undefined,
+        repeatBasis: undefined,
+        scheduledDate: undefined,
+      })),
+    };
+
+    const migrated = normalizeChoreLearningRecord(legacy);
+
+    expect(migrated.version).toBe(8);
+    expect(migrated.occurrences[0]).toMatchObject({
+      repeatRule: 'daily',
+      repeatBasis: 'scheduled',
+    });
+    expect(migrated.occurrences[1].repeatRule).toBe('weekdays');
+  });
+
+  it('repairs known demo schedules without turning a legacy user-created chore into a repeat', () => {
+    const current = createChoreLearningRecord();
+    const legacy = {
+      ...current,
+      version: 7,
+      occurrences: [
+        ...current.occurrences.map((occurrence) => ({
+          ...occurrence,
+          repeatRule: undefined,
+          repeatCustom: undefined,
+          repeatBasis: undefined,
+        })),
+        {
+          ...current.occurrences[0],
+          activityOccurrenceId: 'activity-occurrence-user-one-time',
+          activitySeriesId: 'activity-series-user-one-time',
+          title: 'Carry the boxes downstairs',
+          repeatRule: undefined,
+          repeatCustom: undefined,
+          repeatBasis: undefined,
+        },
+      ],
+    };
+
+    const migrated = normalizeChoreLearningRecord(legacy);
+
+    expect(migrated.version).toBe(8);
+    expect(migrated.occurrences[0].repeatRule).toBe('daily');
+    expect(migrated.occurrences.at(-1)?.repeatRule).toBeUndefined();
+  });
+
+  it('rejects malformed custom recurrence in persisted chore data', () => {
+    const current = createChoreLearningRecord();
+    const malformed = {
+      ...current,
+      occurrences: current.occurrences.map((occurrence, index) => index === 0
+        ? {
+          ...occurrence,
+          repeatRule: 'custom',
+          repeatCustom: { cadence: 'weeks', interval: 0, weekdays: [] },
+        }
+        : occurrence),
+    };
+
+    expect(normalizeChoreLearningRecord(malformed)).toEqual(current);
+  });
+
+  it('creates the next trusted recurring chore only after the current occurrence completes', () => {
+    const record = createChoreLearningRecord();
+    const occurrenceId = 'activity-occurrence-charlie-feed-scout-2026-08-17';
+    const beforeCount = record.occurrences.length;
+
+    const completed = completeChoreOccurrence(
+      record,
+      occurrenceId,
+      'member-charlie',
+      '2026-08-18T14:30:00.000Z',
+    );
+
+    expect(completed.occurrences).toHaveLength(beforeCount + 1);
+    expect(completed.occurrences.at(-1)).toMatchObject({
+      activitySeriesId: 'activity-series-feed-scout',
+      repeatRule: 'daily',
+      scheduledDate: '2026-08-19',
+      state: 'ready',
+      performedByMemberId: null,
+      repeatCreatedFromOccurrenceId: occurrenceId,
+    });
+    expect(projectCaregiverChoreInventory(completed, 'member-andrew')).toHaveLength(beforeCount);
+    expect(projectCaregiverChoreInventory(completed, 'member-andrew').find(
+      (occurrence) => occurrence.activitySeriesId === 'activity-series-feed-scout',
+    )).toMatchObject({
+      scheduledDate: '2026-08-19',
+      state: 'ready',
+    });
+  });
+
+  it('waits for caregiver approval before advancing a reviewed recurring chore', () => {
+    const record = createChoreLearningRecord();
+    const occurrenceId = 'activity-occurrence-olive-dishwasher-2026-08-18';
+    const submitted = completeChoreOccurrence(
+      record,
+      occurrenceId,
+      'member-olive',
+      '2026-08-18T15:00:00.000Z',
+    );
+    expect(submitted.occurrences).toHaveLength(record.occurrences.length);
+
+    const approved = approveChoreOccurrence(
+      submitted,
+      occurrenceId,
+      'member-andrew',
+      '2026-08-18T15:05:00.000Z',
+    );
+    expect(approved.occurrences).toHaveLength(record.occurrences.length + 1);
+    expect(approved.occurrences.at(-1)).toMatchObject({
+      activitySeriesId: 'activity-series-unload-dishwasher',
+      repeatRule: 'daily',
+      scheduledDate: '2026-08-19',
+      state: 'ready',
+      repeatCreatedFromOccurrenceId: occurrenceId,
+    });
+  });
+
   it('projects Charlie’s daily work and additional family-list quota as separate clauses', () => {
     const agreement = projectChoreAgreement(createChoreLearningRecord(), 'member-charlie');
 
@@ -59,7 +191,7 @@ describe('Chores learning domain', () => {
       'member-andrew',
       '2026-08-17T14:00:00.000Z',
     );
-    expect(projectChoreAgreement(approved, 'member-charlie')).toMatchObject({
+    expect(projectChoreAgreement(approved, 'member-charlie', new Date('2026-08-17T14:00:00.000Z'))).toMatchObject({
       headline: '1 chore left today · Choose 3 more by Friday',
       supporting: 'Needed for weekend Screen Time',
       tokenBalance: 9,
@@ -153,7 +285,7 @@ describe('Chores learning domain', () => {
       'member-charlie',
       '2026-08-17T15:00:00.000Z',
     );
-    const projection = projectChoreInventory(replayed, 'member-charlie');
+    const projection = projectChoreInventory(replayed, 'member-charlie', new Date('2026-08-17T15:00:00.000Z'));
 
     expect(replayed).toBe(completed);
     expect(projection.forMember.find((item) => item.activityOccurrenceId === occurrenceId))
@@ -162,9 +294,66 @@ describe('Chores learning domain', () => {
         performedByMemberId: 'member-charlie',
         performedAtIso: '2026-08-17T14:30:00.000Z',
       });
-    expect(projectChoreAgreement(replayed, 'member-charlie').headline)
+    expect(projectChoreAgreement(replayed, 'member-charlie', new Date('2026-08-17T15:00:00.000Z')).headline)
       .toBe('Daily chores submitted · Choose 3 more by Friday');
     expect(projection.tokenBalance).toBeNull();
+  });
+
+  it('reopens completed work for the same child and removes completion credit', () => {
+    const assignedOccurrenceId = 'activity-occurrence-charlie-breakfast-dishes-2026-08-17';
+    const enabled = setChoreTokensEnabled(createChoreLearningRecord(), true, 'member-andrew');
+
+    const reopened = reopenChoreOccurrence(enabled, assignedOccurrenceId, 'member-charlie');
+    const occurrence = reopened.occurrences.find(
+      (item) => item.activityOccurrenceId === assignedOccurrenceId,
+    );
+
+    expect(occurrence).toMatchObject({
+      state: 'ready',
+      performedByMemberId: null,
+      performedAtIso: null,
+      reviewedByMemberId: null,
+      reviewedAtIso: null,
+      reviewNote: null,
+    });
+    expect(projectChoreInventory(reopened, 'member-charlie').tokenBalance).toBe(7);
+    expect(projectChoreAgreement(reopened, 'member-charlie').headline)
+      .toBe('2 chores left today · Choose 3 more by Friday');
+  });
+
+  it('reopens approved shared work to its claimed state so checking it resubmits for approval', () => {
+    const occurrenceId = 'activity-occurrence-household-kitchen-counters-2026-08-17';
+    const claimed = takeChoreOccurrence(createChoreLearningRecord(), occurrenceId, 'member-charlie');
+    const submitted = completeChoreOccurrence(
+      claimed,
+      occurrenceId,
+      'member-charlie',
+      '2026-08-17T16:00:00.000Z',
+    );
+    const approved = approveChoreOccurrence(
+      submitted,
+      occurrenceId,
+      'member-andrew',
+      '2026-08-17T16:05:00.000Z',
+    );
+
+    const reopened = reopenChoreOccurrence(approved, occurrenceId, 'member-charlie');
+    const resubmitted = completeChoreOccurrence(
+      reopened,
+      occurrenceId,
+      'member-charlie',
+      '2026-08-17T16:10:00.000Z',
+    );
+
+    expect(reopened.occurrences.find((item) => item.activityOccurrenceId === occurrenceId))
+      .toMatchObject({
+        state: 'claimed',
+        claimedByMemberId: 'member-charlie',
+        performedByMemberId: null,
+        reviewedByMemberId: null,
+      });
+    expect(resubmitted.occurrences.find((item) => item.activityOccurrenceId === occurrenceId))
+      .toMatchObject({ state: 'waiting_approval', performedByMemberId: 'member-charlie' });
   });
 
   it('keeps review-required work waiting without counting it as complete', () => {
@@ -220,6 +409,7 @@ describe('Chores learning domain', () => {
     expect(projectChoreReviewQueue(record, 'member-charlie')).toEqual([]);
     expect(queue.map((item) => item.activityOccurrenceId)).toEqual([
       'activity-occurrence-charlie-entry-shoes-2026-08-17',
+      'activity-occurrence-olive-dishwasher-2026-08-18',
     ]);
 
     const approved = approveChoreOccurrence(

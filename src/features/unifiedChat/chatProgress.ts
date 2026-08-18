@@ -31,6 +31,7 @@ const SINGLE_CAPABILITY_CHECKING_COPY: Record<UnifiedChatCapabilityId, string> =
   account: 'Checking your account',
   arcs: 'Checking your Arcs',
   chapters: 'Checking your Chapters',
+  chores: 'Checking your chores',
   goals: 'Checking your goals',
   money: 'Checking your money',
   meal_planning: 'Checking your meals',

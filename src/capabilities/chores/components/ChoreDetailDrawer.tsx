@@ -8,28 +8,34 @@ import { Text } from '../../../ui/primitives';
 import type { ChoreMember, ChoreOccurrence } from '../domain/choreLearning';
 import { Icon } from '../../../ui/Icon';
 import { ChoreEvidencePhoto } from './ChoreEvidencePhoto';
+import { ChoreMemberPill } from './ChoreMemberPill';
 import { ChoreTokenValue } from './ChoreAgreementSurface';
+import { formatChoreEventTimestamp } from './choreDetailPresentation';
 
 type Props = {
   member: ChoreMember;
+  members: ChoreMember[];
   occurrence: ChoreOccurrence | null;
   tokensEnabled: boolean;
   onClose: () => void;
   onTake: () => void;
   onComplete: () => void;
   onReturnToFamilyList: () => void;
-  onAddPhoto: () => void;
+  onTakePhoto: () => void;
+  onChoosePhoto: () => void;
 };
 
 export function ChoreDetailDrawer({
   member,
+  members,
   occurrence,
   tokensEnabled,
   onClose,
   onTake,
   onComplete,
   onReturnToFamilyList,
-  onAddPhoto,
+  onTakePhoto,
+  onChoosePhoto,
 }: Props) {
   const canTake = occurrence?.state === 'available';
   const canComplete = occurrence?.state === 'ready'
@@ -45,21 +51,35 @@ export function ChoreDetailDrawer({
       || occurrence.claimedByMemberId === member.id
       || occurrence.performedByMemberId === member.id
     );
-  const scope = occurrence?.participation === 'open'
-    ? 'Available to anyone'
-    : `For ${member.displayName}`;
+  const performer = members.find((candidate) => candidate.id === occurrence?.performedByMemberId);
+  const assignedMember = members.find((candidate) => candidate.id === occurrence?.assignedMemberId);
+  const claimedMember = members.find((candidate) => candidate.id === occurrence?.claimedByMemberId);
+  const relevantMember = performer ?? claimedMember ?? assignedMember;
+  const approver = members.find((candidate) => candidate.id === occurrence?.reviewedByMemberId);
+  const completedAt = formatChoreEventTimestamp(occurrence?.performedAtIso ?? null);
+  const approvedAt = formatChoreEventTimestamp(occurrence?.reviewedAtIso ?? null);
+  const isCompleted = occurrence?.state === 'completed';
+  const memberPillAccessibilityLabel = relevantMember
+    ? isCompleted
+      ? `Completed by ${relevantMember.displayName}`
+      : `For ${relevantMember.displayName}`
+    : undefined;
 
   return (
     <BottomDrawer
       visible={Boolean(occurrence)}
       onClose={onClose}
-      snapPoints={['48%', '78%']}
+      snapPoints={['78%', '92%']}
       initialSnapIndex={0}
       bottomAccessory={occurrence && (canTake || canComplete || canRelease) ? (
         <BottomDrawerFooter showTopBorder>
           <View style={styles.actions}>
             {canTake ? <Button fullWidth onPress={onTake}>Take chore</Button> : null}
-            {canComplete ? <Button fullWidth onPress={onComplete}>Mark done</Button> : null}
+            {canComplete ? (
+              <Button fullWidth onPress={onComplete}>
+                {occurrence?.reviewPolicy === 'caregiver_review' ? 'Submit for approval' : 'Mark done'}
+              </Button>
+            ) : null}
             {canRelease ? (
               <Button fullWidth variant="secondary" onPress={onReturnToFamilyList}>
                 <View style={styles.buttonLabel}>
@@ -80,37 +100,87 @@ export function ChoreDetailDrawer({
           <BottomDrawerHeader
             variant="withClose"
             title={occurrence.title}
-            subtitle={scope}
+            titleVariant="sm"
             onClose={onClose}
             closeAccessibilityLabel="Close chore details"
           />
-          <View style={styles.block}>
-            <Text variant="label">What done looks like</Text>
-            <Text>{occurrence.definitionOfDone}</Text>
-          </View>
-          {occurrence.evidencePhotoUri ? (
-            <ChoreEvidencePhoto
-              uri={occurrence.evidencePhotoUri}
-              childName={member.displayName}
+          {relevantMember ? (
+            <ChoreMemberPill
+              name={relevantMember.displayName}
+              accessibilityLabel={memberPillAccessibilityLabel}
             />
           ) : null}
+          {canTake ? <Text tone="secondary">Anyone can take this chore.</Text> : null}
+          {isCompleted && (completedAt || approvedAt) ? (
+            <View style={styles.history}>
+              {completedAt ? (
+                <View style={styles.block}>
+                  <Text variant="label">Completed</Text>
+                  <Text>{completedAt}</Text>
+                </View>
+              ) : null}
+              {approvedAt ? (
+                <View style={styles.block}>
+                  <Text variant="label">
+                    {approver ? `Approved by ${approver.displayName}` : 'Approved'}
+                  </Text>
+                  <Text>{approvedAt}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
           {canAttachPhoto ? (
-            <Button
-              accessibilityLabel={occurrence.evidencePhotoUri ? 'Change chore photo' : 'Add chore photo'}
-              variant="secondary"
-              onPress={onAddPhoto}
-              style={styles.photoButton}
-            >
-              <View style={styles.buttonLabel}>
-                <Icon name="camera" size={17} color={colors.textPrimary} />
-                <Text variant="label">{occurrence.evidencePhotoUri ? 'Change photo' : 'Add photo'}</Text>
+            <View style={styles.photoSection}>
+              <View style={styles.block}>
+                <Text variant="label">Photo</Text>
+                <Text tone="secondary">Optional — add one if it helps show the finished chore.</Text>
               </View>
-            </Button>
+              {occurrence.evidencePhotoUri ? (
+                <ChoreEvidencePhoto
+                  uri={occurrence.evidencePhotoUri}
+                  childName={relevantMember?.displayName ?? member.displayName}
+                />
+              ) : null}
+              <Button
+                accessibilityLabel={occurrence.evidencePhotoUri ? 'Retake photo of this chore' : 'Take a photo of this chore'}
+                fullWidth
+                variant="secondary"
+                onPress={onTakePhoto}
+              >
+                <View style={styles.buttonLabel}>
+                  <Icon name="camera" size={19} color={colors.textPrimary} />
+                  <Text variant="label">{occurrence.evidencePhotoUri ? 'Retake photo' : 'Take a photo'}</Text>
+                </View>
+              </Button>
+              <Button
+                accessibilityLabel="Choose a photo for this chore"
+                fullWidth
+                variant="ghost"
+                onPress={onChoosePhoto}
+              >
+                Choose from library
+              </Button>
+            </View>
+          ) : null}
+          {!canAttachPhoto && occurrence.evidencePhotoUri ? (
+            <ChoreEvidencePhoto
+              uri={occurrence.evidencePhotoUri}
+              childName={relevantMember?.displayName ?? member.displayName}
+            />
+          ) : null}
+          {!isCompleted ? (
+            <View style={styles.block}>
+              <Text variant="label">What done looks like</Text>
+              <Text>{occurrence.definitionOfDone}</Text>
+            </View>
           ) : null}
           {tokensEnabled ? (
             <View style={styles.block}>
-              <Text variant="label">Earns</Text>
-              <ChoreTokenValue value={occurrence.tokenValue} context="earning" />
+              <Text variant="label">{isCompleted ? 'Earned' : 'Earns'}</Text>
+              <ChoreTokenValue
+                value={occurrence.tokenValue}
+                context={isCompleted ? 'earned' : 'earning'}
+              />
             </View>
           ) : null}
           {occurrence.state === 'waiting_approval' ? (
@@ -121,9 +191,6 @@ export function ChoreDetailDrawer({
               <Text variant="label">Needs another pass</Text>
               <Text>{occurrence.reviewNote ?? 'Take another look, then mark it done again.'}</Text>
             </View>
-          ) : null}
-          {occurrence.state === 'completed' ? (
-            <Text tone="secondary">This chore is complete.</Text>
           ) : null}
         </BottomDrawerScrollView>
       ) : null}
@@ -144,6 +211,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray100,
   },
   actions: { gap: spacing.sm },
-  photoButton: { alignSelf: 'flex-start' },
+  photoSection: { gap: spacing.sm },
+  history: { gap: spacing.md },
   buttonLabel: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
 });

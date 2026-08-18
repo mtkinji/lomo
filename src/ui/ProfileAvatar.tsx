@@ -1,16 +1,15 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography } from '../theme';
 
 export interface ProfileAvatarProps {
   /**
    * Full display name for the user. Used to derive initials and to pick
-   * a deterministic gradient palette.
+   * a deterministic brand palette.
    */
   name?: string;
   /**
    * Optional remote avatar URL. When provided, the image is rendered on top
-   * of the gradient; when omitted, we fall back to initials-only.
+   * of the fallback surface; when omitted, we fall back to initials-only.
    */
   avatarUrl?: string | null;
   /**
@@ -27,15 +26,11 @@ export interface ProfileAvatarProps {
   style?: View['props']['style'];
 }
 
-const GRADIENT_PALETTES: [string, string][] = [
-  // Pine → Indigo
-  [colors.pine400, colors.indigo400],
-  // Pine → Turmeric
-  [colors.pine500, colors.turmeric],
-  // Indigo → Madder
-  [colors.indigo500, colors.madder],
-  // Moss → Clay
-  [colors.moss, colors.clay],
+const BRAND_PALETTES = [
+  { backgroundColor: colors.pine100, textColor: colors.pine900 },
+  { backgroundColor: colors.quiltBlue100, textColor: colors.quiltBlue900 },
+  { backgroundColor: colors.turmeric100, textColor: colors.turmeric900 },
+  { backgroundColor: colors.madder100, textColor: colors.madder900 },
 ];
 
 const getInitials = (name?: string): string => {
@@ -46,23 +41,22 @@ const getInitials = (name?: string): string => {
   if (parts.length === 0) {
     return 'KW';
   }
-  const first = parts[0]?.[0] ?? '';
-  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : '';
-  const initials = `${first}${last}`.toUpperCase();
+  const firstName = parts[0] ?? '';
+  const initials = Array.from(firstName).slice(0, 2).join('').toLocaleUpperCase();
   return initials || 'KW';
 };
 
-const getGradientForName = (name?: string): [string, string] => {
+const getBrandPaletteForName = (name?: string) => {
   if (!name) {
-    return GRADIENT_PALETTES[0];
+    return BRAND_PALETTES[0];
   }
   let hash = 0;
   for (let i = 0; i < name.length; i += 1) {
     // Simple deterministic hash; stable across sessions.
     hash = (hash + name.charCodeAt(i) * 17) % 997;
   }
-  const index = hash % GRADIENT_PALETTES.length;
-  return GRADIENT_PALETTES[index];
+  const index = hash % BRAND_PALETTES.length;
+  return BRAND_PALETTES[index];
 };
 
 export function ProfileAvatar({
@@ -73,7 +67,7 @@ export function ProfileAvatar({
   style,
 }: ProfileAvatarProps) {
   const initials = getInitials(name);
-  const [startColor, endColor] = getGradientForName(name);
+  const palette = getBrandPaletteForName(name);
   const radius = borderRadius ?? size / 2;
   const initialsFontSize = Math.max(10, Math.round(size * 0.38));
 
@@ -99,16 +93,15 @@ export function ProfileAvatar({
   }
 
   return (
-    <LinearGradient
-      colors={[startColor, endColor]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <View
+      testID="profile-avatar-fallback"
       style={[
         styles.avatarContainer,
         {
           width: size,
           height: size,
           borderRadius: radius,
+          backgroundColor: palette.backgroundColor,
         },
         style,
       ]}
@@ -120,6 +113,7 @@ export function ProfileAvatar({
             fontSize: initialsFontSize,
             height: size,
             lineHeight: size,
+            color: palette.textColor,
           },
         ]}
         numberOfLines={1}
@@ -127,7 +121,7 @@ export function ProfileAvatar({
       >
         {initials}
       </Text>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -139,7 +133,6 @@ const styles = StyleSheet.create({
   },
   initials: {
     ...typography.bodySm,
-    color: colors.canvas,
     fontFamily: typography.titleSm.fontFamily,
     textAlign: 'center',
     textAlignVertical: 'center',

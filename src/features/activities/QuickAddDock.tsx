@@ -69,6 +69,10 @@ type QuickAddDockProps = {
   onSubmit: (options?: { aiActions?: QuickAddAiAction[] }) => void;
   onCollapse: () => void;
   selectedAiActions?: QuickAddAiAction[];
+  /** Limit the shared AI menu to actions meaningful for this capability. */
+  availableAiActions?: QuickAddAiAction[];
+  /** Capability-owned labels for shared AI operations. */
+  aiActionLabels?: Partial<Record<QuickAddAiAction, string>>;
   onSelectedAiActionsChange?: (actions: QuickAddAiAction[]) => void;
   lockedAiActions?: Partial<Record<QuickAddAiAction, string>>;
   onLockedAiActionPress?: (action: QuickAddAiAction) => void;
@@ -124,6 +128,8 @@ export function QuickAddDock({
   onSubmit,
   onCollapse,
   selectedAiActions: selectedAiActionsProp,
+  availableAiActions,
+  aiActionLabels,
   onSelectedAiActionsChange,
   lockedAiActions,
   onLockedAiActionPress,
@@ -243,7 +249,18 @@ export function QuickAddDock({
   const isInputExpanded = inputHeight > QUICK_ADD_INPUT_MIN_HEIGHT;
   const composerHeight = measuredComposerHeight ?? QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX;
   const canSubmit = value.trim().length > 0;
-  const selectedAiActions = selectedAiActionsProp ?? localSelectedAiActions;
+  const availableAiActionSet = React.useMemo(
+    () => new Set(availableAiActions ?? AI_ACTION_OPTIONS.map((option) => option.id)),
+    [availableAiActions],
+  );
+  const visibleAiActionOptions = React.useMemo(
+    () => AI_ACTION_OPTIONS
+      .filter((option) => availableAiActionSet.has(option.id))
+      .map((option) => ({ ...option, label: aiActionLabels?.[option.id] ?? option.label })),
+    [aiActionLabels, availableAiActionSet],
+  );
+  const selectedAiActions = (selectedAiActionsProp ?? localSelectedAiActions)
+    .filter((action) => availableAiActionSet.has(action));
   const selectedAiActionSet = React.useMemo(() => new Set(selectedAiActions), [selectedAiActions]);
   const toggleAiAction = React.useCallback((action: QuickAddAiAction) => {
     if (lockedAiActions?.[action]) {
@@ -541,7 +558,7 @@ export function QuickAddDock({
                           <Text style={styles.aiMenuTitle}>AI actions</Text>
                           <Text style={styles.aiMenuSummary}>{aiActionSummary}</Text>
                         </View>
-                        {AI_ACTION_OPTIONS.map((chip) => {
+                        {visibleAiActionOptions.map((chip) => {
                           const selected = selectedAiActionSet.has(chip.id);
                           const lockedLabel = lockedAiActions?.[chip.id];
                           return (

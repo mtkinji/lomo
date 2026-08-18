@@ -35,6 +35,7 @@ import ChevronUp from 'lucide-react-native/dist/cjs/icons/chevron-up';
 import ChevronsUpDown from 'lucide-react-native/dist/cjs/icons/chevrons-up-down';
 import Circle from 'lucide-react-native/dist/cjs/icons/circle';
 import CircleCheck from 'lucide-react-native/dist/cjs/icons/circle-check';
+import CircleDollarSign from 'lucide-react-native/dist/cjs/icons/circle-dollar-sign';
 import CircleQuestionMark from 'lucide-react-native/dist/cjs/icons/circle-question-mark';
 import Citrus from 'lucide-react-native/dist/cjs/icons/citrus';
 import Clipboard from 'lucide-react-native/dist/cjs/icons/clipboard';
@@ -241,6 +242,7 @@ const iconMap = {
   checkCircle: { library: 'lucide', icon: CircleCheck },
   dev: { library: 'lucide', icon: Code },
   sparkles: { library: 'lucide', icon: Sparkles },
+  circleDollarSign: { library: 'lucide', icon: CircleDollarSign },
   token: { library: 'kwilt', name: 'token' },
   plan: { library: 'lucide', icon: Calendar },
   navPlan: { library: 'lucide', icon: Calendar },

@@ -6,10 +6,11 @@
 2. Can Charlie find **Return to family list** in the claimed-chore ellipsis when he changes his mind, and does the wording avoid sounding like the chore itself will be deleted?
 3. Can Charlie explain what remains, by when, and why after reading the agreement bar?
 4. Does the anchored agreement bar remain visibly subordinate to the chore list?
-5. Does Charlie understand the token icon as both a per-chore earning and his current balance without needing the visible word `tokens`?
+5. Does Charlie understand the circle-dollar-sign-plus-text treatment as both a per-chore earning and his current token balance?
 6. Does `1 waiting for approval` reassure Charlie that his completion was received while remaining truthful about credit and tokens?
 7. Does **How my chores work** answer questions that the compact bar cannot without becoming required reading?
 8. Do omitted clauses make the screen feel simpler rather than incomplete when tokens, Screen Time, or an expectation are disabled?
+9. Can Charlie uncheck completed work, and does approval-required work move to **Waiting for approval** without appearing complete?
 
 ## Evidence plan
 
@@ -30,7 +31,7 @@ Disconfirming evidence:
 - Charlie interprets the bar as an all-time score or another unexplained progress meter;
 - `Choose 3 more` is mistaken for assigned work, or the daily and weekly requirements blur together;
 - `Return to family list` is interpreted as deleting the chore itself or undoing prior completed work;
-- the token icon is mistaken for money, priority, a rating, or chore count;
+- the circle-dollar-sign treatment is mistaken for cash, allowance, priority, a rating, or chore count;
 - Charlie assumes Screen Time has already been technically unlocked because the agreement is complete;
 - pending approval feels like the completion failed or disappeared;
 - the bottom bar competes with the list or feels like a dashboard; or
@@ -42,7 +43,7 @@ Use the real native screen with no advance explanation of the revised elements.
 
 1. Ask Charlie what he thinks the two lists mean.
 2. Ask what he still needs to do and when it needs to be done.
-3. Ask what the token icon and number mean in a row and in the bottom bar.
+3. Ask what the circle-dollar-sign icon and token text mean in a row and in the bottom bar.
 4. Ask him to take a chore and then change his mind.
 5. Move one chore into `Waiting for approval` and ask what he thinks happened.
 6. Ask what completing the agreement means for Screen Time.

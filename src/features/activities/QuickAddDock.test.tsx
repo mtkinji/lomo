@@ -380,6 +380,30 @@ describe('QuickAddDock', () => {
     expect(getByLabelText('Add grocery item to list')).toBeTruthy();
   });
 
+  it('lets a capability reuse the AI menu without irrelevant actions', () => {
+    const { getByLabelText, queryByLabelText } = renderWithProviders(
+      <QuickAddDock
+        placement="bottomDock"
+        placeholder="Add a chore"
+        value="Sweep the porch"
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+        availableAiActions={['steps', 'triggers', 'details']}
+      />,
+    );
+
+    fireEvent.press(getByLabelText('AI actions'));
+
+    expect(getByLabelText('AI add steps')).toBeTruthy();
+    expect(getByLabelText('AI set triggers')).toBeTruthy();
+    expect(getByLabelText('AI fill details')).toBeTruthy();
+    expect(queryByLabelText('AI find cover')).toBeNull();
+  });
+
   it('keeps the native text input multiline while the title grows past one visual row', () => {
     const { getByTestId } = renderWithProviders(<QuickAddHarness />);
     const input = getByTestId('e2e.activities.quickAdd.input');

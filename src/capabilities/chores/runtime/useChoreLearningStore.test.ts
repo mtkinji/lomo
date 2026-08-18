@@ -15,6 +15,31 @@ describe('Chores learning store', () => {
     })).toEqual(createChoreLearningRecord());
   });
 
+  it('adds the new sample review request once when migrating the persisted demo', () => {
+    const current = createChoreLearningRecord();
+    const legacy = {
+      ...current,
+      version: 5,
+      occurrences: current.occurrences.filter(
+        (occurrence) => occurrence.activityOccurrenceId
+          !== 'activity-occurrence-olive-dishwasher-2026-08-18',
+      ),
+    };
+
+    const migrated = normalizeChoreLearningRecord(legacy);
+
+    expect(migrated.version).toBe(8);
+    expect(migrated.occurrences.filter(
+      (occurrence) => occurrence.activityOccurrenceId
+        === 'activity-occurrence-olive-dishwasher-2026-08-18',
+    )).toEqual([
+      expect.objectContaining({
+        assignedMemberId: 'member-olive',
+        state: 'waiting_approval',
+      }),
+    ]);
+  });
+
   it('switches only to a known household member', () => {
     const initial = useChoreLearningStore.getState().record;
 
@@ -26,7 +51,7 @@ describe('Chores learning store', () => {
     expect(useChoreLearningStore.getState().record).not.toBe(initial);
   });
 
-  it('delegates take, release, and completion to occurrence transitions', () => {
+  it('delegates take, release, completion, and reopening to occurrence transitions', () => {
     const occurrenceId = 'activity-occurrence-household-recycling-2026-08-17';
     const store = useChoreLearningStore.getState();
 
@@ -47,6 +72,13 @@ describe('Chores learning store', () => {
     expect(useChoreLearningStore.getState().record.occurrences.find(
       (item) => item.activityOccurrenceId === 'activity-occurrence-charlie-feed-scout-2026-08-17',
     )).toMatchObject({ state: 'completed', performedByMemberId: 'member-charlie' });
+
+    useChoreLearningStore.getState().reopen(
+      'activity-occurrence-charlie-feed-scout-2026-08-17',
+    );
+    expect(useChoreLearningStore.getState().record.occurrences.find(
+      (item) => item.activityOccurrenceId === 'activity-occurrence-charlie-feed-scout-2026-08-17',
+    )).toMatchObject({ state: 'ready', performedByMemberId: null, performedAtIso: null });
   });
 
   it('allows only the active caregiver to change the household token program', () => {
@@ -129,6 +161,30 @@ describe('Chores learning store', () => {
     expect(useChoreLearningStore.getState().record.occurrences.find(
       (item) => item.activityOccurrenceId === occurrenceId,
     )).toMatchObject({ state: 'available', claimedByMemberId: null });
+  });
+
+  it('adds a caregiver-authored draft to inventory without an earlier quick-add commit', () => {
+    const store = useChoreLearningStore.getState();
+    store.selectMember('member-andrew');
+
+    useChoreLearningStore.getState().addChore({
+      title: 'Sweep the porch',
+      assignedMemberId: null,
+      repeatRule: 'weekly',
+      repeatCustom: undefined,
+      repeatBasis: 'scheduled',
+      definitionOfDone: 'The porch is clear of dirt and leaves.',
+      reviewPolicy: 'trusted',
+      tokenValue: 1,
+    }, '2026-08-18T14:00:00.000Z', 'sweep-porch');
+
+    expect(useChoreLearningStore.getState().record.occurrences.at(-1)).toMatchObject({
+      activityOccurrenceId: 'activity-occurrence-sweep-porch',
+      title: 'Sweep the porch',
+      repeatRule: 'weekly',
+      scheduledDate: '2026-08-18',
+      state: 'available',
+    });
   });
 
   it('resets the versioned learning record without retaining mutations', () => {

@@ -7,12 +7,17 @@ import {
   createChoreLearningRecord,
   normalizeChoreLearningRecord,
   releaseChoreOccurrence,
+  reopenChoreOccurrence,
   returnChoreOccurrenceForAnotherPass,
   setChoreTokensEnabled,
   setChoreEvidencePhoto,
   takeChoreOccurrence,
   type ChoreLearningRecord,
 } from '../domain/choreLearning';
+import {
+  addChoreDraftToLearningRecord,
+  type ChoreDraft,
+} from '../domain/choreCreation';
 
 type ChoreLearningState = {
   record: ChoreLearningRecord;
@@ -20,6 +25,7 @@ type ChoreLearningState = {
   take: (activityOccurrenceId: string) => void;
   release: (activityOccurrenceId: string) => void;
   complete: (activityOccurrenceId: string, performedAtIso: string) => void;
+  reopen: (activityOccurrenceId: string) => void;
   setTokensEnabled: (enabled: boolean) => void;
   setEvidencePhoto: (activityOccurrenceId: string, evidencePhotoUri: string | null) => void;
   approve: (activityOccurrenceId: string, reviewedAtIso: string) => void;
@@ -28,6 +34,7 @@ type ChoreLearningState = {
     reviewedAtIso: string,
     note: string | null,
   ) => void;
+  addChore: (draft: ChoreDraft, createdAtIso: string, idSeed: string) => void;
   reset: () => void;
 };
 
@@ -63,6 +70,13 @@ export const useChoreLearningStore = create<ChoreLearningState>()(
           performedAtIso,
         ),
       })),
+      reopen: (activityOccurrenceId) => set((state) => ({
+        record: reopenChoreOccurrence(
+          state.record,
+          activityOccurrenceId,
+          state.record.activeMemberId,
+        ),
+      })),
       setTokensEnabled: (enabled) => set((state) => ({
         record: setChoreTokensEnabled(
           state.record,
@@ -95,11 +109,20 @@ export const useChoreLearningStore = create<ChoreLearningState>()(
           note,
         ),
       })),
+      addChore: (draft, createdAtIso, idSeed) => set((state) => ({
+        record: addChoreDraftToLearningRecord(
+          state.record,
+          draft,
+          state.record.activeMemberId,
+          createdAtIso,
+          idSeed,
+        ),
+      })),
       reset: () => set({ record: createChoreLearningRecord() }),
     }),
     {
       name: CHORE_LEARNING_STORAGE_KEY,
-      version: 4,
+      version: 8,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: ({ record }) => ({ record }),
       migrate: (persisted) => ({

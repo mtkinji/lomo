@@ -9,9 +9,9 @@ import { BottomDrawerFooter } from '../../../ui/layout/BottomDrawerFooter';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { Text } from '../../../ui/primitives';
 import { ButtonLabel } from '../../../ui/Typography';
-import { ProfileAvatar } from '../../../ui/ProfileAvatar';
 import type { ChoreMember, ChoreOccurrence } from '../domain/choreLearning';
 import { ChoreEvidencePhoto } from './ChoreEvidencePhoto';
+import { ChoreMemberPill } from './ChoreMemberPill';
 import { ChoreTokenValue } from './ChoreAgreementSurface';
 
 type Props = {
@@ -23,15 +23,6 @@ type Props = {
   onAnotherPass: (id: string, note: string | null) => void;
   onClose: () => void;
 };
-
-function PerformerPill({ name }: { name: string }) {
-  return (
-    <View accessibilityLabel={name} style={styles.performerPill}>
-      <ProfileAvatar name={name} size={28} />
-      <Text variant="label">{name}</Text>
-    </View>
-  );
-}
 
 export function ChoreReviewDrawer({
   visible,
@@ -113,7 +104,7 @@ export function ChoreReviewDrawer({
               <Text variant="label">What done looks like</Text>
               <Text>{selected.definitionOfDone}</Text>
             </View>
-            {performerName ? <PerformerPill name={performerName} /> : null}
+            {performerName ? <ChoreMemberPill name={performerName} /> : null}
             {selected.evidencePhotoUri && performerName ? (
               <ChoreEvidencePhoto
                 uri={selected.evidencePhotoUri}
@@ -153,7 +144,7 @@ export function ChoreReviewDrawer({
                 >
                   <View style={styles.queueCopy}>
                     <Text variant="body">{occurrence.title}</Text>
-                    {name ? <PerformerPill name={name} /> : null}
+                    {name ? <ChoreMemberPill name={name} /> : null}
                   </View>
                   {tokensEnabled ? (
                     <ChoreTokenValue value={occurrence.tokenValue} context="earning" />
@@ -177,17 +168,6 @@ const styles = StyleSheet.create({
   block: { gap: spacing.xs },
   actions: { gap: spacing.sm },
   approveLabel: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  performerPill: {
-    alignSelf: 'flex-start',
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingLeft: spacing.xs,
-    paddingRight: spacing.md,
-    borderRadius: radii.pill,
-    backgroundColor: colors.gray100,
-  },
   queue: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   queueRow: {
     minHeight: 68,

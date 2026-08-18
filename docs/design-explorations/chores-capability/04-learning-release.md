@@ -28,7 +28,7 @@ After this release, the child can:
 - read one next-action sentence assembled from the active expectation;
 - distinguish daily assigned work from an additional weekly choice quota;
 - see why the agreement matters when it is connected to Screen Time;
-- see their current token balance and each chore's token value through one consistent token icon; and
+- see their current token balance and each chore's token value through one quiet savings treatment; and
 - open **How my chores work** for the full agreement only when they need it.
 
 Still intentionally not supported:
@@ -43,9 +43,9 @@ Still intentionally not supported:
 
 The screen opens with `Chores`, the existing active-member control, **My chores**, and **Choose a chore**. The current top progress labels and progress bar are removed.
 
-Rows retain the shared To-do visual grammar. Assigned and claimed rows use the shared squared completion control. Available rows use a plus icon with **Take**. A claimed open-pool row uses a quiet ellipsis; its menu contains a neutral minus-icon **Return to family list** action. It never uses a trash icon or red styling. Returning a chore removes it from **My chores**, restores it to **Choose a chore**, and briefly offers `Undo`.
+Rows retain the shared To-do visual grammar. Assigned and claimed rows use the shared squared completion control. Attempting completion opens the taller chore detail drawer without changing the occurrence. The drawer makes optional photo capture easy and owns the explicit **Mark done** or **Submit for approval** action. A checked control means the occurrence is genuinely complete and can be unchecked by the child who performed it. Review-required work changes to **Waiting for approval** only after explicit submission; it does not show a completed check or award credit until approval. Available rows use a plus icon with **Take**. A claimed open-pool row uses a quiet ellipsis; its menu contains a neutral minus-icon **Return to family list** action. It never uses a trash icon or red styling. Returning a chore removes it from **My chores**, restores it to **Choose a chore**, and briefly offers `Undo`.
 
-When tokens are enabled, each row shows the semantic token icon and numeric value, such as `[token] 2`, without the visible word `tokens`. The anchored agreement bar shows the same icon with the child's current balance, such as `[token] 8`. Accessibility labels retain the full meaning: `Earns 2 tokens` and `8 tokens`.
+When tokens are enabled, each row shows a small monochrome circle-dollar-sign outline with explicit secondary text, such as `[circle dollar sign] 2 tokens`. The anchored agreement bar uses the same quiet treatment for the child's current balance, such as `[circle dollar sign] 8 tokens`. The icon has no fill, badge, or reward color. Accessibility labels retain the earning distinction: `Earns 2 tokens` for a chore and `8 tokens` for the balance.
 
 The bottom agreement bar is part of the screen structure, separated by a quiet top divider rather than presented as a floating card. It composes only the clauses that are active for the selected child:
 
@@ -63,7 +63,7 @@ Tapping the agreement text opens **How my chores work**. For the first mixed sam
 - **Every day** — `Finish your daily chores.`
 - **By Friday** — `Choose 12 chores from the family list.`
 - **Weekend Screen Time** — `Finish both parts for weekend Screen Time.`
-- **Your tokens** — the token icon and current balance, followed by `Each chore shows how many tokens it earns.`
+- **Your tokens** — the circle-dollar-sign outline and explicit current balance, followed by `Each chore shows how many tokens it earns.`
 
 Only applicable sections appear. If tokens are disabled, token vocabulary and iconography disappear. If no expectation is active, progress language and the agreement sheet disappear rather than inventing a target. A token-enabled household with no expectation may show a small balance-only treatment without a full-width agreement message.
 
@@ -82,7 +82,7 @@ Must be real:
 - removal of the current top labels and progress bar;
 - **My chores** and **Choose a chore** section hierarchy;
 - plus-icon **Take** and a claimed-chore ellipsis containing the neutral minus-icon **Return to family list** action;
-- a reusable semantic token icon used for row values and current balance;
+- a reusable semantic circle-dollar-sign icon used with explicit token text for row values and current balance;
 - an explicit sample expectation with separate assigned-work, choice-quota, deadline, qualifying-scope, benefit, and token-policy facts;
 - deterministic projection of the applicable agreement-bar clauses;
 - the anchored bottom agreement bar and **How my chores work** sheet;

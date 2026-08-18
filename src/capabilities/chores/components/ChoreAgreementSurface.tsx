@@ -10,15 +10,16 @@ import type { ChoreAgreementProjection } from '../domain/choreLearning';
 
 export function ChoreTokenValue({ value, context }: {
   value: number;
-  context: 'balance' | 'earning';
+  context: 'balance' | 'earning' | 'earned';
 }) {
   const accessibilityLabel = context === 'balance'
     ? `${value} token${value === 1 ? '' : 's'}`
-    : `Earns ${value} token${value === 1 ? '' : 's'}`;
+    : `${context === 'earned' ? 'Earned' : 'Earns'} ${value} token${value === 1 ? '' : 's'}`;
+  const visibleLabel = `${value} token${value === 1 ? '' : 's'}`;
   return (
     <View accessible accessibilityLabel={accessibilityLabel} style={styles.tokenValue}>
-      <Icon name="token" size={19} color={colors.turmeric700} />
-      <Text variant="label">{value}</Text>
+      <Icon name="circleDollarSign" size={16} color={colors.textSecondary} />
+      <Text tone="secondary">{visibleLabel}</Text>
     </View>
   );
 }

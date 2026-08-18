@@ -36,6 +36,11 @@ export type ChoreOccurrence = {
   activitySeriesId: string;
   title: string;
   definitionOfDone: string;
+  scheduledDate: string | null;
+  repeatRule?: ActivityRepeatRule;
+  repeatCustom?: ActivityRepeatCustom;
+  repeatBasis?: ActivityRepeatBasis;
+  repeatCreatedFromOccurrenceId?: string | null;
   tokenValue: 1 | 2 | 3;
   reviewPolicy: ChoreReviewPolicy;
   participation: 'assigned' | 'open';
@@ -51,7 +56,7 @@ export type ChoreOccurrence = {
 };
 
 export type ChoreLearningRecord = {
-  version: 4;
+  version: 8;
   activeMemberId: string;
   tokensEnabled: boolean;
   members: ChoreMember[];
@@ -110,8 +115,8 @@ const EXPECTATIONS: ChoreExpectation[] = [
 
 type ChoreOccurrenceSeed = Omit<
   ChoreOccurrence,
-  'reviewedByMemberId' | 'reviewedAtIso' | 'reviewNote' | 'evidencePhotoUri'
-> & { evidencePhotoUri?: string | null };
+  'scheduledDate' | 'reviewedByMemberId' | 'reviewedAtIso' | 'reviewNote' | 'evidencePhotoUri'
+> & { scheduledDate?: string | null; evidencePhotoUri?: string | null };
 
 const OCCURRENCES: ChoreOccurrenceSeed[] = [
   {
@@ -119,6 +124,9 @@ const OCCURRENCES: ChoreOccurrenceSeed[] = [
     activitySeriesId: 'activity-series-feed-scout',
     title: 'Feed Scout and refill the water bowl',
     definitionOfDone: 'Scout has food, and the water bowl is full of fresh water.',
+    scheduledDate: '2026-08-18',
+    repeatRule: 'daily',
+    repeatBasis: 'scheduled',
     tokenValue: 2,
     reviewPolicy: 'trusted',
     participation: 'assigned',
@@ -133,6 +141,9 @@ const OCCURRENCES: ChoreOccurrenceSeed[] = [
     activitySeriesId: 'activity-series-breakfast-dishes',
     title: 'Put away the breakfast dishes',
     definitionOfDone: 'Clean breakfast dishes are back in their cupboards and drawers.',
+    scheduledDate: '2026-08-18',
+    repeatRule: 'weekdays',
+    repeatBasis: 'scheduled',
     tokenValue: 1,
     reviewPolicy: 'trusted',
     participation: 'assigned',
@@ -147,6 +158,9 @@ const OCCURRENCES: ChoreOccurrenceSeed[] = [
     activitySeriesId: 'activity-series-entry-shoes',
     title: 'Tidy the shoes by the front door',
     definitionOfDone: 'Shoes are paired and lined up against the wall, leaving the walkway clear.',
+    scheduledDate: '2026-08-18',
+    repeatRule: 'weekdays',
+    repeatBasis: 'scheduled',
     tokenValue: 1,
     reviewPolicy: 'caregiver_review',
     participation: 'assigned',
@@ -162,6 +176,9 @@ const OCCURRENCES: ChoreOccurrenceSeed[] = [
     activitySeriesId: 'activity-series-fold-laundry',
     title: 'Fold and put away the clean towels',
     definitionOfDone: 'The clean towels are folded and put in the linen closet.',
+    scheduledDate: '2026-08-22',
+    repeatRule: 'weekly',
+    repeatBasis: 'scheduled',
     tokenValue: 2,
     reviewPolicy: 'trusted',
     participation: 'assigned',
@@ -176,6 +193,9 @@ const OCCURRENCES: ChoreOccurrenceSeed[] = [
     activitySeriesId: 'activity-series-bring-in-mail',
     title: 'Bring in the mail',
     definitionOfDone: 'The mailbox is empty and the mail is on the kitchen counter.',
+    scheduledDate: '2026-08-18',
+    repeatRule: 'weekdays',
+    repeatBasis: 'scheduled',
     tokenValue: 1,
     reviewPolicy: 'trusted',
     participation: 'assigned',
@@ -186,10 +206,30 @@ const OCCURRENCES: ChoreOccurrenceSeed[] = [
     performedAtIso: '2026-08-17T12:40:00.000Z',
   },
   {
+    activityOccurrenceId: 'activity-occurrence-olive-dishwasher-2026-08-18',
+    activitySeriesId: 'activity-series-unload-dishwasher',
+    title: 'Unload the dishwasher',
+    definitionOfDone: 'The dishwasher is empty, and clean dishes are put in their usual places.',
+    scheduledDate: '2026-08-18',
+    repeatRule: 'daily',
+    repeatBasis: 'scheduled',
+    tokenValue: 1,
+    reviewPolicy: 'caregiver_review',
+    participation: 'assigned',
+    assignedMemberId: 'member-olive',
+    state: 'waiting_approval',
+    claimedByMemberId: null,
+    performedByMemberId: 'member-olive',
+    performedAtIso: '2026-08-18T13:05:00.000Z',
+  },
+  {
     activityOccurrenceId: 'activity-occurrence-household-recycling-2026-08-17',
     activitySeriesId: 'activity-series-recycling',
     title: 'Take the recycling to the blue bin',
     definitionOfDone: 'Indoor recycling is emptied into the blue bin and the basket is returned.',
+    scheduledDate: '2026-08-20',
+    repeatRule: 'weekly',
+    repeatBasis: 'scheduled',
     tokenValue: 2,
     reviewPolicy: 'trusted',
     participation: 'open',
@@ -204,6 +244,9 @@ const OCCURRENCES: ChoreOccurrenceSeed[] = [
     activitySeriesId: 'activity-series-kitchen-counters',
     title: 'Wipe the kitchen counters after snack',
     definitionOfDone: 'Crumbs and sticky spots are gone, and the cloth is put away.',
+    scheduledDate: '2026-08-18',
+    repeatRule: 'daily',
+    repeatBasis: 'scheduled',
     tokenValue: 1,
     reviewPolicy: 'caregiver_review',
     participation: 'open',
@@ -218,6 +261,10 @@ const OCCURRENCES: ChoreOccurrenceSeed[] = [
     activitySeriesId: 'activity-series-porch-plants',
     title: 'Water the porch plants',
     definitionOfDone: 'Each porch pot has been watered without leaving standing water.',
+    scheduledDate: '2026-08-18',
+    repeatRule: 'custom',
+    repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2, 5] },
+    repeatBasis: 'scheduled',
     tokenValue: 1,
     reviewPolicy: 'trusted',
     participation: 'open',
@@ -232,6 +279,10 @@ const OCCURRENCES: ChoreOccurrenceSeed[] = [
 function cloneOccurrence(occurrence: ChoreOccurrenceSeed | ChoreOccurrence): ChoreOccurrence {
   return {
     ...occurrence,
+    scheduledDate: occurrence.scheduledDate ?? null,
+    repeatCustom: occurrence.repeatCustom ? { ...occurrence.repeatCustom } : undefined,
+    repeatBasis: occurrence.repeatRule ? occurrence.repeatBasis ?? 'scheduled' : undefined,
+    repeatCreatedFromOccurrenceId: occurrence.repeatCreatedFromOccurrenceId ?? null,
     reviewedByMemberId: 'reviewedByMemberId' in occurrence ? occurrence.reviewedByMemberId : null,
     reviewedAtIso: 'reviewedAtIso' in occurrence ? occurrence.reviewedAtIso : null,
     reviewNote: 'reviewNote' in occurrence ? occurrence.reviewNote : null,
@@ -241,7 +292,7 @@ function cloneOccurrence(occurrence: ChoreOccurrenceSeed | ChoreOccurrence): Cho
 
 export function createChoreLearningRecord(): ChoreLearningRecord {
   return {
-    version: 4,
+    version: 8,
     activeMemberId: MEMBERS[0].id,
     tokensEnabled: false,
     members: MEMBERS.map((member) => ({ ...member })),
@@ -263,6 +314,17 @@ const OCCURRENCE_STATES = new Set<ChoreOccurrenceState>([
   'needs_another_pass',
   'completed',
 ]);
+
+function hasValidRepeatDetails(occurrence: ChoreOccurrence): boolean {
+  if (occurrence.repeatRule !== 'custom') return occurrence.repeatCustom === undefined;
+  const custom = occurrence.repeatCustom;
+  if (!custom || !Number.isSafeInteger(custom.interval) || custom.interval < 1) return false;
+  if (!['days', 'weeks', 'months', 'years'].includes(custom.cadence)) return false;
+  if (custom.cadence !== 'weeks') return true;
+  return Array.isArray(custom.weekdays)
+    && custom.weekdays.length > 0
+    && custom.weekdays.every((weekday) => Number.isInteger(weekday) && weekday >= 0 && weekday <= 6);
+}
 
 function migrateLegacyChoreLearningRecord(value: Record<string, unknown>): ChoreLearningRecord {
   const fallback = createChoreLearningRecord();
@@ -304,8 +366,96 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
   if ([1, 2, 3].includes((value as { version?: number }).version ?? -1)) {
     return migrateLegacyChoreLearningRecord(value as Record<string, unknown>);
   }
+  if ((value as { version?: number }).version === 4) {
+    const legacy = value as Record<string, unknown> & {
+      version: 4;
+      occurrences?: Array<Record<string, unknown>>;
+    };
+    return normalizeChoreLearningRecord({
+      ...legacy,
+      version: 5,
+      occurrences: Array.isArray(legacy.occurrences)
+        ? legacy.occurrences.map((occurrence) => ({ ...occurrence, availability: 'as_needed' }))
+        : legacy.occurrences,
+    });
+  }
+  if ((value as { version?: number }).version === 5) {
+    const legacy = value as Record<string, unknown> & { version: 5; occurrences?: ChoreOccurrence[] };
+    const starter = createChoreLearningRecord();
+    const sampleReview = starter.occurrences.find(
+      (occurrence) => occurrence.activityOccurrenceId
+        === 'activity-occurrence-olive-dishwasher-2026-08-18',
+    );
+    const occurrences = Array.isArray(legacy.occurrences) ? legacy.occurrences : [];
+    return normalizeChoreLearningRecord({
+      ...legacy,
+      version: 6,
+      occurrences: sampleReview && !occurrences.some(
+        (occurrence) => occurrence.activityOccurrenceId === sampleReview.activityOccurrenceId,
+      )
+        ? [...occurrences, sampleReview]
+        : occurrences,
+    });
+  }
+  if ((value as { version?: number }).version === 6) {
+    const legacy = value as Record<string, unknown> & {
+      occurrences?: Array<Record<string, unknown> & { availability?: unknown }>;
+    };
+    return normalizeChoreLearningRecord({
+      ...legacy,
+      version: 7,
+      occurrences: Array.isArray(legacy.occurrences)
+        ? legacy.occurrences.map(({ availability, ...occurrence }) => {
+          const existingRepeatRule = typeof occurrence.repeatRule === 'string'
+            && ['daily', 'weekly', 'weekdays', 'monthly', 'yearly', 'custom'].includes(occurrence.repeatRule)
+            ? occurrence.repeatRule
+            : undefined;
+          const repeatRule = existingRepeatRule ?? (availability === 'daily'
+            || availability === 'weekdays'
+            || availability === 'weekly'
+            ? availability
+            : undefined);
+          return {
+            ...occurrence,
+            scheduledDate: typeof occurrence.scheduledDate === 'string'
+              ? occurrence.scheduledDate
+              : repeatRule
+                ? '2026-08-18'
+                : null,
+            repeatRule,
+            repeatBasis: repeatRule ? 'scheduled' : undefined,
+            repeatCreatedFromOccurrenceId: null,
+          };
+        })
+        : legacy.occurrences,
+    });
+  }
+  if ((value as { version?: number }).version === 7) {
+    const legacy = value as Record<string, unknown> & { occurrences?: ChoreOccurrence[] };
+    const starterBySeries = new Map(
+      createChoreLearningRecord().occurrences.map((occurrence) => [occurrence.activitySeriesId, occurrence]),
+    );
+    return normalizeChoreLearningRecord({
+      ...legacy,
+      version: 8,
+      occurrences: Array.isArray(legacy.occurrences)
+        ? legacy.occurrences.map((occurrence) => {
+          if (occurrence.repeatRule) return occurrence;
+          const starter = starterBySeries.get(occurrence.activitySeriesId);
+          if (!starter?.repeatRule) return occurrence;
+          return {
+            ...occurrence,
+            scheduledDate: starter.scheduledDate,
+            repeatRule: starter.repeatRule,
+            repeatCustom: starter.repeatCustom ? { ...starter.repeatCustom } : undefined,
+            repeatBasis: starter.repeatBasis ?? 'scheduled',
+          };
+        })
+        : legacy.occurrences,
+    });
+  }
   const candidate = value as Partial<ChoreLearningRecord>;
-  if (candidate.version !== 4 || typeof candidate.tokensEnabled !== 'boolean'
+  if (candidate.version !== 8 || typeof candidate.tokensEnabled !== 'boolean'
     || !Array.isArray(candidate.members) || !Array.isArray(candidate.expectations)
     || !Array.isArray(candidate.occurrences)) {
     return createChoreLearningRecord();
@@ -344,6 +494,15 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
     && typeof occurrence.activitySeriesId === 'string'
     && typeof occurrence.title === 'string'
     && typeof occurrence.definitionOfDone === 'string'
+    && (occurrence.scheduledDate === null || typeof occurrence.scheduledDate === 'string')
+    && (occurrence.repeatRule === undefined
+      || ['daily', 'weekly', 'weekdays', 'monthly', 'yearly', 'custom'].includes(occurrence.repeatRule))
+    && (occurrence.repeatBasis === undefined
+      || ['scheduled', 'after_completion'].includes(occurrence.repeatBasis))
+    && hasValidRepeatDetails(occurrence)
+    && (occurrence.repeatCreatedFromOccurrenceId === undefined
+      || occurrence.repeatCreatedFromOccurrenceId === null
+      || typeof occurrence.repeatCreatedFromOccurrenceId === 'string')
     && [1, 2, 3].includes(occurrence.tokenValue)
     && ['trusted', 'caregiver_review'].includes(occurrence.reviewPolicy)
     && ['assigned', 'open'].includes(occurrence.participation)
@@ -362,7 +521,7 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
     return createChoreLearningRecord();
   }
   return {
-    version: 4,
+    version: 8,
     activeMemberId: candidate.activeMemberId,
     tokensEnabled: candidate.tokensEnabled,
     members: candidate.members.map((member) => ({ ...member })),
@@ -388,21 +547,31 @@ function tokenBalanceForMember(
     .reduce((total, occurrence) => total + occurrence.tokenValue, member.startingTokenBalance);
 }
 
+function isChoreOccurrenceAvailableToday(occurrence: ChoreOccurrence, now = new Date()): boolean {
+  if (!occurrence.repeatCreatedFromOccurrenceId || !occurrence.scheduledDate) return true;
+  return occurrence.scheduledDate <= localDateKey(now);
+}
+
 export function projectChoreInventory(
   record: ChoreLearningRecord,
   memberId: string,
+  now = new Date(),
 ): ChoreInventoryProjection {
   const member = record.members.find((candidate) => candidate.id === memberId) ?? record.members[0];
   const forMember = record.occurrences.filter((occurrence) => (
-    occurrence.assignedMemberId === member.id
-    || occurrence.claimedByMemberId === member.id
-    || occurrence.performedByMemberId === member.id
+    isChoreOccurrenceAvailableToday(occurrence, now)
+    && (
+      occurrence.assignedMemberId === member.id
+      || occurrence.claimedByMemberId === member.id
+      || occurrence.performedByMemberId === member.id
+    )
   ));
   return {
     member,
     forMember,
     household: record.occurrences.filter((occurrence) => (
-      occurrence.participation === 'open' && occurrence.state === 'available'
+      isChoreOccurrenceAvailableToday(occurrence, now)
+      && occurrence.participation === 'open' && occurrence.state === 'available'
     )),
     tokenBalance: tokenBalanceForMember(record, member),
   };
@@ -415,6 +584,7 @@ function countLabel(count: number, singular: string, plural: string): string {
 export function projectChoreAgreement(
   record: ChoreLearningRecord,
   memberId: string,
+  now = new Date(),
 ): ChoreAgreementProjection {
   const member = record.members.find((candidate) => candidate.id === memberId) ?? record.members[0];
   if (member.role !== 'child') {
@@ -428,9 +598,12 @@ export function projectChoreAgreement(
   const supportingParts: string[] = [];
 
   const memberOccurrences = record.occurrences.filter((occurrence) => (
-    occurrence.assignedMemberId === member.id
-    || occurrence.claimedByMemberId === member.id
-    || occurrence.performedByMemberId === member.id
+    isChoreOccurrenceAvailableToday(occurrence, now)
+    && (
+      occurrence.assignedMemberId === member.id
+      || occurrence.claimedByMemberId === member.id
+      || occurrence.performedByMemberId === member.id
+    )
   ));
   const pendingCount = memberOccurrences.filter(
     (occurrence) => occurrence.state === 'waiting_approval',
@@ -543,6 +716,18 @@ export function projectChoreReviewQueue(
   return record.occurrences.filter((occurrence) => occurrence.state === 'waiting_approval');
 }
 
+export function projectCaregiverChoreInventory(
+  record: ChoreLearningRecord,
+  caregiverMemberId: string,
+): ChoreOccurrence[] {
+  if (!isCaregiver(record, caregiverMemberId)) return [];
+  const currentBySeries = new Map<string, ChoreOccurrence>();
+  record.occurrences.forEach((occurrence) => {
+    currentBySeries.set(occurrence.activitySeriesId, occurrence);
+  });
+  return Array.from(currentBySeries.values());
+}
+
 function updateOccurrence(
   record: ChoreLearningRecord,
   activityOccurrenceId: string,
@@ -557,6 +742,59 @@ function updateOccurrence(
   const occurrences = [...record.occurrences];
   occurrences[index] = nextOccurrence;
   return { ...record, occurrences };
+}
+
+function advanceRecurringChore(
+  record: ChoreLearningRecord,
+  completedOccurrenceId: string,
+  completedAtIso: string,
+): ChoreLearningRecord {
+  const occurrence = record.occurrences.find(
+    (candidate) => candidate.activityOccurrenceId === completedOccurrenceId,
+  );
+  if (!occurrence?.repeatRule || occurrence.state !== 'completed') return record;
+  if (record.occurrences.some(
+    (candidate) => candidate.repeatCreatedFromOccurrenceId === completedOccurrenceId,
+  )) return record;
+
+  const nextDate = getNextOccurrenceDate({
+    activity: {
+      repeatRule: occurrence.repeatRule,
+      repeatCustom: occurrence.repeatCustom,
+      repeatBasis: occurrence.repeatBasis,
+      scheduledDate: occurrence.scheduledDate,
+    },
+    closedAt: new Date(completedAtIso),
+  });
+  if (!nextDate) return record;
+
+  const scheduledDate = localDateKey(nextDate);
+  const occurrenceStem = occurrence.activitySeriesId.replace(/^activity-series-/, 'activity-occurrence-');
+  const activityOccurrenceId = `${occurrenceStem}-${scheduledDate}`;
+  if (record.occurrences.some((candidate) => candidate.activityOccurrenceId === activityOccurrenceId)) {
+    return record;
+  }
+
+  return {
+    ...record,
+    occurrences: [
+      ...record.occurrences,
+      {
+        ...cloneOccurrence(occurrence),
+        activityOccurrenceId,
+        scheduledDate,
+        repeatCreatedFromOccurrenceId: completedOccurrenceId,
+        state: occurrence.participation === 'assigned' ? 'ready' : 'available',
+        claimedByMemberId: null,
+        performedByMemberId: null,
+        performedAtIso: null,
+        reviewedByMemberId: null,
+        reviewedAtIso: null,
+        reviewNote: null,
+        evidencePhotoUri: null,
+      },
+    ],
+  };
 }
 
 export function setChoreEvidencePhoto(
@@ -609,7 +847,7 @@ export function completeChoreOccurrence(
   memberId: string,
   performedAtIso: string,
 ): ChoreLearningRecord {
-  return updateOccurrence(record, activityOccurrenceId, (occurrence) => {
+  const updated = updateOccurrence(record, activityOccurrenceId, (occurrence) => {
     const isAssigned = occurrence.state === 'ready' && occurrence.assignedMemberId === memberId;
     const isClaimed = occurrence.state === 'claimed' && occurrence.claimedByMemberId === memberId;
     const isRetry = occurrence.state === 'needs_another_pass'
@@ -626,6 +864,37 @@ export function completeChoreOccurrence(
       reviewNote: null,
     };
   });
+  if (updated === record) return record;
+  const completed = updated.occurrences.find(
+    (occurrence) => occurrence.activityOccurrenceId === activityOccurrenceId,
+  );
+  return completed?.state === 'completed'
+    ? advanceRecurringChore(updated, activityOccurrenceId, performedAtIso)
+    : updated;
+}
+
+export function reopenChoreOccurrence(
+  record: ChoreLearningRecord,
+  activityOccurrenceId: string,
+  memberId: string,
+): ChoreLearningRecord {
+  if (!isChild(record, memberId)) return record;
+  return updateOccurrence(record, activityOccurrenceId, (occurrence) => {
+    if (occurrence.state !== 'completed' || occurrence.performedByMemberId !== memberId) return null;
+    const state: ChoreOccurrenceState = occurrence.participation === 'assigned'
+      ? 'ready'
+      : 'claimed';
+    if (state === 'claimed' && occurrence.claimedByMemberId !== memberId) return null;
+    return {
+      ...occurrence,
+      state,
+      performedByMemberId: null,
+      performedAtIso: null,
+      reviewedByMemberId: null,
+      reviewedAtIso: null,
+      reviewNote: null,
+    };
+  });
 }
 
 export function approveChoreOccurrence(
@@ -635,7 +904,7 @@ export function approveChoreOccurrence(
   reviewedAtIso: string,
 ): ChoreLearningRecord {
   if (!isCaregiver(record, caregiverMemberId)) return record;
-  return updateOccurrence(record, activityOccurrenceId, (occurrence) => {
+  const updated = updateOccurrence(record, activityOccurrenceId, (occurrence) => {
     if (occurrence.state !== 'waiting_approval') return null;
     return {
       ...occurrence,
@@ -645,6 +914,9 @@ export function approveChoreOccurrence(
       reviewNote: null,
     };
   });
+  return updated === record
+    ? record
+    : advanceRecurringChore(updated, activityOccurrenceId, reviewedAtIso);
 }
 
 export function returnChoreOccurrenceForAnotherPass(
@@ -667,3 +939,9 @@ export function returnChoreOccurrenceForAnotherPass(
     };
   });
 }
+import { getNextOccurrenceDate, localDateKey } from '../../../domain/activityRecurrence';
+import type {
+  ActivityRepeatBasis,
+  ActivityRepeatCustom,
+  ActivityRepeatRule,
+} from '../../../domain/types';

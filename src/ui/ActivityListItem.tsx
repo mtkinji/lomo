@@ -69,6 +69,8 @@ type ActivityListItemProps = {
   metaLeadingIconNames?: Array<import('./Icon').IconName>;
   /** Optional size override for capability-owned metadata iconography. */
   metaLeadingIconSize?: number;
+  /** Optional capability-owned identity or status presented before metadata text. */
+  metaLeadingAccessory?: React.ReactNode;
   /**
    * Optional compact action rendered at the trailing edge of the metadata line.
    * Use for quiet row-scoped actions that should not compete with the title.
@@ -172,6 +174,7 @@ export function ActivityListItem({
   metaLeadingIconName,
   metaLeadingIconNames,
   metaLeadingIconSize = 13,
+  metaLeadingAccessory,
   metaAccessory,
   priorityIndicator,
   metaLoading = false,
@@ -274,7 +277,9 @@ export function ActivityListItem({
   const priorityReasons = priorityIndicator?.reasons?.filter(Boolean) ?? [];
   const hasPriorityReasons = priorityReasons.length > 0;
   const showStarredMeta = Boolean(showPriorityControl && onTogglePriority && isPriorityOne);
-  const showMetaRow = Boolean(meta || estimateMeta || priorityIndicator || showStarredMeta || metaAccessory);
+  const showMetaRow = Boolean(
+    meta || estimateMeta || priorityIndicator || showStarredMeta || metaLeadingAccessory || metaAccessory,
+  );
 
   // Determine the meta color: due today shows in red (destructive), completed is muted, otherwise secondary
   const metaColor = isCompleted
@@ -514,6 +519,7 @@ export function ActivityListItem({
                     ) : null}
                   </DropdownMenu>
                 ) : null}
+                {metaLeadingAccessory}
                 {resolvedMetaLeadingIconNames.map((iconName) => (
                   <Icon key={iconName} name={iconName} size={metaLeadingIconSize} color={metaColor} />
                 ))}
