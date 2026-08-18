@@ -166,16 +166,18 @@ export function useKwiltRefresh({
         { height: refreshStageHeight },
       ]}
     >
-      <Animated.View
-        testID="kwilt-refresh-pull"
-        style={[
-          styles.layer,
-          { opacity: pullOpacity, paddingTop: overlayTopOffset },
-          backgroundColor ? { backgroundColor } : null,
-        ]}
-      >
-        <KwiltLoader phase="idle" size={50} />
-      </Animated.View>
+      {phase === 'idle' ? (
+        <Animated.View
+          testID="kwilt-refresh-pull"
+          style={[
+            styles.layer,
+            { opacity: pullOpacity, paddingTop: overlayTopOffset },
+            backgroundColor ? { backgroundColor } : null,
+          ]}
+        >
+          <KwiltLoader phase="idle" size={50} />
+        </Animated.View>
+      ) : null}
       {phase !== 'idle' ? (
         <View
           testID="kwilt-refresh-active"

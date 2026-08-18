@@ -39,7 +39,7 @@ describe('useKwiltRefresh', () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(result.current.refreshControl.props.refreshing).toBe(true);
     const [pullLayerWhileLoading, activeLayerWhileLoading] = result.current.refreshOverlay.props.children;
-    expect(pullLayerWhileLoading.props.testID).toBe('kwilt-refresh-pull');
+    expect(pullLayerWhileLoading).toBeNull();
     expect(activeLayerWhileLoading.props.testID).toBe('kwilt-refresh-active');
     expect(activeLayerWhileLoading.props.children.type).toBe(KwiltLoader);
     expect(activeLayerWhileLoading.props.children.props.phase).toBe('loading');
