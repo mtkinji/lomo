@@ -43,56 +43,57 @@ The older `chores-as-recurring-activities` brief describes Family participation 
 
 ## Friction we're addressing
 
-The household's chore system is a shared opportunity pool, not an assignment list. A family member chooses useful work, completion is attributed to that person, and an agreement evaluates qualifying completions over different seasonal windows. Existing To-dos do not naturally represent availability, claiming, member-attributed completion counts, or a rule that changes between summer and the school year.
+The household's chore system combines a shared opportunity pool with chores that may be assigned. A family member chooses or receives useful work, completion is attributed to the performer, and the current agreement evaluates qualifying completions over a defined window. Existing To-dos already represent Activities but do not yet express household availability, claiming, member-attributed review/credit, or expectations that change over time.
 
 ## System alignment
 
-Constraint posture: `Question the system`
+Constraint posture: `Extend the system`
 
-The exploration concludes that **Chores** should become a standalone capability with its own narrow domain model. Activities may receive links or projections later, but they should not own chore truth.
+The exploration concludes that **Chores** should become a standalone user-facing capability over the canonical Activity and occurrence foundation. Chores owns its household policy and experience; it does not create a second task or completion store.
 
 Current system facts:
 
-- Existing surface: To-dos owns Activity creation, detail, recurrence, scheduling, and completion. Household settings owns family membership, dependent setup, and capability activation. A prior Option G navigation prototype included a direct **Chores** destination, while the existing Chores brief recommended no global capability in its first release.
+- Existing surface: To-dos owns Activity creation, detail, recurrence, scheduling, and completion. Household settings owns family membership, dependent setup, capability activation, and the accepted caregiver-anchored Household Mode contract. A prior Option G navigation prototype included a direct **Chores** destination, and the exploration now accepts that direct destination.
 - Existing user flow: an adult can create repeating Activities and establish a Household, but there is no source-backed shared chore pool where a household member chooses available work and receives attributed completion credit.
-- Existing domain/data model: Activities already carry repeat rules and scheduling fields, but those primitives do not model a shared opportunity pool or count-based eligibility windows cleanly. Household already distinguishes owner, caregiver, and child roles plus capability-scoped grants. No implemented Chore object was found.
+- Existing domain/data model: Activities already carry repeat rules, dated generated occurrences, scheduling fields, and completion. Those primitives need household scope, open participation, bounded availability, optional review, and performer attribution. Household already distinguishes owner, caregiver, and child roles plus capability-scoped grants. No second Chore object is needed.
 - Existing technical affordances: Household membership and child activation are implemented capability foundations. Family Screen Time can describe a responsibility criterion, but its contract deliberately treats Activities as the source and can remain valuable without Chores.
-- Existing UX/copy conventions: reveal family participation only after relevant household activity exists; prefer named-member and “For others” projections over global monitoring; keep a child's explanation concrete and blame-free; avoid productivity jargon, streaks, rankings, overdue shame, and default-public sharing.
+- Existing UX/copy conventions: reveal family participation only after relevant household activity exists; prefer named-member and “For others” projections over global monitoring; keep a child's explanation concrete and blame-free; avoid productivity jargon, separate volume streaks, rankings, overdue shame, and default-public sharing.
 
 Constraints to preserve:
 
 - A child must never need to understand the Activity model, adult To-dos organization, or its configuration vocabulary to use Chores.
-- Chores are chosen from a shared pool by default; assignment may exist later for exceptional cases but is not the organizing model.
+- Chores may be assigned or chosen from a shared pool; merely eligible pooled chores do not flood a child's To-dos.
 - Completion must preserve who did the chore, when it qualified, and which eligibility window consumed that fact.
 - Solo users and households that never activate Chores should receive no permanent Chores chrome.
 - Chores must be independently useful, while Screen Time may evaluate chore-completion thresholds as one explicit family agreement.
 - A threshold such as “2 today” or “12 before the weekend” is not a currency wallet: chores do not convert into minute balances, prices, points, or spendable rewards.
 - Caregiver visibility should support coordination, not detailed surveillance.
+- On a designated shared iPad, the capability-menu avatar and Chores header must use the same active-member control. Child member codes select the actor; returning to the assigned caregiver requires fresh device authentication.
 
 Constraints we may challenge:
 
 - The previous assumption that Chores should never be a first-class capability destination.
 - The assumption that adult To-dos is the right primary presentation for a child or for a family-wide daily rhythm.
-- The prior assumption that Activities should remain canonical for chores.
+- The current Activity recurrence and owner-only persistence constraints; canonical Activity identity may remain while occurrence and household behavior expand.
 - The label **Chores** itself: it may be immediately legible, but a broader concept such as **Responsibilities** may better support growing independence and non-punitive household participation.
 
 Design implication:
 
-The Chores capability needs a small purpose-built model: a household chore catalog, current availability, member-attributed completion events, and readable progress facts. Screen Time owns the seasonal access agreement and enforcement; Chores owns the qualifying work and completion truth. The interface should foreground choice and contribution rather than assignment and task administration.
+The Chores capability needs a small purpose-built policy layer over Activity: household catalog participation, current availability, assignment or open eligibility, review, and readable progress facts. Activity occurrences own canonical execution and completion identity; Chores owns qualification, tokens, and household agreement behavior. Screen Time owns access policy and enforcement. The interface should foreground choice and contribution through a Groceries-like inventory rather than Activity administration, with **For [member]** and **Household** sections and the active member always visible.
 
 ## Aspirational design challenge
 
-How might we help each child choose and complete a fair share of useful household work, while letting the family's seasonal Screen Time agreement respond predictably without turning chores into points, currency, or surveillance?
+How might we help each child receive or choose a fair share of useful household work, while letting the family's current Screen Time and token agreements respond predictably without duplicate lists, ambiguous credit, or surveillance?
 
 ## Out of scope
 
-- Allowance, money, points, rewards, penalties, rankings, or streaks.
+- Automated allowance/payment, a generic reward store, penalties, rankings, or a separate Chore streak.
 - Per-chore minute conversion, an earned-time wallet, or spendable chore currency.
 - Photo or AI proof of completion.
 - A household performance dashboard or detailed child surveillance.
 - A generic project-management system for the family.
-- Implementation decisions before the capability shape is chosen.
+- A new generic Activities product surface.
 
 ## Open question
 
-When a child marks a chore complete, should it count toward Screen Time immediately, or only after lightweight caregiver confirmation?
+How should the first learning slice present and expire a claimed shared-pool occurrence without creating caregiver administration?

@@ -191,17 +191,36 @@ A unifying system should compose these dimensions instead of encoding eighteen e
 
 ## Kwilt recommendation
 
-Kwilt should support multiple chore philosophies through a **Household Chore Program**, but launch with a deliberately small subset.
+Kwilt should support multiple chore philosophies through an **Activity-backed Household Chore Program**, but launch with a deliberately small subset. The program describes the household's current agreement and preserves prior versions; it is not an exclusive program type or a required seasonal container. A Chore profile attaches household behavior to the canonical Activity and occurrence foundation; it does not create a parallel task or completion store.
 
-The program is not a generic rules engine. It is a readable family agreement made from five concepts:
+The program is not a generic rules engine. It is a readable family agreement made from four concepts:
 
-1. **Chore** — useful household work and the instructions needed to do it.
+1. **Chore** — an Activity configured as useful household work, with the instructions needed to do it.
 2. **Availability** — when that chore can be chosen or is expected.
 3. **Participation** — assigned, open to choose, rotating, or done together.
 4. **Expectation** — what a named person needs to complete during a window.
-5. **Season** — which agreement is active now, such as Summer or School year.
+Each chore chooses its own participation, obligation, availability, repeatability, and verification behavior. Household defaults make setup fast, but a chore may override them. Person-level expectations then evaluate a named set or qualifying scope across those different chores. Chore availability, expectations, and benefit links may each have an optional effective start/end; **Season** is not a required object.
 
-Verification and benefit links are policies attached to the program, but they should remain secondary in the setup experience.
+For example, the household's current summer rules may contain all of these at once:
+
+- **Feed the dog** — required for Charlie every morning.
+- **Unload the dishwasher** — open to anyone, available once daily.
+- **Vacuum the family room** — open to anyone, available again three days after completion.
+- **Take out the trash** — rotates weekly.
+- **Ten-minute reset** — completed together and excluded from individual quotas.
+
+Verification and benefit links are attached at the narrowest useful level. A risky or consequential chore may need caregiver confirmation while ordinary chores count immediately. Screen Time can reference a person's qualifying completion facts without changing how every chore works.
+
+### Defaults, not modes
+
+Patterns such as **Assigned routines**, **Everyone chooses**, and **Daily plus choice** are setup recipes. Selecting one pre-fills sensible household defaults and starter sections; it never locks the program or individual chores into that pattern.
+
+Resolution stays understandable:
+
+1. The current household configuration supplies defaults.
+2. The chore supplies its specific behavior and may override those defaults.
+3. The person's expectation states which completions count and what is required.
+4. A benefit such as Screen Time evaluates the resulting facts.
 
 ## Progressive support boundary
 
@@ -209,16 +228,18 @@ Verification and benefit links are policies attached to the program, but they sh
 
 - Required daily chores.
 - Open elective chore pool.
-- Per-person count thresholds.
+- Reusable chore definitions with daily, weekly, bounded-repeat, and manual availability.
+- Canonical member-attributed Activity occurrences shared across Chores and To-dos.
+- Per-person completion-count thresholds.
 - Daily and weekly/weekend windows.
-- Two named seasons with manual activation or simple calendar dates.
+- One current expectation applied immediately, with prior versions preserved.
 - Trusted completion or caregiver confirmation.
 - Optional Screen Time eligibility link.
+- Per-chore token values, an append-only token ledger, and caregiver-recorded cash redemption.
 
 ### Next only when real use demands it
 
 - Rotation.
-- Simple effort weights.
 - Completion-relative recurrence.
 - Team chores.
 - Swaps and temporary exemptions.
@@ -227,13 +248,13 @@ Verification and benefit links are policies attached to the program, but they sh
 ### Deliberately outside the current Kwilt direction
 
 - Leaderboards and sibling ranking.
-- Streaks and punitive urgency.
-- Chore currency, reward stores, or minute-per-chore conversion.
+- Separate Chore streaks, volume streaks, and punitive urgency. A qualifying Chore completion may advance the performing child's existing Kwilt show-up streak.
+- Minute-per-chore conversion or a generic reward store.
 - AI/photo adjudication.
 - Opaque auto-assignment.
 - Household KPI dashboards.
 
-Money or rewards could become capability-owned integrations later if Andrew explicitly chooses that product direction; they should not be required by the core Chores model.
+The initial token ledger remains Chores-owned because tokens represent verified household contribution. Cash redemption is a caregiver-confirmed settlement record, not an automatic Money transaction or claim that Kwilt moved funds. A later Money integration may offer a reviewable transaction or budget projection, but Chores must not silently create spending evidence.
 
 ## The household described by Andrew
 
@@ -241,9 +262,12 @@ Andrew's household is a composition, not an edge case:
 
 - **Mixed baseline plus choice:** some chores can be required daily; others are elective and selected from a shared pool.
 - **Contribution quota:** each child has an individual completion expectation.
-- **Seasonal program:** Summer and School year use different windows and thresholds.
+- **Time-varying expectation:** Summer and School year use different windows and thresholds without requiring named Season records.
 - **Privilege gate:** Screen Time evaluates whether the current threshold is satisfied.
-- **No currency requirement:** the agreement does not require points, dollars, or a minute-per-chore exchange rate.
+- **Weighted token economy:** each chore may award one, two, or three tokens, and accumulated tokens may be turned in for cash.
+- **Separate units:** a completed chore occurrence and its awarded tokens remain distinct facts unless the family explicitly chooses a token-based Screen Time threshold.
+- **Shared Activity truth:** an assigned chore appears in the child's To-dos; a pooled chore appears there after the child claims it. Completion from either surface updates the same occurrence.
+- **Show-up attribution:** every qualifying completion advances the performing child's existing show-up streak regardless of whether the chore was assigned or chosen from the pool.
 
 The unifying system should express this in family language:
 
@@ -256,6 +280,40 @@ The unifying system should express this in family language:
 > Charlie completes his daily chores and chooses from the family list until he has 12 qualifying chores in the school-week window. That can make Screen Time available Friday night and Saturday.
 
 Whether daily chores count toward the numeric threshold or are required in addition to it must be an explicit one-line choice, not inferred behavior.
+
+### Replacing the laminated sheet
+
+The current paper sheet has one checkbox per chore, which collapses a reusable definition and its completion history into the same mark. Kwilt should separate them:
+
+- **Activity definition with Chore profile:** `Unload the dishwasher` with household availability and token value.
+- **Available occurrence:** a specific chance to complete it, such as Wednesday's daily occurrence or one of three allowed weekly occurrences.
+- **Completion event:** Charlie completed that occurrence Wednesday at 4:12 PM; it qualified for the school-week count and earned two tokens.
+
+Common availability patterns become:
+
+- **Required daily:** one fresh occurrence per local day; the day's requirement is independently satisfied or missed.
+- **Optional once weekly:** appears in the shared pool until completed, then returns next week.
+- **Repeatable during the week:** returns until a configured weekly maximum is reached, or after a simple cooldown.
+- **As needed:** a caregiver makes it available again when the household needs it.
+
+Crossing out a completion never retires the chore definition. It closes only that available occurrence and appends history.
+
+### Two ledgers, never one ambiguous score
+
+The child may see both:
+
+- `8 of 12 chores complete this week` — Screen Time agreement progress measured in qualifying completion occurrences.
+- `17 tokens available` — earned household currency that may be redeemed for cash.
+
+A two-token chore creates one completion occurrence and a two-token earning event. A three-token chore creates one completion occurrence and a three-token earning event. If the household instead wants token weight to accelerate the Screen Time threshold, the agreement must say `Earn 12 chore tokens this week`, not `Complete 12 chores`.
+
+The token ledger should be append-only:
+
+- approved completion earns tokens;
+- correction posts an adjustment rather than rewriting history;
+- a cash-out request reserves tokens;
+- caregiver confirmation finalizes the redemption; and
+- cancellation or rejection releases the reserved tokens.
 
 ## Core conclusion
 

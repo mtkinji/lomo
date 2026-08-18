@@ -7,9 +7,9 @@ personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
-related_briefs: [brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-family-screen-time-controls]
+related_briefs: [brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-family-screen-time-controls, brief-shared-household-device-profiles]
 owner: andrew
-last_updated: 2026-07-29
+last_updated: 2026-08-17
 ---
 
 # Household Foundation
@@ -36,7 +36,7 @@ How might we let Maya establish who belongs to her private household and who may
 
 ## Job flow step
 
-`job-flow-maya-move-family-life-forward` scores **Family participation** 2/5. Shared Goals provide limited collaboration, but ordinary household participation lacks a safe identity and authority foundation.
+`job-flow-maya-move-family-life-forward` now scores **Family participation** 3/5. Household invitations and capability foundations have moved the job forward, while ordinary household responsibility and safe shared-iPad participation remain incomplete.
 
 ## JTBD framing
 
@@ -53,6 +53,8 @@ When family members need to coordinate inside Kwilt, Maya wants to invite the ri
 - **Child capability activation** — one named capability's lifecycle for one dependent child.
 - **Capability grant** — named authority for a member over a capability and optional dependent scope.
 - **Invitation** — expiring, auditable path for an authenticated person to join in a proposed role or connect an existing dependent profile to their account.
+- **Shared-device designation** — one trusted device's Household Mode attachment to a Household and one individually assigned caregiver account.
+- **Household member code** — optional caregiver-managed code that selects a dependent child as the acting member on a designated shared device; it is not an account password or caregiver credential.
 
 ### Initial roles
 
@@ -87,6 +89,34 @@ Deactivation previews what disappears, what data remains, and whether cleanup is
 - Broader-family/shared-Goal participation remains a separate relationship space.
 - Household setup changes eligibility, not everyday capability chrome. To-dos does not show people fields, avatars, filters, or empty family views until an Activity is deliberately assigned.
 
+### Caregiver-anchored Household Mode
+
+A designated shared iPad remains authenticated to one individually assigned caregiver. **Household Mode** is a restricted family-facing layer over that account, not a shared family credential or a separate full account for every child.
+
+The mode-aware identity control lists only eligible dependent children and the assigned caregiver:
+
+- selecting a child establishes a bounded actor session and requests that child's household member code when configured;
+- switching to another child changes attribution only after that child's required code succeeds;
+- selecting the caregiver requires fresh Face ID, Touch ID, or device-passcode authentication;
+- successful local authentication exits Household Mode and restores the caregiver's complete ordinary Kwilt; and
+- cancellation or failure leaves the current child context unchanged.
+
+Device biometrics authorize access to the assigned caregiver account; they do not identify which enrolled adult supplied the face, fingerprint, or passcode. Households needing person-specific adult proof require account reauthentication.
+
+The same active-member control appears in the capability-menu avatar and in capability headers where attribution matters, beginning with Chores. A caregiver viewing a child's information on a personal device remains the caregiver; it is not an actor switch or impersonation.
+
+The initially accepted Household Mode set is:
+
+- Chores;
+- the selected child's own activated Arcs, Goals, and To-dos;
+- household-approved/shared Recipes;
+- the shared Meal Plan; and
+- the shared Groceries list.
+
+Chat, Chapters, Money, and every other capability remain unavailable until each declares an accepted household-safe projection and allowed actions. A child's own projection is not a grant to the caregiver or another child, and Household membership never exposes the caregiver's corresponding private content.
+
+See [Caregiver-anchored Household Mode](shared-household-device-profiles.md) for the complete interaction and release boundary.
+
 ### Connecting a child who already uses Kwilt
 
 **Add a child** must distinguish between a child who already has a Kwilt account and a child who needs a dependent profile. If Charlie already uses Kwilt, Andrew invites Charlie's authenticated account into the Household as a child; Kwilt does not create a second, disconnected Charlie.
@@ -112,6 +142,8 @@ Kwilt does not create an empty Household during ordinary onboarding. The owner s
 
 Add or invite first person → household and owner membership are created → invited person accepts with an independent account or dependent profile becomes available → grant named capability authority → optionally bind devices.
 
+A shared iPad may be designated from a secondary **Set up for your household** welcome action, from **Settings > Household > Household devices**, or contextually after a dependent or household-facing capability is added. Designation assigns the current caregiver account as the protected adult account beneath Household Mode; it does not create a new family login.
+
 For a dependent child, profile creation is followed by an explicit capability choice. Creating the profile alone does not activate To-dos, Screen Time, Agent, Money, Games, Stories, or future capabilities.
 
 Accepting an invitation joins the inviter's existing Household. Apple Family Sharing never silently creates or populates a Kwilt Household; the systems have different identity, consent, authority, and data-access meanings.
@@ -119,6 +151,8 @@ Accepting an invitation joins the inviter's existing Household. Apple Family Sha
 For Screen Time, Apple Family Sharing is still the required platform trust anchor for child-device authorization. After Charlie's Kwilt account joins the Household, the enrolled child device requests Apple's `.child` Family Controls authorization and a parent or guardian in the same Apple family approves it. Apple authorization does not replace the Kwilt invitation, and the Kwilt invitation does not replace Apple authorization.
 
 Removal and household deletion require explicit dependent-data and managed-device cleanup. Authority-changing operations require a server round trip; offline clients may display last-known state but not claim a role change succeeded.
+
+Backgrounding or sufficient inactivity must cover caregiver content before a child can interact again. The exact timeout remains capability-platform policy, but a dedicated family iPad launches and returns to Household Mode by default. Optional Apple Guided Access may keep the physical iPad inside Kwilt; it does not establish Kwilt identity, membership, or authority.
 
 ### Data and authorization contract
 
@@ -128,8 +162,11 @@ Removal and household deletion require explicit dependent-data and managed-devic
 - Ephemeral nearby-pairing sessions that reveal no durable account or Household identifiers before mutual confirmation.
 - Capability grants scoped to household, capability, and optionally child/member.
 - Child capability activations scoped to household, child member, and capability, with `inactive`, `pending_setup`, `active`, `pending_cleanup`, and `blocked` lifecycle states.
+- Shared-device designation with assigned caregiver, lifecycle, revocation, and last-known safe-mode state.
+- Household-member-code verifier and attempt policy that never stores or exposes the plain code.
+- Bounded active-member session state distinct from the underlying authenticated caregiver.
 - Server-enforced mutation authorization and negative RLS coverage.
-- Append-only invitation, grant, role, child-capability activation, removal, and release audit events.
+- Append-only invitation, grant, role, child-capability activation, shared-device designation/revocation, caregiver unlock, removal, and release audit events.
 
 ## Success signal
 
@@ -147,11 +184,14 @@ The job-flow score does not increase on infrastructure alone; it becomes eligibl
 - Subscription sharing or App Store Family Sharing behavior.
 - Managed-device enforcement.
 - Automatic or silent child-profile-to-account conversion.
+- A family-owned master account, shared caregiver password, or full cached multi-account switching.
+- Treating Face ID or Touch ID as proof of which child or adult acted.
 
 ## Open questions
 
 - What recovery process applies if the sole household owner loses account access?
-- Which capabilities, beyond To-dos and Screen Time, are ready to declare a child-participation and deactivation contract?
+- What exact inactivity/background interval safely returns an unlocked caregiver account to Household Mode?
+- Does the neutral Household Mode state remember the last child or always ask who is using Kwilt?
 
 ## Accepted implementation decisions
 
@@ -162,3 +202,6 @@ The job-flow score does not increase on infrastructure alone; it becomes eligibl
 - **Find nearby Kwilt devices** is foreground-only and explicitly enabled on both phones. It advertises an ephemeral pairing session, requires matching-phrase confirmation on both devices, times out, and retains QR/code/share-link fallbacks.
 - Apple Family Sharing authorizes child-device control after Kwilt Household attachment; it never auto-populates the Household or determines Kwilt caregiver grants.
 - Direct table writes remain unavailable to app clients. Authority-changing actions go through narrowly scoped authenticated RPCs and append an audit event.
+- Household Mode uses one assigned caregiver account beneath a restricted child-facing layer. Child member codes select actors; fresh local authentication restores the caregiver's full account.
+- The capability-menu avatar and attribution-sensitive capability headers use one shared active-member switcher.
+- The accepted initial Household Mode capability set is Chores, the selected child's own Arcs/Goals/To-dos, household-approved/shared Recipes, shared Meal Plan, and shared Groceries. Other capabilities require separate acceptance.
