@@ -8,7 +8,9 @@ import type {
 import type {
   ChoreLearningRecord,
   ChoreMember,
+  ChorePhotoPolicy,
   ChoreReviewPolicy,
+  ChoreSeries,
 } from './choreLearning';
 
 export type ChoreDraft = {
@@ -18,6 +20,7 @@ export type ChoreDraft = {
   repeatCustom?: ActivityRepeatCustom;
   repeatBasis: ActivityRepeatBasis;
   definitionOfDone: string;
+  photoPolicy: ChorePhotoPolicy;
   reviewPolicy: ChoreReviewPolicy;
   tokenValue: 1 | 2 | 3;
 };
@@ -40,8 +43,23 @@ export function createChoreDraft(sourceText: string, members: ChoreMember[]): Ch
     repeatCustom: undefined,
     repeatBasis: 'scheduled',
     definitionOfDone: '',
+    photoPolicy: 'optional',
     reviewPolicy: 'trusted',
     tokenValue: 1,
+  };
+}
+
+export function createChoreDraftFromSeries(series: ChoreSeries): ChoreDraft {
+  return {
+    title: series.title,
+    assignedMemberId: series.assignedMemberId,
+    repeatRule: series.repeatRule,
+    repeatCustom: series.repeatCustom ? { ...series.repeatCustom } : undefined,
+    repeatBasis: series.repeatBasis ?? 'scheduled',
+    definitionOfDone: series.definitionOfDone,
+    photoPolicy: series.photoPolicy,
+    reviewPolicy: series.reviewPolicy,
+    tokenValue: series.tokenValue,
   };
 }
 
@@ -107,6 +125,22 @@ export function addChoreDraftToLearningRecord(
 
   return {
     ...record,
+    series: [
+      ...record.series,
+      {
+        activitySeriesId: `activity-series-${normalizedSeed}`,
+        title,
+        definitionOfDone: draft.definitionOfDone.trim(),
+        repeatRule: draft.repeatRule,
+        repeatCustom: draft.repeatCustom ? { ...draft.repeatCustom } : undefined,
+        repeatBasis: draft.repeatRule ? draft.repeatBasis : undefined,
+        tokenValue: draft.tokenValue,
+        photoPolicy: draft.photoPolicy,
+        reviewPolicy: draft.reviewPolicy,
+        participation,
+        assignedMemberId: assignedMember?.id ?? null,
+      },
+    ],
     occurrences: [
       ...record.occurrences,
       {
@@ -120,6 +154,7 @@ export function addChoreDraftToLearningRecord(
         repeatBasis: draft.repeatRule ? draft.repeatBasis : undefined,
         repeatCreatedFromOccurrenceId: null,
         tokenValue: draft.tokenValue,
+        photoPolicy: draft.photoPolicy,
         reviewPolicy: draft.reviewPolicy,
         participation,
         assignedMemberId: assignedMember?.id ?? null,
@@ -134,4 +169,39 @@ export function addChoreDraftToLearningRecord(
       },
     ],
   };
+}
+
+export function updateChoreSeriesInLearningRecord(
+  record: ChoreLearningRecord,
+  draft: ChoreDraft,
+  caregiverId: string,
+  activitySeriesId: string,
+): ChoreLearningRecord {
+  const caregiver = record.members.find((member) => (
+    member.id === caregiverId && member.role === 'caregiver'
+  ));
+  const seriesIndex = record.series.findIndex((series) => series.activitySeriesId === activitySeriesId);
+  const title = draft.title.trim();
+  if (!caregiver || seriesIndex < 0 || !title) return record;
+
+  const assignedMember = draft.assignedMemberId == null
+    ? null
+    : record.members.find((member) => (
+      member.id === draft.assignedMemberId && member.role === 'child'
+    ));
+  const series = [...record.series];
+  series[seriesIndex] = {
+    activitySeriesId,
+    title,
+    definitionOfDone: draft.definitionOfDone.trim(),
+    repeatRule: draft.repeatRule,
+    repeatCustom: draft.repeatCustom ? { ...draft.repeatCustom } : undefined,
+    repeatBasis: draft.repeatRule ? draft.repeatBasis : undefined,
+    tokenValue: draft.tokenValue,
+    photoPolicy: draft.photoPolicy,
+    reviewPolicy: draft.reviewPolicy,
+    participation: assignedMember ? 'assigned' : 'open',
+    assignedMemberId: assignedMember?.id ?? null,
+  };
+  return { ...record, series };
 }

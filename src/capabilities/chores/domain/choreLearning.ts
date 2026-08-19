@@ -23,6 +23,7 @@ export type ChoreExpectation = {
 };
 
 export type ChoreReviewPolicy = 'trusted' | 'caregiver_review';
+export type ChorePhotoPolicy = 'optional' | 'required';
 export type ChoreOccurrenceState =
   | 'ready'
   | 'available'
@@ -42,6 +43,7 @@ export type ChoreOccurrence = {
   repeatBasis?: ActivityRepeatBasis;
   repeatCreatedFromOccurrenceId?: string | null;
   tokenValue: 1 | 2 | 3;
+  photoPolicy: ChorePhotoPolicy;
   reviewPolicy: ChoreReviewPolicy;
   participation: 'assigned' | 'open';
   assignedMemberId: string | null;
@@ -55,12 +57,27 @@ export type ChoreOccurrence = {
   evidencePhotoUri: string | null;
 };
 
+export type ChoreSeries = {
+  activitySeriesId: string;
+  title: string;
+  definitionOfDone: string;
+  repeatRule?: ActivityRepeatRule;
+  repeatCustom?: ActivityRepeatCustom;
+  repeatBasis?: ActivityRepeatBasis;
+  tokenValue: 1 | 2 | 3;
+  photoPolicy: ChorePhotoPolicy;
+  reviewPolicy: ChoreReviewPolicy;
+  participation: 'assigned' | 'open';
+  assignedMemberId: string | null;
+};
+
 export type ChoreLearningRecord = {
-  version: 8;
+  version: 10;
   activeMemberId: string;
   tokensEnabled: boolean;
   members: ChoreMember[];
   expectations: ChoreExpectation[];
+  series: ChoreSeries[];
   occurrences: ChoreOccurrence[];
 };
 
@@ -115,8 +132,8 @@ const EXPECTATIONS: ChoreExpectation[] = [
 
 type ChoreOccurrenceSeed = Omit<
   ChoreOccurrence,
-  'scheduledDate' | 'reviewedByMemberId' | 'reviewedAtIso' | 'reviewNote' | 'evidencePhotoUri'
-> & { scheduledDate?: string | null; evidencePhotoUri?: string | null };
+  'scheduledDate' | 'reviewedByMemberId' | 'reviewedAtIso' | 'reviewNote' | 'evidencePhotoUri' | 'photoPolicy'
+> & { scheduledDate?: string | null; evidencePhotoUri?: string | null; photoPolicy?: ChorePhotoPolicy };
 
 const OCCURRENCES: ChoreOccurrenceSeed[] = [
   {
@@ -162,6 +179,7 @@ const OCCURRENCES: ChoreOccurrenceSeed[] = [
     repeatRule: 'weekdays',
     repeatBasis: 'scheduled',
     tokenValue: 1,
+    photoPolicy: 'required',
     reviewPolicy: 'caregiver_review',
     participation: 'assigned',
     assignedMemberId: 'member-charlie',
@@ -283,6 +301,7 @@ function cloneOccurrence(occurrence: ChoreOccurrenceSeed | ChoreOccurrence): Cho
     repeatCustom: occurrence.repeatCustom ? { ...occurrence.repeatCustom } : undefined,
     repeatBasis: occurrence.repeatRule ? occurrence.repeatBasis ?? 'scheduled' : undefined,
     repeatCreatedFromOccurrenceId: occurrence.repeatCreatedFromOccurrenceId ?? null,
+    photoPolicy: occurrence.photoPolicy ?? 'optional',
     reviewedByMemberId: 'reviewedByMemberId' in occurrence ? occurrence.reviewedByMemberId : null,
     reviewedAtIso: 'reviewedAtIso' in occurrence ? occurrence.reviewedAtIso : null,
     reviewNote: 'reviewNote' in occurrence ? occurrence.reviewNote : null,
@@ -290,9 +309,37 @@ function cloneOccurrence(occurrence: ChoreOccurrenceSeed | ChoreOccurrence): Cho
   };
 }
 
-export function createChoreLearningRecord(): ChoreLearningRecord {
+function seriesFromOccurrences(occurrences: ChoreOccurrence[]): ChoreSeries[] {
+  const bySeries = new Map<string, ChoreSeries>();
+  occurrences.forEach((occurrence) => {
+    bySeries.set(occurrence.activitySeriesId, {
+      activitySeriesId: occurrence.activitySeriesId,
+      title: occurrence.title,
+      definitionOfDone: occurrence.definitionOfDone,
+      repeatRule: occurrence.repeatRule,
+      repeatCustom: occurrence.repeatCustom ? { ...occurrence.repeatCustom } : undefined,
+      repeatBasis: occurrence.repeatRule ? occurrence.repeatBasis ?? 'scheduled' : undefined,
+      tokenValue: occurrence.tokenValue,
+      photoPolicy: occurrence.photoPolicy,
+      reviewPolicy: occurrence.reviewPolicy,
+      participation: occurrence.participation,
+      assignedMemberId: occurrence.assignedMemberId,
+    });
+  });
+  return Array.from(bySeries.values());
+}
+
+function cloneSeries(series: ChoreSeries): ChoreSeries {
   return {
-    version: 8,
+    ...series,
+    repeatCustom: series.repeatCustom ? { ...series.repeatCustom } : undefined,
+  };
+}
+
+export function createChoreLearningRecord(): ChoreLearningRecord {
+  const occurrences = OCCURRENCES.map(cloneOccurrence);
+  return {
+    version: 10,
     activeMemberId: MEMBERS[0].id,
     tokensEnabled: false,
     members: MEMBERS.map((member) => ({ ...member })),
@@ -302,7 +349,8 @@ export function createChoreLearningRecord(): ChoreLearningRecord {
       quota: expectation.quota ? { ...expectation.quota } : null,
       benefit: expectation.benefit ? { ...expectation.benefit } : null,
     })),
-    occurrences: OCCURRENCES.map(cloneOccurrence),
+    series: seriesFromOccurrences(occurrences),
+    occurrences,
   };
 }
 
@@ -315,9 +363,9 @@ const OCCURRENCE_STATES = new Set<ChoreOccurrenceState>([
   'completed',
 ]);
 
-function hasValidRepeatDetails(occurrence: ChoreOccurrence): boolean {
-  if (occurrence.repeatRule !== 'custom') return occurrence.repeatCustom === undefined;
-  const custom = occurrence.repeatCustom;
+function hasValidRepeatDetails(value: Pick<ChoreOccurrence, 'repeatRule' | 'repeatCustom'>): boolean {
+  if (value.repeatRule !== 'custom') return value.repeatCustom === undefined;
+  const custom = value.repeatCustom;
   if (!custom || !Number.isSafeInteger(custom.interval) || custom.interval < 1) return false;
   if (!['days', 'weeks', 'months', 'years'].includes(custom.cadence)) return false;
   if (custom.cadence !== 'weeks') return true;
@@ -454,10 +502,35 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
         : legacy.occurrences,
     });
   }
+  if ((value as { version?: number }).version === 8) {
+    const legacy = value as Record<string, unknown> & { occurrences?: ChoreOccurrence[] };
+    const occurrences = Array.isArray(legacy.occurrences) ? legacy.occurrences : [];
+    return normalizeChoreLearningRecord({
+      ...legacy,
+      version: 9,
+      series: seriesFromOccurrences(occurrences.map(cloneOccurrence)),
+    });
+  }
+  if ((value as { version?: number }).version === 9) {
+    const legacy = value as Record<string, unknown> & {
+      occurrences?: Array<ChoreOccurrence & { photoPolicy?: ChorePhotoPolicy }>;
+      series?: Array<ChoreSeries & { photoPolicy?: ChorePhotoPolicy }>;
+    };
+    return normalizeChoreLearningRecord({
+      ...legacy,
+      version: 10,
+      occurrences: Array.isArray(legacy.occurrences)
+        ? legacy.occurrences.map((occurrence) => ({ ...occurrence, photoPolicy: occurrence.photoPolicy ?? 'optional' }))
+        : legacy.occurrences,
+      series: Array.isArray(legacy.series)
+        ? legacy.series.map((series) => ({ ...series, photoPolicy: series.photoPolicy ?? 'optional' }))
+        : legacy.series,
+    });
+  }
   const candidate = value as Partial<ChoreLearningRecord>;
-  if (candidate.version !== 8 || typeof candidate.tokensEnabled !== 'boolean'
+  if (candidate.version !== 10 || typeof candidate.tokensEnabled !== 'boolean'
     || !Array.isArray(candidate.members) || !Array.isArray(candidate.expectations)
-    || !Array.isArray(candidate.occurrences)) {
+    || !Array.isArray(candidate.series) || !Array.isArray(candidate.occurrences)) {
     return createChoreLearningRecord();
   }
   const membersValid = candidate.members.length > 0 && candidate.members.every((member) => (
@@ -504,6 +577,7 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
       || occurrence.repeatCreatedFromOccurrenceId === null
       || typeof occurrence.repeatCreatedFromOccurrenceId === 'string')
     && [1, 2, 3].includes(occurrence.tokenValue)
+    && ['optional', 'required'].includes(occurrence.photoPolicy)
     && ['trusted', 'caregiver_review'].includes(occurrence.reviewPolicy)
     && ['assigned', 'open'].includes(occurrence.participation)
     && OCCURRENCE_STATES.has(occurrence.state)
@@ -516,12 +590,28 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
     && (occurrence.reviewNote === null || typeof occurrence.reviewNote === 'string')
     && (occurrence.evidencePhotoUri === null || typeof occurrence.evidencePhotoUri === 'string')
   ));
-  if (!membersValid || !expectationsValid || !occurrencesValid || !candidate.activeMemberId
+  const seriesValid = candidate.series.every((series) => (
+    series != null
+    && typeof series.activitySeriesId === 'string'
+    && typeof series.title === 'string'
+    && typeof series.definitionOfDone === 'string'
+    && (series.repeatRule === undefined
+      || ['daily', 'weekly', 'weekdays', 'monthly', 'yearly', 'custom'].includes(series.repeatRule))
+    && (series.repeatBasis === undefined
+      || ['scheduled', 'after_completion'].includes(series.repeatBasis))
+    && hasValidRepeatDetails(series)
+    && [1, 2, 3].includes(series.tokenValue)
+    && ['optional', 'required'].includes(series.photoPolicy)
+    && ['trusted', 'caregiver_review'].includes(series.reviewPolicy)
+    && ['assigned', 'open'].includes(series.participation)
+    && (series.assignedMemberId === null || memberIds.has(series.assignedMemberId))
+  ));
+  if (!membersValid || !expectationsValid || !seriesValid || !occurrencesValid || !candidate.activeMemberId
     || !memberIds.has(candidate.activeMemberId)) {
     return createChoreLearningRecord();
   }
   return {
-    version: 8,
+    version: 10,
     activeMemberId: candidate.activeMemberId,
     tokensEnabled: candidate.tokensEnabled,
     members: candidate.members.map((member) => ({ ...member })),
@@ -531,6 +621,7 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
       quota: expectation.quota ? { ...expectation.quota } : null,
       benefit: expectation.benefit ? { ...expectation.benefit } : null,
     })),
+    series: candidate.series.map(cloneSeries),
     occurrences: candidate.occurrences.map(cloneOccurrence),
   };
 }
@@ -719,13 +810,9 @@ export function projectChoreReviewQueue(
 export function projectCaregiverChoreInventory(
   record: ChoreLearningRecord,
   caregiverMemberId: string,
-): ChoreOccurrence[] {
+): ChoreSeries[] {
   if (!isCaregiver(record, caregiverMemberId)) return [];
-  const currentBySeries = new Map<string, ChoreOccurrence>();
-  record.occurrences.forEach((occurrence) => {
-    currentBySeries.set(occurrence.activitySeriesId, occurrence);
-  });
-  return Array.from(currentBySeries.values());
+  return record.series.map(cloneSeries);
 }
 
 function updateOccurrence(
@@ -752,16 +839,17 @@ function advanceRecurringChore(
   const occurrence = record.occurrences.find(
     (candidate) => candidate.activityOccurrenceId === completedOccurrenceId,
   );
-  if (!occurrence?.repeatRule || occurrence.state !== 'completed') return record;
+  const series = record.series.find((candidate) => candidate.activitySeriesId === occurrence?.activitySeriesId);
+  if (!occurrence || !series?.repeatRule || occurrence.state !== 'completed') return record;
   if (record.occurrences.some(
     (candidate) => candidate.repeatCreatedFromOccurrenceId === completedOccurrenceId,
   )) return record;
 
   const nextDate = getNextOccurrenceDate({
     activity: {
-      repeatRule: occurrence.repeatRule,
-      repeatCustom: occurrence.repeatCustom,
-      repeatBasis: occurrence.repeatBasis,
+      repeatRule: series.repeatRule,
+      repeatCustom: series.repeatCustom,
+      repeatBasis: series.repeatBasis,
       scheduledDate: occurrence.scheduledDate,
     },
     closedAt: new Date(completedAtIso),
@@ -781,10 +869,20 @@ function advanceRecurringChore(
       ...record.occurrences,
       {
         ...cloneOccurrence(occurrence),
+        title: series.title,
+        definitionOfDone: series.definitionOfDone,
+        repeatRule: series.repeatRule,
+        repeatCustom: series.repeatCustom ? { ...series.repeatCustom } : undefined,
+        repeatBasis: series.repeatBasis,
+        tokenValue: series.tokenValue,
+        photoPolicy: series.photoPolicy,
+        reviewPolicy: series.reviewPolicy,
+        participation: series.participation,
+        assignedMemberId: series.assignedMemberId,
         activityOccurrenceId,
         scheduledDate,
         repeatCreatedFromOccurrenceId: completedOccurrenceId,
-        state: occurrence.participation === 'assigned' ? 'ready' : 'available',
+        state: series.participation === 'assigned' ? 'ready' : 'available',
         claimedByMemberId: null,
         performedByMemberId: null,
         performedAtIso: null,
@@ -853,7 +951,8 @@ export function completeChoreOccurrence(
     const isRetry = occurrence.state === 'needs_another_pass'
       && occurrence.performedByMemberId === memberId
       && (occurrence.assignedMemberId === memberId || occurrence.claimedByMemberId === memberId);
-    if (!isChild(record, memberId) || (!isAssigned && !isClaimed && !isRetry)) return null;
+    const hasRequiredPhoto = occurrence.photoPolicy !== 'required' || Boolean(occurrence.evidencePhotoUri);
+    if (!isChild(record, memberId) || (!isAssigned && !isClaimed && !isRetry) || !hasRequiredPhoto) return null;
     return {
       ...occurrence,
       state: occurrence.reviewPolicy === 'caregiver_review' ? 'waiting_approval' : 'completed',

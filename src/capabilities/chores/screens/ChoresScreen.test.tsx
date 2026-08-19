@@ -173,6 +173,15 @@ describe('ChoresScreen', () => {
     expect(screen.queryByText(/dashboard|ranking|streak/i)).toBeNull();
   });
 
+  it('uses the standard ellipsis for caregiver Chores actions', () => {
+    const screen = render(<ChoresScreen />);
+
+    fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
+
+    expect(screen.getAllByTestId('chores.header.overflow.icon.more').length).toBeGreaterThan(0);
+  });
+
   it('uses the shared To-do row grammar and keeps rewards in one metadata line', () => {
     const screen = render(<ChoresScreen />);
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
@@ -240,7 +249,7 @@ describe('ChoresScreen', () => {
     expect(screen.getAllByTestId('chores.assignee.household.icon').length).toBeGreaterThan(0);
     expect(screen.getAllByText('CH').length).toBeGreaterThan(0);
     expect(within(screen.getByTestId(
-      'chores.occurrence.activity-occurrence-charlie-breakfast-dishes-2026-08-17',
+      'chores.series.activity-series-breakfast-dishes',
     )).queryByText('Completed')).toBeNull();
 
     fireEvent.press(screen.getByLabelText('Filter chores, All chores'));
@@ -248,6 +257,48 @@ describe('ChoresScreen', () => {
     expect(screen.getByText('Feed Scout and refill the water bowl')).toBeTruthy();
     expect(screen.queryByText('Fold and put away the clean towels')).toBeNull();
     expect(screen.queryByText('Take the recycling to the blue bin')).toBeNull();
+  });
+
+  it('reuses the To-dos inventory rail treatment for the simplified chore filter', () => {
+    const screen = render(<ChoresScreen />);
+    fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
+
+    expect(screen.getByTestId('chores.inventory-controls')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByTestId('chores.inventory-filter').props.style)).toMatchObject({
+      backgroundColor: colors.canvas,
+    });
+
+    fireEvent.press(screen.getByLabelText('Filter chores, All chores'));
+    fireEvent.press(screen.getByLabelText('Show Charlie chores'));
+
+    expect(screen.getByLabelText('Filter chores, Charlie')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByTestId('chores.inventory-filter').props.style)).toMatchObject({
+      backgroundColor: colors.sumi900,
+    });
+    expect(within(screen.getByTestId('chores.inventory-filter')).getByText('1')).toBeTruthy();
+  });
+
+  it('opens a caregiver row as the editable root chore rather than an occurrence receipt', () => {
+    const screen = render(<ChoresScreen />);
+    fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
+
+    fireEvent.press(screen.getByLabelText(/Edit Bring in the mail/));
+
+    const editor = screen.getByTestId('chores.editor.drawer');
+    expect(within(editor).getByDisplayValue('Bring in the mail')).toBeTruthy();
+    expect(within(editor).getByDisplayValue('Weekdays')).toBeTruthy();
+    expect(within(editor).getByDisplayValue('Olive')).toBeTruthy();
+    expect(screen.getByLabelText('Save chore')).toBeTruthy();
+    expect(screen.queryByTestId('chores.detail.drawer')).toBeNull();
+    expect(within(editor).queryByText('Completed')).toBeNull();
+    expect(within(editor).queryByText('Earned')).toBeNull();
+
+    fireEvent.changeText(within(editor).getByLabelText('Chore'), 'Bring in and sort the mail');
+    fireEvent.press(screen.getByLabelText('Save chore'));
+    expect(screen.getByText('Bring in and sort the mail')).toBeTruthy();
+    expect(screen.queryByText('Bring in the mail')).toBeNull();
   });
 
   it('opens the chore detail drawer from the row with one explicit completion action', () => {
@@ -366,6 +417,37 @@ describe('ChoresScreen', () => {
 
     await waitFor(() => expect(screen.getByLabelText("Charlie's chore photo. Open full screen")).toBeTruthy());
     expect(mockLaunchImageLibraryAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('explains and blocks a required-photo chore until evidence is attached', async () => {
+    act(() => {
+      const record = useChoreLearningStore.getState().record;
+      useChoreLearningStore.setState({
+        record: {
+          ...record,
+          occurrences: record.occurrences.map((occurrence) => (
+            occurrence.activityOccurrenceId === 'activity-occurrence-charlie-feed-scout-2026-08-17'
+              ? { ...occurrence, photoPolicy: 'required' }
+              : occurrence
+          )),
+        },
+      });
+    });
+    mockLaunchCameraAsync.mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file://camera/scout-required.jpg' }],
+    });
+    const screen = render(<ChoresScreen />);
+    fireEvent.press(screen.getByLabelText('Open details for Feed Scout and refill the water bowl'));
+
+    expect(screen.getByText('Add a photo to finish this chore.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Mark done' }).props.accessibilityState)
+      .toMatchObject({ disabled: true });
+
+    fireEvent.press(screen.getByLabelText('Take a photo of this chore'));
+    await waitFor(() => expect(screen.getByLabelText("Charlie's chore photo. Open full screen")).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Mark done' }).props.accessibilityState)
+      .toMatchObject({ disabled: false });
   });
 
   it('keeps the completion drawer open when camera permission is denied', async () => {

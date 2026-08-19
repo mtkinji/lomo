@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { colors, spacing } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
+import { FormField } from '../../../ui/FormField';
 import { Input } from '../../../ui/Input';
 import { KwiltLoader } from '../../../ui/KwiltLoader';
 import { BottomDrawerFooter } from '../../../ui/layout/BottomDrawerFooter';
@@ -29,14 +30,20 @@ type Props = {
   members: ChoreMember[];
   tokensEnabled: boolean;
   enriching: boolean;
+  mode: 'create' | 'edit';
   onChange: <Field extends ChoreDraftField>(field: Field, value: ChoreDraft[Field]) => void;
   onAdd: () => void;
   onClose: () => void;
 };
 
 const REVIEW_OPTIONS: PickerFieldOption[] = [
-  { value: 'trusted', label: 'No review needed' },
-  { value: 'caregiver_review', label: 'Ask a caregiver to review' },
+  { value: 'trusted', label: 'Not required' },
+  { value: 'caregiver_review', label: 'Caregiver approval' },
+];
+
+const PHOTO_OPTIONS: PickerFieldOption[] = [
+  { value: 'optional', label: 'Optional' },
+  { value: 'required', label: 'Required' },
 ];
 
 const TOKEN_OPTIONS: PickerFieldOption[] = [
@@ -47,10 +54,9 @@ const TOKEN_OPTIONS: PickerFieldOption[] = [
 
 function PickerBlock({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <View style={styles.fieldBlock}>
-      <Text variant="label">{label}</Text>
-      {children}
-    </View>
+    <FormField label={label}>
+      {() => children}
+    </FormField>
   );
 }
 
@@ -60,10 +66,12 @@ export function ChoreEditorDrawer({
   members,
   tokensEnabled,
   enriching,
+  mode,
   onChange,
   onAdd,
   onClose,
 }: Props) {
+  const isEditing = mode === 'edit';
   const [repeatPresetVisible, setRepeatPresetVisible] = useState(false);
   const [repeatCustomVisible, setRepeatCustomVisible] = useState(false);
   const initialRepeat = resolveActivityCustomRepeatDraft({
@@ -151,30 +159,30 @@ export function ChoreEditorDrawer({
       onClose={onClose}
       snapPoints={['100%']}
       initialSnapIndex={0}
-      keyboardBehavior="extend"
+      keyboardBehavior="resize"
       bottomAccessory={(
         <BottomDrawerFooter showTopBorder>
           <Button
             fullWidth
-            accessibilityLabel="Add chore"
+            accessibilityLabel={isEditing ? 'Save chore' : 'Add chore'}
             disabled={!draft.title.trim()}
             onPress={onAdd}
           >
-            Add chore
+            {isEditing ? 'Save chore' : 'Add chore'}
           </Button>
         </BottomDrawerFooter>
       )}
     >
       <BottomDrawerScrollView
         testID="chores.editor.drawer"
-        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
       >
         <BottomDrawerHeader
           variant="withClose"
-          title="New chore"
+          title={isEditing ? 'Edit chore' : 'New chore'}
           onClose={onClose}
-          closeAccessibilityLabel="Close new chore"
+          closeAccessibilityLabel={isEditing ? 'Close chore editor' : 'Close new chore'}
         />
 
         {enriching ? (
@@ -195,7 +203,8 @@ export function ChoreEditorDrawer({
           onChangeText={(value) => onChange('title', value)}
           variant="outline"
           elevation="flat"
-          autoFocus
+          accentLabelOnFocus={false}
+          autoFocus={!isEditing}
         />
 
         <PickerBlock label="For">
@@ -235,15 +244,28 @@ export function ChoreEditorDrawer({
           multilineMaxHeight={150}
           variant="outline"
           elevation="flat"
+          accentLabelOnFocus={false}
         />
 
-        <PickerBlock label="Completion">
+        <PickerBlock label="Photo">
           <SmallSetPickerField
-            title="Completion"
+            title="Photo"
+            value={draft.photoPolicy}
+            options={PHOTO_OPTIONS}
+            placeholder="Optional"
+            accessibilityLabel="Photo requirement"
+            allowDeselect={false}
+            onValueChange={(value) => onChange('photoPolicy', value as ChoreDraft['photoPolicy'])}
+          />
+        </PickerBlock>
+
+        <PickerBlock label="Approval">
+          <SmallSetPickerField
+            title="Approval"
             value={draft.reviewPolicy}
             options={REVIEW_OPTIONS}
-            placeholder="No review needed"
-            accessibilityLabel="How is this chore completed?"
+            placeholder="Not required"
+            accessibilityLabel="Approval requirement"
             allowDeselect={false}
             onValueChange={(value) => onChange('reviewPolicy', value as ChoreDraft['reviewPolicy'])}
           />
@@ -262,6 +284,7 @@ export function ChoreEditorDrawer({
             />
           </PickerBlock>
         ) : null}
+
       </BottomDrawerScrollView>
 
       <ActivityRepeatSheets
@@ -279,7 +302,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  fieldBlock: { gap: spacing.xs },
   enrichmentStatus: {
     minHeight: 36,
     flexDirection: 'row',

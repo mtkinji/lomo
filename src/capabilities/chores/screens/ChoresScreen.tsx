@@ -15,6 +15,10 @@ import {
   DropdownMenuTrigger,
 } from '../../../ui/DropdownMenu';
 import { Icon } from '../../../ui/Icon';
+import {
+  InventoryControlGroup,
+  InventoryControlSurface,
+} from '../../../ui/InventoryControlGroup';
 import { ProfileAvatar } from '../../../ui/ProfileAvatar';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { CanvasScrollView } from '../../../ui/layout/CanvasScrollView';
@@ -36,6 +40,7 @@ import {
   projectChoreReviewQueue,
   type ChoreMember,
   type ChoreOccurrence,
+  type ChoreSeries,
 } from '../domain/choreLearning';
 import { useChoreLearningStore } from '../runtime/useChoreLearningStore';
 import { getImagePickerMediaTypesImages } from '../../../utils/imagePickerMediaTypes';
@@ -51,6 +56,7 @@ import { enrichActivityWithAI } from '../../../services/ai';
 import {
   applyChoreDraftEnrichment,
   createChoreDraft,
+  createChoreDraftFromSeries,
   type ChoreDraft,
   type ChoreDraftField,
 } from '../domain/choreCreation';
@@ -259,36 +265,31 @@ function HouseholdRow({ occurrence, tokensEnabled, onOpen, onTake }: {
   );
 }
 
-function caregiverRepeatLabel(occurrence: ChoreOccurrence): string {
+function caregiverRepeatLabel(series: ChoreSeries): string {
   const label = formatActivityRepeatLabel({
-    repeatRule: occurrence.repeatRule,
-    repeatCustom: occurrence.repeatCustom,
+    repeatRule: series.repeatRule,
+    repeatCustom: series.repeatCustom,
   });
   return label === 'Off' ? 'One time' : label;
 }
 
-function CaregiverRow({ occurrence, members, tokensEnabled, onOpen }: {
-  occurrence: ChoreOccurrence;
+function CaregiverRow({ series, members, tokensEnabled, onOpen }: {
+  series: ChoreSeries;
   members: ChoreMember[];
   tokensEnabled: boolean;
   onOpen: () => void;
 }) {
-  const assignedMember = occurrence.assignedMemberId
-    ? members.find((member) => member.id === occurrence.assignedMemberId) ?? null
+  const assignedMember = series.assignedMemberId
+    ? members.find((member) => member.id === series.assignedMemberId) ?? null
     : null;
   const assignee = assignedMember?.displayName ?? 'Household';
-  const status = occurrence.state === 'waiting_approval'
-    ? 'Waiting for review'
-    : occurrence.state === 'needs_another_pass'
-      ? 'Needs another pass'
-      : caregiverRepeatLabel(occurrence);
-  const metadata = `${status}${tokensEnabled ? ` · ${tokenCount(occurrence.tokenValue)}` : ''}`;
+  const metadata = `${caregiverRepeatLabel(series)}${tokensEnabled ? ` · ${tokenCount(series.tokenValue)}` : ''}`;
   const accessibilityMetadata = `${assignee} · ${metadata}`;
   return (
-    <View style={styles.row} testID={`chores.occurrence.${occurrence.activityOccurrenceId}`}>
+    <View style={styles.row} testID={`chores.series.${series.activitySeriesId}`}>
       <ActivityListItem
         surface="flat"
-        title={occurrence.title}
+        title={series.title}
         meta={metadata}
         metaLeadingAccessory={(
           <ChoreMemberPill
@@ -304,7 +305,7 @@ function CaregiverRow({ occurrence, members, tokensEnabled, onOpen }: {
         showPriorityControl={false}
         showCheckbox={false}
         onPress={onOpen}
-        rowAccessibilityLabel={`Open details for ${occurrence.title}. ${accessibilityMetadata}`}
+        rowAccessibilityLabel={`Edit ${series.title}. ${accessibilityMetadata}`}
       />
     </View>
   );
@@ -329,12 +330,16 @@ function CaregiverInventoryFilter({ value, members, onChange }: {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Filter chores, ${label}`}
-          style={({ pressed }) => [styles.inventoryFilter, pressed && styles.pressed]}
+          style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
         >
-          {selectedMember ? <ProfileAvatar name={selectedMember.displayName} size={20} /> : null}
-          {value === 'household' ? <Icon name="home" size={16} color={colors.pine800} /> : null}{/* @kwilt-brand-moment: household filter identity uses the requested pine mark. */}
-          <Text variant="label">{label}</Text>
-          <Icon name="chevronDown" size={14} color={colors.textSecondary} />
+          <InventoryControlGroup testID="chores.inventory-controls">
+            <InventoryControlSurface
+              active={value !== 'all'}
+              count={value === 'all' ? 0 : 1}
+              iconName="funnel"
+              testID="chores.inventory-filter"
+            />
+          </InventoryControlGroup>
         </Pressable>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" sideOffset={6} align="start">
@@ -392,6 +397,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const requestAnotherPass = useChoreLearningStore((state) => state.requestAnotherPass);
   const setEvidencePhoto = useChoreLearningStore((state) => state.setEvidencePhoto);
   const addChore = useChoreLearningStore((state) => state.addChore);
+  const updateChore = useChoreLearningStore((state) => state.updateChore);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [agreementOpen, setAgreementOpen] = useState(false);
@@ -403,6 +409,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
     DEFAULT_QUICK_ADD_AI_ACTIONS,
   );
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editingSeriesId, setEditingSeriesId] = useState<string | null>(null);
   const [choreDraft, setChoreDraft] = useState<ChoreDraft | null>(null);
   const [enrichingDraft, setEnrichingDraft] = useState(false);
   const [dockReservedHeight, setDockReservedHeight] = useState(0);
@@ -440,8 +447,17 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
     enrichmentRunRef.current += 1;
     setEnrichingDraft(false);
     setEditorOpen(false);
+    setEditingSeriesId(null);
     setChoreDraft(null);
     touchedDraftFieldsRef.current.clear();
+  };
+  const openChoreEditor = (series: ChoreSeries) => {
+    enrichmentRunRef.current += 1;
+    touchedDraftFieldsRef.current.clear();
+    setEnrichingDraft(false);
+    setEditingSeriesId(series.activitySeriesId);
+    setChoreDraft(createChoreDraftFromSeries(series));
+    setEditorOpen(true);
   };
   const changeChoreDraft = <Field extends ChoreDraftField>(
     field: Field,
@@ -481,6 +497,11 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   };
   const commitChoreDraft = () => {
     if (!choreDraft?.title.trim()) return;
+    if (editingSeriesId) {
+      updateChore(editingSeriesId, choreDraft);
+      closeChoreEditor();
+      return;
+    }
     const createdAt = now();
     addChore(
       choreDraft,
@@ -544,7 +565,12 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         onPressMenu={openMenu}
         moreMenu={isCaregiver ? (
           <IconButton accessibilityLabel="Chore settings" onPress={() => setSettingsOpen(true)} variant="ghost">
-            <Icon name="settings" size={20} color={colors.textPrimary} />
+            <Icon
+              testID="chores.header.overflow.icon.more"
+              name="more"
+              size={20}
+              color={colors.textPrimary}
+            />
           </IconButton>
         ) : undefined}
         rightElement={(
@@ -596,13 +622,13 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
           ) : <Heading variant="sm">Choose a chore</Heading>}
           <View style={styles.rows}>
             {isCaregiver ? (
-              caregiverOccurrences.length ? caregiverOccurrences.map((occurrence) => (
+              caregiverOccurrences.length ? caregiverOccurrences.map((series) => (
                 <CaregiverRow
-                  key={occurrence.activityOccurrenceId}
-                  occurrence={occurrence}
+                  key={series.activitySeriesId}
+                  series={series}
                   members={record.members}
                   tokensEnabled={record.tokensEnabled}
-                  onOpen={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
+                  onOpen={() => openChoreEditor(series)}
                 />
               )) : <Text tone="secondary">No chores have been created yet.</Text>
             ) : (
@@ -718,6 +744,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         members={record.members}
         tokensEnabled={record.tokensEnabled}
         enriching={enrichingDraft}
+        mode={editingSeriesId ? 'edit' : 'create'}
         onChange={changeChoreDraft}
         onAdd={commitChoreDraft}
         onClose={closeChoreEditor}
@@ -760,16 +787,7 @@ const styles = StyleSheet.create({
   rows: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   row: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   stateIndicator: { width: 22, height: 22, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 7, borderWidth: 1, borderColor: colors.gray300, backgroundColor: colors.gray100 },
-  inventoryFilter: {
-    alignSelf: 'flex-start',
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    backgroundColor: colors.gray100,
-  },
+  inventoryControlPressed: { opacity: 0.7 },
   filterMenuItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   householdFilterMark: {
     width: 24,

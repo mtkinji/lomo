@@ -6,6 +6,7 @@ import {
   getBottomDrawerExpansionOpacity,
   isBottomDrawerAccessibilityModal,
   shouldAnimateBottomDrawerOnHide,
+  shouldBottomDrawerResizeContents,
   shouldDismissKeyboardOnSnapChange,
 } from './BottomDrawer';
 
@@ -129,5 +130,19 @@ describe('BottomDrawer accessibility contract', () => {
     expect(getByText('Conversation')).toBeTruthy();
     expect(getByText('Composer')).toBeTruthy();
     expect(StyleSheet.flatten(getByTestId('bottom-drawer.bottom-accessory').props.style).paddingBottom).toBeGreaterThan(0);
+  });
+
+  it('can keep the sheet fixed while resizing its content above the keyboard', () => {
+    expect(shouldBottomDrawerResizeContents('resize')).toBe(true);
+    expect(shouldBottomDrawerResizeContents('lift')).toBe(false);
+    expect(shouldBottomDrawerResizeContents('extend')).toBe(false);
+
+    const { getByTestId } = renderWithProviders(
+      <BottomDrawer visible onClose={jest.fn()} keyboardBehavior="resize">
+        <Text>Editable content</Text>
+      </BottomDrawer>,
+    );
+
+    expect(getByTestId('bottom-drawer.keyboard-resized-content')).toBeTruthy();
   });
 });

@@ -1,9 +1,11 @@
 import type { ActivityAiEnrichment } from '../../../services/ai';
-import { createChoreLearningRecord } from './choreLearning';
+import { completeChoreOccurrence, createChoreLearningRecord } from './choreLearning';
 import {
   addChoreDraftToLearningRecord,
   applyChoreDraftEnrichment,
   createChoreDraft,
+  createChoreDraftFromSeries,
+  updateChoreSeriesInLearningRecord,
 } from './choreCreation';
 
 describe('caregiver chore creation', () => {
@@ -17,6 +19,7 @@ describe('caregiver chore creation', () => {
       repeatCustom: undefined,
       repeatBasis: 'scheduled',
       definitionOfDone: '',
+      photoPolicy: 'optional',
       reviewPolicy: 'trusted',
       tokenValue: 1,
     });
@@ -82,6 +85,7 @@ describe('caregiver chore creation', () => {
       assignedMemberId: 'member-olive',
       repeatRule: 'daily' as const,
       definitionOfDone: 'Fish are fed and the lid is closed.',
+      photoPolicy: 'required' as const,
       reviewPolicy: 'caregiver_review' as const,
       tokenValue: 2 as const,
     };
@@ -107,6 +111,7 @@ describe('caregiver chore creation', () => {
       participation: 'assigned',
       assignedMemberId: 'member-olive',
       state: 'ready',
+      photoPolicy: 'required',
       reviewPolicy: 'caregiver_review',
       tokenValue: 2,
     });
@@ -129,5 +134,69 @@ describe('caregiver chore creation', () => {
       '2026-08-18T14:00:00.000Z',
       'sweep',
     )).toBe(record);
+  });
+
+  it('edits the root chore without rewriting an occurrence receipt', () => {
+    const series = record.series.find((item) => item.activitySeriesId === 'activity-series-bring-in-mail')!;
+    const receipt = record.occurrences.find((item) => item.activitySeriesId === series.activitySeriesId)!;
+    const draft = {
+      ...createChoreDraftFromSeries(series),
+      title: 'Bring in and sort the mail',
+      assignedMemberId: 'member-charlie',
+      repeatRule: 'daily' as const,
+      definitionOfDone: 'The mailbox is empty and the mail is sorted on the counter.',
+      photoPolicy: 'required' as const,
+      reviewPolicy: 'caregiver_review' as const,
+      tokenValue: 2 as const,
+    };
+
+    const next = updateChoreSeriesInLearningRecord(
+      record,
+      draft,
+      'member-andrew',
+      series.activitySeriesId,
+    );
+
+    expect(next.series.find((item) => item.activitySeriesId === series.activitySeriesId)).toMatchObject({
+      title: 'Bring in and sort the mail',
+      assignedMemberId: 'member-charlie',
+      participation: 'assigned',
+      repeatRule: 'daily',
+      photoPolicy: 'required',
+      reviewPolicy: 'caregiver_review',
+      tokenValue: 2,
+    });
+    expect(next.occurrences.find((item) => item.activityOccurrenceId === receipt.activityOccurrenceId))
+      .toEqual(receipt);
+  });
+
+  it('uses the edited root chore when generating the next recurring occurrence', () => {
+    const series = record.series.find((item) => item.activitySeriesId === 'activity-series-feed-scout')!;
+    const draft = {
+      ...createChoreDraftFromSeries(series),
+      title: 'Feed Scout and refresh both bowls',
+      definitionOfDone: 'Both bowls are clean, full, and back on the mat.',
+      photoPolicy: 'required' as const,
+    };
+    const edited = updateChoreSeriesInLearningRecord(
+      record,
+      draft,
+      'member-andrew',
+      series.activitySeriesId,
+    );
+    const completed = completeChoreOccurrence(
+      edited,
+      'activity-occurrence-charlie-feed-scout-2026-08-17',
+      'member-charlie',
+      '2026-08-18T14:30:00.000Z',
+    );
+
+    expect(completed.occurrences[0].title).toBe('Feed Scout and refill the water bowl');
+    expect(completed.occurrences.at(-1)).toMatchObject({
+      title: 'Feed Scout and refresh both bowls',
+      definitionOfDone: 'Both bowls are clean, full, and back on the mat.',
+      photoPolicy: 'required',
+      scheduledDate: '2026-08-19',
+    });
   });
 });

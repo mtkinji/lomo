@@ -28,7 +28,7 @@ describe('Chores learning store', () => {
 
     const migrated = normalizeChoreLearningRecord(legacy);
 
-    expect(migrated.version).toBe(8);
+    expect(migrated.version).toBe(10);
     expect(migrated.occurrences.filter(
       (occurrence) => occurrence.activityOccurrenceId
         === 'activity-occurrence-olive-dishwasher-2026-08-18',
@@ -174,6 +174,7 @@ describe('Chores learning store', () => {
       repeatCustom: undefined,
       repeatBasis: 'scheduled',
       definitionOfDone: 'The porch is clear of dirt and leaves.',
+      photoPolicy: 'optional',
       reviewPolicy: 'trusted',
       tokenValue: 1,
     }, '2026-08-18T14:00:00.000Z', 'sweep-porch');

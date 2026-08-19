@@ -55,6 +55,14 @@ For editable drawers that should remain visually attached to the bottom edge, us
 
 This keeps the sheet spatially stable and continuing underneath the keyboard while iOS adjusts the scrollable viewport around focused fields. Do not use a plain `ScrollView` or nest `KeyboardAwareScrollView` inside an `extend` drawer; its manual focus-scrolling can over-correct inside modal sheet coordinates.
 
+For full-height task drawers that combine a scrollable form with a fixed footer action, use:
+
+- `keyboardBehavior="resize"` on `BottomDrawer`
+- `BottomDrawerScrollView` around the editable form
+- `bottomAccessory` for the persistent submit action
+
+This keeps the sheet's top edge fixed, reduces only its internal content area above the keyboard, and preserves the footer as a stable action dock. Use it when `lift` would push a full-height drawer header off-screen and `extend` would leave the footer beneath the keyboard.
+
 #### Special-case: Agent chat inside a drawer
 
 `AiChatScreen` (hosted by `AgentWorkspace`) implements its own keyboard strategy because it can be mounted inside transformed sheet surfaces:
