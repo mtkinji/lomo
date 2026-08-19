@@ -6,6 +6,7 @@ import { useExploreStore } from '../runtime/useExploreStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { reconstructExploreRecordedPath } from '../runtime/explorePathReconstruction';
 import * as exploreGeometry from '../domain/exploreGeometry';
+import { useCapabilityDiscoveryStore } from '../../../store/useCapabilityDiscoveryStore';
 
 const mockOpenMenu = jest.fn();
 const mockNavigate = jest.fn();
@@ -183,6 +184,14 @@ describe('ExploreMapScreen', () => {
       latitude: 35.7201, longitude: 139.7608, distanceM: 420, reason: 'A landmark near you',
     }];
     mockNearbySearchedCenter = null;
+    useCapabilityDiscoveryStore.setState({
+      discovery: {
+        initialized: true,
+        eligible: false,
+        menuOpened: false,
+        visitedCapabilityIds: [],
+      },
+    });
     act(() => {
       useAppStore.getState().clearAuthIdentity();
       useExploreStore.getState().clearHistory();
@@ -283,6 +292,22 @@ describe('ExploreMapScreen', () => {
     expect(mockStart).toHaveBeenCalledTimes(1);
     fireEvent.press(screen.getByLabelText('Open navigation menu'));
     expect(mockOpenMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('carries the first-install discovery signal into its custom floating menu control', () => {
+    useCapabilityDiscoveryStore.setState({
+      discovery: {
+        initialized: true,
+        eligible: true,
+        menuOpened: false,
+        visitedCapabilityIds: [],
+      },
+    });
+
+    const screen = render(<ExploreMapScreen />);
+
+    expect(screen.getByTestId('nav.drawer.discovery')).toBeTruthy();
+    expect(screen.getByLabelText('Open navigation menu, new destinations available')).toBeTruthy();
   });
 
   it('uses Silver Mist over Apple Maps with the approved clear core and feather scale', () => {

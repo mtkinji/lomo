@@ -46,6 +46,11 @@ const PHOTO_OPTIONS: PickerFieldOption[] = [
   { value: 'required', label: 'Required' },
 ];
 
+const MISSED_OPTIONS: PickerFieldOption[] = [
+  { value: 'scheduled', label: 'Start fresh next time' },
+  { value: 'after_completion', label: 'Keep open until done' },
+];
+
 const TOKEN_OPTIONS: PickerFieldOption[] = [
   { value: '1', label: '1 token' },
   { value: '2', label: '2 tokens' },
@@ -233,6 +238,23 @@ export function ChoreEditorDrawer({
             onPress={() => setRepeatPresetVisible(true)}
           />
         </PickerBlock>
+
+        {draft.repeatRule ? (
+          <PickerBlock label="If missed">
+            <SmallSetPickerField
+              title="If missed"
+              value={draft.repeatBasis}
+              options={MISSED_OPTIONS}
+              placeholder="Start fresh next time"
+              accessibilityLabel="What happens if this chore is missed?"
+              allowDeselect={false}
+              onValueChange={(value) => onChange(
+                'repeatBasis',
+                value as ChoreDraft['repeatBasis'],
+              )}
+            />
+          </PickerBlock>
+        ) : null}
 
         <Input
           label="What done looks like"

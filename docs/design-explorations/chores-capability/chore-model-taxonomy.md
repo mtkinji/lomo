@@ -254,7 +254,7 @@ Resolution stays understandable:
 - Opaque auto-assignment.
 - Household KPI dashboards.
 
-The initial token ledger remains Chores-owned because tokens represent verified household contribution. Cash redemption is a caregiver-confirmed settlement record, not an automatic Money transaction or claim that Kwilt moved funds. A later Money integration may offer a reviewable transaction or budget projection, but Chores must not silently create spending evidence.
+The initial token ledger remains Chores-owned because tokens represent verified household contribution. A cash-out request sets tokens aside without removing the child's ownership. Caregiver-recorded payment atomically finalizes the redemption and removes those tokens. This is not an automatic Money transaction or claim that Kwilt moved funds. A later Money integration may offer a reviewable transaction or budget projection, but Chores must not silently create spending evidence.
 
 ## The household described by Andrew
 
@@ -311,9 +311,9 @@ The token ledger should be append-only:
 
 - approved completion earns tokens;
 - correction posts an adjustment rather than rewriting history;
-- a cash-out request reserves tokens;
-- caregiver confirmation finalizes the redemption; and
-- cancellation or rejection releases the reserved tokens.
+- a cash-out request sets tokens aside and removes them only from the spendable balance;
+- caregiver-recorded payment finalizes the redemption and removes the set-aside tokens from the owned balance; and
+- child cancellation restores the set-aside tokens to the spendable balance.
 
 ## Core conclusion
 

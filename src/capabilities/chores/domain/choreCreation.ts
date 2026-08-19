@@ -162,6 +162,8 @@ export function addChoreDraftToLearningRecord(
         claimedByMemberId: null,
         performedByMemberId: null,
         performedAtIso: null,
+        completionSource: 'direct',
+        reportedAtIso: null,
         reviewedByMemberId: null,
         reviewedAtIso: null,
         reviewNote: null,

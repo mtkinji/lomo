@@ -1,9 +1,21 @@
 import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import { useCapabilityDiscoveryStore } from '../../store/useCapabilityDiscoveryStore';
 import { getMenuToggleStroke, getPageHeaderTitleLineCount, PageHeader } from './PageHeader';
 import { colors, fonts, spacing, typography } from '../../theme';
 
 describe('PageHeader capability menu affordance', () => {
+  beforeEach(() => {
+    useCapabilityDiscoveryStore.setState({
+      discovery: {
+        initialized: true,
+        eligible: false,
+        menuOpened: false,
+        visitedCapabilityIds: [],
+      },
+    });
+  });
+
   it('allows titles to wrap when the system font is enlarged', () => {
     expect(getPageHeaderTitleLineCount(1)).toBe(1);
     expect(getPageHeaderTitleLineCount(1.4)).toBe(2);
@@ -50,6 +62,24 @@ describe('PageHeader capability menu affordance', () => {
     );
     expect(queryByTestId('nav.header.avatar')).toBeNull();
     expect(getByLabelText('67-day streak, 2 shields.')).toBeTruthy();
+  });
+
+  it('shows the one-time discovery dot on the menu opener until the menu has opened', () => {
+    useCapabilityDiscoveryStore.setState({
+      discovery: {
+        initialized: true,
+        eligible: true,
+        menuOpened: false,
+        visitedCapabilityIds: [],
+      },
+    });
+
+    const { getByLabelText, getByTestId } = render(
+      <PageHeader title="To-dos" onPressMenu={jest.fn()} />,
+    );
+
+    expect(getByTestId('nav.drawer.discovery')).toBeTruthy();
+    expect(getByLabelText('Open navigation menu, new destinations available')).toBeTruthy();
   });
 
   it('uses a quiet leading title and trailing actions for conversation headers only', () => {

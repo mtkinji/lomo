@@ -144,7 +144,7 @@ Chores supplies completion facts. Screen Time evaluates those facts alongside ti
 - See assigned and claimed chore occurrences in the child's existing To-dos without duplicating their completion state.
 - Let Screen Time use an explicit completion or token threshold without confusing the two units.
 - Award one, two, or three tokens for approved work and preserve a trustworthy available balance.
-- Let a child request cash redemption and let a caregiver record settlement without claiming automated payment.
+- Let a child set tokens aside for cash, cancel while unpaid, and let a caregiver complete redemption only after recording outside-app payment.
 - Understand whether the agreement is satisfied separately from whether the child device applied it.
 
 ### Still intentionally unsupported
@@ -189,7 +189,7 @@ Chores supplies completion facts. Screen Time evaluates those facts alongside ti
 - **Claim:** optional, temporary intent by a member to prevent duplicate effort; not required for every chore.
 - **Completion event:** immutable member-attributed occurrence fact with local time, qualification state, token award, and correction history.
 - **Token ledger event:** immutable earn, adjustment, reservation, redemption, or release entry.
-- **Cash redemption:** child request plus caregiver-confirmed manual settlement; not proof that Kwilt transferred money.
+- **Cash redemption:** child reservation plus caregiver-recorded manual payment. Reserved tokens remain the child's property and become permanently redeemed only with settlement; Kwilt does not claim it transferred money.
 - **Member expectation:** required named chores plus an optional count threshold over a qualifying scope and window.
 - **Effective period:** optional start/end dates on a chore's availability, a person's expectation, or a benefit link; not a named container that every household must manage.
 - **Current agreement projection:** readable progress derived from the active Screen Time criterion without owning that policy.

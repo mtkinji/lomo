@@ -23,6 +23,8 @@ type Props = {
   onReturnToFamilyList: () => void;
   onTakePhoto: () => void;
   onChoosePhoto: () => void;
+  correctionEntranceLabel?: string | null;
+  onOpenCorrection?: () => void;
 };
 
 export function ChoreDetailDrawer({
@@ -36,6 +38,8 @@ export function ChoreDetailDrawer({
   onReturnToFamilyList,
   onTakePhoto,
   onChoosePhoto,
+  correctionEntranceLabel,
+  onOpenCorrection,
 }: Props) {
   const canTake = occurrence?.state === 'available';
   const canComplete = occurrence?.state === 'ready'
@@ -188,6 +192,16 @@ export function ChoreDetailDrawer({
                 context={isCompleted ? 'earned' : 'earning'}
               />
             </View>
+          ) : null}
+          {correctionEntranceLabel && onOpenCorrection ? (
+            <Button
+              accessibilityLabel={correctionEntranceLabel}
+              variant="link"
+              size="inline"
+              onPress={onOpenCorrection}
+            >
+              {correctionEntranceLabel}
+            </Button>
           ) : null}
           {occurrence.state === 'waiting_approval' ? (
             <Text tone="secondary">A caregiver will review this chore.</Text>

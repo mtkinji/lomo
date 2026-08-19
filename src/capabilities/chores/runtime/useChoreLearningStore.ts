@@ -4,12 +4,19 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   approveChoreOccurrence,
   completeChoreOccurrence,
+  cancelChoreTokenRedemption,
   createChoreLearningRecord,
   normalizeChoreLearningRecord,
+  leaveEarlierChoreCompletionMissed,
+  reconcileRecurringChoreOccurrences,
+  requestChoreTokenRedemption,
+  requestEarlierChoreCompletions,
   releaseChoreOccurrence,
   reopenChoreOccurrence,
   returnChoreOccurrenceForAnotherPass,
+  setChoreRewardExchangeRate,
   setChoreTokensEnabled,
+  settleChoreRewardPayout,
   setChoreEvidencePhoto,
   takeChoreOccurrence,
   type ChoreLearningRecord,
@@ -28,6 +35,10 @@ type ChoreLearningState = {
   complete: (activityOccurrenceId: string, performedAtIso: string) => void;
   reopen: (activityOccurrenceId: string) => void;
   setTokensEnabled: (enabled: boolean) => void;
+  setRewardExchangeRate: (exchangeRateCentsPerToken: number) => void;
+  requestRedemption: (tokenAmount: number, requestedAtIso: string, idSeed: string) => void;
+  cancelRedemption: (payoutId: string, cancelledAtIso: string) => void;
+  settlePayout: (payoutId: string, settledAtIso: string) => void;
   setEvidencePhoto: (activityOccurrenceId: string, evidencePhotoUri: string | null) => void;
   approve: (activityOccurrenceId: string, reviewedAtIso: string) => void;
   requestAnotherPass: (
@@ -35,8 +46,11 @@ type ChoreLearningState = {
     reviewedAtIso: string,
     note: string | null,
   ) => void;
+  requestEarlierCompletions: (activityOccurrenceIds: string[], requestedAtIso: string) => void;
+  leaveEarlierCompletionMissed: (activityOccurrenceId: string, reviewedAtIso: string) => void;
   addChore: (draft: ChoreDraft, createdAtIso: string, idSeed: string) => void;
   updateChore: (activitySeriesId: string, draft: ChoreDraft) => void;
+  reconcileRecurrence: (nowIso: string) => void;
   reset: () => void;
 };
 
@@ -86,6 +100,38 @@ export const useChoreLearningStore = create<ChoreLearningState>()(
           state.record.activeMemberId,
         ),
       })),
+      setRewardExchangeRate: (exchangeRateCentsPerToken) => set((state) => ({
+        record: setChoreRewardExchangeRate(
+          state.record,
+          exchangeRateCentsPerToken,
+          state.record.activeMemberId,
+        ),
+      })),
+      requestRedemption: (tokenAmount, requestedAtIso, idSeed) => set((state) => ({
+        record: requestChoreTokenRedemption(
+          state.record,
+          state.record.activeMemberId,
+          tokenAmount,
+          requestedAtIso,
+          idSeed,
+        ),
+      })),
+      cancelRedemption: (payoutId, cancelledAtIso) => set((state) => ({
+        record: cancelChoreTokenRedemption(
+          state.record,
+          state.record.activeMemberId,
+          payoutId,
+          cancelledAtIso,
+        ),
+      })),
+      settlePayout: (payoutId, settledAtIso) => set((state) => ({
+        record: settleChoreRewardPayout(
+          state.record,
+          state.record.activeMemberId,
+          payoutId,
+          settledAtIso,
+        ),
+      })),
       setEvidencePhoto: (activityOccurrenceId, evidencePhotoUri) => set((state) => ({
         record: setChoreEvidencePhoto(
           state.record,
@@ -111,6 +157,22 @@ export const useChoreLearningStore = create<ChoreLearningState>()(
           note,
         ),
       })),
+      requestEarlierCompletions: (activityOccurrenceIds, requestedAtIso) => set((state) => ({
+        record: requestEarlierChoreCompletions(
+          state.record,
+          activityOccurrenceIds,
+          state.record.activeMemberId,
+          requestedAtIso,
+        ),
+      })),
+      leaveEarlierCompletionMissed: (activityOccurrenceId, reviewedAtIso) => set((state) => ({
+        record: leaveEarlierChoreCompletionMissed(
+          state.record,
+          activityOccurrenceId,
+          state.record.activeMemberId,
+          reviewedAtIso,
+        ),
+      })),
       addChore: (draft, createdAtIso, idSeed) => set((state) => ({
         record: addChoreDraftToLearningRecord(
           state.record,
@@ -128,11 +190,14 @@ export const useChoreLearningStore = create<ChoreLearningState>()(
           activitySeriesId,
         ),
       })),
+      reconcileRecurrence: (nowIso) => set((state) => ({
+        record: reconcileRecurringChoreOccurrences(state.record, nowIso),
+      })),
       reset: () => set({ record: createChoreLearningRecord() }),
     }),
     {
       name: CHORE_LEARNING_STORAGE_KEY,
-      version: 10,
+      version: 13,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: ({ record }) => ({ record }),
       migrate: (persisted) => ({
@@ -142,8 +207,11 @@ export const useChoreLearningStore = create<ChoreLearningState>()(
       }),
       merge: (persisted, current) => ({
         ...current,
-        record: normalizeChoreLearningRecord(
-          (persisted as Partial<ChoreLearningState> | undefined)?.record,
+        record: reconcileRecurringChoreOccurrences(
+          normalizeChoreLearningRecord(
+            (persisted as Partial<ChoreLearningState> | undefined)?.record,
+          ),
+          new Date().toISOString(),
         ),
       }),
     },

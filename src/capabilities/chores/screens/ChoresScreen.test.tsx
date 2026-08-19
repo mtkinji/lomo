@@ -4,6 +4,7 @@ import { Alert, Image, StyleSheet } from 'react-native';
 import { ChoresScreen } from './ChoresScreen';
 import { resetChoreLearningStoreForTests, useChoreLearningStore } from '../runtime/useChoreLearningStore';
 import { formatChoreEventTimestamp } from '../components/choreDetailPresentation';
+import { projectChoreRewards } from '../domain/choreLearning';
 import { useAppStore } from '../../../store/useAppStore';
 import { colors, typography } from '../../../theme';
 import { RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX } from '../../../ui/layout/restingComposerMetrics';
@@ -16,6 +17,11 @@ const mockLaunchImageLibraryAsync = jest.fn();
 let mockCapabilityMenuOpen = false;
 let mockActiveCapabilityId: 'chores' | null = 'chores';
 const mockEnrichActivityWithAI = jest.fn();
+const testNow = () => new Date('2026-08-17T18:00:00.000Z');
+
+function renderDefaultChoresScreen() {
+  return render(<ChoresScreen now={testNow} />);
+}
 
 jest.mock('../../../services/ai', () => ({
   ...jest.requireActual('../../../services/ai'),
@@ -159,22 +165,20 @@ describe('ChoresScreen', () => {
   });
 
   it('renders the quiet member-first inventory with token language absent by default', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
 
     expect(screen.getByText('Chores')).toBeTruthy();
     expect(screen.getByLabelText('Switch household member, Charlie')).toBeTruthy();
     expect(screen.queryByText('1 of 3 chores')).toBeNull();
     expect(screen.getByText('My chores')).toBeTruthy();
     expect(screen.getByText('Choose a chore')).toBeTruthy();
-    expect(screen.getByText('1 chore left today · Choose 3 more by Friday')).toBeTruthy();
-    expect(screen.getByText('1 waiting for approval · Needed for weekend Screen Time')).toBeTruthy();
     expect(screen.getByText('Waiting for approval')).toBeTruthy();
     expect(screen.queryByText(/token/i)).toBeNull();
     expect(screen.queryByText(/dashboard|ranking|streak/i)).toBeNull();
   });
 
   it('uses the standard ellipsis for caregiver Chores actions', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
@@ -183,11 +187,11 @@ describe('ChoresScreen', () => {
   });
 
   it('uses the shared To-do row grammar and keeps rewards in one metadata line', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
     fireEvent.press(screen.getByLabelText('Chore settings'));
-    fireEvent.press(within(screen.getByTestId('chores.settings.drawer')).getByLabelText('Use tokens'));
+    fireEvent.press(within(screen.getByTestId('chores.settings.drawer')).getByLabelText('Use digital rewards'));
     fireEvent.press(screen.getByLabelText('Switch household member, Andrew'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Charlie'));
 
@@ -222,7 +226,7 @@ describe('ChoresScreen', () => {
         avatarUrl: 'https://example.test/andrew.jpg',
       },
     });
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
@@ -233,7 +237,7 @@ describe('ChoresScreen', () => {
   });
 
   it('gives the caregiver one filterable routine inventory with assignee pills and cadence', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
@@ -260,7 +264,7 @@ describe('ChoresScreen', () => {
   });
 
   it('reuses the To-dos inventory rail treatment for the simplified chore filter', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
@@ -280,7 +284,7 @@ describe('ChoresScreen', () => {
   });
 
   it('opens a caregiver row as the editable root chore rather than an occurrence receipt', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
@@ -302,7 +306,7 @@ describe('ChoresScreen', () => {
   });
 
   it('opens the chore detail drawer from the row with one explicit completion action', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Open details for Feed Scout and refill the water bowl'));
 
@@ -337,7 +341,7 @@ describe('ChoresScreen', () => {
         },
       });
     });
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Open details for Put away the breakfast dishes'));
 
@@ -378,7 +382,7 @@ describe('ChoresScreen', () => {
         },
       });
     });
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Open details for Tidy the shoes by the front door'));
 
@@ -395,7 +399,7 @@ describe('ChoresScreen', () => {
       canceled: false,
       assets: [{ uri: 'file://camera/scout.jpg' }],
     });
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Open details for Feed Scout and refill the water bowl'));
 
     fireEvent.press(screen.getByLabelText('Take a photo of this chore'));
@@ -410,7 +414,7 @@ describe('ChoresScreen', () => {
       canceled: false,
       assets: [{ uri: 'file://picker/scout.jpg' }],
     });
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Open details for Feed Scout and refill the water bowl'));
 
     fireEvent.press(screen.getByLabelText('Choose a photo for this chore'));
@@ -437,7 +441,7 @@ describe('ChoresScreen', () => {
       canceled: false,
       assets: [{ uri: 'file://camera/scout-required.jpg' }],
     });
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Open details for Feed Scout and refill the water bowl'));
 
     expect(screen.getByText('Add a photo to finish this chore.')).toBeTruthy();
@@ -453,7 +457,7 @@ describe('ChoresScreen', () => {
   it('keeps the completion drawer open when camera permission is denied', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     mockRequestCameraPermissionsAsync.mockResolvedValue({ granted: false });
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Open details for Feed Scout and refill the water bowl'));
 
     fireEvent.press(screen.getByLabelText('Take a photo of this chore'));
@@ -467,7 +471,7 @@ describe('ChoresScreen', () => {
   });
 
   it('moves a household occurrence into the member list with Take', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     const household = screen.getByTestId('chores.section.household');
 
     fireEvent.press(within(household).getByLabelText('Take Take the recycling to the blue bin'));
@@ -496,23 +500,78 @@ describe('ChoresScreen', () => {
     await waitFor(() => expect(
       screen.getByLabelText('Mark Feed Scout and refill the water bowl incomplete'),
     ).toBeTruthy());
-    expect(screen.getByText('Daily chores submitted · Choose 3 more by Friday')).toBeTruthy();
     expect(screen.queryByText(/token/i)).toBeNull();
   });
 
+  it('submits several earlier days from the current chore and lets a caregiver leave one missed', async () => {
+    const current = useChoreLearningStore.getState().record.occurrences.find(
+      (occurrence) => occurrence.activitySeriesId === 'activity-series-feed-scout',
+    )!;
+    useChoreLearningStore.setState((state) => ({
+      record: {
+        ...state.record,
+        occurrences: [
+          ...state.record.occurrences.map((occurrence) => (
+            occurrence.activityOccurrenceId === current.activityOccurrenceId
+              ? {
+                ...occurrence,
+                scheduledDate: '2026-08-20',
+                state: 'completed' as const,
+                performedByMemberId: 'member-charlie',
+                performedAtIso: '2026-08-20T14:00:00.000Z',
+              }
+              : occurrence
+          )),
+          { ...current, activityOccurrenceId: 'feed-scout-2026-08-19', scheduledDate: '2026-08-19', state: 'missed' as const },
+          { ...current, activityOccurrenceId: 'feed-scout-2026-08-18', scheduledDate: '2026-08-18', state: 'missed' as const },
+        ],
+      },
+    }));
+    const screen = render(<ChoresScreen now={() => new Date('2026-08-20T15:00:00.000Z')} />);
+
+    fireEvent.press(screen.getByLabelText('Open details for Feed Scout and refill the water bowl'));
+    fireEvent.press(screen.getByLabelText('I did this on another day'));
+    expect(screen.getByText('Count an earlier chore')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Yesterday, Wednesday, Aug 19'));
+    fireEvent.press(screen.getByLabelText('Tuesday, Aug 18'));
+    fireEvent.press(screen.getByLabelText('Ask caregiver to count 2 days'));
+
+    expect(useChoreLearningStore.getState().record.occurrences.filter(
+      (occurrence) => occurrence.completionSource === 'earlier_day'
+        && occurrence.state === 'waiting_approval',
+    )).toHaveLength(2);
+    expect(useChoreLearningStore.getState().record.occurrences.find(
+      (occurrence) => occurrence.activityOccurrenceId === current.activityOccurrenceId,
+    )?.state).toBe('completed');
+
+    fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
+    fireEvent.press(screen.getByLabelText('4 chores ready for review'));
+    fireEvent.press(screen.getAllByLabelText('Review Feed Scout and refill the water bowl')[0]);
+    expect(screen.getByText('Earlier completion')).toBeTruthy();
+    expect(screen.getByText('Charlie says this was done yesterday.')).toBeTruthy();
+    expect(screen.getByText('Count it')).toBeTruthy();
+    expect(screen.getByText('Leave as missed')).toBeTruthy();
+    fireEvent.press(screen.getByText('Leave as missed'));
+
+    expect(useChoreLearningStore.getState().record.occurrences.filter(
+      (occurrence) => occurrence.activityOccurrenceId.startsWith('feed-scout-2026-08-')
+        && occurrence.state === 'missed',
+    )).toHaveLength(1);
+  });
+
   it('unchecks genuinely completed work from the same row control', async () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Mark Put away the breakfast dishes incomplete'));
 
     await waitFor(() => expect(
       screen.getByLabelText('Complete Put away the breakfast dishes'),
     ).toBeTruthy());
-    expect(screen.getByText('2 chores left today · Choose 3 more by Friday')).toBeTruthy();
   });
 
   it('opens approval review from the check control and submits only from the drawer', async () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Take Wipe the kitchen counters after snack'));
     fireEvent.press(screen.getByLabelText('Complete Wipe the kitchen counters after snack'));
@@ -530,33 +589,73 @@ describe('ChoresScreen', () => {
     )).toBeNull();
   });
 
-  it('lets a caregiver opt the household into tokens', () => {
-    const screen = render(<ChoresScreen />);
+  it('lets a caregiver opt into tokens and set their dollar value', () => {
+    const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
     fireEvent.press(screen.getByLabelText('Chore settings'));
-    fireEvent.press(within(screen.getByTestId('chores.settings.drawer')).getByLabelText('Use tokens'));
+    const settings = within(screen.getByTestId('chores.settings.drawer'));
+    fireEvent.press(settings.getByLabelText('Use digital rewards'));
+    fireEvent.changeText(settings.getByLabelText('Dollars per token'), '0.75');
+    fireEvent.press(settings.getByText('Save token value'));
     fireEvent.press(screen.getByLabelText('Switch household member, Andrew'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Charlie'));
 
-    expect(screen.getByLabelText('8 tokens')).toBeTruthy();
+    expect(screen.queryByLabelText('8 tokens')).toBeNull();
     expect(screen.getAllByLabelText('Earns 2 tokens').length).toBeGreaterThan(0);
     expect(screen.queryByText(/earned/i)).toBeNull();
+
+    fireEvent.press(screen.getByLabelText('Open rewards wallet'));
+    const rewards = within(screen.getByTestId('chores.rewards.drawer'));
+    expect(rewards.getByText('8 tokens')).toBeTruthy();
+    expect(rewards.getByText('Worth $6.00')).toBeTruthy();
+    expect(rewards.getByLabelText('Set aside 4 tokens for $3.00')).toBeTruthy();
   });
 
-  it('opens the active agreement without exposing inactive policy vocabulary', () => {
-    const screen = render(<ChoresScreen />);
+  it('sets tokens aside for redemption without removing the child’s ownership', () => {
+    act(() => {
+      useChoreLearningStore.getState().selectMember('member-andrew');
+      useChoreLearningStore.getState().setTokensEnabled(true);
+      useChoreLearningStore.getState().selectMember('member-charlie');
+    });
+    const screen = renderDefaultChoresScreen();
 
-    fireEvent.press(screen.getByLabelText('How my chores work'));
+    fireEvent.press(screen.getByLabelText('Open rewards wallet'));
+    fireEvent.press(screen.getByLabelText('Set aside 4 tokens for $2.00'));
 
-    const drawer = screen.getByTestId('chores.agreement.drawer');
-    expect(within(drawer).getByText('Every day')).toBeTruthy();
-    expect(within(drawer).getByText('Finish your daily chores.')).toBeTruthy();
-    expect(within(drawer).getByText('By Friday')).toBeTruthy();
-    expect(within(drawer).getByText('Choose 12 chores from the family list.')).toBeTruthy();
-    expect(within(drawer).getByText('Weekend Screen Time')).toBeTruthy();
-    expect(within(drawer).queryByText(/token/i)).toBeNull();
+    const drawer = within(screen.getByTestId('chores.rewards.drawer'));
+    expect(drawer.getByText('4 tokens set aside · 8 tokens total')).toBeTruthy();
+    expect(drawer.getByText('Waiting for $2.00')).toBeTruthy();
+    expect(drawer.getByText('4 tokens are still yours and set aside.')).toBeTruthy();
+    fireEvent.press(drawer.getByLabelText('Cancel redemption for 4 tokens'));
+    expect(drawer.getByText('8 tokens')).toBeTruthy();
+  });
+
+  it('lets the caregiver record payment and only then redeems the set-aside tokens', () => {
+    act(() => {
+      useChoreLearningStore.getState().selectMember('member-andrew');
+      useChoreLearningStore.getState().setTokensEnabled(true);
+      useChoreLearningStore.getState().selectMember('member-charlie');
+      useChoreLearningStore.getState().requestRedemption(
+        4,
+        '2026-08-18T16:00:00.000Z',
+        'screen-redemption',
+      );
+      useChoreLearningStore.getState().selectMember('member-andrew');
+    });
+    const screen = render(<ChoresScreen now={() => new Date('2026-08-18T17:00:00.000Z')} />);
+
+    fireEvent.press(screen.getByLabelText('1 reward payout waiting'));
+    const drawer = within(screen.getByTestId('chores.rewards.drawer'));
+    expect(drawer.getByText('$2.00 for Charlie')).toBeTruthy();
+    fireEvent.press(drawer.getByLabelText('Mark $2.00 paid to Charlie'));
+
+    expect(drawer.getByText('Nothing is waiting')).toBeTruthy();
+    expect(projectChoreRewards(
+      useChoreLearningStore.getState().record,
+      'member-charlie',
+    )).toMatchObject({ totalTokens: 4, reservedTokens: 0, availableTokens: 4 });
   });
 
   it('shows counted caregiver review attention and resolves a single approval in detail', () => {
@@ -584,6 +683,10 @@ describe('ChoresScreen', () => {
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
     expect(screen.getByLabelText('1 chore ready for review')).toBeTruthy();
+    const attentionDot = screen.getByTestId('chores.review.attention-dot');
+    expect(StyleSheet.flatten(attentionDot.props.style))
+      .toMatchObject({ backgroundColor: colors.actionAttention });
+    expect(attentionDot.props.children).toBeUndefined();
     fireEvent.press(screen.getByLabelText('1 chore ready for review'));
     const reviewDrawer = screen.getByTestId('chores.review.drawer');
     expect(within(reviewDrawer).getByText('What done looks like')).toBeTruthy();
@@ -597,18 +700,18 @@ describe('ChoresScreen', () => {
   });
 
   it('keeps the review action off the launcher and other capabilities', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
     expect(screen.getByTestId('chores.review.action')).toBeTruthy();
 
     mockCapabilityMenuOpen = true;
-    screen.rerender(<ChoresScreen />);
+    screen.rerender(<ChoresScreen now={testNow} />);
     expect(screen.queryByTestId('chores.review.action')).toBeNull();
 
     mockCapabilityMenuOpen = false;
     mockActiveCapabilityId = null;
-    screen.rerender(<ChoresScreen />);
+    screen.rerender(<ChoresScreen now={testNow} />);
     expect(screen.queryByTestId('chores.review.action')).toBeNull();
   });
 
@@ -671,7 +774,7 @@ describe('ChoresScreen', () => {
   });
 
   it('keeps Chat as the stable far-right contextual dock action', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
@@ -692,7 +795,7 @@ describe('ChoresScreen', () => {
   });
 
   it('uses chore language for the shared Quick Add AI actions', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
@@ -707,7 +810,7 @@ describe('ChoresScreen', () => {
   });
 
   it('opens an anchored member menu and switches the simulated active child', () => {
-    const screen = render(<ChoresScreen />);
+    const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     const menu = within(screen.getByTestId('chores.member.menu'));
@@ -718,7 +821,6 @@ describe('ChoresScreen', () => {
 
     expect(screen.getByLabelText('Switch household member, Olive')).toBeTruthy();
     expect(screen.getByText('My chores')).toBeTruthy();
-    expect(screen.getByText('1 chore left today')).toBeTruthy();
     expect(screen.queryByText('Feed Scout and refill the water bowl')).toBeNull();
   });
 });

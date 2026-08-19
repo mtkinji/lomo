@@ -162,6 +162,9 @@ import { useFocusSessionStore } from '../features/activities/focusSessionStore';
 import { ChoresScreen } from '../capabilities/chores/screens/ChoresScreen';
 import { projectChoreReviewQueue } from '../capabilities/chores/domain/choreLearning';
 import { useChoreLearningStore } from '../capabilities/chores/runtime/useChoreLearningStore';
+import { shouldShowCapabilityDiscoveryDot } from './capabilityDiscovery';
+import { useCapabilityDiscoveryStore } from '../store/useCapabilityDiscoveryStore';
+import { CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
 
 export type RootDrawerParamList = {
   StandaloneFocus: { source?: string } | undefined;
@@ -479,6 +482,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   const activeFocusSessionId = useFocusSessionStore((state) => state.activeSession?.sessionId);
   const focusVideoActive = Boolean(focusVideoEnvironmentId && activeFocusSessionId);
   const lastWidgetOpenTrackedAtMsRef = useRef<number>(0);
+  const markCapabilityMenuOpened = useCapabilityDiscoveryStore((state) => state.markMenuOpened);
 
   const [isNavReady, setIsNavReady] = useState(false);
   useEffect(() => {
@@ -712,6 +716,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
     >
       <CapabilityMenuStateProvider
         onMenuOpened={() => {
+          markCapabilityMenuOpened();
           capture(AnalyticsEvent.CapabilityMenuOpened, {
             source_surface: 'capability_shell',
           });
@@ -1232,10 +1237,22 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const [chatsError, setChatsError] = useState<string | null>(null);
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const activeCapabilityId = deriveActiveCapabilityDestinationId(navigationState);
+  const discovery = useCapabilityDiscoveryStore((state) => state.discovery);
+  const markCapabilityVisited = useCapabilityDiscoveryStore((state) => state.markVisited);
+  const unvisitedCapabilityIds = useMemo(
+    () => CAPABILITY_MENU_REGISTRY
+      .filter(({ id }) => shouldShowCapabilityDiscoveryDot(discovery, id))
+      .map(({ id }) => id),
+    [discovery],
+  );
   const activeRoute = getActiveRoute(navigationState);
   const activeChatThreadId = activeRoute?.name === 'UnifiedChat' && typeof activeRoute.params?.threadId === 'string'
     ? activeRoute.params.threadId
     : null;
+
+  useEffect(() => {
+    if (activeCapabilityId) markCapabilityVisited(activeCapabilityId);
+  }, [activeCapabilityId, markCapabilityVisited]);
 
   const refreshChatThreads = useCallback(async () => {
     setChatsLoading(true);
@@ -1418,6 +1435,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         exploreEnabled={exploreEnabled}
         choresEnabled={choresEnabled}
         choresAttentionCount={choresAttentionCount}
+        unvisitedCapabilityIds={unvisitedCapabilityIds}
       />
     </View>
   );

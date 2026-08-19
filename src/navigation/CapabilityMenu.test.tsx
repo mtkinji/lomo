@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { CapabilityMenu } from './CapabilityMenu';
 import { colors, radii } from '../theme';
@@ -175,7 +175,11 @@ describe('CapabilityMenu', () => {
     );
 
     expect(menu.getByLabelText('Chores, 2 ready for review')).toBeTruthy();
-    expect(menu.getByTestId('capability.menu.chores.attention')).toBeTruthy();
+    const attentionBadge = menu.getByTestId('capability.menu.chores.attention');
+    expect(StyleSheet.flatten(attentionBadge.props.style))
+      .toMatchObject({ backgroundColor: colors.actionAttention });
+    expect(StyleSheet.flatten(within(attentionBadge).getByText('2').props.style))
+      .toMatchObject({ color: colors.actionAttentionForeground });
     expect(menu.queryByText(/notification|inbox/i)).toBeNull();
   });
 
@@ -212,6 +216,48 @@ describe('CapabilityMenu', () => {
     expect(getByLabelText('To-dos').props.accessibilityState).toEqual({ selected: true });
     fireEvent.press(getByLabelText('Plans'));
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('plan');
+  });
+
+  it('shows calm discovery dots only for destinations that remain unvisited', () => {
+    const menu = render(
+      <CapabilityMenu
+        activeCapabilityId="todos"
+        displayName="Andy"
+        chats={chats}
+        unvisitedCapabilityIds={['goals', 'plan', 'chores']}
+        choresEnabled
+        {...handlers}
+      />,
+    );
+
+    const discoveryDot = menu.getByTestId('capability.menu.goals.discovery');
+    expect(StyleSheet.flatten(discoveryDot.props.style)).toMatchObject({
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.navigationDiscovery,
+    });
+    expect(menu.getByTestId('capability.menu.plan.discovery')).toBeTruthy();
+    expect(menu.getByTestId('capability.menu.chores.discovery')).toBeTruthy();
+    expect(menu.queryByTestId('capability.menu.todos.discovery')).toBeNull();
+    expect(menu.getByLabelText('Goals, not yet visited')).toBeTruthy();
+  });
+
+  it('moves discovery to a collapsed group header until its destinations are revealed', () => {
+    const menu = render(
+      <CapabilityMenu
+        activeCapabilityId="todos"
+        displayName="Andy"
+        chats={chats}
+        unvisitedCapabilityIds={['goals']}
+        {...handlers}
+      />,
+    );
+
+    expect(menu.queryByTestId('capability.menu.group.goals-plans.discovery')).toBeNull();
+    fireEvent.press(menu.getByLabelText('Collapse Goals & Plans'));
+    expect(menu.getByTestId('capability.menu.group.goals-plans.discovery')).toBeTruthy();
+    expect(menu.getByLabelText('Expand Goals & Plans, contains unvisited destinations')).toBeTruthy();
   });
 
   it('uses neutral launcher chrome rather than Pine accents', () => {

@@ -21,6 +21,7 @@ type Props = {
   tokensEnabled: boolean;
   onApprove: (id: string) => void;
   onAnotherPass: (id: string, note: string | null) => void;
+  onLeaveEarlierMissed: (id: string) => void;
   onClose: () => void;
 };
 
@@ -31,6 +32,7 @@ export function ChoreReviewDrawer({
   tokensEnabled,
   onApprove,
   onAnotherPass,
+  onLeaveEarlierMissed,
   onClose,
 }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -54,10 +56,33 @@ export function ChoreReviewDrawer({
   const title = selected
     ? selected.title
     : `${queue.length} ready for review`;
+  const isEarlierCompletion = selected?.completionSource === 'earlier_day';
 
-  const resolve = (action: 'approve' | 'another') => {
+  const correctionDate = selected?.scheduledDate
+    ? new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+      .format(new Date(`${selected.scheduledDate}T12:00:00`))
+    : null;
+  const correctionRequested = selected?.reportedAtIso
+    ? new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(selected.reportedAtIso))
+    : null;
+  const correctionStatementDate = (() => {
+    if (!selected?.scheduledDate) return 'earlier';
+    if (selected.reportedAtIso) {
+      const scheduled = new Date(`${selected.scheduledDate}T12:00:00`);
+      const requested = new Date(selected.reportedAtIso);
+      requested.setHours(12, 0, 0, 0);
+      requested.setDate(requested.getDate() - 1);
+      if (scheduled.getTime() === requested.getTime()) return 'yesterday';
+    }
+    const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long' })
+      .format(new Date(`${selected.scheduledDate}T12:00:00`));
+    return `on ${weekday}`;
+  })();
+
+  const resolve = (action: 'approve' | 'another' | 'leave_missed') => {
     if (!selected) return;
     if (action === 'approve') onApprove(selected.activityOccurrenceId);
+    else if (action === 'leave_missed') onLeaveEarlierMissed(selected.activityOccurrenceId);
     else onAnotherPass(selected.activityOccurrenceId, note.trim() || null);
     setSelectedId(null);
     setNote('');
@@ -74,14 +99,22 @@ export function ChoreReviewDrawer({
       bottomAccessory={selected ? (
         <BottomDrawerFooter showTopBorder>
           <View style={styles.actions}>
-            <Button fullWidth accessibilityLabel="Approve chore" onPress={() => resolve('approve')}>
+            <Button
+              fullWidth
+              accessibilityLabel={isEarlierCompletion ? 'Count earlier chore' : 'Approve chore'}
+              onPress={() => resolve('approve')}
+            >
               <View style={styles.approveLabel}>
                 <Icon testID="chores.review.approve.check" name="check" size={18} color={colors.primaryForeground} />
-                <ButtonLabel tone="inverse">Approve</ButtonLabel>
+                <ButtonLabel tone="inverse">{isEarlierCompletion ? 'Count it' : 'Approve'}</ButtonLabel>
               </View>
             </Button>
-            <Button fullWidth variant="secondary" onPress={() => resolve('another')}>
-              Needs another pass
+            <Button
+              fullWidth
+              variant="secondary"
+              onPress={() => resolve(isEarlierCompletion ? 'leave_missed' : 'another')}
+            >
+              {isEarlierCompletion ? 'Leave as missed' : 'Needs another pass'}
             </Button>
           </View>
         </BottomDrawerFooter>
@@ -100,11 +133,23 @@ export function ChoreReviewDrawer({
         />
         {selected ? (
           <>
+            {isEarlierCompletion ? <Text tone="secondary">Earlier completion</Text> : null}
+            {isEarlierCompletion && performerName ? <ChoreMemberPill name={performerName} /> : null}
+            {isEarlierCompletion ? (
+              <View style={styles.block}>
+                <Text variant="body">{performerName} says this was done {correctionStatementDate}.</Text>
+                {correctionDate ? (
+                  <Text tone="secondary">
+                    For {correctionDate}{correctionRequested ? ` · requested ${correctionRequested}` : ''}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
             <View style={styles.block}>
               <Text variant="label">What done looks like</Text>
               <Text>{selected.definitionOfDone}</Text>
             </View>
-            {performerName ? <ChoreMemberPill name={performerName} /> : null}
+            {!isEarlierCompletion && performerName ? <ChoreMemberPill name={performerName} /> : null}
             {selected.evidencePhotoUri && performerName ? (
               <ChoreEvidencePhoto
                 uri={selected.evidencePhotoUri}
@@ -118,17 +163,19 @@ export function ChoreReviewDrawer({
                 <ChoreTokenValue value={selected.tokenValue} context="earning" />
               </View>
             ) : null}
-            <Input
-              label="Note (optional)"
-              placeholder="What should they take another look at?"
-              value={note}
-              onChangeText={setNote}
-              multiline
-              multilineMinHeight={82}
-              multilineMaxHeight={120}
-              elevation="flat"
-              variant="outline"
-            />
+            {!isEarlierCompletion ? (
+              <Input
+                label="Note (optional)"
+                placeholder="What should they take another look at?"
+                value={note}
+                onChangeText={setNote}
+                multiline
+                multilineMinHeight={82}
+                multilineMaxHeight={120}
+                elevation="flat"
+                variant="outline"
+              />
+            ) : null}
           </>
         ) : (
           <View style={styles.queue}>
@@ -145,6 +192,12 @@ export function ChoreReviewDrawer({
                   <View style={styles.queueCopy}>
                     <Text variant="body">{occurrence.title}</Text>
                     {name ? <ChoreMemberPill name={name} /> : null}
+                    {occurrence.completionSource === 'earlier_day' && occurrence.scheduledDate ? (
+                      <Text tone="secondary">
+                        Earlier completion · {new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                          .format(new Date(`${occurrence.scheduledDate}T12:00:00`))}
+                      </Text>
+                    ) : null}
                   </View>
                   {tokensEnabled ? (
                     <ChoreTokenValue value={occurrence.tokenValue} context="earning" />
