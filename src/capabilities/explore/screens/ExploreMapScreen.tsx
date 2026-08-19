@@ -205,6 +205,7 @@ export function ExploreMapScreen() {
   const [visibleRegion, setVisibleRegion] = useState<Region>(() =>
     latestPoint ? regionAround(latestPoint) : DEFAULT_REGION,
   );
+  const shouldRenderPolygonFog = Platform.OS !== 'ios' && preferences.showFog;
   const visibleCells = useMemo(() => {
     const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
     const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
@@ -216,7 +217,10 @@ export function ExploreMapScreen() {
       )
       .slice(-700);
   }, [exploredCells, playbackCutoffMs, visibleRegion]);
-  const fogRing = useMemo(() => fogRingForRegion(visibleRegion), [visibleRegion]);
+  const fogRing = useMemo(
+    () => shouldRenderPolygonFog ? fogRingForRegion(visibleRegion) : [],
+    [shouldRenderPolygonFog, visibleRegion],
+  );
   const createdPlaces = useMemo(() => [...new Map(Object.values(placeRelationships)
     .filter((relationship) => relationship.evidence === 'user-confirmed')
     .filter((relationship) => playbackCutoffMs === null || Date.parse(relationship.firstVisitedAt) <= playbackCutoffMs)
@@ -235,6 +239,7 @@ export function ExploreMapScreen() {
     );
   }, [createdPlaces, visibleRegion]);
   const fogHoles = useMemo(() => {
+    if (!shouldRenderPolygonFog) return { core: [], mist: [], veil: [] };
     return {
       core: [
         ...visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 68)),
@@ -243,7 +248,7 @@ export function ExploreMapScreen() {
       mist: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 30)),
       veil: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M)),
     };
-  }, [visibleCells, visibleCreatedPlaces]);
+  }, [shouldRenderPolygonFog, visibleCells, visibleCreatedPlaces]);
   const fogGeometry = useMemo(
     () => buildFogRenderGeometry([...displayedPointGroups].reverse()),
     [displayedPointGroups],
@@ -509,7 +514,7 @@ export function ExploreMapScreen() {
         onPanDrag={() => setPlaybackPlaying(false)}
         onRegionChangeComplete={setVisibleRegion}
       >
-        {Platform.OS !== 'ios' && preferences.showFog ? <>
+        {shouldRenderPolygonFog ? <>
         <Polygon
           testID="explore.fog.veil"
           accessible={false}
