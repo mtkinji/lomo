@@ -31,7 +31,7 @@ export function ChoreAgreementBar({ agreement, onOpen, onLayout }: {
 }) {
   const insets = useSafeAreaInsets();
   const hasAgreement = Boolean(agreement.headline);
-  if (!hasAgreement && agreement.tokenBalance == null) return null;
+  if (!hasAgreement) return null;
 
   return (
     <View
@@ -40,22 +40,17 @@ export function ChoreAgreementBar({ agreement, onOpen, onLayout }: {
       testID="chores.agreement.bar"
     >
       <View style={styles.barContent}>
-        {hasAgreement ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="How my chores work"
-            onPress={onOpen}
-            style={({ pressed }) => [styles.agreementPressable, pressed && styles.pressed]}
-          >
-            <Text variant="label" numberOfLines={2}>{agreement.headline}</Text>
-            {agreement.supporting ? (
-              <Text tone="secondary" numberOfLines={2}>{agreement.supporting}</Text>
-            ) : null}
-          </Pressable>
-        ) : <View style={styles.agreementPressable} />}
-        {agreement.tokenBalance != null ? (
-          <ChoreTokenValue value={agreement.tokenBalance} context="balance" />
-        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="How my chores work"
+          onPress={onOpen}
+          style={({ pressed }) => [styles.agreementPressable, pressed && styles.pressed]}
+        >
+          <Text variant="body" numberOfLines={2}>{agreement.headline}</Text>
+          {agreement.supporting ? (
+            <Text tone="secondary" numberOfLines={2}>{agreement.supporting}</Text>
+          ) : null}
+        </Pressable>
       </View>
     </View>
   );

@@ -24,12 +24,14 @@ export type ChoreExpectation = {
 
 export type ChoreReviewPolicy = 'trusted' | 'caregiver_review';
 export type ChorePhotoPolicy = 'optional' | 'required';
+export type ChoreCompletionSource = 'direct' | 'earlier_day';
 export type ChoreOccurrenceState =
   | 'ready'
   | 'available'
   | 'claimed'
   | 'waiting_approval'
   | 'needs_another_pass'
+  | 'missed'
   | 'completed';
 
 export type ChoreOccurrence = {
@@ -51,6 +53,8 @@ export type ChoreOccurrence = {
   claimedByMemberId: string | null;
   performedByMemberId: string | null;
   performedAtIso: string | null;
+  completionSource: ChoreCompletionSource;
+  reportedAtIso: string | null;
   reviewedByMemberId: string | null;
   reviewedAtIso: string | null;
   reviewNote: string | null;
@@ -71,10 +75,51 @@ export type ChoreSeries = {
   assignedMemberId: string | null;
 };
 
+export type ChoreRewardEvent = {
+  id: string;
+  kind: 'earn' | 'reserve' | 'settle' | 'cancel' | 'adjust';
+  memberId: string;
+  actorMemberId: string;
+  occurredAtIso: string;
+  tokenDelta: number;
+  tokenAmount: number | null;
+  activityOccurrenceId: string | null;
+  payoutId: string | null;
+  moneyAmountCents: number | null;
+  exchangeRateCentsPerToken: number | null;
+  note: string | null;
+};
+
+export type ChoreRewardPayout = {
+  payoutId: string;
+  memberId: string;
+  tokenAmount: number;
+  moneyAmountCents: number;
+  exchangeRateCentsPerToken: number;
+  convertedAtIso: string;
+  settledAtIso: string | null;
+  settledByMemberId: string | null;
+  cancelledAtIso: string | null;
+};
+
+export type ChoreRewardsProjection = {
+  member: ChoreMember;
+  availableTokens: number;
+  reservedTokens: number;
+  totalTokens: number;
+  availableMoneyAmountCents: number;
+  exchangeRateCentsPerToken: number;
+  pendingPayouts: ChoreRewardPayout[];
+  payouts: ChoreRewardPayout[];
+  events: ChoreRewardEvent[];
+};
+
 export type ChoreLearningRecord = {
-  version: 10;
+  version: 13;
   activeMemberId: string;
   tokensEnabled: boolean;
+  rewardExchangeRateCentsPerToken: number;
+  rewardEvents: ChoreRewardEvent[];
   members: ChoreMember[];
   expectations: ChoreExpectation[];
   series: ChoreSeries[];
@@ -105,6 +150,8 @@ const MEMBERS: ChoreMember[] = [
   { id: 'member-andrew', displayName: 'Andrew', startingTokenBalance: 0, role: 'caregiver' },
 ];
 
+const DEFAULT_REWARD_EXCHANGE_RATE_CENTS = 50;
+
 const EXPECTATIONS: ChoreExpectation[] = [
   {
     memberId: 'member-charlie',
@@ -117,7 +164,7 @@ const EXPECTATIONS: ChoreExpectation[] = [
       creditedBeforeCurrentOccurrences: 9,
     },
     benefit: {
-      label: 'Needed for weekend Screen Time',
+      label: 'For weekend Screen Time',
       sheetLabel: 'Weekend Screen Time',
       sheetBody: 'Finish both parts for weekend Screen Time.',
     },
@@ -132,7 +179,7 @@ const EXPECTATIONS: ChoreExpectation[] = [
 
 type ChoreOccurrenceSeed = Omit<
   ChoreOccurrence,
-  'scheduledDate' | 'reviewedByMemberId' | 'reviewedAtIso' | 'reviewNote' | 'evidencePhotoUri' | 'photoPolicy'
+  'scheduledDate' | 'reviewedByMemberId' | 'reviewedAtIso' | 'reviewNote' | 'evidencePhotoUri' | 'photoPolicy' | 'completionSource' | 'reportedAtIso'
 > & { scheduledDate?: string | null; evidencePhotoUri?: string | null; photoPolicy?: ChorePhotoPolicy };
 
 const OCCURRENCES: ChoreOccurrenceSeed[] = [
@@ -306,6 +353,12 @@ function cloneOccurrence(occurrence: ChoreOccurrenceSeed | ChoreOccurrence): Cho
     reviewedAtIso: 'reviewedAtIso' in occurrence ? occurrence.reviewedAtIso : null,
     reviewNote: 'reviewNote' in occurrence ? occurrence.reviewNote : null,
     evidencePhotoUri: 'evidencePhotoUri' in occurrence ? occurrence.evidencePhotoUri ?? null : null,
+    completionSource: 'completionSource' in occurrence && occurrence.completionSource === 'earlier_day'
+      ? 'earlier_day'
+      : 'direct',
+    reportedAtIso: 'reportedAtIso' in occurrence && typeof occurrence.reportedAtIso === 'string'
+      ? occurrence.reportedAtIso
+      : null,
   };
 }
 
@@ -338,11 +391,14 @@ function cloneSeries(series: ChoreSeries): ChoreSeries {
 
 export function createChoreLearningRecord(): ChoreLearningRecord {
   const occurrences = OCCURRENCES.map(cloneOccurrence);
+  const members = MEMBERS.map((member) => ({ ...member }));
   return {
-    version: 10,
+    version: 13,
     activeMemberId: MEMBERS[0].id,
     tokensEnabled: false,
-    members: MEMBERS.map((member) => ({ ...member })),
+    rewardExchangeRateCentsPerToken: DEFAULT_REWARD_EXCHANGE_RATE_CENTS,
+    rewardEvents: buildOpeningRewardEvents(members, occurrences),
+    members,
     expectations: EXPECTATIONS.map((expectation) => ({
       ...expectation,
       assigned: expectation.assigned ? { ...expectation.assigned } : null,
@@ -354,12 +410,52 @@ export function createChoreLearningRecord(): ChoreLearningRecord {
   };
 }
 
+function buildOpeningRewardEvents(
+  members: ChoreMember[],
+  occurrences: ChoreOccurrence[],
+): ChoreRewardEvent[] {
+  const opening = members
+    .filter((member) => member.startingTokenBalance > 0)
+    .map((member): ChoreRewardEvent => ({
+      id: `reward-opening-${member.id}`,
+      kind: 'adjust',
+      memberId: member.id,
+      actorMemberId: member.id,
+      occurredAtIso: '2026-08-17T00:00:00.000Z',
+      tokenDelta: member.startingTokenBalance,
+      tokenAmount: null,
+      activityOccurrenceId: null,
+      payoutId: null,
+      moneyAmountCents: null,
+      exchangeRateCentsPerToken: null,
+      note: 'Opening balance',
+    }));
+  const earned = occurrences
+    .filter((occurrence) => occurrence.state === 'completed' && occurrence.performedByMemberId)
+    .map((occurrence): ChoreRewardEvent => ({
+      id: `reward-earn-${occurrence.activityOccurrenceId}-opening`,
+      kind: 'earn',
+      memberId: occurrence.performedByMemberId!,
+      actorMemberId: occurrence.performedByMemberId!,
+      occurredAtIso: occurrence.performedAtIso ?? '2026-08-17T00:00:00.000Z',
+      tokenDelta: occurrence.tokenValue,
+      tokenAmount: null,
+      activityOccurrenceId: occurrence.activityOccurrenceId,
+      payoutId: null,
+      moneyAmountCents: null,
+      exchangeRateCentsPerToken: null,
+      note: occurrence.title,
+    }));
+  return [...opening, ...earned];
+}
+
 const OCCURRENCE_STATES = new Set<ChoreOccurrenceState>([
   'ready',
   'available',
   'claimed',
   'waiting_approval',
   'needs_another_pass',
+  'missed',
   'completed',
 ]);
 
@@ -527,8 +623,47 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
         : legacy.series,
     });
   }
+  if ((value as { version?: number }).version === 10) {
+    return normalizeChoreLearningRecord({
+      ...(value as Record<string, unknown>),
+      version: 11,
+    });
+  }
+  if ((value as { version?: number }).version === 11) {
+    const legacy = value as Record<string, unknown> & { occurrences?: Array<Record<string, unknown>> };
+    return normalizeChoreLearningRecord({
+      ...legacy,
+      version: 12,
+      occurrences: Array.isArray(legacy.occurrences)
+        ? legacy.occurrences.map((occurrence) => ({
+          ...occurrence,
+          completionSource: 'direct',
+          reportedAtIso: null,
+        }))
+        : legacy.occurrences,
+    });
+  }
+  if ((value as { version?: number }).version === 12) {
+    const legacy = value as Record<string, unknown> & {
+      members?: ChoreMember[];
+      occurrences?: ChoreOccurrence[];
+    };
+    const members = Array.isArray(legacy.members) ? legacy.members : MEMBERS;
+    const occurrences = Array.isArray(legacy.occurrences)
+      ? legacy.occurrences.map(cloneOccurrence)
+      : OCCURRENCES.map(cloneOccurrence);
+    return normalizeChoreLearningRecord({
+      ...legacy,
+      version: 13,
+      rewardExchangeRateCentsPerToken: DEFAULT_REWARD_EXCHANGE_RATE_CENTS,
+      rewardEvents: buildOpeningRewardEvents(members, occurrences),
+    });
+  }
   const candidate = value as Partial<ChoreLearningRecord>;
-  if (candidate.version !== 10 || typeof candidate.tokensEnabled !== 'boolean'
+  if (candidate.version !== 13 || typeof candidate.tokensEnabled !== 'boolean'
+    || !Number.isSafeInteger(candidate.rewardExchangeRateCentsPerToken)
+    || (candidate.rewardExchangeRateCentsPerToken ?? 0) <= 0
+    || !Array.isArray(candidate.rewardEvents)
     || !Array.isArray(candidate.members) || !Array.isArray(candidate.expectations)
     || !Array.isArray(candidate.series) || !Array.isArray(candidate.occurrences)) {
     return createChoreLearningRecord();
@@ -542,6 +677,22 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
     && member.startingTokenBalance >= 0
   ));
   const memberIds = new Set(candidate.members.map((member) => member.id));
+  const rewardEventsValid = candidate.rewardEvents.every((event) => (
+    event != null
+    && typeof event.id === 'string'
+    && ['earn', 'reserve', 'settle', 'cancel', 'adjust'].includes(event.kind)
+    && memberIds.has(event.memberId)
+    && memberIds.has(event.actorMemberId)
+    && typeof event.occurredAtIso === 'string'
+    && Number.isSafeInteger(event.tokenDelta)
+    && (event.tokenAmount === null || (Number.isSafeInteger(event.tokenAmount) && event.tokenAmount > 0))
+    && (event.activityOccurrenceId === null || typeof event.activityOccurrenceId === 'string')
+    && (event.payoutId === null || typeof event.payoutId === 'string')
+    && (event.moneyAmountCents === null || (Number.isSafeInteger(event.moneyAmountCents) && event.moneyAmountCents >= 0))
+    && (event.exchangeRateCentsPerToken === null
+      || (Number.isSafeInteger(event.exchangeRateCentsPerToken) && event.exchangeRateCentsPerToken > 0))
+    && (event.note === null || typeof event.note === 'string')
+  ));
   const expectationsValid = candidate.expectations.every((expectation) => (
     expectation != null
     && memberIds.has(expectation.memberId)
@@ -585,6 +736,8 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
     && (occurrence.claimedByMemberId === null || memberIds.has(occurrence.claimedByMemberId))
     && (occurrence.performedByMemberId === null || memberIds.has(occurrence.performedByMemberId))
     && (occurrence.performedAtIso === null || typeof occurrence.performedAtIso === 'string')
+    && ['direct', 'earlier_day'].includes(occurrence.completionSource)
+    && (occurrence.reportedAtIso === null || typeof occurrence.reportedAtIso === 'string')
     && (occurrence.reviewedByMemberId === null || memberIds.has(occurrence.reviewedByMemberId))
     && (occurrence.reviewedAtIso === null || typeof occurrence.reviewedAtIso === 'string')
     && (occurrence.reviewNote === null || typeof occurrence.reviewNote === 'string')
@@ -606,14 +759,16 @@ export function normalizeChoreLearningRecord(value: unknown): ChoreLearningRecor
     && ['assigned', 'open'].includes(series.participation)
     && (series.assignedMemberId === null || memberIds.has(series.assignedMemberId))
   ));
-  if (!membersValid || !expectationsValid || !seriesValid || !occurrencesValid || !candidate.activeMemberId
+  if (!membersValid || !rewardEventsValid || !expectationsValid || !seriesValid || !occurrencesValid || !candidate.activeMemberId
     || !memberIds.has(candidate.activeMemberId)) {
     return createChoreLearningRecord();
   }
   return {
-    version: 10,
+    version: 13,
     activeMemberId: candidate.activeMemberId,
     tokensEnabled: candidate.tokensEnabled,
+    rewardExchangeRateCentsPerToken: candidate.rewardExchangeRateCentsPerToken!,
+    rewardEvents: candidate.rewardEvents.map((event) => ({ ...event })),
     members: candidate.members.map((member) => ({ ...member })),
     expectations: candidate.expectations.map((expectation) => ({
       ...expectation,
@@ -631,16 +786,31 @@ function tokenBalanceForMember(
   member: ChoreMember,
 ): number | null {
   if (!record.tokensEnabled) return null;
-  return record.occurrences
-    .filter((occurrence) => (
-      occurrence.state === 'completed' && occurrence.performedByMemberId === member.id
-    ))
-    .reduce((total, occurrence) => total + occurrence.tokenValue, member.startingTokenBalance);
+  return record.rewardEvents
+    .filter((event) => event.memberId === member.id)
+    .reduce((total, event) => total + event.tokenDelta, 0);
 }
 
 function isChoreOccurrenceAvailableToday(occurrence: ChoreOccurrence, now = new Date()): boolean {
   if (!occurrence.repeatCreatedFromOccurrenceId || !occurrence.scheduledDate) return true;
   return occurrence.scheduledDate <= localDateKey(now);
+}
+
+function currentVisibleChoreOccurrences(
+  record: ChoreLearningRecord,
+  now: Date,
+): ChoreOccurrence[] {
+  const bySeries = new Map<string, ChoreOccurrence>();
+  record.occurrences.forEach((occurrence) => {
+    if (!isChoreOccurrenceAvailableToday(occurrence, now)
+      || occurrence.state === 'missed'
+      || occurrence.completionSource === 'earlier_day') return;
+    const current = bySeries.get(occurrence.activitySeriesId);
+    if (!current || (occurrence.scheduledDate ?? '') >= (current.scheduledDate ?? '')) {
+      bySeries.set(occurrence.activitySeriesId, occurrence);
+    }
+  });
+  return Array.from(bySeries.values());
 }
 
 export function projectChoreInventory(
@@ -649,20 +819,17 @@ export function projectChoreInventory(
   now = new Date(),
 ): ChoreInventoryProjection {
   const member = record.members.find((candidate) => candidate.id === memberId) ?? record.members[0];
-  const forMember = record.occurrences.filter((occurrence) => (
-    isChoreOccurrenceAvailableToday(occurrence, now)
-    && (
-      occurrence.assignedMemberId === member.id
+  const currentOccurrences = currentVisibleChoreOccurrences(record, now);
+  const forMember = currentOccurrences.filter((occurrence) => (
+    occurrence.assignedMemberId === member.id
       || occurrence.claimedByMemberId === member.id
       || occurrence.performedByMemberId === member.id
-    )
   ));
   return {
     member,
     forMember,
-    household: record.occurrences.filter((occurrence) => (
-      isChoreOccurrenceAvailableToday(occurrence, now)
-      && occurrence.participation === 'open' && occurrence.state === 'available'
+    household: currentOccurrences.filter((occurrence) => (
+      occurrence.participation === 'open' && occurrence.state === 'available'
     )),
     tokenBalance: tokenBalanceForMember(record, member),
   };
@@ -687,9 +854,13 @@ export function projectChoreAgreement(
   const sections: ChoreAgreementProjection['sections'] = [];
   const headlineParts: string[] = [];
   const supportingParts: string[] = [];
+  let assignedRequirementMet = expectation?.assigned == null;
+  let quotaRequirementMet = expectation?.quota == null;
 
   const memberOccurrences = record.occurrences.filter((occurrence) => (
     isChoreOccurrenceAvailableToday(occurrence, now)
+    && occurrence.state !== 'missed'
+    && occurrence.completionSource !== 'earlier_day'
     && (
       occurrence.assignedMemberId === member.id
       || occurrence.claimedByMemberId === member.id
@@ -707,7 +878,11 @@ export function projectChoreAgreement(
     const remainingCount = assignedOccurrences.filter((occurrence) => (
       occurrence.state === 'ready' || occurrence.state === 'needs_another_pass'
     )).length;
-    const assignedComplete = remainingCount === 0 && pendingCount === 0;
+    const assignedPendingCount = assignedOccurrences.filter(
+      (occurrence) => occurrence.state === 'waiting_approval',
+    ).length;
+    const assignedComplete = remainingCount === 0 && assignedPendingCount === 0;
+    assignedRequirementMet = assignedComplete;
     headlineParts.push(
       remainingCount > 0
         ? `${countLabel(remainingCount, 'chore', 'chores')} left today`
@@ -719,9 +894,14 @@ export function projectChoreAgreement(
   }
 
   if (expectation?.quota) {
-    const qualifyingVisibleCount = memberOccurrences.filter((occurrence) => (
+    const weekStart = startOfLocalWeekKey(now);
+    const today = localDateKey(now);
+    const qualifyingVisibleCount = record.occurrences.filter((occurrence) => (
       occurrence.state === 'completed'
       && occurrence.performedByMemberId === member.id
+      && occurrence.scheduledDate != null
+      && occurrence.scheduledDate >= weekStart
+      && occurrence.scheduledDate <= today
       && (
         expectation.quota?.qualifyingScope === 'all_qualifying'
         || occurrence.participation === 'open'
@@ -733,6 +913,7 @@ export function projectChoreAgreement(
         - expectation.quota.creditedBeforeCurrentOccurrences
         - qualifyingVisibleCount,
     );
+    quotaRequirementMet = remainingCount === 0;
     headlineParts.push(
       remainingCount === 0
         ? 'Weekly chores done'
@@ -749,17 +930,20 @@ export function projectChoreAgreement(
     });
   }
 
-  if (headlineParts.length === 2
-    && headlineParts[0] === 'Daily chores done'
-    && headlineParts[1] === 'Weekly chores done') {
-    headlineParts.splice(0, headlineParts.length, 'All chores done for this week');
-  }
+  const hasWorkRequirement = Boolean(expectation?.assigned || expectation?.quota);
+  const agreementMet = hasWorkRequirement && assignedRequirementMet && quotaRequirementMet;
+  if (agreementMet) headlineParts.splice(0, headlineParts.length, "You're caught up");
 
   if (pendingCount > 0 && expectation) {
     supportingParts.push(`${countLabel(pendingCount, 'waiting', 'waiting')} for approval`);
   }
   if (expectation?.benefit) {
-    supportingParts.push(expectation.benefit.label);
+    const benefitName = `${expectation.benefit.sheetLabel.charAt(0).toLowerCase()}${expectation.benefit.sheetLabel.slice(1)}`;
+    supportingParts.push(
+      agreementMet
+        ? `Chore requirement met for ${benefitName}`
+        : `For ${benefitName}`,
+    );
     sections.push({
       id: 'benefit',
       label: expectation.benefit.sheetLabel,
@@ -788,6 +972,345 @@ function isCaregiver(record: ChoreLearningRecord, memberId: string): boolean {
 
 function isChild(record: ChoreLearningRecord, memberId: string): boolean {
   return record.members.some((member) => member.id === memberId && member.role === 'child');
+}
+
+export function setChoreRewardExchangeRate(
+  record: ChoreLearningRecord,
+  exchangeRateCentsPerToken: number,
+  caregiverMemberId: string,
+): ChoreLearningRecord {
+  if (!isCaregiver(record, caregiverMemberId)
+    || !Number.isSafeInteger(exchangeRateCentsPerToken)
+    || exchangeRateCentsPerToken <= 0
+    || exchangeRateCentsPerToken === record.rewardExchangeRateCentsPerToken) return record;
+  return {
+    ...record,
+    rewardExchangeRateCentsPerToken: exchangeRateCentsPerToken,
+  };
+}
+
+export function projectChoreRewards(
+  record: ChoreLearningRecord,
+  memberId: string,
+): ChoreRewardsProjection {
+  const member = record.members.find((candidate) => candidate.id === memberId) ?? record.members[0];
+  const events = record.rewardEvents
+    .filter((event) => event.memberId === member.id)
+    .sort((left, right) => right.occurredAtIso.localeCompare(left.occurredAtIso));
+  const settledByPayout = new Map(
+    events
+      .filter((event) => event.kind === 'settle' && event.payoutId)
+      .map((event) => [event.payoutId!, event]),
+  );
+  const cancelledByPayout = new Map(
+    events
+      .filter((event) => event.kind === 'cancel' && event.payoutId)
+      .map((event) => [event.payoutId!, event]),
+  );
+  const payouts = events
+    .filter((event) => event.kind === 'reserve' && event.payoutId)
+    .map((event): ChoreRewardPayout => {
+      const settlement = settledByPayout.get(event.payoutId!);
+      const cancellation = cancelledByPayout.get(event.payoutId!);
+      return {
+        payoutId: event.payoutId!,
+        memberId: event.memberId,
+        tokenAmount: event.tokenAmount ?? 0,
+        moneyAmountCents: event.moneyAmountCents ?? 0,
+        exchangeRateCentsPerToken: event.exchangeRateCentsPerToken
+          ?? record.rewardExchangeRateCentsPerToken,
+        convertedAtIso: event.occurredAtIso,
+        settledAtIso: settlement?.occurredAtIso ?? null,
+        settledByMemberId: settlement?.actorMemberId ?? null,
+        cancelledAtIso: cancellation?.occurredAtIso ?? null,
+      };
+    });
+  const totalTokens = events.reduce((total, event) => total + event.tokenDelta, 0);
+  const reservedTokens = payouts
+    .filter((payout) => payout.settledAtIso === null && payout.cancelledAtIso === null)
+    .reduce((total, payout) => total + payout.tokenAmount, 0);
+  const availableTokens = totalTokens - reservedTokens;
+  return {
+    member,
+    availableTokens,
+    reservedTokens,
+    totalTokens,
+    availableMoneyAmountCents: availableTokens * record.rewardExchangeRateCentsPerToken,
+    exchangeRateCentsPerToken: record.rewardExchangeRateCentsPerToken,
+    pendingPayouts: payouts.filter((payout) => (
+      payout.settledAtIso === null && payout.cancelledAtIso === null
+    )),
+    payouts,
+    events,
+  };
+}
+
+function appendChoreRewardEarn(
+  record: ChoreLearningRecord,
+  occurrence: ChoreOccurrence,
+  occurredAtIso: string,
+): ChoreLearningRecord {
+  if (!occurrence.performedByMemberId) return record;
+  const id = `reward-earn-${occurrence.activityOccurrenceId}-${occurredAtIso}`;
+  if (record.rewardEvents.some((event) => event.id === id)) return record;
+  return {
+    ...record,
+    rewardEvents: [...record.rewardEvents, {
+      id,
+      kind: 'earn',
+      memberId: occurrence.performedByMemberId,
+      actorMemberId: occurrence.performedByMemberId,
+      occurredAtIso,
+      tokenDelta: occurrence.tokenValue,
+      tokenAmount: null,
+      activityOccurrenceId: occurrence.activityOccurrenceId,
+      payoutId: null,
+      moneyAmountCents: null,
+      exchangeRateCentsPerToken: null,
+      note: occurrence.title,
+    }],
+  };
+}
+
+function appendChoreRewardAdjustment(
+  record: ChoreLearningRecord,
+  occurrence: ChoreOccurrence,
+  memberId: string,
+): ChoreLearningRecord {
+  const occurredAtIso = new Date().toISOString();
+  return {
+    ...record,
+    rewardEvents: [...record.rewardEvents, {
+      id: `reward-adjust-reopen-${occurrence.activityOccurrenceId}-${occurredAtIso}`,
+      kind: 'adjust',
+      memberId,
+      actorMemberId: memberId,
+      occurredAtIso,
+      tokenDelta: -occurrence.tokenValue,
+      tokenAmount: null,
+      activityOccurrenceId: occurrence.activityOccurrenceId,
+      payoutId: null,
+      moneyAmountCents: null,
+      exchangeRateCentsPerToken: null,
+      note: `Reopened ${occurrence.title}`,
+    }],
+  };
+}
+
+export function requestChoreTokenRedemption(
+  record: ChoreLearningRecord,
+  memberId: string,
+  tokenAmount: number,
+  convertedAtIso: string,
+  idSeed: string,
+): ChoreLearningRecord {
+  if (!record.tokensEnabled || !isChild(record, memberId)
+    || !Number.isSafeInteger(tokenAmount) || tokenAmount <= 0
+    || !Number.isFinite(new Date(convertedAtIso).getTime()) || !idSeed.trim()) return record;
+  const rewards = projectChoreRewards(record, memberId);
+  if (tokenAmount > rewards.availableTokens) return record;
+  const payoutId = `payout-${idSeed.trim()}`;
+  if (record.rewardEvents.some((event) => event.payoutId === payoutId)) return record;
+  const rate = record.rewardExchangeRateCentsPerToken;
+  return {
+    ...record,
+    rewardEvents: [...record.rewardEvents, {
+      id: `reward-reserve-${idSeed.trim()}`,
+      kind: 'reserve',
+      memberId,
+      actorMemberId: memberId,
+      occurredAtIso: convertedAtIso,
+      tokenDelta: 0,
+      tokenAmount,
+      activityOccurrenceId: null,
+      payoutId,
+      moneyAmountCents: tokenAmount * rate,
+      exchangeRateCentsPerToken: rate,
+      note: null,
+    }],
+  };
+}
+
+export function cancelChoreTokenRedemption(
+  record: ChoreLearningRecord,
+  memberId: string,
+  payoutId: string,
+  cancelledAtIso: string,
+): ChoreLearningRecord {
+  if (!isChild(record, memberId) || !Number.isFinite(new Date(cancelledAtIso).getTime())) {
+    return record;
+  }
+  const reservation = record.rewardEvents.find(
+    (event) => event.kind === 'reserve' && event.payoutId === payoutId && event.memberId === memberId,
+  );
+  if (!reservation || record.rewardEvents.some(
+    (event) => (event.kind === 'settle' || event.kind === 'cancel') && event.payoutId === payoutId,
+  )) return record;
+  return {
+    ...record,
+    rewardEvents: [...record.rewardEvents, {
+      id: `reward-cancel-${payoutId}`,
+      kind: 'cancel',
+      memberId,
+      actorMemberId: memberId,
+      occurredAtIso: cancelledAtIso,
+      tokenDelta: 0,
+      tokenAmount: reservation.tokenAmount,
+      activityOccurrenceId: null,
+      payoutId,
+      moneyAmountCents: reservation.moneyAmountCents,
+      exchangeRateCentsPerToken: reservation.exchangeRateCentsPerToken,
+      note: 'Redemption cancelled',
+    }],
+  };
+}
+
+export function settleChoreRewardPayout(
+  record: ChoreLearningRecord,
+  caregiverMemberId: string,
+  payoutId: string,
+  settledAtIso: string,
+): ChoreLearningRecord {
+  if (!isCaregiver(record, caregiverMemberId)
+    || !Number.isFinite(new Date(settledAtIso).getTime())) return record;
+  const reservation = record.rewardEvents.find(
+    (event) => event.kind === 'reserve' && event.payoutId === payoutId,
+  );
+  if (!reservation || record.rewardEvents.some(
+    (event) => (event.kind === 'settle' || event.kind === 'cancel') && event.payoutId === payoutId,
+  )) return record;
+  return {
+    ...record,
+    rewardEvents: [...record.rewardEvents, {
+      id: `reward-settle-${payoutId}`,
+      kind: 'settle',
+      memberId: reservation.memberId,
+      actorMemberId: caregiverMemberId,
+      occurredAtIso: settledAtIso,
+      tokenDelta: -(reservation.tokenAmount ?? 0),
+      tokenAmount: reservation.tokenAmount,
+      activityOccurrenceId: null,
+      payoutId,
+      moneyAmountCents: reservation.moneyAmountCents,
+      exchangeRateCentsPerToken: reservation.exchangeRateCentsPerToken,
+      note: 'Paid outside Kwilt',
+    }],
+  };
+}
+
+function startOfLocalWeekKey(now: Date): string {
+  const start = new Date(now);
+  start.setHours(12, 0, 0, 0);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  return localDateKey(start);
+}
+
+export function projectChoreCorrectionCandidates(
+  record: ChoreLearningRecord,
+  currentOccurrenceId: string,
+  memberId: string,
+  now = new Date(),
+): ChoreOccurrence[] {
+  if (!isChild(record, memberId) || !Number.isFinite(now.getTime())) return [];
+  const current = record.occurrences.find(
+    (occurrence) => occurrence.activityOccurrenceId === currentOccurrenceId,
+  );
+  if (!current
+    || current.participation !== 'assigned'
+    || current.assignedMemberId !== memberId
+    || current.completionSource !== 'direct'
+    || current.state === 'missed') return [];
+  const today = localDateKey(now);
+  const weekStart = startOfLocalWeekKey(now);
+  return record.occurrences
+    .filter((occurrence) => (
+      occurrence.activitySeriesId === current.activitySeriesId
+      && occurrence.activityOccurrenceId !== currentOccurrenceId
+      && occurrence.participation === 'assigned'
+      && occurrence.assignedMemberId === memberId
+      && occurrence.state === 'missed'
+      && occurrence.scheduledDate != null
+      && occurrence.scheduledDate >= weekStart
+      && occurrence.scheduledDate < today
+    ))
+    .sort((left, right) => (right.scheduledDate ?? '').localeCompare(left.scheduledDate ?? ''))
+    .map(cloneOccurrence);
+}
+
+export function choreCorrectionEntranceLabel(
+  candidates: ChoreOccurrence[],
+  now = new Date(),
+): string | null {
+  if (candidates.length === 0 || !Number.isFinite(now.getTime())) return null;
+  if (candidates.length === 1) {
+    const yesterday = new Date(now);
+    yesterday.setHours(12, 0, 0, 0);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (candidates[0].scheduledDate === localDateKey(yesterday)) return 'I did this yesterday';
+  }
+  return 'I did this on another day';
+}
+
+export function requestEarlierChoreCompletions(
+  record: ChoreLearningRecord,
+  activityOccurrenceIds: string[],
+  memberId: string,
+  requestedAtIso: string,
+): ChoreLearningRecord {
+  const requestedAt = new Date(requestedAtIso);
+  if (!isChild(record, memberId) || !Number.isFinite(requestedAt.getTime())) return record;
+  const requestedIds = new Set(activityOccurrenceIds);
+  if (requestedIds.size === 0) return record;
+  const today = localDateKey(requestedAt);
+  const weekStart = startOfLocalWeekKey(requestedAt);
+  let changed = false;
+  const occurrences = record.occurrences.map((occurrence) => {
+    if (!requestedIds.has(occurrence.activityOccurrenceId)
+      || occurrence.state !== 'missed'
+      || occurrence.participation !== 'assigned'
+      || occurrence.assignedMemberId !== memberId
+      || occurrence.scheduledDate == null
+      || occurrence.scheduledDate < weekStart
+      || occurrence.scheduledDate >= today) return occurrence;
+    changed = true;
+    return {
+      ...occurrence,
+      state: 'waiting_approval' as const,
+      performedByMemberId: memberId,
+      performedAtIso: null,
+      completionSource: 'earlier_day' as const,
+      reportedAtIso: requestedAtIso,
+      reviewedByMemberId: null,
+      reviewedAtIso: null,
+      reviewNote: null,
+    };
+  });
+  return changed ? { ...record, occurrences } : record;
+}
+
+export function leaveEarlierChoreCompletionMissed(
+  record: ChoreLearningRecord,
+  activityOccurrenceId: string,
+  caregiverMemberId: string,
+  reviewedAtIso: string,
+): ChoreLearningRecord {
+  if (!isCaregiver(record, caregiverMemberId) || !Number.isFinite(new Date(reviewedAtIso).getTime())) {
+    return record;
+  }
+  return updateOccurrence(record, activityOccurrenceId, (occurrence) => {
+    if (occurrence.state !== 'waiting_approval' || occurrence.completionSource !== 'earlier_day') return null;
+    return {
+      ...occurrence,
+      state: 'missed',
+      performedByMemberId: null,
+      performedAtIso: null,
+      completionSource: 'direct',
+      reportedAtIso: null,
+      reviewedByMemberId: null,
+      reviewedAtIso: null,
+      reviewNote: null,
+    };
+  });
 }
 
 export function setChoreTokensEnabled(
@@ -829,6 +1352,116 @@ function updateOccurrence(
   const occurrences = [...record.occurrences];
   occurrences[index] = nextOccurrence;
   return { ...record, occurrences };
+}
+
+function buildChoreOccurrenceFromSeries(
+  template: ChoreOccurrence,
+  series: ChoreSeries,
+  scheduledDate: string,
+  repeatCreatedFromOccurrenceId: string,
+): ChoreOccurrence {
+  const occurrenceStem = series.activitySeriesId.replace(/^activity-series-/, 'activity-occurrence-');
+  return {
+    ...cloneOccurrence(template),
+    title: series.title,
+    definitionOfDone: series.definitionOfDone,
+    repeatRule: series.repeatRule,
+    repeatCustom: series.repeatCustom ? { ...series.repeatCustom } : undefined,
+    repeatBasis: series.repeatBasis,
+    tokenValue: series.tokenValue,
+    photoPolicy: series.photoPolicy,
+    reviewPolicy: series.reviewPolicy,
+    participation: series.participation,
+    assignedMemberId: series.assignedMemberId,
+    activityOccurrenceId: `${occurrenceStem}-${scheduledDate}`,
+    scheduledDate,
+    repeatCreatedFromOccurrenceId,
+    state: series.participation === 'assigned' ? 'ready' : 'available',
+    claimedByMemberId: null,
+    performedByMemberId: null,
+    performedAtIso: null,
+    completionSource: 'direct',
+    reportedAtIso: null,
+    reviewedByMemberId: null,
+    reviewedAtIso: null,
+    reviewNote: null,
+    evidencePhotoUri: null,
+  };
+}
+
+const ACTIONABLE_OCCURRENCE_STATES = new Set<ChoreOccurrenceState>([
+  'ready',
+  'available',
+  'claimed',
+  'needs_another_pass',
+]);
+
+export function reconcileRecurringChoreOccurrences(
+  record: ChoreLearningRecord,
+  nowIso: string,
+): ChoreLearningRecord {
+  const now = new Date(nowIso);
+  if (!Number.isFinite(now.getTime())) return record;
+  const today = localDateKey(now);
+  let occurrences = record.occurrences.map(cloneOccurrence);
+  let changed = false;
+
+  for (const series of record.series) {
+    if (!series.repeatRule || series.repeatBasis === 'after_completion') continue;
+    const seriesOccurrences = occurrences
+      .filter((occurrence) => occurrence.activitySeriesId === series.activitySeriesId)
+      .sort((left, right) => (left.scheduledDate ?? '').localeCompare(right.scheduledDate ?? ''));
+    const template = seriesOccurrences.at(-1);
+    if (!template?.scheduledDate) continue;
+
+    occurrences = occurrences.map((occurrence) => {
+      if (occurrence.activitySeriesId !== series.activitySeriesId
+        || !occurrence.scheduledDate
+        || occurrence.scheduledDate >= today
+        || !ACTIONABLE_OCCURRENCE_STATES.has(occurrence.state)) {
+        return occurrence;
+      }
+      changed = true;
+      return { ...occurrence, state: 'missed' };
+    });
+
+    const hasCurrentOrFuture = occurrences.some((occurrence) => (
+      occurrence.activitySeriesId === series.activitySeriesId
+      && occurrence.scheduledDate != null
+      && occurrence.scheduledDate >= today
+      && occurrence.state !== 'missed'
+    ));
+    if (hasCurrentOrFuture) continue;
+
+    const dayBefore = new Date(now);
+    dayBefore.setHours(12, 0, 0, 0);
+    dayBefore.setDate(dayBefore.getDate() - 1);
+    const nextDate = getNextOccurrenceDate({
+      activity: {
+        repeatRule: series.repeatRule,
+        repeatCustom: series.repeatCustom,
+        repeatBasis: 'scheduled',
+        scheduledDate: template.scheduledDate,
+      },
+      closedAt: dayBefore,
+    });
+    if (!nextDate) continue;
+
+    const scheduledDate = localDateKey(nextDate);
+    const nextOccurrence = buildChoreOccurrenceFromSeries(
+      template,
+      series,
+      scheduledDate,
+      template.activityOccurrenceId,
+    );
+    if (occurrences.some((occurrence) => (
+      occurrence.activityOccurrenceId === nextOccurrence.activityOccurrenceId
+    ))) continue;
+    occurrences.push(nextOccurrence);
+    changed = true;
+  }
+
+  return changed ? { ...record, occurrences } : record;
 }
 
 function advanceRecurringChore(
@@ -886,6 +1519,8 @@ function advanceRecurringChore(
         claimedByMemberId: null,
         performedByMemberId: null,
         performedAtIso: null,
+        completionSource: 'direct',
+        reportedAtIso: null,
         reviewedByMemberId: null,
         reviewedAtIso: null,
         reviewNote: null,
@@ -958,6 +1593,8 @@ export function completeChoreOccurrence(
       state: occurrence.reviewPolicy === 'caregiver_review' ? 'waiting_approval' : 'completed',
       performedByMemberId: memberId,
       performedAtIso,
+      completionSource: 'direct',
+      reportedAtIso: null,
       reviewedByMemberId: null,
       reviewedAtIso: null,
       reviewNote: null,
@@ -967,9 +1604,12 @@ export function completeChoreOccurrence(
   const completed = updated.occurrences.find(
     (occurrence) => occurrence.activityOccurrenceId === activityOccurrenceId,
   );
-  return completed?.state === 'completed'
-    ? advanceRecurringChore(updated, activityOccurrenceId, performedAtIso)
-    : updated;
+  if (completed?.state !== 'completed') return updated;
+  return advanceRecurringChore(
+    appendChoreRewardEarn(updated, completed, performedAtIso),
+    activityOccurrenceId,
+    performedAtIso,
+  );
 }
 
 export function reopenChoreOccurrence(
@@ -978,7 +1618,10 @@ export function reopenChoreOccurrence(
   memberId: string,
 ): ChoreLearningRecord {
   if (!isChild(record, memberId)) return record;
-  return updateOccurrence(record, activityOccurrenceId, (occurrence) => {
+  const completed = record.occurrences.find(
+    (occurrence) => occurrence.activityOccurrenceId === activityOccurrenceId,
+  );
+  const updated = updateOccurrence(record, activityOccurrenceId, (occurrence) => {
     if (occurrence.state !== 'completed' || occurrence.performedByMemberId !== memberId) return null;
     const state: ChoreOccurrenceState = occurrence.participation === 'assigned'
       ? 'ready'
@@ -989,11 +1632,16 @@ export function reopenChoreOccurrence(
       state,
       performedByMemberId: null,
       performedAtIso: null,
+      completionSource: 'direct',
+      reportedAtIso: null,
       reviewedByMemberId: null,
       reviewedAtIso: null,
       reviewNote: null,
     };
   });
+  return updated !== record && completed
+    ? appendChoreRewardAdjustment(updated, completed, memberId)
+    : updated;
 }
 
 export function approveChoreOccurrence(
@@ -1013,9 +1661,15 @@ export function approveChoreOccurrence(
       reviewNote: null,
     };
   });
-  return updated === record
-    ? record
-    : advanceRecurringChore(updated, activityOccurrenceId, reviewedAtIso);
+  if (updated === record) return record;
+  const approved = updated.occurrences.find(
+    (occurrence) => occurrence.activityOccurrenceId === activityOccurrenceId,
+  );
+  if (!approved) return updated;
+  const earned = appendChoreRewardEarn(updated, approved, reviewedAtIso);
+  return approved.completionSource === 'earlier_day'
+    ? earned
+    : advanceRecurringChore(earned, activityOccurrenceId, reviewedAtIso);
 }
 
 export function returnChoreOccurrenceForAnotherPass(
@@ -1027,7 +1681,7 @@ export function returnChoreOccurrenceForAnotherPass(
 ): ChoreLearningRecord {
   if (!isCaregiver(record, caregiverMemberId)) return record;
   return updateOccurrence(record, activityOccurrenceId, (occurrence) => {
-    if (occurrence.state !== 'waiting_approval') return null;
+    if (occurrence.state !== 'waiting_approval' || occurrence.completionSource === 'earlier_day') return null;
     const reviewNote = note?.trim() || null;
     return {
       ...occurrence,

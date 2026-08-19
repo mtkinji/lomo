@@ -1,4 +1,8 @@
-import { createChoreLearningRecord, normalizeChoreLearningRecord } from '../domain/choreLearning';
+import {
+  createChoreLearningRecord,
+  normalizeChoreLearningRecord,
+  projectChoreRewards,
+} from '../domain/choreLearning';
 import {
   resetChoreLearningStoreForTests,
   useChoreLearningStore,
@@ -28,7 +32,7 @@ describe('Chores learning store', () => {
 
     const migrated = normalizeChoreLearningRecord(legacy);
 
-    expect(migrated.version).toBe(10);
+    expect(migrated.version).toBe(13);
     expect(migrated.occurrences.filter(
       (occurrence) => occurrence.activityOccurrenceId
         === 'activity-occurrence-olive-dishwasher-2026-08-18',
@@ -93,6 +97,50 @@ describe('Chores learning store', () => {
     expect(useChoreLearningStore.getState().record.tokensEnabled).toBe(false);
   });
 
+  it('allows only the active caregiver to change the household token value', () => {
+    useChoreLearningStore.getState().setRewardExchangeRate(75);
+    expect(useChoreLearningStore.getState().record.rewardExchangeRateCentsPerToken).toBe(50);
+
+    useChoreLearningStore.getState().selectMember('member-andrew');
+    useChoreLearningStore.getState().setRewardExchangeRate(75);
+    expect(useChoreLearningStore.getState().record.rewardExchangeRateCentsPerToken).toBe(75);
+  });
+
+  it('sets tokens aside as the active child and settles only as the active caregiver', () => {
+    useChoreLearningStore.getState().selectMember('member-andrew');
+    useChoreLearningStore.getState().setTokensEnabled(true);
+    useChoreLearningStore.getState().selectMember('member-charlie');
+    useChoreLearningStore.getState().requestRedemption(
+      4,
+      '2026-08-18T16:00:00.000Z',
+      'store-conversion',
+    );
+
+    expect(projectChoreRewards(
+      useChoreLearningStore.getState().record,
+      'member-charlie',
+    ).pendingPayouts).toHaveLength(1);
+
+    useChoreLearningStore.getState().settlePayout(
+      'payout-store-conversion',
+      '2026-08-18T17:00:00.000Z',
+    );
+    expect(projectChoreRewards(
+      useChoreLearningStore.getState().record,
+      'member-charlie',
+    ).pendingPayouts).toHaveLength(1);
+
+    useChoreLearningStore.getState().selectMember('member-andrew');
+    useChoreLearningStore.getState().settlePayout(
+      'payout-store-conversion',
+      '2026-08-18T17:00:00.000Z',
+    );
+    expect(projectChoreRewards(
+      useChoreLearningStore.getState().record,
+      'member-charlie',
+    ).pendingPayouts).toHaveLength(0);
+  });
+
   it('persists optional photo evidence only for the active child responsible for the chore', () => {
     const occurrenceId = 'activity-occurrence-charlie-feed-scout-2026-08-17';
 
@@ -150,6 +198,39 @@ describe('Chores learning store', () => {
       reviewedByMemberId: 'member-andrew',
       reviewedAtIso: '2026-08-17T15:05:00.000Z',
     });
+  });
+
+  it('submits several earlier dates as the active child and lets a caregiver leave one missed', () => {
+    const current = useChoreLearningStore.getState().record.occurrences.find(
+      (occurrence) => occurrence.activitySeriesId === 'activity-series-feed-scout',
+    )!;
+    useChoreLearningStore.setState((state) => ({
+      record: {
+        ...state.record,
+        occurrences: [
+          ...state.record.occurrences,
+          { ...current, activityOccurrenceId: 'feed-scout-2026-08-17', scheduledDate: '2026-08-17', state: 'missed' },
+          { ...current, activityOccurrenceId: 'feed-scout-2026-08-18', scheduledDate: '2026-08-18', state: 'missed' },
+        ],
+      },
+    }));
+
+    useChoreLearningStore.getState().requestEarlierCompletions(
+      ['feed-scout-2026-08-17', 'feed-scout-2026-08-18'],
+      '2026-08-20T15:00:00.000Z',
+    );
+    expect(useChoreLearningStore.getState().record.occurrences.filter(
+      (occurrence) => occurrence.completionSource === 'earlier_day',
+    )).toHaveLength(2);
+
+    useChoreLearningStore.getState().selectMember('member-andrew');
+    useChoreLearningStore.getState().leaveEarlierCompletionMissed(
+      'feed-scout-2026-08-17',
+      '2026-08-20T16:00:00.000Z',
+    );
+    expect(useChoreLearningStore.getState().record.occurrences.find(
+      (occurrence) => occurrence.activityOccurrenceId === 'feed-scout-2026-08-17',
+    )).toMatchObject({ state: 'missed', completionSource: 'direct' });
   });
 
   it('does not let the caregiver take child work from the shared pool', () => {

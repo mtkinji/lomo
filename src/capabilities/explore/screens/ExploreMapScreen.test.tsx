@@ -1,10 +1,12 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { ExploreMapScreen } from './ExploreMapScreen';
 import { useExploreStore } from '../runtime/useExploreStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { reconstructExploreRecordedPath } from '../runtime/explorePathReconstruction';
+import * as exploreGeometry from '../domain/exploreGeometry';
+import { useCapabilityDiscoveryStore } from '../../../store/useCapabilityDiscoveryStore';
 
 const mockOpenMenu = jest.fn();
 const mockNavigate = jest.fn();
@@ -182,6 +184,14 @@ describe('ExploreMapScreen', () => {
       latitude: 35.7201, longitude: 139.7608, distanceM: 420, reason: 'A landmark near you',
     }];
     mockNearbySearchedCenter = null;
+    useCapabilityDiscoveryStore.setState({
+      discovery: {
+        initialized: true,
+        eligible: false,
+        menuOpened: false,
+        visitedCapabilityIds: [],
+      },
+    });
     act(() => {
       useAppStore.getState().clearAuthIdentity();
       useExploreStore.getState().clearHistory();
@@ -284,6 +294,22 @@ describe('ExploreMapScreen', () => {
     expect(mockOpenMenu).toHaveBeenCalledTimes(1);
   });
 
+  it('carries the first-install discovery signal into its custom floating menu control', () => {
+    useCapabilityDiscoveryStore.setState({
+      discovery: {
+        initialized: true,
+        eligible: true,
+        menuOpened: false,
+        visitedCapabilityIds: [],
+      },
+    });
+
+    const screen = render(<ExploreMapScreen />);
+
+    expect(screen.getByTestId('nav.drawer.discovery')).toBeTruthy();
+    expect(screen.getByLabelText('Open navigation menu, new destinations available')).toBeTruthy();
+  });
+
   it('uses Silver Mist over Apple Maps with the approved clear core and feather scale', () => {
     const screen = render(<ExploreMapScreen />);
 
@@ -300,6 +326,33 @@ describe('ExploreMapScreen', () => {
     expect(screen.queryByTestId('explore.fog.veil', { includeHiddenElements: true })).toBeNull();
     expect(screen.queryByTestId('explore.fog.mist', { includeHiddenElements: true })).toBeNull();
     expect(screen.queryByTestId('explore.fog.core', { includeHiddenElements: true })).toBeNull();
+  });
+
+  it('does not build Android polygon fog holes on iOS', () => {
+    act(() => useExploreStore.getState().loadPreviewAdventure());
+    const buildFogHole = jest.spyOn(exploreGeometry, 'buildFogHole');
+
+    render(<ExploreMapScreen />);
+
+    expect(buildFogHole).not.toHaveBeenCalled();
+    buildFogHole.mockRestore();
+  });
+
+  it('continues building and rendering polygon fog holes on Android', () => {
+    const originalOS = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+    act(() => useExploreStore.getState().loadPreviewAdventure());
+    const buildFogHole = jest.spyOn(exploreGeometry, 'buildFogHole');
+
+    const screen = render(<ExploreMapScreen />);
+
+    expect(buildFogHole).toHaveBeenCalled();
+    expect(screen.getByTestId('explore.fog.veil', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByTestId('explore.fog.mist', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByTestId('explore.fog.core', { includeHiddenElements: true })).toBeTruthy();
+    screen.unmount();
+    buildFogHole.mockRestore();
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: originalOS });
   });
 
   it('sends recorded movement to Silver Mist without granting a broad reveal from Adventure alone', () => {

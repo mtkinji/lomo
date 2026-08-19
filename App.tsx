@@ -46,6 +46,7 @@ import { LocationOfferService } from './src/services/locationOffers/LocationOffe
 import './src/services/locationOffers/locationOfferGeofenceTask';
 import './src/capabilities/explore/runtime/exploreBackgroundTask';
 import { ExploreLabsRuntimeHost } from './src/capabilities/explore/runtime/ExploreLabsRuntimeHost';
+import { ChoreCaregiverAttentionRuntimeHost } from './src/capabilities/chores/runtime/ChoreCaregiverAttentionRuntimeHost';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { CelebrationInterstitialHost } from './src/ui/CelebrationInterstitial';
@@ -62,6 +63,7 @@ import { identify as identifyPosthog } from './src/services/analytics/analytics'
 import { ConfigErrorScreen } from './src/features/onboarding/ConfigErrorScreen';
 import { SignInInterstitial, type SignInResult } from './src/features/onboarding/SignInInterstitial';
 import { ReturningUserPermissionsFlow } from './src/features/onboarding/ReturningUserPermissionsFlow';
+import { CapabilityDiscoveryRuntimeHost } from './src/navigation/CapabilityDiscoveryRuntimeHost';
 import { FocusSessionRuntimeHost } from './src/features/activities/FocusSessionRuntimeHost';
 import { MoneyWidgetStateRuntimeHost } from './src/capabilities/money/runtime/MoneyWidgetStateRuntimeHost';
 import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceableStateSync';
@@ -637,10 +639,12 @@ export default function App() {
               can render the mark without a visible pop-in the first time the
               Agent workspace opens. */}
           <Logo size={1} style={styles.logoPreload} />
+          <CapabilityDiscoveryRuntimeHost />
           {content}
           <FocusSessionRuntimeHost />
           <MoneyWidgetStateRuntimeHost userId={authIdentity?.userId ?? null} />
           <ExploreLabsRuntimeHost userId={authIdentity?.userId ?? null} />
+          <ChoreCaregiverAttentionRuntimeHost userId={authIdentity?.userId ?? null} />
           <PortalHost />
         </BottomSheetModalProvider>
       </SafeAreaProvider>

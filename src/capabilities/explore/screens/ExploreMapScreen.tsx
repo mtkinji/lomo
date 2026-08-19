@@ -64,6 +64,9 @@ import { useExploreNearbyPlaces } from '../runtime/useExploreNearbyPlaces';
 import { useExploreRecapResolver } from '../runtime/useExploreRecapResolver';
 import { useExploreStore } from '../runtime/useExploreStore';
 import { reconstructExploreRecordedPath } from '../runtime/explorePathReconstruction';
+import { NavigationDiscoveryDot } from '../../../ui/NavigationDiscoveryDot';
+import { shouldShowCapabilityMenuDiscoveryDot } from '../../../navigation/capabilityDiscovery';
+import { useCapabilityDiscoveryStore } from '../../../store/useCapabilityDiscoveryStore';
 
 const DEFAULT_REGION: Region = {
   latitude: 39.5,
@@ -123,6 +126,8 @@ export function ExploreMapScreen() {
   const mapRef = useRef<MapView | null>(null);
   const navigation = useNavigation<NavigationProp<ExploreStackParamList>>();
   const { openMenu } = useCapabilityShell();
+  const showMenuDiscoveryDot = useCapabilityDiscoveryStore((state) =>
+    shouldShowCapabilityMenuDiscoveryDot(state.discovery));
   const authIdentity = useAppStore((state) => state.authIdentity);
   const localUserId = authIdentity?.userId?.trim() || 'local-user';
   const sessions = useExploreStore((state) => state.sessions);
@@ -205,6 +210,7 @@ export function ExploreMapScreen() {
   const [visibleRegion, setVisibleRegion] = useState<Region>(() =>
     latestPoint ? regionAround(latestPoint) : DEFAULT_REGION,
   );
+  const shouldRenderPolygonFog = Platform.OS !== 'ios' && preferences.showFog;
   const visibleCells = useMemo(() => {
     const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
     const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
@@ -216,7 +222,10 @@ export function ExploreMapScreen() {
       )
       .slice(-700);
   }, [exploredCells, playbackCutoffMs, visibleRegion]);
-  const fogRing = useMemo(() => fogRingForRegion(visibleRegion), [visibleRegion]);
+  const fogRing = useMemo(
+    () => shouldRenderPolygonFog ? fogRingForRegion(visibleRegion) : [],
+    [shouldRenderPolygonFog, visibleRegion],
+  );
   const createdPlaces = useMemo(() => [...new Map(Object.values(placeRelationships)
     .filter((relationship) => relationship.evidence === 'user-confirmed')
     .filter((relationship) => playbackCutoffMs === null || Date.parse(relationship.firstVisitedAt) <= playbackCutoffMs)
@@ -235,6 +244,7 @@ export function ExploreMapScreen() {
     );
   }, [createdPlaces, visibleRegion]);
   const fogHoles = useMemo(() => {
+    if (!shouldRenderPolygonFog) return { core: [], mist: [], veil: [] };
     return {
       core: [
         ...visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 68)),
@@ -243,7 +253,7 @@ export function ExploreMapScreen() {
       mist: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 30)),
       veil: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M)),
     };
-  }, [visibleCells, visibleCreatedPlaces]);
+  }, [shouldRenderPolygonFog, visibleCells, visibleCreatedPlaces]);
   const fogGeometry = useMemo(
     () => buildFogRenderGeometry([...displayedPointGroups].reverse()),
     [displayedPointGroups],
@@ -509,7 +519,7 @@ export function ExploreMapScreen() {
         onPanDrag={() => setPlaybackPlaying(false)}
         onRegionChangeComplete={setVisibleRegion}
       >
-        {Platform.OS !== 'ios' && preferences.showFog ? <>
+        {shouldRenderPolygonFog ? <>
         <Polygon
           testID="explore.fog.veil"
           accessible={false}
@@ -622,12 +632,22 @@ export function ExploreMapScreen() {
             horizontalPadding={spacing.lg}
             left={
               <HeaderActionPill
-                accessibilityLabel="Open navigation menu"
+                accessibilityLabel={showMenuDiscoveryDot
+                  ? 'Open navigation menu, new destinations available'
+                  : 'Open navigation menu'}
                 materialVariant="floatingWhite"
                 size={44}
                 onPress={openMenu}
               >
-                <MenuToggleIcon open={false} />
+                <View style={styles.menuToggleContent}>
+                  <MenuToggleIcon open={false} />
+                  {showMenuDiscoveryDot ? (
+                    <NavigationDiscoveryDot
+                      testID="nav.drawer.discovery"
+                      style={styles.menuDiscoveryDot}
+                    />
+                  ) : null}
+                </View>
               </HeaderActionPill>
             }
             right={
@@ -1172,6 +1192,8 @@ function RecordingModeOption({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.sumi900 },
+  menuToggleContent: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  menuDiscoveryDot: { position: 'absolute', top: -2, right: -3 },
   pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   onboardingStage: {
     ...StyleSheet.absoluteFillObject,

@@ -1,6 +1,7 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import 'react-native-url-polyfill/auto';
+import './src/navigation/capabilityDiscoveryStartup';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

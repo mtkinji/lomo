@@ -16,6 +16,9 @@ import { getObjectTypeBadgeColors, type ObjectTypeTone } from '../../theme/objec
 import { ProfileAvatar } from '../ProfileAvatar';
 import { StreakCapsule } from '../StreakCapsule';
 import Svg, { Path } from 'react-native-svg';
+import { NavigationDiscoveryDot } from '../NavigationDiscoveryDot';
+import { shouldShowCapabilityMenuDiscoveryDot } from '../../navigation/capabilityDiscovery';
+import { useCapabilityDiscoveryStore } from '../../store/useCapabilityDiscoveryStore';
 
 type PageHeaderProps = {
   title: string;
@@ -148,6 +151,8 @@ export function PageHeader({
   const badgeColors = getObjectTypeBadgeColors(iconTone);
   const { fontScale } = useWindowDimensions();
   const titleLineCount = getPageHeaderTitleLineCount(fontScale);
+  const showMenuDiscoveryDot = useCapabilityDiscoveryStore((state) =>
+    shouldShowCapabilityMenuDiscoveryDot(state.discovery));
 
   const iconColor = variant === 'inverse' ? colors.aiForeground : colors.textPrimary;
   const titleColor = variant === 'inverse' ? colors.aiForeground : colors.textPrimary;
@@ -169,7 +174,9 @@ export function PageHeader({
     </IconButton>
   ) : hasMenu ? (
     <IconButton
-      accessibilityLabel="Open navigation menu"
+      accessibilityLabel={showMenuDiscoveryDot
+        ? 'Open navigation menu, new destinations available'
+        : 'Open navigation menu'}
       testID="nav.drawer.toggle"
       onPress={onPressMenu}
       style={[
@@ -178,7 +185,15 @@ export function PageHeader({
         { width: headerActionSize, height: headerActionSize },
       ]}
     >
-      <MenuToggleIcon open={menuOpen} />
+      <View style={styles.menuToggleContent}>
+        <MenuToggleIcon open={menuOpen} />
+        {showMenuDiscoveryDot ? (
+          <NavigationDiscoveryDot
+            testID="nav.drawer.discovery"
+            style={styles.menuDiscoveryDot}
+          />
+        ) : null}
+      </View>
     </IconButton>
   ) : null;
 
@@ -349,6 +364,17 @@ const styles = StyleSheet.create({
   headerIconButtonGhost: {
     backgroundColor: 'transparent',
     marginLeft: -spacing.sm,
+  },
+  menuToggleContent: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuDiscoveryDot: {
+    position: 'absolute',
+    top: -2,
+    right: -3,
   },
   headerAvatarButton: {
     alignItems: 'center',

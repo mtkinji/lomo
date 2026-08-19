@@ -183,4 +183,45 @@ describe('ChoreEditorDrawer', () => {
     expect(onChange).toHaveBeenCalledWith('repeatRule', 'daily');
     expect(onChange).toHaveBeenCalledWith('repeatCustom', undefined);
   });
+
+  it('reveals what happens when repeating work is missed', () => {
+    const onChange = jest.fn();
+    const screen = renderWithProviders(
+      <ChoreEditorDrawer
+        visible
+        draft={{ ...draft, repeatRule: 'weekly', repeatBasis: 'scheduled' }}
+        members={record.members}
+        tokensEnabled={false}
+        enriching={false}
+        mode="edit"
+        onChange={onChange}
+        onAdd={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('What happens if this chore is missed?')).toBeTruthy();
+    expect(screen.getByDisplayValue('Start fresh next time')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('What happens if this chore is missed?'));
+    fireEvent.press(screen.getByText('Keep open until done'));
+    expect(onChange).toHaveBeenCalledWith('repeatBasis', 'after_completion');
+  });
+
+  it('keeps miss behavior absent for one-time chores', () => {
+    const screen = renderWithProviders(
+      <ChoreEditorDrawer
+        visible
+        draft={draft}
+        members={record.members}
+        tokensEnabled={false}
+        enriching={false}
+        mode="create"
+        onChange={jest.fn()}
+        onAdd={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText('What happens if this chore is missed?')).toBeNull();
+  });
 });

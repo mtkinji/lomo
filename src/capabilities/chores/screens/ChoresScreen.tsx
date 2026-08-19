@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View, type TextInput } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
@@ -25,19 +25,19 @@ import { CanvasScrollView } from '../../../ui/layout/CanvasScrollView';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { ButtonLabel, Heading, Text } from '../../../ui/primitives';
 import { ChoreDetailDrawer } from '../components/ChoreDetailDrawer';
+import { ChoreCorrectionDrawer } from '../components/ChoreCorrectionDrawer';
 import { ChoreEditorDrawer } from '../components/ChoreEditorDrawer';
 import { ChoreMemberPill } from '../components/ChoreMemberPill';
 import { ChoreReviewDrawer } from '../components/ChoreReviewDrawer';
 import { ChoreSettingsDrawer } from '../components/ChoreSettingsDrawer';
+import { ChoreRewardsDrawer } from '../components/ChoreRewardsDrawer';
 import {
-  ChoreAgreementBar,
-  ChoreAgreementDrawer,
-} from '../components/ChoreAgreementSurface';
-import {
-  projectChoreAgreement,
+  choreCorrectionEntranceLabel,
   projectCaregiverChoreInventory,
   projectChoreInventory,
+  projectChoreCorrectionCandidates,
   projectChoreReviewQueue,
+  projectChoreRewards,
   type ChoreMember,
   type ChoreOccurrence,
   type ChoreSeries,
@@ -68,6 +68,7 @@ import {
 import { UnifiedChatDrawer } from '../../../features/unifiedChat/UnifiedChatDrawer';
 import type { UnifiedChatLaunchContext } from '../../../features/unifiedChat/launchContext';
 import { formatActivityRepeatLabel } from '../../../features/activities/activityRepeatLabels';
+import { localDateKey } from '../../../domain/activityRecurrence';
 
 type ChoresScreenProps = { now?: () => Date };
 
@@ -393,16 +394,23 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const complete = useChoreLearningStore((state) => state.complete);
   const reopen = useChoreLearningStore((state) => state.reopen);
   const setTokensEnabled = useChoreLearningStore((state) => state.setTokensEnabled);
+  const setRewardExchangeRate = useChoreLearningStore((state) => state.setRewardExchangeRate);
+  const requestRedemption = useChoreLearningStore((state) => state.requestRedemption);
+  const cancelRedemption = useChoreLearningStore((state) => state.cancelRedemption);
+  const settlePayout = useChoreLearningStore((state) => state.settlePayout);
   const approve = useChoreLearningStore((state) => state.approve);
   const requestAnotherPass = useChoreLearningStore((state) => state.requestAnotherPass);
+  const requestEarlierCompletions = useChoreLearningStore((state) => state.requestEarlierCompletions);
+  const leaveEarlierCompletionMissed = useChoreLearningStore((state) => state.leaveEarlierCompletionMissed);
   const setEvidencePhoto = useChoreLearningStore((state) => state.setEvidencePhoto);
   const addChore = useChoreLearningStore((state) => state.addChore);
   const updateChore = useChoreLearningStore((state) => state.updateChore);
+  const reconcileRecurrence = useChoreLearningStore((state) => state.reconcileRecurrence);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [agreementOpen, setAgreementOpen] = useState(false);
-  const [agreementBarHeight, setAgreementBarHeight] = useState(0);
+  const [rewardsOpen, setRewardsOpen] = useState(false);
   const [selectedOccurrenceId, setSelectedOccurrenceId] = useState<string | null>(null);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
   const [quickAddValue, setQuickAddValue] = useState('');
   const [quickAddFocused, setQuickAddFocused] = useState(false);
   const [quickAddAiActions, setQuickAddAiActions] = useState<QuickAddAiAction[]>(
@@ -420,11 +428,37 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const touchedDraftFieldsRef = useRef(new Set<ChoreDraftField>());
   const enrichmentRunRef = useRef(0);
   const projectionNow = now();
+  const projectionDateKey = localDateKey(projectionNow);
+  const reconciledRecurrenceDateRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (reconciledRecurrenceDateRef.current === projectionDateKey) return;
+    reconciledRecurrenceDateRef.current = projectionDateKey;
+    reconcileRecurrence(projectionNow.toISOString());
+  }, [projectionDateKey, projectionNow, reconcileRecurrence]);
   const projection = projectChoreInventory(record, record.activeMemberId, projectionNow);
-  const agreement = projectChoreAgreement(record, record.activeMemberId, projectionNow);
   const reviewQueue = useMemo(() => projectChoreReviewQueue(record, record.activeMemberId), [record]);
   const selectedOccurrence = record.occurrences.find((item) => item.activityOccurrenceId === selectedOccurrenceId) ?? null;
+  const correctionCandidates = selectedOccurrence
+    ? projectChoreCorrectionCandidates(
+      record,
+      selectedOccurrence.activityOccurrenceId,
+      record.activeMemberId,
+      projectionNow,
+    )
+    : [];
+  const correctionEntrance = choreCorrectionEntranceLabel(correctionCandidates, projectionNow);
   const isCaregiver = projection.member.role === 'caregiver';
+  const rewards = useMemo(() => (
+    isCaregiver
+      ? record.members
+        .filter((member) => member.role === 'child')
+        .map((member) => projectChoreRewards(record, member.id))
+      : [projectChoreRewards(record, record.activeMemberId)]
+  ), [isCaregiver, record]);
+  const pendingPayoutCount = rewards.reduce(
+    (total, memberRewards) => total + memberRewards.pendingPayouts.length,
+    0,
+  );
   const chatLaunchContext = useMemo<UnifiedChatLaunchContext>(() => ({
     capabilityId: 'chores',
     surface: 'inventory',
@@ -517,7 +551,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
       variant: 'light',
       actionLabel: 'Undo',
       actionOnPress: () => take(id),
-      bottomOffset: agreementBarHeight + spacing.md,
+      bottomOffset: RESTING_COMPOSER_HEIGHT_PX + spacing.md,
     });
   };
   const addEvidencePhoto = async (
@@ -588,8 +622,8 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
           ? Math.max(dockReservedHeight, spacing['3xl'] * 3)
           : isCaregiver
             ? dockReservedHeight
-          : !isCaregiver && (agreement.headline || agreement.tokenBalance != null)
-            ? agreementBarHeight + spacing.lg
+          : record.tokensEnabled
+            ? RESTING_COMPOSER_HEIGHT_PX + spacing['2xl']
             : 0}
         showsVerticalScrollIndicator={false}
       >
@@ -646,13 +680,25 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         </View>
       </CanvasScrollView>
 
-      {!isCaregiver ? (
-        <ChoreAgreementBar
-          agreement={agreement}
-          onOpen={() => setAgreementOpen(true)}
-          onLayout={(event) => setAgreementBarHeight(event.nativeEvent.layout.height)}
-        />
-      ) : null}
+      {activeCapabilityId === 'chores'
+        && !isCaregiver
+        && record.tokensEnabled
+        && !capabilityMenuOpen
+        && !rewardsOpen
+        && !correctionOpen
+        && selectedOccurrence == null ? (
+          <View style={styles.childDockAction}>
+            <FloatingDockActionButton
+              testID="chores.rewards.action"
+              accessibilityLabel="Open rewards wallet"
+              accessibilityHint="Shows your tokens and redemptions"
+              icon="circleDollarSign"
+              isProminent
+              onPress={() => setRewardsOpen(true)}
+              size={RESTING_COMPOSER_HEIGHT_PX}
+            />
+          </View>
+        ) : null}
 
       {activeCapabilityId === 'chores'
         && isCaregiver
@@ -660,7 +706,9 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         && !editorOpen
         && !reviewOpen
         && !settingsOpen
+        && !rewardsOpen
         && !chatVisible
+        && !correctionOpen
         && selectedOccurrence == null ? (
           <>
             <QuickAddDock
@@ -685,7 +733,8 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
               inputAccessibilityLabel="Chore description"
               submitAccessibilityLabel="Continue creating chore"
               floatingRightInsetPx={RESTING_COMPOSER_HORIZONTAL_INSET_PX
-                + (reviewQueue.length > 0 ? 2 : 1) * (RESTING_COMPOSER_HEIGHT_PX + spacing.sm)}
+                + (1 + (reviewQueue.length > 0 ? 1 : 0) + (record.tokensEnabled ? 1 : 0))
+                  * (RESTING_COMPOSER_HEIGHT_PX + spacing.sm)}
               collapsedBottomOffsetPx={RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX}
               onReservedHeightChange={setDockReservedHeight}
             />
@@ -702,9 +751,29 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                       onPress={() => setReviewOpen(true)}
                       size={RESTING_COMPOSER_HEIGHT_PX}
                     />
-                    <View pointerEvents="none" style={styles.reviewBadge}>
-                      <Text style={styles.reviewBadgeText}>{reviewQueue.length}</Text>
-                    </View>
+                    <View
+                      testID="chores.review.attention-dot"
+                      pointerEvents="none"
+                      style={styles.reviewBadge}
+                    />
+                  </View>
+                ) : null}
+                {record.tokensEnabled ? (
+                  <View>
+                    <FloatingDockActionButton
+                      testID="chores.rewards.action"
+                      accessibilityLabel={pendingPayoutCount > 0
+                        ? `${pendingPayoutCount} reward ${pendingPayoutCount === 1 ? 'payout' : 'payouts'} waiting`
+                        : 'Open rewards'}
+                      accessibilityHint="Shows household token balances and payouts"
+                      icon="circleDollarSign"
+                      isProminent
+                      onPress={() => setRewardsOpen(true)}
+                      size={RESTING_COMPOSER_HEIGHT_PX}
+                    />
+                    {pendingPayoutCount > 0 ? (
+                      <View pointerEvents="none" style={styles.reviewBadge} />
+                    ) : null}
                   </View>
                 ) : null}
                 <FloatingDockActionButton
@@ -724,7 +793,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
       <ChoreDetailDrawer
         member={projection.member}
         members={record.members}
-        occurrence={selectedOccurrence}
+        occurrence={correctionOpen ? null : selectedOccurrence}
         tokensEnabled={record.tokensEnabled}
         onClose={() => setSelectedOccurrenceId(null)}
         onTake={() => { if (selectedOccurrence) take(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
@@ -732,11 +801,44 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         onReturnToFamilyList={() => { if (selectedOccurrence) returnOccurrenceToFamilyList(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
         onTakePhoto={() => { if (selectedOccurrence) void addEvidencePhoto(selectedOccurrence, 'camera'); }}
         onChoosePhoto={() => { if (selectedOccurrence) void addEvidencePhoto(selectedOccurrence, 'library'); }}
+        correctionEntranceLabel={correctionEntrance}
+        onOpenCorrection={() => setCorrectionOpen(true)}
       />
-      <ChoreAgreementDrawer
-        visible={agreementOpen}
-        agreement={agreement}
-        onClose={() => setAgreementOpen(false)}
+      <ChoreCorrectionDrawer
+        visible={correctionOpen}
+        currentOccurrence={selectedOccurrence}
+        candidates={correctionCandidates}
+        member={projection.member}
+        now={projectionNow}
+        onSubmit={(ids) => {
+          requestEarlierCompletions(ids, now().toISOString());
+          setCorrectionOpen(false);
+          setSelectedOccurrenceId(null);
+          useToastStore.getState().showToast({
+            message: ids.length === 1
+              ? 'Asked a caregiver to count it'
+              : `Asked a caregiver to count ${ids.length} days`,
+            variant: 'light',
+            bottomOffset: RESTING_COMPOSER_HEIGHT_PX + spacing.md,
+          });
+        }}
+        onClose={() => setCorrectionOpen(false)}
+      />
+      <ChoreRewardsDrawer
+        visible={rewardsOpen}
+        rewards={rewards}
+        isCaregiver={isCaregiver}
+        onRequestRedemption={(tokenAmount) => {
+          const requestedAt = now();
+          requestRedemption(
+            tokenAmount,
+            requestedAt.toISOString(),
+            `redemption-${requestedAt.getTime().toString(36)}`,
+          );
+        }}
+        onCancelRedemption={(payoutId) => cancelRedemption(payoutId, now().toISOString())}
+        onSettlePayout={(payoutId) => settlePayout(payoutId, now().toISOString())}
+        onClose={() => setRewardsOpen(false)}
       />
       <ChoreEditorDrawer
         visible={editorOpen}
@@ -756,12 +858,15 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         tokensEnabled={record.tokensEnabled}
         onApprove={(id) => approve(id, now().toISOString())}
         onAnotherPass={(id, note) => requestAnotherPass(id, now().toISOString(), note)}
+        onLeaveEarlierMissed={(id) => leaveEarlierCompletionMissed(id, now().toISOString())}
         onClose={() => setReviewOpen(false)}
       />
       <ChoreSettingsDrawer
         visible={settingsOpen}
         tokensEnabled={record.tokensEnabled}
+        rewardExchangeRateCentsPerToken={record.rewardExchangeRateCentsPerToken}
         onChangeTokens={setTokensEnabled}
+        onChangeRewardExchangeRate={setRewardExchangeRate}
         onClose={() => setSettingsOpen(false)}
       />
       <UnifiedChatDrawer
@@ -807,21 +912,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  childDockAction: {
+    position: 'absolute',
+    zIndex: 51,
+    elevation: 51,
+    right: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+    bottom: RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+  },
   reviewBadge: {
     position: 'absolute',
     top: -3,
     right: -3,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 9,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     borderWidth: 2,
     borderColor: colors.canvas,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.actionAttention,
   },
-  reviewBadgeText: { color: colors.primaryForeground, fontSize: 10, lineHeight: 12 },
   actionLabel: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   claimedMenuAccessory: { alignSelf: 'flex-start', flexShrink: 0 },
 });

@@ -102,6 +102,10 @@ export const colors = {
   communicationText: '#34C759',
   communicationEmail: '#007AFF',
 
+  // Calm, non-urgent orientation cue for navigation destinations not yet visited
+  // on a fresh installation. This never represents errors, counts, or new releases.
+  navigationDiscovery: '#4F7DFF',
+
   // Default "ink" color – aligned with Sumi for a softer, less green-tinted body/heading text.
   textPrimary: '#1C1A19',
   // Secondary text should stay neutral (no pine tint) so body copy doesn't read green.

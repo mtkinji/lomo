@@ -13,6 +13,7 @@ import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { ButtonLabel } from '../ui/Typography';
 import { KwiltLoader } from '../ui/KwiltLoader';
 import { Badge } from '../ui/Badge';
+import { NavigationDiscoveryDot } from '../ui/NavigationDiscoveryDot';
 
 type CapabilityMenuProps = {
   activeCapabilityId: CapabilityMenuDestinationId | null;
@@ -35,6 +36,7 @@ type CapabilityMenuProps = {
   exploreEnabled?: boolean;
   choresEnabled?: boolean;
   choresAttentionCount?: number;
+  unvisitedCapabilityIds?: readonly CapabilityMenuDestinationId[];
 };
 
 export type CapabilityMenuChat = {
@@ -64,6 +66,7 @@ export function CapabilityMenu({
   exploreEnabled = false,
   choresEnabled = false,
   choresAttentionCount = 0,
+  unvisitedCapabilityIds = [],
 }: CapabilityMenuProps) {
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<CapabilityGroupId>>(
     () => new Set(CAPABILITY_GROUPS.map(({ id }) => id)),
@@ -86,12 +89,18 @@ export function CapabilityMenu({
     const selected = activeCapabilityId === capability.id;
     const label = capability.label;
     const attentionCount = capability.id === 'chores' ? choresAttentionCount : 0;
+    const unvisited = unvisitedCapabilityIds.includes(capability.id);
+    const accessibilityLabel = [
+      label,
+      unvisited ? 'not yet visited' : null,
+      attentionCount > 0 ? `${attentionCount} ready for review` : null,
+    ].filter(Boolean).join(', ');
 
     return (
       <Pressable
         key={capability.id}
         accessibilityRole="button"
-        accessibilityLabel={attentionCount > 0 ? `${label}, ${attentionCount} ready for review` : label}
+        accessibilityLabel={accessibilityLabel}
         accessibilityState={{ selected }}
         testID={`capability.menu.${capability.id}`}
         onPress={() => onSelectCapability(capability.id)}
@@ -109,11 +118,15 @@ export function CapabilityMenu({
         <Text style={[styles.capabilityLabel, selected && styles.capabilityLabelSelected]}>
           {label}
         </Text>
+        {unvisited ? (
+          <NavigationDiscoveryDot testID={`capability.menu.${capability.id}.discovery`} />
+        ) : null}
         {attentionCount > 0 ? (
           <Badge
             variant="secondary"
             testID="capability.menu.chores.attention"
             style={styles.attentionBadge}
+            textStyle={styles.attentionBadgeText}
           >
             {attentionCount}
           </Badge>
@@ -149,22 +162,36 @@ export function CapabilityMenu({
           const capabilityIds = CAPABILITY_MENU_REGISTRY.filter(
             (capability) => capability.group === group.id,
           ).map(({ id }) => id);
+          const groupContainsUnvisited = capabilityIds.some((id) => {
+            if (!unvisitedCapabilityIds.includes(id)) return false;
+            if (id === 'explore' && !exploreEnabled) return false;
+            if (id === 'chores' && !choresEnabled) return false;
+            return true;
+          });
+          const showGroupDiscovery = !expanded && groupContainsUnvisited;
 
           return (
             <View key={group.id} style={styles.group}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${group.label}`}
+                accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${group.label}${showGroupDiscovery ? ', contains unvisited destinations' : ''}`}
                 accessibilityState={{ expanded }}
                 onPress={() => toggleGroup(group.id)}
                 style={({ pressed }) => [styles.groupHeader, pressed && styles.rowPressed]}
               >
                 <Text style={styles.groupLabel}>{group.label.toUpperCase()}</Text>
-                <Icon
-                  name={expanded ? 'chevronUp' : 'chevronDown'}
-                  size={15}
-                  color={colors.muted}
-                />
+                <View style={styles.groupHeaderActions}>
+                  {showGroupDiscovery ? (
+                    <NavigationDiscoveryDot
+                      testID={`capability.menu.group.${group.id}.discovery`}
+                    />
+                  ) : null}
+                  <Icon
+                    name={expanded ? 'chevronUp' : 'chevronDown'}
+                    size={15}
+                    color={colors.muted}
+                  />
+                </View>
               </Pressable>
               {expanded ? capabilityIds.map(renderCapability) : null}
             </View>
@@ -390,6 +417,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.muted,
   },
+  groupHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   capabilityRow: {
     minHeight: 44,
     flexDirection: 'row',
@@ -409,6 +441,10 @@ const styles = StyleSheet.create({
   attentionBadge: {
     minWidth: 24,
     alignSelf: 'center',
+    backgroundColor: colors.actionAttention,
+  },
+  attentionBadgeText: {
+    color: colors.actionAttentionForeground,
   },
   capabilityLabelSelected: {
     fontFamily: fonts.medium,
