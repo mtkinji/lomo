@@ -46,6 +46,7 @@ export type BottomDrawerSnapPoint = number | `${number}%`;
 
 type Presentation = 'modal' | 'inline';
 type BottomDrawerContentLayout = 'inset' | 'edgeToEdge';
+export type BottomDrawerKeyboardBehavior = 'lift' | 'extend' | 'resize';
 
 export type BottomDrawerSnapChange = {
   previousIndex: number | null;
@@ -79,10 +80,16 @@ export function shouldAnimateBottomDrawerOnHide(
 }
 
 export function shouldBottomDrawerLiftAboveKeyboard(args: {
-  keyboardBehavior: 'lift' | 'extend';
+  keyboardBehavior: BottomDrawerKeyboardBehavior;
   keyboardAvoidanceEnabled?: boolean;
 }): boolean {
   return args.keyboardAvoidanceEnabled ?? args.keyboardBehavior === 'lift';
+}
+
+export function shouldBottomDrawerResizeContents(
+  keyboardBehavior: BottomDrawerKeyboardBehavior,
+): boolean {
+  return keyboardBehavior === 'resize';
 }
 
 type BottomDrawerProps = {
@@ -96,8 +103,10 @@ type BottomDrawerProps = {
    * - `extend`: keep the sheet bottom-anchored so the keyboard covers its lower
    *   continuation. Pair this with `BottomDrawerScrollView` and
    *   `automaticallyAdjustKeyboardInsets` so focused fields remain reachable.
+   * - `resize`: keep the sheet fixed while reducing its internal content area
+   *   above the keyboard. Use for full-height task drawers with a fixed footer.
    */
-  keyboardBehavior?: 'lift' | 'extend';
+  keyboardBehavior?: BottomDrawerKeyboardBehavior;
 
   /**
    * Legacy low-level override for keyboard avoidance.
@@ -362,6 +371,7 @@ export function BottomDrawer({
     keyboardBehavior,
     keyboardAvoidanceEnabled,
   });
+  const shouldResizeContents = shouldBottomDrawerResizeContents(keyboardBehavior);
   const motionDuration = useCallback(
     (durationMs: number) => getAccessibleAnimationDuration(durationMs, reduceMotionEnabled),
     [reduceMotionEnabled],
@@ -809,6 +819,17 @@ export function BottomDrawer({
     </View>
   ) : renderedChildren;
 
+  const keyboardManagedSheetChildren = shouldResizeContents ? (
+    <KeyboardAvoidingView
+      testID="bottom-drawer.keyboard-resized-content"
+      style={styles.keyboardResizedContent}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
+      {sheetChildren}
+    </KeyboardAvoidingView>
+  ) : sheetChildren;
+
   // Keyboard behavior guidance:
   // - `docs/keyboard-input-safety-implementation.md`
   const body = (
@@ -894,7 +915,7 @@ export function BottomDrawer({
                   />
                 </View>
               </GestureDetector>
-              {sheetChildren}
+              {keyboardManagedSheetChildren}
             </Animated.View>
           </GestureDetector>
         </KeyboardAvoidingView>
@@ -962,7 +983,7 @@ export function BottomDrawer({
                   />
                 </View>
               </GestureDetector>
-              {sheetChildren}
+              {keyboardManagedSheetChildren}
             </Animated.View>
           </GestureDetector>
         </View>
@@ -1109,6 +1130,10 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   accessoryContent: {
+    flex: 1,
+    minHeight: 0,
+  },
+  keyboardResizedContent: {
     flex: 1,
     minHeight: 0,
   },

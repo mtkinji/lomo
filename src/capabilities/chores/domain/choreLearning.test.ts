@@ -33,7 +33,7 @@ describe('Chores learning domain', () => {
 
     const migrated = normalizeChoreLearningRecord(legacy);
 
-    expect(migrated.version).toBe(8);
+    expect(migrated.version).toBe(10);
     expect(migrated.occurrences[0]).toMatchObject({
       repeatRule: 'daily',
       repeatBasis: 'scheduled',
@@ -67,9 +67,25 @@ describe('Chores learning domain', () => {
 
     const migrated = normalizeChoreLearningRecord(legacy);
 
-    expect(migrated.version).toBe(8);
+    expect(migrated.version).toBe(10);
     expect(migrated.occurrences[0].repeatRule).toBe('daily');
     expect(migrated.occurrences.at(-1)?.repeatRule).toBeUndefined();
+  });
+
+  it('keeps existing saved chores photo-optional when adding photo requirements', () => {
+    const current = createChoreLearningRecord();
+    const legacy = {
+      ...current,
+      version: 9,
+      series: current.series.map(({ photoPolicy: _photoPolicy, ...series }) => series),
+      occurrences: current.occurrences.map(({ photoPolicy: _photoPolicy, ...occurrence }) => occurrence),
+    };
+
+    const migrated = normalizeChoreLearningRecord(legacy);
+
+    expect(migrated.version).toBe(10);
+    expect(migrated.series.every((series) => series.photoPolicy === 'optional')).toBe(true);
+    expect(migrated.occurrences.every((occurrence) => occurrence.photoPolicy === 'optional')).toBe(true);
   });
 
   it('rejects malformed custom recurrence in persisted chore data', () => {
@@ -111,10 +127,10 @@ describe('Chores learning domain', () => {
     });
     expect(projectCaregiverChoreInventory(completed, 'member-andrew')).toHaveLength(beforeCount);
     expect(projectCaregiverChoreInventory(completed, 'member-andrew').find(
-      (occurrence) => occurrence.activitySeriesId === 'activity-series-feed-scout',
+      (series) => series.activitySeriesId === 'activity-series-feed-scout',
     )).toMatchObject({
-      scheduledDate: '2026-08-19',
-      state: 'ready',
+      repeatRule: 'daily',
+      title: 'Feed Scout and refill the water bowl',
     });
   });
 
@@ -297,6 +313,40 @@ describe('Chores learning domain', () => {
     expect(projectChoreAgreement(replayed, 'member-charlie', new Date('2026-08-17T15:00:00.000Z')).headline)
       .toBe('Daily chores submitted · Choose 3 more by Friday');
     expect(projection.tokenBalance).toBeNull();
+  });
+
+  it('requires configured photo evidence before a child can finish a chore', () => {
+    const occurrenceId = 'activity-occurrence-charlie-feed-scout-2026-08-17';
+    const record = createChoreLearningRecord();
+    const required = {
+      ...record,
+      occurrences: record.occurrences.map((occurrence) => (
+        occurrence.activityOccurrenceId === occurrenceId
+          ? { ...occurrence, photoPolicy: 'required' as const }
+          : occurrence
+      )),
+    };
+
+    expect(completeChoreOccurrence(
+      required,
+      occurrenceId,
+      'member-charlie',
+      '2026-08-17T14:30:00.000Z',
+    )).toBe(required);
+
+    const withPhoto = setChoreEvidencePhoto(
+      required,
+      occurrenceId,
+      'member-charlie',
+      'file://scout.jpg',
+    );
+    expect(completeChoreOccurrence(
+      withPhoto,
+      occurrenceId,
+      'member-charlie',
+      '2026-08-17T14:30:00.000Z',
+    ).occurrences.find((item) => item.activityOccurrenceId === occurrenceId))
+      .toMatchObject({ state: 'completed', evidencePhotoUri: 'file://scout.jpg' });
   });
 
   it('reopens completed work for the same child and removes completion credit', () => {

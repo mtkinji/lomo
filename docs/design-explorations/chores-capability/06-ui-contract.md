@@ -22,7 +22,7 @@ Act on a chore: review what done means and explicitly **Mark done** or **Submit 
 
 No screen-wide primary button is added. Row actions remain local and equally quiet because the child chooses the relevant chore.
 
-For incomplete work, the shared completion control expresses intent and opens the taller detail drawer; it does not mutate occurrence state. The drawer presents optional photo capture before one explicit footer action. Trusted work completes after **Mark done**. Review-required work enters **Waiting for approval** after **Submit for approval**, and caregiver approval is the only transition that produces its checked completed state. A genuinely completed check remains a direct toggle: unchecking restores assigned work to ready or shared work to its existing claim, removes completion credit, and clears prior review metadata.
+For incomplete work, the shared completion control expresses intent and opens the taller detail drawer; it does not mutate occurrence state. The drawer presents photo capture before one explicit footer action. Photo and approval are independent root-chore policies: required evidence disables the footer action until an image is attached; **Not required** approval completes after **Mark done**; **Caregiver approval** enters **Waiting for approval** after **Submit for approval**. Caregiver approval is the only transition that produces the checked completed state for approval-required work. A genuinely completed check remains a direct toggle: unchecking restores assigned work to ready or shared work to its existing claim, removes completion credit, and clears prior review metadata.
 
 ## Primary information
 
@@ -65,7 +65,7 @@ For completed work, the detail drawer changes from instructions to a receipt. It
 - Completion intent -> shared squared Activity completion control opening the capability-owned detail/review drawer.
 - Completion review -> Canonical `BottomDrawer` at the detail/review height, `BottomDrawerHeader`, scroll body, and one `BottomDrawerFooter` action.
 - Completed receipt -> canonical compact `BottomDrawerHeader` with no subtitle, the Chores review drawer's avatar/name pill, and quiet labeled completion/approval timestamps.
-- Optional evidence -> a full-width secondary **Take a photo** `Button`, with quieter **Choose from library** access and a compact attachment that opens a full-screen pinch-to-zoom viewer.
+- Optional evidence -> a full-width secondary **Take a photo** `Button`, with quieter **Choose from library** access and a full-width 4:3 landscape attachment that opens a full-screen pinch-to-zoom viewer. The viewer preserves the source image with `contain` and uses one transparent 44-point close control with a high-contrast white glyph.
 - Take -> 24-point shared inline `Button` at the trailing edge of the row's second metadata line, with 12-point type and a 44-point touch target.
 - Claimed-chore options -> 24-point ghost ellipsis trigger at the row's upper-right, centered on the title's first line, with a 44-point touch target; its shared `DropdownMenu` contains the neutral **Return to family list** action. The metadata line remains exclusively about the reward.
 - Member identity -> existing `MemberControl` and `ProfileAvatar`.
@@ -75,7 +75,7 @@ For completed work, the detail drawer changes from instructions to a receipt. It
 
 ## Nearest precedent
 
-The inventory/list Candidate pattern provides the flat section and row hierarchy. The existing Chores caregiver review drawer provides the nearest evidence-and-decision anatomy; the child drawer differs by offering capture before submission. Canonical Bottom Dock Geometry provides safe-area ownership and scroll clearance, but its existing floating action components are intentionally not reused because the completion action belongs to the drawer.
+The inventory/list Candidate pattern provides the flat section and row hierarchy, and the shared `InventoryControlGroup` / `InventoryControlSurface` supplies the same compact filter-rail treatment used by To-dos while the Chores trigger retains its smaller scope picker. Unsupported Sort and Group actions remain absent. The existing Chores caregiver review drawer provides the nearest evidence-and-decision anatomy; the child drawer differs by offering capture before submission. Canonical Bottom Dock Geometry provides safe-area ownership and scroll clearance, but its existing floating action components are intentionally not reused because the completion action belongs to the drawer.
 
 ## External exemplar ledger
 
@@ -107,6 +107,7 @@ N/A. No external product is selected for this task.
 - partial and completed states;
 - trusted completion with performer and completion time;
 - caregiver-reviewed completion with performer, completion time, approver, and approval time;
+- portrait and landscape evidence inside the stable 4:3 preview frame and full-screen viewer;
 - waiting for approval;
 - tokens enabled and disabled;
 - no active expectation;
@@ -116,3 +117,9 @@ N/A. No external product is selected for this task.
 ## Proof path
 
 Use the real Settings > Kwilt Labs > Chores route in the iPhone 17 Pro iOS 26.5 Simulator. Operate member switching, Take, the claimed-chore ellipsis, Return to family list, trusted completion, pending approval, agreement disclosure, tokens off/on, and caregiver projection. Capture the child default, claimed-row, claimed-chore menu, agreement drawer, tokens-enabled, and completed or pending states. Physical-device, Android, Dynamic Type, and assistive-technology proof remain separate gates.
+
+## Caregiver root-chore management
+
+The caregiver projection represents the stable chore series. Its three-second read is the household's recurring chore inventory: who owns each chore and how often it repeats. Tapping a row opens the existing full-height chore form in edit mode, not the occurrence detail or completion receipt. The editable root fields are title, assignee or Household, recurrence, definition of done, **Photo** (`Optional` or `Required`), **Approval** (`Not required` or `Caregiver approval`), and token reward when enabled. **Save chore** updates future recurrence generation while preserving prior occurrence identity, performer, evidence, completion, and approval facts.
+
+Individual occurrence receipts remain child- and review-owned. Series-scoped performance history is a later progressive disclosure, not a competing tab, dashboard, score, or default caregiver-row destination.

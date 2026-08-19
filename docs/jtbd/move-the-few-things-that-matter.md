@@ -4,10 +4,10 @@ title: "Help me make real progress in the few areas I most want to grow"
 parent: null
 level: top
 owner: andrew
-last_reviewed: 2026-05-08
+last_reviewed: 2026-08-18
 confidence: hypothesis
-evidence: []
-realized_by: []
+evidence: ["2026-08-18: Public Recipe exact-product pilot shipped; demand-side outcome evidence is still pending."]
+realized_by: [brief-trusted-recipe-product-picks]
 tags: [goals, progress, focus]
 ---
 

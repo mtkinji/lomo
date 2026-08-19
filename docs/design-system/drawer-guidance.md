@@ -107,6 +107,8 @@ Goals should keep the heavier task-drawer pattern for surfaces like filters, sor
 - Header with close/action slots.
 - Scrollable body with grouped controls.
 - Footer CTA when the drawer has a multi-field commit.
+- Full-height task drawers with a fixed footer use `keyboardBehavior="resize"`
+  so the sheet frame remains stable while the form viewport and footer clear the keyboard.
 
 Do not force Money's compact picker anatomy onto these task surfaces.
 

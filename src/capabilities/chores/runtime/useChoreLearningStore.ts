@@ -16,6 +16,7 @@ import {
 } from '../domain/choreLearning';
 import {
   addChoreDraftToLearningRecord,
+  updateChoreSeriesInLearningRecord,
   type ChoreDraft,
 } from '../domain/choreCreation';
 
@@ -35,6 +36,7 @@ type ChoreLearningState = {
     note: string | null,
   ) => void;
   addChore: (draft: ChoreDraft, createdAtIso: string, idSeed: string) => void;
+  updateChore: (activitySeriesId: string, draft: ChoreDraft) => void;
   reset: () => void;
 };
 
@@ -118,11 +120,19 @@ export const useChoreLearningStore = create<ChoreLearningState>()(
           idSeed,
         ),
       })),
+      updateChore: (activitySeriesId, draft) => set((state) => ({
+        record: updateChoreSeriesInLearningRecord(
+          state.record,
+          draft,
+          state.record.activeMemberId,
+          activitySeriesId,
+        ),
+      })),
       reset: () => set({ record: createChoreLearningRecord() }),
     }),
     {
       name: CHORE_LEARNING_STORAGE_KEY,
-      version: 8,
+      version: 10,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: ({ record }) => ({ record }),
       migrate: (persisted) => ({

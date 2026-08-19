@@ -4,10 +4,10 @@ title: "Help me understand why AI suggested this"
 parent: jtbd-trust-this-app-with-my-life
 level: leaf
 owner: andrew
-last_reviewed: 2026-07-22
+last_reviewed: 2026-08-18
 confidence: hypothesis
-evidence: []
-realized_by: []
+evidence: ["2026-08-18: Public Recipe research-backed recommendation pilot shipped with rationale, trade-offs, sources, and evidence labeling; user comprehension is still unproven."]
+realized_by: [brief-trusted-recipe-product-picks]
 tags: [ai, evidence, provenance, recommendations, trust]
 ---
 

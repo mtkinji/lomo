@@ -138,7 +138,7 @@ export function ChoreEvidencePhoto({
           </GestureDetector>
           <IconButton
             accessibilityLabel="Close full-screen chore photo"
-            variant="inverse"
+            variant="ghost"
             onPress={close}
             style={[
               styles.closeButton,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     aspectRatio: 16 / 9,
   },
   receiptCard: {
-    width: 172,
+    width: '100%',
     aspectRatio: 4 / 3,
   },
   thumbnail: {

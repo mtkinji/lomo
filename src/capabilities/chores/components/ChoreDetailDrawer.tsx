@@ -41,6 +41,8 @@ export function ChoreDetailDrawer({
   const canComplete = occurrence?.state === 'ready'
     || occurrence?.state === 'claimed'
     || occurrence?.state === 'needs_another_pass';
+  const needsRequiredPhoto = occurrence?.photoPolicy === 'required'
+    && !occurrence.evidencePhotoUri;
   const canRelease = occurrence?.state === 'claimed';
   const canAttachPhoto = member.role === 'child'
     && occurrence != null
@@ -76,7 +78,7 @@ export function ChoreDetailDrawer({
           <View style={styles.actions}>
             {canTake ? <Button fullWidth onPress={onTake}>Take chore</Button> : null}
             {canComplete ? (
-              <Button fullWidth onPress={onComplete}>
+              <Button fullWidth disabled={needsRequiredPhoto} onPress={onComplete}>
                 {occurrence?.reviewPolicy === 'caregiver_review' ? 'Submit for approval' : 'Mark done'}
               </Button>
             ) : null}
@@ -133,7 +135,11 @@ export function ChoreDetailDrawer({
             <View style={styles.photoSection}>
               <View style={styles.block}>
                 <Text variant="label">Photo</Text>
-                <Text tone="secondary">Optional — add one if it helps show the finished chore.</Text>
+                <Text tone="secondary">
+                  {occurrence.photoPolicy === 'required'
+                    ? 'Add a photo to finish this chore.'
+                    : 'Optional — add one if it helps show the finished chore.'}
+                </Text>
               </View>
               {occurrence.evidencePhotoUri ? (
                 <ChoreEvidencePhoto

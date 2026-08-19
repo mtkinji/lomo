@@ -77,9 +77,11 @@ type Props = TextInputProps & {
    *   text-field spec.
    * - `flat`: removes shadows entirely so the input sits flush on the canvas.
    *
-   * Defaults to `elevated` so existing inputs adopt the new styling.
-   */
+  * Defaults to `elevated` so existing inputs adopt the new styling.
+  */
   elevation?: InputElevation;
+  /** Keep the label neutral instead of applying the accent color on focus. */
+  accentLabelOnFocus?: boolean;
 };
 
 const InputBase = forwardRef<TextInput, Props>(
@@ -99,6 +101,7 @@ const InputBase = forwardRef<TextInput, Props>(
       variant = 'surface',
       editable = true,
       elevation = 'elevated',
+      accentLabelOnFocus = true,
       multilineMinHeight,
       multilineMaxHeight,
       onFocus,
@@ -129,7 +132,11 @@ const InputBase = forwardRef<TextInput, Props>(
 
     return (
       <View style={styles.wrapper}>
-        {label ? <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text> : null}
+        {label ? (
+          <Text style={[styles.label, focused && accentLabelOnFocus && styles.labelFocused]}>
+            {label}
+          </Text>
+        ) : null}
         <View
           style={[
             styles.inputContainer,
