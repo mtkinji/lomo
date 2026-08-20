@@ -1,10 +1,14 @@
-import { createHash } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
 import { buildWeeklyRecipeBatches, recipePopularityScore } from './popularity.mjs';
+import seedData from '../../src/capabilities/recipes/data/recipeEditorialEnrichment.seed.json' with { type: 'json' };
+import { canonicalRecipeEvidence, canonicalRecipeHash } from '../recipe-enrichment/catalog.mjs';
+
+const reviewedEnrichmentByRosterId = new Map(seedData.recipes.map((record) => [record.rosterId, record]));
 
 const PILOT_ROSTER_IDS = [
   // Familiar silhouettes: failures are obvious.
@@ -67,20 +71,17 @@ async function invoke(body) {
   return payload;
 }
 
-function buildSources(recipes) {
+export function buildSources(recipes, enrichmentByRosterId = reviewedEnrichmentByRosterId) {
   return recipes.map((recipe) => {
     const rosterId = recipe.rosterId;
-    const evidence = JSON.stringify({
-      rosterId, title: recipe.title, description: recipe.description, category: recipe.category,
-      cuisine: recipe.cuisine, yieldQuantity: recipe.yieldQuantity, yieldUnit: recipe.yieldUnit,
-      prepMinutes: recipe.prepMinutes, cookMinutes: recipe.cookMinutes, ingredients: recipe.ingredients,
-      instructions: recipe.instructions, notes: recipe.notes,
-    });
+    const evidence = canonicalRecipeEvidence(recipe);
+    const enrichment = enrichmentByRosterId.get(rosterId) ?? null;
     return {
-      ...JSON.parse(evidence),
+      ...evidence,
       tier: recipe.tier,
       publicSlug: `${slugify(recipe.title)}-${rosterId.toLowerCase()}`,
-      contentHash: `sha256:${createHash('sha256').update(evidence).digest('hex')}`,
+      contentHash: canonicalRecipeHash(recipe),
+      origin: enrichment ? { label: enrichment.origin.label, region: enrichment.origin.region } : null,
     };
   });
 }
@@ -176,9 +177,11 @@ async function reviewCandidate() {
   console.log(JSON.stringify(await invoke({ action: 'review', jobId, review }), null, 2));
 }
 
-const command = process.argv[2];
-if (command === 'import' || command === 'manifest') await importPilot();
-else if (command === 'weekly-manifest') await weeklyManifest();
-else if (command === 'generate') await generatePilot();
-else if (command === 'review') await reviewCandidate();
-else throw new Error('Use import, manifest, weekly-manifest, generate, or review.');
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  const command = process.argv[2];
+  if (command === 'import' || command === 'manifest') await importPilot();
+  else if (command === 'weekly-manifest') await weeklyManifest();
+  else if (command === 'generate') await generatePilot();
+  else if (command === 'review') await reviewCandidate();
+  else throw new Error('Use import, manifest, weekly-manifest, generate, or review.');
+}

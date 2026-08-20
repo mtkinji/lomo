@@ -25,8 +25,9 @@ briefs:
   - contextual-recipe-chat
   - chat-recipe-management
   - online-grocery-cart-concierge
+  - trusted-recipe-product-picks
 status: draft
-last_reviewed: 2026-08-16
+last_reviewed: 2026-08-20
 ---
 
 # Recipes

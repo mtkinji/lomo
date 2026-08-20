@@ -37,8 +37,8 @@ export function RecipeAffiliateDisclosureGuide({
       <BottomGuide
         visible={visible}
         onClose={onClose}
-        snapPoints={['38%']}
-        dynamicSizing={false}
+        snapPoints={['70%']}
+        dynamicSizing
         scrim="light"
         layout="floating"
       >
@@ -49,6 +49,14 @@ export function RecipeAffiliateDisclosureGuide({
               <Heading variant="md">Opening Amazon</Heading>
               <Text tone="secondary" numberOfLines={2}>{pick.title}</Text>
             </View>
+          </View>
+          <View style={styles.guidance}>
+            <Text variant="label">You may not need it</Text>
+            <Text tone="secondary">{pick.substituteSummary}</Text>
+          </View>
+          <View style={styles.guidance}>
+            <Text variant="label">Worth knowing</Text>
+            <Text tone="secondary">{pick.tradeoff}</Text>
           </View>
           <Text>
             {affiliate
@@ -69,6 +77,7 @@ const styles = StyleSheet.create({
   content: { gap: spacing.lg },
   product: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   productCopy: { flex: 1, gap: spacing.xs },
+  guidance: { gap: spacing.xs },
   thumbnail: {
     width: 64,
     height: 64,

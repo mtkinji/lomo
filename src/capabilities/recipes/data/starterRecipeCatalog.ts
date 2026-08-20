@@ -7,6 +7,8 @@ import type { RecipeProjection } from "./recipeCache";
 import { STARTER_EDITORIAL_RECIPE_CATALOG } from "./starterEditorialRecipeCatalog";
 import { getCuisineFamilyForFilterValue } from "../domain/cuisineFamilies";
 import { applyHostedCatalogMedia } from "./catalogMediaOverlay";
+import { RECIPE_EDITORIAL_ENRICHMENT_SEEDS } from './recipeEditorialEnrichment.seed';
+import type { RecipeEditorialEnrichment } from './recipeEditorialEnrichment';
 
 export type StarterRecipeMetadata = {
   category: EditorialRecipeCategory;
@@ -35,6 +37,12 @@ export const DEFAULT_RECIPE_INVENTORY_FILTERS: RecipeInventoryFilters = {
 };
 
 const metadataById = new Map<string, StarterRecipeMetadata>();
+const enrichmentByRecipeId = new Map<string, RecipeEditorialEnrichment>(
+  RECIPE_EDITORIAL_ENRICHMENT_SEEDS.map((record) => [
+    `kwilt-recipe-${record.rosterId.toLowerCase()}`,
+    record,
+  ]),
+);
 
 export const STARTER_RECIPE_PROJECTIONS: RecipeProjection[] =
   STARTER_EDITORIAL_RECIPE_CATALOG.map((editorial) => {
@@ -75,6 +83,10 @@ export function getStarterRecipeMetadata(
   recipeId: string,
 ): StarterRecipeMetadata | null {
   return metadataById.get(recipeId) ?? null;
+}
+
+export function getStarterRecipeEnrichment(recipeId: string): RecipeEditorialEnrichment | null {
+  return enrichmentByRecipeId.get(recipeId) ?? null;
 }
 
 export function isStarterRecipe(recipeId: string): boolean {

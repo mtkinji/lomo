@@ -1,0 +1,963 @@
+{
+  "schemaVersion": 1,
+  "source": "kwilt-reviewed-recipe-enrichment",
+  "recipes": [
+    {
+      "schemaVersion": 1,
+      "rosterId": "AP001",
+      "sourceRecipeHash": "sha256:7adf28e2fd4e17935e347ddefbb176dad62085270faa7f6e704aa2fd580fccde",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "wire-rack",
+          "label": "Oven-safe wire rack",
+          "reviewCategoryId": "wire-rack"
+        },
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Rimmed sheet pan",
+          "reviewCategoryId": "rimmed-sheet-pan"
+        },
+        {
+          "id": "large-mixing-bowl",
+          "label": "Large mixing bowl",
+          "reviewCategoryId": "large-mixing-bowl"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "wire rack",
+          "needId": "wire-rack",
+          "focus": "specialty",
+          "accessibleLabel": "See oven-safe wire rack recommendations"
+        },
+        {
+          "instructionIndex": 0,
+          "phrase": "rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general",
+          "accessibleLabel": "See rimmed sheet pan recommendations"
+        },
+        {
+          "instructionIndex": 3,
+          "phrase": "large bowl",
+          "needId": "large-mixing-bowl",
+          "focus": "general",
+          "accessibleLabel": "See large mixing bowl recommendations"
+        }
+      ],
+      "origin": {
+        "label": "Buffalo, New York",
+        "region": "Great Lakes · Northeastern United States",
+        "markers": [
+          {
+            "label": "Buffalo",
+            "latitude": 42.8864,
+            "longitude": -78.8784
+          }
+        ],
+        "map": {
+          "center": [
+            -78.88,
+            42.89
+          ],
+          "scale": 1150,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Buffalo-style wings are closely tied to Buffalo, New York, and to the Anchor Bar in the 1960s. The familiar account credits Teressa Bellissimo with frying split wings, coating them in hot sauce, and serving them with celery and blue cheese. The Buffalo History Museum also places that story inside a longer local history: Black restaurateur John Young sold a different breaded, whole-wing style with mambo sauce soon afterward, and cooked chicken wings were not new to the city or to American food.",
+          "What became nationally recognizable as a Buffalo wing was the combination of unbreaded crisp wings, a cayenne-pepper-and-butter sauce, celery, and blue-cheese dressing. Kwilt changes the cooking method, not that identity: a rack and two oven temperatures replace deep frying, while the sharp sauce and cooling accompaniments remain. That distinction matters because Buffalo now labels many flavored foods far removed from the place and bar snack that gave the style its name."
+        ],
+        "sources": [
+          {
+            "title": "Who Served Buffalo's First Wings?",
+            "publisher": "The Buffalo History Museum",
+            "url": "https://buffalohistory.org/who-served-buffalos-first-wings/"
+          },
+          {
+            "title": "History",
+            "publisher": "Anchor Bar",
+            "url": "https://anchorbar.com/history/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "missing",
+        "storageRef": null,
+        "altText": "Crisp Buffalo wings coated in red cayenne-butter sauce with celery, carrots, and chunky blue-cheese dip.",
+        "width": null,
+        "height": null
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "AP002",
+      "sourceRecipeHash": "sha256:588f170815132f6b4a4a24223f4c893b1918195428ceef2dc332fcf9f68732ac",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "saucepan",
+          "label": "Medium saucepan",
+          "reviewCategoryId": "medium-saucepan"
+        },
+        {
+          "id": "steamer-basket",
+          "label": "Steamer basket",
+          "reviewCategoryId": "steamer-basket"
+        },
+        {
+          "id": "fine-sieve",
+          "label": "Fine sieve",
+          "reviewCategoryId": "fine-mesh-strainer"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "saucepan",
+          "needId": "saucepan",
+          "focus": "general",
+          "accessibleLabel": "See saucepan recommendations"
+        },
+        {
+          "instructionIndex": 0,
+          "phrase": "steamer basket",
+          "needId": "steamer-basket",
+          "focus": "specialty",
+          "accessibleLabel": "See steamer basket recommendations"
+        },
+        {
+          "instructionIndex": 2,
+          "phrase": "fine sieve",
+          "needId": "fine-sieve",
+          "focus": "substitute",
+          "accessibleLabel": "See fine sieve recommendations"
+        }
+      ],
+      "origin": {
+        "label": "United States",
+        "region": "North America · older Mediterranean and European roots",
+        "markers": [
+          {
+            "label": "United States",
+            "latitude": 39.8283,
+            "longitude": -98.5795
+          }
+        ],
+        "map": {
+          "center": [
+            -98.58,
+            39.83
+          ],
+          "scale": 560,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Stuffed eggs are much older than the American deviled egg. Cooks around the Mediterranean and in Europe seasoned boiled eggs in many forms long before mayonnaise became the familiar binder. The word deviled developed in English-language cooking as shorthand for food made lively with mustard, pepper, cayenne, or other assertive seasonings; it described a flavor treatment, not one inventor or one precise birthplace.",
+          "In the United States, halved eggs refilled with yolk, mayonnaise, mustard, and a paprika finish became a durable picnic, church-supper, holiday, and potluck food. The National Museum of American History notes deviled eggs among the foods carried north by African Americans during the Great Migration, evidence that the dish also traveled through family and community practice. Kwilt's smooth, mustardy version belongs to that modern American branch while acknowledging the much older stuffed-egg family behind it."
+        ],
+        "sources": [
+          {
+            "title": "Deviled Eggs and Other Foods from Hell",
+            "publisher": "Smithsonian Magazine",
+            "url": "https://www.smithsonianmag.com/arts-culture/deviled-eggs-and-other-foods-from-hell-123267449/"
+          },
+          {
+            "title": "Chickens, eggs, and the changing American diet",
+            "publisher": "National Museum of American History",
+            "url": "https://americanhistory.si.edu/explore/stories/chickens-eggs-and-changing-american-diet"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "missing",
+        "storageRef": null,
+        "altText": "Deviled egg halves filled with smooth mustardy yolks and lightly finished with paprika and chopped chives.",
+        "width": null,
+        "height": null
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "AP003",
+      "sourceRecipeHash": "sha256:b818318b22f804048da1d6fe37fc409198ca4819ed18d8a7eb6c525a812ca8ca",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "clean-kitchen-towel",
+          "label": "Clean kitchen towel",
+          "reviewCategoryId": "kitchen-towel"
+        },
+        {
+          "id": "baking-dish",
+          "label": "1 1/2-quart baking dish",
+          "reviewCategoryId": "baking-dish"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "clean towel",
+          "needId": "clean-kitchen-towel",
+          "focus": "general",
+          "accessibleLabel": "See clean kitchen towel recommendations"
+        },
+        {
+          "instructionIndex": 2,
+          "phrase": "1 1/2-quart baking dish",
+          "needId": "baking-dish",
+          "focus": "general",
+          "accessibleLabel": "See baking dish recommendations"
+        }
+      ],
+      "origin": {
+        "label": "United States",
+        "region": "North America · modern party and casual-dining tradition",
+        "markers": [
+          {
+            "label": "Chicago restaurant branch",
+            "latitude": 41.8781,
+            "longitude": -87.6298
+          }
+        ],
+        "map": {
+          "center": [
+            -98.58,
+            39.83
+          ],
+          "scale": 560,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Hot spinach-artichoke dip does not have a well-documented single inventor. It belongs to a broader twentieth-century American party-dip tradition shaped by convenient frozen spinach, canned artichokes, packaged dairy, and the habit of gathering around chips or bread. By the late twentieth century, the combination had moved comfortably onto casual-restaurant menus, where a hot, creamy, shareable appetizer could be assembled consistently and served to a table.",
+          "One influential restaurant branch came from Houston's, the group that later became Hillstone. Bon Appétit reported that guests at its Chicago restaurant began ordering a spinach-and-artichoke side with chips; salsa and sour cream followed, and the combination became known there as Chicago-style spinach and artichoke dip. Kwilt's version is not a copy of that restaurant formula, but it shares the American casual-dining idea while keeping the vegetables prominent and using careful draining to avoid a watery dip."
+        ],
+        "sources": [
+          {
+            "title": "Welcome to Hillstone, America's Favorite Restaurant",
+            "publisher": "Bon Appétit",
+            "url": "https://www.bonappetit.com/restaurants-travel/article/hillstone"
+          },
+          {
+            "title": "Hillstone — American classics seem at home in S.F.",
+            "publisher": "SFGate",
+            "url": "https://www.sfgate.com/food/article/Hillstone-American-classics-seem-at-home-in-S-F-5022199.php"
+          },
+          {
+            "title": "About Hillstone",
+            "publisher": "Hillstone Restaurant Group",
+            "url": "https://www.hillstone.com/about/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "missing",
+        "storageRef": null,
+        "altText": "Hot spinach-artichoke dip with visible vegetables beneath a browned mozzarella and Parmesan top, served with sturdy chips.",
+        "width": null,
+        "height": null
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "BR016",
+      "sourceRecipeHash": "sha256:466870c5e846a437f0005e880d3c9699c33cf408e7f25b936cb769cc6bc8cc5d",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen"
+      },
+      "equipmentNeeds": [],
+      "equipmentAnnotations": [],
+      "origin": {
+        "label": "The Maghreb",
+        "region": "North Africa",
+        "markers": [
+          {
+            "label": "Maghreb",
+            "latitude": 34,
+            "longitude": 9
+          }
+        ],
+        "map": {
+          "center": [
+            5,
+            31
+          ],
+          "scale": 570,
+          "highlightedCountryIds": [
+            "012",
+            "434",
+            "504",
+            "788"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Shakshuka belongs to the cooking traditions of the Maghreb—the North African region that includes Tunisia, Libya, Algeria, and Morocco. Its exact birthplace is debated, which is why it is more honest to place the dish in the region than to hand it to one modern border. What holds the family together is the pan: vegetables and spices cooked into a concentrated sauce, then eggs set directly in it.",
+          "North African Jewish communities helped carry shakshuka into Israel, where it became an everyday café and home dish as well as a link to the food of Libya and Tunisia. Kwilt's version stays close to that practical form: cumin, paprika, pepper, and tomato cooked until thick enough to hold the eggs, with bread nearby for the sauce and soft yolks. It works at breakfast, but there is nothing especially morning-only about it."
+        ],
+        "sources": [
+          {
+            "title": "Libyan Shakshuka",
+            "publisher": "Jewish Food Society",
+            "url": "https://www.jewishfoodsociety.org/recipes/libyan-shakshuka"
+          },
+          {
+            "title": "Dr. Shakshuka Has the Prescription for Tel Aviv Foodies",
+            "publisher": "Tablet",
+            "url": "https://www.tabletmag.com/sections/food/articles/prison-to-table-cuisine"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br016/kwilt-recipe-hero-v1/0f3624dada73f599-29f2b548de09383e/candidate-1.webp",
+        "altText": "Shakshuka with six eggs in red pepper and tomato sauce, finished with herbs and crumbled feta.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "BR031",
+      "sourceRecipeHash": "sha256:0005dd8ae4a0525c62f6fdbd6900bae6087c78ba0ac1eba320f66b4c0395eda3",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "tamagoyaki-pan",
+          "label": "Rectangular tamagoyaki pan",
+          "reviewCategoryId": "tamagoyaki-pan"
+        },
+        {
+          "id": "small-skillet",
+          "label": "8-inch skillet",
+          "reviewCategoryId": "8-inch-skillet"
+        },
+        {
+          "id": "mixing-bowl",
+          "label": "Medium mixing bowl",
+          "reviewCategoryId": "mixing-bowl"
+        },
+        {
+          "id": "whisk",
+          "label": "Whisk",
+          "reviewCategoryId": "balloon-whisk"
+        },
+        {
+          "id": "fine-mesh-strainer",
+          "label": "Fine-mesh strainer",
+          "reviewCategoryId": "fine-mesh-strainer"
+        },
+        {
+          "id": "saucepan",
+          "label": "Medium saucepan",
+          "reviewCategoryId": "medium-saucepan"
+        },
+        {
+          "id": "shaping-mat",
+          "label": "Bamboo rolling mat or clean towel",
+          "reviewCategoryId": "shaping-mat"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 3,
+          "phrase": "rectangular tamagoyaki pan",
+          "needId": "tamagoyaki-pan",
+          "focus": "specialty",
+          "accessibleLabel": "See tamagoyaki pan recommendations"
+        },
+        {
+          "instructionIndex": 3,
+          "phrase": "8-inch skillet",
+          "needId": "small-skillet",
+          "focus": "general",
+          "accessibleLabel": "See 8-inch skillet recommendations"
+        }
+      ],
+      "origin": {
+        "label": "Japan",
+        "region": "East Asia",
+        "markers": [
+          {
+            "label": "Japan",
+            "latitude": 36.2,
+            "longitude": 138.25
+          }
+        ],
+        "map": {
+          "center": [
+            138,
+            36
+          ],
+          "scale": 940,
+          "highlightedCountryIds": [
+            "392"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Tamagoyaki is built from a small act repeated with care: pour a thin layer of seasoned egg, roll it, add another layer, and roll again. Eggs grew much more common in Japanese cooking during the Edo period; an eighteenth-century cookbook gathered 103 egg preparations. The rolled omelet familiar today became a deeply ordinary food—at home, in lunch boxes, and at breakfast—rather than a dish reserved for formal occasions.",
+          "There is no single national seasoning. Around Tokyo and the wider Kanto region, tamagoyaki often leans sweeter and more firmly set. In Kyoto, Osaka, and the Kansai region, dashimaki tamago uses more dashi for a softer, savory roll. This Kwilt breakfast set sits between those poles: a little sugar and mirin, enough dashi for tenderness, then rice, miso soup, cucumber, daikon, and pickles to make the omelet part of a complete morning table."
+        ],
+        "sources": [
+          {
+            "title": "Tamagoyaki",
+            "publisher": "Web Japan",
+            "url": "https://web-japan.org/kidsweb/cook/tamagoyaki/index.html"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br031/kwilt-recipe-hero-v1/3e74d0f685d6dfa6-642dc91ce0f2ee70/candidate-1.webp",
+        "altText": "Sliced tamagoyaki with grated daikon, steamed rice, miso soup, and cucumber pickles.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "BR073",
+      "sourceRecipeHash": "sha256:9c49faabeeddde826eab8dbcec63061a6912201faadb144a7fc2fd0513aff17e",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen"
+      },
+      "equipmentNeeds": [],
+      "equipmentAnnotations": [],
+      "origin": {
+        "label": "Adjara, Georgia",
+        "region": "Black Sea coast · South Caucasus",
+        "markers": [
+          {
+            "label": "Batumi",
+            "latitude": 41.646,
+            "longitude": 41.6415
+          }
+        ],
+        "map": {
+          "center": [
+            42,
+            42
+          ],
+          "scale": 1050,
+          "highlightedCountryIds": [
+            "268"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Khachapuri is not one bread but a Georgian family of cheese-filled breads, with forms tied to different regions. Adjarian khachapuri comes from Adjara on Georgia's Black Sea coast. Its open center, high rim, egg, and butter make it immediately distinct from the enclosed round breads of Imereti or the cheese-topped versions associated with Samegrelo.",
+          "The familiar story says the boat shape reflects Adjara's sailors and fishermen, with the egg standing in for the sun over the sea. Georgia's own tourism sources present that as a popular origin account, not settled documentary history. The useful tradition is how it is eaten: stir the hot egg and butter into the cheese, then tear pieces from the bread rim and dip. Kwilt's smaller breakfast boats preserve that shared, hands-on finish."
+        ],
+        "sources": [
+          {
+            "title": "Rediscovering Khachapuri, Georgia's must-try classic",
+            "publisher": "Georgia Travel",
+            "url": "https://georgia.travel/rediscovering-khachapuri-georgias-must-try-classic"
+          },
+          {
+            "title": "Khachapuri: True Symbol of Georgian Cuisine",
+            "publisher": "Georgia Travel",
+            "url": "https://georgia.travel/get-a-taste-of-khachapuri"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br073/kwilt-recipe-hero-v1/4e18441f198f21a1-88b16d8b0725ad84/candidate-0.webp",
+        "altText": "Boat-shaped Adjarian khachapuri with melted cheese, a soft egg, and butter.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "BR078",
+      "sourceRecipeHash": "sha256:e01c259e1a2049a5596e570d83968e71ae07f3407160a1731991bedd35751165",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen"
+      },
+      "equipmentNeeds": [],
+      "equipmentAnnotations": [],
+      "origin": {
+        "label": "Jamaica",
+        "region": "Caribbean",
+        "markers": [
+          {
+            "label": "Jamaica",
+            "latitude": 18.1096,
+            "longitude": -77.2975
+          }
+        ],
+        "map": {
+          "center": [
+            -75,
+            19
+          ],
+          "scale": 1050,
+          "highlightedCountryIds": [
+            "388"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Ackee and saltfish carries several parts of Jamaican history in one pan. Ackee came from West Africa; its Jamaican name traces to the Twi word ankye. The fruit became so closely identified with the island that it is now Jamaica's national fruit, while ackee cooked with salted cod is widely recognized as the national dish.",
+          "The pairing also reflects colonial trade and plantation life. Salted fish was durable imported food, while African cooks and their descendants shaped ingredients and techniques into a distinctly Jamaican cuisine. This version treats both ingredients with care: soak and gently flake the cod, use commercially canned ackee that has already been safely processed, and fold the tender fruit only a few times so it stays intact among the peppers, thyme, tomato, scallion, and Scotch bonnet."
+        ],
+        "sources": [
+          {
+            "title": "National Fruit — Ackee",
+            "publisher": "Office of the Prime Minister of Jamaica",
+            "url": "https://opm.gov.jm/symbols/national-fruit-ackee/"
+          },
+          {
+            "title": "History Notes: Jamaica's Culture & Heritage",
+            "publisher": "National Library of Jamaica",
+            "url": "https://nlj.gov.jm/history-notes-jamaica/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br078/kwilt-recipe-hero-v1/9572ee49638d9ee9-9a3fa11eb64e233f/candidate-2.webp",
+        "altText": "Ackee and saltfish with peppers and onion, fried dumplings, and boiled green banana.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "DI061",
+      "sourceRecipeHash": "sha256:887dc4adff4d5f68898fd1bc070526df12481035b9e23cbd8b95aa7575bf32d3",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "mixing-bowl",
+          "label": "Large mixing bowl"
+        },
+        {
+          "id": "rimmed-half-sheet",
+          "label": "13-by-18-inch rimmed sheet pan",
+          "reviewCategoryId": "rimmed-half-sheet"
+        },
+        {
+          "id": "wide-skillet",
+          "label": "Wide skillet or sauté pan"
+        },
+        {
+          "id": "bench-scraper",
+          "label": "Bench scraper or flexible spatula"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 2,
+          "phrase": "13-by-18-inch rimmed sheet pan",
+          "needId": "rimmed-half-sheet",
+          "focus": "specialty",
+          "accessibleLabel": "See the half-sheet pan recommendation"
+        }
+      ],
+      "origin": {
+        "label": "Palermo, Sicily",
+        "region": "Southern Italy · Mediterranean",
+        "markers": [
+          {
+            "label": "Palermo",
+            "latitude": 38.1157,
+            "longitude": 13.3615
+          }
+        ],
+        "map": {
+          "center": [
+            14,
+            38
+          ],
+          "scale": 1150,
+          "highlightedCountryIds": [
+            "380"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Palermo's sfincione is a thick, soft bread topped more like a seasoned loaf than a thin Neapolitan pizza. The name is commonly connected to spongia, the Latin word for sponge, which suits its airy, yielding crumb. Traditional versions layer onions, tomato, anchovy, caciocavallo, oregano, and breadcrumbs; nearby Bagheria has its own related form, a reminder that even a local classic can change across a short distance.",
+          "The American category called Sicilian pizza grew in its own direction, especially as a square pan pizza, so the two should not be treated as interchangeable. Kwilt's sheet-pan version deliberately looks back toward sfincione: a very soft dough, deeply cooked onion and tomato, anchovy pressed into the base, caciocavallo, and an oregano breadcrumb top. The rimmed pan makes it practical for a home oven while the crumb and topping keep the Palermo connection visible."
+        ],
+        "sources": [
+          {
+            "title": "Sfinciuni",
+            "publisher": "Visit Sicily",
+            "url": "https://www.visitsicily.info/en/ricetta/sfinciuni/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di061/kwilt-recipe-hero-v1/245856f64177b5eb-10e0d454358e9bd5/candidate-0.webp",
+        "altText": "Sheet-pan Sicilian sfincione with tomato, onion, anchovy, aged cheese, breadcrumbs, and oregano.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "DI133",
+      "sourceRecipeHash": "sha256:662a424de630b50f8e5360e4ced416054f13b17161af7d031d2e403eda0fd625",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen"
+      },
+      "equipmentNeeds": [],
+      "equipmentAnnotations": [],
+      "origin": {
+        "label": "Hyderabad, India",
+        "region": "Deccan Plateau · South Asia",
+        "markers": [
+          {
+            "label": "Hyderabad",
+            "latitude": 17.385,
+            "longitude": 78.4867
+          }
+        ],
+        "map": {
+          "center": [
+            78,
+            20
+          ],
+          "scale": 720,
+          "highlightedCountryIds": [
+            "356"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Hyderabadi biryani comes from a city where Deccan ingredients and cooking met Persian and Mughal court traditions. Hyderabad was founded in 1591 and became a place of layered languages, trade, and royal kitchens; the city's biryani is now one of its clearest culinary signatures. Fragrant rice, marinated meat, fried onions, herbs, saffron, and enclosed steam do different work, then arrive together in the pot.",
+          "This is a kachchi-style chicken biryani: raw marinated chicken goes beneath rice that has been only partly boiled, and the sealed pot finishes both through dum cooking. That is a demanding but revealing method. The rice needs a firm center when it is drained, the onions must stop short of dark bitterness, and the resting time matters because trapped steam completes the layers. Lift from the bottom to serve; stirring would erase the contrast the method was built to create."
+        ],
+        "sources": [
+          {
+            "title": "Gastronomy of Telangana",
+            "publisher": "Telangana Tourism",
+            "url": "https://tourism.telangana.gov.in/experience/gastronomy"
+          },
+          {
+            "title": "History & Culture of Hyderabad",
+            "publisher": "Government of Telangana",
+            "url": "https://hyderabad.telangana.gov.in/history/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di133/kwilt-recipe-hero-v1/b0a5602f40bfb238-64aab36286596a80/candidate-1.webp",
+        "altText": "Hyderabadi chicken biryani layered with long-grain rice, chicken, fried onion, mint, and saffron.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "LU037",
+      "sourceRecipeHash": "sha256:b8347aceef6ed575ac95e650ad7137d467c647f13d048301919e1a3d80880828",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "mixing-bowls",
+          "label": "Two mixing bowls"
+        },
+        {
+          "id": "deep-heavy-pot",
+          "label": "Deep, heavy pot"
+        },
+        {
+          "id": "frying-thermometer",
+          "label": "Clip-on frying thermometer",
+          "reviewCategoryId": "clip-on-frying-thermometer"
+        },
+        {
+          "id": "wire-rack",
+          "label": "Wire rack set over a sheet pan"
+        },
+        {
+          "id": "tongs",
+          "label": "Tongs or a wire skimmer"
+        },
+        {
+          "id": "comal",
+          "label": "Comal or dry skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 2,
+          "phrase": "375°F.",
+          "displayText": "375°F with a clip-on frying thermometer.",
+          "needId": "frying-thermometer",
+          "focus": "specialty",
+          "accessibleLabel": "See frying thermometer recommendations for 375°F oil"
+        }
+      ],
+      "origin": {
+        "label": "Ensenada, Baja California",
+        "region": "Mexico · Pacific coast",
+        "markers": [
+          {
+            "label": "Ensenada",
+            "latitude": 31.8667,
+            "longitude": -116.5964
+          }
+        ],
+        "map": {
+          "center": [
+            -112,
+            29
+          ],
+          "scale": 650,
+          "highlightedCountryIds": [
+            "484"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "The modern battered fish taco is inseparable from Baja California's Pacific ports, especially Ensenada and San Felipe. Both places have origin stories, and the documentary trail is not tidy enough to crown one vendor with certainty. What is clear is the setting: fresh local fish, street stands, hot oil, corn tortillas, and garnishes that bring crunch, creaminess, acidity, and chile to an inexpensive meal eaten immediately.",
+          "Some accounts connect the batter technique to Japanese fishing communities in Ensenada during the twentieth century; others emphasize local vendors adapting tempura-like frying on their own. Kwilt keeps the history open and the taco specific: cold lager batter, white fish fried in small batches, dry cabbage, light crema, salsa mexicana, and lime. Assemble only when the fish is ready—the contrast disappears quickly, which is part of why this remains street food at heart."
+        ],
+        "sources": [
+          {
+            "title": "Baja Fish Tacos",
+            "publisher": "Discover Baja Travel Club",
+            "url": "https://discoverbaja.com/2022/06/07/baja-fish-tacos/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/lu037/kwilt-recipe-hero-v1/350e6bbb52589734-58777ec144c2bf9c/candidate-0.webp",
+        "altText": "Baja fish tacos with golden battered fish, shredded cabbage, crema, salsa mexicana, and lime.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "LU038",
+      "sourceRecipeHash": "sha256:e65ac92d1eca8eb1c0bf5636271555a80ff8153f5e4fde4ab4a19668b295799b",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen"
+      },
+      "equipmentNeeds": [],
+      "equipmentAnnotations": [],
+      "origin": {
+        "label": "El Salvador",
+        "region": "Central America",
+        "markers": [
+          {
+            "label": "El Salvador",
+            "latitude": 13.7942,
+            "longitude": -88.8965
+          }
+        ],
+        "map": {
+          "center": [
+            -89,
+            15
+          ],
+          "scale": 1150,
+          "highlightedCountryIds": [
+            "222"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Pupusas are thick griddled masa cakes formed around a filling, not tortillas folded after cooking. They are closely bound to El Salvador's national identity and to the much older Mesoamerican practice of turning nixtamalized corn into daily food. Fillings vary by household and place—cheese, beans, pork, loroco, or combinations—but the hand-shaped disc and hot griddle remain the center of the method.",
+          "El Salvador formally named the pupusa a national dish in 2005 and celebrates National Pupusa Day on the second Sunday of November. The ceremony is public; the meal is wonderfully practical. Kwilt's version uses refried beans and melting cheese, with curtido and a thin tomato salsa served alongside. Moist dough and wet or oiled hands matter more than a press: close the filling, repair cracks, and turn the pupusa often enough to brown without scorching the masa."
+        ],
+        "sources": [
+          {
+            "title": "Día Nacional de la Pupusa",
+            "publisher": "El Salvador Travel",
+            "url": "https://elsalvador.travel/article/dia-nacional-de-la-pupusa-destinos-para-disfrutar-de-un-sabor-de-cultura-y-tradicion/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/lu038/kwilt-recipe-hero-v1/27f71ba6de22c738-faa67c121b0dbf3f/candidate-1.webp",
+        "altText": "Cheese-and-bean pupusas with one cut open, served with curtido and red salsa.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "LU050",
+      "sourceRecipeHash": "sha256:3e0197a052ace3b838eb9a29b81db98893f9d10b31d96ae198d9be6972d4943c",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen"
+      },
+      "equipmentNeeds": [],
+      "equipmentAnnotations": [],
+      "origin": {
+        "label": "Baghdad to Ramat Gan",
+        "region": "Iraqi-Jewish tradition · Israeli street food",
+        "markers": [
+          {
+            "label": "Baghdad",
+            "latitude": 33.3152,
+            "longitude": 44.3661
+          },
+          {
+            "label": "Ramat Gan",
+            "latitude": 32.0684,
+            "longitude": 34.8248
+          }
+        ],
+        "map": {
+          "center": [
+            39.5,
+            33
+          ],
+          "scale": 1350,
+          "highlightedCountryIds": [
+            "368",
+            "376"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Sabich begins with the Sabbath breakfast of Iraqi Jews: fried eggplant, slowly cooked or hard-boiled eggs, salad, amba, and other foods that could be prepared before the day of rest and eaten at room temperature. After large numbers of Iraqi Jews moved to Israel in the mid-twentieth century, those familiar components entered a different food landscape. Putting them together in pita turned a household breakfast into portable street food.",
+          "The sandwich's name has competing explanations, including a link to the personal name Sabich and a link to an Arabic word for morning. One well-known account traces its street-food form to a kiosk in Ramat Gan serving bus drivers, but even that story has gathered variations. The lineage matters more than a tidy invention date. Kwilt's version layers hot eggplant, egg, chopped salad, hummus, tahini, and sharp mango amba so the Iraqi-Jewish breakfast remains legible inside the modern pita."
+        ],
+        "sources": [
+          {
+            "title": "When Your Father Shares a Name with a National Dish",
+            "publisher": "Jewish Food Society",
+            "url": "https://www.jewishfoodsociety.org/stories/when-your-father-shares-a-name-with-a-national-dish?rq=sabich"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/lu050/kwilt-recipe-hero-v1/80fabb9ba923d4c6-6c7556ffb5969ca5/candidate-0.webp",
+        "altText": "Sabich pita with hummus, fried eggplant, egg, chopped salad, tahini, and amba.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "SO011",
+      "sourceRecipeHash": "sha256:e0db21537cf0f5aadd0fb077d93cf54c4f949f1962418f12d6cb529feb2dff7d",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen"
+      },
+      "equipmentNeeds": [],
+      "equipmentAnnotations": [],
+      "origin": {
+        "label": "Louisiana",
+        "region": "Gulf South · United States",
+        "markers": [
+          {
+            "label": "Louisiana",
+            "latitude": 30.9843,
+            "longitude": -91.9623
+          }
+        ],
+        "map": {
+          "center": [
+            -91,
+            31
+          ],
+          "scale": 780,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Gumbo is Louisiana history expressed as a method rather than a single fixed recipe. African, Native American, French, Spanish, Caribbean, German, and other communities all shaped the colony and the cuisines that followed. The name itself is often connected to West and Central African words for okra, while filé powder comes from sassafras used by Choctaw cooks. Roux, okra, and filé can thicken different gumbos; no one pot needs all three.",
+          "Chicken and smoked sausage with a dark roux is one of the dish's enduring forms, especially in Cajun cooking, but labels overlap across Louisiana tables. Kwilt's version asks for patience where it counts: brown the meat, stir the flour and oil until the roux reaches milk-chocolate color without burning, add the vegetables immediately, and finish with filé only after the heat is off. The result should stay brothy enough to meet a modest scoop of rice, not become gravy."
+        ],
+        "sources": [
+          {
+            "title": "A Medley of Cultures: Colonial Louisiana",
+            "publisher": "Louisiana State Museum",
+            "url": "https://louisianastatemuseum.org/louisiana-history-colonial-louisiana"
+          },
+          {
+            "title": "Word, Shout, Song",
+            "publisher": "Smithsonian Institution",
+            "url": "https://www.smithsonianmag.com/smithsonian-institution/word-shout-song-opens-at-the-anacostia-community-museum-254684/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/so011/kwilt-recipe-hero-v1/5fc7a9f654ff36e2-fa7cceb7f72c9c99/candidate-1.webp",
+        "altText": "Louisiana chicken and sausage gumbo with a dark roux, white rice, scallions, and file powder.",
+        "width": 1536,
+        "height": 1024
+      }
+    }
+  ]
+}
