@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import {
   Image,
   Pressable,
@@ -211,6 +212,7 @@ export function RecipeCard({
   recommendationReason,
   shelf = false,
   instance = "results",
+  targetRef,
 }: {
   projection: RecipeProjection;
   onOpen(recipeId: string): void;
@@ -219,6 +221,7 @@ export function RecipeCard({
   recommendationReason?: RecipeRecommendationReason;
   shelf?: boolean;
   instance?: string;
+  targetRef?: RefObject<View | null>;
 }) {
   const photoCount = projection.recipe.mediaAssets.filter(
     (asset) => asset.lifecycle === "active",
@@ -226,6 +229,8 @@ export function RecipeCard({
   const open = () => onOpen(projection.recipe.id);
   return (
     <View
+      ref={targetRef}
+      collapsable={targetRef ? false : undefined}
       testID={`recipe-card-${instance}-${projection.recipe.id}`}
       style={[styles.card, shelf && styles.shelfCard]}
     >
@@ -277,11 +282,13 @@ export function RecommendedRecipeRow({
   onOpen,
   onAddToPlan,
   isInPlan,
+  onboardingTargetRef,
 }: {
   recommendations: readonly RecipeRecommendation[];
   onOpen(recipeId: string): void;
   onAddToPlan(projection: RecipeProjection): void;
   isInPlan(projection: RecipeProjection): boolean;
+  onboardingTargetRef?: RefObject<View | null>;
 }) {
   if (!recommendations.length) return null;
   return (
@@ -297,7 +304,7 @@ export function RecommendedRecipeRow({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.shelfContent}
       >
-        {recommendations.map(({ projection, reason }) => (
+        {recommendations.map(({ projection, reason }, index) => (
           <RecipeCard
             key={projection.recipe.id}
             projection={projection}
@@ -307,6 +314,7 @@ export function RecommendedRecipeRow({
             isInPlan={isInPlan(projection)}
             shelf
             instance="recommended"
+            targetRef={index === 0 ? onboardingTargetRef : undefined}
           />
         ))}
       </ScrollView>

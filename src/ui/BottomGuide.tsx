@@ -6,7 +6,10 @@ import { colors, radii, spacing } from '../theme';
 import { cardElevation, cardSurfaceStyle } from '../theme/surfaces';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
 import { BottomDrawer } from './BottomDrawer';
+import { bottomDrawerChromeTokens } from './drawerTokens';
 import { useToastStore } from '../store/useToastStore';
+
+const standardChrome = bottomDrawerChromeTokens.standard;
 
 interface BottomGuideProps {
   visible: boolean;
@@ -179,9 +182,10 @@ const styles = StyleSheet.create({
     // Leave enough room for the raised shadow to render instead of being clipped
     // by the left and right edges of the portal canvas.
     marginHorizontal: spacing.md,
-    // Use roomy internal padding for the guide content.
+    // Keep the canonical drawer top frame; the handle region owns the space
+    // between the sheet edge and guide content.
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
+    paddingTop: standardChrome.surfacePaddingTop,
   },
   sheetSurfaceFloating: {
     borderRadius: radii.deviceSheet + spacing.xs,
@@ -194,8 +198,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radii.sheet,
   },
   handleContainer: {
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+    paddingTop: standardChrome.handleRegionPaddingTop,
+    paddingBottom: standardChrome.handleRegionPaddingBottom,
   },
   handleContainerHidden: {
     height: 0,
@@ -203,9 +207,9 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   handle: {
-    width: 56,
-    height: 5,
-    borderRadius: 999,
+    width: standardChrome.handleWidth,
+    height: standardChrome.handleHeight,
+    borderRadius: standardChrome.handleRadius,
     alignSelf: 'center',
     backgroundColor: colors.border,
     opacity: 0.8,

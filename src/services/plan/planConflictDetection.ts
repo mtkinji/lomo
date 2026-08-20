@@ -3,6 +3,7 @@ import type { CalendarEvent, CalendarEventAvailability } from './calendarApi';
 import type { KwiltBlock } from './planCalendarReconcile';
 
 function eventBlocksTime(e: CalendarEvent): boolean {
+  if (e.isAllDay && /\bbirthdays?\b/i.test(e.title ?? '')) return false;
   const availability: CalendarEventAvailability = e.availability ?? 'busy';
   return availability !== 'free';
 }

@@ -689,6 +689,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
       : navigation.navigate("RecipeReadiness", {
           recipeId: projection.recipe.id,
           servings,
+          ...(route.params.source === 'meal_plan' ? { source: 'meal_plan' as const } : {}),
         });
   const compileIngredients = async (scope: "recipe" | "meal_plan") => {
     if (actionBusy) return;

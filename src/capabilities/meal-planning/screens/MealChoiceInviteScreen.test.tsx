@@ -48,7 +48,7 @@ jest.mock('../../../ui/layout/PageHeader', () => {
 describe('MealChoiceInviteScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockList.mockResolvedValue([{ id: 'plan-1', version: 3 }]);
+    mockList.mockResolvedValue([{ id: 'plan-1', householdId: 'household-1', version: 3 }]);
     mockGetHouseholdSnapshot.mockResolvedValue({
       household: { id: 'household-1', name: 'Watanabe household' },
       currentMembershipId: 'owner-1',
@@ -104,5 +104,23 @@ describe('MealChoiceInviteScreen', () => {
     const smsUrl = (Linking.openURL as jest.Mock).mock.calls[0][0] as string;
     expect(decodeURIComponent(smsUrl)).toContain('You’ll review what joining shares before you accept');
     expect(decodeURIComponent(smsUrl)).toMatch(/https:\/\/go\.kwilt\.app\/open\/household\/CARE12$/);
+  });
+
+  it('does not open family choices for an unattached personal Plan', async () => {
+    mockList.mockResolvedValue([{ id: 'plan-1', householdId: null, version: 3 }]);
+    const replace = jest.fn();
+    const screen = render(
+      <MealChoiceInviteScreen
+        navigation={{ goBack: jest.fn(), replace } as never}
+        route={{ key: 'invite', name: 'MealChoiceInvite', params: { planId: 'plan-1' } }}
+      />,
+    );
+
+    await screen.findByText('Share this plan with a Household first.');
+    expect(screen.queryByRole('button', { name: 'Open family choices' })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Back to meal plan' }));
+
+    expect(replace).toHaveBeenCalledWith('NextMeals');
+    expect(mockOpenRound).not.toHaveBeenCalled();
   });
 });

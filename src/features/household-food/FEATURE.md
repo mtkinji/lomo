@@ -15,13 +15,14 @@ serves:
   - jtbd-review-budget-reality-before-spending
   - jtbd-trust-this-app-with-my-life
 briefs:
+  - food-capability-onboarding
   - household-food-loop
   - household-meal-count
   - shared-meal-cart
   - progressive-meal-commitment
   - live-family-meal-board
 status: draft
-last_reviewed: 2026-08-17
+last_reviewed: 2026-08-19
 ---
 
 # Household food
@@ -39,3 +40,9 @@ readiness without exposing private diner or food-need context. Legacy finalized
 plans remain supported, but the Recipes Plan does not require finalization,
 dates, or a planning cadence. Recorded food needs are user-provided guidance,
 not medical or safety guarantees.
+
+Capability onboarding is coordinated here but mutations remain capability-owned. The development
+rehearsal teaches the connected meal loop in two illustrated moments, then opens the existing
+Recipe library with contextual guidance on a real Recipe card. Household sharing is an explicit later attachment; Grocery and Cook milestones
+retain their own authority and receipts. Production promotion remains blocked on rendered,
+applied-backend, multi-account, signed-device, TestFlight, and production proof.

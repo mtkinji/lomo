@@ -1,5 +1,5 @@
 import type { MealPlanProjection } from '../data/mealPlanningRepository';
-import { deriveMealPlanNextMove, finalizedOccasionSummaries } from './NextMealsScreen';
+import { deriveMealPlanCollaborationAction, deriveMealPlanNextMove, finalizedOccasionSummaries } from './NextMealsScreen';
 
 it('keeps alternate dishes together under one finalized meal', () => {
   const plan: MealPlanProjection = {
@@ -83,5 +83,20 @@ describe('Meal Plan next move', () => {
       kind: 'choose',
       label: 'Choose meals',
     });
+  });
+
+  it('asks an attached Household directly and offers explicit sharing for a personal Plan', () => {
+    expect(deriveMealPlanCollaborationAction(withState('draft'))).toEqual({
+      kind: 'ask-family',
+      label: 'Ask the family',
+    });
+    expect(deriveMealPlanCollaborationAction({
+      ...withState('draft'),
+      householdId: null,
+    })).toEqual({
+      kind: 'share-plan',
+      label: 'Share this plan',
+    });
+    expect(deriveMealPlanCollaborationAction(withState('finalized'))).toBeNull();
   });
 });

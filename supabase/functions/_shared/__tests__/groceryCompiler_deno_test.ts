@@ -114,8 +114,9 @@ Deno.test('compiles one immutable bundled-catalog Recipe snapshot', () => {
 
 Deno.test('compiles a persistent household Plan with candidate-level quantities', () => {
   const result = compileHouseholdPlanGroceryAuthority({
-    plan: { id: 'plan-1', version: 7, state: 'draft' },
+    plan: { id: 'plan-1', household_id: 'household-1', organizer_person_id: 'person-1', version: 7, state: 'draft' },
     expectedVersion: 7,
+    actorPersonId: 'person-1',
     actorRole: 'caregiver',
     candidates: [
       { id: 'candidate-a', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { recipeVersionId: 'version-a', yieldQuantity: 4, selectedServings: 8 } },
@@ -133,7 +134,7 @@ Deno.test('compiles a persistent household Plan with candidate-level quantities'
 
 Deno.test('rejects household Plan compilation without adult authority or current draft version', () => {
   const base = {
-    plan: { id: 'plan-1', version: 7, state: 'draft' }, expectedVersion: 7, actorRole: 'owner',
+    plan: { id: 'plan-1', household_id: 'household-1', organizer_person_id: 'person-1', version: 7, state: 'draft' }, expectedVersion: 7, actorPersonId: 'person-1', actorRole: 'owner',
     candidates: [], ingredientsByVersionId: {},
   };
   for (const changed of [
@@ -144,4 +145,31 @@ Deno.test('rejects household Plan compilation without adult authority or current
     let failed = false; try { compileHouseholdPlanGroceryAuthority(changed); } catch { failed = true; }
     if (!failed) throw new Error('invalid household Plan authority compiled');
   }
+});
+
+Deno.test('lets only the organizer compile a personal draft Plan', () => {
+  const personal = {
+    plan: { id: 'plan-personal', household_id: null, organizer_person_id: 'person-1', version: 1, state: 'draft' },
+    expectedVersion: 1,
+    actorPersonId: 'person-1',
+    actorRole: null,
+    candidates: [{
+      id: 'candidate-a', lifecycleState: 'sent' as const, removedGroceryBehavior: null,
+      recipeSnapshot: { recipeVersionId: 'version-a', yieldQuantity: 2, selectedServings: 4 },
+    }],
+    ingredientsByVersionId: {
+      'version-a': [{ id: 'rice', original_text: '1 cup rice', optional: false }],
+    },
+  };
+
+  const result = compileHouseholdPlanGroceryAuthority(personal);
+  if (result.items[0]?.quantityMin !== 2) throw new Error('personal Plan quantity was not preserved');
+
+  let failed = false;
+  try {
+    compileHouseholdPlanGroceryAuthority({ ...personal, actorPersonId: 'person-2' });
+  } catch {
+    failed = true;
+  }
+  if (!failed) throw new Error('a different person compiled a personal Plan');
 });

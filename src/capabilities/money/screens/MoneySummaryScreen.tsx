@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import {
   FlatList,
   type NativeScrollEvent,
@@ -46,10 +46,12 @@ import { buildMoneyBudgetAnswerViewedProps, buildMoneyBudgetExplanationOpenedPro
 import { refreshStaleMoneySummary } from '../runtime/moneySummaryAutoRefresh';
 import { projectMoneyPlanAudit, type MoneyPlanAudit } from '../domain/moneyPlanAudit';
 import { MoneyCategoryReorderDrawer } from '../components/MoneyCategoryReorderDrawer';
+import { Coachmark } from '../../../ui/Coachmark';
+import { getMoneyCategoryDestination } from '../domain/moneyAppControlOnboarding';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
-export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
+export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
   const { snapshot, reconcileConnectedActivity, reorderCategories, savingCategoryOrder } = useMoneyData();
   const { capture } = useAnalytics();
   const { width: windowWidth } = useWindowDimensions();
@@ -58,7 +60,11 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
   const [limitExplanationOpen, setLimitExplanationOpen] = useState(false);
   const [categoryPresentation, setCategoryPresentation] = useState<MoneyCategoryPresentation>('tiles');
   const [categoryReorderOpen, setCategoryReorderOpen] = useState(false);
+  const [appControlGuideVisible, setAppControlGuideVisible] = useState(
+    route.params?.entryIntent === 'app-control-onboarding',
+  );
   const autoRefreshKeyRef = useRef<string | null>(null);
+  const categoryGuideTargetRef = useRef<View | null>(null);
   const pagerRef = useRef<FlatList<MoneyPeriodView>>(null);
   const pagerWidth = measuredPagerWidth > 24
     ? measuredPagerWidth
@@ -70,6 +76,8 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
     ));
   }, [snapshot]);
   const currentPeriod = periods[currentMonthIndex] ?? periods[INITIAL_MONTH_INDEX];
+  const selectableBudgetCount = snapshot?.categories.filter((category) => category.planRole !== 'protected').length ?? 0;
+  const rehearsingNoBudgets = __DEV__ && route.params?.devBudgetState === 'none';
 
   const scrollToMonth = useCallback((nextIndex: number) => {
     if (nextIndex < 0 || nextIndex >= periods.length) return;
@@ -121,6 +129,20 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
     if (!livingLimitAnswer || currentMonthIndex !== INITIAL_MONTH_INDEX) return;
     capture(AnalyticsEvent.MoneyBudgetAnswerViewed, buildMoneyBudgetAnswerViewedProps({ answer: livingLimitAnswer, periodRelation: 'current' }));
   }, [capture, currentMonthIndex, livingLimitAnswer]);
+
+  useEffect(() => {
+    if (route.params?.entryIntent === 'app-control-onboarding') {
+      setAppControlGuideVisible(true);
+    }
+  }, [route.params?.entryIntent]);
+
+  useEffect(() => {
+    if (route.params?.entryIntent !== 'app-control-onboarding' || !snapshot) return;
+    if (!rehearsingNoBudgets && selectableBudgetCount > 0) return;
+    setAppControlGuideVisible(false);
+    navigation.setParams({ entryIntent: undefined, devBudgetState: undefined });
+    navigation.navigate('MoneyCategoryCreate');
+  }, [navigation, rehearsingNoBudgets, route.params?.entryIntent, selectableBudgetCount, snapshot]);
 
   useEffect(() => {
     if (!snapshot || livingLimitAnswer?.state !== 'stale') return;
@@ -205,7 +227,19 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
                   setLimitExplanationOpen(true);
                 }}
                 onReviewIncome={() => navigation.navigate('MoneyLivingPlan')}
-                onOpenCategory={(categoryId) => navigation.navigate('MoneyCategoryDetail', { categoryId, monthOffset: item.monthOffset })}
+                onOpenCategory={(categoryId) => {
+                  const destination = getMoneyCategoryDestination({
+                    categoryId,
+                    monthOffset: item.monthOffset,
+                    entryIntent: route.params?.entryIntent,
+                  });
+                  if (destination.screen === 'MoneyAppControl') {
+                    navigation.navigate('MoneyAppControl', destination.params);
+                  } else {
+                    navigation.navigate('MoneyCategoryDetail', destination.params);
+                  }
+                }}
+                categoryTargetRef={item.monthOffset === 0 ? categoryGuideTargetRef : undefined}
                 categoryPresentation={categoryPresentation}
               />
             )}
@@ -265,6 +299,25 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
       saving={savingCategoryOrder}
       visible={categoryReorderOpen}
     />
+    {route.params?.entryIntent === 'app-control-onboarding' ? <Coachmark
+      actions={[
+        { id: 'dismiss', label: 'Got it', variant: 'accent' },
+        { id: 'not-now', label: 'Not now', variant: 'ghost' },
+      ]}
+      body={<Text style={styles.guideBody}>Pick the kind of spending you want to use as a boundary. You’ll choose the apps and when to pause them next.</Text>}
+      onAction={() => {
+        setAppControlGuideVisible(false);
+        navigation.setParams({ entryIntent: undefined });
+      }}
+      onDismiss={() => {
+        setAppControlGuideVisible(false);
+        navigation.setParams({ entryIntent: undefined });
+      }}
+      placement="above"
+      targetRef={categoryGuideTargetRef}
+      title={<Text style={styles.guideTitle}>Choose a budget</Text>}
+      visible={appControlGuideVisible && !rehearsingNoBudgets && selectableBudgetCount > 0}
+    /> : null}
     </>
   );
 }
@@ -272,6 +325,7 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
 function SummaryMonthPanel({
   answer,
   categoryPresentation,
+  categoryTargetRef,
   freshness,
   onExplain,
   onOpenCategory,
@@ -281,6 +335,7 @@ function SummaryMonthPanel({
 }: {
   answer: LivingLimitAnswer | null;
   categoryPresentation: MoneyCategoryPresentation;
+  categoryTargetRef?: RefObject<View | null>;
   freshness: string;
   onExplain: () => void;
   onOpenCategory: (categoryId: string) => void;
@@ -323,7 +378,7 @@ function SummaryMonthPanel({
           />
         ) : null}
         <View style={categoryView.layout === 'tiles' ? styles.categoryGrid : styles.categoryList}>
-          {flexibleCategories.map((category) => (
+          {flexibleCategories.map((category, index) => (
             categoryView.layout === 'tiles' ? (
               <MoneyCategoryMeterTile
                 key={category.id}
@@ -331,12 +386,14 @@ function SummaryMonthPanel({
                 periodElapsedPercent={period.periodElapsedPercent}
                 onPress={() => onOpenCategory(category.id)}
                 style={{ width: cardWidth, flexBasis: cardWidth, flexGrow: 0, maxWidth: cardWidth }}
+                targetRef={index === 0 ? categoryTargetRef : undefined}
               />
             ) : (
               <MoneyCategoryListRow
                 key={category.id}
                 category={category}
                 onPress={() => onOpenCategory(category.id)}
+                targetRef={index === 0 ? categoryTargetRef : undefined}
                 valueMode={categoryView.valueMode}
               />
             )
@@ -725,4 +782,6 @@ const styles = StyleSheet.create({
   drawerSupportingFact: { marginTop: -spacing.xs, paddingLeft: spacing.sm, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   drawerBasis: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   protectedCategoryList: { gap: spacing.xs },
+  guideTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, fontWeight: '600' },
+  guideBody: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
 });

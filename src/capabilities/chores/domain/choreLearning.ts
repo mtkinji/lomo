@@ -1171,30 +1171,44 @@ export function settleChoreRewardPayout(
   payoutId: string,
   settledAtIso: string,
 ): ChoreLearningRecord {
+  return settleChoreRewardPayouts(record, caregiverMemberId, [payoutId], settledAtIso);
+}
+
+export function settleChoreRewardPayouts(
+  record: ChoreLearningRecord,
+  caregiverMemberId: string,
+  payoutIds: string[],
+  settledAtIso: string,
+): ChoreLearningRecord {
   if (!isCaregiver(record, caregiverMemberId)
-    || !Number.isFinite(new Date(settledAtIso).getTime())) return record;
-  const reservation = record.rewardEvents.find(
+    || !Number.isFinite(new Date(settledAtIso).getTime())
+    || payoutIds.length === 0) return record;
+  const uniquePayoutIds = [...new Set(payoutIds)];
+  if (uniquePayoutIds.length !== payoutIds.length) return record;
+  const reservations = uniquePayoutIds.map((payoutId) => record.rewardEvents.find(
     (event) => event.kind === 'reserve' && event.payoutId === payoutId,
-  );
-  if (!reservation || record.rewardEvents.some(
+  ));
+  if (reservations.some((reservation) => !reservation)) return record;
+  const memberIds = new Set(reservations.map((reservation) => reservation!.memberId));
+  if (memberIds.size !== 1 || uniquePayoutIds.some((payoutId) => record.rewardEvents.some(
     (event) => (event.kind === 'settle' || event.kind === 'cancel') && event.payoutId === payoutId,
-  )) return record;
+  ))) return record;
   return {
     ...record,
-    rewardEvents: [...record.rewardEvents, {
-      id: `reward-settle-${payoutId}`,
-      kind: 'settle',
-      memberId: reservation.memberId,
+    rewardEvents: [...record.rewardEvents, ...reservations.map((reservation) => ({
+      id: `reward-settle-${reservation!.payoutId}`,
+      kind: 'settle' as const,
+      memberId: reservation!.memberId,
       actorMemberId: caregiverMemberId,
       occurredAtIso: settledAtIso,
-      tokenDelta: -(reservation.tokenAmount ?? 0),
-      tokenAmount: reservation.tokenAmount,
+      tokenDelta: -(reservation!.tokenAmount ?? 0),
+      tokenAmount: reservation!.tokenAmount,
       activityOccurrenceId: null,
-      payoutId,
-      moneyAmountCents: reservation.moneyAmountCents,
-      exchangeRateCentsPerToken: reservation.exchangeRateCentsPerToken,
+      payoutId: reservation!.payoutId,
+      moneyAmountCents: reservation!.moneyAmountCents,
+      exchangeRateCentsPerToken: reservation!.exchangeRateCentsPerToken,
       note: 'Paid outside Kwilt',
-    }],
+    }))],
   };
 }
 

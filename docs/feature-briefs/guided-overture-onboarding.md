@@ -1,7 +1,7 @@
 ---
 id: brief-guided-overture-onboarding
 title: Guided Overture Suite Onboarding
-status: accepted
+status: retired
 audiences: [audience-aspirational-family-organizers, audience-burned-out-productivity-power-users, audience-ai-native-life-operators, audience-faith-and-values-driven-builders, audience-life-transition-restarters, audience-private-accountability-seekers]
 personas: [Maya, Marcus, Nina, Sarah, Elena, David]
 hero_jtbd: jtbd-move-the-few-things-that-matter
@@ -9,10 +9,15 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-move-the-few-things-that-matter, jtbd-see-who-im-becoming, jtbd-capture-and-find-meaning, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-ftux-goal-arc-onboarding, brief-object-creation-ux-system, brief-unified-chat-foundation, brief-money-progressive-activation]
 owner: andrew
-last_updated: 2026-07-25
+last_updated: 2026-08-19
 ---
 
 # Guided Overture Suite Onboarding
+
+> Retired product direction. Superseded by
+> [Capability-Routed First Install](capability-routed-onboarding.md). The development-only overture
+> remains useful implementation and research evidence, but a mandatory portfolio sequence and
+> mandatory Agent handoff are no longer the chosen first-install architecture.
 
 ## Context
 

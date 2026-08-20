@@ -18,6 +18,8 @@ import { createFoodCycleRepository } from '../../groceries/data/foodCycleReposit
 import { TripTargetSheet } from '../components/TripTargetSheet';
 import { getActiveMealPlan, getCommittedMealPlan } from '../domain/mealPlanPresentation';
 import { formatMealTiming } from '../domain/mealCommitments';
+import { getHouseholdSnapshot } from '../../../features/household/data/household';
+import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'NextMeals'>;
 
@@ -25,6 +27,18 @@ export type MealPlanNextMove = {
   kind: 'choose' | 'review_choices' | 'decide' | 'make_groceries';
   label: string;
 };
+
+export type MealPlanCollaborationAction = {
+  kind: 'ask-family' | 'share-plan';
+  label: string;
+};
+
+export function deriveMealPlanCollaborationAction(plan: MealPlanProjection): MealPlanCollaborationAction | null {
+  if (plan.state !== 'draft' || !plan.candidates.length) return null;
+  return plan.householdId
+    ? { kind: 'ask-family', label: 'Ask the family' }
+    : { kind: 'share-plan', label: 'Share this plan' };
+}
 
 export function deriveMealPlanNextMove(plan: MealPlanProjection): MealPlanNextMove {
   if (plan.state === 'finalized') return { kind: 'make_groceries', label: 'Make grocery list' };
@@ -80,12 +94,13 @@ const SECTION_LABELS: Record<FinalizedOccasionSummary['section'], string> = {
   flexible: 'FLEXIBLE',
 };
 
-export function NextMealsScreen({ navigation }: Props) {
+export function NextMealsScreen({ navigation, route }: Props) {
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const [plans, setPlans] = useState<MealPlanProjection[]>([]);
   const [offline, setOffline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [stockCount, setStockCount] = useState(0);
+  const [sharing, setSharing] = useState(false);
   const[tripTargetCents,setTripTargetCents]=useState<number|null>(null);const[showTripTarget,setShowTripTarget]=useState(false);
   const load = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
@@ -102,6 +117,7 @@ export function NextMealsScreen({ navigation }: Props) {
   useEffect(()=>{void createFoodCycleRepository().current().then((constraint)=>setTripTargetCents(constraint?.targetCents??null)).catch(()=>undefined);},[]);
   const plan = getCommittedMealPlan(plans) ?? getActiveMealPlan(plans);
   const nextMove = plan ? deriveMealPlanNextMove(plan) : null;
+  const collaborationAction = plan ? deriveMealPlanCollaborationAction(plan) : null;
   const continuePlan = () => {
     if (!plan || !nextMove) {
       navigation.navigate('RecipeLibrary');
@@ -116,6 +132,44 @@ export function NextMealsScreen({ navigation }: Props) {
       return;
     }
     navigation.navigate('MealPlanFinalize', { planId: plan.id });
+  };
+  const sharePlan = async () => {
+    if (!plan || plan.householdId || sharing) return;
+    try {
+      const snapshot = await getHouseholdSnapshot(getSupabaseClient());
+      if (!snapshot.household) {
+        Alert.alert(
+          'No Household to share with yet',
+          'Your meal plan is saved. Set up or join a Household when you want other people to weigh in.',
+        );
+        return;
+      }
+      Alert.alert(
+        'Share this plan?',
+        `Attach this meal plan to ${snapshot.household.name} so Household members can weigh in. You still decide the meals.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Share plan',
+            onPress: () => {
+              setSharing(true);
+              void createMealPlanningRepository().attachToHousehold({
+                planId: plan.id,
+                expectedVersion: plan.version,
+                householdId: snapshot.household!.id,
+              }).then(async () => {
+                await load();
+                navigation.navigate('MealChoiceInvite', { planId: plan.id });
+              }).catch((error) => {
+                Alert.alert('Plan was not shared', error instanceof Error ? error.message : 'Please try again.');
+              }).finally(() => setSharing(false));
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      Alert.alert('Household not available', error instanceof Error ? error.message : 'Please try again.');
+    }
   };
   return (
     <AppShell>
@@ -133,13 +187,14 @@ export function NextMealsScreen({ navigation }: Props) {
             <View style={styles.meals}>{plan.state === 'finalized'
               ? (Object.keys(SECTION_LABELS) as FinalizedOccasionSummary['section'][]).map((section) => {
                 const occasions = finalizedOccasionSummaries(plan).filter((occasion) => occasion.section === section);
-                return occasions.length ? <View key={section} style={styles.section}><Text variant="label" tone="secondary">{SECTION_LABELS[section]}</Text>{occasions.map((occasion) => <View key={occasion.id} style={styles.occasion}><Text variant="label">{occasion.title}</Text>{occasion.dishes.map((dish) => dish.recipeId ? <Pressable key={dish.id} accessibilityRole="button" accessibilityLabel={`Open ${dish.label.split(' · ')[0]} recipe`} onPress={() => navigation.navigate('RecipeHome', { recipeId: dish.recipeId! })} style={({ pressed }) => [styles.dishLink, pressed && styles.pressed]}><Text tone="secondary" style={styles.dishLabel}>{dish.label}</Text><Icon name="chevronRight" size={17} color={colors.textSecondary} /></Pressable> : <Text key={dish.id} tone="secondary">{dish.label}</Text>)}</View>)}</View> : null;
+                return occasions.length ? <View key={section} style={styles.section}><Text variant="label" tone="secondary">{SECTION_LABELS[section]}</Text>{occasions.map((occasion) => <View key={occasion.id} style={styles.occasion}><Text variant="label">{occasion.title}</Text>{occasion.dishes.map((dish) => dish.recipeId ? <Pressable key={dish.id} accessibilityRole="button" accessibilityLabel={`Open ${dish.label.split(' · ')[0]} recipe`} onPress={() => navigation.navigate('RecipeHome', { recipeId: dish.recipeId!, source: 'meal_plan' })} style={({ pressed }) => [styles.dishLink, pressed && styles.pressed]}><Text tone="secondary" style={styles.dishLabel}>{dish.label}</Text><Icon name="chevronRight" size={17} color={colors.textSecondary} /></Pressable> : <Text key={dish.id} tone="secondary">{dish.label}</Text>)}</View>)}</View> : null;
               })
               : plan.candidates.map((item) => <Text key={item.id}>• {item.title}</Text>)}</View>
             <View style={styles.actions}>
               {plan.state === 'collecting_choices' ? <Text tone="secondary">Family choices are open.</Text> : null}
               {nextMove ? <Button variant="primary" onPress={continuePlan}>{nextMove.label}</Button> : null}
-              {plan.state === 'draft' && plan.candidates.length ? <Button variant="outline" onPress={() => navigation.navigate('MealChoiceInvite', { planId: plan.id })}>Ask the family</Button> : null}
+              {collaborationAction?.kind === 'ask-family' ? <Button variant="outline" onPress={() => navigation.navigate('MealChoiceInvite', { planId: plan.id })}>{collaborationAction.label}</Button> : null}
+              {collaborationAction?.kind === 'share-plan' ? <Button variant="outline" disabled={sharing} onPress={() => { void sharePlan(); }}>{sharing ? 'Sharing…' : collaborationAction.label}</Button> : null}
               {plan.state === 'draft' ? <Button variant="ghost" onPress={() => navigation.navigate('RecipeLibrary')}>Keep choosing</Button> : null}
               {plan.state === 'finalized' ? <Button variant="outline" onPress={() => { void createMealPlanningRepository().revise(plan.id, plan.version).then(load); }}>Change meals</Button> : null}
             </View>

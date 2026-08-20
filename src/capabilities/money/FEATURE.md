@@ -47,7 +47,7 @@ briefs:
   - transaction-rule-truth
   - transaction-truth-to-five
 status: shipping
-last_reviewed: 2026-08-17
+last_reviewed: 2026-08-19
 ---
 
 # Money
@@ -79,3 +79,8 @@ outflows are counted and categorized before settlement, historical planning
 stays posted-only, and the real sync path proves pending-to-posted replacement
 without a duplicate contribution. Temporary-hold treatment is excluded without
 explicit transaction-level evidence.
+
+The capability-onboarding development rehearsal now enters the real Money Summary with a bounded
+category-picking guide, then delegates to the existing category App Controls editor. Completion is
+recorded only after an approved policy has an enabled preset and at least one selected target.
+Source and test proof do not replace signed-device proof that the native shield is enforced.

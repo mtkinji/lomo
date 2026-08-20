@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus } from 'react-native';
 import { useAppStore } from '../../store/useAppStore';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { BottomGuide } from '../../ui/BottomGuide';
@@ -61,7 +61,6 @@ export function PlanKickoffDrawerHost() {
   const setLastKickoffShownDateKey = useAppStore((s) => s.setLastKickoffShownDateKey);
   const setPlanKickoffVisible = useAppStore((s) => s.setPlanKickoffVisible);
   const notificationPreferences = useAppStore((s) => s.notificationPreferences);
-  const setNotificationPreferences = useAppStore((s) => s.setNotificationPreferences);
   const hasCompletedFirstTimeOnboarding = useAppStore((s) => s.hasCompletedFirstTimeOnboarding);
   const isFirstTimeFlowActive = useFirstTimeUxStore((s) => s.isFlowActive);
 
@@ -111,28 +110,9 @@ export function PlanKickoffDrawerHost() {
     }
   };
 
-  const handleTurnOffPrompts = () => {
-    Alert.alert('Turn off prompts?', 'You can always re-enable this in Notifications settings.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Manage reminders',
-        onPress: () => {
-          handleDismissForToday();
-          navigateToNotificationSettings();
-        },
-      },
-      {
-        text: 'Turn off',
-        style: 'destructive',
-        onPress: () => {
-          setNotificationPreferences((current) => ({
-            ...current,
-            allowPlanKickoff: false,
-          }));
-          handleDismissForToday();
-        },
-      },
-    ]);
+  const handleManagePrompts = () => {
+    handleDismissForToday();
+    navigateToNotificationSettings();
   };
 
   return (
@@ -150,9 +130,9 @@ export function PlanKickoffDrawerHost() {
             See your calendar and commit a few recommendations.
           </Text>
         </VStack>
-        <HStack>
-          <Button variant="ghost" size="sm" onPress={handleTurnOffPrompts}>
-            Turn off prompts
+        <HStack style={{ justifyContent: 'flex-start' }}>
+          <Button variant="link" size="inline" onPress={handleManagePrompts}>
+            Manage prompts
           </Button>
         </HStack>
 

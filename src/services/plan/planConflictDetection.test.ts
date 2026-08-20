@@ -39,6 +39,24 @@ function block(overrides: { id?: string; title?: string; start?: string; end?: s
 }
 
 describe('getPlanConflictActivityIds', () => {
+  it('does not use an all-day birthday as a scheduling busy interval when provider metadata is missing', () => {
+    expect(
+      getBlockingPlanBusyIntervals({
+        externalEvents: [
+          event({
+            eventId: 'contact-birthday',
+            title: 'Alex Mendez’ birthday',
+            isAllDay: true,
+            availability: 'unknown',
+            eventType: null,
+          }),
+        ],
+        fallbackBusyIntervals: [],
+        includeAllDay: true,
+      }),
+    ).toEqual([]);
+  });
+
   it('does not mark Kwilt blocks as conflicts when the only overlapping calendar events are all-day', () => {
     expect(
       getPlanConflictActivityIds({

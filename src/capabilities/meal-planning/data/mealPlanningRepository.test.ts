@@ -67,16 +67,21 @@ describe('Meal Planning repository', () => {
   it('creates, opens, responds, finalizes, and revises only through authority RPCs', async () => {
     const rpc = jest.fn().mockResolvedValue({ data: {}, error: null });
     const repository = createMealPlanningRepository({ rpc } as never);
-    await repository.create({ householdId: 'household-1', horizon: { kind: 'next_shop', shopBy: null }, candidates: [] });
+    await repository.create({ horizon: { kind: 'next_shop', shopBy: null }, candidates: [] });
+    await repository.create({ householdId: 'household-1', horizon: { kind: 'open' }, candidates: [] });
+    await repository.attachToHousehold({ planId: 'plan-1', expectedVersion: 1, householdId: 'household-1' });
     await repository.openRound({ planId: 'plan-1', expectedVersion: 1, participantMembershipIds: ['member-1'], closesAt: null });
     await repository.submitResponse({ roundId: 'round-1', expectedRoundVersion: 1, selectedCandidateIds: [], pass: true, suggestion: null });
     const occasions = [{ id: 'occasion-1', title: null, placementDate: null, timing: { kind: 'flexible' as const }, dishes: [{ id: 'dish-1', candidateId: 'candidate-1', dinerPersonIds: ['person-1'], servings: 1 }] }];
     await repository.finalize({ planId: 'plan-1', expectedVersion: 2, occasions, organizerNote: null });
     await repository.revise('plan-1', 3);
     expect(rpc.mock.calls.map((call) => call[0])).toEqual([
-      'create_kwilt_meal_plan','open_kwilt_meal_choice_round','submit_kwilt_meal_choice_response','finalize_kwilt_meal_plan','revise_kwilt_meal_plan',
+      'create_kwilt_meal_plan','create_kwilt_meal_plan','attach_kwilt_meal_plan_to_household','open_kwilt_meal_choice_round','submit_kwilt_meal_choice_response','finalize_kwilt_meal_plan','revise_kwilt_meal_plan',
     ]);
-    expect(rpc.mock.calls[3][1]).toEqual(expect.objectContaining({
+    expect(rpc.mock.calls[0][1]).toEqual(expect.objectContaining({ p_household_id: null }));
+    expect(rpc.mock.calls[1][1]).toEqual(expect.objectContaining({ p_household_id: 'household-1' }));
+    expect(rpc.mock.calls[2][1]).toEqual({ p_plan_id: 'plan-1', p_expected_version: 1, p_household_id: 'household-1' });
+    expect(rpc.mock.calls[5][1]).toEqual(expect.objectContaining({
       p_idempotency_key: 'finalize:plan-1:v2',
       p_content_hash: expect.stringMatching(/^fnv1a32:/),
       p_occasions: occasions,
@@ -121,5 +126,15 @@ describe('Meal Planning repository', () => {
 
     expect(projection.entries.map((entry) => entry.id)).toEqual(['current-dish']);
     expect(projection.occasions.map((occasion) => occasion.id)).toEqual(['current-occasion']);
+  });
+
+  it('preserves a personal Plan without a Household attachment', () => {
+    const projection = mapMealPlanRow({
+      id: 'plan-personal', household_id: null, version: 1, state: 'draft',
+      horizon: { kind: 'open' }, updated_at: '2026-08-19T00:00:00.000Z',
+      candidates: [], entries: [], occasions: [], rounds: [],
+    });
+
+    expect(projection.householdId).toBeNull();
   });
 });

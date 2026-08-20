@@ -161,7 +161,7 @@ export function MealPlanFinalizeScreen({ navigation, route }: Props) {
         conflict_count: 0,
       });
       const offerKey = userId ? `meal-planning-reminder-offer:v1:${userId}` : null;
-      if (offerKey && !(await AsyncStorage.getItem(offerKey))) {
+      if (plan.householdId && offerKey && !(await AsyncStorage.getItem(offerKey))) {
         await AsyncStorage.setItem(offerKey, 'seen');
         setShowReminderOffer(true);
       } else {
@@ -226,7 +226,7 @@ export function MealPlanFinalizeScreen({ navigation, route }: Props) {
         visible={showReminderOffer}
         onClose={() => { setShowReminderOffer(false); navigation.replace('NextMeals'); }}
         onCreate={({ mode, reminderAt }) => {
-          if (!plan) return;
+          if (!plan?.householdId) return;
           const nowIso = new Date().toISOString();
           addActivity(buildMealPlanningReminderActivity({ mode, reminderAt, householdId: plan.householdId, nowIso, id: `meal-plan-reminder-${Date.now()}` }));
           setShowReminderOffer(false);

@@ -7,13 +7,17 @@ job_flow: job-flow-maya-move-family-life-forward
 serves:
   - jtbd-move-the-few-things-that-matter
   - jtbd-see-who-im-becoming
+  - jtbd-carry-intentions-into-action
+  - jtbd-put-intention-before-impulse
+  - jtbd-help-us-enjoy-being-together
   - jtbd-capture-and-find-meaning
   - jtbd-invite-the-right-people-in
   - jtbd-trust-this-app-with-my-life
 briefs:
+  - capability-routed-onboarding
   - guided-overture-onboarding
 status: shipping
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-19
 ---
 
 # guidedOverture
@@ -30,6 +34,11 @@ Helps an unscoped new person understand several concrete ways Kwilt can help, ch
 ## Notes
 
 The current customer-facing surface is an isolated development lab in `src/features/dev`. Production first-run assignment remains intentionally unwired until the research and live first-value gates pass.
+
+The mandatory portfolio-overture direction is retired in favor of
+`brief-capability-routed-onboarding`. Preserve this source as research and reusable coordinator,
+offer, and handoff evidence; do not wire its montage or mandatory Agent destination into production
+first install.
 
 Money's decision-shaped offer remains concept-only until native setup resume and
 `MoneyFirstTrustedDecision` runtime proof satisfy the Money capability contract.

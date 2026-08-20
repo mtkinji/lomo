@@ -4,8 +4,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
-import { getHouseholdSnapshot } from '../../../features/household/data/household';
-import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { colors, spacing, typography } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { AppShell } from '../../../ui/layout/AppShell';
@@ -136,11 +134,7 @@ export function MealPlanEditorScreen({ navigation, route }: Props) {
       if (!horizon) throw new Error('Choose a valid planning horizon.');
       const repository = createMealPlanningRepository();
       if (existing) await repository.update({ planId: existing.id, expectedVersion: existing.version, horizon, candidates: selected });
-      else {
-        const household = await getHouseholdSnapshot(getSupabaseClient());
-        if (!household.household) throw new Error('Set up your Household before starting a shared meal plan.');
-        await repository.create({ householdId: household.household.id, horizon, candidates: selected });
-      }
+      else await repository.create({ horizon, candidates: selected });
       capture(AnalyticsEvent.MealPlanHorizonSelected, { horizon_kind: horizon.kind });
       navigation.replace('NextMeals');
     } catch (error) { Alert.alert('Meal plan did not save', error instanceof Error ? error.message : 'Please try again.'); }

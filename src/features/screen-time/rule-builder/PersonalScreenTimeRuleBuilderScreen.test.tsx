@@ -1,5 +1,5 @@
 import { fireEvent, waitFor } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { renderWithProviders } from '../../../test/renderWithProviders';
 import { resetAllStores } from '../../../test/storeFixtures';
 import { useAppStore } from '../../../store/useAppStore';
@@ -13,6 +13,7 @@ import {
 } from '../../../services/appleEcosystem/screenTimeProtection';
 import { colors, typography } from '../../../theme';
 import { PersonalScreenTimeRuleBuilderScreen } from './PersonalScreenTimeRuleBuilderScreen';
+import { activatePersonalScreenTimeRule } from '../../../services/screenTimeProtectionRuntime';
 
 const mockGoBack = jest.fn();
 let mockRouteParams: Record<string, unknown> = { entry: 'inventory' };
@@ -52,6 +53,7 @@ jest.mock('../../../ui/BottomDrawer', () => {
 });
 
 jest.mock('../../../services/screenTimeProtectionRuntime', () => ({
+  activatePersonalScreenTimeRule: jest.fn(async () => true),
   reconcileScreenTimeRestrictions: jest.fn(async () => []),
 }));
 
@@ -69,6 +71,7 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     mockRouteParams = { entry: 'inventory' };
     (presentScreenTimeActivityPicker as jest.Mock).mockReset().mockResolvedValue(null);
     (requestScreenTimeAuthorization as jest.Mock).mockReset().mockResolvedValue('approved');
+    (activatePersonalScreenTimeRule as jest.Mock).mockReset().mockResolvedValue(true);
     useAppStore.setState({
       screenTimeProtection: {
         ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
@@ -218,6 +221,27 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
       }),
     ]));
     expect(mockGoBack).toHaveBeenCalled();
+  });
+
+  it('keeps setup open when iOS does not confirm the new restriction', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    (activatePersonalScreenTimeRule as jest.Mock).mockResolvedValueOnce(false);
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [{ token: 'news', label: 'News' }],
+      selectedCategories: [],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    fireEvent.press(await screen.findByText('After a to-do, progress update, or Focus'));
+    fireEvent.press(screen.getByRole('button', { name: 'Add rule' }));
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(
+      'Couldn’t turn on this rule',
+      'Kwilt did not receive confirmation from Screen Time. Try again before leaving setup.',
+    ));
+    expect(useAppStore.getState().screenTimeProtection.personalRules).toEqual([]);
+    expect(mockGoBack).not.toHaveBeenCalled();
   });
 
   it('offers a behavior even when another rule already uses that condition', async () => {

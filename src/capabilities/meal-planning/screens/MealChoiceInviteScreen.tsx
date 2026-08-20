@@ -32,6 +32,7 @@ export function MealChoiceInviteScreen({ navigation, route }: Props) {
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [invitingByText, setInvitingByText] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const authIdentity = useAppStore((state) => state.authIdentity);
   const { capture } = useAnalytics();
   useEffect(() => {
@@ -56,7 +57,7 @@ export function MealChoiceInviteScreen({ navigation, route }: Props) {
             (member.role !== "child" || activeChildren.has(member.id)),
         ),
       );
-    });
+    }).finally(() => setLoaded(true));
   }, [route.params.planId]);
   const inviteAdultByText = async () => {
     if (!household || invitingByText) return;
@@ -90,7 +91,7 @@ export function MealChoiceInviteScreen({ navigation, route }: Props) {
     }
   };
   const invite = async () => {
-    if (!plan) return;
+    if (!plan?.householdId) return;
     setBusy(true);
     try {
       await createMealPlanningRepository().openRound({
@@ -110,6 +111,20 @@ export function MealChoiceInviteScreen({ navigation, route }: Props) {
       setBusy(false);
     }
   };
+  if (loaded && plan && !plan.householdId) {
+    return (
+      <AppShell>
+        <PageHeader title="Ask the family" onPressBack={() => navigation.goBack()} />
+        <View style={styles.unattached}>
+          <Heading variant="md">Share this plan with a Household first.</Heading>
+          <Text tone="secondary">
+            Your meal plan is safely saved for you. Sharing is a separate choice so Kwilt never creates or exposes a Household by accident.
+          </Text>
+          <Button onPress={() => navigation.replace("NextMeals")}>Back to meal plan</Button>
+        </View>
+      </AppShell>
+    );
+  }
   return (
     <AppShell>
       <PageHeader
@@ -202,4 +217,5 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   active: { backgroundColor: colors.pine50, borderColor: colors.pine700 },
+  unattached: { flex: 1, justifyContent: "center", padding: spacing.lg, gap: spacing.md },
 });

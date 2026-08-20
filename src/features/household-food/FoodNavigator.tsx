@@ -37,13 +37,13 @@ import {
 } from './foodNavigationOptions';
 
 export type FoodStackParamList = {
-  RecipeLibrary: { openPlan?: boolean } | undefined;
+  RecipeLibrary: { openPlan?: boolean; onboarding?: 'pick-meal' } | undefined;
   EditorialMealCollection: { collectionId: string };
   RecipeEdit: { recipeId?: string };
-  RecipeHome: { recipeId: string };
+  RecipeHome: { recipeId: string; source?: 'meal_plan' };
   RecipeCooking: { recipeId: string };
-  RecipeReadiness: { recipeId: string; servings: number };
-  RecipeCookMode: { recipeId: string; servings: number };
+  RecipeReadiness: { recipeId: string; servings: number; source?: 'meal_plan' };
+  RecipeCookMode: { recipeId: string; servings: number; source?: 'meal_plan' };
   RecipeCookComplete: { sessionId: string; recipeId: string };
   RecipeImportReview: { intent?: 'family' | 'web' } | undefined;
   NextMeals: undefined;

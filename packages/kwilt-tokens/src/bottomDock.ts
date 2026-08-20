@@ -19,6 +19,11 @@ export const bottomDockGeometry = {
     contentGap: spacing.md,
     minimumBottomGap: spacing.lg + spacing.xs,
   },
+  drawerFloatingAction: {
+    inlineGap: spacing['2xl'],
+    bottomGap: spacing['2xl'],
+    contentGap: spacing.md,
+  },
 } as const;
 
 export type BottomDockPlacement = keyof typeof bottomDockGeometry;

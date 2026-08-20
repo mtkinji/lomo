@@ -216,6 +216,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const [hasSeenSentRemoval, setHasSeenSentRemoval] = useState(false);
   const [hasSeenReadyPlan, setHasSeenReadyPlan] = useState(false);
   const planHeaderRef = useRef<View | null>(null);
+  const onboardingRecipeRef = useRef<View | null>(null);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const showToast = useToastStore((state) => state.showToast);
   const profileDefaultServings = useAppStore((state) =>
@@ -316,6 +317,10 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   }, [refresh]);
   const planHeaderCount = sharedCart?.activeCount ?? 0;
   const planPersonId = sharedCart?.viewer.personId ?? null;
+  const showPickMealGuide = route.params?.onboarding === "pick-meal" && filtered.length > 0;
+  const finishPickMealGuide = useCallback(() => {
+    navigation.setParams({ onboarding: undefined });
+  }, [navigation]);
   const hasReadyRecipe = Boolean(sharedCart?.candidates.some((candidate) => candidate.lifecycle === "ready"));
   useEffect(() => {
     let cancelled = false;
@@ -656,7 +661,10 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       </View>
       <RecipeLibraryView
         recipes={filtered}
-        onOpen={(recipeId) => navigation.navigate("RecipeHome", { recipeId })}
+        onOpen={(recipeId) => {
+          finishPickMealGuide();
+          navigation.navigate("RecipeHome", { recipeId });
+        }}
         onRefresh={refreshFromPull}
         refreshing={pullRefreshing}
         filters={filters}
@@ -692,6 +700,20 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           favoriteRecipeIds.includes(projection.recipe.id)
         }
         totalCount={visibleInventory.length}
+        onboardingTargetRef={onboardingRecipeRef}
+      />
+      <Coachmark
+        visible={showPickMealGuide}
+        targetRef={onboardingRecipeRef}
+        title={<Text style={{ fontWeight: "700" }}>Pick one that sounds good</Text>}
+        body={<Text tone="secondary">Open any recipe to see the ingredients and steps. You can add your own recipes here, too.</Text>}
+        actions={[{ id: "dismiss", label: "I’ll look around", variant: "ghost" }]}
+        spotlight="hole"
+        spotlightRadius={18}
+        attentionPulse
+        placement="below"
+        onAction={finishPickMealGuide}
+        onDismiss={finishPickMealGuide}
       />
       {planBrowsing ? (
         <MealPlanDrawer

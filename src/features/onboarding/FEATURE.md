@@ -14,7 +14,7 @@ briefs:
   - ftux-goal-arc-onboarding
   - growth-evangelism-shared-goals
 status: shipped
-last_reviewed: 2026-05-09
+last_reviewed: 2026-08-19
 ---
 
 # onboarding
@@ -29,4 +29,10 @@ Helps Sarah begin with aspiration and identity direction, then enter Kwilt with 
 
 ## Notes
 
-Onboarding should make Kwilt feel like a life-architecture tool, not a signup funnel. It must preserve trust while helping the user name who they are becoming.
+This feature is the accepted guided-discovery and creation reference inside the broader
+capability-routed first-install system. Preserve its identity depth and useful questions without
+treating it as the universal interaction model for every capability.
+
+The capability coordinator is currently available only as a Developer Tools rehearsal. Normal
+first launch stays on this existing flow until the promoted value doors meet the full promotion
+gate.

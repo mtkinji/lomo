@@ -22,6 +22,7 @@ import {
   setChoreRewardExchangeRate,
   setChoreTokensEnabled,
   settleChoreRewardPayout,
+  settleChoreRewardPayouts,
   takeChoreOccurrence,
 } from './choreLearning';
 
@@ -1052,5 +1053,69 @@ describe('Chores learning domain', () => {
     });
     expect(projectChoreRewards(settled, 'member-charlie').payouts[0].settledAtIso)
       .toBe('2026-08-18T17:00:00.000Z');
+  });
+
+  it('settles a child’s pending payouts together as one caregiver payment', () => {
+    const enabled = setChoreTokensEnabled(createChoreLearningRecord(), true, 'member-andrew');
+    const firstRate = setChoreRewardExchangeRate(enabled, 75, 'member-andrew');
+    const firstReservation = requestChoreTokenRedemption(
+      firstRate,
+      'member-charlie',
+      2,
+      '2026-08-18T16:00:00.000Z',
+      'conversion-one',
+    );
+    const secondRate = setChoreRewardExchangeRate(firstReservation, 50, 'member-andrew');
+    const reserved = requestChoreTokenRedemption(
+      secondRate,
+      'member-charlie',
+      2,
+      '2026-08-18T16:05:00.000Z',
+      'conversion-two',
+    );
+    const settled = settleChoreRewardPayouts(
+      reserved,
+      'member-andrew',
+      ['payout-conversion-one', 'payout-conversion-two'],
+      '2026-08-18T17:00:00.000Z',
+    );
+
+    const rewards = projectChoreRewards(settled, 'member-charlie');
+    expect(rewards).toMatchObject({
+      availableTokens: 4,
+      reservedTokens: 0,
+      totalTokens: 4,
+      pendingPayouts: [],
+    });
+    expect(rewards.payouts).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        payoutId: 'payout-conversion-one',
+        moneyAmountCents: 150,
+        settledAtIso: '2026-08-18T17:00:00.000Z',
+      }),
+      expect.objectContaining({
+        payoutId: 'payout-conversion-two',
+        moneyAmountCents: 100,
+        settledAtIso: '2026-08-18T17:00:00.000Z',
+      }),
+    ]));
+  });
+
+  it('does not partially settle a grouped payment when one payout is unavailable', () => {
+    const enabled = setChoreTokensEnabled(createChoreLearningRecord(), true, 'member-andrew');
+    const reserved = requestChoreTokenRedemption(
+      enabled,
+      'member-charlie',
+      3,
+      '2026-08-18T16:00:00.000Z',
+      'conversion-one',
+    );
+
+    expect(settleChoreRewardPayouts(
+      reserved,
+      'member-andrew',
+      ['payout-conversion-one', 'payout-missing'],
+      '2026-08-18T17:00:00.000Z',
+    )).toBe(reserved);
   });
 });
