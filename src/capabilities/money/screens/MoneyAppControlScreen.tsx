@@ -23,6 +23,11 @@ import {
 import type { MoneyStackParamList } from '../navigation/types';
 import { reconcileMoneyAppControls } from '../runtime/moneyAppControlRuntime';
 import { useMoneyAppControlSettings } from '../runtime/moneyAppControlStorage';
+import { isMoneyAppControlOnboardingComplete } from '../domain/moneyAppControlOnboarding';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../../services/analytics/events';
+import { useAppStore } from '../../../store/useAppStore';
+import { useCapabilityOnboardingStore } from '../../../features/capability-onboarding/useCapabilityOnboardingStore';
 
 const PRESETS: MoneyAppControlPreset[] = [
   'always_review',
@@ -45,6 +50,8 @@ export function MoneyAppControlScreen({ navigation, route }: NativeStackScreenPr
   const { snapshot } = useMoneyData();
   const { settings, loaded, save } = useMoneyAppControlSettings();
   const [saving, setSaving] = useState(false);
+  const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
+  const { capture } = useAnalytics();
   const category = snapshot?.categories.find((item) => item.id === route.params.categoryId || item.sourceId === route.params.categoryId);
   const suggestedPreset = route.params.suggestedPreset;
   const policy = category ? settings.policies[category.sourceId] ?? {
@@ -74,6 +81,31 @@ export function MoneyAppControlScreen({ navigation, route }: NativeStackScreenPr
       policies: { ...current.policies, [category.sourceId]: nextPolicy },
     }));
     await reconcileMoneyAppControls(snapshot, next);
+    if (
+      route.params.source === 'capability-onboarding' &&
+      userId &&
+      isMoneyAppControlOnboardingComplete(next.authorizationStatus, nextPolicy)
+    ) {
+      const onboardingStore = useCapabilityOnboardingStore.getState();
+      const alreadyCompleted = onboardingStore.recordForUser(userId)
+        .completedPaths['budget-app-controls'];
+      if (!alreadyCompleted) {
+        const completedAt = Date.now();
+        onboardingStore.dispatch(userId, {
+          type: 'complete-path',
+          pathId: 'budget-app-controls',
+          receiptId: `money-app-control:${category.sourceId}:${completedAt}`,
+          now: completedAt,
+        });
+        capture(AnalyticsEvent.CapabilityOnboardingPathCompleted, {
+          path_id: 'budget-app-controls',
+          category_id: category.sourceId,
+          preset: nextPolicy.preset,
+          selected_target_count:
+            nextPolicy.selectedApps.length + nextPolicy.selectedCategories.length,
+        });
+      }
+    }
   };
 
   const chooseApps = async () => {

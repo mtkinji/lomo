@@ -3,6 +3,8 @@ import {
   resolveDrawerActionBottomInset,
   resolveDrawerActionBottomPadding,
   resolveDrawerActionInlinePadding,
+  resolveDrawerFloatingActionBottomInset,
+  resolveDrawerFloatingActionInlinePadding,
   resolvePhoneFloatingBottomInset,
 } from './bottomDockGeometry';
 
@@ -20,6 +22,10 @@ describe('bottom dock geometry', () => {
   it('resolves the visible drawer gap after the parent surface inset', () => {
     expect(resolveDrawerActionInlinePadding(16)).toBe(8);
     expect(resolveDrawerActionInlinePadding(0)).toBe(24);
+    expect(resolveDrawerFloatingActionInlinePadding(16)).toBe(16);
+    expect(resolveDrawerFloatingActionInlinePadding(0)).toBe(32);
+    expect(resolveDrawerFloatingActionBottomInset(34)).toBe(32);
+    expect(resolveDrawerFloatingActionBottomInset(0)).toBe(32);
     expect(resolveDrawerActionBottomPadding(34, 34)).toBe(0);
     expect(resolveDrawerActionBottomPadding(0, 34)).toBe(34);
     expect(resolveDrawerActionBottomPadding(0, 0)).toBe(20);

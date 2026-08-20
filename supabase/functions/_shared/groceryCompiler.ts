@@ -22,9 +22,10 @@ export type RecipeGrocerySource = {
 };
 
 export type HouseholdPlanGroceryAuthorityInput = {
-  plan: { id: string; version: number; state: string };
+  plan: { id: string; household_id: string | null; organizer_person_id: string; version: number; state: string };
   expectedVersion: number;
-  actorRole: string;
+  actorPersonId: string;
+  actorRole: string | null;
   candidates: Array<{
     id: string;
     lifecycleState: 'sent' | 'removed';
@@ -127,7 +128,11 @@ export function compileRecipeGroceryAuthority(input: {
 }
 
 export function compileHouseholdPlanGroceryAuthority(input: HouseholdPlanGroceryAuthorityInput) {
-  if (!['owner', 'caregiver'].includes(input.actorRole)) throw new Error('household_plan_grocery_manage_forbidden');
+  if (input.plan.household_id === null) {
+    if (input.plan.organizer_person_id !== input.actorPersonId) throw new Error('personal_plan_grocery_manage_forbidden');
+  } else if (!input.actorRole || !['owner', 'caregiver'].includes(input.actorRole)) {
+    throw new Error('household_plan_grocery_manage_forbidden');
+  }
   if (input.plan.state !== 'draft' || input.plan.version !== input.expectedVersion) throw new Error('stale_household_plan');
   const lines: GroceryCompilerLine[] = [];
   const catalogVersionIds = new Set<string>();

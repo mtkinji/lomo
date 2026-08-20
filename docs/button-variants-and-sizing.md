@@ -6,6 +6,25 @@ Source of truth for the API:
 - `src/ui/Button.tsx`
 - `src/ui/buttonTokens.ts`
 
+## Button copy
+
+Buttons are controls, not sentences. Use the shortest unmistakable **verb + object** label that
+names the action the button performs:
+
+- **Create goal**
+- **Add chore**
+- **Find game**
+- **Choose meal**
+- **Set limits**
+
+Omit articles such as **a**, **the**, and **your** when the surrounding screen already makes the
+object clear. Keep an article only when removing it would make the action ambiguous or change its
+meaning.
+
+Do not add sequencing language such as **first** to the button label. Put that context in the
+supporting copy when it is genuinely useful. Prefer the shortest label that remains specific and
+truthful, not the shortest label possible.
+
 ## Variant thesis (when to use what)
 
 ### `variant="ai"` (gradient)
@@ -85,5 +104,3 @@ Only use `sm`/`xs` for:
 - Reserve **Kwilt green** (CTA) for high-signal primary actions.
 
 See also: `docs/back-affordances.md`.
-
-

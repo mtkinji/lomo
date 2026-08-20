@@ -40,6 +40,8 @@ import { bottomDrawerChromeTokens } from './drawerTokens';
 import {
   resolveDrawerActionBottomInset,
   resolveDrawerActionInlinePadding,
+  resolveDrawerFloatingActionBottomInset,
+  resolveDrawerFloatingActionInlinePadding,
 } from './layout/bottomDockGeometry';
 
 export type BottomDrawerSnapPoint = number | `${number}%`;
@@ -185,6 +187,8 @@ type BottomDrawerProps = {
 
   /** Optional fixed bottom region that owns the drawer's bottom safe-area inset. */
   bottomAccessory?: ReactNode;
+  /** Use the tighter optical placement of the phone Action Dock for a floating pill action. */
+  bottomAccessoryPlacement?: 'drawer' | 'phoneFloating';
   /** Draw a quiet divider between scroll content and the fixed action region. */
   bottomAccessoryShowTopBorder?: boolean;
 
@@ -356,6 +360,7 @@ export function BottomDrawer({
   handleContainerStyle,
   handleStyle,
   bottomAccessory,
+  bottomAccessoryPlacement = 'drawer',
   bottomAccessoryShowTopBorder = false,
   contentExtendsIntoBottomSafeArea = false,
   enableContentPanningGesture = false,
@@ -792,11 +797,19 @@ export function BottomDrawer({
         style={[
           styles.bottomAccessory,
           {
-            paddingHorizontal: resolveDrawerActionInlinePadding(
-              contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
-            ),
-            paddingTop: bottomDockGeometry.drawerAction.contentGap,
-            paddingBottom: resolveDrawerActionBottomInset(insets.bottom),
+            paddingHorizontal: bottomAccessoryPlacement === 'phoneFloating'
+              ? resolveDrawerFloatingActionInlinePadding(
+                  contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
+                )
+              : resolveDrawerActionInlinePadding(
+                  contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
+                ),
+            paddingTop: bottomAccessoryPlacement === 'phoneFloating'
+              ? bottomDockGeometry.drawerFloatingAction.contentGap
+              : bottomDockGeometry.drawerAction.contentGap,
+            paddingBottom: bottomAccessoryPlacement === 'phoneFloating'
+              ? resolveDrawerFloatingActionBottomInset(insets.bottom)
+              : resolveDrawerActionBottomInset(insets.bottom),
           },
           bottomAccessoryShowTopBorder ? styles.bottomAccessoryBorder : null,
         ]}

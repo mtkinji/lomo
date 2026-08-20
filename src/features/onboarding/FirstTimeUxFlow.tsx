@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Icon } from '../../ui/Icon';
 import { colors, spacing, typography } from '../../theme';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
@@ -34,10 +35,27 @@ import {
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { getNotificationPermissionStatusLabel, resolveFtuePermissionActions } from './ftuePermissionActions';
+import {
+  resolveFirstTimeUxEntryPresentation,
+  type FirstTimeUxEntryMode,
+} from './firstTimeUxEntryMode';
 
 type FtueStep = 'welcome' | 'notifications' | 'path';
 
-export function FirstTimeUxFlow() {
+export type FirstTimeUxCapabilityReceipt = {
+  pathId: 'make-progress';
+  receiptId: string;
+};
+
+type Props = {
+  entryMode?: FirstTimeUxEntryMode;
+  onCapabilityComplete?: (receipt: FirstTimeUxCapabilityReceipt) => void;
+};
+
+export function FirstTimeUxFlow({
+  entryMode = 'legacy-first-run',
+  onCapabilityComplete,
+}: Props = {}) {
   const isVisible = useFirstTimeUxStore((state) => state.isFlowActive);
   const triggerCount = useFirstTimeUxStore((state) => state.triggerCount);
   const dismissFlow = useFirstTimeUxStore((state) => state.dismissFlow);
@@ -68,6 +86,7 @@ export function FirstTimeUxFlow() {
   const [isRequestingNotifications, setIsRequestingNotifications] = useState(false);
   const { capture } = useAnalytics();
   const hasTrackedVisible = useRef(false);
+  const entryPresentation = resolveFirstTimeUxEntryPresentation(entryMode);
 
   const introAnim = useRef(new Animated.Value(1)).current;
   const workflowAnim = useRef(new Animated.Value(0)).current;
@@ -81,7 +100,7 @@ export function FirstTimeUxFlow() {
     }
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
     return () => sub.remove();
-  }, [isVisible]);
+  }, [isVisible, entryMode]);
 
   useEffect(() => {
     if (isVisible && !hasTrackedVisible.current) {
@@ -109,14 +128,15 @@ export function FirstTimeUxFlow() {
     setHasDismissedOnboardingGoalGuide(false);
     setLastOnboardingArcId(null);
     setLastOnboardingGoalId(null);
-    setFtueStep('welcome');
-    setShowWorkflow(false);
+    setFtueStep(entryPresentation.initialStep);
+    setShowWorkflow(entryPresentation.showWorkflowImmediately);
     introAnim.setValue(1);
-    workflowAnim.setValue(0);
+    workflowAnim.setValue(entryPresentation.showWorkflowImmediately ? 1 : 0);
     setIsRequestingNotifications(false);
   }, [
     isVisible,
     triggerCount,
+    entryMode,
     introAnim,
     workflowAnim,
     setHasSeenFirstArcCelebration,
@@ -237,6 +257,10 @@ export function FirstTimeUxFlow() {
 
       const { lastOnboardingArcId: arcId, lastOnboardingGoalId: goalId } = useAppStore.getState();
 
+      if (entryMode === 'capability-path' && goalId) {
+        onCapabilityComplete?.({ pathId: 'make-progress', receiptId: goalId });
+      }
+
       capture(AnalyticsEvent.FtueCompleted, {
         trigger_count: triggerCount,
         created_arc: Boolean(arcId),
@@ -280,7 +304,7 @@ export function FirstTimeUxFlow() {
       });
       return outcome;
     },
-    [capture, completeFlow, dismissFlow, setHasCompletedFirstTimeOnboarding, setLastKickoffShownDateKey, triggerCount],
+    [capture, completeFlow, dismissFlow, entryMode, onCapabilityComplete, setHasCompletedFirstTimeOnboarding, setLastKickoffShownDateKey, triggerCount],
   );
 
   const handleWorkflowComplete = useCallback(
@@ -295,46 +319,16 @@ export function FirstTimeUxFlow() {
   const renderFtueInterstitial = () => {
     const currentIndex = Math.max(0, flowSteps.indexOf(ftueStep));
     const totalSteps = flowSteps.length;
-    const stepTheme = (() => {
-      switch (ftueStep) {
-        case 'welcome':
-          return {
-            backgroundColor: 'pine300' as const,
-            ink: colors.pine900,
-            inkMutedOpacity: 0.75,
-            primaryButtonBg: colors.pine700,
-            primaryButtonText: colors.canvas,
-            secondaryText: colors.pine900,
-            progressTrack: 'rgba(31,82,38,0.18)',
-            progressFill: colors.pine700,
-          };
-        case 'notifications':
-          return {
-            // Lighter surface to improve perceived contrast and reduce heaviness.
-            backgroundColor: 'turmeric300' as const,
-            ink: colors.sumi,
-            inkMutedOpacity: 0.72,
-            primaryButtonBg: colors.sumi,
-            primaryButtonText: colors.canvas,
-            secondaryText: colors.sumi,
-            progressTrack: 'rgba(0,0,0,0.14)',
-            progressFill: colors.sumi,
-          };
-        case 'path':
-        default:
-          return {
-            // Quilt blue moment: cool, optimistic, and distinctly “Kwilt”.
-            backgroundColor: 'quiltBlue200' as const,
-            ink: colors.quiltBlue900,
-            inkMutedOpacity: 0.76,
-            primaryButtonBg: colors.quiltBlue700,
-            primaryButtonText: colors.canvas,
-            secondaryText: colors.quiltBlue900,
-            progressTrack: 'rgba(36,54,78,0.18)',
-            progressFill: colors.quiltBlue700,
-          };
-      }
-    })();
+    const stepTheme = {
+      backgroundColor: 'pine700' as const, // @kwilt-brand-moment: every full-color onboarding moment uses the canonical Kwilt Pine canvas.
+      ink: colors.parchment,
+      inkMutedOpacity: 0.84,
+      primaryButtonBg: colors.parchment,
+      primaryButtonText: colors.pine900,
+      secondaryText: colors.parchment,
+      progressTrack: 'rgba(250,247,237,0.24)',
+      progressFill: colors.parchment,
+    };
 
     let title: string;
     let body: string;
@@ -433,11 +427,6 @@ export function FirstTimeUxFlow() {
           <View style={styles.ftueLayout}>
             <View style={styles.ftueHeaderBlock}>
               <View style={styles.ftueProgressRow}>
-                <Text
-                  style={[styles.ftueEyebrow, { color: stepTheme.ink, opacity: stepTheme.inkMutedOpacity }]}
-                >
-                  First-time setup
-                </Text>
                 <Text
                   style={[
                     styles.ftueProgressLabel,
@@ -582,6 +571,7 @@ export function FirstTimeUxFlow() {
       onRequestClose={() => {}}
     >
       <View style={styles.overlay}>
+        <StatusBar style="light" />
         {__DEV__ && (
           <>
             <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
@@ -737,10 +727,7 @@ const styles = StyleSheet.create({
   ftueProgressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  ftueEyebrow: {
-    ...typography.label,
+    justifyContent: 'flex-end',
   },
   ftueProgressLabel: {
     ...typography.label,

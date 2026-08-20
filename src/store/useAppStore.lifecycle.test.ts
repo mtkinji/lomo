@@ -7,6 +7,7 @@ import { useEntitlementsStore } from './useEntitlementsStore';
 import { canCreateArc, canCreateGoalInArc, countActiveGoalsForArc } from '../domain/limits';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../domain/generativeCredits';
 import type { Activity, ActivityView, Arc, Goal } from '../domain/types';
+import { useCapabilityOnboardingStore } from '../features/capability-onboarding/useCapabilityOnboardingStore';
 
 function arc(overrides: Partial<Arc> = {}): Arc {
   const nowIso = new Date('2026-01-01T12:00:00.000Z').toISOString();
@@ -621,6 +622,7 @@ describe('recordShowUp streak grace', () => {
 describe('resetUserSpecificState', () => {
   beforeEach(() => {
     useAppStore.getState().resetStore();
+    useCapabilityOnboardingStore.setState({ recordsByUserId: {}, hydrated: true });
   });
 
   it('clears user-scoped fields', () => {
@@ -687,6 +689,26 @@ describe('resetUserSpecificState', () => {
     expect(state.notificationPreferences.allowDailyFocus).toBe(true);
     // User-specific should be reset.
     expect(state.hasCompletedFirstTimeOnboarding).toBe(false);
+  });
+
+  it('clears onboarding progress only for the account being reset', () => {
+    for (const userId of ['user-a', 'user-b']) {
+      useCapabilityOnboardingStore.getState().dispatch(userId, {
+        type: 'select-path',
+        pathId: 'make-meals-easier',
+        now: 10,
+      });
+    }
+    useAppStore.setState({ authIdentity: { userId: 'user-a' } } as any);
+
+    resetUserSpecificState();
+
+    expect(
+      useCapabilityOnboardingStore.getState().recordForUser('user-a').selectedPathId,
+    ).toBeNull();
+    expect(
+      useCapabilityOnboardingStore.getState().recordForUser('user-b').selectedPathId,
+    ).toBe('make-meals-easier');
   });
 });
 

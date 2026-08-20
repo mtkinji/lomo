@@ -274,10 +274,11 @@ function caregiverRepeatLabel(series: ChoreSeries): string {
   return label === 'Off' ? 'One time' : label;
 }
 
-function CaregiverRow({ series, members, tokensEnabled, onOpen }: {
+function CaregiverRow({ series, members, tokensEnabled, showAssignee = true, onOpen }: {
   series: ChoreSeries;
   members: ChoreMember[];
   tokensEnabled: boolean;
+  showAssignee?: boolean;
   onOpen: () => void;
 }) {
   const assignedMember = series.assignedMemberId
@@ -292,7 +293,7 @@ function CaregiverRow({ series, members, tokensEnabled, onOpen }: {
         surface="flat"
         title={series.title}
         meta={metadata}
-        metaLeadingAccessory={(
+        metaLeadingAccessory={showAssignee ? (
           <ChoreMemberPill
             accessible={false}
             kind={assignedMember ? 'member' : 'household'}
@@ -302,7 +303,7 @@ function CaregiverRow({ series, members, tokensEnabled, onOpen }: {
               ? `chores.assignee.${assignedMember.id}`
               : 'chores.assignee.household'}
           />
-        )}
+        ) : undefined}
         showPriorityControl={false}
         showCheckbox={false}
         onPress={onOpen}
@@ -313,72 +314,114 @@ function CaregiverRow({ series, members, tokensEnabled, onOpen }: {
 }
 
 type CaregiverChoreFilter = 'all' | 'household' | string;
+type CaregiverChoreGrouping = 'member' | 'none';
 
-function CaregiverInventoryFilter({ value, members, onChange }: {
-  value: CaregiverChoreFilter;
+function CaregiverInventoryControls({ filter, grouping, members, onFilterChange, onGroupingChange }: {
+  filter: CaregiverChoreFilter;
+  grouping: CaregiverChoreGrouping;
   members: ChoreMember[];
-  onChange: (value: CaregiverChoreFilter) => void;
+  onFilterChange: (value: CaregiverChoreFilter) => void;
+  onGroupingChange: (value: CaregiverChoreGrouping) => void;
 }) {
-  const selectedMember = members.find((member) => member.id === value);
-  const label = value === 'all'
+  const selectedMember = members.find((member) => member.id === filter);
+  const filterLabel = filter === 'all'
     ? 'All chores'
-    : value === 'household'
+    : filter === 'household'
       ? 'Household'
       : selectedMember?.displayName ?? 'All chores';
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Filter chores, ${label}`}
-          style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
-        >
-          <InventoryControlGroup testID="chores.inventory-controls">
+    <InventoryControlGroup testID="chores.inventory-controls">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Filter chores, ${filterLabel}`}
+            hitSlop={5}
+            style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
+          >
             <InventoryControlSurface
-              active={value !== 'all'}
-              count={value === 'all' ? 0 : 1}
+              active={filter !== 'all'}
+              count={filter === 'all' ? 0 : 1}
               iconName="funnel"
               testID="chores.inventory-filter"
             />
-          </InventoryControlGroup>
-        </Pressable>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="bottom" sideOffset={6} align="start">
-        <DropdownMenuLabel>Show chores for</DropdownMenuLabel>
-        <DropdownMenuItem
-          accessibilityLabel="Show all chores"
-          selected={value === 'all'}
-          onPress={() => onChange('all')}
-        >
-          <Text>All chores</Text>
-        </DropdownMenuItem>
-        {members.filter((member) => member.role === 'child').map((member) => (
+          </Pressable>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="bottom" sideOffset={6} align="start">
+          <DropdownMenuLabel>Show chores for</DropdownMenuLabel>
           <DropdownMenuItem
-            key={member.id}
-            accessibilityLabel={`Show ${member.displayName} chores`}
-            selected={value === member.id}
-            onPress={() => onChange(member.id)}
+            accessibilityLabel="Show all chores"
+            selected={filter === 'all'}
+            onPress={() => onFilterChange('all')}
+          >
+            <Text>All chores</Text>
+          </DropdownMenuItem>
+          {members.filter((member) => member.role === 'child').map((member) => (
+            <DropdownMenuItem
+              key={member.id}
+              accessibilityLabel={`Show ${member.displayName} chores`}
+              selected={filter === member.id}
+              onPress={() => onFilterChange(member.id)}
+            >
+              <View style={styles.filterMenuItem}>
+                <ProfileAvatar name={member.displayName} size={24} />
+                <Text>{member.displayName}</Text>
+              </View>
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuItem
+            accessibilityLabel="Show household chores"
+            selected={filter === 'household'}
+            onPress={() => onFilterChange('household')}
           >
             <View style={styles.filterMenuItem}>
-              <ProfileAvatar name={member.displayName} size={24} />
-              <Text>{member.displayName}</Text>
+              <View style={styles.householdFilterMark}>
+                <Icon
+                  name="home"
+                  size={15}
+                  color={colors.pine800 /* @kwilt-brand-moment: household filter identity uses the requested pine mark. */}
+                />
+              </View>
+              <Text>Household</Text>
             </View>
           </DropdownMenuItem>
-        ))}
-        <DropdownMenuItem
-          accessibilityLabel="Show household chores"
-          selected={value === 'household'}
-          onPress={() => onChange('household')}
-        >
-          <View style={styles.filterMenuItem}>
-            <View style={styles.householdFilterMark}>
-              <Icon name="home" size={15} color={colors.pine800} /> {/* @kwilt-brand-moment: household filter identity uses the requested pine mark. */}
-            </View>
-            <Text>Household</Text>
-          </View>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={grouping === 'member' ? 'Grouping: Member' : 'Group chores'}
+            hitSlop={5}
+            style={({ pressed }) => pressed ? styles.inventoryControlPressed : undefined}
+          >
+            <InventoryControlSurface
+              active={grouping !== 'none'}
+              count={grouping === 'none' ? 0 : 1}
+              iconName="layers"
+              testID="chores.inventory-grouping"
+            />
+          </Pressable>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="bottom" sideOffset={6} align="start">
+          <DropdownMenuLabel>Group chores by</DropdownMenuLabel>
+          <DropdownMenuItem
+            accessibilityLabel="Group chores by member"
+            selected={grouping === 'member'}
+            onPress={() => onGroupingChange('member')}
+          >
+            <Text>Member</Text>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            accessibilityLabel="Do not group chores"
+            selected={grouping === 'none'}
+            onPress={() => onGroupingChange('none')}
+          >
+            <Text>None</Text>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </InventoryControlGroup>
   );
 }
 
@@ -397,7 +440,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const setRewardExchangeRate = useChoreLearningStore((state) => state.setRewardExchangeRate);
   const requestRedemption = useChoreLearningStore((state) => state.requestRedemption);
   const cancelRedemption = useChoreLearningStore((state) => state.cancelRedemption);
-  const settlePayout = useChoreLearningStore((state) => state.settlePayout);
+  const settlePayouts = useChoreLearningStore((state) => state.settlePayouts);
   const approve = useChoreLearningStore((state) => state.approve);
   const requestAnotherPass = useChoreLearningStore((state) => state.requestAnotherPass);
   const requestEarlierCompletions = useChoreLearningStore((state) => state.requestEarlierCompletions);
@@ -424,6 +467,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const [chatVisible, setChatVisible] = useState(false);
   const [chatThreadId, setChatThreadId] = useState<string | null>(null);
   const [caregiverFilter, setCaregiverFilter] = useState<CaregiverChoreFilter>('all');
+  const [caregiverGrouping, setCaregiverGrouping] = useState<CaregiverChoreGrouping>('member');
   const quickAddInputRef = useRef<TextInput | null>(null);
   const touchedDraftFieldsRef = useRef(new Set<ChoreDraftField>());
   const enrichmentRunRef = useRef(0);
@@ -455,10 +499,9 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         .map((member) => projectChoreRewards(record, member.id))
       : [projectChoreRewards(record, record.activeMemberId)]
   ), [isCaregiver, record]);
-  const pendingPayoutCount = rewards.reduce(
-    (total, memberRewards) => total + memberRewards.pendingPayouts.length,
-    0,
-  );
+  const pendingPaymentCount = rewards.filter(
+    (memberRewards) => memberRewards.pendingPayouts.length > 0,
+  ).length;
   const chatLaunchContext = useMemo<UnifiedChatLaunchContext>(() => ({
     capabilityId: 'chores',
     surface: 'inventory',
@@ -476,6 +519,25 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
     }
     return caregiverInventory.filter((occurrence) => occurrence.assignedMemberId === caregiverFilter);
   }, [caregiverFilter, caregiverInventory]);
+  const caregiverGroups = useMemo(() => {
+    if (caregiverGrouping === 'none') return [];
+    const memberGroups = record.members
+      .filter((member) => member.role === 'child')
+      .map((member) => ({
+        key: member.id,
+        label: member.displayName,
+        series: caregiverOccurrences.filter((chore) => chore.assignedMemberId === member.id),
+      }))
+      .filter((group) => group.series.length > 0);
+    const householdSeries = caregiverOccurrences.filter((chore) => chore.assignedMemberId == null);
+    return householdSeries.length > 0
+      ? [...memberGroups, {
+        key: 'household',
+        label: 'Household',
+        series: householdSeries,
+      }]
+      : memberGroups;
+  }, [caregiverGrouping, caregiverOccurrences, record.members]);
   const completeOccurrence = (id: string) => complete(id, now().toISOString());
   const closeChoreEditor = () => {
     enrichmentRunRef.current += 1;
@@ -648,25 +710,59 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
 
         <View style={styles.section} testID="chores.section.household">
           {isCaregiver ? (
-            <CaregiverInventoryFilter
-              value={caregiverFilter}
+            <CaregiverInventoryControls
+              filter={caregiverFilter}
+              grouping={caregiverGrouping}
               members={record.members}
-              onChange={setCaregiverFilter}
+              onFilterChange={setCaregiverFilter}
+              onGroupingChange={setCaregiverGrouping}
             />
           ) : <Heading variant="sm">Choose a chore</Heading>}
-          <View style={styles.rows}>
-            {isCaregiver ? (
-              caregiverOccurrences.length ? caregiverOccurrences.map((series) => (
-                <CaregiverRow
-                  key={series.activitySeriesId}
-                  series={series}
-                  members={record.members}
-                  tokensEnabled={record.tokensEnabled}
-                  onOpen={() => openChoreEditor(series)}
-                />
-              )) : <Text tone="secondary">No chores have been created yet.</Text>
-            ) : (
-              projection.household.length ? projection.household.map((occurrence) => (
+          {isCaregiver ? (
+            caregiverOccurrences.length ? (
+              caregiverGrouping === 'member' ? (
+                <View style={styles.caregiverGroups}>
+                  {caregiverGroups.map((group) => (
+                    <View
+                      key={group.key}
+                      testID={`chores.group.${group.key}`}
+                      style={styles.caregiverGroup}
+                    >
+                      <Heading variant="sm" accessibilityLabel={`${group.label} chores`}>
+                        {group.label}
+                      </Heading>
+                      <View style={styles.rows}>
+                        {group.series.map((series) => (
+                          <CaregiverRow
+                            key={series.activitySeriesId}
+                            series={series}
+                            members={record.members}
+                            tokensEnabled={record.tokensEnabled}
+                            showAssignee={false}
+                            onOpen={() => openChoreEditor(series)}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.rows}>
+                  {caregiverOccurrences.map((series) => (
+                    <CaregiverRow
+                      key={series.activitySeriesId}
+                      series={series}
+                      members={record.members}
+                      tokensEnabled={record.tokensEnabled}
+                      onOpen={() => openChoreEditor(series)}
+                    />
+                  ))}
+                </View>
+              )
+            ) : <Text tone="secondary">No chores have been created yet.</Text>
+          ) : (
+            <View style={styles.rows}>
+              {projection.household.length ? projection.household.map((occurrence) => (
                 <HouseholdRow
                   key={occurrence.activityOccurrenceId}
                   occurrence={occurrence}
@@ -674,9 +770,9 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                   onOpen={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
                   onTake={() => take(occurrence.activityOccurrenceId)}
                 />
-              )) : <Text tone="secondary">No household chores are open right now.</Text>
-            )}
-          </View>
+              )) : <Text tone="secondary">No household chores are open right now.</Text>}
+            </View>
+          )}
         </View>
       </CanvasScrollView>
 
@@ -762,8 +858,8 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                   <View>
                     <FloatingDockActionButton
                       testID="chores.rewards.action"
-                      accessibilityLabel={pendingPayoutCount > 0
-                        ? `${pendingPayoutCount} reward ${pendingPayoutCount === 1 ? 'payout' : 'payouts'} waiting`
+                      accessibilityLabel={pendingPaymentCount > 0
+                        ? `${pendingPaymentCount} reward ${pendingPaymentCount === 1 ? 'payment' : 'payments'} waiting`
                         : 'Open rewards'}
                       accessibilityHint="Shows household token balances and payouts"
                       icon="circleDollarSign"
@@ -771,7 +867,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                       onPress={() => setRewardsOpen(true)}
                       size={RESTING_COMPOSER_HEIGHT_PX}
                     />
-                    {pendingPayoutCount > 0 ? (
+                    {pendingPaymentCount > 0 ? (
                       <View pointerEvents="none" style={styles.reviewBadge} />
                     ) : null}
                   </View>
@@ -837,7 +933,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
           );
         }}
         onCancelRedemption={(payoutId) => cancelRedemption(payoutId, now().toISOString())}
-        onSettlePayout={(payoutId) => settlePayout(payoutId, now().toISOString())}
+        onSettlePayouts={(payoutIds) => settlePayouts(payoutIds, now().toISOString())}
         onClose={() => setRewardsOpen(false)}
       />
       <ChoreEditorDrawer
@@ -889,6 +985,8 @@ const styles = StyleSheet.create({
   memberMenuItemContent: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   pressed: { opacity: 0.7 },
   section: { gap: spacing.md },
+  caregiverGroups: { gap: spacing.xl },
+  caregiverGroup: { gap: spacing.sm },
   rows: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   row: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   stateIndicator: { width: 22, height: 22, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 7, borderWidth: 1, borderColor: colors.gray300, backgroundColor: colors.gray100 },

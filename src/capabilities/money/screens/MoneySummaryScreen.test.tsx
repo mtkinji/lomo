@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { MoneySnapshot } from '../data/moneySnapshot';
@@ -48,13 +48,13 @@ jest.mock('../runtime/moneySummaryAutoRefresh', () => ({
 jest.mock('../../../services/analytics/useFeatureFlag', () => ({ useFeatureFlag: () => false }));
 jest.mock('../components/MoneyCategoryMeterTile', () => ({
   ...jest.requireActual('../components/MoneyCategoryMeterTile'),
-  MoneyCategoryListRow: ({ category }: { category: { name: string } }) => {
-    const { Text } = require('react-native');
-    return <Text>{category.name}</Text>;
+  MoneyCategoryListRow: ({ category, targetRef }: { category: { name: string }; targetRef?: unknown }) => {
+    const { Text, View } = require('react-native');
+    return <View testID={targetRef ? `guide-target-${category.name}` : undefined}><Text>{category.name}</Text></View>;
   },
-  MoneyCategoryMeterTile: ({ category }: { category: { name: string } }) => {
-    const { Text } = require('react-native');
-    return <Text>{category.name}</Text>;
+  MoneyCategoryMeterTile: ({ category, targetRef }: { category: { name: string }; targetRef?: unknown }) => {
+    const { Text, View } = require('react-native');
+    return <View testID={targetRef ? `guide-target-${category.name}` : undefined}><Text>{category.name}</Text></View>;
   },
 }));
 jest.mock('./MoneyScreenFrame', () => {
@@ -67,6 +67,10 @@ jest.mock('../../../ui/BottomDrawer', () => {
     BottomDrawer: ({ children, visible }: { children: React.ReactNode; visible: boolean }) => visible ? <View>{children}</View> : null,
     BottomDrawerScrollView: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
   };
+});
+jest.mock('../../../ui/Coachmark', () => {
+  const { View } = require('react-native');
+  return { Coachmark: ({ visible }: { visible: boolean }) => visible ? <View testID="money-app-control-guide" /> : null };
 });
 
 describe('MoneySummaryScreen living limit answer', () => {
@@ -144,6 +148,62 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(committedInfo.props.accessibilityHint).toBe('Bills and money already set aside before your flexible spending is calculated.');
     fireEvent.press(committedInfo);
     expect(committedInfo.props.accessibilityState).toMatchObject({ expanded: true });
+  });
+
+  it('anchors app-control onboarding to one selectable budget instead of the category grid', () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      categories: [
+        category('groceries', 'Groceries', 'flexible'),
+        category('shopping', 'Shopping', 'flexible'),
+      ],
+    };
+    const navigation = { navigate: jest.fn(), setParams: jest.fn() };
+    const screen = render(<MoneySummaryScreen
+      navigation={navigation as never}
+      route={{ key: 'summary', name: 'MoneySummary', params: { entryIntent: 'app-control-onboarding' } } as never}
+    />);
+
+    expect(screen.getByTestId('guide-target-Groceries')).toBeTruthy();
+    expect(screen.queryByTestId('guide-target-Shopping')).toBeNull();
+  });
+
+  it('shows the guide when onboarding returns to an already-mounted Budget screen', () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      categories: [category('groceries', 'Groceries', 'flexible')],
+    };
+    const navigation = { navigate: jest.fn(), setParams: jest.fn() };
+    const screen = render(<MoneySummaryScreen
+      navigation={navigation as never}
+      route={{ key: 'summary', name: 'MoneySummary' } as never}
+    />);
+
+    expect(screen.queryByTestId('money-app-control-guide')).toBeNull();
+    screen.rerender(<MoneySummaryScreen
+      navigation={navigation as never}
+      route={{ key: 'summary', name: 'MoneySummary', params: { entryIntent: 'app-control-onboarding' } } as never}
+    />);
+
+    expect(screen.getByTestId('money-app-control-guide')).toBeTruthy();
+  });
+
+  it('opens the real budget creation flow when app-control onboarding has no budgets', async () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      categories: [category('groceries', 'Groceries', 'flexible')],
+    };
+    const navigation = { navigate: jest.fn(), setParams: jest.fn() };
+    render(<MoneySummaryScreen
+      navigation={navigation as never}
+      route={{
+        key: 'summary',
+        name: 'MoneySummary',
+        params: { entryIntent: 'app-control-onboarding', devBudgetState: 'none' },
+      } as never}
+    />);
+
+    await waitFor(() => expect(navigation.navigate).toHaveBeenCalledWith('MoneyCategoryCreate'));
   });
 
   it('opens category reordering from the View menu', () => {

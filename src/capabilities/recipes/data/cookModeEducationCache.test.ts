@@ -31,4 +31,18 @@ describe('cookModeEducationCache', () => {
 
     await expect(cache.hasAcknowledgedVoiceGuide()).resolves.toBe(false);
   });
+
+  it('scopes the planned-meal touch guide to the authenticated person', async () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: jest.fn(async (key: string) => values.get(key) ?? null),
+      setItem: jest.fn(async (key: string, value: string) => { values.set(key, value); }),
+    };
+    const cache = createCookModeEducationCache(storage);
+
+    await expect(cache.hasSeenFoodMealLoopCookGuide('person-a')).resolves.toBe(false);
+    await cache.markFoodMealLoopCookGuideSeen('person-a');
+    await expect(cache.hasSeenFoodMealLoopCookGuide('person-a')).resolves.toBe(true);
+    await expect(cache.hasSeenFoodMealLoopCookGuide('person-b')).resolves.toBe(false);
+  });
 });

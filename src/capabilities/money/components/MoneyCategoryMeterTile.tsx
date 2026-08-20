@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode, type Ref } from 'react';
 import {
   type LayoutChangeEvent,
   Pressable,
@@ -31,11 +31,13 @@ export function MoneyCategoryMeterTile({
   onPress,
   periodElapsedPercent,
   style,
+  targetRef,
 }: {
   category: MoneyCategory;
   onPress: () => void;
   periodElapsedPercent: number;
   style?: StyleProp<ViewStyle>;
+  targetRef?: Ref<View>;
 }) {
   const [meterSize, setMeterSize] = useState(136);
   const percent = Math.round(category.percentUsed);
@@ -54,6 +56,7 @@ export function MoneyCategoryMeterTile({
 
   return (
     <Pressable
+      ref={targetRef}
       accessibilityRole="button"
       accessibilityLabel={`Open ${category.name} category, ${formatMoney(category.spentCents)} spent of ${formatMoney(category.plannedCents)}, ${percent} percent used, ${formatMoney(Math.abs(category.remainingCents))} ${isOver ? 'over' : 'left'}`}
       onPress={onPress}
@@ -94,9 +97,10 @@ export function MoneyCategoryMeterTile({
   );
 }
 
-export function MoneyCategoryListRow({ category, onPress, valueMode }: {
+export function MoneyCategoryListRow({ category, onPress, targetRef, valueMode }: {
   category: MoneyCategory;
   onPress: () => void;
+  targetRef?: Ref<View>;
   valueMode: MoneyCategoryValueMode;
 }) {
   const percent = Math.round(category.percentUsed);
@@ -106,6 +110,7 @@ export function MoneyCategoryListRow({ category, onPress, valueMode }: {
     : `${formatMoney(Math.abs(category.remainingCents))} ${isOver ? 'over' : 'left'}`;
   return (
     <Pressable
+      ref={targetRef}
       accessibilityLabel={`Open ${category.name} category, ${value}`}
       accessibilityRole="button"
       onPress={onPress}

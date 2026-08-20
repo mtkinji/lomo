@@ -2,6 +2,12 @@ export const AnalyticsEvent = {
   FtueStarted: 'ftue_started',
   FtueCompleted: 'ftue_completed',
   FtueDismissed: 'ftue_dismissed',
+  CapabilityOnboardingStarted: 'capability_onboarding_started',
+  CapabilityOnboardingPathSelected: 'capability_onboarding_path_selected',
+  CapabilityOnboardingPathCompleted: 'capability_onboarding_path_completed',
+  CapabilityOnboardingPageViewed: 'capability_onboarding_page_viewed',
+  CapabilityOnboardingDoorStarted: 'capability_onboarding_door_started',
+  CapabilityOnboardingExplored: 'capability_onboarding_explored',
 
   NotificationsPermissionPrompted: 'notifications_permission_prompted',
   NotificationsPermissionResult: 'notifications_permission_result',

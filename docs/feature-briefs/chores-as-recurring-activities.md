@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-foundation, brief-household-activity-assignment, brief-family-screen-time-controls, brief-shared-household-device-profiles]
 owner: andrew
-last_updated: 2026-08-18
+last_updated: 2026-08-19
 ---
 
 # Chores as Activity-backed Household Work
@@ -87,6 +87,7 @@ One qualifying completion:
 - Chores is a direct capability in the main capability menu rather than a subsection of To-dos.
 - Chores uses the quiet inventory grammar of Groceries and To-dos: a simple header, grouped shared rows, direct completion, and no dashboard chrome.
 - The caregiver inventory is a list of stable chore series, not a list of today's occurrences. Tapping a caregiver row opens the full-height root chore editor immediately, with title, assignee, recurrence, definition of done, independent **Photo** and **Approval** policies, and optional reward ready to modify. Saving changes the series used to generate future occurrences and never rewrites completed occurrence receipts.
+- The caregiver inventory defaults to **Group by Member**, producing named-child sections in Household member order followed by **Household**. The standard inventory rail keeps filtering and grouping distinct: the funnel narrows which assignee is shown, while the layers control switches immediately between **Member** and **None**. Grouped rows omit their redundant assignee pill; the flat list restores it. Grouping is local view state and does not create a saved view, assignment rule, ranking, or workload comparison.
 - Child rows remain occurrence projections. Their detail drawer owns completion, evidence, approval state, and the truthful receipt for that specific performance. A later **Recent activity** disclosure may expose series-scoped occurrence history, but history must remain secondary to root-chore management and must not turn the caregiver inventory into a performance dashboard.
 - The child-facing sections are **My chores** for assigned/claimed occurrences and **Choose a chore** for currently available open work with a direct **Take** action.
 - To-dos continues to present personal Activity responsibility and canonical occurrence completion.
@@ -193,6 +194,7 @@ See [Learning Release: Child-readable Chore Agreement](../design-explorations/ch
 - **Accepted bottom-surface contract:** the child has no fixed agreement bar. When digital rewards are enabled, a single circular wallet action opens the Rewards drawer; the chore inventory remains the first focal point.
 - **Accepted review contract:** the learning adapter simulates a caregiver actor, numbered app-icon and capability-menu badges, red review-action dot, one/many approval drawer, approval, and **Needs another pass**. The app-icon badge mirrors the unresolved caregiver review count while the app runs; it does not simulate caregiver authentication, background push delivery, a notification banner, or sound.
 - **Accepted caregiver-dock contract:** the caregiver projection directly reuses `QuickAddDock` for **Add a chore**, places conditional **Review requests** and enabled **Rewards** circles immediately left of the stable far-right Chat circle, and removes the separate Chores `BottomGuide`. The child receives only the Rewards circle when the Labs program is enabled.
+- **Accepted caregiver grouping contract:** the inventory opens grouped by **Member**, with named children in Household order and **Household** last. A standard layers control offers immediate **Member** and **None** choices beside the existing filter. Section identity replaces repeated row assignee pills while grouped; no collapse, saved view, custom order, or comparison metric is added.
 - **Accepted editor contract:** direct submit opens the actual **New chore** editor immediately and does not add anything to the inventory. The editor remains editable while the canonical loader shows **Adding details…**; asynchronous enrichment may fill only untouched fields. **Add chore** is the first commit.
 - **Accepted recurrence contract:** Chores directly reuses the To-do recurrence types, labels, preset/custom editor, and one-active-occurrence lifecycle. **Start fresh next time** is the scheduled default; **Keep open until done** uses completion-relative recurrence. Trusted completion advances immediately; review-required completion advances only after caregiver approval. Missed copies do not pile up, and missed scheduled work is reconciled without credit.
 - **Accepted AI-authoring contract:** Chores reuses the existing steps/triggers/details enrichment boundary, ignores unrelated To-do enrichment fields, uses visible **Household** and **One time** fallbacks, and never lets AI invent household consequences. Save or dismissal invalidates late results.

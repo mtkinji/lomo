@@ -9,15 +9,17 @@ const require = createRequire(import.meta.url);
 const { buildScreenTimeProtectionSwift } = require('../plugins/withAppleEcosystemIntegrations.js');
 const { infoPlist } = require('../plugins/appleEcosystem/screenTimeShieldExtensions.js');
 
-test('every Kwilt shield uses the non-semantic dark blur so pine700 remains visibly green', () => {
-  assert.match(generator, /backgroundBlurStyle: \.dark,/);
+test('every Kwilt shield renders solid pine700 without a darkening blur', () => {
+  assert.match(generator, /backgroundBlurStyle: nil,/);
   assert.doesNotMatch(generator, /backgroundBlurStyle: isMoney/);
 });
 
-test('every Kwilt shield uses pine700 for the shield and primary action', () => {
+test('every Kwilt shield uses pine700 with the standard dark Kwilt primary action', () => {
   assert.match(generator, /private let pine = UIColor\(red: 0\.192, green: 0\.333, blue: 0\.271, alpha: 1\.0\)/);
+  assert.match(generator, /private let primaryAction = UIColor\(red: 0\.110, green: 0\.102, blue: 0\.098, alpha: 1\.0\)/);
   assert.match(generator, /backgroundColor: pine,/);
-  assert.match(generator, /primaryButtonLabel: ShieldConfiguration\.Label\(text: KwiltShieldCopy\.buttonLabel\(for: reason\), color: pine\),/);
+  assert.match(generator, /primaryButtonLabel: ShieldConfiguration\.Label\(text: KwiltShieldCopy\.buttonLabel\(for: reason\), color: UIColor\.white\),/);
+  assert.match(generator, /primaryButtonBackgroundColor: primaryAction,/);
   assert.doesNotMatch(generator, /quiltBlue|0\.106, green: 0\.157, blue: 0\.227/);
 });
 
@@ -93,7 +95,7 @@ test('the app bridge and extensions render the same concrete App Group', () => {
 test('the shield and action extension resolve the same highest-priority matching reason', () => {
   assert.match(generator, /matchingRestrictions/);
   assert.match(generator, /priority\(for reason:/);
-  assert.match(generator, /things before/);
-  assert.match(generator, /more rules will still apply/);
+  assert.match(generator, /let reason = restrictions\.first\?\.reason/);
+  assert.match(generator, /KwiltReviewRequest\.record\(restrictions: restrictions\)/);
   assert.match(generator, /buttonLabel\(for reason:/);
 });

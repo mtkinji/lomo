@@ -17,6 +17,7 @@ import {
   setChoreRewardExchangeRate,
   setChoreTokensEnabled,
   settleChoreRewardPayout,
+  settleChoreRewardPayouts,
   setChoreEvidencePhoto,
   takeChoreOccurrence,
   type ChoreLearningRecord,
@@ -39,6 +40,7 @@ type ChoreLearningState = {
   requestRedemption: (tokenAmount: number, requestedAtIso: string, idSeed: string) => void;
   cancelRedemption: (payoutId: string, cancelledAtIso: string) => void;
   settlePayout: (payoutId: string, settledAtIso: string) => void;
+  settlePayouts: (payoutIds: string[], settledAtIso: string) => void;
   setEvidencePhoto: (activityOccurrenceId: string, evidencePhotoUri: string | null) => void;
   approve: (activityOccurrenceId: string, reviewedAtIso: string) => void;
   requestAnotherPass: (
@@ -129,6 +131,14 @@ export const useChoreLearningStore = create<ChoreLearningState>()(
           state.record,
           state.record.activeMemberId,
           payoutId,
+          settledAtIso,
+        ),
+      })),
+      settlePayouts: (payoutIds, settledAtIso) => set((state) => ({
+        record: settleChoreRewardPayouts(
+          state.record,
+          state.record.activeMemberId,
+          payoutIds,
           settledAtIso,
         ),
       })),

@@ -10,9 +10,46 @@ import {
   getActivePersonalScreenTimeRestrictions,
   getActiveRestrictionReasons,
   normalizeScreenTimeProtectionSettings,
+  type PersonalScreenTimeRule,
   type ScreenTimeProtectionSettings,
   type ScreenTimeRestrictionReason,
 } from './screenTimeProtection';
+
+export async function activatePersonalScreenTimeRule(params: {
+  rule: PersonalScreenTimeRule;
+  focusSessionActive: boolean;
+}): Promise<boolean> {
+  const { rule } = params;
+  if (!rule.enabled) return true;
+  if (rule.kind === 'daily_limit') {
+    return applyPersonalScreenTimeUsageLimit({
+      settings: {
+        selectedApps: rule.selectedApps,
+        selectedCategories: rule.selectedCategories,
+      },
+      selectionId: rule.selectionId,
+      ruleId: rule.id,
+      limitMinutes: rule.limitMinutes,
+      reset: rule.reset,
+      restrictionLabel: 'Daily app limit',
+    }).catch(() => false);
+  }
+  if (rule.kind === 'focus' && !params.focusSessionActive) return true;
+  const reason: ScreenTimeRestrictionReason = rule.kind === 'focus'
+    ? 'focus_session_active'
+    : 'meaningful_first_locked';
+  return applyScreenTimeRestrictions({
+    settings: {
+      selectedApps: rule.selectedApps,
+      selectedCategories: rule.selectedCategories,
+    },
+    reasons: [reason],
+    selectionId: rule.selectionId,
+    ruleId: rule.id,
+    reason,
+    restrictionLabel: rule.kind === 'focus' ? 'Focus' : 'A real step',
+  }).catch(() => false);
+}
 
 type ScreenTimeProtectionBridge = {
   apply: (params: {

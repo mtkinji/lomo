@@ -97,7 +97,11 @@ export function BottomDrawerHeader({
       ]}
     >
       <HStack alignItems="center" justifyContent="space-between">
-        {effectiveLeftAction ? <View style={styles.actionSlot}>{effectiveLeftAction}</View> : null}
+        {effectiveLeftAction ? (
+          <View testID="bottom-drawer.header-left-action" style={[styles.actionSlot, styles.leftActionSlot]}>
+            {effectiveLeftAction}
+          </View>
+        ) : null}
         <VStack space="xs" style={styles.titleStack} alignItems={stackAlign}>
           {renderTitle()}
           {subtitle ? (
@@ -107,7 +111,9 @@ export function BottomDrawerHeader({
           ) : null}
         </VStack>
         {effectiveRightAction ? (
-          <View style={styles.actionSlot}>{effectiveRightAction}</View>
+          <View testID="bottom-drawer.header-right-action" style={[styles.actionSlot, styles.rightActionSlot]}>
+            {effectiveRightAction}
+          </View>
         ) : null}
       </HStack>
       {showDivider ? <View style={styles.divider} /> : null}
@@ -144,6 +150,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  leftActionSlot: { marginLeft: -spacing.md },
+  rightActionSlot: { marginRight: -spacing.md },
   divider: {
     marginTop: spacing.sm,
     height: 1,

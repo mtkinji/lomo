@@ -5,7 +5,7 @@ import { BottomDrawerHeader } from './BottomDrawerHeader';
 
 describe('BottomDrawerHeader', () => {
   it('uses the compact standard drawer title by default', () => {
-    const { getByText } = renderWithProviders(
+    const { getByTestId, getByText } = renderWithProviders(
       <BottomDrawerHeader title="Choose category" variant="withClose" onClose={jest.fn()} />,
     );
 
@@ -13,6 +13,8 @@ describe('BottomDrawerHeader', () => {
       fontFamily: typography.titleSm.fontFamily,
       fontSize: typography.titleSm.fontSize,
     });
+    expect(StyleSheet.flatten(getByTestId('bottom-drawer.header-right-action').props.style))
+      .toMatchObject({ minWidth: 44, marginRight: -12 });
   });
 
   it('provides stable full-width immersive drawer chrome', () => {

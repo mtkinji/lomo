@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { useMemo } from "react";
 import {
   FlatList,
@@ -68,6 +69,7 @@ export function RecipeLibraryView({
   likedOnly,
   onToggleLiked,
   totalCount,
+  onboardingTargetRef,
 }: {
   recipes: RecipeProjection[];
   onOpen(recipeId: string): void;
@@ -89,6 +91,7 @@ export function RecipeLibraryView({
   likedOnly: boolean;
   onToggleLiked(): void;
   totalCount: number;
+  onboardingTargetRef?: RefObject<View | null>;
 }) {
   const hasFilters = countActiveRecipeInventoryFilters(filters) > 0;
   const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh });
@@ -159,6 +162,7 @@ export function RecipeLibraryView({
           onOpen={onOpen}
           onAddToPlan={onAddToPlan}
           isInPlan={isInPlan}
+          onboardingTargetRef={onboardingTargetRef}
         />
         {buildRecipeDiscoverySections(shelves, editorialPlacements).map(
           (section) => {
@@ -232,12 +236,13 @@ export function RecipeLibraryView({
           </Button>
         </View>
       }
-      renderItem={({ item }) => (
+      renderItem={({ item, index }) => (
         <RecipeCard
           projection={item}
           onOpen={onOpen}
           onAddToPlan={onAddToPlan}
           isInPlan={isInPlan(item)}
+          targetRef={index === 0 ? onboardingTargetRef : undefined}
         />
       )}
       />

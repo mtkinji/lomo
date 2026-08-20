@@ -1,5 +1,8 @@
 export type MoneyStackParamList = {
-  MoneySummary: undefined;
+  MoneySummary: {
+    entryIntent?: 'app-control-onboarding';
+    devBudgetState?: 'none';
+  } | undefined;
   MoneyTransactions: {
     accountId?: string;
     categoryId?: string;
@@ -18,6 +21,7 @@ export type MoneyStackParamList = {
     categoryId: string;
     suggestedPreset?: 'always_review' | 'when_hot' | 'at_95_percent' | 'when_over' | 'needs_review';
     suggestedAppLabels?: string[];
+    source?: 'capability-onboarding';
   };
   MoneyLivingPlan: undefined;
   MoneyLivingPlanReceipt: { receiptId: string };

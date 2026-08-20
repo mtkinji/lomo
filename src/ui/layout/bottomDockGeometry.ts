@@ -16,6 +16,17 @@ export function resolveDrawerActionInlinePadding(parentInlineInset: number): num
   return Math.max(0, bottomDockGeometry.drawerAction.inlineGap - parentInlineInset);
 }
 
+export function resolveDrawerFloatingActionInlinePadding(parentInlineInset: number): number {
+  return Math.max(0, bottomDockGeometry.drawerFloatingAction.inlineGap - parentInlineInset);
+}
+
+export function resolveDrawerFloatingActionBottomInset(safeAreaBottom: number): number {
+  return Math.max(
+    bottomDockGeometry.drawerFloatingAction.bottomGap,
+    resolvePhoneFloatingBottomInset(safeAreaBottom),
+  );
+}
+
 export function resolveDrawerActionBottomPadding(
   parentBottomInset: number,
   safeAreaBottom: number,

@@ -17,7 +17,10 @@ import {
   presentScreenTimeActivityPicker,
   requestScreenTimeAuthorization,
 } from '../../../services/appleEcosystem/screenTimeProtection';
-import { reconcileScreenTimeRestrictions } from '../../../services/screenTimeProtectionRuntime';
+import {
+  activatePersonalScreenTimeRule,
+  reconcileScreenTimeRestrictions,
+} from '../../../services/screenTimeProtectionRuntime';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
@@ -135,23 +138,36 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
     if (!kind || count === 0 || saving) return;
     setSaving(true);
     const nowIso = new Date().toISOString();
+    const nextRule = createPersonalScreenTimeRule({
+      id: draftRuleId,
+      selectionId: draftRuleId,
+      kind,
+      selectedApps: targets.selectedApps,
+      selectedCategories: targets.selectedCategories,
+      enabled: true,
+      setupCompleted: true,
+      limitMinutes: kind === 'daily_limit' ? suggestedLimitMinutes : undefined,
+      nowIso,
+    });
     const result = addPersonalScreenTimeRule(
       normalizeScreenTimeProtectionSettings(useAppStore.getState().screenTimeProtection),
-      createPersonalScreenTimeRule({
-        id: draftRuleId,
-        selectionId: draftRuleId,
-        kind,
-        selectedApps: targets.selectedApps,
-        selectedCategories: targets.selectedCategories,
-        enabled: true,
-        setupCompleted: true,
-        limitMinutes: kind === 'daily_limit' ? suggestedLimitMinutes : undefined,
-        nowIso,
-      }),
+      nextRule,
     );
     if (result.status === 'duplicate_rule') {
       setSaving(false);
       Alert.alert('Rule already exists', 'The same apps and condition are already saved.');
+      return;
+    }
+    const enforced = await activatePersonalScreenTimeRule({
+      rule: nextRule,
+      focusSessionActive: false,
+    });
+    if (!enforced) {
+      setSaving(false);
+      Alert.alert(
+        'Couldn’t turn on this rule',
+        'Kwilt did not receive confirmation from Screen Time. Try again before leaving setup.',
+      );
       return;
     }
     setSettings(result.settings);

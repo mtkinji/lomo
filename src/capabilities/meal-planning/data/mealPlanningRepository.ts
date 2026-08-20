@@ -23,7 +23,7 @@ export type MealPlanCandidateDraft = {
 
 export type MealPlanProjection = {
   id: string;
-  householdId: string;
+  householdId: string | null;
   version: number;
   state: 'draft' | 'collecting_choices' | 'ready_to_finalize' | 'finalized' | 'archived';
   horizon: MealPlanHorizon;
@@ -89,7 +89,7 @@ export function mapMealPlanRow(row: any): MealPlanProjection {
   const occasions = allOccasions.filter((occasion) => snapshotVersion === null || Number(occasion.plan_version) === snapshotVersion).sort((a, b) => Number(a.position) - Number(b.position));
   const rounds = Array.isArray(row.rounds) ? [...row.rounds].sort((a, b) => String(b.opened_at).localeCompare(String(a.opened_at))) : [];
   return {
-    id: row.id, householdId: row.household_id, version: row.version, state: row.state,
+    id: row.id, householdId: typeof row.household_id === 'string' ? row.household_id : null, version: row.version, state: row.state,
     horizon: validateMealPlanHorizon(row.horizon),
     candidates: candidates.map((candidate: any) => ({ id: candidate.id, kind: candidate.kind, title: candidate.title, recipeSnapshot: candidate.recipe_snapshot ?? null })),
     entries: entries.map((entry) => ({ id: String(entry.id), candidateId: String(entry.candidate_id), title: String(entry.title), servings: entry.servings === null ? null : Number(entry.servings), placementDate: typeof entry.placement_date === 'string' ? entry.placement_date : null, occasionId: typeof entry.occasion_id === 'string' ? entry.occasion_id : null, dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids.filter((id): id is string => typeof id === 'string') : [], recipeSnapshot: entry.recipe_snapshot && typeof entry.recipe_snapshot === 'object' ? entry.recipe_snapshot as Record<string, unknown> : null })),
@@ -189,8 +189,15 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
       if (error) throw new Error(error.message);
       return (data ?? []).map(mapMealPlanRow);
     },
-    create(input: { householdId: string; horizon: MealPlanHorizon; candidates: MealPlanCandidateDraft[] }) {
-      return rpc(client, 'create_kwilt_meal_plan', { p_household_id: input.householdId, p_horizon: validateMealPlanHorizon(input.horizon), p_candidate_snapshots: input.candidates });
+    create(input: { householdId?: string | null; horizon: MealPlanHorizon; candidates: MealPlanCandidateDraft[] }) {
+      return rpc(client, 'create_kwilt_meal_plan', { p_household_id: input.householdId ?? null, p_horizon: validateMealPlanHorizon(input.horizon), p_candidate_snapshots: input.candidates });
+    },
+    attachToHousehold(input: { planId: string; expectedVersion: number; householdId: string }) {
+      return rpc(client, 'attach_kwilt_meal_plan_to_household', {
+        p_plan_id: input.planId,
+        p_expected_version: input.expectedVersion,
+        p_household_id: input.householdId,
+      });
     },
     update(input: { planId: string; expectedVersion: number; horizon?: MealPlanHorizon; candidates?: MealPlanCandidateDraft[] }) {
       return rpc(client, 'update_kwilt_meal_plan', { p_plan_id: input.planId, p_expected_version: input.expectedVersion, p_patch: { ...(input.horizon ? { horizon: validateMealPlanHorizon(input.horizon) } : {}), ...(input.candidates ? { candidates: input.candidates } : {}) } });

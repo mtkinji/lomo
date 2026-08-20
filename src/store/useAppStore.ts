@@ -67,6 +67,7 @@ import {
   normalizeQuickAddAiActionPreferences,
   type QuickAddAiActionPreference,
 } from './uiPreferences';
+import { resetCapabilityOnboardingForUser } from '../features/capability-onboarding/useCapabilityOnboardingStore';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 export type { QuickAddAiActionPreference } from './uiPreferences';
@@ -316,6 +317,7 @@ export async function switchDomainUser(userId: string | null): Promise<boolean> 
  * Preserves device-level settings (haptics, notifications, location, focus prefs).
  */
 export function resetUserSpecificState(): void {
+  const outgoingUserId = useAppStore.getState().authIdentity?.userId;
   const currentMonthKey = getMonthKey(new Date());
   useAppStore.setState({
     userProfile: buildDefaultUserProfile(),
@@ -378,6 +380,7 @@ export function resetUserSpecificState(): void {
   // Clear user-specific external persisted stores.
   useCheckinNudgeStore.getState().reset();
   useMilestoneSharePromptStore.getState().reset();
+  resetCapabilityOnboardingForUser(outgoingUserId);
 }
 
 export type ActivityTagUsage = {

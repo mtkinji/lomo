@@ -1,4 +1,4 @@
-import { Alert, ScrollView, Share, StyleSheet, View, Pressable, TextInput, Switch } from 'react-native';
+import { Alert, InteractionManager, ScrollView, Share, StyleSheet, View, Pressable, TextInput, Switch } from 'react-native';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,6 +57,10 @@ import {
   buildOnDeviceTitleGateBenchmarkPayload,
 } from '../unifiedChat/onDeviceGenerationBenchmark';
 import { LaunchTransitionLab } from './LaunchTransitionLab';
+import { CapabilityOnboardingHost } from '../capability-onboarding/CapabilityOnboardingHost';
+import { useCapabilityOnboardingStore } from '../capability-onboarding/useCapabilityOnboardingStore';
+import { buildCapabilityOnboardingNavigationTarget } from '../capability-onboarding/capabilityOnboardingNavigationTarget';
+import { useCapabilityMenuActions } from '../../navigation/CapabilityMenuStateContext';
 
 type DevToolSectionId = 'seed' | 'preview' | 'simulate' | 'experiments' | 'diagnostics';
 
@@ -193,6 +197,7 @@ export function DevToolsScreen() {
   const devSetIsPro = useEntitlementsStore((state) => state.devSetIsPro);
   const devClearProOverride = useEntitlementsStore((state) => state.devClearProOverride);
   const authUserId = useAppStore((state) => state.authIdentity?.userId ?? 'signed-out');
+  const { openMenu } = useCapabilityMenuActions();
 
   const [chatHistory, setChatHistory] = useState<DevCoachChatLogEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -217,6 +222,8 @@ export function DevToolsScreen() {
   const [healthChapterSeeding, setHealthChapterSeeding] = useState(false);
   const [onDeviceBenchmarkRunning, setOnDeviceBenchmarkRunning] = useState(false);
   const [launchTransitionLabVisible, setLaunchTransitionLabVisible] = useState(false);
+  const [capabilityOnboardingVisible, setCapabilityOnboardingVisible] = useState(false);
+  const [capabilityOnboardingMoneyBudgetState, setCapabilityOnboardingMoneyBudgetState] = useState<'current' | 'none'>('current');
   useEffect(() => {
     if ((route.params as { launchTransition?: string } | undefined)?.launchTransition === '1') {
       setLaunchTransitionLabVisible(true);
@@ -1151,18 +1158,34 @@ export function DevToolsScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardEyebrow}>Guided Overture onboarding lab</Text>
+              <Text style={styles.cardEyebrow}>Capability onboarding rehearsal</Text>
               <Text style={styles.cardBody}>
-                Step through the suite introduction at your own pace, then continue in Agent with
-                the selected task already in context. This does not change current first-time UX.
+                Play the production-shaped Welcome and complete outcome chooser. Only paths with a
+                current typed contract appear; unfinished paths remain out of production.
               </Text>
               <Button
-                testID="dev.guidedOverture.open"
+                testID="dev.capabilityOnboarding.open"
                 variant="accent"
-                onPress={() => navigation.navigate('GuidedOvertureLab', { sessionId: Date.now() })}
+                onPress={() => {
+                  useCapabilityOnboardingStore.getState().resetUser(authUserId);
+                  setCapabilityOnboardingMoneyBudgetState('current');
+                  setCapabilityOnboardingVisible(true);
+                }}
                 style={styles.cardAction}
               >
-                <ButtonLabel size="md" tone="inverse">Play Guided Overture</ButtonLabel>
+                <ButtonLabel size="md" tone="inverse">Play capability onboarding</ButtonLabel>
+              </Button>
+              <Button
+                testID="dev.capabilityOnboarding.openNoBudgets"
+                variant="secondary"
+                onPress={() => {
+                  useCapabilityOnboardingStore.getState().resetUser(authUserId);
+                  setCapabilityOnboardingMoneyBudgetState('none');
+                  setCapabilityOnboardingVisible(true);
+                }}
+                style={styles.cardAction}
+              >
+                <ButtonLabel size="md">Play with no budgets</ButtonLabel>
               </Button>
             </View>
 
@@ -1688,6 +1711,38 @@ export function DevToolsScreen() {
       <LaunchTransitionLab
         visible={launchTransitionLabVisible}
         onClose={() => setLaunchTransitionLabVisible(false)}
+      />
+      <CapabilityOnboardingHost
+        visible={capabilityOnboardingVisible}
+        userId={authUserId}
+        surface="development"
+        onStartPath={(path) => {
+          setCapabilityOnboardingVisible(false);
+          const target = buildCapabilityOnboardingNavigationTarget(path.handoff, {
+            moneyBudgetState: capabilityOnboardingMoneyBudgetState,
+          });
+          if (target?.root === 'FirstTimeUx') {
+            handleTriggerFirstTimeUx();
+            return;
+          }
+          if (target?.root === 'Money') {
+            navigation.navigate(target.root, target.params);
+            return;
+          }
+          if (target?.root === 'Food') {
+            navigation.navigate(target.root, target.params);
+            return;
+          }
+          if (target?.root === 'UnifiedChat') {
+            navigation.navigate(target.root, target.params);
+            return;
+          }
+          showDevToast('That capability is not in this rehearsal yet.', 'warning');
+        }}
+        onExploreKwilt={() => {
+          setCapabilityOnboardingVisible(false);
+          InteractionManager.runAfterInteractions(openMenu);
+        }}
       />
     </AppShell>
   );

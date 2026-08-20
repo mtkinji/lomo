@@ -22,12 +22,16 @@ briefs:
   - on-device-generative-routing
   - todo-contextual-chat
 status: shipping
-last_reviewed: 2026-08-15
+last_reviewed: 2026-08-19
 ---
 
 # Unified Chat
 
 Standalone, durable, multi-conversation Chat powered by the extracted shared agent workbench and evolving into the first channel over Kwilt's capability-complete agent runtime.
+
+The capability-onboarding development rehearsal opens Chat as a fresh thread with no synthetic
+message or injected draft. The door inherits Chat's existing evidence, confirmation, mutation,
+receipt, recovery, and privacy boundaries; opening Chat is not itself first-value completion.
 
 ## Delivery state
 

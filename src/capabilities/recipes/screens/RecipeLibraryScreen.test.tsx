@@ -1,6 +1,6 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
-import { StyleSheet } from 'react-native';
+import { createRef, type ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 type MockBottomDrawerProps = {
   visible: boolean;
@@ -140,6 +140,21 @@ describe('Recipe library', () => {
     expect(screen.queryByText('Your saved recipes are here while Kwilt refreshes.')).toBeNull();
     fireEvent.press(screen.getByLabelText("Open Grandma Ruth's Cake"));
     expect(onOpen).toHaveBeenCalledWith(projection.recipe.id);
+  });
+
+  it('can attach onboarding guidance to a real recipe card', () => {
+    const recipes = buildRecipeLibraryInventory([]);
+    const targetRef = createRef<View>();
+    const screen = render(
+      <RecipeLibraryView
+        {...viewProps}
+        recipes={recipes}
+        onboardingTargetRef={targetRef}
+      />,
+    );
+
+    expect(targetRef.current).toBeTruthy();
+    expect(screen.getAllByTestId(/^recipe-card-recommended-/)[0]).toHaveProp('collapsable', false);
   });
 
   it('uses the borderless Goals card grammar for ordinary and recommended recipes', () => {

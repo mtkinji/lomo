@@ -6,6 +6,7 @@ import { resetChoreLearningStoreForTests, useChoreLearningStore } from '../runti
 import { formatChoreEventTimestamp } from '../components/choreDetailPresentation';
 import { projectChoreRewards } from '../domain/choreLearning';
 import { useAppStore } from '../../../store/useAppStore';
+import { useToastStore } from '../../../store/useToastStore';
 import { colors, typography } from '../../../theme';
 import { RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX } from '../../../ui/layout/restingComposerMetrics';
 
@@ -18,6 +19,12 @@ let mockCapabilityMenuOpen = false;
 let mockActiveCapabilityId: 'chores' | null = 'chores';
 const mockEnrichActivityWithAI = jest.fn();
 const testNow = () => new Date('2026-08-17T18:00:00.000Z');
+
+type NativeTestTreeNode = {
+  type: unknown;
+  children: Array<NativeTestTreeNode | string>;
+  findAll: (predicate: (node: NativeTestTreeNode) => boolean) => NativeTestTreeNode[];
+};
 
 function renderDefaultChoresScreen() {
   return render(<ChoresScreen now={testNow} />);
@@ -161,6 +168,11 @@ describe('ChoresScreen', () => {
     mockLaunchImageLibraryAsync.mockResolvedValue({ canceled: true, assets: [] });
     mockEnrichActivityWithAI.mockResolvedValue(null);
     act(() => resetChoreLearningStoreForTests());
+    useToastStore.setState({
+      message: '',
+      suppressionKeys: {},
+      queuedToasts: [],
+    });
     useAppStore.setState({ authIdentity: null });
   });
 
@@ -236,34 +248,41 @@ describe('ChoresScreen', () => {
     ))).toBe(true);
   });
 
-  it('gives the caregiver one filterable routine inventory with assignee pills and cadence', () => {
+  it('groups the caregiver routine inventory by member and Household by default', () => {
     const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
     expect(screen.queryByText('Household chores')).toBeNull();
     expect(screen.getByLabelText('Filter chores, All chores')).toBeTruthy();
-    expect(screen.getByText('Feed Scout and refill the water bowl')).toBeTruthy();
-    expect(screen.getByText('Take the recycling to the blue bin')).toBeTruthy();
-    expect(screen.getAllByText('Charlie').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Household').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Grouping: Member')).toBeTruthy();
+    const charlie = within(screen.getByTestId('chores.group.member-charlie'));
+    const olive = within(screen.getByTestId('chores.group.member-olive'));
+    const household = within(screen.getByTestId('chores.group.household'));
+    expect(screen.getByRole('header', { name: 'Charlie chores' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Olive chores' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Household chores' })).toBeTruthy();
+    expect(charlie.getByText('Charlie')).toBeTruthy();
+    expect(charlie.getByText('Feed Scout and refill the water bowl')).toBeTruthy();
+    expect(olive.getByText('Olive')).toBeTruthy();
+    expect(olive.getByText('Fold and put away the clean towels')).toBeTruthy();
+    expect(household.getByText('Household')).toBeTruthy();
+    expect(household.getByText('Take the recycling to the blue bin')).toBeTruthy();
     expect(screen.getAllByText('Daily').length).toBeGreaterThan(0);
-    expect(screen.getAllByTestId('chores.assignee.member-charlie').length).toBeGreaterThan(0);
-    expect(screen.getAllByTestId('chores.assignee.household').length).toBeGreaterThan(0);
-    expect(screen.getAllByTestId('chores.assignee.household.icon').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('CH').length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('chores.assignee.member-charlie')).toBeNull();
+    expect(screen.queryByTestId('chores.assignee.household')).toBeNull();
     expect(within(screen.getByTestId(
       'chores.series.activity-series-breakfast-dishes',
     )).queryByText('Completed')).toBeNull();
 
     fireEvent.press(screen.getByLabelText('Filter chores, All chores'));
     fireEvent.press(screen.getByLabelText('Show Charlie chores'));
-    expect(screen.getByText('Feed Scout and refill the water bowl')).toBeTruthy();
+    expect(screen.getByTestId('chores.group.member-charlie')).toBeTruthy();
     expect(screen.queryByText('Fold and put away the clean towels')).toBeNull();
     expect(screen.queryByText('Take the recycling to the blue bin')).toBeNull();
   });
 
-  it('reuses the To-dos inventory rail treatment for the simplified chore filter', () => {
+  it('lets the caregiver remove grouping and restores assignee pills in the flat list', () => {
     const screen = renderDefaultChoresScreen();
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
     fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
@@ -272,6 +291,20 @@ describe('ChoresScreen', () => {
     expect(StyleSheet.flatten(screen.getByTestId('chores.inventory-filter').props.style)).toMatchObject({
       backgroundColor: colors.canvas,
     });
+    expect(StyleSheet.flatten(screen.getByTestId('chores.inventory-grouping').props.style)).toMatchObject({
+      backgroundColor: colors.sumi900,
+    });
+    expect(within(screen.getByTestId('chores.inventory-grouping')).getByText('1')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Grouping: Member'));
+    fireEvent.press(screen.getByLabelText('Do not group chores'));
+
+    expect(screen.getByLabelText('Group chores')).toBeTruthy();
+    expect(screen.queryByTestId('chores.group.member-charlie')).toBeNull();
+    expect(screen.getAllByTestId('chores.assignee.member-charlie').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('chores.assignee.household').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('chores.assignee.household.icon').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('CH').length).toBeGreaterThan(0);
 
     fireEvent.press(screen.getByLabelText('Filter chores, All chores'));
     fireEvent.press(screen.getByLabelText('Show Charlie chores'));
@@ -281,6 +314,24 @@ describe('ChoresScreen', () => {
       backgroundColor: colors.sumi900,
     });
     expect(within(screen.getByTestId('chores.inventory-filter')).getByText('1')).toBeTruthy();
+  });
+
+  it('renders the Household filter identity without a raw native text child', () => {
+    const screen = renderDefaultChoresScreen();
+    fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
+    fireEvent.press(screen.getByLabelText('Filter chores, All chores'));
+
+    const householdOption = screen.getByLabelText(
+      'Show household chores',
+    ) as unknown as NativeTestTreeNode;
+    const rawViewText = householdOption
+      .findAll((node) => node.type === 'View')
+      .flatMap((node) => node.children.filter(
+        (child) => typeof child === 'string',
+      ));
+
+    expect(rawViewText).toEqual([]);
   });
 
   it('opens a caregiver row as the editable root chore rather than an occurrence receipt', () => {
@@ -608,9 +659,12 @@ describe('ChoresScreen', () => {
 
     fireEvent.press(screen.getByLabelText('Open rewards wallet'));
     const rewards = within(screen.getByTestId('chores.rewards.drawer'));
-    expect(rewards.getByText('8 tokens')).toBeTruthy();
-    expect(rewards.getByText('Worth $6.00')).toBeTruthy();
-    expect(rewards.getByLabelText('Set aside 4 tokens for $3.00')).toBeTruthy();
+    expect(rewards.getByText('Tokens')).toBeTruthy();
+    expect(rewards.getByText('8')).toBeTruthy();
+    expect(rewards.getByText('Value')).toBeTruthy();
+    expect(rewards.getByText('$6.00')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Redeem tokens'));
+    expect(screen.getByLabelText('Redeem 4 tokens for $3.00')).toBeTruthy();
   });
 
   it('sets tokens aside for redemption without removing the child’s ownership', () => {
@@ -622,36 +676,55 @@ describe('ChoresScreen', () => {
     const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Open rewards wallet'));
-    fireEvent.press(screen.getByLabelText('Set aside 4 tokens for $2.00'));
+    fireEvent.press(screen.getByLabelText('Redeem tokens'));
+    fireEvent.press(screen.getByLabelText('Redeem 4 tokens for $2.00'));
 
     const drawer = within(screen.getByTestId('chores.rewards.drawer'));
-    expect(drawer.getByText('4 tokens set aside · 8 tokens total')).toBeTruthy();
-    expect(drawer.getByText('Waiting for $2.00')).toBeTruthy();
-    expect(drawer.getByText('4 tokens are still yours and set aside.')).toBeTruthy();
-    fireEvent.press(drawer.getByLabelText('Cancel redemption for 4 tokens'));
-    expect(drawer.getByText('8 tokens')).toBeTruthy();
+    expect(drawer.getByText('Tokens')).toBeTruthy();
+    expect(drawer.getByText('4')).toBeTruthy();
+    expect(drawer.getByText('4 tokens')).toBeTruthy();
+    expect(drawer.getByText('Waiting to be paid')).toBeTruthy();
+    fireEvent.press(drawer.getByLabelText('View 4 tokens waiting to be paid'));
+    expect(drawer.getByText('Waiting for caregiver')).toBeTruthy();
+    expect(drawer.queryByText('Your tokens are still yours while you wait.')).toBeNull();
+    fireEvent.press(drawer.getByLabelText('Cancel $2.00 redemption'));
+    expect(drawer.getByText('8')).toBeTruthy();
   });
 
   it('lets the caregiver record payment and only then redeems the set-aside tokens', () => {
     act(() => {
       useChoreLearningStore.getState().selectMember('member-andrew');
       useChoreLearningStore.getState().setTokensEnabled(true);
+      useChoreLearningStore.getState().setRewardExchangeRate(75);
       useChoreLearningStore.getState().selectMember('member-charlie');
       useChoreLearningStore.getState().requestRedemption(
-        4,
+        2,
         '2026-08-18T16:00:00.000Z',
-        'screen-redemption',
+        'screen-redemption-one',
+      );
+      useChoreLearningStore.getState().selectMember('member-andrew');
+      useChoreLearningStore.getState().setRewardExchangeRate(50);
+      useChoreLearningStore.getState().selectMember('member-charlie');
+      useChoreLearningStore.getState().requestRedemption(
+        2,
+        '2026-08-18T16:05:00.000Z',
+        'screen-redemption-two',
       );
       useChoreLearningStore.getState().selectMember('member-andrew');
     });
     const screen = render(<ChoresScreen now={() => new Date('2026-08-18T17:00:00.000Z')} />);
 
-    fireEvent.press(screen.getByLabelText('1 reward payout waiting'));
+    fireEvent.press(screen.getByLabelText('1 reward payment waiting'));
     const drawer = within(screen.getByTestId('chores.rewards.drawer'));
-    expect(drawer.getByText('$2.00 for Charlie')).toBeTruthy();
-    fireEvent.press(drawer.getByLabelText('Mark $2.00 paid to Charlie'));
+    expect(drawer.getByText('$2.50 for Charlie')).toBeTruthy();
+    expect(drawer.getByText('4 tokens set aside')).toBeTruthy();
+    fireEvent.press(drawer.getByLabelText('Mark $2.50 paid to Charlie'));
 
-    expect(drawer.getByText('Nothing is waiting')).toBeTruthy();
+    expect(drawer.getByText('All paid up')).toBeTruthy();
+    expect(useToastStore.getState()).toMatchObject({
+      message: 'All set — $2.50 for Charlie is marked paid.',
+      variant: 'success',
+    });
     expect(projectChoreRewards(
       useChoreLearningStore.getState().record,
       'member-charlie',

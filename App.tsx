@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { LogBox, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Device from 'expo-device';
@@ -24,7 +24,10 @@ import {
 import { PostHogProvider } from 'posthog-react-native';
 import { RootNavigator, RootNavigatorWithPostHog } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
-import { FirstTimeUxFlow } from './src/features/onboarding/FirstTimeUxFlow';
+import {
+  FirstTimeUxFlow,
+  type FirstTimeUxCapabilityReceipt,
+} from './src/features/onboarding/FirstTimeUxFlow';
 import { useAppStore } from './src/store/useAppStore';
 import { useEntitlementsStore } from './src/store/useEntitlementsStore';
 import { NotificationService } from './src/services/NotificationService';
@@ -83,6 +86,7 @@ import { Text } from './src/ui/primitives';
 import { getAuthRuntimeDiagnostics } from './src/utils/getEnv';
 import { developmentNotificationLogFilters } from './src/services/notifications/developmentNotificationLogFilters';
 import { markAppStarted } from './src/services/performance/startupTelemetry';
+import { useCapabilityOnboardingStore } from './src/features/capability-onboarding/useCapabilityOnboardingStore';
 
 LogBox.ignoreLogs(developmentNotificationLogFilters({
   isDev: __DEV__,
@@ -125,6 +129,12 @@ export default function App() {
   const setAuthIdentity = useAppStore((state) => state.setAuthIdentity);
   const clearAuthIdentity = useAppStore((state) => state.clearAuthIdentity);
   const authIdentity = useAppStore((state) => state.authIdentity);
+  const selectedCapabilityOnboardingPathId = useCapabilityOnboardingStore((state) =>
+    authIdentity?.userId
+      ? state.recordsByUserId[authIdentity.userId]?.selectedPathId ?? null
+      : null,
+  );
+  const dispatchCapabilityOnboarding = useCapabilityOnboardingStore((state) => state.dispatch);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const didRunAppInitRef = useRef(false);
 
@@ -524,6 +534,24 @@ export default function App() {
     // hasCompletedFirstTimeOnboarding is already set by ReturningUserPermissionsFlow
   };
 
+  const handleCapabilityOnboardingComplete = useCallback(
+    (receipt: FirstTimeUxCapabilityReceipt) => {
+      if (!authIdentity?.userId) return;
+      dispatchCapabilityOnboarding(authIdentity.userId, {
+        type: 'complete-path',
+        pathId: receipt.pathId,
+        receiptId: receipt.receiptId,
+        now: Date.now(),
+      });
+    },
+    [authIdentity?.userId, dispatchCapabilityOnboarding],
+  );
+
+  const firstTimeUxEntryMode =
+    selectedCapabilityOnboardingPathId === 'make-progress'
+      ? 'capability-path' as const
+      : 'legacy-first-run' as const;
+
   if (!fontsLoaded) {
     return null;
   }
@@ -615,7 +643,10 @@ export default function App() {
       debug={__DEV__ && isPosthogDebugEnabled}
     >
       <RootNavigatorWithPostHog />
-      <FirstTimeUxFlow />
+      <FirstTimeUxFlow
+        entryMode={firstTimeUxEntryMode}
+        onCapabilityComplete={handleCapabilityOnboardingComplete}
+      />
       <CelebrationInterstitialHost />
       <PartnerProgressGuideHost />
       <GlobalSearchDrawer />
@@ -623,7 +654,10 @@ export default function App() {
   ) : (
     <>
       <RootNavigator />
-      <FirstTimeUxFlow />
+      <FirstTimeUxFlow
+        entryMode={firstTimeUxEntryMode}
+        onCapabilityComplete={handleCapabilityOnboardingComplete}
+      />
       <CelebrationInterstitialHost />
       <PartnerProgressGuideHost />
       <GlobalSearchDrawer />

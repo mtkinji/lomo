@@ -19,9 +19,11 @@ export type BrandBackgroundColor =
   | 'canvas'
   | 'card'
   | 'cardMuted'
+  | 'parchment'
   | 'accent'
   | 'pine300'
   | 'pine400'
+  | 'pine700' // @kwilt-brand-moment: saturated Pine is available only for explicit full-screen brand moments.
   | 'accentRose'
   | 'accentRoseStrong'
   | 'indigo'

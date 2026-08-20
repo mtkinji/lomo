@@ -12,10 +12,11 @@ import {
   clearScreenTimeRestrictionsForSelection,
 } from './appleEcosystem/screenTimeProtection';
 import {
+  activatePersonalScreenTimeRule,
   applyMeaningfulFirstRestrictionsIfLocked,
   reconcileScreenTimeRestrictionsForSettings,
 } from './screenTimeProtectionRuntime';
-import { normalizeScreenTimeProtectionSettings } from './screenTimeProtection';
+import { createPersonalScreenTimeRule, normalizeScreenTimeProtectionSettings } from './screenTimeProtection';
 import { useAppStore } from '../store/useAppStore';
 
 const now = new Date('2026-06-19T12:00:00.000Z');
@@ -204,6 +205,23 @@ describe('screenTimeProtectionRuntime', () => {
       restrictionLabel: 'A real step',
     });
     expect(clearScreenTimeRestrictions).not.toHaveBeenCalled();
+  });
+
+  it('reports when a new Meaningful First rule was not enforced natively', async () => {
+    (applyScreenTimeRestrictions as jest.Mock).mockResolvedValueOnce(false);
+    const rule = createPersonalScreenTimeRule({
+      id: 'rule-news',
+      selectionId: 'rule-news',
+      kind: 'real_step',
+      selectedApps: [{ token: 'news', label: 'News' }],
+      selectedCategories: [],
+      enabled: true,
+      setupCompleted: true,
+      nowIso: now.toISOString(),
+    });
+
+    await expect(activatePersonalScreenTimeRule({ rule, focusSessionActive: false }))
+      .resolves.toBe(false);
   });
 
   it('applies every locked Meaningful First rule independently on foreground', async () => {

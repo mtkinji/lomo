@@ -79,8 +79,11 @@ serve(async(req)=>{
       const acknowledgeHardPasses=body?.acknowledgeHardPasses===true;
       const candidateIds=Array.isArray(body?.candidateIds)?body.candidateIds.filter((value):value is string=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)):[];
       if(!planId||!Number.isInteger(expectedVersion)||expectedVersion<1||candidateIds.length<1||candidateIds.length>60||candidateIds.length!==new Set(candidateIds).size)return json(400,{error:{code:'invalid_request'}});
-      const {data:plan,error:planError}=await admin.from('kwilt_meal_plans').select('id,household_id,version,state').eq('id',planId).single(); if(planError)throw planError;
-      const {data:membership,error:membershipError}=await admin.from('kwilt_household_memberships').select('role').eq('household_id',plan.household_id).eq('person_id',binding.person_id).eq('status','active').maybeSingle(); if(membershipError)throw membershipError;
+      const {data:plan,error:planError}=await admin.from('kwilt_meal_plans').select('id,household_id,organizer_person_id,version,state').eq('id',planId).single(); if(planError)throw planError;
+      const membershipResult=plan.household_id
+        ? await admin.from('kwilt_household_memberships').select('role').eq('household_id',plan.household_id).eq('person_id',binding.person_id).eq('status','active').maybeSingle()
+        : {data:null,error:null};
+      const {data:membership,error:membershipError}=membershipResult; if(membershipError)throw membershipError;
       const {data:candidateRows,error:candidateError}=await admin.from('kwilt_meal_plan_candidates').select('id,lifecycle_state,removed_grocery_behavior,recipe_snapshot,hard_pass_overridden_at').eq('plan_id',planId); if(candidateError)throw candidateError;
       if(planAction==='send'&&!acknowledgeHardPasses){
         const {data:hardPassRows,error:hardPassError}=await admin.from('kwilt_meal_candidate_reactions').select('candidate_id,created_at').in('candidate_id',candidateIds).eq('reaction','hard_pass'); if(hardPassError)throw hardPassError;
@@ -97,8 +100,11 @@ serve(async(req)=>{
       const versionIds=[...new Set(candidates.flatMap((candidate)=>typeof candidate.recipeSnapshot?.recipeVersionId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate.recipeSnapshot.recipeVersionId)?[candidate.recipeSnapshot.recipeVersionId]:[]))];
       const {data:recipeRows,error:recipeError}=versionIds.length?await admin.from('kwilt_recipe_versions').select('id,ingredients:kwilt_recipe_ingredients(id,original_text,optional),recipe:kwilt_recipes!inner(lifecycle)').in('id',versionIds):{data:[],error:null}; if(recipeError)throw recipeError;
       const ingredientsByVersionId:Record<string,Array<{id:string;original_text:string;optional:boolean}>>={}; for(const row of recipeRows??[]){const recipeRelation=Array.isArray(row.recipe)?row.recipe[0]:row.recipe;if(recipeRelation?.lifecycle==='deleted')throw new Error('missing_recipe_version');ingredientsByVersionId[row.id]=(row.ingredients??[]) as Array<{id:string;original_text:string;optional:boolean}>;}
-      const compiled=compileHouseholdPlanGroceryAuthority({plan,expectedVersion,actorRole:membership?.role??'',candidates,ingredientsByVersionId}); const payloadHash=await hash(compiled.items);
-      const {data:receipt,error}=await admin.rpc('sync_kwilt_household_plan_groceries_with_hard_pass_review',{p_actor_person_id:binding.person_id,p_plan_id:planId,p_expected_version:expectedVersion,p_action:planAction,p_candidate_ids:candidateIds,p_payload_hash:payloadHash,p_compiled_items:compiled.items,p_acknowledge_hard_passes:acknowledgeHardPasses}); if(error)throw error;
+      const compiled=compileHouseholdPlanGroceryAuthority({plan,expectedVersion,actorPersonId:binding.person_id,actorRole:membership?.role??null,candidates,ingredientsByVersionId}); const payloadHash=await hash(compiled.items);
+      const persistenceRpc=plan.household_id
+        ? 'sync_kwilt_household_plan_groceries_with_hard_pass_review'
+        : 'sync_kwilt_personal_plan_groceries';
+      const {data:receipt,error}=await admin.rpc(persistenceRpc,{p_actor_person_id:binding.person_id,p_plan_id:planId,p_expected_version:expectedVersion,p_action:planAction,p_candidate_ids:candidateIds,p_payload_hash:payloadHash,p_compiled_items:compiled.items,p_acknowledge_hard_passes:acknowledgeHardPasses}); if(error)throw error;
       return json(200,{receipt});
     }
 
@@ -112,5 +118,5 @@ serve(async(req)=>{
     const compiled=compileGroceryAuthority({plan,expectedVersion,actorPersonId:binding.person_id,entries:entries??[],ingredientsByVersionId}); const payloadHash=await hash(compiled.items);
     const {data:receipt,error}=await userClient.rpc('compile_kwilt_grocery_list',{p_plan_id:planId,p_expected_plan_version:expectedVersion,p_payload_hash:payloadHash,p_compiled_items:compiled.items,p_rebase_from_list_id:rebaseFromListId,p_expected_rebase_revision:expectedRebaseRevision}); if(error)throw error;
     return json(200,{receipt});
-  }catch(error){const unauthorized=isAuthenticationError(error);const code=error instanceof Error&&['stale_or_unfinalized_meal_plan','grocery_plan_not_owned','missing_recipe_version','invalid_recipe_grocery_source','grocery_compilation_idempotency_conflict','stale_grocery_rebase_source','grocery_rebase_idempotency_conflict','invalid_grocery_rebase','household_plan_grocery_manage_forbidden','stale_household_plan','invalid_household_plan_candidate','hard_pass_review_required'].includes(error.message)?error.message:unauthorized?'unauthorized':'grocery_compile_failed';return json(unauthorized?401:code==='grocery_compile_failed'?500:409,{error:{code,message:unauthorized?'Sign in to compile groceries.':'Groceries could not be compiled from the current source.'}});}
+  }catch(error){const unauthorized=isAuthenticationError(error);const code=error instanceof Error&&['stale_or_unfinalized_meal_plan','grocery_plan_not_owned','missing_recipe_version','invalid_recipe_grocery_source','grocery_compilation_idempotency_conflict','stale_grocery_rebase_source','grocery_rebase_idempotency_conflict','invalid_grocery_rebase','household_plan_grocery_manage_forbidden','personal_plan_grocery_manage_forbidden','stale_household_plan','invalid_household_plan_candidate','hard_pass_review_required'].includes(error.message)?error.message:unauthorized?'unauthorized':'grocery_compile_failed';return json(unauthorized?401:code==='grocery_compile_failed'?500:409,{error:{code,message:unauthorized?'Sign in to compile groceries.':'Groceries could not be compiled from the current source.'}});}
 });
