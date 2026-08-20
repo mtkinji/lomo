@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "recipes": [
+    {
+      "schemaVersion": 1,
+      "rosterId": "AP001",
+      "sourceRecipeHash": "sha256:7adf28e2fd4e17935e347ddefbb176dad62085270faa7f6e704aa2fd580fccde",
+      "review": { "state": "reviewed", "reviewedAt": "2026-08-20", "reviewedBy": "Kwilt Kitchen · Codex" },
+      "equipmentNeeds": [
+        { "id": "wire-rack", "label": "Oven-safe wire rack", "reviewCategoryId": "wire-rack" },
+        { "id": "rimmed-sheet-pan", "label": "Rimmed sheet pan", "reviewCategoryId": "rimmed-sheet-pan" },
+        { "id": "large-mixing-bowl", "label": "Large mixing bowl", "reviewCategoryId": "large-mixing-bowl" }
+      ],
+      "equipmentAnnotations": [
+        { "instructionIndex": 0, "phrase": "wire rack", "needId": "wire-rack", "focus": "specialty", "accessibleLabel": "See oven-safe wire rack recommendations" },
+        { "instructionIndex": 0, "phrase": "rimmed sheet pan", "needId": "rimmed-sheet-pan", "focus": "general", "accessibleLabel": "See rimmed sheet pan recommendations" },
+        { "instructionIndex": 3, "phrase": "large bowl", "needId": "large-mixing-bowl", "focus": "general", "accessibleLabel": "See large mixing bowl recommendations" }
+      ],
+      "origin": {
+        "label": "Buffalo, New York",
+        "region": "Great Lakes · Northeastern United States",
+        "markers": [{ "label": "Buffalo", "latitude": 42.8864, "longitude": -78.8784 }],
+        "map": { "center": [-78.88, 42.89], "scale": 1150, "highlightedCountryIds": ["840"] }
+      },
+      "history": {
+        "paragraphs": [
+          "Buffalo-style wings are closely tied to Buffalo, New York, and to the Anchor Bar in the 1960s. The familiar account credits Teressa Bellissimo with frying split wings, coating them in hot sauce, and serving them with celery and blue cheese. The Buffalo History Museum also places that story inside a longer local history: Black restaurateur John Young sold a different breaded, whole-wing style with mambo sauce soon afterward, and cooked chicken wings were not new to the city or to American food.",
+          "What became nationally recognizable as a Buffalo wing was the combination of unbreaded crisp wings, a cayenne-pepper-and-butter sauce, celery, and blue-cheese dressing. Kwilt changes the cooking method, not that identity: a rack and two oven temperatures replace deep frying, while the sharp sauce and cooling accompaniments remain. That distinction matters because Buffalo now labels many flavored foods far removed from the place and bar snack that gave the style its name."
+        ],
+        "sources": [
+          { "title": "Who Served Buffalo's First Wings?", "publisher": "The Buffalo History Museum", "url": "https://buffalohistory.org/who-served-buffalos-first-wings/" },
+          { "title": "History", "publisher": "Anchor Bar", "url": "https://anchorbar.com/history/" }
+        ]
+      },
+      "heroImage": { "state": "missing", "storageRef": null, "altText": "Crisp Buffalo wings coated in red cayenne-butter sauce with celery, carrots, and chunky blue-cheese dip.", "width": null, "height": null }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "AP002",
+      "sourceRecipeHash": "sha256:588f170815132f6b4a4a24223f4c893b1918195428ceef2dc332fcf9f68732ac",
+      "review": { "state": "reviewed", "reviewedAt": "2026-08-20", "reviewedBy": "Kwilt Kitchen · Codex" },
+      "equipmentNeeds": [
+        { "id": "saucepan", "label": "Medium saucepan", "reviewCategoryId": "medium-saucepan" },
+        { "id": "steamer-basket", "label": "Steamer basket", "reviewCategoryId": "steamer-basket" },
+        { "id": "fine-sieve", "label": "Fine sieve", "reviewCategoryId": "fine-mesh-strainer" }
+      ],
+      "equipmentAnnotations": [
+        { "instructionIndex": 0, "phrase": "saucepan", "needId": "saucepan", "focus": "general", "accessibleLabel": "See saucepan recommendations" },
+        { "instructionIndex": 0, "phrase": "steamer basket", "needId": "steamer-basket", "focus": "specialty", "accessibleLabel": "See steamer basket recommendations" },
+        { "instructionIndex": 2, "phrase": "fine sieve", "needId": "fine-sieve", "focus": "substitute", "accessibleLabel": "See fine sieve recommendations" }
+      ],
+      "origin": {
+        "label": "United States",
+        "region": "North America · older Mediterranean and European roots",
+        "markers": [{ "label": "United States", "latitude": 39.8283, "longitude": -98.5795 }],
+        "map": { "center": [-98.58, 39.83], "scale": 560, "highlightedCountryIds": ["840"] }
+      },
+      "history": {
+        "paragraphs": [
+          "Stuffed eggs are much older than the American deviled egg. Cooks around the Mediterranean and in Europe seasoned boiled eggs in many forms long before mayonnaise became the familiar binder. The word deviled developed in English-language cooking as shorthand for food made lively with mustard, pepper, cayenne, or other assertive seasonings; it described a flavor treatment, not one inventor or one precise birthplace.",
+          "In the United States, halved eggs refilled with yolk, mayonnaise, mustard, and a paprika finish became a durable picnic, church-supper, holiday, and potluck food. The National Museum of American History notes deviled eggs among the foods carried north by African Americans during the Great Migration, evidence that the dish also traveled through family and community practice. Kwilt's smooth, mustardy version belongs to that modern American branch while acknowledging the much older stuffed-egg family behind it."
+        ],
+        "sources": [
+          { "title": "Deviled Eggs and Other Foods from Hell", "publisher": "Smithsonian Magazine", "url": "https://www.smithsonianmag.com/arts-culture/deviled-eggs-and-other-foods-from-hell-123267449/" },
+          { "title": "Chickens, eggs, and the changing American diet", "publisher": "National Museum of American History", "url": "https://americanhistory.si.edu/explore/stories/chickens-eggs-and-changing-american-diet" }
+        ]
+      },
+      "heroImage": { "state": "missing", "storageRef": null, "altText": "Deviled egg halves filled with smooth mustardy yolks and lightly finished with paprika and chopped chives.", "width": null, "height": null }
+    },
+    {
+      "schemaVersion": 1,
+      "rosterId": "AP003",
+      "sourceRecipeHash": "sha256:b818318b22f804048da1d6fe37fc409198ca4819ed18d8a7eb6c525a812ca8ca",
+      "review": { "state": "reviewed", "reviewedAt": "2026-08-20", "reviewedBy": "Kwilt Kitchen · Codex" },
+      "equipmentNeeds": [
+        { "id": "clean-kitchen-towel", "label": "Clean kitchen towel", "reviewCategoryId": "kitchen-towel" },
+        { "id": "baking-dish", "label": "1 1/2-quart baking dish", "reviewCategoryId": "baking-dish" }
+      ],
+      "equipmentAnnotations": [
+        { "instructionIndex": 0, "phrase": "clean towel", "needId": "clean-kitchen-towel", "focus": "general", "accessibleLabel": "See clean kitchen towel recommendations" },
+        { "instructionIndex": 2, "phrase": "1 1/2-quart baking dish", "needId": "baking-dish", "focus": "general", "accessibleLabel": "See baking dish recommendations" }
+      ],
+      "origin": {
+        "label": "United States",
+        "region": "North America · modern party and casual-dining tradition",
+        "markers": [{ "label": "Chicago restaurant branch", "latitude": 41.8781, "longitude": -87.6298 }],
+        "map": { "center": [-98.58, 39.83], "scale": 560, "highlightedCountryIds": ["840"] }
+      },
+      "history": {
+        "paragraphs": [
+          "Hot spinach-artichoke dip does not have a well-documented single inventor. It belongs to a broader twentieth-century American party-dip tradition shaped by convenient frozen spinach, canned artichokes, packaged dairy, and the habit of gathering around chips or bread. By the late twentieth century, the combination had moved comfortably onto casual-restaurant menus, where a hot, creamy, shareable appetizer could be assembled consistently and served to a table.",
+          "One influential restaurant branch came from Houston's, the group that later became Hillstone. Bon Appétit reported that guests at its Chicago restaurant began ordering a spinach-and-artichoke side with chips; salsa and sour cream followed, and the combination became known there as Chicago-style spinach and artichoke dip. Kwilt's version is not a copy of that restaurant formula, but it shares the American casual-dining idea while keeping the vegetables prominent and using careful draining to avoid a watery dip."
+        ],
+        "sources": [
+          { "title": "Welcome to Hillstone, America's Favorite Restaurant", "publisher": "Bon Appétit", "url": "https://www.bonappetit.com/restaurants-travel/article/hillstone" },
+          { "title": "Hillstone — American classics seem at home in S.F.", "publisher": "SFGate", "url": "https://www.sfgate.com/food/article/Hillstone-American-classics-seem-at-home-in-S-F-5022199.php" },
+          { "title": "About Hillstone", "publisher": "Hillstone Restaurant Group", "url": "https://www.hillstone.com/about/" }
+        ]
+      },
+      "heroImage": { "state": "missing", "storageRef": null, "altText": "Hot spinach-artichoke dip with visible vegetables beneath a browned mozzarella and Parmesan top, served with sturdy chips.", "width": null, "height": null }
+    }
+  ]
+}

@@ -23,6 +23,7 @@ const source = {
   category: "Breakfast & brunch",
   cuisine: "Mexican",
   contentHash: "kwilt:BR012:v1",
+  origin: { label: "Central Mexico", region: "North America" },
   ingredients: [
     "12 corn tortillas, cut into irregular wedges",
     "2 cups red chile salsa",
@@ -56,10 +57,12 @@ Deno.test("prompt is versioned, crop safe, culturally careful, and contains no p
   assertStringIncludes(prompt, RECIPE_IMAGE_PROMPT_VERSION);
   assertStringIncludes(prompt, source.title);
   assertStringIncludes(prompt, "Mexican");
+  assertStringIncludes(prompt, "Central Mexico · North America");
   assertStringIncludes(prompt, "1536x1024 landscape");
   assertStringIncludes(prompt, "safe central 4:3 and square crops");
   assertStringIncludes(prompt, "Optional evidence must not become a defining component");
   assertStringIncludes(prompt, "No hands, people, text, logos, packaging");
+  assertStringIncludes(prompt, "maps, globes, flags, or cartographic graphics");
   assert(!/user|household|search query|favorite/i.test(prompt));
 });
 
