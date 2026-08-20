@@ -6,12 +6,11 @@ import { getCapabilityOnboardingDoors } from './capabilityOnboardingContracts';
 import { CapabilityValueDoorScreen } from './CapabilityValueDoorScreen';
 
 describe('CapabilityValueDoorScreen', () => {
-  it('keeps one outcome, one dominant action, and one quiet exit', () => {
+  it('keeps one outcome and one dominant action', () => {
     const door = getCapabilityOnboardingDoors('development')[0];
     const onStart = jest.fn();
-    const onExplore = jest.fn();
     const screen = renderWithProviders(
-      <CapabilityValueDoorScreen door={door} onExplore={onExplore} onStart={onStart} />,
+      <CapabilityValueDoorScreen door={door} onStart={onStart} />,
     );
 
     expect(screen.getByRole('header', { name: door.story.headline })).toBeTruthy();
@@ -21,6 +20,11 @@ describe('CapabilityValueDoorScreen', () => {
     expect(screen.queryByText(/swipe to choose/i)).toBeNull();
     expect(
       screen.getByTestId('capabilityOnboarding.primaryActionArrow', {
+        includeHiddenElements: true,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId(`capabilityOnboarding.primaryActionIcon.${door.id}`, {
         includeHiddenElements: true,
       }),
     ).toBeTruthy();
@@ -41,9 +45,6 @@ describe('CapabilityValueDoorScreen', () => {
     timingSpy.mockRestore();
 
     fireEvent.press(primaryAction);
-    expect(screen.getByText('Skip tour')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Skip onboarding and open Kwilt' }));
     expect(onStart).toHaveBeenCalledTimes(1);
-    expect(onExplore).toHaveBeenCalledTimes(1);
   });
 });

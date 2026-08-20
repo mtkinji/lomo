@@ -13,7 +13,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { Logo } from '../../ui/Logo';
 import { ButtonLabel } from '../../ui/Typography';
 import { useAccessibilityPreferences } from '../../ui/hooks/useAccessibilityPreferences';
 import { Text } from '../../ui/primitives';
@@ -23,11 +22,9 @@ import { shouldEnableVerticalOnboardingScroll } from './capabilityOnboardingPage
 
 export function CapabilityValueDoorScreen({
   door,
-  onExplore,
   onStart,
 }: {
   door: CapabilityOnboardingContract;
-  onExplore: () => void;
   onStart: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -69,18 +66,6 @@ export function CapabilityValueDoorScreen({
       showsVerticalScrollIndicator={false}
       testID={`capabilityOnboarding.door.${door.id}`}
     >
-      <View style={styles.brandRow}>
-        <Logo size={22} />
-        <Button
-          accessibilityLabel="Skip onboarding and open Kwilt"
-          onPress={onExplore}
-          size="inline"
-          variant="link"
-        >
-          Skip tour
-        </Button>
-      </View>
-
       <View
         accessibilityLabel={door.story.illustrationLabel}
         accessibilityRole="image"
@@ -109,6 +94,13 @@ export function CapabilityValueDoorScreen({
             style={styles.primaryAction}
           >
             <View pointerEvents="none" style={styles.primaryActionContent}>
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+                testID={`capabilityOnboarding.primaryActionIcon.${door.id}`}
+              >
+                <Icon color={colors.canvas} name={door.icon} size={17} />
+              </View>
               <ButtonLabel tone="inverse">{door.story.actionLabel}</ButtonLabel>
               <Animated.View
                 accessibilityElementsHidden
@@ -133,11 +125,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.parchment,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   illustrationSlot: {
     flexGrow: 1,

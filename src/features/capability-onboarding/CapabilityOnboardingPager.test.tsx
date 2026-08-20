@@ -33,11 +33,30 @@ describe('CapabilityOnboardingPager', () => {
     expect(screen.getByText('Welcome to Kwilt')).toBeTruthy();
     for (const door of doors) {
       expect(screen.getByText(door.story.headline, { includeHiddenElements: true })).toBeTruthy();
+      expect(
+        screen.getByTestId(`capabilityOnboarding.primaryActionIcon.${door.id}`, {
+          includeHiddenElements: true,
+        }),
+      ).toBeTruthy();
     }
     expect(screen.queryByText('Continue')).toBeNull();
     expect(screen.queryByText(/swipe to choose/i)).toBeNull();
     expect(screen.getByLabelText('Go to page 1 of 5')).toBeTruthy();
     expect(screen.getAllByTestId('capabilityOnboarding.pageIndicator')).toHaveLength(1);
+    expect(screen.getAllByLabelText('Kwilt', { includeHiddenElements: true })).toHaveLength(1);
+    expect(
+      screen.getAllByRole('button', {
+        name: 'Skip onboarding and open Kwilt',
+        includeHiddenElements: true,
+      }),
+    ).toHaveLength(1);
+    const stationaryChrome = screen.getByTestId('capabilityOnboarding.stationaryChrome');
+    expect(within(stationaryChrome).getByLabelText('Kwilt')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('capabilityOnboarding.pager')).queryByLabelText('Kwilt', {
+        includeHiddenElements: true,
+      }),
+    ).toBeNull();
   });
 
   it('uses one native horizontal paging surface above every scrollable page', () => {
@@ -75,9 +94,7 @@ describe('CapabilityOnboardingPager', () => {
     fireEvent.press(
       within(moneyPage).getByRole('button', { name: 'Set app controls' }),
     );
-    fireEvent.press(
-      within(moneyPage).getByRole('button', { name: 'Skip onboarding and open Kwilt' }),
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'Skip onboarding and open Kwilt' }));
     expect(onStartDoor).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'budget-app-controls' }),
     );

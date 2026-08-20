@@ -2,7 +2,6 @@ import { Image, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, spacing, typography } from '../../theme';
-import { Logo } from '../../ui/Logo';
 import { Text } from '../../ui/primitives';
 import { shouldEnableVerticalOnboardingScroll } from './capabilityOnboardingPagerModel';
 
@@ -30,10 +29,6 @@ export function CapabilityWelcomeScreen() {
       showsVerticalScrollIndicator={false}
       testID="capabilityOnboarding.welcomePage"
     >
-      <View style={styles.brandRow}>
-        <Logo size={22} />
-      </View>
-
       <View
         accessibilityLabel="A warm Kwilt welcome"
         accessibilityRole="image"
@@ -68,11 +63,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     gap: spacing.md,
     backgroundColor: colors.parchment,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
   },
   illustrationSlot: {
     flexGrow: 1,

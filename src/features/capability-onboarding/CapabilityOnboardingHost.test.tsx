@@ -133,10 +133,7 @@ describe('CapabilityOnboardingHost', () => {
   it('uses Skip tour as one finite shell exit', () => {
     const { screen, onExploreKwilt } = renderHost();
     act(() => fireEvent.press(screen.getByLabelText('Go to page 2 of 5')));
-    const page = screen.getByTestId('capabilityOnboarding.door.budget-app-controls');
-    fireEvent.press(
-      within(page).getByRole('button', { name: 'Skip onboarding and open Kwilt' }),
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'Skip onboarding and open Kwilt' }));
 
     expect(onExploreKwilt).toHaveBeenCalledTimes(1);
     expect(useCapabilityOnboardingStore.getState().recordForUser('user-a').universalState).toBe(

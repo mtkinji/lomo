@@ -11,8 +11,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 
-import { colors } from '../../theme';
+import { colors, spacing } from '../../theme';
+import { Button } from '../../ui/Button';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
+import { Logo } from '../../ui/Logo';
 import { useAccessibilityPreferences } from '../../ui/hooks/useAccessibilityPreferences';
 import type { CapabilityOnboardingContract } from './capabilityOnboardingContracts';
 import type { CapabilityOnboardingPageId } from './capabilityOnboardingState';
@@ -52,9 +54,13 @@ export function CapabilityOnboardingPager({
   const [width, setWidth] = useState(0);
   const pagerRef = useRef<ScrollView>(null);
   const scrollOffset = useSharedValue(initialIndex * width);
+  const scrollDirection = useSharedValue(1);
   const handleAnimatedScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
-      scrollOffset.value = event.contentOffset.x;
+      const nextOffset = event.contentOffset.x;
+      const delta = nextOffset - scrollOffset.value;
+      if (Math.abs(delta) > 0.5) scrollDirection.value = delta > 0 ? 1 : -1;
+      scrollOffset.value = nextOffset;
     },
   });
 
@@ -134,6 +140,21 @@ export function CapabilityOnboardingPager({
       withinModal
     >
       <View onLayout={handleLayout} style={styles.viewport}>
+        <View
+          pointerEvents="box-none"
+          style={[styles.chrome, { top: insets.top + spacing.lg }]}
+          testID="capabilityOnboarding.stationaryChrome"
+        >
+          <Logo size={22} />
+          <Button
+            accessibilityLabel="Skip onboarding and open Kwilt"
+            onPress={() => onExplore('button')}
+            size="inline"
+            variant="link"
+          >
+            Skip tour
+          </Button>
+        </View>
         <Animated.ScrollView
           ref={pagerRef}
           accessibilityActions={[
@@ -167,7 +188,6 @@ export function CapabilityOnboardingPager({
               ) : (
                 <CapabilityValueDoorScreen
                   door={page.door}
-                  onExplore={() => onExplore('button')}
                   onStart={() => onStartDoor(page.door)}
                 />
               )}
@@ -184,6 +204,7 @@ export function CapabilityOnboardingPager({
             onSelectPage={settleToIndex}
             pageWidth={width}
             reduceMotion={reduceMotionEnabled}
+            scrollDirection={scrollDirection}
             scrollOffset={scrollOffset}
           />
         </View>
@@ -207,6 +228,15 @@ const styles = StyleSheet.create({
   },
   page: {
     flex: 1,
+  },
+  chrome: {
+    position: 'absolute',
+    left: spacing.xl,
+    right: spacing.xl,
+    zIndex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   indicator: {
     position: 'absolute',

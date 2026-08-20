@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { radii, spacing } from '../theme';
 import { BottomGuide } from './BottomGuide';
+import { bottomDrawerChromeTokens } from './drawerTokens';
 
 const mockBottomDrawerProps: Array<Record<string, unknown>> = [];
 
@@ -57,6 +58,30 @@ describe('BottomGuide interaction semantics', () => {
       borderRadius: radii.deviceSheet + spacing.xs,
       marginHorizontal: spacing.md,
       marginBottom: spacing.md,
+    });
+  });
+
+  it('inherits the canonical high-handle drawer anatomy', () => {
+    renderWithProviders(
+      <BottomGuide visible onClose={jest.fn()}>
+        <Text>Guidance</Text>
+      </BottomGuide>,
+    );
+
+    const drawerProps = mockBottomDrawerProps.at(-1);
+    const chrome = bottomDrawerChromeTokens.standard;
+
+    expect(StyleSheet.flatten(drawerProps?.sheetStyle as object)).toMatchObject({
+      paddingTop: chrome.surfacePaddingTop,
+    });
+    expect(StyleSheet.flatten(drawerProps?.handleContainerStyle as object)).toMatchObject({
+      paddingTop: chrome.handleRegionPaddingTop,
+      paddingBottom: chrome.handleRegionPaddingBottom,
+    });
+    expect(StyleSheet.flatten(drawerProps?.handleStyle as object)).toMatchObject({
+      width: chrome.handleWidth,
+      height: chrome.handleHeight,
+      borderRadius: chrome.handleRadius,
     });
   });
 
