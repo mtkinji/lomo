@@ -212,6 +212,7 @@ export function ExploreMapScreen() {
   );
   const shouldRenderPolygonFog = Platform.OS !== 'ios' && preferences.showFog;
   const visibleCells = useMemo(() => {
+    if (!shouldRenderPolygonFog) return [];
     const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
     const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
     return Object.values(exploredCells)
@@ -221,7 +222,7 @@ export function ExploreMapScreen() {
         (playbackCutoffMs === null || Date.parse(cell.firstExploredAt) <= playbackCutoffMs),
       )
       .slice(-700);
-  }, [exploredCells, playbackCutoffMs, visibleRegion]);
+  }, [exploredCells, playbackCutoffMs, shouldRenderPolygonFog, visibleRegion]);
   const fogRing = useMemo(
     () => shouldRenderPolygonFog ? fogRingForRegion(visibleRegion) : [],
     [shouldRenderPolygonFog, visibleRegion],
@@ -236,13 +237,14 @@ export function ExploreMapScreen() {
     .values()]
     .slice(-256), [placeRelationships, places, playbackCutoffMs]);
   const visibleCreatedPlaces = useMemo(() => {
+    if (!shouldRenderPolygonFog) return [];
     const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
     const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
     return createdPlaces.filter((place) =>
       Math.abs(place.latitude - visibleRegion.latitude) <= latitudeRadius &&
       Math.abs(place.longitude - visibleRegion.longitude) <= longitudeRadius,
     );
-  }, [createdPlaces, visibleRegion]);
+  }, [createdPlaces, shouldRenderPolygonFog, visibleRegion]);
   const fogHoles = useMemo(() => {
     if (!shouldRenderPolygonFog) return { core: [], mist: [], veil: [] };
     return {
