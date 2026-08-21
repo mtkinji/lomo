@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-07",
+  "manifestHash": "sha256:4e4e837646e69ac88b242700ae3ec32ec807c14a981cb51c3ca3cd980df9d69e",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DI001",
+      "sourceRecipeHash": "sha256:f1df817dc09aeb37242dd6ba4c7e189e42ebc0586a49f4e5c831b09ddff2adea",
+      "title": "Herb roast chicken with pan gravy",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI002",
+      "sourceRecipeHash": "sha256:2508f86ecfef6a43e9c3c8fb40fd8d8e37f5ed0575fee978a15f752d53ca3ec9",
+      "title": "Slow-braised pot roast",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI003",
+      "sourceRecipeHash": "sha256:34420342ca0f35772ee54b9756e611c67168d095b297f74e74818520325ad41f",
+      "title": "Classic glazed meatloaf",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI004",
+      "sourceRecipeHash": "sha256:4b85c141d267a115caf7a2d97ff4106061d2129d0db3ec3f53fa5edac3a1d51a",
+      "title": "Buttermilk fried chicken",
+      "cuisine": "Southern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI005",
+      "sourceRecipeHash": "sha256:85057dd4cd8b0e9ae855112724024c62fd696d99ec1dc1f1526d1bd9e1549ac1",
+      "title": "Lemon garlic baked salmon",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI006",
+      "sourceRecipeHash": "sha256:0a280f07a4cf77f75d2784a5bb8a2d371a25bd118f25871bd41f6b28c35b8088",
+      "title": "Cast-iron steak with herb butter",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI007",
+      "sourceRecipeHash": "sha256:0decae1c36adbda79d7ebe6023a779f4f5f1007894b3529fa174346c48be8d0f",
+      "title": "Grilled cheeseburgers",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI008",
+      "sourceRecipeHash": "sha256:a50063f3ca6f36660ff0d2fd1f7ff7f81163497e58c12fd21cd1899a53a48ebb",
+      "title": "Creamy baked macaroni and cheese",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI009",
+      "sourceRecipeHash": "sha256:1f6b0dd5dd8545294c9aa0b4fc31cb96844efe445a5e2e47fed1af4aa9874d04",
+      "title": "Chicken pot pie",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI010",
+      "sourceRecipeHash": "sha256:f37a7642cda3b5377790f7274b9f16197996e74eda80ec6334dceab2efdf067d",
+      "title": "Turkey meatballs with tomato sauce",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI011",
+      "sourceRecipeHash": "sha256:3be2dc900f2ddf43d3c7171501ed5afa64220ca0ec6dadce0de2afd9bf26ce96",
+      "title": "Pan-seared pork chops with apples",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI012",
+      "sourceRecipeHash": "sha256:c986f1917ee663da7c451ef5774b7f93a58cd3ff4df6bcc8bc28b383bb1a5f84",
+      "title": "Garlic butter shrimp and rice",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI013",
+      "sourceRecipeHash": "sha256:d0af2a7190ac5e57b5ce150b371e43891154b729b5fd096c0ae5f6cd6bdce705",
+      "title": "Sheet-pan chicken and vegetables",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI014",
+      "sourceRecipeHash": "sha256:2dbff966f186a61afeb9b5343ec8a4ffb55dd32743d9b64a9c5960d9ed2f11cc",
+      "title": "Honey mustard chicken thighs",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI015",
+      "sourceRecipeHash": "sha256:1bcb61d1ea6f1d4a12eb3efb2c00265b2b1ade1ed933361722a56631977baa95",
+      "title": "BBQ glazed meatballs",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI016",
+      "sourceRecipeHash": "sha256:d865670aeb537caee32a6e32c9eb57a8998118067c1c217793eec5cf300b04e0",
+      "title": "Beef and cheese stuffed peppers",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI017",
+      "sourceRecipeHash": "sha256:3393a3105f62c8cf14a9587557360e5b1a8da4e0e1a62f404c8f53afa1172064",
+      "title": "Tuna noodle casserole",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI018",
+      "sourceRecipeHash": "sha256:ba0c9825252f5dbf1809650a50a11ed5eef0839c1cb59b9715e37a133bd61d14",
+      "title": "Chicken broccoli rice casserole",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI019",
+      "sourceRecipeHash": "sha256:d3d46e779338550a65d061628550c8836ad6b25466faafbafa3be7ad5570542b",
+      "title": "Skillet shepherd’s pie",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI020",
+      "sourceRecipeHash": "sha256:103ccf1849bfeb7a14647926fe2d13bc5d8f55c1df894693db6e0a9fc0cfb955",
+      "title": "Turkey tetrazzini",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI021",
+      "sourceRecipeHash": "sha256:56603a55329e338afc4377eee00d26cbd2eedbff572f49ba532d2dbf39ce92e4",
+      "title": "Chicken-fried steak with cream gravy",
+      "cuisine": "Southern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI022",
+      "sourceRecipeHash": "sha256:8c047dc4a9a1d53bd8b7407331a51dd88da206d6355e7f92c103d9b96f35e175",
+      "title": "Country ham with red-eye gravy",
+      "cuisine": "Southern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI023",
+      "sourceRecipeHash": "sha256:5906bc6c09377994df6a8db863502fb2b96e05656a9ab883300f8bb23dae5677",
+      "title": "Chicken and sausage jambalaya",
+      "cuisine": "Cajun",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI024",
+      "sourceRecipeHash": "sha256:e27dda2e323b1a67e86fe4f3fb20822561fe9f5e20c91a1a64b761c5f68e3373",
+      "title": "Shrimp étouffée",
+      "cuisine": "Louisiana Creole",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI025",
+      "sourceRecipeHash": "sha256:f1aee2e6bf1d4e191506eb7003f0911295479578fcb4f13688f6a49991d8db28",
+      "title": "Blackened redfish",
+      "cuisine": "Louisiana Creole",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

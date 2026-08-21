@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-01",
+  "manifestHash": "sha256:f812b447f21555e5e2a9ba9564fd21e73c10fb5b105353108330eba0255da027",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "AP001",
+      "sourceRecipeHash": "sha256:7adf28e2fd4e17935e347ddefbb176dad62085270faa7f6e704aa2fd580fccde",
+      "title": "Crispy oven-baked Buffalo wings",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "AP002",
+      "sourceRecipeHash": "sha256:588f170815132f6b4a4a24223f4c893b1918195428ceef2dc332fcf9f68732ac",
+      "title": "Classic deviled eggs",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "AP003",
+      "sourceRecipeHash": "sha256:b818318b22f804048da1d6fe37fc409198ca4819ed18d8a7eb6c525a812ca8ca",
+      "title": "Hot spinach artichoke dip",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "AP004",
+      "sourceRecipeHash": "sha256:429b2cb2eea44024e0cc33a3fce015bbb4b5957bafce0ba518359eb23c58b1a0",
+      "title": "Baked jalapeño poppers",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "AP005",
+      "sourceRecipeHash": "sha256:53ee41f96aa085a8f34970640856982223c345a90b15a1976a7a2150bf308509",
+      "title": "Maryland lump crab cakes",
+      "cuisine": "Maryland US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "AP006",
+      "sourceRecipeHash": "sha256:b4c14eea6e4b339f5bec1764972ab57c0c03a2558d60f9eb0797222745be63cd",
+      "title": "Pigs in a blanket",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "AP007",
+      "sourceRecipeHash": "sha256:d63b810d42f982b139a0890ccece916998dd54c814d41ba4d3ef69060255df6b",
+      "title": "Loaded sheet-pan nachos",
+      "cuisine": "Tex-Mex",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "AP008",
+      "sourceRecipeHash": "sha256:9498336d16ef87c1f82eef3f13f3b4388735a9e9834d7c3e0a3c3aa5b6309661",
+      "title": "Creamy Tex-Mex queso (Chile con queso)",
+      "cuisine": "Tex-Mex",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "AP009",
+      "sourceRecipeHash": "sha256:0bde234c9f0852e63918bd47fa3617b81f570cd7967c30d9aa4a66e6ae61d7a0",
+      "title": "Classic guacamole",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "AP010",
+      "sourceRecipeHash": "sha256:77b48a4b970e514fb8812684aaacdc88c54eb5e391d155db18e84cb18c436280",
+      "title": "Roasted tomato salsa",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA001",
+      "sourceRecipeHash": "sha256:4c85851a3529b435824d8f442c32b30198c8040b7d0d388eb90e839e9277280c",
+      "title": "Soft sandwich bread",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA002",
+      "sourceRecipeHash": "sha256:60854639674c3a837e00e0d31ec32c27e4c5bf27bccd23a9b28e67f515ed50c4",
+      "title": "Beginner sourdough boule",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA003",
+      "sourceRecipeHash": "sha256:3ac5fffebf68d5d7f800d0d5ee15cfdb85a38a3c2bca9df9e59b4c968e53f0f7",
+      "title": "Flaky buttermilk biscuits",
+      "cuisine": "Southern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA004",
+      "sourceRecipeHash": "sha256:c0b754bdbb75a78b44175b2a4bef75a20adad132837adbd0a751bd786dcb86c7",
+      "title": "Cast-iron cornbread",
+      "cuisine": "Southern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA005",
+      "sourceRecipeHash": "sha256:c2fcae13f9aa12195ea042e884778095f6f5e9fdb9538f9d7864cd53a5f99c0a",
+      "title": "Soft pull-apart dinner rolls",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA006",
+      "sourceRecipeHash": "sha256:ae9164520d2780d8d2a5d13fdd10db28ec88dbe33329786bb400b1e65e58be9f",
+      "title": "Classic banana bread",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA007",
+      "sourceRecipeHash": "sha256:901d12d9c4ff59e8afb81d4994eb8b283b1f849138312f7eb0d1960acb27535b",
+      "title": "Cinnamon zucchini bread",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA008",
+      "sourceRecipeHash": "sha256:e12b9cbf0b00c6190bf4da923bf5e268e674bcd7957989212dce2cc86fa13260",
+      "title": "New York-style bagels",
+      "cuisine": "New York US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA009",
+      "sourceRecipeHash": "sha256:5433d8517af31227486d977756486609c63dca916376db0919c7b28ea23422b5",
+      "title": "Hot buttered soft pretzels",
+      "cuisine": "Pennsylvania Dutch",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA010",
+      "sourceRecipeHash": "sha256:a0817f78d4d27fd4dade65140dc4db8606d97587b5e1e3d44a3f4054162297cf",
+      "title": "Molasses-cornmeal sandwich bread (Anadama bread)",
+      "cuisine": "New England US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA011",
+      "sourceRecipeHash": "sha256:a6030406b6c992b71d145708d14fd09667df302ba424b7806a58d46eceb58fec",
+      "title": "Blue corn skillet bread",
+      "cuisine": "Southwestern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA012",
+      "sourceRecipeHash": "sha256:f9cff47159cc525d49dcb40f73116ca0f8e24a2caee60731c928b31117a48ab7",
+      "title": "Rosemary focaccia",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA013",
+      "sourceRecipeHash": "sha256:350622cd63f9243c69f6dfd76701b7843c8289d8321ae5f3ac5df1fd5b35b1e5",
+      "title": "Rustic ciabatta loaves",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA014",
+      "sourceRecipeHash": "sha256:e09461d9c6b509011bcebec19f32ead30a7a05b415b8896fe8957a0d6cc8a58b",
+      "title": "Rustic Italian country loaf (Pane casereccio)",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA015",
+      "sourceRecipeHash": "sha256:5ee982837ad2e0f51ca547076237a3e1e7979df191f001e94a196712c8796e8b",
+      "title": "Golden sesame semolina bread",
+      "cuisine": "Sicilian Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

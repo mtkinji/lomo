@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-06",
+  "manifestHash": "sha256:a592c4473ac2725bd44d8f8b4aea599b43baf092f498360a66a72c2a3292ad57",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DE006",
+      "sourceRecipeHash": "sha256:ec2109064fc6ecfd37505eac67f9e6e4eddae736506c62ec9454e0e76331e441",
+      "title": "Moist chocolate layer cake",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE007",
+      "sourceRecipeHash": "sha256:65613d0d8b700cdd06b6432e53dc438b915ccbf2a9aaf509a2c37c652615ceb8",
+      "title": "Vanilla birthday cake",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE008",
+      "sourceRecipeHash": "sha256:054122e52e9f576cfed63ab71d484cf05b8f5fe08f42b4962a118b8b4359cd72",
+      "title": "Carrot cake with cream cheese frosting",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE009",
+      "sourceRecipeHash": "sha256:0f1cd12e690008efb06a86a3f6c8318d460a9deda7208eb90530d8eb94b738a8",
+      "title": "Red velvet cake",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE010",
+      "sourceRecipeHash": "sha256:d023f795ff302b8fcd8bac16e14a11a2d97e75c7c8467fbc8fca87a69129edc3",
+      "title": "Lemon bars",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE011",
+      "sourceRecipeHash": "sha256:760ecfeee816cb98104c8f5b140e5354bf73adb073a6822f266d80539a459958",
+      "title": "Peanut butter cookies",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE012",
+      "sourceRecipeHash": "sha256:8e22f278eb15d1786f4a98ad0bcd999a80279b5ffa9bedea31231763682c9354",
+      "title": "Oatmeal raisin cookies",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE013",
+      "sourceRecipeHash": "sha256:414b1c937e4d7c6059bcf538f2b39b320cb24ab8ef40462c3304a5d4d7646cd1",
+      "title": "Snickerdoodles",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE014",
+      "sourceRecipeHash": "sha256:62dc23d5d05c4d50068405ef8292ea19fe1a0bee3a865e3f56ee4a6d9e74b33b",
+      "title": "Pecan pie",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE015",
+      "sourceRecipeHash": "sha256:37bd36b3c4d8b020cdb351024b97ada3bca3568444b7ca1095948529afbac93f",
+      "title": "Pumpkin pie",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE016",
+      "sourceRecipeHash": "sha256:52c96f49b622d2647697e07aea1f5072d45244f0773ffa37e66b3a18d314570e",
+      "title": "Peach cobbler",
+      "cuisine": "Southern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE017",
+      "sourceRecipeHash": "sha256:1b6997540d576ad290f08c8a9d6424f35ae7af15ab2dc4cf1015b5e69f2aebcc",
+      "title": "Banana pudding",
+      "cuisine": "Southern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE018",
+      "sourceRecipeHash": "sha256:8310d9de9df45d2b913b02e4f6bb75cba1a8528cda2f3af420457e58585773b0",
+      "title": "Hummingbird cake",
+      "cuisine": "Southern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE019",
+      "sourceRecipeHash": "sha256:66486c54a6e512b41d5c98637511278d8e1c013640b4d2acb820ba202b920ff9",
+      "title": "Bread pudding with bourbon sauce",
+      "cuisine": "Louisiana US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE020",
+      "sourceRecipeHash": "sha256:2f0edc1b0a5fb4755788e434868ea41a4665aebc23fe8d36a0678ce02087166a",
+      "title": "New Orleans beignets",
+      "cuisine": "New Orleans US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE021",
+      "sourceRecipeHash": "sha256:21868bdf301791debbf24bc4c0e074d156a622c9e0ce15ba8b6475683ad1b8db",
+      "title": "Strawberry shortcake",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE022",
+      "sourceRecipeHash": "sha256:77075583283674f92ce426c9fd9185986e953f352d1593cbc3469a10131a8544",
+      "title": "Blueberry muffins",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE023",
+      "sourceRecipeHash": "sha256:499cf2ead02c1b2165f6d46b10a5cc5ce863e03c8fb3810ac1fae3de3cdbc238",
+      "title": "Soft cinnamon rolls",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE024",
+      "sourceRecipeHash": "sha256:2a73a645b15912c4ab483e113fbeafc67e147cabc2d4c7835b750894ba133239",
+      "title": "Creamy rice pudding",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE025",
+      "sourceRecipeHash": "sha256:dc215f69fcbe7b05aab331ef6751b08cbea0433b001fb1b494ab63b805b283e5",
+      "title": "Vanilla bean ice cream",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE026",
+      "sourceRecipeHash": "sha256:d9d37a3f4b73335623da25daad1fbc523f98584884d7f07b35eab4e59c9eb7e6",
+      "title": "Classic tiramisu",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE027",
+      "sourceRecipeHash": "sha256:10b928df8dd88683f7bbd6861e6e41503aa5fe5e3ffd9ee622c970cd62daa5aa",
+      "title": "Silky vanilla cream (Panna cotta)",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE028",
+      "sourceRecipeHash": "sha256:672392829a6f5b248978ab6a19565f17f3ee4a68f41bfc0d57f7c407f4c1eee6",
+      "title": "Chocolate chip ricotta cannoli",
+      "cuisine": "Sicilian Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE029",
+      "sourceRecipeHash": "sha256:ae2ca9e23390a2889128c5040a1f90e4ee6c69ef09feb5f5a914495911906807",
+      "title": "Citrus olive oil cake",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE030",
+      "sourceRecipeHash": "sha256:e59209a42dd24af9538886fc6ec047f8161e59b8fb26c86c1a0ffb13beade742",
+      "title": "Espresso over vanilla gelato (Affogato)",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

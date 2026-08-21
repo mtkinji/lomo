@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-15",
+  "manifestHash": "sha256:b8fbecc47d3037d031636ee523ed481eb2a65550db15d414ef8b5f37cc91c339",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DI201",
+      "sourceRecipeHash": "sha256:6946cac74d4f1cf2d2952bd4eddca32494fbccb3ffe13650130ecbf5ad54b1e1",
+      "title": "Persian pomegranate-walnut chicken stew (fesenjan)",
+      "cuisine": "Persian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI202",
+      "sourceRecipeHash": "sha256:91a322fa4344f5becab40c998b7a71e833c0f1cbfe13d5cbf72fd64963ca6cb1",
+      "title": "Persian beef, herb, and dried-lime stew (ghormeh sabzi)",
+      "cuisine": "Persian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI203",
+      "sourceRecipeHash": "sha256:9c7aab089577c68a1e71a4f2989c9674a28b7d4ce35330fb727113031d697cd0",
+      "title": "Persian saffron chicken with barberry rice (zereshk polo)",
+      "cuisine": "Persian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI204",
+      "sourceRecipeHash": "sha256:467c602cb71a4b891708fa204024f81d6993bdb6d426c522c11b97f879a5ad1c",
+      "title": "Persian crispy saffron chicken-rice cake (tahchin)",
+      "cuisine": "Persian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI205",
+      "sourceRecipeHash": "sha256:7410d57fbe8bb045a5525c3dca2afa3e66682bb7a05d491cafceeeaca41efd8a",
+      "title": "Iraqi spiced chicken rice with potatoes and peas (biryani)",
+      "cuisine": "Iraqi",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI206",
+      "sourceRecipeHash": "sha256:2effafef084f31084cc4f1faa7f77704762feb27dd1cd3fd1856cdbbc9570a2a",
+      "title": "Yemeni roast chicken over spiced rice (home-oven mandi)",
+      "cuisine": "Yemeni",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI207",
+      "sourceRecipeHash": "sha256:c84a880b5ef522dd54a5bb036fd58410be7cea26aab6c5a612cd1b1c341d3571",
+      "title": "Saudi tomato-spiced chicken and rice (kabsa)",
+      "cuisine": "Saudi",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI208",
+      "sourceRecipeHash": "sha256:30e87047ee0dda4b06f338b0d3d6f60362b0f449d9a998934ad060d435f050c7",
+      "title": "Omani banana-leaf slow-roasted lamb (home-oven shuwa)",
+      "cuisine": "Omani",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI209",
+      "sourceRecipeHash": "sha256:474d81fde54e0e60b880e03bb3c71263be9e81cd0863f7d41cb8e9343207d966",
+      "title": "Thai tamarind shrimp and tofu noodles (pad thai)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI210",
+      "sourceRecipeHash": "sha256:3e42210b750f01f0256d138017ae47664d61b6bd054a1732174118a2ffb4488a",
+      "title": "Thai holy basil chicken with fried eggs (pad kra pao)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI211",
+      "sourceRecipeHash": "sha256:e993d4b10c5c5a391513ab103f9659d414656aec912a638486e852221efe67fb",
+      "title": "Thai green chicken curry (gaeng khiao wan gai)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI212",
+      "sourceRecipeHash": "sha256:22364b9e8b4d886f9190bdf6edd7bd34ebee4c8f4627b96463a63db75bf1020c",
+      "title": "Thai cashew chicken stir-fry (gai pad med mamuang)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI213",
+      "sourceRecipeHash": "sha256:e1bfd15189aa82d804f34b298a840e222bbf8b6c5493e976b30f482957b22d01",
+      "title": "Northern Thai coconut curry chicken noodles (khao soi)",
+      "cuisine": "Northern Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI214",
+      "sourceRecipeHash": "sha256:dc627a900905367440fbae9b9f5f446e5d5a86e15d347b6b811f182a2f5e3873",
+      "title": "Thai coconut beef and potato curry (massaman)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI215",
+      "sourceRecipeHash": "sha256:b66d63285fee6d50041a8a127d67e2097c8b185bf8707a19dd609fdabb69b621",
+      "title": "Thai soy-charred chicken noodles (pad see ew)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI216",
+      "sourceRecipeHash": "sha256:bdc32f0fc29c283e960b8e0498c1d8e9ea481c76bcf1cf2b56ede471090913fe",
+      "title": "Thai red curry chicken with bamboo shoots (gaeng phed gai)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI217",
+      "sourceRecipeHash": "sha256:60633cb70088cb09b6025a63cf81c8f2a888643f5e201cbb402c27dab9f4cd14",
+      "title": "Thai peanut coconut chicken curry (panang gai)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI218",
+      "sourceRecipeHash": "sha256:31af768e664c3cde7d5279fbf5c8f8288e3e5a4357f02607eb21ce888bfd07f0",
+      "title": "Thai spicy basil chicken noodles (pad kee mao)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI219",
+      "sourceRecipeHash": "sha256:50bcbd1d2650d7bc6cb27ad7de66ed44ae91df5e8c18fcdf2d919664c1c9b2f3",
+      "title": "Thai pineapple shrimp fried rice (khao pad sapparot)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI220",
+      "sourceRecipeHash": "sha256:fc225dbbc2161fd544dc7576dbb55e2967094241e1e5c30dbb57e7faea840fa5",
+      "title": "Thai crispy fish with chile-garlic sauce (pla rad prik)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI221",
+      "sourceRecipeHash": "sha256:5c27579a9a6913b0543ca0d5342cbf22d50fc748b55c742a5d1df1c88d8c3633",
+      "title": "Thai grilled steak with toasted-rice dipping sauce (crying tiger beef)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI222",
+      "sourceRecipeHash": "sha256:a9f9c4ed4206254be7ed1d5f341b038806de7f5d09cb20adad07db657762b38c",
+      "title": "Thai steamed fish with lime, garlic, and chile (pla neung manao)",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI223",
+      "sourceRecipeHash": "sha256:d4145c5b74abcd4e7fb522d556ade491069499c6ca43d4cde43fe3aa5fc4343f",
+      "title": "Korean barbecue beef (bulgogi)",
+      "cuisine": "Korean",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI224",
+      "sourceRecipeHash": "sha256:d3f2cf0c42d57d1de346423085de577a7b9d6bc1a4e016dee64376c3288616a6",
+      "title": "Korean beef and vegetable rice bowls (bibimbap)",
+      "cuisine": "Korean",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI225",
+      "sourceRecipeHash": "sha256:68f5c17a0c127f86ca75b5fb696e8db62b63f1a4fc9ddecbcbaad68c650c92fb",
+      "title": "Crispy Korean sweet-spicy chicken bites (dakgangjeong)",
+      "cuisine": "Korean",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

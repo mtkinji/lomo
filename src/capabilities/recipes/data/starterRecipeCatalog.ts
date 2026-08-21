@@ -46,7 +46,10 @@ const enrichmentByRecipeId = new Map<string, RecipeEditorialEnrichment>(
 
 export const STARTER_RECIPE_PROJECTIONS: RecipeProjection[] =
   STARTER_EDITORIAL_RECIPE_CATALOG.map((editorial) => {
-    const projection = compileEditorialRecipeProjection(editorial);
+    const projection = compileEditorialRecipeProjection(
+      editorial,
+      enrichmentByRecipeId.get(`kwilt-recipe-${editorial.rosterId.toLowerCase()}`),
+    );
     metadataById.set(projection.recipe.id, {
       category: editorial.category,
       cuisine: editorial.cuisine,

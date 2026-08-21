@@ -1,4 +1,4 @@
-export const RECIPE_IMAGE_PROMPT_VERSION = "kwilt-recipe-hero-v1";
+export const RECIPE_IMAGE_PROMPT_VERSION = "kwilt-recipe-hero-v2";
 export const RECIPE_IMAGE_MODEL = "gpt-image-2-2026-04-21";
 export const RECIPE_IMAGE_SIZE = "1536x1024";
 export const RECIPE_IMAGE_QUALITY = "medium";
@@ -10,6 +10,7 @@ export type RecipeImageSource = {
   category: string;
   cuisine: string;
   contentHash: string;
+  imageDirection?: string | null;
   origin?: { label: string; region: string } | null;
   ingredients: string[];
   instructions: string[];
@@ -22,6 +23,7 @@ export type RecipeImageVisualBrief = {
   category: string;
   cuisine: string;
   origin: string | null;
+  editorialDirection: string | null;
   recipeContentHash: string;
   requiredIngredientEvidence: string[];
   optionalIngredientEvidence: string[];
@@ -71,6 +73,7 @@ export function buildRecipeImageVisualBrief(source: RecipeImageSource): RecipeIm
     category: cleanEvidence(source.category),
     cuisine: cleanEvidence(source.cuisine),
     origin: source.origin ? `${cleanEvidence(source.origin.label)} · ${cleanEvidence(source.origin.region)}` : null,
+    editorialDirection: source.imageDirection ? cleanEvidence(source.imageDirection) : null,
     recipeContentHash: cleanEvidence(source.contentHash),
     requiredIngredientEvidence,
     optionalIngredientEvidence,
@@ -99,6 +102,7 @@ export function buildRecipeImagePrompt(brief: RecipeImageVisualBrief): string {
     `Cuisine context: ${brief.cuisine}. Meal context: ${brief.category}.`,
     brief.origin ? `Reviewed geographic context: ${brief.origin}. Use this only for plausible dish form and serving context; do not add decorative cultural stereotypes.` : "",
     brief.description ? `Recipe description: ${brief.description}` : "",
+    brief.editorialDirection ? `Reviewed editorial direction: ${brief.editorialDirection}` : "",
     list("Required ingredient evidence", brief.requiredIngredientEvidence),
     list("Optional ingredient evidence", brief.optionalIngredientEvidence),
     list("Cooking-method evidence", brief.methodEvidence),

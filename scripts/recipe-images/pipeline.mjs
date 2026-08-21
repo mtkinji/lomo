@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
 import { buildWeeklyRecipeBatches, recipePopularityScore } from './popularity.mjs';
@@ -23,6 +23,31 @@ function requiredEnv(name) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is required`);
   return value;
+}
+
+export function candidateCountFromEnv(value) {
+  if (value == null || value.trim() === '') return 3;
+  const count = Number(value);
+  if (!Number.isInteger(count) || count < 2 || count > 3) {
+    throw new Error('KWILT_RECIPE_IMAGE_CANDIDATE_COUNT must be an integer between 2 and 3.');
+  }
+  return count;
+}
+
+export function rosterIdsFromEnv(value) {
+  if (value == null || value.trim() === '') return null;
+  const rosterIds = [...new Set(value.split(',').map((entry) => entry.trim()).filter(Boolean))];
+  if (!rosterIds.length || rosterIds.some((rosterId) => !/^[A-Z]{2}\d{3}$/.test(rosterId))) {
+    throw new Error('KWILT_RECIPE_IMAGE_ROSTER_IDS must contain valid canonical Recipe ids.');
+  }
+  return new Set(rosterIds);
+}
+
+export function nextQaSweepState({ consecutiveIdleCalls, considered, allFailed }) {
+  if (allFailed) return { consecutiveIdleCalls: 0, shouldContinue: false };
+  if (considered > 0) return { consecutiveIdleCalls: 0, shouldContinue: true };
+  const nextIdleCalls = consecutiveIdleCalls + 1;
+  return { consecutiveIdleCalls: nextIdleCalls, shouldContinue: nextIdleCalls < 2 };
 }
 
 function slugify(value) {
@@ -71,7 +96,7 @@ async function invoke(body) {
   return payload;
 }
 
-export function buildSources(recipes, enrichmentByRosterId = reviewedEnrichmentByRosterId) {
+export function buildSources(recipes, enrichmentByRosterId = reviewedEnrichmentByRosterId, imageDirectionByRosterId = new Map()) {
   return recipes.map((recipe) => {
     const rosterId = recipe.rosterId;
     const evidence = canonicalRecipeEvidence(recipe);
@@ -82,6 +107,7 @@ export function buildSources(recipes, enrichmentByRosterId = reviewedEnrichmentB
       publicSlug: `${slugify(recipe.title)}-${rosterId.toLowerCase()}`,
       contentHash: canonicalRecipeHash(recipe),
       origin: enrichment ? { label: enrichment.origin.label, region: enrichment.origin.region } : null,
+      imageDirection: imageDirectionByRosterId.get(rosterId) ?? enrichment?.heroImage?.altText ?? null,
     };
   });
 }
@@ -95,12 +121,57 @@ async function importPilot() {
     return recipe;
   });
   const sources = buildSources(recipes);
+  const candidateCount = candidateCountFromEnv(process.env.KWILT_RECIPE_IMAGE_CANDIDATE_COUNT);
   if (process.argv[2] === 'manifest') {
-    console.log(JSON.stringify({ action: 'import', ownerPersonId: process.env.KWILT_RECIPE_CATALOG_OWNER_PERSON_ID ?? null, candidateCount: 3, sources }));
+    console.log(JSON.stringify({ action: 'import', ownerPersonId: process.env.KWILT_RECIPE_CATALOG_OWNER_PERSON_ID ?? null, candidateCount, sources }));
     return;
   }
-  const result = await invoke({ action: 'import', ownerPersonId: requiredEnv('KWILT_RECIPE_CATALOG_OWNER_PERSON_ID'), candidateCount: 3, sources });
+  const result = await invoke({ action: 'import', ownerPersonId: requiredEnv('KWILT_RECIPE_CATALOG_OWNER_PERSON_ID'), candidateCount, sources });
   console.log(JSON.stringify(result, null, 2));
+}
+
+async function importManifestBatch() {
+  const manifestPath = process.argv[3];
+  if (!manifestPath) throw new Error('import-batch requires a Recipe enrichment manifest path.');
+  const manifest = JSON.parse(await (await import('node:fs/promises')).readFile(path.resolve(manifestPath), 'utf8'));
+  if (!Array.isArray(manifest.recipes) || manifest.recipes.length < 1 || manifest.recipes.length > 25) {
+    throw new Error('The Recipe enrichment manifest must contain between 1 and 25 Recipes.');
+  }
+  const catalog = await loadCatalog();
+  const authoringPath = path.resolve(
+    'scripts/recipe-enrichment/reviewed-batches/authoring',
+    `${path.basename(manifestPath, path.extname(manifestPath))}.mjs`,
+  );
+  const authored = (await import(pathToFileURL(authoringPath).href)).default;
+  const authoredByRosterId = new Map(Object.entries(authored));
+  const imageDirectionByRosterId = new Map(Object.entries(authored).map(([rosterId, value]) => [rosterId, value.imageBrief]));
+  const byId = new Map(catalog.map((recipe) => [recipe.rosterId, recipe]));
+  const selectedRosterIds = rosterIdsFromEnv(process.env.KWILT_RECIPE_IMAGE_ROSTER_IDS);
+  if (selectedRosterIds) {
+    const manifestRosterIds = new Set(manifest.recipes.map(({ rosterId }) => rosterId));
+    const missing = [...selectedRosterIds].filter((rosterId) => !manifestRosterIds.has(rosterId));
+    if (missing.length) throw new Error(`Adaptive image Recipes are not in the manifest: ${missing.join(', ')}.`);
+  }
+  const recipes = manifest.recipes
+    .filter(({ rosterId, heroImageState }) => heroImageState !== 'published' && (!selectedRosterIds || selectedRosterIds.has(rosterId)))
+    .map(({ rosterId }) => {
+    const recipe = byId.get(rosterId);
+    if (!recipe) throw new Error(`Manifest Recipe ${rosterId} is missing from the canonical catalog.`);
+    return recipe;
+    });
+  const sources = buildSources(recipes, authoredByRosterId, imageDirectionByRosterId);
+  const body = {
+    action: 'import',
+    ownerPersonId: process.env.KWILT_RECIPE_CATALOG_OWNER_PERSON_ID ?? null,
+    candidateCount: candidateCountFromEnv(process.env.KWILT_RECIPE_IMAGE_CANDIDATE_COUNT),
+    sources,
+  };
+  if (process.argv[2] === 'batch-manifest') {
+    console.log(JSON.stringify(body));
+    return;
+  }
+  body.ownerPersonId = requiredEnv('KWILT_RECIPE_CATALOG_OWNER_PERSON_ID');
+  console.log(JSON.stringify(await invoke(body), null, 2));
 }
 
 async function weeklyManifest() {
@@ -121,7 +192,7 @@ async function weeklyManifest() {
   console.log(JSON.stringify({
     action: 'import',
     ownerPersonId: process.env.KWILT_RECIPE_CATALOG_OWNER_PERSON_ID ?? null,
-    candidateCount: 3,
+    candidateCount: candidateCountFromEnv(process.env.KWILT_RECIPE_IMAGE_CANDIDATE_COUNT),
     maxAttempts: 1,
     availableAt,
     popularity: {
@@ -137,11 +208,15 @@ async function weeklyManifest() {
 }
 
 async function generatePilot() {
+  const generationCeiling = Number(process.env.KWILT_RECIPE_IMAGE_GENERATION_CEILING ?? 75);
+  const qaCeiling = Number(process.env.KWILT_RECIPE_IMAGE_QA_CEILING ?? 25);
+  if (!Number.isInteger(generationCeiling) || generationCeiling < 1 || generationCeiling > 100) throw new Error('KWILT_RECIPE_IMAGE_GENERATION_CEILING must be an integer from 1 to 100.');
+  if (!Number.isInteger(qaCeiling) || qaCeiling < 1 || qaCeiling > 100) throw new Error('KWILT_RECIPE_IMAGE_QA_CEILING must be an integer from 1 to 100.');
   let claimed = 0;
   let calls = 0;
   const results = [];
-  console.log('Approved pilot ceiling: 75 candidates; estimated image-output cost about $3.08 before QA input.');
-  while (calls < 75) {
+  console.log(`Approved generation ceiling: ${generationCeiling} candidates; image-output cost is capped at about $${(generationCeiling * 0.041).toFixed(2)} before QA input.`);
+  while (calls < generationCeiling) {
     const result = await invoke({ action: 'generate', limit: 1 });
     calls += 1;
     claimed += result.claimed;
@@ -150,11 +225,18 @@ async function generatePilot() {
   }
   let qaCalls = 0;
   let considered = 0;
-  while (qaCalls < 25) {
+  let consecutiveIdleCalls = 0;
+  while (qaCalls < qaCeiling) {
     const result = await invoke({ action: 'qa', limit: 5 });
     qaCalls += 1;
     considered += result.considered;
-    if (result.considered === 0 || result.results.every((item) => item.error === 'qa_failed')) break;
+    const state = nextQaSweepState({
+      consecutiveIdleCalls,
+      considered: result.considered,
+      allFailed: result.results.length > 0 && result.results.every((item) => item.error === 'qa_failed'),
+    });
+    consecutiveIdleCalls = state.consecutiveIdleCalls;
+    if (!state.shouldContinue) break;
   }
   const counts = results.reduce((summary, result) => ({ ...summary, [result.status]: (summary[result.status] ?? 0) + 1 }), {});
   console.log(JSON.stringify({ generationCalls: calls, claimed, generationCounts: counts, qaCalls, qaConsidered: considered }, null, 2));
@@ -180,8 +262,9 @@ async function reviewCandidate() {
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const command = process.argv[2];
   if (command === 'import' || command === 'manifest') await importPilot();
+  else if (command === 'import-batch' || command === 'batch-manifest') await importManifestBatch();
   else if (command === 'weekly-manifest') await weeklyManifest();
   else if (command === 'generate') await generatePilot();
   else if (command === 'review') await reviewCandidate();
-  else throw new Error('Use import, manifest, weekly-manifest, generate, or review.');
+  else throw new Error('Use import, manifest, import-batch, batch-manifest, weekly-manifest, generate, or review.');
 }

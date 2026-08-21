@@ -10,6 +10,16 @@ describe('food-core conservative compiler', () => {
 
   it('preserves count separately from package weight', () => {
     expect(parseIngredientLine('2 14-ounce cans tomatoes')).toEqual(expect.objectContaining({ quantityMin: 2, unit: 'count', packageQuantity: 14, packageUnit: 'ounce', concept: 'tomatoes' }));
+    expect(parseIngredientLine('1 can (14 ounces) tomatoes, drained')).toEqual(expect.objectContaining({ quantityMin: 1, unit: 'count', packageQuantity: 14, packageUnit: 'ounce', concept: 'tomatoes', preparation: 'drained' }));
+  });
+
+  it('keeps parenthetical metric equivalents out of the ingredient concept', () => {
+    expect(parseIngredientLine('3 1/2 cups (420 grams) all-purpose flour, plus more as needed')).toEqual(expect.objectContaining({
+      quantityMin: 3.5,
+      unit: 'cup',
+      concept: 'all-purpose flour',
+      preparation: 'plus more as needed',
+    }));
   });
 
   it('merges only exact concepts with compatible units and preparation', () => {

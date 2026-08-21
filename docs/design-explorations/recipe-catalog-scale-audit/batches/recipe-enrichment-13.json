@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-13",
+  "manifestHash": "sha256:713516cd35d75dfabc74dfd30128988462a732e44675f6a07624236828a9a832",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DI151",
+      "sourceRecipeHash": "sha256:b86e4a13c33311561950f2aac1f97ba74092613b8576306b333735386c32f50a",
+      "title": "Osaka-style okonomiyaki",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI152",
+      "sourceRecipeHash": "sha256:fdab72a0a5d6783accfae3840ec5af5a93bcf909f54181352a22db1664cc6c57",
+      "title": "Sukiyaki",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI153",
+      "sourceRecipeHash": "sha256:08f73dd381b58e1423d06a63e2d6ddff99355e09f82ef884e3a5461a4238b9ae",
+      "title": "Shabu-shabu",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI154",
+      "sourceRecipeHash": "sha256:c320bafa1fc03cc5bb352fad37009e9acd02827077fbbd2c54419c71d1c8e398",
+      "title": "Nikujaga",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI155",
+      "sourceRecipeHash": "sha256:c3ebbe35f38cdedd91fc9edf075fb1ed577a8daf6c52cfed8559c1394e68a517",
+      "title": "Salt-grilled mackerel",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI156",
+      "sourceRecipeHash": "sha256:bf2221f0a539b37402c8fad08d6686abce08f471d4b691a8e836e0b17a8ae53c",
+      "title": "Unadon",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI157",
+      "sourceRecipeHash": "sha256:d3cfdfb158a800e15897bc1cd915f4fe91069f2918b67773c5910530aae28f77",
+      "title": "Chicken karaage rice plate",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI158",
+      "sourceRecipeHash": "sha256:6fe36221d0ee033cb52e50260adc5a83bda993493c6ebe21cd54215a8e40de2c",
+      "title": "Japanese curry rice",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI159",
+      "sourceRecipeHash": "sha256:af62feb21ece9eb21ec9e2033b69f46cc8ed893394e4e7449cdfa2bb0bd80ebf",
+      "title": "Omurice",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI160",
+      "sourceRecipeHash": "sha256:7e0761fbc665b0cd116543583e172766304dc4c48fef80e36e81a29949f03944",
+      "title": "Miso glazed black cod",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI161",
+      "sourceRecipeHash": "sha256:6ca56c8fb49d90eccc597a33248c03c7686416820949874a2485e4405f7c821b",
+      "title": "Coq au vin",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI162",
+      "sourceRecipeHash": "sha256:ba56ad90557ec63a545de9e967e1ed37b95059a2037d719552708e14f724d8e9",
+      "title": "Beef bourguignon",
+      "cuisine": "Burgundian French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI163",
+      "sourceRecipeHash": "sha256:769256d63953455f2ecd744773fe80a65bd0a37abce4f1c74bbabee7ac960123",
+      "title": "Cassoulet",
+      "cuisine": "Southwestern French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI164",
+      "sourceRecipeHash": "sha256:d079b22a3ce0eeb1d12bd504710ba46b97b6a67f07a28cabbb0af6eff42ecc67",
+      "title": "Ratatouille with baked eggs",
+      "cuisine": "Provençal French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI165",
+      "sourceRecipeHash": "sha256:79e504b795f774af02eb37bd5210b272225de6fe6c4d90d619f85075c029c9b6",
+      "title": "Sole meunière",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI166",
+      "sourceRecipeHash": "sha256:91da9a4519f9d5cbbd0052998cbed1abaabf521a10e0412cdc5f8f9b9faedc69",
+      "title": "Salmon en papillote",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI167",
+      "sourceRecipeHash": "sha256:6212cd9624c323e448776b83fbfc9e1aa4267e8093020b7706e263e3f6a948a4",
+      "title": "Duck confit",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI168",
+      "sourceRecipeHash": "sha256:bed0b4ec7be093c0aaa895c6845b1fd4eef738b47d10ed617d65f0ff74e6bbc6",
+      "title": "Steak frites with peppercorn sauce",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI169",
+      "sourceRecipeHash": "sha256:851101fa59eb7df7e7c25afdc3ff702484566dd5aa21352fe353cfb9319ec44e",
+      "title": "Chicken chasseur",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI170",
+      "sourceRecipeHash": "sha256:eaca669a79243b93c42883e0787f674d0cdf7bca9d3fbbec692b19047c000a15",
+      "title": "Blanquette de veau",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI171",
+      "sourceRecipeHash": "sha256:422e657198b71eb63555c90ccc13b3738095393a8a2368047c6a5d8c50d11179",
+      "title": "Creamy Dijon chicken",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI172",
+      "sourceRecipeHash": "sha256:a1ff1e06d598f3d37ce77895b88271802417736bd0b4110d3b898f59a160e683",
+      "title": "Chicken Provençal",
+      "cuisine": "Provençal French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI173",
+      "sourceRecipeHash": "sha256:317e735c59cce3eab6944f3ef9a7c865c7c1c9f771dbb7803a8087080ef03bc8",
+      "title": "Pork tenderloin with apples and cider",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI174",
+      "sourceRecipeHash": "sha256:87c92a59b3553ae528df79b902857ea0c6b8ca6a53a35910e8eb7959b1e05ed8",
+      "title": "Poulet basquaise (Basque pepper chicken)",
+      "cuisine": "Basque French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI175",
+      "sourceRecipeHash": "sha256:4c6279b91b2cb54d483b8df3f323882bc0e4e0e4ac685f90a430d7dd31193978",
+      "title": "Lamb navarin (French spring stew)",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

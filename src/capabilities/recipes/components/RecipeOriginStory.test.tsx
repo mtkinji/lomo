@@ -13,10 +13,34 @@ jest.mock('react-native-maps', () => {
 });
 
 const enrichment: RecipeEditorialEnrichment = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   rosterId: 'BR031',
   sourceRecipeHash: `sha256:${'a'.repeat(64)}`,
-  review: { state: 'reviewed', reviewedAt: '2026-08-20', reviewedBy: 'Kwilt editorial' },
+  review: {
+    state: 'reviewed',
+    reviewedAt: '2026-08-20',
+    reviewedBy: 'Kwilt editorial',
+    sections: {
+      cookingTruth: 'reviewed',
+      structuredIngredients: 'reviewed',
+      originHistory: 'reviewed',
+      equipment: 'reviewed',
+      commerce: 'reviewed',
+      sitePublication: 'published',
+    },
+  },
+  costTier: '$$',
+  difficulty: 'Moderate',
+  structuredIngredients: [],
+  instructionQuantityPhrases: {},
+  commerce: {
+    decision: 'no_purchase_needed',
+    needId: null,
+    reviewCategoryId: null,
+    rationale: 'No purchase is needed for this origin-story fixture.',
+    noPurchaseAlternative: null,
+  },
+  publication: { slug: 'test-recipe-br031', publishedAt: '2026-08-20T00:00:00.000Z' },
   equipmentNeeds: [],
   equipmentAnnotations: [],
   origin: {

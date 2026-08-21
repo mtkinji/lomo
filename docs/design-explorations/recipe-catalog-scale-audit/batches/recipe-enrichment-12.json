@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-12",
+  "manifestHash": "sha256:e4d3c5bbde08f9f1d64142b2309cd0d33118261f3aa2ac30a9a49c67dfe70db6",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DI126",
+      "sourceRecipeHash": "sha256:681ce773894de8bc3a7392f6991316d6044704d630037c983fcffda750d09403",
+      "title": "Aloo gobi",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI127",
+      "sourceRecipeHash": "sha256:b8ef995c3d333780afb4d589aa40d00d6a2847659eb93de80eedbd8b46ea0e19",
+      "title": "Baingan bharta",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI128",
+      "sourceRecipeHash": "sha256:157eff2c3a392041cd5aad99941876d6354cc61843b87e64b029bba13bdaa73e",
+      "title": "Goan fish curry",
+      "cuisine": "Goan Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI129",
+      "sourceRecipeHash": "sha256:c11db1f45064b27a80720509198811ecdfe76abfd7756fe6308e2e747ff2259e",
+      "title": "Pork vindaloo",
+      "cuisine": "Goan Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI130",
+      "sourceRecipeHash": "sha256:0eb40849d8a2337d8964ac7f61b147cf0915c2799c5d79fcac1f638e0c48edd4",
+      "title": "Kerala chicken stew",
+      "cuisine": "Kerala Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI131",
+      "sourceRecipeHash": "sha256:3e1f62f4e0984bf66668508c97addb0782a9d0dbb3fc6c1fd87cd56f8abf0668",
+      "title": "Meen moilee",
+      "cuisine": "Kerala Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI132",
+      "sourceRecipeHash": "sha256:c2400b021675996667ec331aeb3020e8aa2a9802a17791f3ea0dd1f81b935110",
+      "title": "Chettinad chicken",
+      "cuisine": "Tamil Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI133",
+      "sourceRecipeHash": "sha256:662a424de630b50f8e5360e4ced416054f13b17161af7d031d2e403eda0fd625",
+      "title": "Hyderabadi chicken biryani",
+      "cuisine": "Hyderabadi Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI134",
+      "sourceRecipeHash": "sha256:d89a7e56d3f2c10d3337fc6138a8c4963b4e842a8f249f24bd3f0c97cd6306d7",
+      "title": "Lucknowi lamb biryani",
+      "cuisine": "Lucknowi Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI135",
+      "sourceRecipeHash": "sha256:45944b839dda2fa125199852c08c24fea2569576513e64fdb4464079b145faea",
+      "title": "Chingri malai curry",
+      "cuisine": "Bengali Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI136",
+      "sourceRecipeHash": "sha256:59c41bccda015df06669c9f6f5889f29d25710d0b72174507ab231fe79d207ae",
+      "title": "Mustard fish curry",
+      "cuisine": "Bengali Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI137",
+      "sourceRecipeHash": "sha256:03590b1e6ab2a684a6b96b170ffcc9853c3208b0014d8ee9095ef5bef8c1af54",
+      "title": "Undhiyu",
+      "cuisine": "Gujarati Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI138",
+      "sourceRecipeHash": "sha256:58db9c0a84055745630f39bcc4db805df16faf526b2e9049f0559f80e0128eb7",
+      "title": "Laal maas",
+      "cuisine": "Rajasthani Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI139",
+      "sourceRecipeHash": "sha256:7f730ee3ac692bfaefbceded9d1013b2d64941cb569c44b00084bf85becce694",
+      "title": "Chicken karahi",
+      "cuisine": "Pakistani",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI140",
+      "sourceRecipeHash": "sha256:0404ef822da8e19a9975c518794f91d01917571bbe79d0b13680db346e7fe963",
+      "title": "Beef nihari",
+      "cuisine": "Pakistani",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI141",
+      "sourceRecipeHash": "sha256:ea5599b5af7e1c4a9e43b3c740e8ab792a4a2c1a04bc171d22f25a8b0d2e79b8",
+      "title": "Haleem",
+      "cuisine": "Pakistani",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI142",
+      "sourceRecipeHash": "sha256:bbb35aefb934efbc8934828742341c76e3f44fe697384b725d1b3a32e910d3db",
+      "title": "Bhuna khichuri with chicken",
+      "cuisine": "Bangladeshi",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI143",
+      "sourceRecipeHash": "sha256:fe0349793c07f98ffe8553b298002b0667d528ce585810496962f76702d84629",
+      "title": "Sri Lankan chicken curry",
+      "cuisine": "Sri Lankan",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI144",
+      "sourceRecipeHash": "sha256:e70fd1454af4d29d3eaa3d99030ca448920d48bbea3d71229daf0f67b07a8c8f",
+      "title": "Sri Lankan black pork curry",
+      "cuisine": "Sri Lankan",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI145",
+      "sourceRecipeHash": "sha256:1cb2fecf9ead6a15e6cafe9c7b2b1f3c827eed99f9837e007e02669aadf3bbd2",
+      "title": "Teriyaki salmon rice bowls",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI146",
+      "sourceRecipeHash": "sha256:f329d8665ff6d1abef0e712533e3a78d6b66488c508187edb6acddb34fc7230f",
+      "title": "Chicken katsu curry",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI147",
+      "sourceRecipeHash": "sha256:79080a131ec07f907a3a66a680118c242fcd37c4c1f19648c89cf987bb396be2",
+      "title": "Oyakodon",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI148",
+      "sourceRecipeHash": "sha256:0a91f26d91542682683ebe2039d81cc5d5a2b03769dd719ea24616754b5904b0",
+      "title": "Gyudon",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI149",
+      "sourceRecipeHash": "sha256:5d10cbf5b04bdbd2756bf672ea452b0e92e81571dc0540004295d206fc7a1c77",
+      "title": "Tonkatsu with cabbage",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI150",
+      "sourceRecipeHash": "sha256:050d0af7b79e463ad561bccfd323a7d3e4d8d9c46a13b365fa12999621cf93e2",
+      "title": "Yakisoba",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

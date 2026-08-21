@@ -67,7 +67,12 @@ describe("starter Recipe catalog", () => {
       heroImage: expect.objectContaining({ state: 'published' }),
     }));
     expect(reviewed?.equipmentNeeds).toHaveLength(7);
-    expect(getStarterRecipeEnrichment('kwilt-recipe-br001')).toBeNull();
+    expect(getStarterRecipeEnrichment('kwilt-recipe-br001')).toEqual(
+      expect.objectContaining({
+        rosterId: 'BR001',
+        review: expect.objectContaining({ state: 'reviewed' }),
+      }),
+    );
     expect(getStarterRecipeEnrichment('private-recipe')).toBeNull();
   });
 

@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-10",
+  "manifestHash": "sha256:330baa963e9dd981920a4701f8c7e22c4536a348f1675e015516f653dc0a6c0d",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DI076",
+      "sourceRecipeHash": "sha256:3957ed6ec11a7b9c01efc89bebf8637472aea7e7705381faeeb79b9008bbe33c",
+      "title": "Lamb barbacoa",
+      "cuisine": "Central Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI077",
+      "sourceRecipeHash": "sha256:e233b45b240561af5b640e0632a1300061794ca642d9ae98b99c7eb06f610ff9",
+      "title": "Citrus pollo asado",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI078",
+      "sourceRecipeHash": "sha256:30dbfd9e18f56d620cfce85e3eba3dd1730949e1f8724b4acd077471198b2ec9",
+      "title": "Pescado a la veracruzana",
+      "cuisine": "Veracruz Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI079",
+      "sourceRecipeHash": "sha256:86c4435d618f441df2ddaa06394df6af21ac0636831ee28c8df5fcdaf9c44a2c",
+      "title": "Camarones a la diabla",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI080",
+      "sourceRecipeHash": "sha256:790df493d91fc0984d3c997380588be400d90798d9323891e40f5707ce87b8a0",
+      "title": "Tlayudas with black beans",
+      "cuisine": "Oaxacan Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI081",
+      "sourceRecipeHash": "sha256:b84054609a0e7a752282c5aea3dbf666640c9b2a985506b2c8e26499f2af5272",
+      "title": "Quesabirria tacos",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI082",
+      "sourceRecipeHash": "sha256:f9d3e4fc2869fcfe951e41172bec1ced3f01ecfa82f6802bba5eec2f7dd721de",
+      "title": "Enchiladas verdes",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI083",
+      "sourceRecipeHash": "sha256:c34dfaea2eeb4623d4d008dcbe1b4be2e3b31f237cbc3782fb897f66b551e683",
+      "title": "Enfrijoladas",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI084",
+      "sourceRecipeHash": "sha256:51cac23b2257ed555f282c110dfc11c6d06215702b949cd005c6250742a3ead1",
+      "title": "Chicken in pumpkin seed pipián",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI085",
+      "sourceRecipeHash": "sha256:d82b70e5290c17947afa34cdc9db33f960c8fa935d261dc786f888404788cd63",
+      "title": "Chiles en nogada",
+      "cuisine": "Puebla Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI086",
+      "sourceRecipeHash": "sha256:22204b599d33fee3418bdd7128e29235426815229d5fef70783a90113940d5c6",
+      "title": "Beef picadillo",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI087",
+      "sourceRecipeHash": "sha256:869453d458e116ca8e494550c224ad54eb336eb3117d064128a4f0438eab3c1c",
+      "title": "Pollo en adobo",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI088",
+      "sourceRecipeHash": "sha256:e91688393f787909533a6d19193f9e0dcc3bb9286a013c536b298f5ba0ac097a",
+      "title": "One-pan chicken fajitas",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI089",
+      "sourceRecipeHash": "sha256:6e47fc09144fdce4eb70c3122f9f068344b5af6cb1228fefe37fe466f1b049ec",
+      "title": "Beef taco casserole",
+      "cuisine": "Tex-Mex",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI090",
+      "sourceRecipeHash": "sha256:19a19a95b407827675c7719d477cb3a393ffde0254e191e4a8588266de4f709a",
+      "title": "Smothered beef burritos",
+      "cuisine": "Tex-Mex",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI091",
+      "sourceRecipeHash": "sha256:cb468f6852badca82bfc8553b8e19d08f746861dd15f88e210fb24bc8821a408",
+      "title": "Huachinango a la talla",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI092",
+      "sourceRecipeHash": "sha256:cffb9bee711f31a306e3e0f3eed5120f486c7a1d47acdb423b5cbe91931eef3c",
+      "title": "Kung pao chicken",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI093",
+      "sourceRecipeHash": "sha256:588af04c7d1eb8e981e39ff2105fcb3387ffdf1a130149352566692cb8190e4b",
+      "title": "Beef and broccoli",
+      "cuisine": "Chinese-American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI094",
+      "sourceRecipeHash": "sha256:dd15d7701942e6b0387923cacda65adc56c191ed90eb47b2ecf41abf90b61bf3",
+      "title": "Mapo tofu",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI095",
+      "sourceRecipeHash": "sha256:8cf3fc1b83a6e264ecfb49591e1fedb6f1968387e35c371a8330bcb67719a38b",
+      "title": "Tomato and egg stir-fry",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI096",
+      "sourceRecipeHash": "sha256:d3d19884c91bf86913c16eb2d66a9e43cd8ef647efbf1b9e1deed73e720b441b",
+      "title": "Twice-cooked pork",
+      "cuisine": "Sichuan Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI097",
+      "sourceRecipeHash": "sha256:f111a1ec78651e4ea1a9219417b966fe7135487be0b248e7b5c5ceaefc0d40b2",
+      "title": "Dry-fried green bean pork",
+      "cuisine": "Sichuan Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI098",
+      "sourceRecipeHash": "sha256:e715cf1e2e2cfd2abae17eaf19b70bd37f775a70a8cf8472f404f6a859f10258",
+      "title": "Boiled fish in chile oil",
+      "cuisine": "Sichuan Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI099",
+      "sourceRecipeHash": "sha256:d1d353b5a6860a985e9956a90529242636e5b53b0fef73da4bb24ac839f6b075",
+      "title": "Chairman’s red-braised pork",
+      "cuisine": "Hunan Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI100",
+      "sourceRecipeHash": "sha256:5a50dbe5ad5f280b098e520ceb40f2dab83627e468cd8333e2172930a5f910ff",
+      "title": "Char siu pork",
+      "cuisine": "Cantonese Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

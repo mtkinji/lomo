@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-04",
+  "manifestHash": "sha256:ae9d970d624d985ff780b42781c1ef561faf7295ae135e5f3c5c8c6d30156885",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "BR046",
+      "sourceRecipeHash": "sha256:8d0d59bbcf16747e019e80b46e0f17415e598e90340af18321c066accac72f71",
+      "title": "Roti canai with dhal",
+      "cuisine": "Malaysian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR047",
+      "sourceRecipeHash": "sha256:3abe1a7931491929fa0e2ddf1f2301ebd7e499e919ea40f9725624b780b4b25a",
+      "title": "Quiche Lorraine",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR048",
+      "sourceRecipeHash": "sha256:6a4a48cfdd2310238186bdfd6a00fb234f611e3d434a1680cd6f4b90f6b04b92",
+      "title": "Ham and cheese savory crêpes",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR049",
+      "sourceRecipeHash": "sha256:55e63a9ca286f5ad260e83e67f3a89a2eccbd22eef3791977033f883c8b46b7a",
+      "title": "Apple pain perdu",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR050",
+      "sourceRecipeHash": "sha256:8d4597bf867800b7ed89e1270bd35b24aedb07ce6cefd93f8d82a79a087ff5a5",
+      "title": "Dutch baby pancake",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR051",
+      "sourceRecipeHash": "sha256:4f67e9c704e59625c81f731393e7e7bb2f2ea39ea8d3673bdf668285410de354",
+      "title": "Tortilla española",
+      "cuisine": "Spanish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR052",
+      "sourceRecipeHash": "sha256:b9b2bedb9be8f339b6dfc24c4d01fed714a1adae3083ab351fdec29596957e8a",
+      "title": "Pan con tomate with eggs",
+      "cuisine": "Catalan",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR053",
+      "sourceRecipeHash": "sha256:7b46975632f52d994a61f2d7ee74e6307cd70a6bbda4c7bb3c6b3ce11c6fe7d4",
+      "title": "Spinach and ricotta frittata",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR054",
+      "sourceRecipeHash": "sha256:7bfceb5d56b8c92cd53f69f78739cbe94567e324d80b81a7beb88bad3bb21e9e",
+      "title": "Eggs in purgatory",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR055",
+      "sourceRecipeHash": "sha256:1c11ed4c04acc252cc28f6c07d1c4b97c658980902246c85500051f13ea74d59",
+      "title": "Ricotta toast with berries",
+      "cuisine": "Italian-American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR056",
+      "sourceRecipeHash": "sha256:a738dcab630282f33a52303c3380429d4ab230705a9029f3cbd365fa05310fe9",
+      "title": "Yogurt with honey and walnuts",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR057",
+      "sourceRecipeHash": "sha256:ef2e15e2c781a9c882268e4661ae26b03a534a30944a002a80c54340de321f09",
+      "title": "Strapatsada tomato eggs",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR058",
+      "sourceRecipeHash": "sha256:347946e675838b2ac43a1360da83f64d7ecda844cf54dba641457811cac4c532",
+      "title": "Full English breakfast",
+      "cuisine": "British",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR059",
+      "sourceRecipeHash": "sha256:a6e7bb8a2286315794dc2b4f7a0f7a7130a39c255d5e993d56de929e907c9b86",
+      "title": "Beans on toast with egg",
+      "cuisine": "British",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR060",
+      "sourceRecipeHash": "sha256:4109e2ff4cac9b2b245cf1a8313a95ddb702b6bee7b40f76c7b473462cb647da",
+      "title": "Bubble and squeak with eggs",
+      "cuisine": "British",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR061",
+      "sourceRecipeHash": "sha256:46fddf6e0a90689536d9989570b6b2607bd6e91f63d586f0f7247f898a48cf13",
+      "title": "Tattie scones with eggs",
+      "cuisine": "Scottish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR062",
+      "sourceRecipeHash": "sha256:9913d55ab147710ff1364446ff523a634a4530da69ad5328e18aeca4b4b5415f",
+      "title": "Boxty with smoked salmon",
+      "cuisine": "Irish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR063",
+      "sourceRecipeHash": "sha256:d9b5942c5e2bc7d0a3c978ea9f490d1b71f077c057f60c0b0b2e9346beffb9bb",
+      "title": "Soft-boiled eggs with rye and dill",
+      "cuisine": "Scandinavian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR064",
+      "sourceRecipeHash": "sha256:c7c13db001784921b36857b67ca40a7158ac94b89317c97ea23a418716d5496e",
+      "title": "Ugnspannkaka oven pancake",
+      "cuisine": "Swedish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR065",
+      "sourceRecipeHash": "sha256:2dc31e249fdeaef0cebfe3df03976ac5198588df2049b47b68b7872f90451759",
+      "title": "Rice porridge with cinnamon",
+      "cuisine": "Finnish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR066",
+      "sourceRecipeHash": "sha256:6784b8855ea052985926d3635cd4462ae0fe1d3fcf8a3bc000fd6024834cc7d1",
+      "title": "Nordic creamy oat porridge with berries",
+      "cuisine": "Nordic",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR067",
+      "sourceRecipeHash": "sha256:7b898d1f8d5cb768e4e0aa144beb32258824515353092babfde174a2759978b7",
+      "title": "Swiss Bircher muesli",
+      "cuisine": "Swiss",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR068",
+      "sourceRecipeHash": "sha256:b3988e382f38db82c7420516f8ad9bf01e19103fef37b2fb8dc244ae209f0a29",
+      "title": "German quark pancakes with berries",
+      "cuisine": "German",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR069",
+      "sourceRecipeHash": "sha256:2a9cb5ffd87092e660efc6208d4f2fb0a5316d959ed987c9db1bfd96abb10235",
+      "title": "Austrian Kaiserschmarrn",
+      "cuisine": "Austrian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR070",
+      "sourceRecipeHash": "sha256:b1caea367d0349213ca63050a9f7870d7ed3657a3660ed90142d7b1a530b2328",
+      "title": "Polish cheese naleśniki",
+      "cuisine": "Polish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

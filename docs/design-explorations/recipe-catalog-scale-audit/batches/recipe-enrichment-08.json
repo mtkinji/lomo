@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-08",
+  "manifestHash": "sha256:d9ed4892e59d350b7e52691d2c525a9a98aa49663250bb5d14ad7e675dc18c72",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DI026",
+      "sourceRecipeHash": "sha256:49317925232bc245ddb168f2fb25b3fec6f3024e0d743f2c213cbe8c7678d20b",
+      "title": "Shrimp perloo",
+      "cuisine": "Lowcountry US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI027",
+      "sourceRecipeHash": "sha256:226182de9d28aa105a11952276500db23df6f30cda673deb37fb1505b5173fdf",
+      "title": "Hoppin’ John supper",
+      "cuisine": "Lowcountry US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI028",
+      "sourceRecipeHash": "sha256:fd73bc974adfb4aa2e1ec56dfc4bbff9037170ec67ad1bfd6556328d93c39486",
+      "title": "Smoked beef brisket",
+      "cuisine": "Texan",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI029",
+      "sourceRecipeHash": "sha256:99dce0304a156d24407b4adc825091698e310b2715675ea7e90dcd933d84f1f7",
+      "title": "Sticky barbecue pork ribs",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI030",
+      "sourceRecipeHash": "sha256:931810a5c913523f98b752dfcf325e662fca0e47111b1515a7e6b13a977bce18",
+      "title": "Vinegar pulled pork",
+      "cuisine": "Carolinas US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI031",
+      "sourceRecipeHash": "sha256:2e5f9703918faa8e3f81d47da570c7b9ce169f664a5cf9ea042cb49991fa248b",
+      "title": "Huli huli chicken",
+      "cuisine": "Hawaiian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI032",
+      "sourceRecipeHash": "sha256:bb1d234b6e126c5b8d6f2a1542930734df01af4cde5f43e7c634354899a8216f",
+      "title": "Kālua pork and cabbage",
+      "cuisine": "Hawaiian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI033",
+      "sourceRecipeHash": "sha256:2bf8add2d6a5eb030bb33583c995562e0de76b5ebdfbec59367ee296554f56ae",
+      "title": "Loco moco",
+      "cuisine": "Hawaiian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI034",
+      "sourceRecipeHash": "sha256:081a5ecdd9020ce106def0cf2f000b895f33457dce0be346513305e7058b88d9",
+      "title": "Cedar-plank salmon",
+      "cuisine": "Alaska US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI035",
+      "sourceRecipeHash": "sha256:b24091a9b350331762f8f75b9d19497fc201dc427f1d06398b8f7a568ef9e161",
+      "title": "Baked cod with cracker crumbs",
+      "cuisine": "New England US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI036",
+      "sourceRecipeHash": "sha256:ba9275f2a8800d5294c7d598816e8e7129ea557a4afc9f34c8991b21ea3da240",
+      "title": "Tater tot hotdish",
+      "cuisine": "Midwestern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI037",
+      "sourceRecipeHash": "sha256:56510201bf864a50f76d7d3fefad0eaeec019403f7af44c68c1ba02709c21342",
+      "title": "Chicken and wild rice bake",
+      "cuisine": "Midwestern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI038",
+      "sourceRecipeHash": "sha256:8466e8184633cc0c30991a847b7e3725671163fb9a65aef16c64d33ff1d5a04e",
+      "title": "Green chile chicken enchilada bake",
+      "cuisine": "Southwestern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI039",
+      "sourceRecipeHash": "sha256:977585da2a3088168caa0004adb6ae0fab74f668d00e9da0056da084385c6621",
+      "title": "Tourtière",
+      "cuisine": "Canadian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI040",
+      "sourceRecipeHash": "sha256:0f37a74d8f9fcb136f1d1b3f247fbd25e0c4d76945ece663581c64f072815810",
+      "title": "Poutine with beef gravy",
+      "cuisine": "Québécois",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI041",
+      "sourceRecipeHash": "sha256:8259538fd95aa8612f78432da4dcb6b60368eaa3f77aeb088cc6af2b515fbf96",
+      "title": "Maple glazed salmon",
+      "cuisine": "Canadian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI042",
+      "sourceRecipeHash": "sha256:d64825eb56facef693a60b61d42c705463ca555beb3764820f544a6225fa27d6",
+      "title": "Three Sisters stuffed squash",
+      "cuisine": "Modern North American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI043",
+      "sourceRecipeHash": "sha256:36af7d3301ac77efc8b9cfe7de8ac4f92031f8a56100251ae094eab7d12e9358",
+      "title": "Spaghetti carbonara",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI044",
+      "sourceRecipeHash": "sha256:b28a804d1a25c3310b08c91ad9b0c16567ccbb825b910cc9a1ea766e124e9759",
+      "title": "Tagliatelle alla bolognese",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI045",
+      "sourceRecipeHash": "sha256:50ff915e4ec067f135e74899428ee9d32324b410a2af8930b667911cb000a6ac",
+      "title": "Classic beef lasagna",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI046",
+      "sourceRecipeHash": "sha256:8397f8633d31fef691db7515f513dac44bff9c2c54900300830613db12516323",
+      "title": "Cacio e pepe",
+      "cuisine": "Roman Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI047",
+      "sourceRecipeHash": "sha256:2d5cf78cdf0b348ab35711232b7db85d66316088d291610bb15faa4a4d1a2ce4",
+      "title": "Bucatini all’amatriciana",
+      "cuisine": "Roman Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI048",
+      "sourceRecipeHash": "sha256:b71a9efe8b277f6336d7630ce3a8502a388e6d2637ab0982404c4404f40617c9",
+      "title": "Trofie al pesto",
+      "cuisine": "Ligurian Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI049",
+      "sourceRecipeHash": "sha256:619ad592ff0871108cea2b735b82e78e4bd9d8945c0aa8ca644a467bac6e1417",
+      "title": "Spaghetti puttanesca",
+      "cuisine": "Southern Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI050",
+      "sourceRecipeHash": "sha256:cb69a49cb3d79544331bce5acc88b595f5bf2bd3776f77f4058bdbf40787d5ec",
+      "title": "Rigatoni alla vodka",
+      "cuisine": "Italian-American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

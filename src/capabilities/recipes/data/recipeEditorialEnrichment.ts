@@ -33,11 +33,51 @@ export type RecipeHeroImageState = {
   height: number | null;
 };
 
+export type RecipeEditorialCostTier = '$' | '$$' | '$$$';
+export type RecipeEditorialDifficulty = 'Easy' | 'Moderate' | 'Advanced';
+export type RecipeEditorialReviewState = 'pending' | 'reviewed';
+
+export type RecipeStructuredIngredient = {
+  position: number;
+  originalText: string;
+  quantityMin: number | null;
+  quantityMax: number | null;
+  unit: string | null;
+  ingredientConcept: string | null;
+  preparation: string | null;
+  optional: boolean;
+  parseConfidence: number;
+};
+
 export type RecipeEditorialEnrichment = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   rosterId: string;
   sourceRecipeHash: string;
-  review: { state: 'reviewed'; reviewedAt: string; reviewedBy: string };
+  review: {
+    state: 'in_progress' | 'reviewed';
+    reviewedAt: string;
+    reviewedBy: string;
+    sections: {
+      cookingTruth: RecipeEditorialReviewState;
+      structuredIngredients: RecipeEditorialReviewState;
+      originHistory: RecipeEditorialReviewState;
+      equipment: RecipeEditorialReviewState;
+      commerce: RecipeEditorialReviewState;
+      sitePublication: 'pending' | 'ready' | 'published';
+    };
+  };
+  costTier: RecipeEditorialCostTier | null;
+  difficulty: RecipeEditorialDifficulty | null;
+  structuredIngredients: RecipeStructuredIngredient[];
+  instructionQuantityPhrases: Record<number, string[]>;
+  commerce: {
+    decision: 'pending' | 'no_purchase_needed' | 'review_category';
+    needId: string | null;
+    reviewCategoryId: string | null;
+    rationale: string | null;
+    noPurchaseAlternative: string | null;
+  };
+  publication: { slug: string | null; publishedAt: string | null };
   equipmentNeeds: RecipeEquipmentNeed[];
   equipmentAnnotations: RecipeEquipmentAnnotation[];
   origin: RecipeOrigin;
@@ -82,6 +122,106 @@ function integer(value: unknown, path: string, min: number, max: number): number
 
 function nullableInteger(value: unknown, path: string): number | null {
   return value === null ? null : integer(value, path, 1, 10_000);
+}
+
+function nullableText(value: unknown, path: string, max: number): string | null {
+  return value === null ? null : text(value, path, max);
+}
+
+function parseReviewState(value: unknown, path: string): RecipeEditorialReviewState {
+  if (value !== 'pending' && value !== 'reviewed') throw new Error(`${path} is invalid.`);
+  return value;
+}
+
+function parseStructuredIngredients(
+  value: unknown,
+  canonicalIngredients: readonly string[],
+  reviewed: boolean,
+): RecipeStructuredIngredient[] {
+  if (!Array.isArray(value) || value.length > 80) throw new Error('structuredIngredients is invalid.');
+  const parsed = value.map((entry, index) => {
+    const path = `structuredIngredients[${index}]`;
+    const row = record(entry, path);
+    exactKeys(row, ['position', 'originalText', 'quantityMin', 'quantityMax', 'unit', 'ingredientConcept', 'preparation', 'optional', 'parseConfidence'], path);
+    const position = integer(row.position, `${path}.position`, 0, 79);
+    if (position !== index) throw new Error(`${path}.position must match its array position.`);
+    const originalText = text(row.originalText, `${path}.originalText`, 1_000);
+    if (canonicalIngredients.length && originalText !== canonicalIngredients[index]) {
+      throw new Error(`${path}.originalText must match the canonical ingredient.`);
+    }
+    const quantityMin = row.quantityMin === null ? null : finite(row.quantityMin, `${path}.quantityMin`, 0, 100_000);
+    const quantityMax = row.quantityMax === null ? null : finite(row.quantityMax, `${path}.quantityMax`, 0, 100_000);
+    if (quantityMin !== null && quantityMax !== null && quantityMax < quantityMin) {
+      throw new Error(`${path}.quantityMax cannot be less than quantityMin.`);
+    }
+    if (typeof row.optional !== 'boolean') throw new Error(`${path}.optional is invalid.`);
+    return {
+      position,
+      originalText,
+      quantityMin,
+      quantityMax,
+      unit: nullableText(row.unit, `${path}.unit`, 120),
+      ingredientConcept: nullableText(row.ingredientConcept, `${path}.ingredientConcept`, 240),
+      preparation: nullableText(row.preparation, `${path}.preparation`, 500),
+      optional: row.optional,
+      parseConfidence: finite(row.parseConfidence, `${path}.parseConfidence`, 0, 1),
+    };
+  });
+  if (reviewed && parsed.length !== canonicalIngredients.length) {
+    throw new Error('Reviewed structuredIngredients must cover every canonical ingredient.');
+  }
+  return parsed;
+}
+
+function parseInstructionQuantityPhrases(value: unknown, instructions: readonly string[]): Record<number, string[]> {
+  const row = record(value, 'instructionQuantityPhrases');
+  const parsed: Record<number, string[]> = {};
+  for (const [rawIndex, phrases] of Object.entries(row)) {
+    if (!/^\d+$/.test(rawIndex)) throw new Error(`instructionQuantityPhrases.${rawIndex} is invalid.`);
+    const index = Number(rawIndex);
+    if (!instructions[index] || !Array.isArray(phrases) || phrases.length > 24) {
+      throw new Error(`instructionQuantityPhrases.${rawIndex} is invalid.`);
+    }
+    parsed[index] = phrases.map((phrase, phraseIndex) => {
+      const parsedPhrase = text(phrase, `instructionQuantityPhrases.${rawIndex}[${phraseIndex}]`, 120);
+      if (phraseOccurrences(instructions[index], parsedPhrase) !== 1) {
+        throw new Error(`instructionQuantityPhrases.${rawIndex}[${phraseIndex}] must appear exactly once in its instruction.`);
+      }
+      return parsedPhrase;
+    });
+  }
+  return parsed;
+}
+
+function parseCommerce(value: unknown, reviewed: boolean): RecipeEditorialEnrichment['commerce'] {
+  const row = record(value, 'commerce');
+  exactKeys(row, ['decision', 'needId', 'reviewCategoryId', 'rationale', 'noPurchaseAlternative'], 'commerce');
+  if (row.decision !== 'pending' && row.decision !== 'no_purchase_needed' && row.decision !== 'review_category') {
+    throw new Error('commerce.decision is invalid.');
+  }
+  if (reviewed && row.decision === 'pending') throw new Error('Reviewed commerce requires a decision.');
+  const parsed = {
+    decision: row.decision,
+    needId: nullableText(row.needId, 'commerce.needId', 80),
+    reviewCategoryId: nullableText(row.reviewCategoryId, 'commerce.reviewCategoryId', 80),
+    rationale: nullableText(row.rationale, 'commerce.rationale', 1_000),
+    noPurchaseAlternative: nullableText(row.noPurchaseAlternative, 'commerce.noPurchaseAlternative', 500),
+  } as RecipeEditorialEnrichment['commerce'];
+  if (parsed.decision === 'review_category' && (!parsed.needId || !parsed.reviewCategoryId || !parsed.rationale || !parsed.noPurchaseAlternative)) {
+    throw new Error('A commerce review category requires a need, category, rationale, and no-purchase alternative.');
+  }
+  if (parsed.decision === 'no_purchase_needed' && !parsed.rationale) throw new Error('A no-purchase decision requires a rationale.');
+  return parsed;
+}
+
+function parsePublication(value: unknown): RecipeEditorialEnrichment['publication'] {
+  const row = record(value, 'publication');
+  exactKeys(row, ['slug', 'publishedAt'], 'publication');
+  const slug = nullableText(row.slug, 'publication.slug', 180);
+  if (slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error('publication.slug is invalid.');
+  const publishedAt = nullableText(row.publishedAt, 'publication.publishedAt', 40);
+  if (publishedAt && !Number.isFinite(Date.parse(publishedAt))) throw new Error('publication.publishedAt is invalid.');
+  return { slug, publishedAt };
 }
 
 function parseNeed(value: unknown, index: number): RecipeEquipmentNeed {
@@ -206,17 +346,25 @@ function phraseOccurrences(value: string, phrase: string): number {
 export function parseRecipeEditorialEnrichment(
   value: unknown,
   instructions: readonly string[],
+  canonicalIngredients: readonly string[] = [],
 ): RecipeEditorialEnrichment {
   const row = record(value, 'recipeEditorialEnrichment');
-  exactKeys(row, ['schemaVersion', 'rosterId', 'sourceRecipeHash', 'review', 'equipmentNeeds', 'equipmentAnnotations', 'origin', 'history', 'heroImage'], 'recipeEditorialEnrichment');
-  if (row.schemaVersion !== 1) throw new Error('schemaVersion is invalid.');
+  const legacy = row.schemaVersion === 1;
+  const current = row.schemaVersion === 2;
+  if (!legacy && !current) throw new Error('schemaVersion is invalid.');
+  exactKeys(row, legacy
+    ? ['schemaVersion', 'rosterId', 'sourceRecipeHash', 'review', 'equipmentNeeds', 'equipmentAnnotations', 'origin', 'history', 'heroImage']
+    : ['schemaVersion', 'rosterId', 'sourceRecipeHash', 'review', 'costTier', 'difficulty', 'structuredIngredients', 'instructionQuantityPhrases', 'commerce', 'publication', 'equipmentNeeds', 'equipmentAnnotations', 'origin', 'history', 'heroImage'],
+  'recipeEditorialEnrichment');
   const rosterId = text(row.rosterId, 'rosterId', 5);
   if (!/^(BR|LU|DI|SO|SA|AP|SI|BA|DE)\d{3}$/.test(rosterId)) throw new Error('rosterId is invalid.');
   const sourceRecipeHash = text(row.sourceRecipeHash, 'sourceRecipeHash', 71);
   if (!/^sha256:[a-f0-9]{64}$/.test(sourceRecipeHash)) throw new Error('sourceRecipeHash is invalid.');
   const review = record(row.review, 'review');
-  exactKeys(review, ['state', 'reviewedAt', 'reviewedBy'], 'review');
-  if (review.state !== 'reviewed') throw new Error('review.state is invalid.');
+  exactKeys(review, legacy ? ['state', 'reviewedAt', 'reviewedBy'] : ['state', 'reviewedAt', 'reviewedBy', 'sections'], 'review');
+  if (legacy ? review.state !== 'reviewed' : review.state !== 'in_progress' && review.state !== 'reviewed') {
+    throw new Error('review.state is invalid.');
+  }
   const reviewedAt = text(review.reviewedAt, 'review.reviewedAt', 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(reviewedAt)) throw new Error('review.reviewedAt is invalid.');
   if (!Array.isArray(row.equipmentNeeds) || row.equipmentNeeds.length > 24) throw new Error('equipmentNeeds is invalid.');
@@ -232,15 +380,70 @@ export function parseRecipeEditorialEnrichment(
       throw new Error(`equipmentAnnotations[${index}].phrase must appear exactly once in its instruction.`);
     }
   });
+  const heroImage = parseHeroImage(row.heroImage);
+  const sections = legacy
+    ? {
+        cookingTruth: 'reviewed' as const,
+        structuredIngredients: 'pending' as const,
+        originHistory: 'reviewed' as const,
+        equipment: (equipmentNeeds.length ? 'reviewed' : 'pending') as RecipeEditorialReviewState,
+        commerce: 'pending' as const,
+        sitePublication: 'pending' as const,
+      }
+    : (() => {
+        const value = record(review.sections, 'review.sections');
+        exactKeys(value, ['cookingTruth', 'structuredIngredients', 'originHistory', 'equipment', 'commerce', 'sitePublication'], 'review.sections');
+        if (value.sitePublication !== 'pending' && value.sitePublication !== 'ready' && value.sitePublication !== 'published') {
+          throw new Error('review.sections.sitePublication is invalid.');
+        }
+        return {
+          cookingTruth: parseReviewState(value.cookingTruth, 'review.sections.cookingTruth'),
+          structuredIngredients: parseReviewState(value.structuredIngredients, 'review.sections.structuredIngredients'),
+          originHistory: parseReviewState(value.originHistory, 'review.sections.originHistory'),
+          equipment: parseReviewState(value.equipment, 'review.sections.equipment'),
+          commerce: parseReviewState(value.commerce, 'review.sections.commerce'),
+          sitePublication: value.sitePublication as 'pending' | 'ready' | 'published',
+        };
+      })();
+  const costTier = legacy ? null : row.costTier;
+  if (costTier !== null && costTier !== '$' && costTier !== '$$' && costTier !== '$$$') throw new Error('costTier is invalid.');
+  const difficulty = legacy ? null : row.difficulty;
+  if (difficulty !== null && difficulty !== 'Easy' && difficulty !== 'Moderate' && difficulty !== 'Advanced') {
+    throw new Error('difficulty is invalid.');
+  }
+  const structuredIngredients = parseStructuredIngredients(
+    legacy ? [] : row.structuredIngredients,
+    canonicalIngredients,
+    sections.structuredIngredients === 'reviewed',
+  );
+  const instructionQuantityPhrases = parseInstructionQuantityPhrases(legacy ? {} : row.instructionQuantityPhrases, instructions);
+  const commerce = legacy
+    ? { decision: 'pending' as const, needId: null, reviewCategoryId: null, rationale: null, noPurchaseAlternative: null }
+    : parseCommerce(row.commerce, sections.commerce === 'reviewed');
+  const publication = legacy ? { slug: null, publishedAt: null } : parsePublication(row.publication);
+  if (sections.sitePublication === 'published' && (!publication.slug || !publication.publishedAt || heroImage.state !== 'published')) {
+    throw new Error('Published Site Recipes require a slug, publication date, and published hero image.');
+  }
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     rosterId,
     sourceRecipeHash,
-    review: { state: 'reviewed', reviewedAt, reviewedBy: text(review.reviewedBy, 'review.reviewedBy', 160) },
+    review: {
+      state: legacy ? 'in_progress' : review.state as 'in_progress' | 'reviewed',
+      reviewedAt,
+      reviewedBy: text(review.reviewedBy, 'review.reviewedBy', 160),
+      sections,
+    },
+    costTier: costTier as RecipeEditorialCostTier | null,
+    difficulty: difficulty as RecipeEditorialDifficulty | null,
+    structuredIngredients,
+    instructionQuantityPhrases,
+    commerce,
+    publication,
     equipmentNeeds,
     equipmentAnnotations,
     origin: parseOrigin(row.origin),
     history: parseHistory(row.history),
-    heroImage: parseHeroImage(row.heroImage),
+    heroImage,
   };
 }

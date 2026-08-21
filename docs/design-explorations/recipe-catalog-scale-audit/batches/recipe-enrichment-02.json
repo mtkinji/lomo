@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-02",
+  "manifestHash": "sha256:0c216a7efab35da7d08f310fe969d295cd0f51517486ed5cbc146bd42eeb57ea",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "BA016",
+      "sourceRecipeHash": "sha256:02303074e5baeae8c5f6578e988c0efd5be5adddc1bb9ec340a96bda3b30f041",
+      "title": "Crusty baguettes",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA017",
+      "sourceRecipeHash": "sha256:c652c5f98c89406cdfe34966c9c98bc43856c76265dcea39788045077d2aa0ea",
+      "title": "French country bread (Pain de campagne)",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA018",
+      "sourceRecipeHash": "sha256:159d183e8d0fb4bc7477c2cf9346999f110eb54e11fca5d155009715a0458677",
+      "title": "Butter croissants",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA019",
+      "sourceRecipeHash": "sha256:45e46734aa364a9ba137d12a5e81fe2d02c791df38c1b965d9f356529be5c8a5",
+      "title": "Buttery brioche loaf",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BA020",
+      "sourceRecipeHash": "sha256:e17a77b008ba9440845819e095bb574fd104739c03280878e58fa7d00922b12a",
+      "title": "Herbed Provençal flatbread (Fougasse)",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR001",
+      "sourceRecipeHash": "sha256:6ea357f6ee3949c1d5867b86748120bc0f7173ea7f9de1f03bd339d2b87e7b70",
+      "title": "Buttermilk pancakes",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR002",
+      "sourceRecipeHash": "sha256:028d589baa5a2b9b051e2a8c5929ca621bc82af20189400f596c918d95dbfcf7",
+      "title": "Blueberry pancakes",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR003",
+      "sourceRecipeHash": "sha256:142ae1a009d11cdd59535e857665d4d6aebcc02362e39d93c8221c6a3005eff5",
+      "title": "Belgian waffles",
+      "cuisine": "Belgian-American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR004",
+      "sourceRecipeHash": "sha256:8654912dcef3573bf387852ae2fcd4dd2298ae7775dfb4f89a0946a4ef3ba00e",
+      "title": "Custardy French toast",
+      "cuisine": "French-American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR005",
+      "sourceRecipeHash": "sha256:1bbdaff1ed0d1ac6291ab1c0c6ebcff7bd2b608033cc7d6d7a78a12cc7f1847d",
+      "title": "Biscuits and sausage gravy",
+      "cuisine": "Southern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR006",
+      "sourceRecipeHash": "sha256:edc2ae18442f7dd29f84c7a6265f79136bd3084351db9b3c5deaeb18102a038c",
+      "title": "Chicken and waffles",
+      "cuisine": "Southern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR007",
+      "sourceRecipeHash": "sha256:f2bae723ce1bb7024d1f5628eaee53749565dba4bc4efa325471d535567a43df",
+      "title": "Shrimp and grits",
+      "cuisine": "Lowcountry US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR008",
+      "sourceRecipeHash": "sha256:4134c17b041980085887e6fca948b4225eea0d7f071e2614820090c9854590aa",
+      "title": "Corned beef hash with eggs",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR009",
+      "sourceRecipeHash": "sha256:c86808f064715ea4d39aa5da8e377551e097b2b2877d056ea4ec41487d655396",
+      "title": "Denver omelet",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR010",
+      "sourceRecipeHash": "sha256:34eec18eb602fca08af73ffde5ef62a5eec7ccc6cdd87ed53a90b0c0688f67af",
+      "title": "Breakfast burritos",
+      "cuisine": "Southwestern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR011",
+      "sourceRecipeHash": "sha256:7124cda778981cef2f8035e0b5cdfefd122f497bf2b50a6e1cca655501018190",
+      "title": "Huevos rancheros",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR012",
+      "sourceRecipeHash": "sha256:fd2d5059fb98175fe6fe79d07add7247afdcf19e15f7af29355c9a85d71180e1",
+      "title": "Chilaquiles rojos",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR013",
+      "sourceRecipeHash": "sha256:dfd78e180f06c279bef38b1cd035e1db97fbd0bc6872cf749ac0241fde873918",
+      "title": "Potato and egg breakfast tacos",
+      "cuisine": "Texas Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR014",
+      "sourceRecipeHash": "sha256:df804a485df0039f94760da50bd58c5c26ca6dacb0c77d091c7c6abf75cea3b1",
+      "title": "Migas with eggs",
+      "cuisine": "Austin Tex-Mex",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR015",
+      "sourceRecipeHash": "sha256:d35d04b1cb291372a24783d737af50af60accb0972c5374472786f0df52fadda",
+      "title": "Molletes with pico de gallo",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR016",
+      "sourceRecipeHash": "sha256:466870c5e846a437f0005e880d3c9699c33cf408e7f25b936cb769cc6bc8cc5d",
+      "title": "Shakshuka",
+      "cuisine": "North African",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR017",
+      "sourceRecipeHash": "sha256:be1f9b4feb9f7c671c9eef581bd1f21abcc2bf647472756c02881dbeaf316eea",
+      "title": "Menemen",
+      "cuisine": "Turkish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR018",
+      "sourceRecipeHash": "sha256:4f347646c5f52b0152f79f82d944f209edca3fcecf55d435f06ceec28052e3ac",
+      "title": "Çılbır with chile butter",
+      "cuisine": "Turkish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR019",
+      "sourceRecipeHash": "sha256:d95137c8c9e18bbd7c64b425f732d9bbc11b07a2c8cb2cb5338663c72ac8c68e",
+      "title": "Ful medames",
+      "cuisine": "Egyptian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR020",
+      "sourceRecipeHash": "sha256:718c078ac40d99454b23516aa2430527b5fdc7be9695a4082674260129bd1476",
+      "title": "Za’atar manakish breakfast",
+      "cuisine": "Levantine",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

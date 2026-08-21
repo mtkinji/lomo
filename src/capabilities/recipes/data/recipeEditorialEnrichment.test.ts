@@ -1,20 +1,52 @@
 import { parseRecipeEditorialEnrichment } from './recipeEditorialEnrichment';
 
 const instructions = [
-  'Whisk the eggs in a medium mixing bowl.',
+  'Whisk 2 eggs in a medium mixing bowl.',
   'Cook in a rectangular tamagoyaki pan or an 8-inch skillet.',
 ];
 
 function validRecord() {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     rosterId: 'BR031',
     sourceRecipeHash: `sha256:${'a'.repeat(64)}`,
     review: {
-      state: 'reviewed',
+      state: 'in_progress',
       reviewedAt: '2026-08-20',
       reviewedBy: 'Kwilt Kitchen',
+      sections: {
+        cookingTruth: 'reviewed',
+        structuredIngredients: 'reviewed',
+        originHistory: 'reviewed',
+        equipment: 'reviewed',
+        commerce: 'pending',
+        sitePublication: 'pending',
+      },
     },
+    costTier: '$$',
+    difficulty: 'Moderate',
+    structuredIngredients: [
+      {
+        position: 0,
+        originalText: '2 large eggs',
+        quantityMin: 2,
+        quantityMax: 2,
+        unit: 'large',
+        ingredientConcept: 'egg',
+        preparation: null,
+        optional: false,
+        parseConfidence: 0.99,
+      },
+    ],
+    instructionQuantityPhrases: { 0: ['2 eggs'] },
+    commerce: {
+      decision: 'pending',
+      needId: null,
+      reviewCategoryId: null,
+      rationale: null,
+      noPurchaseAlternative: null,
+    },
+    publication: { slug: 'test-breakfast-br031', publishedAt: null },
     equipmentNeeds: [
       { id: 'mixing-bowl', label: 'Medium mixing bowl' },
       { id: 'tamagoyaki-pan', label: 'Rectangular tamagoyaki pan', reviewCategoryId: 'tamagoyaki-pan' },
@@ -56,7 +88,36 @@ function validRecord() {
 
 describe('Recipe editorial enrichment contract', () => {
   it('accepts source-attributed equipment, origin, history, and published imagery', () => {
-    expect(parseRecipeEditorialEnrichment(validRecord(), instructions)).toEqual(validRecord());
+    expect(parseRecipeEditorialEnrichment(validRecord(), instructions, ['2 large eggs'])).toEqual(validRecord());
+  });
+
+  it('normalizes legacy records as incomplete without inventing review proof', () => {
+    const legacy = validRecord();
+    legacy.schemaVersion = 1 as 2;
+    delete (legacy as any).costTier;
+    delete (legacy as any).difficulty;
+    delete (legacy as any).structuredIngredients;
+    delete (legacy as any).instructionQuantityPhrases;
+    delete (legacy as any).commerce;
+    delete (legacy as any).publication;
+    delete (legacy.review as any).sections;
+    legacy.review.state = 'reviewed' as 'in_progress';
+
+    expect(parseRecipeEditorialEnrichment(legacy, instructions, ['2 large eggs'])).toMatchObject({
+      schemaVersion: 2,
+      costTier: null,
+      difficulty: null,
+      structuredIngredients: [],
+      instructionQuantityPhrases: {},
+      review: {
+        state: 'in_progress',
+        sections: {
+          structuredIngredients: 'pending',
+          commerce: 'pending',
+          sitePublication: 'pending',
+        },
+      },
+    });
   });
 
   it.each([
@@ -67,13 +128,16 @@ describe('Recipe editorial enrichment contract', () => {
     ['uncited history', (record: ReturnType<typeof validRecord>) => { record.history.sources = []; }],
     ['non-https source', (record: ReturnType<typeof validRecord>) => { record.history.sources[0].url = 'http://example.test'; }],
     ['published image without https media', (record: ReturnType<typeof validRecord>) => { record.heroImage.storageRef = 'bundle://atlas/1'; }],
+    ['ingredient position gap', (record: ReturnType<typeof validRecord>) => { record.structuredIngredients[0].position = 1; }],
+    ['ingredient text mismatch', (record: ReturnType<typeof validRecord>) => { record.structuredIngredients[0].originalText = '3 eggs'; }],
+    ['invalid cost tier', (record: ReturnType<typeof validRecord>) => { record.costTier = '$$$$' as '$$'; }],
   ])('rejects %s', (_label, mutate) => {
     const record = validRecord();
     mutate(record);
-    expect(() => parseRecipeEditorialEnrichment(record, instructions)).toThrow();
+    expect(() => parseRecipeEditorialEnrichment(record, instructions, ['2 large eggs'])).toThrow();
   });
 
   it('rejects unknown fields so generated drafts cannot silently widen the contract', () => {
-    expect(() => parseRecipeEditorialEnrichment({ ...validRecord(), historicalFactFromModel: true }, instructions)).toThrow();
+    expect(() => parseRecipeEditorialEnrichment({ ...validRecord(), historicalFactFromModel: true }, instructions, ['2 large eggs'])).toThrow();
   });
 });

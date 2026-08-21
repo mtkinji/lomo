@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { rosterIdsFromEnv } from './pipeline.mjs';
+
 function requiredEnv(name) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is required`);
@@ -20,14 +22,33 @@ async function list(status) {
       'Content-Type': 'application/json',
       ...(operationToken ? { 'x-kwilt-operation-token': operationToken } : { Authorization: `Bearer ${accessToken}` }),
     },
-    body: JSON.stringify({ action: 'list', status, limit: 250 }),
+    body: JSON.stringify({
+      action: 'list',
+      status,
+      limit: 250,
+      rosterIds: selectedRosterIds ? [...selectedRosterIds] : undefined,
+      promptVersion: selectedPromptVersion ?? undefined,
+    }),
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw new Error(payload?.error || `Could not list ${status} jobs.`);
   return payload.jobs ?? [];
 }
 
-const jobs = [...await list('editorial_review'), ...await list('rejected'), ...await list('published')]
+const selectedRosterIds = rosterIdsFromEnv(process.env.KWILT_RECIPE_IMAGE_ROSTER_IDS);
+const selectedPromptVersion = process.env.KWILT_RECIPE_IMAGE_PROMPT_VERSION?.trim() || null;
+const selectedStatuses = (process.env.KWILT_RECIPE_IMAGE_REVIEW_STATUSES ?? 'editorial_review,rejected,published')
+  .split(',').map((status) => status.trim()).filter(Boolean);
+const selectedCreatedAfter = process.env.KWILT_RECIPE_IMAGE_CREATED_AFTER?.trim()
+  ? new Date(process.env.KWILT_RECIPE_IMAGE_CREATED_AFTER)
+  : null;
+if (selectedCreatedAfter && Number.isNaN(selectedCreatedAfter.getTime())) {
+  throw new Error('KWILT_RECIPE_IMAGE_CREATED_AFTER must be an ISO timestamp.');
+}
+const jobs = (await Promise.all(selectedStatuses.map((status) => list(status)))).flat()
+  .filter((job) => !selectedRosterIds || selectedRosterIds.has(job.roster_id))
+  .filter((job) => !selectedPromptVersion || job.prompt_version === selectedPromptVersion)
+  .filter((job) => !selectedCreatedAfter || new Date(job.created_at) >= selectedCreatedAfter)
   .sort((left, right) => `${left.roster_id}:${left.candidate_index}`.localeCompare(`${right.roster_id}:${right.candidate_index}`));
 const cards = jobs.map((job) => `
   <article class="card ${escape(job.status)}">

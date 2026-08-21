@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-17",
+  "manifestHash": "sha256:6b27da509f297f1f58103b7fd30a9d3c5eb9108bc93fc8df38f8c9206e7d293a",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "LU021",
+      "sourceRecipeHash": "sha256:30d59db97003eeb320f1d581d3d411a6c5677fbe2972758310b94fe79e4e9dbb",
+      "title": "Bulgogi lettuce wraps",
+      "cuisine": "Korean",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU022",
+      "sourceRecipeHash": "sha256:a27f0be2157b67b2274eb6f152a9dd1ee96be108d62592e125f4b10837d27152",
+      "title": "Ssambap rice wraps",
+      "cuisine": "Korean",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU023",
+      "sourceRecipeHash": "sha256:353f2fe93a7087d5deff4cb3ff8e2fd5652fce241289441bfd953dba77861773",
+      "title": "Scallion beef rolls",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU024",
+      "sourceRecipeHash": "sha256:40375df988e182403bfc13562f326c3dd17cf564385df70d6ae7f96d558256f0",
+      "title": "Rou jia mo",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU025",
+      "sourceRecipeHash": "sha256:3ea610d4d875d75c55b121b57d01b9274090e9556a683e552d6c6c28ecbc3e4c",
+      "title": "Pork belly gua bao",
+      "cuisine": "Taiwanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU026",
+      "sourceRecipeHash": "sha256:0565d1a5fe43950a695726a7994adaa2f520f6c74b23d18cde0ab40eb59291aa",
+      "title": "Chicken larb lettuce cups",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU027",
+      "sourceRecipeHash": "sha256:bca3787ff2ed9a98ac6b3a57ea79701e5a5806a857d268ba356b1f4ebc7c74d8",
+      "title": "Chicken kathi roll",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU028",
+      "sourceRecipeHash": "sha256:ffa4e958f763a93308abe2b47a9578b4345923f882e1fd3cf6d0b846f87118b8",
+      "title": "Paneer tikka wrap",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU029",
+      "sourceRecipeHash": "sha256:c2f49dfc97113548b3bd624fff0151124af0f6290b4a7b8296c6f40e44d6ddf2",
+      "title": "Mumbai vada pav",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU030",
+      "sourceRecipeHash": "sha256:d510b929921c318f84b5c0de8a75ce384a161ab297beacc11fbb742741cba523",
+      "title": "Pav bhaji",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU031",
+      "sourceRecipeHash": "sha256:5e7716505db4cec53f69878060f54a0cc19d99b193a38c96be919c812f5fc656",
+      "title": "Samosa chaat",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU032",
+      "sourceRecipeHash": "sha256:f5ebe5a77492f9e11f046a9160a3e4656f5992a6ad4303fd02fb42a827103c90",
+      "title": "Chana chaat",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU033",
+      "sourceRecipeHash": "sha256:3bb6e808b7125239819eda248b3aa9afd986507aaee6f16d8fb114b693de0054",
+      "title": "Torta ahogada",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU034",
+      "sourceRecipeHash": "sha256:2dea06d22cfbcee67edfdf8ad87ad638f5899404e832e4329789c517b5c27665",
+      "title": "Carne asada torta",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU035",
+      "sourceRecipeHash": "sha256:20963cb0d42f53c8d1b27ff010c31e638260e08555b57a421455c5a3b5ac7e00",
+      "title": "Chicken tinga tostadas",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU036",
+      "sourceRecipeHash": "sha256:475aa59c1bb5e2970740e6f00a2bcdff3322611350d50e5aa5440c5ab4efe891",
+      "title": "Bean and cheese quesadillas",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU037",
+      "sourceRecipeHash": "sha256:b8347aceef6ed575ac95e650ad7137d467c647f13d048301919e1a3d80880828",
+      "title": "Baja fish tacos",
+      "cuisine": "Baja Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU038",
+      "sourceRecipeHash": "sha256:e65ac92d1eca8eb1c0bf5636271555a80ff8153f5e4fde4ab4a19668b295799b",
+      "title": "Cheese and bean pupusas",
+      "cuisine": "Salvadoran",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU039",
+      "sourceRecipeHash": "sha256:85fe784561a788be776a698abd8233ad5a05405a70074267086e7a83659a55f8",
+      "title": "Bean and egg baleadas",
+      "cuisine": "Honduran",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU040",
+      "sourceRecipeHash": "sha256:510eb8b6f6bfdf5abc0dd2f0f963bce283c241e3116547372dd1deea79d33414",
+      "title": "Reina pepiada arepas",
+      "cuisine": "Venezuelan",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU041",
+      "sourceRecipeHash": "sha256:deec9d8a512b7774e967e5d9f8e2958b41de6c94a19d455e9d079a3b03542077",
+      "title": "Arepa con queso",
+      "cuisine": "Colombian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU042",
+      "sourceRecipeHash": "sha256:27709c75c596b341c4a2425ff86fa4dfa0a99d2001687fc8af1e9c026e3566c8",
+      "title": "Choripán",
+      "cuisine": "Argentine",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU043",
+      "sourceRecipeHash": "sha256:75ee9ebc93844ed4bacca575b551c9a19717f5b421aa95021ba2574485b0664d",
+      "title": "Lomito sandwich",
+      "cuisine": "Argentine",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU044",
+      "sourceRecipeHash": "sha256:6137fc004d56f7d5eb57a2861080a17f85287b93ef7c5804cbc464af27713a55",
+      "title": "Butifarra sandwich",
+      "cuisine": "Peruvian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU045",
+      "sourceRecipeHash": "sha256:f948d36b40250ceb0411de670a2a41e1c1f5b4680eb942a42a8a6405ff229718",
+      "title": "Bauru sandwich",
+      "cuisine": "Brazilian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

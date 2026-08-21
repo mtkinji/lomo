@@ -107,6 +107,8 @@ const quantityToken = '(?:one|two|three|four|five|six|seven|eight|nine|ten|\\d+\
 
 export function parseQuantity(original: string): ParsedQuantity {
   const text=normalizeVulgar(original.trim().toLowerCase());
+  const parentheticalPackageMatch=new RegExp(`^(${quantityToken})\\s+(?:can|cans|package|packages|pkg|jar|jars|bottle|bottles)\\s+\\((\\d+(?:\\.\\d+)?)\\s*(ounce|ounces|oz|pound|pounds|lb|gram|grams|g|kilogram|kilograms|kg)\\)`).exec(text);
+  if(parentheticalPackageMatch)return{quantityMin:number(parentheticalPackageMatch[1]),quantityMax:null,packageQuantity:Number(parentheticalPackageMatch[2]),packageUnit:normalizeUnit(parentheticalPackageMatch[3]),consumedLength:parentheticalPackageMatch[0].length};
   const packageMatch=new RegExp(`^(${quantityToken})\\s+(\\d+(?:\\.\\d+)?)\\s*[- ]?(ounce|ounces|oz|pound|pounds|lb|gram|grams|g|kilogram|kilograms|kg)\\s+(?:can|cans|package|packages|pkg|jar|jars|bottle|bottles)\\b`).exec(text);
   if(packageMatch)return{quantityMin:number(packageMatch[1]),quantityMax:null,packageQuantity:Number(packageMatch[2]),packageUnit:normalizeUnit(packageMatch[3]),consumedLength:packageMatch[0].length};
   const range=new RegExp(`^(${quantityToken})\\s*[-–]\\s*(${quantityToken})\\b`).exec(text);
@@ -126,6 +128,7 @@ export function parseIngredientLine(originalText:string):ParsedIngredient{
   let unit:string|null=null;
   if(quantity.packageQuantity!==null){ unit='count'; remainder=remainder.replace(/^(?:can|cans|package|packages|pkg|jar|jars|bottle|bottles)\s+/,''); }
   else { const unitMatch=/^([a-z]+)\b/.exec(remainder); if(unitMatch&&units[unitMatch[1]]){unit=normalizeUnit(unitMatch[1]);remainder=remainder.slice(unitMatch[0].length).trim();} else if(quantity.quantityMin!==null) unit='count'; }
+  remainder=remainder.replace(/^\(\s*\d+(?:\.\d+)?\s*(?:ounce|ounces|oz|pound|pounds|lb|gram|grams|g|kilogram|kilograms|kg)\s*\)\s*/,'');
   const comma=remainder.indexOf(',');
   let concept=(comma>=0?remainder.slice(0,comma):remainder).trim();
   let preparation=comma>=0?remainder.slice(comma+1).trim()||null:null;

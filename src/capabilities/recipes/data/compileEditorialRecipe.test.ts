@@ -40,6 +40,31 @@ describe("compile editorial recipe", () => {
     expect(projection.currentVersion.contentHash).toBe("kwilt:BR001:v1");
   });
 
+  it('uses only reviewed structured ingredients from the canonical enrichment record', () => {
+    const editorial = STARTER_RECIPE_BATCH_001[0];
+    const structuredIngredients = editorial.ingredients.map((originalText, position) => ({
+      position,
+      originalText,
+      quantityMin: position === 0 ? 2 : null,
+      quantityMax: null,
+      unit: position === 0 ? 'cup' : null,
+      ingredientConcept: position === 0 ? 'all-purpose flour' : originalText.toLowerCase(),
+      preparation: null,
+      optional: false,
+      parseConfidence: 0.95,
+    }));
+    const projection = compileEditorialRecipeProjection(editorial, {
+      review: { sections: { structuredIngredients: 'reviewed' } },
+      structuredIngredients,
+    } as any);
+    expect(projection.currentVersion.ingredients[0]).toEqual(expect.objectContaining({
+      quantityMin: 2,
+      unit: 'cup',
+      ingredientConcept: 'all-purpose flour',
+      parseConfidence: 0.95,
+    }));
+  });
+
   it("uses roster identities rather than title slugs", () => {
     const editorial = STARTER_RECIPE_BATCH_001[0];
     const renamed = { ...editorial, title: "A clearer pancake title" };

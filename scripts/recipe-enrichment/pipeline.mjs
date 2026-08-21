@@ -20,11 +20,11 @@ export function buildEnrichmentManifest(catalog, reviewedRecords) {
       sourceRecipeHash: canonicalRecipeHash(recipe),
       title: recipe.title,
       cuisine: recipe.cuisine,
-      equipmentState: record?.equipmentNeeds?.length ? 'reviewed' : 'pending',
-      originHistoryState: record ? 'reviewed' : 'pending',
+      equipmentState: record?.review?.sections?.equipment ?? (record?.equipmentNeeds?.length ? 'reviewed' : 'pending'),
+      originHistoryState: record?.review?.sections?.originHistory ?? (record ? 'reviewed' : 'pending'),
       historySourceCount: record?.history?.sources?.length ?? 0,
       heroImageState: record?.heroImage?.state ?? 'missing',
-      researchTask: record ? null : {
+      researchTask: record && (record.review?.sections?.originHistory ?? 'reviewed') === 'reviewed' ? null : {
         description: recipe.description,
         category: recipe.category,
         cuisine: recipe.cuisine,
@@ -47,7 +47,7 @@ export function buildEnrichmentManifest(catalog, reviewedRecords) {
       },
     };
   });
-  return { schemaVersion: 1, recipes };
+  return { schemaVersion: 2, recipes };
 }
 
 export function buildCoverage(manifest) {
@@ -79,7 +79,22 @@ export function mergeReviewedRecords(catalog, existingRecords, incomingRecords, 
   return [...merged.values()].sort((left, right) => left.rosterId.localeCompare(right.rosterId));
 }
 
-async function validateReviewedRecords(catalog, records) {
+export function parseMergeArguments(args) {
+  const [draftPath, second, third, ...rest] = args;
+  if (!draftPath) throw new Error('merge requires a draft enrichment JSON path.');
+  const options = [second, third, ...rest].filter(Boolean);
+  const unsupported = options.find((value) => value.startsWith('--') && value !== '--replace');
+  if (unsupported) throw new Error(`unsupported merge option: ${unsupported}`);
+  const positional = options.filter((value) => !value.startsWith('--'));
+  if (positional.length > 1) throw new Error('merge accepts at most one output path.');
+  return { draftPath, outputPath: positional[0], allowReplace: options.includes('--replace') };
+}
+
+export function assertNoCommandArguments(command, args) {
+  if (args.length > 0) throw new Error(`${command} does not accept arguments.`);
+}
+
+export async function validateReviewedRecords(catalog, records) {
   const dataRoot = path.join(kwiltRoot, 'src/capabilities/recipes/data');
   const parserFile = path.join(dataRoot, 'recipeEditorialEnrichment.ts');
   const parse = await compileTypeScriptExport({
@@ -95,7 +110,7 @@ async function validateReviewedRecords(catalog, records) {
     seen.add(record.rosterId);
     const recipe = recipeByRosterId.get(record.rosterId);
     if (!recipe) throw new Error(`Reviewed record ${record.rosterId} has no canonical Recipe.`);
-    const parsed = parse(record, recipe.instructions);
+    const parsed = parse(record, recipe.instructions, recipe.ingredients);
     if (parsed.sourceRecipeHash !== canonicalRecipeHash(recipe)) throw new Error(`Reviewed record ${record.rosterId} source hash is stale.`);
     return parsed;
   });
@@ -103,7 +118,7 @@ async function validateReviewedRecords(catalog, records) {
 
 async function readRecords(filePath) {
   const data = JSON.parse(await readFile(filePath, 'utf8'));
-  if (!data || data.schemaVersion !== 1 || !Array.isArray(data.recipes)) throw new Error(`${filePath} is not a Recipe enrichment envelope.`);
+  if (!data || ![1, 2].includes(data.schemaVersion) || !Array.isArray(data.recipes)) throw new Error(`${filePath} is not a Recipe enrichment envelope.`);
   return data.recipes;
 }
 
@@ -126,25 +141,25 @@ async function runCli() {
     return;
   }
   if (command === 'validate') {
+    assertNoCommandArguments(command, process.argv.slice(3));
     const validated = await validateReviewedRecords(catalog, existing);
-    await outputJson({ valid: true, reviewedRecords: validated.length }, process.argv[3]);
+    await outputJson({ valid: true, reviewedRecords: validated.length });
     return;
   }
   if (command === 'merge') {
-    const draftPath = process.argv[3];
-    if (!draftPath) throw new Error('merge requires a draft enrichment JSON path.');
+    const { draftPath, outputPath, allowReplace } = parseMergeArguments(process.argv.slice(3));
     const incoming = await readRecords(path.resolve(draftPath));
     await validateReviewedRecords(catalog, incoming);
-    const merged = mergeReviewedRecords(catalog, existing, incoming);
-    await outputJson({ schemaVersion: 1, source: 'kwilt-reviewed-recipe-enrichment', recipes: merged }, process.argv[4]);
+    const merged = mergeReviewedRecords(catalog, existing, incoming, { allowReplace });
+    await outputJson({ schemaVersion: 2, source: 'kwilt-reviewed-recipe-enrichment', recipes: merged }, outputPath);
     return;
   }
   if (command === 'export-public') {
     const validated = await validateReviewedRecords(catalog, existing);
-    await outputJson({ schemaVersion: 1, recipes: validated }, process.argv[3]);
+    await outputJson({ schemaVersion: 2, recipes: validated }, process.argv[3]);
     return;
   }
-  throw new Error('Use manifest, coverage, validate, merge <draft> [output], or export-public [output].');
+  throw new Error('Use manifest, coverage, validate, merge <draft> [output] [--replace], or export-public [output].');
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) await runCli();

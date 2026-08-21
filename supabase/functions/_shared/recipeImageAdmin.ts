@@ -15,6 +15,17 @@ export type RecipeImageQa = {
   altText: string;
 };
 
+export function buildRecipeImageQaInstructions(): string {
+  return [
+    "You are a strict cookbook photo editor. Judge only visible evidence.",
+    "All five score fields use this same direction: 5 = excellent, 4 = good, 3 = borderline, 2 = major problems, and 1 = severe failure.",
+    "A high score is always better, including artifactScore and cropScore.",
+    "Do not assign 1 to an acceptable image. Use 1 only when the named dimension has a severe visible failure.",
+    "Judge ingredient fidelity from the dish-defining ingredients and structure. Do not penalize the exact visible count of supporting serving accompaniments, such as breads, rice portions, lemon wedges, or condiments; a representative amount may be visible or safely outside the crop.",
+    "List hardFailures only for visible disqualifying problems. The written summary, hardFailures, and numeric scores must agree.",
+  ].join(" ");
+}
+
 export function buildImageGenerationRequest(prompt: string) {
   const normalized = prompt.trim();
   if (!normalized || normalized.length > 20_000) throw new Error("invalid_prompt");
@@ -50,6 +61,30 @@ export function parseRecipeImageQueuePolicy(value: unknown, now = new Date()): {
   const availableAt = typeof input.availableAt === "string" ? new Date(input.availableAt) : now;
   if (Number.isNaN(availableAt.getTime())) throw new Error("invalid_available_at");
   return { maxAttempts, availableAt: availableAt.toISOString() };
+}
+
+export function parseRecipeImageListFilters(value: unknown): {
+  status: string;
+  limit: number;
+  rosterIds: string[] | null;
+  promptVersion: string | null;
+} {
+  const input = record(value);
+  if (!input) throw new Error("invalid_request");
+  const status = typeof input.status === "string" ? input.status.trim() : "editorial_review";
+  if (!/^[a-z_]{3,40}$/.test(status)) throw new Error("invalid_status");
+  const limit = Number.isInteger(input.limit) ? Math.max(1, Math.min(250, Number(input.limit))) : 100;
+  const rosterIds = input.rosterIds == null ? null : Array.isArray(input.rosterIds)
+    ? [...new Set(input.rosterIds.map((rosterId) => typeof rosterId === "string" ? rosterId.trim().toUpperCase() : ""))]
+    : null;
+  if (input.rosterIds != null && (!rosterIds || rosterIds.length < 1 || rosterIds.length > 25 || rosterIds.some((rosterId) => !/^[A-Z]{2}\d{3}$/.test(rosterId)))) {
+    throw new Error("invalid_roster_ids");
+  }
+  const promptVersion = input.promptVersion == null ? null : typeof input.promptVersion === "string"
+    ? input.promptVersion.trim().toLowerCase()
+    : "";
+  if (promptVersion !== null && !/^[a-z0-9-]{3,120}$/.test(promptVersion)) throw new Error("invalid_prompt_version");
+  return { status, limit, rosterIds, promptVersion };
 }
 
 function score(value: unknown, field: string): number {

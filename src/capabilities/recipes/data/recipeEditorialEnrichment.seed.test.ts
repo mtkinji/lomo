@@ -44,11 +44,16 @@ describe('public Recipe enrichment seeds', () => {
     }
   });
 
-  it('preserves the three complete equipment pilots as non-commercial Recipe facts', () => {
+  it('preserves complete equipment facts while expanding reviewed recommendations', () => {
     const byRosterId = new Map(RECIPE_EDITORIAL_ENRICHMENT_SEEDS.map((record) => [record.rosterId, record]));
     expect(byRosterId.get('BR031')?.equipmentNeeds).toHaveLength(7);
     expect(byRosterId.get('LU037')?.equipmentNeeds).toHaveLength(6);
     expect(byRosterId.get('DI061')?.equipmentNeeds).toHaveLength(4);
-    expect(byRosterId.get('BR016')?.equipmentNeeds).toEqual([]);
+    expect(byRosterId.get('BR016')?.equipmentNeeds).toEqual([
+      expect.objectContaining({
+        id: 'wide-skillet',
+        reviewCategoryId: 'cast-iron-skillet',
+      }),
+    ]);
   });
 });
