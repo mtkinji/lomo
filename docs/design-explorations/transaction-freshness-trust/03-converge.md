@@ -73,7 +73,7 @@ Still intentionally not possible:
 - Keep one action label: `Check for new activity`.
 - Keep one deeper place: Accounts.
 - Keep one freshness model reused across surfaces.
-- Keep the Budget and Transactions freshness timestamp as compact, non-interactive header metadata (`23m ago`, `Yesterday`, `Just now`); the pull gesture remains the action and the accessibility label carries the full meaning.
+- Keep the Budget and Transactions freshness timestamp as compact, non-interactive header metadata: a small refresh icon plus numeric elapsed copy (`23m ago`, `1d ago`, `Just now`). The pull gesture remains the action and the accessibility label carries the full meaning.
 - Do not add a sync settings screen.
 - Do not add user-maintained refresh schedules.
 - Do not add provider jargon unless a repair flow later requires it.

@@ -106,10 +106,10 @@ Summary and budget detail:
 
 Default steady-state copy should be extremely minimal:
 
-- `Last updated: just now`
-- `Last updated: 12 min ago`
-- `Last updated: 2 hr ago`
-- `Last updated: yesterday`
+- refresh icon + `Just now`
+- refresh icon + `12m ago`
+- refresh icon + `2h ago`
+- refresh icon + `1d ago`
 
 Use fuller copy only for action/result/error states:
 
@@ -139,7 +139,7 @@ Avoid:
 - Refresh result copy distinguishes new rows, no new activity, failure, and delayed/stale states.
 - Summary and budget detail can display a compact freshness boundary without clearing useful data.
 - Pulling to refresh a connected Budget invokes `sync-plaid-transactions`, classifies and reconciles returned activity, and only then accepts the refreshed authoritative snapshot.
-- Use compact visible freshness copy such as `23m ago`, `Yesterday`, and `Just now`, while assistive technology receives the full bank-data description.
+- Pair a small refresh icon with compact numeric freshness copy such as `23m ago`, `1d ago`, and `Just now`, while assistive technology receives the full bank-data description.
 - After a successful Budget or Transactions pull, the PageHeader freshness label changes to `Just now`; after failure, the prior successful time remains and the existing failure warning is visible.
 - A committed pull produces one light haptic acknowledgment before the check begins.
 - The header timestamp remains one secondary line at supported text sizes and does not become a button, badge, card, or duplicate refresh action.

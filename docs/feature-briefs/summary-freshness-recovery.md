@@ -39,7 +39,7 @@ The product problem is freshness trust: if current month fails while prior month
 Summary should treat current-month snapshot failure as a stale-while-refreshing freshness state:
 
 - pull-to-refresh should ask connected institutions for new activity, reconcile returned transactions and the Living Plan, then reread the authoritative Kwilt DB snapshot
-- the upper-right PageHeader should show the last successful bank-check time with compact copy such as `23m ago` and change to `Just now` only after a successful check
+- the upper-right PageHeader should pair a small refresh icon with numeric elapsed copy such as `23m ago` or `1d ago`, changing to `Just now` only after a successful check
 - a committed Money pull should acknowledge the gesture with one light haptic before the bank check begins
 - while Summary is open, relevant DB changes should automatically refresh the snapshot
 - when the living-limit answer is stale, Summary should make one silent connected-activity check for that stale snapshot

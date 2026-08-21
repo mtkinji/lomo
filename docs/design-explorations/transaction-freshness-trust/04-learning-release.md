@@ -29,7 +29,7 @@ Still intentionally not supported:
 
 ## User Experience
 
-Transactions opens with the existing inventory controls and row list. Its upper-right PageHeader shows the same compact freshness stamp as Budget, such as `23m ago` or `Yesterday`, without duplicating freshness inside the list. If the user expects a recent purchase, they can pull or tap `Check for new activity`.
+Transactions opens with the existing inventory controls and row list. Its upper-right PageHeader shows the same compact freshness stamp as Budget: a small refresh icon plus numeric elapsed copy such as `23m ago` or `1d ago`, without duplicating freshness inside the list. If the user expects a recent purchase, they can pull or tap `Check for new activity`.
 
 Accounts shows the same minimal recency per connection and remains the deeper place for connection health. Budget and Transactions show the last successful bank-check time as quiet, non-interactive metadata in the upper-right PageHeader. Pull-to-refresh acknowledges the committed gesture with one light haptic, checks connected institutions, reconciles returned activity, and then rebuilds the authoritative Kwilt snapshot, changing that metadata from a prior time such as `23m ago` to `Just now`. It does not promise that a just-made purchase is already available from the institution. Budget detail inherits the same freshness state so its meter does not look more authoritative than the data deserves.
 
