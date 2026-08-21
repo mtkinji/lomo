@@ -1,4 +1,5 @@
 import type { MoneyEntryMode, MoneyEntrySource, MoneyPlaceRouteName } from '../domain/moneyOnboarding';
+import type { MoneyOnboardingHandoffReceipt } from '../domain/moneyOnboardingHandoff';
 
 export type MoneyStackParamList = {
   MoneyEntry: {
@@ -9,7 +10,8 @@ export type MoneyStackParamList = {
   };
   MoneySummary: {
     entryIntent?: 'app-control-onboarding';
-    devBudgetState?: 'none';
+    devBudgetState?: 'none' | 'onboarding-sample';
+    onboardingHandoff?: MoneyOnboardingHandoffReceipt;
   } | undefined;
   MoneyTransactions: {
     accountId?: string;

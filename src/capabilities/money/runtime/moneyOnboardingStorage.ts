@@ -2,6 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { normalizeLivingTargetIntent, type LivingTargetIntent } from '../domain/living-target';
 import type { MoneyOnboardingCheckpoint, MoneyPlaceRouteName } from '../domain/moneyOnboarding';
 import type { MoneyOnboardingCoverageConfidence, MoneyPlanningIntent } from '../domain/moneyOnboardingAssessment';
+import type {
+  MoneyOnboardingHandoffReceipt,
+  MoneyOnboardingHandoffState,
+} from '../domain/moneyOnboardingHandoff';
 
 const STORAGE_KEY_PREFIX = 'kwilt:money:onboarding:v2';
 const LEGACY_STORAGE_KEY_PREFIX = 'kwilt:money:onboarding:v1';
@@ -16,6 +20,7 @@ export type MoneyOnboardingState = {
   target: LivingTargetIntent | null;
   skippedAccountConnectionAt: string | null;
   requestedPlace: MoneyPlaceRouteName | null;
+  handoff: MoneyOnboardingHandoffState | null;
 };
 
 const EMPTY_STATE: MoneyOnboardingState = {
@@ -28,6 +33,7 @@ const EMPTY_STATE: MoneyOnboardingState = {
   target: null,
   skippedAccountConnectionAt: null,
   requestedPlace: null,
+  handoff: null,
 };
 
 export async function loadMoneyOnboardingState(userId: string): Promise<MoneyOnboardingState> {
@@ -60,10 +66,58 @@ function normalizeState(raw: string): MoneyOnboardingState {
         ? parsed.skippedAccountConnectionAt
         : null,
       requestedPlace: isMoneyPlace(parsed.requestedPlace) ? parsed.requestedPlace : null,
+      handoff: normalizeHandoff(parsed.handoff),
     };
   } catch {
     return EMPTY_STATE;
   }
+}
+
+export async function recordMoneyOnboardingHandoff(
+  userId: string,
+  receipt: MoneyOnboardingHandoffReceipt,
+): Promise<void> {
+  const current = await loadMoneyOnboardingState(userId);
+  await AsyncStorage.setItem(storageKey(userId), JSON.stringify({
+    ...current,
+    handoff: {
+      ...receipt,
+      budgetGuideAcknowledgedAt: null,
+      followThroughGuideAcknowledgedAt: null,
+    },
+  } satisfies MoneyOnboardingState));
+}
+
+export async function acknowledgeMoneyOnboardingBudgetGuide(
+  userId: string,
+  acknowledgedAtIso = new Date().toISOString(),
+): Promise<void> {
+  await updateHandoff(userId, (handoff) => ({
+    ...handoff,
+    budgetGuideAcknowledgedAt: acknowledgedAtIso,
+  }));
+}
+
+export async function acknowledgeMoneyOnboardingFollowThroughGuide(
+  userId: string,
+  acknowledgedAtIso = new Date().toISOString(),
+): Promise<void> {
+  await updateHandoff(userId, (handoff) => ({
+    ...handoff,
+    followThroughGuideAcknowledgedAt: acknowledgedAtIso,
+  }));
+}
+
+async function updateHandoff(
+  userId: string,
+  update: (handoff: MoneyOnboardingHandoffState) => MoneyOnboardingHandoffState,
+): Promise<void> {
+  const current = await loadMoneyOnboardingState(userId);
+  if (!current.handoff) return;
+  await AsyncStorage.setItem(storageKey(userId), JSON.stringify({
+    ...current,
+    handoff: update(current.handoff),
+  } satisfies MoneyOnboardingState));
 }
 
 export async function recordMoneyOnboardingDecision(
@@ -154,4 +208,33 @@ function isCoverageConfidence(value: unknown): value is MoneyOnboardingCoverageC
 
 function isPlanningIntent(value: unknown): value is MoneyPlanningIntent {
   return value === 'current' || value === 'reduce' || value === 'recommend';
+}
+
+function normalizeHandoff(value: unknown): MoneyOnboardingHandoffState | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Partial<MoneyOnboardingHandoffState>;
+  if (
+    typeof candidate.createdAtIso !== 'string'
+    || !isNonNegativeNumber(candidate.selectedPlanCents)
+    || !isNonNegativeNumber(candidate.savingsCents)
+    || !isNonNegativeNumber(candidate.todoCount)
+  ) return null;
+  return {
+    createdAtIso: candidate.createdAtIso,
+    selectedPlanCents: Math.round(candidate.selectedPlanCents),
+    goalId: typeof candidate.goalId === 'string' ? candidate.goalId : null,
+    goalTitle: typeof candidate.goalTitle === 'string' ? candidate.goalTitle : null,
+    savingsCents: Math.round(candidate.savingsCents),
+    todoCount: Math.round(candidate.todoCount),
+    budgetGuideAcknowledgedAt: typeof candidate.budgetGuideAcknowledgedAt === 'string'
+      ? candidate.budgetGuideAcknowledgedAt
+      : null,
+    followThroughGuideAcknowledgedAt: typeof candidate.followThroughGuideAcknowledgedAt === 'string'
+      ? candidate.followThroughGuideAcknowledgedAt
+      : null,
+  };
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }

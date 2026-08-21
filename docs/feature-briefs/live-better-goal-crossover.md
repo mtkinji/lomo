@@ -75,7 +75,9 @@ Kwilt helps carry Budget patterns into small goals and next steps:
 - The banner names the user action first: set a goal.
 - The interstitial introduces Kwilt only after the user asks to view the idea.
 - The user chooses, shares, or dismisses the draft.
-- No automatic goal creation.
+- No automatic goal creation from a contextual Budget suggestion. Money onboarding is a narrower
+  exception: accepting the explicit `Spend less` direction authorizes one idempotent savings Goal and
+  its starter To-dos as part of building the accepted first plan.
 - No raw transaction sharing in V1.
 - No shame copy or financial-health scoring.
 - No self-help fog, productivity hype, bank-warning voice, or parental-control language.

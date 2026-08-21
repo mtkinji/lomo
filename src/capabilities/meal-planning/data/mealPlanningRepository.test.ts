@@ -1,6 +1,22 @@
-import { createMealPlanningRepository, mapMealPlanRow } from './mealPlanningRepository';
+import { createMealPlanningRepository, mapMealPlanRow, projectPersonalMealPlanCart } from './mealPlanningRepository';
 
 describe('Meal Planning repository', () => {
+  it('projects a person-owned draft into the same Plan surface without inventing household sharing', () => {
+    const projection = projectPersonalMealPlanCart(mapMealPlanRow({
+      id: 'plan-personal', household_id: null, organizer_person_id: 'person-1', version: 2,
+      state: 'draft', horizon: { kind: 'open' }, updated_at: '2026-08-20T12:00:00.000Z',
+      candidates: [{
+        id: 'candidate-1', kind: 'recipe', title: 'Tacos', recipe_snapshot: { recipeVersionId: 'recipe-v1' },
+        position: 0, lifecycle_state: 'idea', created_at: '2026-08-20T12:00:00.000Z',
+      }], entries: [], occasions: [], rounds: [],
+    }));
+
+    expect(projection).toMatchObject({
+      planId: 'plan-personal', householdId: null, activeCount: 1,
+      viewer: { personId: 'person-1', role: 'organizer', canAdd: true, canManage: true },
+      candidates: [{ id: 'candidate-1', lifecycle: 'idea', canReact: false, canRemove: true }],
+    });
+  });
   it('does not reuse a subscribed Realtime topic during an async React remount cleanup', () => {
     const channels = new Map<string, { subscribed: boolean; on: jest.Mock; subscribe: jest.Mock }>();
     const channel = jest.fn((topic: string) => {

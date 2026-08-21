@@ -3,6 +3,7 @@ import { StyleSheet, Text } from 'react-native';
 
 import { renderWithProviders } from '../../../test/renderWithProviders';
 import { KWILT_REFRESH_COMPLETION_MS, KwiltLoader } from '../../../ui/KwiltLoader';
+import { buildMoneyOnboardingFollowThrough } from '../domain/moneyOnboardingFollowThrough';
 import {
   buildMoneyOnboardingAssessment,
   buildMoneyOnboardingTargetGuidance,
@@ -13,6 +14,7 @@ import {
   MONEY_ANALYSIS_SPIN_MS,
   MoneyLivingTargetSlider,
   MoneyAnalysisStatus,
+  MoneyPlanBuildStatus,
   MoneyPlanningIntentScreen,
   MoneySetupIntroduction,
   MoneySetupStepInterstitial,
@@ -135,6 +137,10 @@ describe('MoneyAnalysisStatus', () => {
       size: 64,
     });
     expect(screen.getByText('Separating transfers from everyday spending')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByText('Separating transfers from everyday spending').props.style)).toMatchObject({
+      fontSize: 28,
+      lineHeight: 34,
+    });
 
     act(() => jest.advanceTimersByTime(MONEY_ANALYSIS_LOGO_DWELL_MS));
     expect(screen.UNSAFE_getByType(KwiltLoader).props.phase).toBe('loading');
@@ -147,39 +153,68 @@ describe('MoneyAnalysisStatus', () => {
     expect(screen.UNSAFE_getByType(KwiltLoader).props.phase).toBe('idle');
     expect(screen.getByText('Separating transfers from everyday spending')).toBeTruthy();
   });
+
+  it('truthfully names the durable follow-through being created after plan acceptance', () => {
+    const followThrough = buildMoneyOnboardingFollowThrough({
+      createdAtIso: '2026-08-21T18:00:00.000Z',
+      evidenceScope: 'household',
+      observedMonthlySpendingCents: 638_000,
+      selectedPlanCents: 617_500,
+    });
+    const screen = renderWithProviders(<MoneyPlanBuildStatus followThrough={followThrough} phase="goal" />);
+
+    expect(screen.getByText('Creating your goal to spend $205 less each month')).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('header', { name: /Money setup/i })).toBeNull();
+  });
 });
 
 describe('Money planning decisions', () => {
   const assessment = buildMoneyOnboardingAssessment(MONEY_ONBOARDING_DEMO_EVIDENCE);
 
-  it('proves what Kwilt learned before asking for spending intent', () => {
-    const onContinue = jest.fn();
-    const onSelect = jest.fn();
+  it('turns the analysis result into three guided value offers without a second confirmation action', () => {
+    const onAddInstitution = jest.fn();
+    const onChoose = jest.fn();
+    const onExploreSpending = jest.fn();
     const screen = renderWithProviders(
       <MoneyPlanningIntentScreen
         assessment={assessment}
         coverageConfidence="complete"
+        onAddInstitution={onAddInstitution}
+        onChoose={onChoose}
         onClose={jest.fn()}
-        onContinue={onContinue}
-        onSelect={onSelect}
-        selectedIntent="recommend"
+        onExploreSpending={onExploreSpending}
       />,
     );
 
-    expect(screen.getByText('$9,500')).toBeTruthy();
-    expect(screen.getByText('$6,380')).toBeTruthy();
-    expect(screen.getByRole('header', { name: 'Should this plan reflect how you spend now—or help you spend less?' })).toBeTruthy();
-    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    expect(screen.getByText('YOUR RECENT SPENDING')).toBeTruthy();
+    expect(screen.getByText('$6,380 a month')).toBeTruthy();
+    expect(screen.getByText('Average from May–July 2026 across 3 connected Chase accounts')).toBeTruthy();
+    expect(screen.queryByText('$9,500')).toBeNull();
+    expect(screen.getByRole('header', {
+      name: 'Now that we have a picture of your spending, which of these would you like to prioritize?',
+    })).toBeTruthy();
+    expect(screen.queryByText("Here's how Kwilt can help")).toBeNull();
+    expect(screen.getByText('See your spending broken down by category.')).toBeTruthy();
+    expect(screen.getByText('See realistic changes and how much they could save.')).toBeTruthy();
+    expect(screen.getByText('Start with suggested categories and monthly amounts.')).toBeTruthy();
+    expect(screen.getAllByRole('button')).toHaveLength(5);
+    expect(screen.queryByTestId('moneyOnboarding.intent.actionDock')).toBeNull();
 
-    fireEvent.press(screen.getByRole('radio', { name: 'Spend less each month' }));
-    expect(onSelect).toHaveBeenCalledWith('reduce');
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
-    expect(onContinue).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByRole('button', { name: 'See where your money is going' }));
+    expect(onExploreSpending).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByRole('button', { name: 'Find ways to save money' }));
+    expect(onChoose).toHaveBeenCalledWith('reduce');
+    fireEvent.press(screen.getByRole('button', { name: 'Get a suggested budget' }));
+    expect(onChoose).toHaveBeenCalledWith('recommend');
+    fireEvent.press(screen.getByRole('button', { name: 'Connect more accounts' }));
+    expect(onAddInstitution).toHaveBeenCalledTimes(1);
   });
 
   it('shows one synchronized percent and dollar target with spending context', () => {
     const guidance = buildMoneyOnboardingTargetGuidance(assessment, 'complete', 'reduce');
     if (!guidance) throw new Error('Expected supported demo guidance.');
+    const onChangeGoal = jest.fn();
     const screen = renderWithProviders(
       <MoneyTargetScreen
         assessment={assessment}
@@ -188,20 +223,36 @@ describe('Money planning decisions', () => {
         guidance={guidance}
         message={null}
         onAccept={jest.fn()}
+        onChangeGoal={onChangeGoal}
         onClose={jest.fn()}
         onLivingPercentChange={jest.fn()}
+        planningIntent="reduce"
         selectedLivingPercent={65}
       />,
     );
 
-    expect(screen.getByRole('header', { name: 'What share of dependable income should the monthly plan use?' })).toBeTruthy();
-    expect(screen.getAllByText('65%')).toHaveLength(2);
-    expect(screen.getByText('$6,175 per month')).toBeTruthy();
-    expect(screen.getByText('$205 below recent spending in these accounts')).toBeTruthy();
-    expect(screen.getByText('$3,325 outside the monthly plan')).toBeTruthy();
-    expect(screen.getByLabelText('65% suggested reduction')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'A realistic first step' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Save money' })).toBeTruthy();
+    expect(screen.queryByText('Your choice: Spend less')).toBeNull();
+    expect(screen.queryByText('KWILT’S RECOMMENDATION')).toBeNull();
+    expect(screen.getByText('$6,175')).toBeTruthy();
+    expect(screen.getByText('per month')).toBeTruthy();
+    expect(screen.getByText('$205 below your recent pace')).toBeTruthy();
+    expect(screen.getByText('$4,780 committed · $1,395 flexible')).toBeTruthy();
+    expect(screen.getByText('Kwilt will build your budgets and turn this into a goal with two first steps.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Build a $6,175 plan' })).toBeTruthy();
+    expect(screen.getByLabelText('Recent $6,380')).toBeTruthy();
+    expect(screen.queryByText('65%')).toBeNull();
+    expect(screen.queryByText('65% of $9,500 dependable income · $3,325 remains outside the plan')).toBeNull();
+    expect(screen.getByRole('button', { name: 'How we got this' })).toBeTruthy();
     expect(screen.queryByText('Committed')).toBeNull();
     expect(screen.queryByText('Flexible')).toBeNull();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Change planning goal' }));
+    expect(onChangeGoal).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(screen.getByRole('button', { name: 'How we got this' }));
+    expect(screen.getByText('65% of $9,500 dependable income · $3,325 remains outside the plan')).toBeTruthy();
   });
 
   it('labels incomplete coverage as a starting point rather than a recommendation', () => {
@@ -215,14 +266,20 @@ describe('Money planning decisions', () => {
         guidance={guidance}
         message={null}
         onAccept={jest.fn()}
+        onChangeGoal={jest.fn()}
         onClose={jest.fn()}
         onLivingPercentChange={jest.fn()}
+        planningIntent="recommend"
         selectedLivingPercent={70}
       />,
     );
 
-    expect(screen.getByText('Starting point based only on the accounts shown')).toBeTruthy();
+    expect(screen.getByText('$270 above your recent pace in these accounts')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Suggested budget' })).toBeTruthy();
+    expect(screen.queryByText('Your choice: Choose for me')).toBeNull();
+    expect(screen.queryByText('KWILT’S RECOMMENDATION')).toBeNull();
     expect(screen.queryByLabelText(/recommended/)).toBeNull();
+    expect(screen.queryByText(/turn this into a goal/i)).toBeNull();
   });
 
   it('stops calling the current value a suggested reduction after the user adjusts it', () => {
@@ -236,13 +293,14 @@ describe('Money planning decisions', () => {
         guidance={guidance}
         message={null}
         onAccept={jest.fn()}
+        onChangeGoal={jest.fn()}
         onClose={jest.fn()}
         onLivingPercentChange={jest.fn()}
+        planningIntent="reduce"
         selectedLivingPercent={70}
       />,
     );
 
-    expect(screen.getByText('Your adjusted target')).toBeTruthy();
     expect(screen.queryByText('Suggested reduction from recent spending')).toBeNull();
   });
 });

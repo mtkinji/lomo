@@ -109,16 +109,11 @@ describe('CapabilityOnboardingHost', () => {
     );
   });
 
-  it('teaches the Meals promise before opening native Recipes', () => {
+  it('opens native Recipes immediately and checkpoints the guided first cycle', () => {
     const { screen, onStartPath } = renderHost();
     act(() => fireEvent.press(screen.getByLabelText('Go to page 3 of 5')));
     const page = screen.getByTestId('capabilityOnboarding.door.make-meals-easier');
     fireEvent.press(within(page).getByRole('button', { name: 'Choose meal' }));
-
-    expect(screen.getByText('Find meals everyone can get behind.')).toBeTruthy();
-    expect(onStartPath).not.toHaveBeenCalled();
-    fireEvent.press(screen.getByRole('button', { name: 'Next' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Browse recipes' }));
 
     expect(onStartPath).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'make-meals-easier', handoff: { kind: 'food-meal-loop' } }),
@@ -126,7 +121,7 @@ describe('CapabilityOnboardingHost', () => {
     expect(useCapabilityOnboardingStore.getState().recordForUser('user-a')).toMatchObject({
       universalState: 'chosen',
       selectedPathId: 'make-meals-easier',
-      checkpoint: 'browsing-recipes',
+      checkpoint: 'food-guide:choose-recipe',
     });
   });
 
@@ -150,14 +145,16 @@ describe('CapabilityOnboardingHost', () => {
       type: 'select-path', pathId: 'make-meals-easier', now: 1,
     });
     useCapabilityOnboardingStore.getState().dispatch('user-a', {
-      type: 'checkpoint', checkpoint: 'follow-through', now: 2,
+      type: 'checkpoint', checkpoint: 'food-guide:add-to-plan', now: 2,
     });
-    const { screen } = renderHost();
+    const { screen, onStartPath } = renderHost();
 
     expect(screen.getByText('Continue where you left off?')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Choose another starting point' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Explore Kwilt' })).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Continue where I left off' }));
-    expect(screen.getByText('Plan it. Shop it. Cook it.')).toBeTruthy();
+    expect(onStartPath).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'make-meals-easier' }),
+    );
   });
 });

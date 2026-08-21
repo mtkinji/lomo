@@ -25,6 +25,7 @@ import { Icon } from "../../../ui/Icon";
 import { EmptyState } from "../../../ui/EmptyState";
 import { Input } from "../../../ui/Input";
 import { AlertDialog } from "../../../ui/AlertDialog";
+import { Coachmark } from "../../../ui/Coachmark";
 import { useAccessibilityPreferences } from "../../../ui/hooks/useAccessibilityPreferences";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
 import { ButtonLabel, Heading, Text } from "../../../ui/Typography";
@@ -187,6 +188,8 @@ export function MealPlanDrawer({
   onMarkMade,
   onOpenGroceries,
   reactingCandidateIds,
+  guideStep,
+  onGuideAdvance,
 }: {
   visible: boolean;
   items: MealPlanTrayItem[];
@@ -204,6 +207,8 @@ export function MealPlanDrawer({
   onMarkMade?(candidateId: string): void;
   onOpenGroceries?(): void;
   reactingCandidateIds?: ReadonlySet<string>;
+  guideStep?: 'share-plan' | 'send-to-groceries' | null;
+  onGuideAdvance?(event: 'sharing-opened' | 'sharing-skipped'): void;
 }) {
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -214,10 +219,13 @@ export function MealPlanDrawer({
   const [hardPassReasonOption, setHardPassReasonOption] = useState<HardPassReasonOption | null>(null);
   const [hardPassReason, setHardPassReason] = useState("");
   const [pendingHardPassSendIds, setPendingHardPassSendIds] = useState<string[] | null>(null);
+  const [guideSendStarted, setGuideSendStarted] = useState(false);
   const { reduceMotionEnabled } = useAccessibilityPreferences();
   const wasVisibleRef = useRef(false);
   const lifecycleSignatureRef = useRef("");
   const reactionSelectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareTargetRef = useRef<View>(null);
+  const groceryTargetRef = useRef<View>(null);
   const planActionVisibility = useSharedValue(shareSheetVisible ? 0 : 1);
   const planActionAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{
@@ -248,6 +256,7 @@ export function MealPlanDrawer({
       setHardPassReasonOption(null);
       setHardPassReason("");
       setPendingHardPassSendIds(null);
+      setGuideSendStarted(false);
       return;
     }
     const lifecycleSignature = getPlanLifecycleSignature(items);
@@ -371,7 +380,9 @@ export function MealPlanDrawer({
       </Button>
     </View>
   ) : canManage && ideas.length && onSendToGroceries ? (
-    <Button variant="primary" fullWidth onPress={() => setSelecting(true)}>Send to Groceries</Button>
+    <View ref={groceryTargetRef} collapsable={false}>
+      <Button variant="primary" fullWidth onPress={() => setSelecting(true)}>Send to Groceries</Button>
+    </View>
   ) : null;
 
   return (
@@ -405,19 +416,21 @@ export function MealPlanDrawer({
           variant="default"
           containerStyle={styles.planDrawerHeader}
           rightAction={onSharePlan ? (
-            <Button
-              accessibilityLabel="Share Plan"
-              accessibilityHint="Opens the system share sheet with a guest feedback link"
-              variant="ghost"
-              size="sm"
-              disabled={shareBusy}
-              onPress={onSharePlan}
-            >
-              <View style={styles.planDrawerShareActionContent}>
-                <Icon testID="plan-share-icon" name="share" size={18} color={colors.textPrimary} />
-                <ButtonLabel>Share</ButtonLabel>
-              </View>
-            </Button>
+            <View ref={shareTargetRef} collapsable={false}>
+              <Button
+                accessibilityLabel="Share Plan"
+                accessibilityHint="Opens the system share sheet with a guest feedback link"
+                variant="ghost"
+                size="sm"
+                disabled={shareBusy}
+                onPress={onSharePlan}
+              >
+                <View style={styles.planDrawerShareActionContent}>
+                  <Icon testID="plan-share-icon" name="share" size={18} color={colors.textPrimary} />
+                  <ButtonLabel>Share</ButtonLabel>
+                </View>
+              </Button>
+            </View>
           ) : undefined}
           title={(
             <View testID="plan-drawer-title-cluster" style={styles.planDrawerHeaderMain}>
@@ -545,6 +558,45 @@ export function MealPlanDrawer({
         </BottomDrawerScrollView>
       </View>
       </BottomDrawer>
+      {guideStep === 'share-plan' ? <Coachmark
+        visible={visible && guideStep === 'share-plan' && Boolean(onSharePlan) && !shareSheetVisible}
+        targetRef={shareTargetRef}
+        title={<Text style={{ fontWeight: '700' }}>Want a quick gut check?</Text>}
+        body={<Text tone="secondary">Share this Plan for feedback. It won’t add anyone to your Household.</Text>}
+        actions={[
+          { id: 'share', label: 'Share Plan', variant: 'accent' },
+          { id: 'skip', label: 'Not now', variant: 'ghost' },
+        ]}
+        spotlight="hole"
+        spotlightRadius="auto"
+        placement="below"
+        onAction={(actionId) => {
+          if (actionId === 'share') {
+            onGuideAdvance?.('sharing-opened');
+            onSharePlan?.();
+          } else {
+            onGuideAdvance?.('sharing-skipped');
+          }
+        }}
+        onDismiss={() => onGuideAdvance?.('sharing-skipped')}
+      /> : null}
+      {guideStep === 'send-to-groceries' ? <Coachmark
+        visible={visible && guideStep === 'send-to-groceries' && !selecting && !guideSendStarted}
+        targetRef={groceryTargetRef}
+        title={<Text style={{ fontWeight: '700' }}>Make one grocery list</Text>}
+        body={<Text tone="secondary">Choose the meals you want to shop for. Their ingredients stay connected to each recipe.</Text>}
+        actions={[
+          { id: 'select', label: 'Select meals', variant: 'accent' },
+        ]}
+        spotlight="hole"
+        spotlightRadius="auto"
+        placement="above"
+        onAction={() => {
+          setGuideSendStarted(true);
+          setSelecting(true);
+        }}
+        onDismiss={() => setGuideSendStarted(true)}
+      /> : null}
       <BottomDrawer
         visible={reactionGuideVisible}
         onClose={closeReactionPicker}

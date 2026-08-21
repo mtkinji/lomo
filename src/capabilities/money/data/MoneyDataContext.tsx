@@ -42,6 +42,7 @@ import { getMoneyTransactionsAvailability } from '../domain/moneyOnboarding';
 import { useMoneyNavigationAvailabilityStore } from '../runtime/useMoneyNavigationAvailabilityStore';
 
 type MoneyDataContextValue = MoneyDataState & {
+  userId: string | null;
   refresh: () => Promise<void>;
   reconcileGovernedPlanFoundation: () => Promise<void>;
   reconcileConnectedActivity: (input: {
@@ -522,6 +523,7 @@ export function MoneyDataProvider({
 
   const value = useMemo(() => ({
     ...state,
+    userId: normalizedUserId,
     refresh,
     reconcileGovernedPlanFoundation,
     reconcileConnectedActivity,
@@ -541,7 +543,7 @@ export function MoneyDataProvider({
     updateCategoryPlan,
     previewCategoryPlanAmount,
     reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import {
   FlatList,
+  Image,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -13,7 +14,7 @@ import {
 import { HapticsService } from '../../../services/HapticsService';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
-import { colors, fonts, spacing } from '../../../theme';
+import { colors, fonts, radii, spacing } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
 import { Icon } from '../../../ui/Icon';
@@ -49,11 +50,26 @@ import { MoneyCategoryReorderDrawer } from '../components/MoneyCategoryReorderDr
 import { Coachmark } from '../../../ui/Coachmark';
 import { getMoneyCategoryDestination } from '../domain/moneyAppControlOnboarding';
 import { EmptyState } from '../../../ui/EmptyState';
+import { BottomGuide } from '../../../ui/BottomGuide';
+import { Heading, HStack, VStack } from '../../../ui/primitives';
+import { CelebrationGif } from '../../../ui/CelebrationGif';
+import { useAccessibilityPreferences } from '../../../ui/hooks/useAccessibilityPreferences';
+import {
+  getMoneyOnboardingHandoffGuide,
+  type MoneyOnboardingHandoffReceipt,
+  type MoneyOnboardingHandoffState,
+} from '../domain/moneyOnboardingHandoff';
+import {
+  acknowledgeMoneyOnboardingBudgetGuide,
+  acknowledgeMoneyOnboardingFollowThroughGuide,
+  loadMoneyOnboardingState,
+} from '../runtime/moneyOnboardingStorage';
+import { buildMoneyOnboardingDemoBudget } from '../domain/moneyOnboardingDemoBudget';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
 export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
-  const { snapshot, reconcileConnectedActivity, reorderCategories, savingCategoryOrder } = useMoneyData();
+  const { snapshot: liveSnapshot, reconcileConnectedActivity, reorderCategories, savingCategoryOrder, userId } = useMoneyData();
   const { capture } = useAnalytics();
   const { width: windowWidth } = useWindowDimensions();
   const [measuredPagerWidth, setMeasuredPagerWidth] = useState(0);
@@ -64,9 +80,26 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   const [appControlGuideVisible, setAppControlGuideVisible] = useState(
     route.params?.entryIntent === 'app-control-onboarding',
   );
+  const freshHandoff = route.params?.onboardingHandoff ?? null;
+  const [onboardingHandoff, setOnboardingHandoff] = useState<MoneyOnboardingHandoffState | null>(() => (
+    freshHandoff ? handoffStateFromReceipt(freshHandoff) : null
+  ));
+  const [onboardingGuide, setOnboardingGuide] = useState<'budgets' | 'follow_through' | null>(
+    freshHandoff ? 'budgets' : null,
+  );
+  const snapshot = useMemo(() => (
+    __DEV__ && route.params?.devBudgetState === 'onboarding-sample'
+      ? buildMoneyOnboardingDemoBudget()
+      : liveSnapshot
+  ), [liveSnapshot, route.params?.devBudgetState]);
   const autoRefreshKeyRef = useRef<string | null>(null);
   const categoryGuideTargetRef = useRef<View | null>(null);
   const pagerRef = useRef<FlatList<MoneyPeriodView>>(null);
+  const onboardingHandoffRef = useRef(onboardingHandoff);
+  const freshCompletionVisitRef = useRef(Boolean(freshHandoff));
+  const exploredBudgetThisVisitRef = useRef(false);
+  const budgetGuideAcknowledgedRef = useRef(Boolean(onboardingHandoff?.budgetGuideAcknowledgedAt));
+  const leftSummaryAfterBudgetGuideRef = useRef(false);
   const pagerWidth = measuredPagerWidth > 24
     ? measuredPagerWidth
     : Math.max(1, windowWidth - spacing.sm * 4);
@@ -79,6 +112,46 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   const currentPeriod = periods[currentMonthIndex] ?? periods[INITIAL_MONTH_INDEX];
   const selectableBudgetCount = snapshot?.categories.filter((category) => category.planRole !== 'protected').length ?? 0;
   const rehearsingNoBudgets = __DEV__ && route.params?.devBudgetState === 'none';
+
+  onboardingHandoffRef.current = onboardingHandoff;
+  budgetGuideAcknowledgedRef.current = Boolean(onboardingHandoff?.budgetGuideAcknowledgedAt);
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    void loadMoneyOnboardingState(userId).then((state) => {
+      if (!active || !state.handoff) return;
+      const next = state.handoff;
+      onboardingHandoffRef.current = next;
+      budgetGuideAcknowledgedRef.current = Boolean(next.budgetGuideAcknowledgedAt);
+      setOnboardingHandoff(next);
+      setOnboardingGuide(getMoneyOnboardingHandoffGuide({
+        exploredBudgetThisVisit: exploredBudgetThisVisitRef.current,
+        handoff: next,
+        isFreshCompletion: freshCompletionVisitRef.current,
+      }));
+    });
+    return () => { active = false; };
+  }, [userId]);
+
+  useEffect(() => {
+    const removeBlur = navigation.addListener?.('blur', () => {
+      if (budgetGuideAcknowledgedRef.current) leftSummaryAfterBudgetGuideRef.current = true;
+    });
+    const removeFocus = navigation.addListener?.('focus', () => {
+      if (leftSummaryAfterBudgetGuideRef.current) freshCompletionVisitRef.current = false;
+      const next = onboardingHandoffRef.current;
+      setOnboardingGuide(getMoneyOnboardingHandoffGuide({
+        exploredBudgetThisVisit: exploredBudgetThisVisitRef.current,
+        handoff: next,
+        isFreshCompletion: freshCompletionVisitRef.current,
+      }));
+    });
+    return () => {
+      removeBlur?.();
+      removeFocus?.();
+    };
+  }, [navigation]);
 
   const scrollToMonth = useCallback((nextIndex: number) => {
     if (nextIndex < 0 || nextIndex >= periods.length) return;
@@ -250,6 +323,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
                 }}
                 onReviewIncome={() => navigation.navigate('MoneyLivingPlan')}
                 onOpenCategory={(categoryId) => {
+                  exploredBudgetThisVisitRef.current = true;
                   const destination = getMoneyCategoryDestination({
                     categoryId,
                     monthOffset: item.monthOffset,
@@ -321,6 +395,39 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
       saving={savingCategoryOrder}
       visible={categoryReorderOpen}
     />
+    <MoneyOnboardingHandoffGuide
+      guide={appControlGuideVisible ? null : onboardingGuide}
+      handoff={onboardingHandoff}
+      onAcknowledgeBudgets={() => {
+        if (!onboardingHandoff) return;
+        const acknowledgedAt = new Date().toISOString();
+        const next = { ...onboardingHandoff, budgetGuideAcknowledgedAt: acknowledgedAt };
+        onboardingHandoffRef.current = next;
+        budgetGuideAcknowledgedRef.current = true;
+        setOnboardingHandoff(next);
+        setOnboardingGuide(null);
+        navigation.setParams({ onboardingHandoff: undefined });
+        if (userId) void acknowledgeMoneyOnboardingBudgetGuide(userId, acknowledgedAt);
+      }}
+      onAcknowledgeFollowThrough={(openGoal) => {
+        if (!onboardingHandoff) return;
+        const acknowledgedAt = new Date().toISOString();
+        const next = { ...onboardingHandoff, followThroughGuideAcknowledgedAt: acknowledgedAt };
+        onboardingHandoffRef.current = next;
+        setOnboardingHandoff(next);
+        setOnboardingGuide(null);
+        if (userId) void acknowledgeMoneyOnboardingFollowThroughGuide(userId, acknowledgedAt);
+        if (openGoal && onboardingHandoff.goalId) {
+          rootNavigationRef.navigate('MainTabs', {
+            screen: 'GoalsTab',
+            params: {
+              screen: 'GoalDetail',
+              params: { goalId: onboardingHandoff.goalId, entryPoint: 'goalsTab' },
+            },
+          });
+        }
+      }}
+    />
     {route.params?.entryIntent === 'app-control-onboarding' ? <Coachmark
       actions={[
         { id: 'dismiss', label: 'Got it', variant: 'accent' },
@@ -342,6 +449,90 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
     /> : null}
     </>
   );
+}
+
+export function MoneyOnboardingHandoffGuide({
+  guide,
+  handoff,
+  onAcknowledgeBudgets,
+  onAcknowledgeFollowThrough,
+}: {
+  guide: 'budgets' | 'follow_through' | null;
+  handoff: MoneyOnboardingHandoffState | null;
+  onAcknowledgeBudgets: () => void;
+  onAcknowledgeFollowThrough: (openGoal: boolean) => void;
+}) {
+  const { reduceMotionEnabled } = useAccessibilityPreferences();
+  if (!handoff) return null;
+  return (
+    <BottomGuide
+      bottomAccessory={guide === 'budgets' ? (
+        <Button fullWidth onPress={onAcknowledgeBudgets} size="md" variant="primary">
+          Explore budgets
+        </Button>
+      ) : undefined}
+      dynamicSizing
+      onClose={guide === 'budgets'
+        ? onAcknowledgeBudgets
+        : () => onAcknowledgeFollowThrough(false)}
+      scrim="light"
+      snapPoints={guide === 'budgets' ? ['52%'] : ['40%']}
+      visible={Boolean(guide)}
+    >
+      {guide === 'budgets' ? (
+        <VStack space={spacing.lg} style={styles.onboardingWelcomeContent}>
+          <Heading variant="sm">Your budgets are ready 🎉</Heading>
+          {reduceMotionEnabled ? (
+            <View style={styles.onboardingWelcomeMedia}>
+              <Image
+                accessibilityIgnoresInvertColors
+                resizeMode="contain"
+                source={require('../../../../assets/illustrations/capability-onboarding/money-ready-transparent.png')}
+                style={styles.onboardingWelcomeIllustration}
+              />
+            </View>
+          ) : (
+            <CelebrationGif
+              fallbackSource={require('../../../../assets/illustrations/capability-onboarding/money-ready-transparent.png')}
+              frameStyle={styles.onboardingWelcomeGifFrame}
+              kind="firstBudget"
+              maxHeight={128}
+              resizeMode="cover"
+              showControls={false}
+              size="sm"
+              stylePreference="minimal"
+            />
+          )}
+          <Text style={styles.onboardingGuideBody}>
+            We built a {formatMoney(handoff.selectedPlanCents)} monthly plan from the accounts you connected. You can change any budget.
+          </Text>
+        </VStack>
+      ) : guide === 'follow_through' && handoff.goalId ? (
+        <VStack space={spacing.lg} style={styles.onboardingWelcomeContent}>
+          <VStack space={spacing.sm}>
+            <Heading variant="sm">Your Spend Less goal is ready</Heading>
+            <Text style={styles.onboardingGuideBody}>
+              {handoff.savingsCents > 0
+                ? `Save about ${formatMoney(handoff.savingsCents)} a month with ${handoff.todoCount} practical first steps. Nothing has been scheduled.`
+                : `${handoff.todoCount} practical first steps are ready. Nothing has been scheduled.`}
+            </Text>
+          </VStack>
+          <VStack space={spacing.xs}>
+            <Button fullWidth onPress={() => onAcknowledgeFollowThrough(true)} size="md" variant="primary">Review goal</Button>
+            <Button fullWidth onPress={() => onAcknowledgeFollowThrough(false)} size="sm" variant="ghost">Later</Button>
+          </VStack>
+        </VStack>
+      ) : null}
+    </BottomGuide>
+  );
+}
+
+function handoffStateFromReceipt(receipt: MoneyOnboardingHandoffReceipt): MoneyOnboardingHandoffState {
+  return {
+    ...receipt,
+    budgetGuideAcknowledgedAt: null,
+    followThroughGuideAcknowledgedAt: null,
+  };
 }
 
 function SummaryMonthPanel({
@@ -838,6 +1029,19 @@ const styles = StyleSheet.create({
   drawerSupportingFact: { marginTop: -spacing.xs, paddingLeft: spacing.sm, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   drawerBasis: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   protectedCategoryList: { gap: spacing.xs },
+  onboardingGuideBody: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
+  onboardingWelcomeContent: { paddingTop: spacing.sm },
+  onboardingWelcomeGifFrame: { borderRadius: radii.card, marginBottom: 0 },
+  onboardingWelcomeMedia: {
+    alignItems: 'center',
+    backgroundColor: colors.shellAlt,
+    borderRadius: radii.card,
+    height: 128,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: '100%',
+  },
+  onboardingWelcomeIllustration: { height: 124, width: '92%' },
   guideTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   guideBody: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
 });

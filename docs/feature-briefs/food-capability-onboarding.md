@@ -10,7 +10,7 @@ serves: [jtbd-move-the-few-things-that-matter, jtbd-carry-intentions-into-action
 related_briefs: [brief-capability-routed-onboarding, brief-household-food-loop, brief-progressive-meal-commitment]
 exploration: docs/design-explorations/food-capability-onboarding
 owner: andrew
-last_updated: 2026-08-19
+last_updated: 2026-08-20
 ---
 
 # Make Meals Easier Capability Onboarding
@@ -63,16 +63,17 @@ forward without rebuilding the work.
 
 ### Promise and structure
 
-The global chooser offers **Make meals easier**. Household Food then presents two lightweight,
-animated illustrated moments:
+The global chooser offers **Make meals easier** and opens the existing Recipe library immediately.
+A resumable coachmark relay guides one real cycle across native surfaces: choose a Recipe, keep it
+in a person-owned Plan, optionally share the Plan for bounded feedback, send selected meals to
+Groceries, and see the compiled list. Onboarding introduces no duplicate picker, temporary Plan,
+fake feedback, or narrated interstitial. Exact Recipe, Plan, Grocery, and Cook context bypasses the
+generic guide when it can be honored safely.
 
-1. pick Kwilt meals or add your own, with optional Household ideas and voting; and
-2. carry chosen meals through a shared ingredient list and calm, resumable cooking.
-
-The sequence ends with **Browse recipes** and opens the existing Recipe library with a contextual
-coachmark on a real Recipe card. Onboarding must not introduce a duplicate picker or any other UI
-that the native capability already owns. Exact Recipe, Plan, Grocery, and Cook
-context bypasses the generic Food walkthrough when it can be honored safely.
+Groceries remains visible before Plan completion. Grocery-first and manual-list jobs are valid
+starting contexts. The guided Recipe-to-Groceries payoff is eligible only after a real Plan meal,
+and online shopping is eligible only after a real list has actionable items; neither rule hides the
+capability itself.
 
 The full screen, branch teaching, bypass, recovery, copy hierarchy, and first-value boundaries are
 defined in
@@ -109,15 +110,15 @@ The source-backed audit is
 
 ### Learning release
 
-The development rehearsal now includes the connected walkthrough and individual-first native
+The development rehearsal now includes the connected native playthrough and individual-first
 handoff. Keep it development-only while migration execution, rendered acceptance, real Household
 participation, and signed-device Cook proof are completed. Promote Food and the global entry policy
 atomically rather than exposing a partial production chooser.
 
 ## Success signal
 
-A clean-account tester selects **Make meals easier**, understands that Kwilt connects choosing,
-deciding together, ingredients, and cooking, then keeps at least one real meal in a durable Plan.
+A clean-account tester selects **Make meals easier**, reaches Recipes immediately, then keeps at
+least one real meal in a durable Plan and sends it to a real Grocery list.
 Plan works without Household setup; an existing Household can participate through bounded sharing
 and voting; selected Recipes produce a shared list with provenance; and Cook restores the correct
 cue without replaying generic onboarding.
@@ -131,6 +132,6 @@ Andrew's visual and experiential acceptance.
 - `organizer_person_id` is durable ownership; Household and organizer-membership IDs are optional,
   explicit collaboration attachment.
 - Food first value remains a live-confirmed Meal Plan receipt, not walkthrough or library-entry completion.
-- Existing assets do not cover the two illustration jobs; composed icons are development
-  placeholders pending visual acceptance and any justified illustration brief.
+- The guide reuses native Recipe, Plan, and Grocery surfaces; no new explanatory illustration is
+  required for this learning release.
 - The coordinator stores only path/checkpoint/completion receipts and does not duplicate Food data.

@@ -6,6 +6,7 @@ const sql = [
   '20260807013757_support_bundled_catalog_grocery_sources.sql',
   '20260807030912_preserve_grocery_item_states_on_rebase.sql',
   '20260807172852_support_recipe_scoped_grocery_lists.sql',
+  '20260820213000_manual_grocery_lists.sql',
 ].map((file) => readFileSync(resolve(process.cwd(), 'supabase/migrations', file), 'utf8')).join('\n').toLowerCase();
 
 describe('Grocery persistence contract', () => {
@@ -14,7 +15,7 @@ describe('Grocery persistence contract', () => {
       expect(sql).toContain(`create table public.${table}`);
       expect(sql).toContain(`alter table public.${table} enable row level security`);
     }
-    for (const rpc of ['compile_kwilt_grocery_list','update_kwilt_grocery_item','set_kwilt_grocery_item_state','add_kwilt_grocery_item','mark_kwilt_grocery_list_reviewed']) {
+    for (const rpc of ['compile_kwilt_grocery_list','create_kwilt_manual_grocery_list','update_kwilt_grocery_item','set_kwilt_grocery_item_state','add_kwilt_grocery_item','mark_kwilt_grocery_list_reviewed']) {
       expect(sql).toContain(`function public.${rpc}`);
     }
     expect(sql).toContain('source_meal_plan_version');

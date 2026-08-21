@@ -19,10 +19,14 @@ export type MealPlanCandidateDraft = {
   kind: 'recipe' | 'meal_note';
   title: string;
   recipeSnapshot: Record<string, unknown> | null;
+  lifecycle?: 'idea' | 'sent' | 'made' | 'removed';
+  createdAt?: string;
+  sentAt?: string | null;
 };
 
 export type MealPlanProjection = {
   id: string;
+  organizerPersonId?: string;
   householdId: string | null;
   version: number;
   state: 'draft' | 'collecting_choices' | 'ready_to_finalize' | 'finalized' | 'archived';
@@ -91,7 +95,16 @@ export function mapMealPlanRow(row: any): MealPlanProjection {
   return {
     id: row.id, householdId: typeof row.household_id === 'string' ? row.household_id : null, version: row.version, state: row.state,
     horizon: validateMealPlanHorizon(row.horizon),
-    candidates: candidates.map((candidate: any) => ({ id: candidate.id, kind: candidate.kind, title: candidate.title, recipeSnapshot: candidate.recipe_snapshot ?? null })),
+    organizerPersonId: String(row.organizer_person_id),
+    candidates: candidates.map((candidate: any) => ({
+      id: candidate.id,
+      kind: candidate.kind,
+      title: candidate.title,
+      recipeSnapshot: candidate.recipe_snapshot ?? null,
+      lifecycle: candidate.lifecycle_state ?? 'idea',
+      createdAt: candidate.created_at ?? row.updated_at,
+      sentAt: candidate.sent_at ?? null,
+    })),
     entries: entries.map((entry) => ({ id: String(entry.id), candidateId: String(entry.candidate_id), title: String(entry.title), servings: entry.servings === null ? null : Number(entry.servings), placementDate: typeof entry.placement_date === 'string' ? entry.placement_date : null, occasionId: typeof entry.occasion_id === 'string' ? entry.occasion_id : null, dinerPersonIds: Array.isArray(entry.diner_person_ids) ? entry.diner_person_ids.filter((id): id is string => typeof id === 'string') : [], recipeSnapshot: entry.recipe_snapshot && typeof entry.recipe_snapshot === 'object' ? entry.recipe_snapshot as Record<string, unknown> : null })),
     occasions: occasions.length ? occasions.map((occasion) => ({
       id: String(occasion.id),
@@ -131,7 +144,56 @@ export function mapMealPlanRow(row: any): MealPlanProjection {
   };
 }
 
+export function projectPersonalMealPlanCart(plan: MealPlanProjection): SharedMealCartProjection {
+  if (plan.householdId !== null) throw new Error('Expected a person-owned Meal Plan.');
+  if (!plan.organizerPersonId) throw new Error('The person-owned Meal Plan is missing its organizer.');
+  const organizerPersonId = plan.organizerPersonId;
+  const activeCandidates = plan.candidates.filter((candidate) => candidate.lifecycle !== 'removed' && candidate.lifecycle !== 'made');
+  return {
+    planId: plan.id,
+    householdId: null,
+    version: plan.version,
+    state: plan.state === 'draft' ? 'draft' : 'finalized',
+    activeCount: activeCandidates.length,
+    groceryListId: null,
+    viewer: {
+      personId: organizerPersonId,
+      role: 'organizer',
+      canAdd: plan.state === 'draft',
+      canManage: true,
+    },
+    candidates: activeCandidates.map((candidate, position) => ({
+      id: candidate.id,
+      kind: candidate.kind,
+      title: candidate.title,
+      recipeSnapshot: candidate.recipeSnapshot,
+      position,
+      createdAt: candidate.createdAt ?? plan.updatedAt,
+      lifecycle: candidate.lifecycle === 'sent' ? 'sent' : 'idea',
+      sentAt: candidate.sentAt ?? null,
+      missingItemCount: null,
+      voteCount: 0,
+      downvoteCount: 0,
+      hardPassCount: 0,
+      requiresHardPassReview: false,
+      reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0 },
+      contributor: { personId: organizerPersonId, displayName: 'You', avatarUrl: null },
+      supporters: [],
+      viewerReaction: null,
+      viewerReactionReason: null,
+      canReact: false,
+      canRemove: true,
+      canMarkMade: candidate.lifecycle === 'sent',
+    })),
+  };
+}
+
 export function createMealPlanningRepository(client: SupabaseClient = getSupabaseClient()) {
+  const listPlans = async (): Promise<MealPlanProjection[]> => {
+    const { data, error } = await client.from('kwilt_meal_plans').select('*,candidates:kwilt_meal_plan_candidates(*),entries:kwilt_meal_plan_entries(*),occasions:kwilt_meal_plan_occasions(*),rounds:kwilt_meal_choice_rounds(*)').order('updated_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map(mapMealPlanRow);
+  };
   return {
     async getSharedCart(householdId: string): Promise<SharedMealCartProjection> {
       const projection = parseSharedMealCartProjection(await rpc(client, 'get_kwilt_shared_meal_cart', { p_household_id: householdId }));
@@ -143,6 +205,51 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
         p_household_id: householdId,
         p_candidate_id: candidate.id,
         p_candidate: candidate,
+      });
+    },
+    async getMealCart(householdId: string | null): Promise<SharedMealCartProjection | null> {
+      if (householdId) {
+        const projection = parseSharedMealCartProjection(await rpc(client, 'get_kwilt_shared_meal_cart', { p_household_id: householdId }));
+        if (!projection) throw new Error('The shared Meal Cart is unavailable.');
+        return projection;
+      }
+      const plan = (await listPlans()).find((candidate) => candidate.householdId === null && candidate.state === 'draft');
+      return plan ? projectPersonalMealPlanCart(plan) : null;
+    },
+    async addMealCandidate(householdId: string | null, candidate: MealPlanCandidateDraft) {
+      if (householdId) {
+        return rpc(client, 'add_kwilt_shared_meal_candidate', {
+          p_household_id: householdId,
+          p_candidate_id: candidate.id,
+          p_candidate: candidate,
+        });
+      }
+      const plan = (await listPlans()).find((candidatePlan) => candidatePlan.householdId === null && candidatePlan.state === 'draft');
+      if (!plan) {
+        return rpc(client, 'create_kwilt_meal_plan', {
+          p_household_id: null,
+          p_horizon: { kind: 'open' },
+          p_candidate_snapshots: [candidate],
+        });
+      }
+      return rpc(client, 'update_kwilt_meal_plan', {
+        p_plan_id: plan.id,
+        p_expected_version: plan.version,
+        p_patch: { candidates: [...plan.candidates, candidate] },
+      });
+    },
+    async withdrawMealCandidate(householdId: string | null, candidateId: string) {
+      if (householdId) return rpc(client, 'withdraw_kwilt_shared_meal_candidate', { p_candidate_id: candidateId });
+      const plan = (await listPlans()).find((candidatePlan) =>
+        candidatePlan.householdId === null &&
+        candidatePlan.state === 'draft' &&
+        candidatePlan.candidates.some((candidate) => candidate.id === candidateId),
+      );
+      if (!plan) throw new Error('The meal is no longer in Plan.');
+      return rpc(client, 'update_kwilt_meal_plan', {
+        p_plan_id: plan.id,
+        p_expected_version: plan.version,
+        p_patch: { candidates: plan.candidates.filter((candidate) => candidate.id !== candidateId) },
       });
     },
     withdrawSharedCandidate(candidateId: string) {
@@ -185,9 +292,7 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
       return rpc(client, 'mark_kwilt_plan_candidate_made', { p_candidate_id: candidateId, p_expected_version: expectedVersion });
     },
     async list(): Promise<MealPlanProjection[]> {
-      const { data, error } = await client.from('kwilt_meal_plans').select('*,candidates:kwilt_meal_plan_candidates(*),entries:kwilt_meal_plan_entries(*),occasions:kwilt_meal_plan_occasions(*),rounds:kwilt_meal_choice_rounds(*)').order('updated_at', { ascending: false });
-      if (error) throw new Error(error.message);
-      return (data ?? []).map(mapMealPlanRow);
+      return listPlans();
     },
     create(input: { householdId?: string | null; horizon: MealPlanHorizon; candidates: MealPlanCandidateDraft[] }) {
       return rpc(client, 'create_kwilt_meal_plan', { p_household_id: input.householdId ?? null, p_horizon: validateMealPlanHorizon(input.horizon), p_candidate_snapshots: input.candidates });

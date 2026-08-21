@@ -2,16 +2,15 @@
 
 ## Decision
 
-Choose one lightweight, illustration-led Food onboarding journey:
+Choose one lightweight promise followed by a native, action-led Food journey:
 
 ```text
 Make meals easier
-  -> see how the meal loop works
-  -> pick a meal or add one of your own
-  -> optionally share and decide together
-  -> turn chosen meals into a shared ingredient list
-  -> cook with less juggling
-  -> Browse recipes
+  -> pick a real meal
+  -> keep it in Plan
+  -> optionally ask for feedback
+  -> send it to Groceries
+  -> see the real list come together
 ```
 
 The Food experience does not ask a second **What do you need right now?** question. Planning,
@@ -21,25 +20,36 @@ parts of the promise the person just selected.
 The current implementation gaps are committed delivery scope for this onboarding initiative. They
 are not reasons to remove **Make meals easier** from the intended first-install chooser.
 
-## Illustrated walkthrough
+## Native playthrough
 
-Use a two-moment, manually paced full-screen sequence with Back, Next, **Browse recipes**, and a
-quiet way to choose another global path. Candidate copy is directional rather than final.
+Do not put a second slideshow between intent and value. The global **Make meals easier** value door
+already makes the promise. Its primary action opens Recipes immediately and a resumable coachmark
+relay teaches the loop on the surfaces that own each action.
 
-### 1. Find meals everyone can get behind
+### 1. Find a meal that fits
 
-- Title: **Find meals everyone can get behind.**
-- Body: **Pick from Kwilt or add your own. If you share a Household, everyone can add ideas and vote.**
-- Illustration job: recognizable meal ideas with warm, bounded family contribution signals.
+- Spotlight one real Recipe card: **Pick one that sounds good.**
+- Opening the highlighted card advances the guide; ordinary Recipe browsing remains fully usable.
 
 This teaches that a clean account is useful immediately and that personal Recipe capture remains
 available. It does not require importing anything before the person can begin.
 
-### 2. Plan it. Shop it. Cook it.
+### 2. Keep the decision
 
-- Title: **Plan it. Shop it. Cook it.**
-- Body: **Turn the meals you choose into one shared ingredient list, then keep your place while you cook.**
-- Illustration job: one connected motion from Recipe to ingredient list to a calm cooking cue.
+- Spotlight **Add to Plan** on Recipe Home: **Keep it in Plan.**
+- A real person-owned Plan is created or updated. Household setup is never a prerequisite.
+
+### 3. Decide together, when useful
+
+- Open the native Plan and spotlight **Share**: **Want a quick gut check?**
+- The person can share a bounded guest-feedback link or choose **Not now**. No fake feedback or
+  Household membership is created.
+
+### 4. Make the list
+
+- Spotlight **Send to Groceries**, then the selected meal and final send action.
+- On a successful compile, navigate to the resulting list and spotlight its first real item:
+  **One list, ready to finish.**
 
 If no Household exists, the guide remains truthful because participation is conditional. The person
 can plan alone and invite or add people later. Onboarding never creates an empty Household or blocks
@@ -51,9 +61,9 @@ those detailed truths and contextual education.
 
 ## First native action
 
-The walkthrough ends with **Browse recipes** and opens the existing Recipe library:
+The playthrough starts in the existing Recipe library:
 
-- a coachmark highlights one real Recipe card and invites the person to open it;
+- coachmarks highlight real targets and never block unrelated navigation;
 - **Add your own** remains available through the library's ordinary capture action;
 - onboarding adds no second picker, catalog, or temporary selection mechanism; and
 - later Plan, Household, Grocery, and Cook education occurs on the owning native surfaces.
@@ -61,8 +71,8 @@ The walkthrough ends with **Browse recipes** and opens the existing Recipe libra
 ### First value
 
 Food onboarding reaches first value when the person deliberately keeps at least one real meal in a
-durable Plan and lands on the native Plan surface. Completing the illustrated walkthrough or merely
-opening Recipes is not first value.
+durable Plan. The full playthrough completes when at least one real ingredient reaches Groceries.
+Merely viewing coachmarks or opening Recipes is never completion.
 
 The remaining walkthrough claims become progressive capability milestones:
 
@@ -130,14 +140,14 @@ This is not a reason to narrow the onboarding promise. It is a domain gap the br
 Exact context skips the generic Food walkthrough unless one missing concept is necessary to safely
 continue.
 
-## Illustration and interaction posture
+## Interaction posture
 
-- The sequence is fun, warm, and domestic rather than instructional or administrative.
-- Each screen makes one useful claim with one coherent illustration.
-- No autoplay, timer, gesture requirement, quiz, preference survey, or setup form.
-- Reduce Motion preserves the same sequence and meaning.
-- Progress appears only as a quiet two-step indicator if rendered testing shows it helps.
-- Audit existing Food illustrations before deciding which new assets are necessary.
+- One coachmark and one highlighted target appear at a time.
+- Required steps advance only from a successful domain action; optional sharing has **Not now**.
+- The guide persists its checkpoint, resumes on the owning surface, and can be dismissed without
+  hiding Recipes, Plan, or Groceries.
+- No autoplay, timer, quiz, preference survey, fake data, or setup form.
+- Reduce Motion preserves the same sequence and meaning without attention pulses.
 
 ## Release consequence
 
@@ -147,7 +157,7 @@ Plan model is Household-gated.
 
 Production release still waits until:
 
-- the two illustrated moments are truthful and visually accepted;
+- every coachmark is anchored to a visible, actionable native control and visually accepted;
 - a clean account can create a personal Plan without Household setup;
 - existing-Household sharing, adding ideas, and voting work through bounded authority;
 - chosen Recipes produce a shared, editable Grocery list;
@@ -161,7 +171,7 @@ branch's delivery scope.
 
 ## Stated bet
 
-We believe a short illustrated meal-loop walkthrough followed by contextual guidance in Recipes will help Maya
-understand the entire Food promise without a questionnaire or another chooser. We will know this is
-true when she can explain that Kwilt helps choose, decide together, build the list, and cook—and can
-then begin by opening one real meal without Household setup or facilitator help.
+We believe reaching a real Recipe within one tap of choosing the Food path, then learning through
+the actions themselves, will help Maya understand and complete the loop faster than a narrated
+walkthrough. We will know this is true when she can choose, keep, optionally share, and compile one
+real meal without Household setup or facilitator help.

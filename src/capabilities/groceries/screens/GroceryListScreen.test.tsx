@@ -274,6 +274,31 @@ describe('Grocery List primary capability', () => {
     });
   });
 
+  it('starts a real manual list before any Meal Plan exists', async () => {
+    const createManualList = jest.fn().mockResolvedValue({
+      groceryListId: 'manual-list-1', revision: 1, status: 'ready', replayed: false,
+    });
+    (createGroceryRepository as jest.Mock).mockReturnValue({
+      list: jest.fn().mockResolvedValue([]),
+      createManualList,
+      setItemState: jest.fn(),
+      addItem: mockAddItem,
+    });
+    const replace = jest.fn();
+    const screen = render(
+      <GroceryListScreen
+        navigation={{ goBack: jest.fn(), navigate: jest.fn(), replace } as never}
+        route={{ key: 'grocery', name: 'GroceryList', params: { entryPoint: 'capability-menu' } } as never}
+      />,
+    );
+
+    fireEvent.press(await screen.findByLabelText('Start a grocery list with an item'));
+
+    await waitFor(() => expect(createManualList).toHaveBeenCalledTimes(1));
+    expect(replace).toHaveBeenCalledWith('GroceryList', { listId: 'manual-list-1' });
+    expect(screen.getByTestId('grocery-quick-add-composer')).toBeTruthy();
+  });
+
   it('teaches already-have on the grocery list before the first online cart flow', async () => {
     const screen = render(
       <GroceryListScreen

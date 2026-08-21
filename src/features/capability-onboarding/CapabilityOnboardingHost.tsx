@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -7,8 +7,7 @@ import { getCapabilityOnboardingDoors } from './capabilityOnboardingContracts';
 import { normalizeCapabilityOnboardingRecord } from './capabilityOnboardingState';
 import { CapabilityOnboardingPager } from './CapabilityOnboardingPager';
 import { useCapabilityOnboardingStore } from './useCapabilityOnboardingStore';
-import { FoodOnboardingFlow } from '../household-food/onboarding/FoodOnboardingFlow';
-import type { FoodOnboardingMomentId } from '../household-food/onboarding/foodOnboardingModel';
+import { FOOD_FIRST_CYCLE_CHECKPOINTS } from '../household-food/onboarding/foodFirstCycleGuide';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { CapabilityOnboardingResumeScreen } from './CapabilityOnboardingResumeScreen';
@@ -42,7 +41,6 @@ export function CapabilityOnboardingHost({
   const trackedVisible = useRef(false);
   const viewedPages = useRef(new Set<string>());
   const sessionEntry = useRef<CapabilityOnboardingSessionEntry>('fresh');
-  const [activeFoodSession, setActiveFoodSession] = useState(false);
   const record = normalizeCapabilityOnboardingRecord(persistedRecord);
   const doors = getCapabilityOnboardingDoors(surface);
   const pageIds = ['welcome', ...doors.map((door) => door.id)] as const;
@@ -75,7 +73,6 @@ export function CapabilityOnboardingHost({
     } else if (!visible) {
       trackedVisible.current = false;
       viewedPages.current.clear();
-      setActiveFoodSession(false);
     }
   }, [capture, pageIds, record.activePageId, record.updatedAt, surface, trackPageViewed, visible]);
 
@@ -93,55 +90,25 @@ export function CapabilityOnboardingHost({
 
   if (!visible || record.universalState === 'explored') return null;
 
-  const foodMomentIds: FoodOnboardingMomentId[] = ['choose-together', 'follow-through'];
-  const foodMoment = foodMomentIds.includes(record.checkpoint as FoodOnboardingMomentId)
-    ? record.checkpoint as FoodOnboardingMomentId
-    : null;
   const selectedFoodPath =
     record.universalState === 'chosen' && record.selectedPathId === 'make-meals-easier';
   if (record.universalState === 'chosen' && !selectedFoodPath) return null;
   if (selectedFoodPath && record.checkpoint === 'complete') return null;
 
-  const chooseAnotherDoor = () => {
-    setActiveFoodSession(false);
-    dispatch(userId, { type: 'choose-another-door', now: Date.now() });
-  };
+  const chooseAnotherDoor = () => dispatch(userId, { type: 'choose-another-door', now: Date.now() });
 
   return (
     <Modal visible animationType="fade" presentationStyle="fullScreen" onRequestClose={() => {}}>
       <View style={styles.root}>
         <StatusBar style="dark" />
-        {selectedFoodPath && !activeFoodSession ? (
+        {selectedFoodPath ? (
           <CapabilityOnboardingResumeScreen
             onContinue={() => {
-              if (record.checkpoint === 'browsing-recipes') {
-                const path = doors.find((candidate) => candidate.id === 'make-meals-easier');
-                if (path) onStartPath(path);
-              } else {
-                setActiveFoodSession(true);
-              }
-            }}
-            onChooseAnotherPath={chooseAnotherDoor}
-            onLookAround={() => explore('button')}
-          />
-        ) : selectedFoodPath ? (
-          <FoodOnboardingFlow
-            initialMomentId={foodMoment}
-            onCheckpoint={(checkpoint) => dispatch(userId, {
-              type: 'checkpoint',
-              checkpoint,
-              now: Date.now(),
-            })}
-            onChooseAnotherPath={chooseAnotherDoor}
-            onStartChoosing={() => {
-              dispatch(userId, {
-                type: 'checkpoint',
-                checkpoint: 'browsing-recipes',
-                now: Date.now(),
-              });
               const path = doors.find((candidate) => candidate.id === 'make-meals-easier');
               if (path) onStartPath(path);
             }}
+            onChooseAnotherPath={chooseAnotherDoor}
+            onLookAround={() => explore('button')}
           />
         ) : (
           <CapabilityOnboardingPager
@@ -168,10 +135,13 @@ export function CapabilityOnboardingHost({
                 }),
               );
               if (path.handoff.kind === 'food-meal-loop') {
-                setActiveFoodSession(true);
-              } else {
-                onStartPath(path);
+                dispatch(userId, {
+                  type: 'checkpoint',
+                  checkpoint: FOOD_FIRST_CYCLE_CHECKPOINTS['choose-recipe'],
+                  now: Date.now(),
+                });
               }
+              onStartPath(path);
             }}
           />
         )}

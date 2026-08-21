@@ -15,9 +15,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { openPaywallInterstitial } from '../../../services/paywall';
 import { useEntitlementsStore } from '../../../store/useEntitlementsStore';
+import { useAppStore } from '../../../store/useAppStore';
 import { colors, radii, spacing, typography } from '../../../theme';
 import { Button, IconButton } from '../../../ui/Button';
-import { Icon } from '../../../ui/Icon';
+import { Icon, type IconName } from '../../../ui/Icon';
 import { FullWidthActionDock } from '../../../ui/FullWidthActionDock';
 import { FullScreenInterstitial } from '../../../ui/FullScreenInterstitial';
 import {
@@ -26,7 +27,7 @@ import {
   type KwiltLoaderPhase,
 } from '../../../ui/KwiltLoader';
 import { Logo } from '../../../ui/Logo';
-import { Heading, Text } from '../../../ui/Typography';
+import { ButtonLabel, Heading, Text } from '../../../ui/Typography';
 import {
   CAPABILITY_ONBOARDING_STEP_GEOMETRY,
   CapabilityOnboardingStepScreen,
@@ -48,6 +49,11 @@ import {
   type MoneyOnboardingStep,
   type MoneyPlaceRouteName,
 } from '../domain/moneyOnboarding';
+import {
+  buildMoneyOnboardingFollowThrough,
+  type MoneyOnboardingFollowThrough,
+} from '../domain/moneyOnboardingFollowThrough';
+import type { MoneyOnboardingHandoffReceipt } from '../domain/moneyOnboardingHandoff';
 import {
   buildMoneyOnboardingAssessment,
   buildMoneyOnboardingTargetGuidance,
@@ -71,6 +77,7 @@ import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
 import {
   completeMoneyOnboarding,
   loadMoneyOnboardingState,
+  recordMoneyOnboardingHandoff,
   recordMoneyOnboardingIntroduction,
   recordMoneyOnboardingCheckpoint,
   recordMoneyOnboardingDecision,
@@ -91,6 +98,14 @@ const MONEY_ANALYSIS_MESSAGES: Record<MoneyAnalysisPhase, string> = {
 };
 export const MONEY_ANALYSIS_LOGO_DWELL_MS = 360;
 export const MONEY_ANALYSIS_SPIN_MS = 1_200;
+export type MoneyPlanBuildPhase = 'plan' | 'budgets' | 'goal' | 'todos';
+const MONEY_PLAN_BUILD_MESSAGES: Record<MoneyPlanBuildPhase, string> = {
+  plan: 'Saving your monthly plan',
+  budgets: 'Building budgets around your real spending',
+  goal: 'Creating your Spend Less goal',
+  todos: 'Adding two practical first steps',
+};
+const MONEY_BUILD_PHASE_MINIMUM_MS = 650;
 
 const MONEY_ONBOARDING_DOOR = CAPABILITY_ONBOARDING_PATHS.find(
   ({ id }) => id === 'budget-app-controls',
@@ -135,14 +150,17 @@ export function MoneySetupExperience({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [analysisPhase, setAnalysisPhase] = useState<MoneyAnalysisPhase>('accounts');
+  const [buildPhase, setBuildPhase] = useState<MoneyPlanBuildPhase>('plan');
   const [assessment, setAssessment] = useState<MoneyOnboardingAssessment | null>(null);
   const [coverageConfidence, setCoverageConfidence] = useState<MoneyOnboardingCoverageConfidence | null>(null);
   const [planningIntent, setPlanningIntent] = useState<MoneyPlanningIntent | null>(null);
+  const [followThrough, setFollowThrough] = useState<MoneyOnboardingFollowThrough | null>(null);
   const [demoConnected, setDemoConnected] = useState(false);
   const entryResolved = useRef(false);
   const experienceMounted = useRef(true);
   const snapshotAccountCount = useRef(snapshot?.accounts.length ?? 0);
   const accountAutoAdvanceStarted = useRef(false);
+  const analysisStartRequested = useRef(false);
   const connectionOpenStarted = useRef(false);
   const plaidSessionRef = useRef<MoneyPlaidLinkSession | null>(null);
   const plaidPreparationRef = useRef<Promise<MoneyPlaidLinkSession> | null>(null);
@@ -229,6 +247,15 @@ export function MoneySetupExperience({
     if (userId && !demoScenario) void recordMoneyOnboardingCheckpoint(userId, requestedPlace, next);
   };
 
+  const beginAnalysis = (confidence: MoneyOnboardingCoverageConfidence = 'partial') => {
+    setCoverageConfidence(confidence);
+    if (userId && !demoScenario) {
+      void recordMoneyOnboardingDecision(userId, requestedPlace, { coverageConfidence: confidence });
+    }
+    analysisStartRequested.current = true;
+    advanceTo('analyze');
+  };
+
   const prepareConnection = useCallback(async () => {
     if (plaidSessionRef.current) return plaidSessionRef.current;
     if (plaidPreparationRef.current) return plaidPreparationRef.current;
@@ -288,6 +315,12 @@ export function MoneySetupExperience({
   }
 
   useEffect(() => {
+    if (step !== 'analyze' || !analysisStartRequested.current || busy || !userId) return;
+    analysisStartRequested.current = false;
+    void analyzeAccounts();
+  }, [busy, step, userId]);
+
+  useEffect(() => {
     if (demoScenario || step !== 'account' || !userId || snapshot?.accounts.length || connectionPhase !== 'unprepared') return;
     void prepareConnection().catch(() => undefined);
   }, [connectionPhase, demoScenario, prepareConnection, snapshot?.accounts.length, step, userId]);
@@ -295,7 +328,7 @@ export function MoneySetupExperience({
   useEffect(() => {
     if (demoScenario || step !== 'account' || !userId || !snapshot?.accounts.length || accountAutoAdvanceStarted.current) return;
     accountAutoAdvanceStarted.current = true;
-    advanceTo('coverage');
+    beginAnalysis();
   }, [demoScenario, snapshot?.accounts.length, step, userId]);
 
   const connectAccount = async () => {
@@ -309,8 +342,8 @@ export function MoneySetupExperience({
         setConnectedInstitutionName('Chase');
         setDemoConnected(true);
         setConnectionPhase('ready');
-        advanceTo('coverage');
         connectionOpenStarted.current = false;
+        beginAnalysis();
         return;
       }
       if (connectionPhase === 'cancelled' || connectionPhase === 'error') {
@@ -328,8 +361,8 @@ export function MoneySetupExperience({
       setConnectedInstitutionName(result.exchange.institutionName);
       await reconcileConnectedActivity({ trigger: 'account_connected', sync: false });
       await refresh();
-      advanceTo('coverage');
       connectionOpenStarted.current = false;
+      beginAnalysis();
     } catch (error) {
       connectionOpenStarted.current = false;
       plaidSessionRef.current = null;
@@ -356,28 +389,29 @@ export function MoneySetupExperience({
 
   const continueFromCoverage = async () => {
     if (!coverageConfidence) return;
-    if (userId && !demoScenario) {
-      await recordMoneyOnboardingDecision(userId, requestedPlace, { coverageConfidence });
-    }
-    await analyzeAccounts();
+    beginAnalysis(coverageConfidence);
   };
 
   const choosePlanningIntent = (intent: MoneyPlanningIntent) => {
-    setPlanningIntent(intent);
-  };
-
-  const continueFromIntent = async () => {
-    if (!assessment || !coverageConfidence || !planningIntent) return;
-    const guidance = buildMoneyOnboardingTargetGuidance(assessment, coverageConfidence, planningIntent);
+    if (!assessment || !coverageConfidence) return;
+    const guidance = buildMoneyOnboardingTargetGuidance(assessment, coverageConfidence, intent);
     if (!guidance) {
       setMessage('Kwilt needs dependable income before it can suggest a monthly target.');
       return;
     }
+    setPlanningIntent(intent);
     if (userId && !demoScenario) {
-      await recordMoneyOnboardingDecision(userId, requestedPlace, { planningIntent });
+      void recordMoneyOnboardingDecision(userId, requestedPlace, { planningIntent: intent });
     }
     setLivingPercent(guidance.percent);
     advanceTo('target');
+  };
+
+  const exploreSpending = () => {
+    if (userId && !demoScenario) void recordMoneyOnboardingCheckpoint(userId, requestedPlace, null);
+    navigation.replace('MoneySummary', {
+      ...(__DEV__ && demoScenario ? { devBudgetState: 'onboarding-sample' as const } : {}),
+    });
   };
 
   const addInstitution = () => {
@@ -395,28 +429,75 @@ export function MoneySetupExperience({
   };
 
   const acceptPlan = async () => {
-    if (!userId || busy) return;
-    if (__DEV__ && demoScenario) {
-      if (requestedPlace === 'MoneySummary') navigation.replace('MoneySummary', { devBudgetState: 'none' });
-      else if (requestedPlace === 'MoneyTransactions') navigation.replace('MoneyTransactions');
-      else navigation.replace('MoneyAccounts');
-      return;
-    }
+    if (!userId || busy || !assessment || !coverageConfidence || !planningIntent) return;
     setBusy(true);
+    setMessage(null);
+    setStep('complete');
+    const selectedPlanCents = Math.round((assessment.monthlyIncomeCents ?? 0) * livingPercent / 100);
     try {
-      const client = getSupabaseClient();
       const acceptedTarget = buildMoneyOnboardingTarget(livingPercent, new Date().toISOString());
-      await saveLivingPlanPromotionEnabled(client, true);
-      await saveLivingTargetIntent(client, acceptedTarget);
-      const decision = getMoneyOnboardingCompletionDecision(await reconcileLivingPlan(client, 'target_changed'), false);
-      if (!decision.complete) {
-        setMessage(decision.message ?? 'Kwilt needs fresh account activity before it can build trustworthy budgets.');
-        return;
+      if (__DEV__ && demoScenario) {
+        await runBuildPhase(setBuildPhase, 'plan');
+        await runBuildPhase(setBuildPhase, 'budgets');
+      } else {
+        const client = getSupabaseClient();
+        await runBuildPhase(setBuildPhase, 'plan', async () => {
+          await saveLivingPlanPromotionEnabled(client, true);
+          await saveLivingTargetIntent(client, acceptedTarget);
+        });
+        const decision = await runBuildPhase(setBuildPhase, 'budgets', async () => (
+          getMoneyOnboardingCompletionDecision(await reconcileLivingPlan(client, 'target_changed'), false)
+        ));
+        if (!decision?.complete) {
+          setMessage(decision?.message ?? 'Kwilt needs fresh account activity before it can build trustworthy budgets.');
+          setStep('target');
+          return;
+        }
       }
+
+      let createdFollowThrough: MoneyOnboardingFollowThrough | null = null;
+      if (planningIntent === 'reduce') {
+        const nextFollowThrough = buildMoneyOnboardingFollowThrough({
+          createdAtIso: new Date().toISOString(),
+          evidenceScope: coverageConfidence === 'complete' ? 'household' : 'connected_accounts',
+          observedMonthlySpendingCents: assessment.observedMonthlySpendingCents,
+          selectedPlanCents,
+        });
+        createdFollowThrough = nextFollowThrough;
+        setFollowThrough(nextFollowThrough);
+        await runBuildPhase(setBuildPhase, 'goal', async () => {
+          const store = useAppStore.getState();
+          if (!store.goals.some(({ id }) => id === nextFollowThrough.goal.id)) {
+            store.addGoal(nextFollowThrough.goal);
+            store.dismissPostGoalPlanGuideForGoal(nextFollowThrough.goal.id);
+          }
+        });
+        await runBuildPhase(setBuildPhase, 'todos', async () => {
+          const store = useAppStore.getState();
+          nextFollowThrough.activities.forEach((activity) => {
+            if (!store.activities.some(({ id }) => id === activity.id)) store.addActivity(activity);
+          });
+        });
+      }
+
+      const handoff: MoneyOnboardingHandoffReceipt = {
+        createdAtIso: new Date().toISOString(),
+        selectedPlanCents,
+        goalId: createdFollowThrough?.goal.id ?? null,
+        goalTitle: createdFollowThrough?.goal.title ?? null,
+        savingsCents: createdFollowThrough?.savingsCents ?? 0,
+        todoCount: createdFollowThrough?.activities.length ?? 0,
+      };
       await completeMoneyOnboarding(userId, acceptedTarget, { skippedAccountConnection: false });
-      navigation.replace(requestedPlace);
+      await recordMoneyOnboardingHandoff(userId, handoff);
+      setFollowThrough(createdFollowThrough);
+      navigation.replace('MoneySummary', {
+        onboardingHandoff: handoff,
+        ...(__DEV__ && demoScenario ? { devBudgetState: 'onboarding-sample' as const } : {}),
+      });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Kwilt could not save this plan.');
+      setStep('target');
     } finally {
       setBusy(false);
     }
@@ -527,20 +608,24 @@ export function MoneySetupExperience({
     return <MoneyFocusedAnalysis phase={analysisPhase} />;
   }
 
+  if (step === 'complete') {
+    return <MoneyFocusedPlanBuild followThrough={followThrough} phase={buildPhase} />;
+  }
+
   if (step === 'intent' && assessment && coverageConfidence) {
     return (
       <MoneyPlanningIntentScreen
         assessment={assessment}
         coverageConfidence={coverageConfidence}
+        onAddInstitution={addInstitution}
+        onChoose={choosePlanningIntent}
         onClose={leaveSetup}
-        onContinue={() => void continueFromIntent()}
-        onSelect={choosePlanningIntent}
-        selectedIntent={planningIntent}
+        onExploreSpending={exploreSpending}
       />
     );
   }
 
-  if ((step === 'target' || step === 'assessment' || step === 'complete') && assessment && coverageConfidence && targetGuidance) {
+  if ((step === 'target' || step === 'assessment') && assessment && coverageConfidence && planningIntent && targetGuidance) {
     return (
       <MoneyTargetScreen
         assessment={assessment}
@@ -549,8 +634,10 @@ export function MoneySetupExperience({
         guidance={targetGuidance}
         message={message}
         onAccept={() => void acceptPlan()}
+        onChangeGoal={() => advanceTo('intent')}
         onClose={leaveSetup}
         onLivingPercentChange={setLivingPercent}
+        planningIntent={planningIntent}
         selectedLivingPercent={livingPercent}
       />
     );
@@ -608,7 +695,23 @@ export function MoneySetupStepInterstitial({
   );
 }
 
-export function MoneyLivingTargetSlider({ value, onChange, recommendedValue, recommendationLabel = 'recommended' }: { value: number; onChange: (value: number) => void; recommendedValue?: number; recommendationLabel?: string }) {
+export function MoneyLivingTargetSlider({
+  value,
+  onChange,
+  recommendedValue,
+  recommendationLabel = 'recommended',
+  referenceLabel,
+  referenceValue,
+  showCurrentLabel = true,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  recommendedValue?: number;
+  recommendationLabel?: string;
+  referenceLabel?: string;
+  referenceValue?: number;
+  showCurrentLabel?: boolean;
+}) {
   const trackWidthRef = useRef(0);
   const trackPageXRef = useRef(0);
   const trackRef = useRef<View>(null);
@@ -661,6 +764,9 @@ export function MoneyLivingTargetSlider({ value, onChange, recommendedValue, rec
   const recommendedPercent = recommendedValue == null
     ? null
     : ((recommendedValue - MIN_LIVING_PERCENT) / (MAX_LIVING_PERCENT - MIN_LIVING_PERCENT)) * 100;
+  const referencePercent = referenceValue == null
+    ? null
+    : ((referenceValue - MIN_LIVING_PERCENT) / (MAX_LIVING_PERCENT - MIN_LIVING_PERCENT)) * 100;
 
   return (
     <View style={styles.sliderBlock}>
@@ -688,12 +794,20 @@ export function MoneyLivingTargetSlider({ value, onChange, recommendedValue, rec
           {recommendedPercent != null ? (
             <View accessibilityLabel={`${recommendedValue}% ${recommendationLabel}`} style={[styles.recommendedMarker, { left: `${recommendedPercent}%` }]} />
           ) : null}
+          {referencePercent != null && referenceLabel ? (
+            <View
+              accessibilityLabel={referenceLabel}
+              style={[styles.referenceMarker, { left: `${Math.max(0, Math.min(100, referencePercent))}%` }]}
+            >
+              <Text style={styles.referenceMarkerLabel}>{referenceLabel}</Text>
+            </View>
+          ) : null}
           <Animated.View style={[styles.sliderThumb, { left: animatedLeft, transform: [{ scale: thumbScale }] }]} />
         </View>
       </View>
       <View style={styles.sliderLabels}>
         <Text style={[styles.sliderLabel, styles.sliderLabelMinimum]}>{MIN_LIVING_PERCENT}%</Text>
-        {value > MIN_LIVING_PERCENT && value < MAX_LIVING_PERCENT ? (
+        {showCurrentLabel && value > MIN_LIVING_PERCENT && value < MAX_LIVING_PERCENT ? (
           <Text style={[styles.sliderLabel, styles.sliderLabelCurrent, { left: `${sliderPercent}%` }]}>{value}%</Text>
         ) : null}
         <Text style={[styles.sliderLabel, styles.sliderLabelMaximum]}>{MAX_LIVING_PERCENT}%</Text>
@@ -703,6 +817,43 @@ export function MoneyLivingTargetSlider({ value, onChange, recommendedValue, rec
 }
 
 export function MoneyAnalysisStatus({ phase }: { phase: MoneyAnalysisPhase }) {
+  return (
+    <MoneyProcessingStatus
+      accessibilityLabel="Analyzing your money"
+      message={MONEY_ANALYSIS_MESSAGES[phase]}
+      resetKey={phase}
+    />
+  );
+}
+
+export function MoneyPlanBuildStatus({
+  followThrough,
+  phase,
+}: {
+  followThrough?: MoneyOnboardingFollowThrough | null;
+  phase: MoneyPlanBuildPhase;
+}) {
+  const message = phase === 'goal' && followThrough?.savingsCents
+    ? `Creating your goal to spend ${formatMoney(followThrough.savingsCents)} less each month`
+    : MONEY_PLAN_BUILD_MESSAGES[phase];
+  return (
+    <MoneyProcessingStatus
+      accessibilityLabel="Building your Money plan"
+      message={message}
+      resetKey={phase}
+    />
+  );
+}
+
+function MoneyProcessingStatus({
+  accessibilityLabel,
+  message,
+  resetKey,
+}: {
+  accessibilityLabel: string;
+  message: string;
+  resetKey: string;
+}) {
   const [loaderPhase, setLoaderPhase] = useState<KwiltLoaderPhase>('idle');
 
   useEffect(() => {
@@ -721,12 +872,12 @@ export function MoneyAnalysisStatus({ phase }: { phase: MoneyAnalysisPhase }) {
     runCycle();
 
     return () => timers.forEach(clearTimeout);
-  }, [phase]);
+  }, [resetKey]);
 
   return (
     <View accessibilityLiveRegion="polite" style={styles.analysisStatus}>
-      <KwiltLoader accessibilityLabel="Analyzing your money" accessible phase={loaderPhase} resolvedOpacity={1} size={64} />
-      <Heading variant="lg" style={styles.analysisMessage}>{MONEY_ANALYSIS_MESSAGES[phase]}</Heading>
+      <KwiltLoader accessibilityLabel={accessibilityLabel} accessible phase={loaderPhase} resolvedOpacity={1} size={64} />
+      <Heading variant="xl" style={styles.analysisMessage}>{message}</Heading>
     </View>
   );
 }
@@ -741,23 +892,39 @@ export function MoneyFocusedAnalysis({ phase }: { phase: MoneyAnalysisPhase }) {
   );
 }
 
+export function MoneyFocusedPlanBuild({
+  followThrough = null,
+  phase,
+}: {
+  followThrough?: MoneyOnboardingFollowThrough | null;
+  phase: MoneyPlanBuildPhase;
+}) {
+  return (
+    <View style={styles.focusedRoot} testID="moneyOnboarding.build">
+      <FullScreenInterstitial backgroundColor="parchment" contentStyle={styles.focusedContent} progression="button" visible withinModal>
+        <MoneyPlanBuildStatus followThrough={followThrough} phase={phase} />
+      </FullScreenInterstitial>
+    </View>
+  );
+}
+
 export function MoneyPlanningIntentScreen({
   assessment,
-  coverageConfidence,
+  onAddInstitution,
+  onChoose,
   onClose,
-  onContinue,
-  onSelect,
-  selectedIntent,
+  onExploreSpending,
 }: {
   assessment: MoneyOnboardingAssessment;
   coverageConfidence: MoneyOnboardingCoverageConfidence;
+  onAddInstitution: () => void;
+  onChoose: (intent: MoneyPlanningIntent) => void;
   onClose: () => void;
-  onContinue: () => void;
-  onSelect: (intent: MoneyPlanningIntent) => void;
-  selectedIntent: MoneyPlanningIntent | null;
+  onExploreSpending: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const scopeSuffix = coverageConfidence === 'partial' ? ' in these accounts' : '';
+  const [accountScope, coverageScope] = assessment.evidenceLabel.split(' · ');
+  const connectedAccountScope = accountScope.replace(/^(\d+)\s+/, '$1 connected ');
   return (
     <View style={styles.resultRoot} testID="moneyOnboarding.intent">
       <View style={[styles.resultChrome, { paddingTop: insets.top + spacing.lg }]}>
@@ -766,41 +933,47 @@ export function MoneyPlanningIntentScreen({
           <Icon color={colors.textPrimary} name="close" size={20} />
         </IconButton>
       </View>
-      <ScrollView contentContainerStyle={[styles.resultContent, { paddingBottom: insets.bottom + 150 }]}>
-        <Text style={styles.resultEyebrow}>WHAT KWILT FOUND</Text>
-        <View style={styles.proofRow}>
-          <AssessmentMetric label="Dependable income" value={assessment.monthlyIncomeCents} />
-          <View style={styles.breakdownDivider} />
-          <AssessmentMetric label={`Recent monthly spending${scopeSuffix}`} value={assessment.observedMonthlySpendingCents} />
+      <ScrollView contentContainerStyle={[styles.goalContent, { paddingBottom: insets.bottom + spacing.xl }]}>
+        <View style={styles.spendingReceipt}>
+          <Text style={styles.spendingReceiptEyebrow} variant="bodySm">YOUR RECENT SPENDING</Text>
+          <Heading variant="xl" style={styles.recentPaceAmount}>
+            {assessment.observedMonthlySpendingCents == null ? '—' : `${formatMoney(assessment.observedMonthlySpendingCents)} a month`}
+          </Heading>
+          <Text tone="secondary" style={styles.recentPaceLabel} variant="bodySm">
+            {coverageScope
+              ? `Average from ${coverageScope} across ${connectedAccountScope}`
+              : `Average across ${connectedAccountScope}`}
+          </Text>
         </View>
-        <Text tone="secondary" variant="bodySm" style={styles.resultEvidence}>
-          {coverageConfidence === 'partial' ? `Based only on ${assessment.evidenceLabel}` : assessment.evidenceLabel}
-        </Text>
-        <Heading variant="xl" style={styles.intentQuestion}>Should this plan reflect how you spend now—or help you spend less?</Heading>
-        <View accessibilityRole="radiogroup" style={styles.intentChoices}>
-          <MoneyDecisionRow
-            description={`Use our recent regular costs and flexible spending${scopeSuffix}.`}
-            label="Start from how we spend now"
-            onPress={() => onSelect('current')}
-            selected={selectedIntent === 'current'}
+        <Heading variant="lg" style={styles.intentQuestion}>
+          Now that we have a picture of your spending, which of these would you like to prioritize?
+        </Heading>
+        <View style={styles.goalChoices}>
+          <MoneyGoalChoice
+            description="See your spending broken down by category."
+            icon="viewList"
+            label="See where your money is going"
+            onPress={onExploreSpending}
           />
-          <MoneyDecisionRow
-            description={`Protect regular costs and build a leaner flexible-spending plan${scopeSuffix}.`}
-            label="Spend less each month"
-            onPress={() => onSelect('reduce')}
-            selected={selectedIntent === 'reduce'}
+          <MoneyGoalChoice
+            description="See realistic changes and how much they could save."
+            icon="trendDown"
+            label="Find ways to save money"
+            onPress={() => onChoose('reduce')}
           />
-          <MoneyDecisionRow
-            description="Use Kwilt’s suggestion. We can change it later."
-            label="Recommend a starting point"
-            onPress={() => onSelect('recommend')}
-            selected={selectedIntent === 'recommend'}
+          <MoneyGoalChoice
+            description="Start with suggested categories and monthly amounts."
+            icon="sparkles"
+            label="Get a suggested budget"
+            onPress={() => onChoose('recommend')}
           />
+        </View>
+        <View style={styles.accountScopeFooter}>
+          <Button accessibilityLabel="Connect more accounts" onPress={onAddInstitution} size="inline" variant="ghost">
+            Connect more accounts
+          </Button>
         </View>
       </ScrollView>
-      <FullWidthActionDock dockTestID="moneyOnboarding.intent.actionDock">
-        <Button disabled={!selectedIntent} fullWidth onPress={onContinue} size="lg" variant="primary">Continue</Button>
-      </FullWidthActionDock>
     </View>
   );
 }
@@ -809,11 +982,12 @@ export function MoneyTargetScreen({
   assessment,
   busy,
   coverageConfidence,
-  guidance,
   message,
   onAccept,
+  onChangeGoal,
   onClose,
   onLivingPercentChange,
+  planningIntent,
   selectedLivingPercent,
 }: {
   assessment: MoneyOnboardingAssessment;
@@ -822,23 +996,45 @@ export function MoneyTargetScreen({
   guidance: MoneyOnboardingTargetGuidance;
   message: string | null;
   onAccept: () => void;
+  onChangeGoal: () => void;
   onClose: () => void;
   onLivingPercentChange: (value: number) => void;
+  planningIntent: MoneyPlanningIntent;
   selectedLivingPercent: number;
 }) {
   const insets = useSafeAreaInsets();
+  const [showExplanation, setShowExplanation] = useState(false);
   const monthlyIncomeCents = assessment.monthlyIncomeCents ?? 0;
   const selectedPlanCents = Math.round(monthlyIncomeCents * selectedLivingPercent / 100);
   const outsidePlanCents = Math.max(0, monthlyIncomeCents - selectedPlanCents);
+  const selectedFlexibleCents = assessment.committedPlanCents == null
+    ? null
+    : Math.max(0, selectedPlanCents - assessment.committedPlanCents);
   const difference = assessment.observedMonthlySpendingCents == null
     ? null
     : selectedPlanCents - assessment.observedMonthlySpendingCents;
-  const markerLabel = guidance.markerPercent == null
+  const observedPercent = assessment.observedMonthlySpendingCents == null || monthlyIncomeCents <= 0
     ? undefined
-    : guidance.differenceFromObservedCents != null && guidance.differenceFromObservedCents < 0
-      ? 'suggested reduction'
-      : 'Kwilt recommendation';
-  const isAtGuidance = guidance.markerPercent === selectedLivingPercent;
+    : assessment.observedMonthlySpendingCents / monthlyIncomeCents * 100;
+  const goalLabel = planningIntent === 'reduce'
+    ? 'Save money'
+    : planningIntent === 'current'
+      ? 'Stay near this pace'
+      : 'Suggested budget';
+  const goalIcon: IconName = planningIntent === 'reduce'
+    ? 'trendDown'
+    : planningIntent === 'current'
+      ? 'gauge'
+      : 'sparkles';
+  const targetHeading = planningIntent === 'reduce' && difference != null && difference < 0
+    ? 'A realistic first step'
+    : planningIntent === 'current'
+      ? 'Stay near your recent pace'
+      : planningIntent === 'recommend'
+        ? 'Kwilt’s starting point'
+        : 'Choose your monthly target';
+  const buildActionLabel = `Build a ${formatMoney(selectedPlanCents)} plan`;
+  const scopeSuffix = coverageConfidence === 'partial' ? ' in these accounts' : '';
 
   return (
     <View style={styles.resultRoot} testID="moneyOnboarding.target">
@@ -849,65 +1045,89 @@ export function MoneyTargetScreen({
         </IconButton>
       </View>
       <ScrollView contentContainerStyle={[styles.targetContent, { paddingBottom: insets.bottom + 150 }]}>
-        <Heading variant="xl" style={styles.resultTitle}>What share of dependable income should the monthly plan use?</Heading>
-        <Text tone="secondary" style={styles.targetSupport}>
-          Adjust the target and Kwilt will show the same choice in dollars and against the spending it can see.
-        </Text>
-        <View style={styles.linkedTargetHero}>
-          <Heading variant="xl" style={styles.targetPercent}>{selectedLivingPercent}%</Heading>
-          <Heading variant="lg" style={styles.targetDollar}>{formatMoney(selectedPlanCents)} per month</Heading>
-          <Text style={styles.guidanceLabel}>
-            {coverageConfidence === 'partial'
-              ? 'Starting point based only on the accounts shown'
-              : !isAtGuidance
-                ? 'Your adjusted target'
-                : markerLabel === 'suggested reduction'
-                ? 'Suggested reduction from recent spending'
-                : 'Kwilt’s suggested starting point'}
-          </Text>
+        <View style={styles.goalContextRow}>
+          <View style={styles.goalContextIdentity}>
+            <Icon color={colors.textPrimary} name={goalIcon} size={20} />
+            <Heading variant="md" style={styles.goalContextLabel}>{goalLabel}</Heading>
+          </View>
+          <Button accessibilityLabel="Change planning goal" onPress={onChangeGoal} size="sm" variant="outline">Change</Button>
+        </View>
+        <Heading variant="xl" style={styles.resultTitle}>{targetHeading}</Heading>
+        <View style={styles.planAmountHero}>
+          <Heading style={styles.planAmount}>{formatMoney(selectedPlanCents)}</Heading>
+          <Text tone="secondary" style={styles.planAmountCadence}>per month</Text>
+          {assessment.committedPlanCents != null && selectedFlexibleCents != null ? (
+            <Text tone="secondary" style={styles.planComposition}>
+              {formatMoney(assessment.committedPlanCents)} committed · {formatMoney(selectedFlexibleCents)} flexible
+            </Text>
+          ) : null}
         </View>
         <View style={styles.targetControl}>
           <MoneyLivingTargetSlider
             onChange={onLivingPercentChange}
-            recommendationLabel={markerLabel}
-            recommendedValue={guidance.markerPercent ?? undefined}
+            referenceLabel={assessment.observedMonthlySpendingCents == null ? undefined : `Recent ${formatMoney(assessment.observedMonthlySpendingCents)}`}
+            referenceValue={observedPercent}
+            showCurrentLabel={false}
             value={selectedLivingPercent}
           />
-          <View style={styles.targetMeaningRow}>
-            <Text tone="secondary" variant="bodySm">Keep more outside</Text>
-            <Text tone="secondary" variant="bodySm" style={styles.targetMeaningRight}>Plan more each month</Text>
-          </View>
         </View>
-        <View style={styles.targetFacts}>
-          {difference == null ? null : (
-            <TargetFact text={formatSpendingDifference(difference)} />
-          )}
-          <TargetFact text={`${formatMoney(outsidePlanCents)} outside the monthly plan`} />
-        </View>
+        {difference == null ? null : (
+          <Text style={styles.targetConsequence}>{formatSpendingDifference(difference, scopeSuffix)}</Text>
+        )}
+        {planningIntent === 'reduce' ? (
+          <Text style={styles.followThroughDisclosure} tone="secondary" variant="bodySm">
+            Kwilt will build your budgets and turn this into a goal with two first steps.
+          </Text>
+        ) : null}
+        <Button
+          accessibilityState={{ expanded: showExplanation }}
+          onPress={() => setShowExplanation((visible) => !visible)}
+          size="inline"
+          variant="ghost"
+        >
+          {showExplanation ? 'Hide details' : 'How we got this'}
+        </Button>
+        {showExplanation ? (
+          <Text tone="secondary" variant="bodySm" style={styles.targetExplanation}>
+            {selectedLivingPercent}% of {formatMoney(monthlyIncomeCents)} dependable income · {formatMoney(outsidePlanCents)} remains outside the plan
+          </Text>
+        ) : null}
         {message ? <Text accessibilityRole="alert" style={styles.message}>{message}</Text> : null}
       </ScrollView>
       <FullWidthActionDock dockTestID="moneyOnboarding.target.actionDock">
-        <Button fullWidth loading={busy} onPress={onAccept} size="lg" variant="primary">Build my budgets</Button>
+        <Button fullWidth loading={busy} onPress={onAccept} size="lg" variant="primary">{buildActionLabel}</Button>
       </FullWidthActionDock>
     </View>
   );
 }
 
-function AssessmentMetric({ label, value }: { label: string; value: number | null }) {
+function MoneyGoalChoice({
+  description,
+  icon,
+  label,
+  onPress,
+}: {
+  description: string;
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+}) {
   return (
-    <View style={styles.metric}>
-      <Heading variant="lg">{value == null ? '—' : formatMoney(value)}</Heading>
-      <Text tone="secondary">{label}</Text>
-    </View>
-  );
-}
-
-function TargetFact({ text }: { text: string }) {
-  return (
-    <View style={styles.targetFactRow}>
-      <Icon color={colors.textSecondary} name="check" size={18} />
-      <Text style={styles.targetFactText}>{text}</Text>
-    </View>
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.goalChoiceCard, pressed ? styles.goalChoiceCardPressed : null]}
+    >
+      <View style={styles.goalChoiceIcon}>
+        <Icon color={colors.textPrimary} name={icon} size={22} />
+      </View>
+      <View style={styles.goalChoiceCopy}>
+        <Text style={styles.goalChoiceLabel}>{label}</Text>
+        <Text tone="secondary" variant="bodySm">{description}</Text>
+      </View>
+      <Icon color={colors.textSecondary} name="arrowRight" size={17} />
+    </Pressable>
   );
 }
 
@@ -945,9 +1165,9 @@ function MoneyDecisionRow({
   );
 }
 
-function formatSpendingDifference(differenceCents: number): string {
-  if (differenceCents === 0) return 'Matches recent spending in these accounts';
-  return `${formatMoney(Math.abs(differenceCents))} ${differenceCents < 0 ? 'below' : 'above'} recent spending in these accounts`;
+function formatSpendingDifference(differenceCents: number, scopeSuffix: string): string {
+  if (differenceCents === 0) return `Matches your recent pace${scopeSuffix}`;
+  return `${formatMoney(Math.abs(differenceCents))} ${differenceCents < 0 ? 'below' : 'above'} your recent pace${scopeSuffix}`;
 }
 
 
@@ -1004,10 +1224,17 @@ function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
-function destinationActionLabel(requestedPlace: MoneyPlaceRouteName): string {
-  if (requestedPlace === 'MoneyTransactions') return 'Review transactions';
-  if (requestedPlace === 'MoneyAccounts') return 'View accounts';
-  return 'See my budgets';
+async function runBuildPhase<T>(
+  setPhase: (phase: MoneyPlanBuildPhase) => void,
+  phase: MoneyPlanBuildPhase,
+  work?: () => Promise<T> | T,
+): Promise<T | undefined> {
+  setPhase(phase);
+  const startedAt = Date.now();
+  const result = await work?.();
+  const remainingMs = MONEY_BUILD_PHASE_MINIMUM_MS - (Date.now() - startedAt);
+  if (remainingMs > 0) await delay(remainingMs);
+  return result;
 }
 
 function clampLivingPercent(value: number) {
@@ -1047,6 +1274,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 2,
   },
+  referenceMarker: {
+    backgroundColor: colors.textSecondary,
+    height: 34,
+    marginLeft: -0.5,
+    position: 'absolute',
+    top: -22,
+    width: 1,
+  },
+  referenceMarkerLabel: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    left: -42,
+    position: 'absolute',
+    textAlign: 'center',
+    top: -14,
+    width: 84,
+  },
   sliderThumb: {
     backgroundColor: colors.canvas,
     borderColor: colors.sumi900,
@@ -1067,8 +1311,8 @@ const styles = StyleSheet.create({
   sliderLabelMinimum: { left: 0, position: 'absolute' },
   sliderLabelCurrent: { marginLeft: -24, position: 'absolute', textAlign: 'center', width: 48 },
   sliderLabelMaximum: { position: 'absolute', right: 0 },
-  analysisStatus: { minHeight: 88, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  analysisMessage: { maxWidth: 340, textAlign: 'center' },
+  analysisStatus: { minHeight: 112, alignItems: 'center', justifyContent: 'center', gap: spacing.xl },
+  analysisMessage: { fontSize: 28, lineHeight: 34, maxWidth: 340, textAlign: 'center' },
   message: { textAlign: 'center', paddingHorizontal: spacing.md },
   accountList: { gap: spacing.sm, width: '100%' },
   accountRow: {
@@ -1102,10 +1346,57 @@ const styles = StyleSheet.create({
   },
   resultStepCounter: { left: 72, position: 'absolute', right: 72, textAlign: 'center' },
   resultContent: { alignItems: 'center', gap: spacing.lg, paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
-  resultEyebrow: { color: colors.accent, fontWeight: '800', letterSpacing: 1.1 }, // @kwilt-brand-moment: the assessment reveal is Money's first intelligence proof.
   resultTitle: { maxWidth: 350, textAlign: 'center' },
   resultEvidence: { textAlign: 'center' },
-  intentQuestion: { maxWidth: 360, paddingTop: spacing.sm, textAlign: 'center' },
+  goalContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.sm,
+  },
+  spendingReceipt: {
+    backgroundColor: colors.sumi50,
+    borderRadius: radii.card,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    width: '100%',
+  },
+  spendingReceiptEyebrow: { color: colors.textSecondary, fontWeight: '800', letterSpacing: 0.8 },
+  recentPaceAmount: { fontSize: 38, lineHeight: 44, marginTop: spacing.xs },
+  recentPaceLabel: { marginTop: spacing.xs },
+  intentQuestion: { marginTop: spacing.xl, maxWidth: 390 },
+  goalChoices: {
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    width: '100%',
+  },
+  goalChoiceCard: {
+    alignItems: 'center',
+    backgroundColor: colors.canvas,
+    borderRadius: radii.compactCard,
+    flexDirection: 'row',
+    gap: spacing.md,
+    minHeight: 82,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    width: '100%',
+  },
+  goalChoiceCardPressed: { opacity: 0.82, transform: [{ scale: 0.98 }] },
+  goalChoiceIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.sumi50,
+    borderRadius: radii.pill,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  goalChoiceCopy: { flex: 1, gap: 2 },
+  goalChoiceLabel: { fontSize: 16, fontWeight: '700' },
+  accountScopeFooter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 'auto',
+    paddingTop: spacing.lg,
+  },
   intentChoices: { gap: spacing.sm, width: '100%' },
   proofRow: {
     alignItems: 'center',
@@ -1135,7 +1426,17 @@ const styles = StyleSheet.create({
   decisionRowPressed: { opacity: 0.86 },
   decisionRowCopy: { flex: 1, gap: spacing.xs },
   decisionRowLabel: { ...typography.bodyBold },
-  targetContent: { alignItems: 'center', gap: spacing.lg, paddingHorizontal: spacing.xl, paddingTop: spacing['2xl'] },
+  targetContent: { alignItems: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.lg },
+  goalContextRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
+  goalContextIdentity: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  goalContextLabel: { color: colors.textPrimary },
+  planAmountHero: { alignItems: 'center', marginTop: spacing['3xl'] },
+  planAmount: { fontSize: 64, lineHeight: 68, textAlign: 'center' },
+  planAmountCadence: { marginTop: spacing.xs, textAlign: 'center' },
+  planComposition: { marginTop: spacing.md, textAlign: 'center' },
+  targetConsequence: { color: colors.textPrimary, fontSize: 20, fontWeight: '700', marginTop: spacing.xl, textAlign: 'center' },
+  targetExplanation: { marginTop: spacing.sm, maxWidth: 340, textAlign: 'center' },
+  followThroughDisclosure: { marginTop: spacing.md, maxWidth: 340, textAlign: 'center' },
   targetSupport: { maxWidth: 350, textAlign: 'center' },
   linkedTargetHero: { alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.sm, width: '100%' },
   targetPercent: { fontSize: 54, lineHeight: 60, textAlign: 'center' },
@@ -1165,7 +1466,7 @@ const styles = StyleSheet.create({
   },
   recommendationLabel: { fontWeight: '700', textAlign: 'center' },
   recommendationAmount: { color: colors.textPrimary, textAlign: 'center' },
-  targetControl: { gap: spacing.xs, width: '100%' },
+  targetControl: { marginTop: spacing['3xl'], width: '100%' },
   targetHeadingRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   recommendedTag: { color: colors.accent, fontWeight: '800' }, // @kwilt-brand-moment: recommendation is the one branded signal in the decision.
   targetMeaningRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },

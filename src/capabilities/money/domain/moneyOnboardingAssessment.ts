@@ -105,10 +105,8 @@ export function buildMoneyOnboardingTargetGuidance(
   let markerPercent: number | null = recommendation;
   let kind: MoneyOnboardingTargetGuidance['kind'] = 'recommendation';
 
-  if (coverage === 'partial') {
+  if (coverage === 'partial' && intent === 'recommend') {
     percent = 70;
-    markerPercent = null;
-    kind = 'starting_point';
   } else if (intent === 'reduce' && observed != null) {
     const observedPercent = observed / income * 100;
     const lowerObservedStep = Math.ceil(observedPercent / 5) * 5 - 5;
@@ -121,6 +119,11 @@ export function buildMoneyOnboardingTargetGuidance(
   } else if (intent === 'current' && observed != null) {
     percent = Math.max(50, Math.min(100, Math.ceil((observed / income) * 20) * 5));
     markerPercent = percent;
+  }
+
+  if (coverage === 'partial') {
+    markerPercent = null;
+    kind = 'starting_point';
   }
 
   const planCents = Math.round(income * percent / 100);

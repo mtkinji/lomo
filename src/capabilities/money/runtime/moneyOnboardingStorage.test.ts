@@ -1,7 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  acknowledgeMoneyOnboardingBudgetGuide,
+  acknowledgeMoneyOnboardingFollowThroughGuide,
   completeMoneyOnboarding,
   loadMoneyOnboardingState,
+  recordMoneyOnboardingHandoff,
   recordMoneyOnboardingIntroduction,
   recordMoneyOnboardingCheckpoint,
   recordMoneyOnboardingDecision,
@@ -34,6 +37,7 @@ describe('Money onboarding storage', () => {
       target: null,
       skippedAccountConnectionAt: null,
       requestedPlace: null,
+      handoff: null,
     });
   });
 
@@ -49,6 +53,7 @@ describe('Money onboarding storage', () => {
       target: null,
       skippedAccountConnectionAt: null,
       requestedPlace: null,
+      handoff: null,
     });
   });
 
@@ -108,6 +113,35 @@ describe('Money onboarding storage', () => {
       requestedPlace: 'MoneySummary',
       coverageConfidence: 'partial',
       planningIntent: 'reduce',
+    });
+  });
+
+  it('persists the staged Budget and follow-through handoff for later visits', async () => {
+    await recordMoneyOnboardingHandoff('user-a', {
+      createdAtIso: '2026-08-21T18:00:00.000Z',
+      selectedPlanCents: 617_500,
+      goalId: 'goal-money-onboarding-spend-less-v1',
+      goalTitle: 'Spend $205 less each month',
+      savingsCents: 20_500,
+      todoCount: 2,
+    });
+
+    expect((await loadMoneyOnboardingState('user-a')).handoff).toMatchObject({
+      selectedPlanCents: 617_500,
+      goalTitle: 'Spend $205 less each month',
+      budgetGuideAcknowledgedAt: null,
+      followThroughGuideAcknowledgedAt: null,
+    });
+
+    await acknowledgeMoneyOnboardingBudgetGuide('user-a', '2026-08-21T18:01:00.000Z');
+    expect((await loadMoneyOnboardingState('user-a')).handoff).toMatchObject({
+      budgetGuideAcknowledgedAt: '2026-08-21T18:01:00.000Z',
+      followThroughGuideAcknowledgedAt: null,
+    });
+
+    await acknowledgeMoneyOnboardingFollowThroughGuide('user-a', '2026-08-21T18:02:00.000Z');
+    expect((await loadMoneyOnboardingState('user-a')).handoff).toMatchObject({
+      followThroughGuideAcknowledgedAt: '2026-08-21T18:02:00.000Z',
     });
   });
 });

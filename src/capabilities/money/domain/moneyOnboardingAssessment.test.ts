@@ -96,4 +96,17 @@ describe('Money onboarding assessment', () => {
       evidenceScope: 'connected_accounts',
     });
   });
+
+  it('still honors a spend-less goal when claims are scoped to connected accounts', () => {
+    const assessment = buildMoneyOnboardingAssessment(MONEY_ONBOARDING_DEMO_EVIDENCE);
+
+    expect(buildMoneyOnboardingTargetGuidance(assessment, 'partial', 'reduce')).toMatchObject({
+      kind: 'starting_point',
+      percent: 65,
+      planCents: 617_500,
+      differenceFromObservedCents: -20_500,
+      markerPercent: null,
+      evidenceScope: 'connected_accounts',
+    });
+  });
 });

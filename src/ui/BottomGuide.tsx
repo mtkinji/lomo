@@ -42,6 +42,12 @@ interface BottomGuideProps {
    */
   layout?: 'inset' | 'floating' | 'fullWidth';
   /**
+   * Controls the guide's horizontal content gutter. Use `edgeToEdge` for a
+   * deliberate full-width media band while keeping copy and actions inset in
+   * their own canonical wrappers.
+   */
+  contentLayout?: 'inset' | 'edgeToEdge';
+  /**
    * Accent color used for guide affordances (handle). Defaults to `colors.border`.
    * This lets us unify the visual language across Coachmarks/Guides (e.g. turmeric).
    */
@@ -90,6 +96,7 @@ export function BottomGuide({
   snapPoints,
   scrim = 'none',
   layout = 'floating',
+  contentLayout = 'inset',
   guideColor,
   showDragHandle = true,
   onClose,
@@ -143,11 +150,13 @@ export function BottomGuide({
       // reliable stacking and touch ownership. Scrimless guides remain inline
       // and can keep the underlying canvas interactive.
       presentation={shouldHideBackdrop ? 'inline' : 'modal'}
+      contentLayout={contentLayout}
       // Style the drawer surface itself as the guide card so it reads as a drawer
       // (clear background + border + subtle handle), while still living in the
       // canvas layer.
       sheetStyle={[
         styles.sheetSurface,
+        contentLayout === 'edgeToEdge' && styles.sheetSurfaceEdgeToEdge,
         layout === 'floating' && styles.sheetSurfaceFloating,
         layout === 'fullWidth' && styles.sheetSurfaceFullWidth,
       ]}
@@ -190,6 +199,9 @@ const styles = StyleSheet.create({
   sheetSurfaceFloating: {
     borderRadius: radii.deviceSheet + spacing.xs,
     marginBottom: spacing.md,
+  },
+  sheetSurfaceEdgeToEdge: {
+    paddingHorizontal: 0,
   },
   sheetSurfaceFullWidth: {
     marginHorizontal: 0,
