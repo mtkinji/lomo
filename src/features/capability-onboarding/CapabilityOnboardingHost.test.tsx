@@ -90,7 +90,7 @@ describe('CapabilityOnboardingHost', () => {
     act(() => fireEvent.press(screen.getByLabelText('Go to page 2 of 5')));
     const page = screen.getByTestId('capabilityOnboarding.door.budget-app-controls');
     fireEvent.press(
-      within(page).getByRole('button', { name: 'Set app controls' }),
+      within(page).getByRole('button', { name: 'Set up Money' }),
     );
 
     expect(onStartPath).toHaveBeenCalledWith(

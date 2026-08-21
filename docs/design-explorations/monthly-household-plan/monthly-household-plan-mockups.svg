@@ -1,0 +1,227 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1160" viewBox="0 0 1800 1160">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#1C1A19" flood-opacity="0.13"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#1C1A19" flood-opacity="0.08"/>
+    </filter>
+    <clipPath id="phone1"><rect x="60" y="190" width="390" height="844" rx="48"/></clipPath>
+    <clipPath id="phone2"><rect x="490" y="190" width="390" height="844" rx="48"/></clipPath>
+    <clipPath id="phone3"><rect x="920" y="190" width="390" height="844" rx="48"/></clipPath>
+    <clipPath id="phone4"><rect x="1350" y="190" width="390" height="844" rx="48"/></clipPath>
+    <style>
+      text { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #1C1A19; }
+      .label { font-size: 14px; font-weight: 700; letter-spacing: 1.4px; fill: #57534E; }
+      .screen-name { font-size: 21px; font-weight: 750; }
+      .step { font-size: 13px; font-weight: 650; fill: #315545; }
+      .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 1px; fill: #57534E; }
+      .title { font-size: 30px; font-weight: 800; letter-spacing: -0.7px; }
+      .body { font-size: 16px; font-weight: 430; fill: #57534E; }
+      .small { font-size: 13px; font-weight: 450; fill: #57534E; }
+      .tiny { font-size: 11px; font-weight: 550; fill: #78716C; }
+      .section { font-size: 16px; font-weight: 700; }
+      .amount { font-size: 48px; font-weight: 800; letter-spacing: -2px; }
+      .amount-sm { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+      .status { font-size: 18px; font-weight: 650; fill: #57534E; }
+      .row { font-size: 15px; font-weight: 560; }
+      .row-value { font-size: 15px; font-weight: 700; text-anchor: end; }
+      .link { font-size: 13px; font-weight: 650; fill: #315545; }
+      .button { font-size: 16px; font-weight: 700; fill: #FAFAFA; text-anchor: middle; }
+      .nav { font-size: 10px; font-weight: 650; fill: #78716C; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1160" fill="#F1EEE6"/>
+  <text x="60" y="65" font-size="34" font-weight="850" letter-spacing="-1.1">Monthly household plan</text>
+  <text x="60" y="101" font-size="17" fill="#57534E">A durable center for ordinary months, lumpy income, and spending from savings</text>
+
+  <g>
+    <circle cx="76" cy="147" r="14" fill="#315545"/><text x="76" y="152" font-size="13" font-weight="750" fill="#FAF7ED" text-anchor="middle">1</text>
+    <text class="screen-name" x="100" y="154">An intelligent starting point</text>
+    <circle cx="506" cy="147" r="14" fill="#315545"/><text x="506" y="152" font-size="13" font-weight="750" fill="#FAF7ED" text-anchor="middle">2</text>
+    <text class="screen-name" x="530" y="154">The current Summary, one change</text>
+    <circle cx="936" cy="147" r="14" fill="#315545"/><text x="936" y="152" font-size="13" font-weight="750" fill="#FAF7ED" text-anchor="middle">3</text>
+    <text class="screen-name" x="960" y="154">Carry explains, settings control</text>
+    <circle cx="1366" cy="147" r="14" fill="#315545"/><text x="1366" y="152" font-size="13" font-weight="750" fill="#FAF7ED" text-anchor="middle">4</text>
+    <text class="screen-name" x="1390" y="154">A one-month change stays local</text>
+  </g>
+
+  <!-- Screen 1: setup recommendation -->
+  <g filter="url(#shadow)"><rect x="60" y="190" width="390" height="844" rx="48" fill="#FAF7ED" stroke="#D6D3D1"/></g>
+  <g clip-path="url(#phone1)">
+    <rect x="60" y="190" width="390" height="844" fill="#FAF7ED"/>
+    <text class="tiny" x="86" y="230">9:41</text>
+    <rect x="214" y="203" width="82" height="25" rx="13" fill="#1C1A19"/>
+    <text x="86" y="278" font-size="26" font-weight="900" fill="#315545" letter-spacing="1">KWILT</text>
+    <text class="step" x="423" y="276" text-anchor="end">3 of 4</text>
+    <rect x="86" y="307" width="338" height="7" rx="4" fill="#E7E5E4"/>
+    <rect x="86" y="307" width="254" height="7" rx="4" fill="#315545"/>
+
+    <text class="eyebrow" x="86" y="356">YOUR MONTHLY PLAN</text>
+    <text class="title" x="86" y="397">Plan around $8,000</text>
+    <text class="title" x="86" y="433">each month</text>
+    <rect x="102" y="449" width="306" height="276" rx="24" fill="#F6E6C8"/>
+    <circle cx="255" cy="522" r="43" fill="#C26B58"/>
+    <path d="M214 521c2-44 79-60 85 0-9-15-20-20-33-21-17-2-32 6-52 21z" fill="#292524"/>
+    <circle cx="255" cy="530" r="31" fill="#DFA079"/>
+    <path d="M233 537c12 9 30 9 44 0" fill="none" stroke="#7A3D32" stroke-width="3" stroke-linecap="round"/>
+    <path d="M185 650c8-61 35-91 70-91s64 31 70 91z" fill="#315545"/>
+    <rect x="128" y="641" width="254" height="55" rx="20" fill="#D9C8B8"/>
+    <rect x="174" y="622" width="162" height="36" rx="9" fill="#FAF7ED" stroke="#E7E5E4"/>
+    <line x1="194" y1="640" x2="316" y2="640" stroke="#A8A29E" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="242" cy="640" r="8" fill="#315545"/>
+    <circle cx="194" cy="640" r="5" fill="#315545"/>
+    <circle cx="316" cy="640" r="5" fill="#C58B2A"/>
+    <text class="body" x="86" y="755">This keeps recent essentials covered and</text>
+    <text class="body" x="86" y="779">gives everyday spending room to move.</text>
+    <text class="small" x="86" y="811">Based on 6 months of connected activity</text>
+
+    <rect x="86" y="838" width="338" height="56" rx="12" fill="#1C1A19"/>
+    <text x="255" y="873" font-size="16" font-weight="700" fill="#FAFAFA" text-anchor="middle">Use this plan</text>
+    <text class="link" x="255" y="927" text-anchor="middle">Compare other amounts</text>
+    <text class="tiny" x="255" y="964" text-anchor="middle">You can change this anytime</text>
+  </g>
+
+  <!-- Screen 2: summary -->
+  <g filter="url(#shadow)"><rect x="490" y="190" width="390" height="844" rx="48" fill="#FFFFFF" stroke="#D6D3D1"/></g>
+  <g clip-path="url(#phone2)">
+    <rect x="490" y="190" width="390" height="844" fill="#FFFFFF"/>
+    <text class="tiny" x="516" y="230">9:41</text>
+    <rect x="644" y="203" width="82" height="25" rx="13" fill="#1C1A19"/>
+    <text x="516" y="283" font-size="20" font-weight="650">☰</text>
+    <text class="title" x="548" y="286">Budget</text>
+    <text x="677" y="279" font-size="19" font-weight="750" text-anchor="end">•••</text>
+    <line x1="516" y1="309" x2="854" y2="309" stroke="#E7E5E4"/>
+
+    <text x="516" y="343" font-size="23" font-weight="450">‹</text>
+    <text x="548" y="343" font-size="23" font-weight="450">›</text>
+    <text x="578" y="340" font-size="16" font-weight="650">August 2026</text>
+    <text class="small" x="812" y="340" text-anchor="end">View⌄</text>
+    <text x="854" y="344" font-size="22" font-weight="450" text-anchor="end">+</text>
+    <text class="eyebrow" x="516" y="378">FLEXIBLE SPENDING</text>
+    <text class="link" x="854" y="378" text-anchor="end">What’s included?</text>
+    <rect x="516" y="395" width="338" height="118" rx="18" fill="#E3EEE9"/>
+    <text class="amount" x="536" y="456">$624</text>
+    <text class="status" x="671" y="454">left</text>
+    <text class="body" x="536" y="493">out of $2,780</text>
+
+    <rect x="516" y="535" width="162" height="123" rx="24" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text x="597" y="584" font-size="27" font-weight="750" text-anchor="middle">47%</text>
+    <text class="row" x="597" y="613" text-anchor="middle">Health</text>
+    <text class="small" x="597" y="642" text-anchor="middle">$142 / $300</text>
+
+    <rect x="692" y="535" width="162" height="123" rx="24" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text x="773" y="584" font-size="27" font-weight="750" text-anchor="middle">39%</text>
+    <text class="row" x="773" y="613" text-anchor="middle">Groceries</text>
+    <text class="small" x="773" y="642" text-anchor="middle">$314 / $800</text>
+
+    <rect x="516" y="674" width="162" height="123" rx="24" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text x="597" y="723" font-size="27" font-weight="750" text-anchor="middle">61%</text>
+    <text class="row" x="597" y="752" text-anchor="middle">Dining</text>
+    <text class="small" x="597" y="781" text-anchor="middle">$182 / $300</text>
+
+    <rect x="692" y="674" width="162" height="123" rx="24" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text x="773" y="723" font-size="27" font-weight="750" text-anchor="middle">40%</text>
+    <text class="row" x="773" y="752" text-anchor="middle">Home</text>
+    <text class="small" x="773" y="781" text-anchor="middle">$160 / $400</text>
+
+    <text class="eyebrow" x="516" y="836">COMMITTED SPENDING</text>
+    <rect x="516" y="852" width="338" height="82" rx="18" fill="#EEF3F8"/>
+    <text x="536" y="889" font-size="25" font-weight="800">$4,860</text><text class="status" x="628" y="888">spent</text>
+    <text class="small" x="536" y="916">out of $5,220</text>
+
+    <rect x="490" y="952" width="390" height="82" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <circle cx="535" cy="981" r="12" fill="#315545"/><text class="nav" x="535" y="1014" fill="#315545">Budget</text>
+    <circle cx="632" cy="981" r="12" fill="#D6D3D1"/><text class="nav" x="632" y="1014">Accounts</text>
+    <circle cx="729" cy="981" r="12" fill="#D6D3D1"/><text class="nav" x="729" y="1014">Activity</text>
+    <circle cx="826" cy="981" r="12" fill="#D6D3D1"/><text class="nav" x="826" y="1014">Settings</text>
+  </g>
+
+  <!-- Screen 3: category carry -->
+  <g filter="url(#shadow)"><rect x="920" y="190" width="390" height="844" rx="48" fill="#FFFFFF" stroke="#D6D3D1"/></g>
+  <g clip-path="url(#phone3)">
+    <rect x="920" y="190" width="390" height="844" fill="#FFFFFF"/>
+    <text class="tiny" x="946" y="230">9:41</text>
+    <rect x="1074" y="203" width="82" height="25" rx="13" fill="#1C1A19"/>
+    <text x="946" y="282" font-size="25" font-weight="450">‹</text>
+    <text class="title" x="978" y="286">Health</text>
+    <text x="1282" y="282" font-size="24" text-anchor="end">•••</text>
+
+    <rect x="946" y="320" width="338" height="146" rx="20" fill="#FBF2EF"/>
+    <text class="eyebrow" x="968" y="350">AVAILABLE IN AUGUST</text>
+    <text class="amount" x="968" y="412">$300</text>
+    <text class="body" x="968" y="443">$142 spent · $158 left</text>
+
+    <text class="eyebrow" x="946" y="512">HOW AUGUST STARTED</text>
+    <rect x="946" y="530" width="338" height="170" rx="18" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="row" x="966" y="566">Monthly amount</text><text class="row-value" x="1264" y="566">$400</text>
+    <text class="small" x="966" y="589">Your usual Health plan</text>
+    <line x1="966" y1="610" x2="1264" y2="610" stroke="#E7E5E4"/>
+    <text class="row" x="966" y="643">From July</text><text class="row-value" x="1264" y="643" fill="#944C3D">−$100</text>
+    <text class="small" x="966" y="666">July ended $100 over</text>
+    <line x1="966" y1="684" x2="1264" y2="684" stroke="#1C1A19" stroke-width="1.2"/>
+    <text class="row" x="966" y="721" font-weight="750">Available</text><text class="row-value" x="1264" y="721" font-size="18">$300</text>
+
+    <text class="link" x="946" y="778">Change plan  ›</text>
+
+    <text class="eyebrow" x="946" y="836">RECENT SPENDING</text>
+    <text class="row" x="946" y="872">Mountain View Dental</text><text class="row-value" x="1284" y="872">−$86</text>
+    <text class="small" x="946" y="896">August 8</text>
+    <line x1="946" y1="915" x2="1284" y2="915" stroke="#E7E5E4"/>
+    <text class="row" x="946" y="948">Walgreens</text><text class="row-value" x="1284" y="948">−$56</text>
+  </g>
+
+  <!-- Screen 4: one-time month addition -->
+  <g filter="url(#shadow)"><rect x="1350" y="190" width="390" height="844" rx="48" fill="#FFFFFF" stroke="#D6D3D1"/></g>
+  <g clip-path="url(#phone4)">
+    <rect x="1350" y="190" width="390" height="844" fill="#FFFFFF"/>
+    <text class="tiny" x="1376" y="230">9:41</text>
+    <rect x="1504" y="203" width="82" height="25" rx="13" fill="#1C1A19"/>
+    <text x="1376" y="283" font-size="20" font-weight="650">☰</text>
+    <text class="title" x="1408" y="286">Budget</text>
+    <text x="1537" y="279" font-size="19" font-weight="750" text-anchor="end">•••</text>
+    <line x1="1376" y1="309" x2="1714" y2="309" stroke="#E7E5E4"/>
+    <text x="1376" y="343" font-size="23" font-weight="450">‹</text>
+    <text x="1408" y="343" font-size="23" font-weight="450">›</text>
+    <text x="1438" y="340" font-size="16" font-weight="650">August 2026</text>
+    <text class="small" x="1672" y="340" text-anchor="end">View⌄</text>
+    <text x="1714" y="344" font-size="22" font-weight="450" text-anchor="end">+</text>
+    <text class="eyebrow" x="1376" y="375">FLEXIBLE SPENDING</text>
+    <rect x="1376" y="396" width="338" height="122" rx="18" fill="#E3EEE9"/>
+    <text class="amount-sm" x="1396" y="448">$624</text><text class="status" x="1495" y="447">left</text>
+    <text class="body" x="1396" y="487">out of $2,780</text>
+    <rect x="1376" y="515" width="160" height="118" rx="18" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="row" x="1396" y="550">Health</text><text x="1396" y="591" font-size="26" font-weight="800">$300</text><text class="small" x="1396" y="617">available</text>
+    <rect x="1554" y="515" width="160" height="118" rx="18" fill="#FFFFFF" stroke="#E7E5E4"/>
+    <text class="row" x="1574" y="550">Groceries</text><text x="1574" y="591" font-size="26" font-weight="800">$486</text><text class="small" x="1574" y="617">left</text>
+    <rect x="1350" y="190" width="390" height="844" fill="#0F172A" opacity="0.38"/>
+
+    <rect x="1350" y="442" width="390" height="592" rx="30" fill="#FFFFFF"/>
+    <rect x="1510" y="456" width="70" height="5" rx="3" fill="#D6D3D1"/>
+    <text class="title" x="1376" y="508">This month’s plan</text>
+    <text class="amount-sm" x="1376" y="558">$9,740</text>
+    <text class="body" x="1376" y="587">planned for August</text>
+
+    <text class="eyebrow" x="1376" y="634">REGULAR PLAN</text>
+    <text class="row" x="1376" y="668">Your monthly plan</text><text class="row-value" x="1714" y="668">$8,000</text>
+    <text class="small" x="1376" y="692">Used again next month</text>
+
+    <text class="eyebrow" x="1376" y="744">ADDED THIS MONTH</text>
+    <rect x="1376" y="762" width="338" height="104" rx="18" fill="#FBF2EF"/>
+    <text class="row" x="1396" y="798">Olive’s orthodontics</text><text class="row-value" x="1694" y="798">+$1,740</text>
+    <text class="small" x="1396" y="825">Health · August only</text>
+    <text class="link" x="1396" y="851">Review or remove</text>
+
+    <line x1="1376" y1="903" x2="1714" y2="903" stroke="#E7E5E4"/>
+    <text class="row" x="1376" y="937">Flexible spending left</text><text class="row-value" x="1714" y="937">$624</text>
+    <rect x="1376" y="964" width="338" height="54" rx="12" fill="#1C1A19"/>
+    <text x="1545" y="998" font-size="16" font-weight="700" fill="#FAFAFA" text-anchor="middle">Done</text>
+  </g>
+
+  <text x="60" y="1085" font-size="15" font-weight="650" fill="#315545">One number at the center. Detail appears only when it helps explain or change that number.</text>
+  <rect x="955" y="1067" width="20" height="20" rx="6" fill="#E3EEE9"/><text x="985" y="1083" font-size="13">On track</text>
+  <rect x="1070" y="1067" width="20" height="20" rx="6" fill="#FBF3E5"/><text x="1100" y="1083" font-size="13">Watch</text>
+  <rect x="1175" y="1067" width="20" height="20" rx="6" fill="#F7E2DC"/><text x="1205" y="1083" font-size="13">Over — dark text, tinted surface</text>
+  <text x="60" y="1122" font-size="14" fill="#57534E">Revision 3 · month navigation unchanged · savings and runway intentionally not shown yet</text>
+</svg>

@@ -38,6 +38,8 @@ import {
 } from '../runtime/reconcileConnectedMoneyActivity';
 import { captureMoneyClassification } from '../runtime/moneyClassificationTelemetry';
 import type { MoneyPlaidSyncResult } from './moneyPlaidApi';
+import { getMoneyTransactionsAvailability } from '../domain/moneyOnboarding';
+import { useMoneyNavigationAvailabilityStore } from '../runtime/useMoneyNavigationAvailabilityStore';
 
 type MoneyDataContextValue = MoneyDataState & {
   refresh: () => Promise<void>;
@@ -98,6 +100,13 @@ export function MoneyDataProvider({
   const acceptSnapshot = useCallback((snapshot: Awaited<ReturnType<MoneyRepository['loadSnapshot']>>) => {
     dispatch({ type: 'success', snapshot });
     if (normalizedUserId) {
+      useMoneyNavigationAvailabilityStore.getState().recordTransactionsAvailability(
+        normalizedUserId,
+        getMoneyTransactionsAvailability({
+          accountCount: snapshot.accounts.length,
+          transactionCount: snapshot.transactions.length,
+        }),
+      );
       void snapshotCache.save(normalizedUserId, snapshot).catch(() => {
         // Device caching is best-effort; the authoritative snapshot remains visible.
       });

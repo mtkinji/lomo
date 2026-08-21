@@ -30,7 +30,6 @@ describe('capability onboarding door contracts', () => {
       expect(door.story.headline.trim()).not.toBe('');
       expect(door.story.body.trim()).not.toBe('');
       expect(door.story.actionLabel.trim()).not.toBe('');
-      expect(door.story.illustrationKey).toBeTruthy();
       expect(door.story.illustrationLabel.trim()).not.toBe('');
       expect(door.coordinatorOwnerId.trim()).not.toBe('');
       expect(door.terminalOwnerIds.length).toBeGreaterThan(0);
@@ -46,7 +45,7 @@ describe('capability onboarding door contracts', () => {
         CAPABILITY_ONBOARDING_PATHS.map(({ id, story }) => [id, story.actionLabel]),
       ),
     ).toEqual({
-      'budget-app-controls': 'Set app controls',
+      'budget-app-controls': 'Set up Money',
       'make-meals-easier': 'Choose meal',
       'make-progress': 'Create goal',
       'ask-kwilt': 'Ask Kwilt',
@@ -64,8 +63,8 @@ describe('capability onboarding door contracts', () => {
       CAPABILITY_ONBOARDING_PATHS.map(({ id, story }) => [id, story]),
     );
 
-    expect(stories['budget-app-controls'].headline).toMatch(/budget.*Amazon/i);
-    expect(stories['budget-app-controls'].body).toMatch(/spending.*apps.*when/i);
+    expect(stories['budget-app-controls'].headline).toMatch(/stand.*spend/i);
+    expect(stories['budget-app-controls'].body).toMatch(/accounts.*income.*spending/i);
     expect(stories['make-meals-easier'].body).toMatch(/shared grocery list/i);
     expect(stories['make-progress'].body).toMatch(/questions.*goal.*next steps/i);
     expect(stories['ask-kwilt'].body).toMatch(/review every change first/i);

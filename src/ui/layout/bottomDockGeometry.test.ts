@@ -6,12 +6,18 @@ import {
   resolveDrawerFloatingActionBottomInset,
   resolveDrawerFloatingActionInlinePadding,
   resolvePhoneFloatingBottomInset,
+  resolvePhoneFloatingActionContentInset,
 } from './bottomDockGeometry';
 
 describe('bottom dock geometry', () => {
   it('keeps a phone-floating dock optically nested with and without a home indicator', () => {
     expect(resolvePhoneFloatingBottomInset(0)).toBe(bottomDockGeometry.phoneFloating.minimumBottomGap);
     expect(resolvePhoneFloatingBottomInset(34)).toBe(21);
+  });
+
+  it('reserves scroll clearance from the same phone-floating geometry', () => {
+    expect(resolvePhoneFloatingActionContentInset(34, 52)).toBe(85);
+    expect(resolvePhoneFloatingActionContentInset(0, 52)).toBe(84);
   });
 
   it('keeps a drawer action above the safe area without losing its minimum bottom gap', () => {

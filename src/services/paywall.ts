@@ -14,6 +14,7 @@ export type PaywallReason =
   | 'pro_only_attachments'
   | 'pro_only_views_filters'
   | 'pro_only_streak_shields'
+  | 'pro_only_additional_financial_institution'
   | 'focus_mode';
 
 export type PaywallSource =
@@ -39,6 +40,7 @@ export type PaywallSource =
   | 'streak_break'
   | 'pro_preview_expired'
   | 'activity_empty_state'
+  | 'money_onboarding_add_institution'
   | 'plan_empty_state'
   // Phase 5.2 of docs/chapters-plan.md: Next Steps Arc Nomination CTA for
   // a Free user at their 1-Arc limit. Surfaced on ChapterDetailScreen and
@@ -120,4 +122,3 @@ function getDeepActiveRoute(state: unknown): { name?: string } | undefined {
   }
   return undefined;
 }
-

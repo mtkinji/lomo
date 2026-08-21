@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440">
+  <rect width="2560" height="1440" fill="#202120"/>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Arial, sans-serif; fill: #1d1b1a; }
+    .phone { fill:#fbf8ee; stroke:#505250; stroke-width:7; }
+    .screen { fill:#fbf8ee; }
+    .muted { fill:#66615c; }
+    .green { fill:#315f4d; }
+    .eyebrow { font-size:18px; letter-spacing:2.2px; font-weight:600; }
+    .title { font-size:37px; font-weight:760; }
+    .body { font-size:21px; }
+    .small { font-size:17px; }
+    .label { font-size:20px; font-weight:650; }
+    .amount { font-size:34px; font-weight:760; }
+    .card { fill:#fffefa; stroke:#deddd9; stroke-width:2; }
+    .selected { fill:#f1f5f1; stroke:#315f4d; stroke-width:3; }
+    .button { fill:#1d1b1a; }
+    .buttonText { fill:#fff; font-size:22px; font-weight:650; }
+    .hairline { stroke:#deddd9; stroke-width:2; }
+  </style>
+
+  <text x="1280" y="70" text-anchor="middle" fill="#f7f2e6" font-size="30" font-weight="700">Money onboarding — evidence first, method choice second</text>
+  <text x="1280" y="108" text-anchor="middle" fill="#aeb9ab" font-size="18">Storyboard · same connected evidence across every planning method</text>
+
+  <!-- Phone 1: proof moment resolves -->
+  <g transform="translate(70 150)">
+    <rect class="phone" x="0" y="0" width="550" height="1110" rx="78"/>
+    <rect class="screen" x="18" y="18" width="514" height="1074" rx="62"/>
+    <rect x="190" y="28" width="170" height="48" rx="24" fill="#090909"/>
+    <text x="52" y="72" font-size="18" font-weight="700">9:41</text>
+    <g transform="translate(52 122)"><rect width="13" height="43" rx="6" class="green"/><path d="M20 0h21v13L20 28z" class="green"/><path d="M20 33l21-15v25H20z" class="green"/></g>
+    <text x="498" y="155" text-anchor="end" font-size="38">×</text>
+    <text class="eyebrow green" x="275" y="235" text-anchor="middle">WHAT KWILT FOUND</text>
+    <text class="title" x="275" y="295" text-anchor="middle">Your household has a</text>
+    <text class="title" x="275" y="340" text-anchor="middle">clear monthly pattern.</text>
+    <text class="body muted" x="275" y="390" text-anchor="middle">3 Chase accounts · May–July 2026</text>
+
+    <rect class="card" x="52" y="450" width="446" height="155" rx="20"/>
+    <text class="small muted" x="78" y="490">DEPENDABLE MONTHLY INCOME</text>
+    <text class="amount" x="78" y="540">$9,500</text>
+    <text class="body muted" x="78" y="575">Regular deposits, excluding transfers</text>
+
+    <line class="hairline" x1="52" y1="650" x2="498" y2="650"/>
+    <text class="small muted" x="52" y="700">REGULAR COMMITMENTS</text>
+    <text class="amount" x="498" y="700" text-anchor="end">$4,780</text>
+    <text class="body muted" x="52" y="738">Housing, bills, debt, subscriptions</text>
+    <line class="hairline" x1="52" y1="782" x2="498" y2="782"/>
+    <text class="small muted" x="52" y="832">TYPICAL FLEXIBLE SPENDING</text>
+    <text class="amount" x="498" y="832" text-anchor="end">$1,600</text>
+    <text class="body muted" x="52" y="870">Groceries, shopping, meals, fun</text>
+
+    <text class="body" x="275" y="940" text-anchor="middle">Next, choose how Kwilt should turn</text>
+    <text class="body" x="275" y="970" text-anchor="middle">this evidence into your starting plan.</text>
+    <rect class="button" x="42" y="1004" width="466" height="72" rx="30"/>
+    <text class="buttonText" fill="#ffffff" style="fill:#ffffff" x="275" y="1049" text-anchor="middle">Compare three approaches</text>
+    <text x="275" y="1160" text-anchor="middle" fill="#9eaa93" font-size="22" font-weight="700">1 · PROOF</text>
+  </g>
+
+  <!-- Phone 2: compare methods -->
+  <g transform="translate(690 150)">
+    <rect class="phone" x="0" y="0" width="550" height="1110" rx="78"/>
+    <rect class="screen" x="18" y="18" width="514" height="1074" rx="62"/>
+    <rect x="190" y="28" width="170" height="48" rx="24" fill="#090909"/>
+    <text x="52" y="72" font-size="18" font-weight="700">9:42</text>
+    <g transform="translate(52 122)"><rect width="13" height="43" rx="6" class="green"/><path d="M20 0h21v13L20 28z" class="green"/><path d="M20 33l21-15v25H20z" class="green"/></g>
+    <text x="498" y="155" text-anchor="end" font-size="38">×</text>
+    <text class="eyebrow green" x="275" y="215" text-anchor="middle">ONE PLAN, THREE METHODS</text>
+    <text class="title" x="275" y="270" text-anchor="middle">How should Kwilt build</text>
+    <text class="title" x="275" y="315" text-anchor="middle">your starting plan?</text>
+    <text class="small muted" x="275" y="355" text-anchor="middle">Every approach uses the same 3 accounts.</text>
+
+    <rect class="selected" x="42" y="395" width="466" height="185" rx="20"/>
+    <text class="small green" x="66" y="428" font-weight="700">RECOMMENDED</text>
+    <text class="label" x="66" y="466">Match our recent month</text>
+    <text class="small muted" x="66" y="498">Uses actual commitments and flexible spending.</text>
+    <text class="amount" x="66" y="548">$6,650</text>
+    <text class="small muted" x="185" y="546">plan · $2,850 stays outside</text>
+
+    <rect class="card" x="42" y="600" width="466" height="180" rx="20"/>
+    <text class="label" x="66" y="642">Choose a share of income</text>
+    <text class="small muted" x="66" y="674">Set how much dependable income the plan may use.</text>
+    <text class="amount" x="66" y="724">70%</text>
+    <text class="small green" x="148" y="722">suggested · adjustable 50–100%</text>
+    <text class="small muted" x="66" y="754">Currently $6,650 · $2,850 stays outside</text>
+
+    <rect class="card" x="42" y="800" width="466" height="180" rx="20"/>
+    <text class="label" x="66" y="842">Start with regular commitments</text>
+    <text class="small muted" x="66" y="874">Protect known bills first; choose flexible room next.</text>
+    <text class="amount" x="66" y="924">$4,780</text>
+    <text class="small muted" x="205" y="922">protected before flexible spending</text>
+    <text class="small muted" x="66" y="954">Final plan amount comes from your allowance choice</text>
+
+    <rect class="button" x="42" y="1004" width="466" height="72" rx="30"/>
+    <text class="buttonText" fill="#ffffff" style="fill:#ffffff" x="275" y="1049" text-anchor="middle">Review this approach</text>
+    <text x="275" y="1160" text-anchor="middle" fill="#9eaa93" font-size="22" font-weight="700">2 · COMPARE</text>
+  </g>
+
+  <!-- Phone 3: recommended detail -->
+  <g transform="translate(1310 150)">
+    <rect class="phone" x="0" y="0" width="550" height="1110" rx="78"/>
+    <rect class="screen" x="18" y="18" width="514" height="1074" rx="62"/>
+    <rect x="190" y="28" width="170" height="48" rx="24" fill="#090909"/>
+    <text x="52" y="72" font-size="18" font-weight="700">9:43</text>
+    <text x="52" y="153" font-size="34">‹</text>
+    <text x="498" y="155" text-anchor="end" font-size="38">×</text>
+    <text class="eyebrow green" x="275" y="215" text-anchor="middle">RECENT HOUSEHOLD RHYTHM</text>
+    <text class="title" x="275" y="275" text-anchor="middle">Match our recent month</text>
+    <text class="body muted" x="275" y="318" text-anchor="middle">Recommended from May–July activity</text>
+
+    <text class="small muted" x="275" y="390" text-anchor="middle">MONTHLY HOUSEHOLD PLAN</text>
+    <text x="275" y="465" text-anchor="middle" font-size="62" font-weight="780">$6,650</text>
+    <text class="body green" x="275" y="505" text-anchor="middle">about 70% of dependable income</text>
+
+    <rect class="card" x="42" y="550" width="466" height="255" rx="20"/>
+    <text class="label" x="66" y="592">How Kwilt reached this</text>
+    <text class="body muted" x="66" y="642">Regular commitments</text><text class="body" x="482" y="642" text-anchor="end">$4,780</text>
+    <text class="body muted" x="66" y="687">Typical flexible spending</text><text class="body" x="482" y="687" text-anchor="end">$1,600</text>
+    <text class="body muted" x="66" y="732">Household breathing room</text><text class="body" x="482" y="732" text-anchor="end">$270</text>
+    <line class="hairline" x1="66" y1="760" x2="482" y2="760"/>
+    <text class="body" x="66" y="792">Plan total</text><text class="body" x="482" y="792" text-anchor="end" font-weight="700">$6,650</text>
+
+    <text class="small muted" x="52" y="856">KEPT OUTSIDE THE MONTHLY PLAN</text>
+    <text class="amount" x="498" y="898" text-anchor="end">$2,850</text>
+    <text class="small muted" x="52" y="934">Kwilt assigns no purpose to this remainder.</text>
+    <text class="small muted" x="52" y="960">You can change any budget after setup.</text>
+    <rect class="button" x="42" y="1004" width="466" height="72" rx="30"/>
+    <text class="buttonText" fill="#ffffff" style="fill:#ffffff" x="275" y="1049" text-anchor="middle">Use this approach</text>
+    <text x="275" y="1160" text-anchor="middle" fill="#9eaa93" font-size="22" font-weight="700">3A · RECOMMENDED DETAIL</text>
+  </g>
+
+  <!-- Phone 4: percentage model branch -->
+  <g transform="translate(1930 150)">
+    <rect class="phone" x="0" y="0" width="550" height="1110" rx="78"/>
+    <rect class="screen" x="18" y="18" width="514" height="1074" rx="62"/>
+    <rect x="190" y="28" width="170" height="48" rx="24" fill="#090909"/>
+    <text x="52" y="72" font-size="18" font-weight="700">9:43</text>
+    <text x="52" y="153" font-size="34">‹</text>
+    <text x="498" y="155" text-anchor="end" font-size="38">×</text>
+    <text class="eyebrow green" x="275" y="215" text-anchor="middle">INCOME SHARE</text>
+    <text class="title" x="275" y="275" text-anchor="middle">Choose a share of income</text>
+    <text class="body muted" x="275" y="318" text-anchor="middle">You control the plan’s total size.</text>
+
+    <text x="52" y="420" font-size="58" font-weight="780">70%</text>
+    <text class="body green" x="498" y="414" text-anchor="end">70% suggested</text>
+    <line x1="52" y1="476" x2="498" y2="476" stroke="#dedee2" stroke-width="12" stroke-linecap="round"/>
+    <line x1="52" y1="476" x2="230" y2="476" stroke="#1d1b1a" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="230" cy="476" r="23" fill="#fff" stroke="#1d1b1a" stroke-width="5"/>
+    <text class="body muted" x="52" y="525">50%</text><text class="body muted" x="230" y="525" text-anchor="middle">70%</text><text class="body muted" x="498" y="525" text-anchor="end">100%</text>
+    <text class="small muted" x="52" y="565">Keep more outside the plan</text>
+    <text class="small muted" x="498" y="565" text-anchor="end">Plan more for spending</text>
+
+    <rect class="card" x="42" y="615" width="466" height="190" rx="20"/>
+    <text class="small muted" x="275" y="654" text-anchor="middle">MONTHLY HOUSEHOLD PLAN</text>
+    <text x="275" y="720" text-anchor="middle" font-size="58" font-weight="780">$6,650</text>
+    <text class="body muted" x="275" y="763" text-anchor="middle">$4,780 committed · $1,870 flexible</text>
+
+    <text class="small muted" x="52" y="858">KEPT OUTSIDE THE MONTHLY PLAN</text>
+    <text class="amount" x="498" y="898" text-anchor="end">$2,850</text>
+    <text class="small muted" x="52" y="940">Adjusting the slider updates every amount.</text>
+    <text class="small muted" x="52" y="968">Household size informs the suggested marker.</text>
+    <rect class="button" x="42" y="1004" width="466" height="72" rx="30"/>
+    <text class="buttonText" fill="#ffffff" style="fill:#ffffff" x="275" y="1049" text-anchor="middle">Use the $6,650 plan</text>
+    <text x="275" y="1160" text-anchor="middle" fill="#9eaa93" font-size="22" font-weight="700">3B · INCOME-SHARE DETAIL</text>
+  </g>
+
+  <text x="1280" y="1370" text-anchor="middle" fill="#d8d6cf" font-size="20">The chooser compares methods. Each method earns its own explanation and controls only after selection.</text>
+</svg>

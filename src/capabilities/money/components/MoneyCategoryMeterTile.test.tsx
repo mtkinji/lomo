@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react-native';
 import type { MoneyCategory } from '../data/moneySnapshot';
 import {
+  getCategoryListStatus,
   MoneyCategoryListRow,
   MoneyCategoryMeterTile,
   resolveCategoryPresentation,
@@ -33,17 +34,26 @@ describe('Money category inventory presentations', () => {
     expect(screen.queryByText('over')).toBeNull();
   });
 
-  it('can show percent used or dollars left in a list row', () => {
-    const screen = render(<MoneyCategoryListRow category={category} onPress={jest.fn()} valueMode="percent_used" />);
-    expect(screen.getByText('94% used')).toBeTruthy();
-
-    screen.rerender(<MoneyCategoryListRow category={{ ...category, remainingCents: -520 }} onPress={jest.fn()} valueMode="dollars_left" />);
+  it('shows dollars left without repeating category arithmetic in the list', () => {
+    const screen = render(<MoneyCategoryListRow category={{ ...category, remainingCents: -520 }} onPress={jest.fn()} />);
     expect(screen.getByText('$5.20 over')).toBeTruthy();
+    expect(screen.queryByText('$375.95 / $400')).toBeNull();
+  });
+
+  it('reserves attention treatment for material overages and forecast risk', () => {
+    expect(getCategoryListStatus({ ...category, remainingCents: -520 })).toEqual({ label: null, tone: 'neutral' });
+    expect(getCategoryListStatus({ ...category, remainingCents: -5200 })).toEqual({ label: null, tone: 'danger' });
+    expect(getCategoryListStatus(category)).toEqual({ label: 'Projected to go over', tone: 'watch' });
+    expect(getCategoryListStatus({
+      ...category,
+      remainingCents: 2_405,
+      forecast: { status: 'over', projectedOverageCents: 5_000 },
+    } as MoneyCategory)).toEqual({ label: 'Projected to go over', tone: 'watch' });
+    expect(getCategoryListStatus({ ...category, forecast: { status: 'steady' } } as MoneyCategory)).toEqual({ label: null, tone: 'neutral' });
   });
 
   it('maps each menu choice to a renderable layout and value mode', () => {
-    expect(resolveCategoryPresentation('tiles')).toEqual({ layout: 'tiles', valueMode: 'percent_used' });
-    expect(resolveCategoryPresentation('list_percent')).toEqual({ layout: 'list', valueMode: 'percent_used' });
-    expect(resolveCategoryPresentation('list_dollars')).toEqual({ layout: 'list', valueMode: 'dollars_left' });
+    expect(resolveCategoryPresentation('meters')).toEqual({ layout: 'meters', valueMode: 'percent_used' });
+    expect(resolveCategoryPresentation('list')).toEqual({ layout: 'list', valueMode: 'dollars_left' });
   });
 });

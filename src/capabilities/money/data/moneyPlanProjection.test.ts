@@ -53,6 +53,15 @@ describe('projectMoneyPlanProjection', () => {
       state: 'supported',
       facts: { planVersionId: 'version-2', livingLimitCents: 60000, protectedPlanCents: 35000 },
     });
+    expect(result.snapshot.monthlyPlan).toEqual({
+      periodId: '2026-07',
+      regularPlanCents: 60_000,
+      committedPlanCents: 35_000,
+      flexiblePlanCents: 25_000,
+      additionCents: 0,
+      plannedOutflowCents: 60_000,
+      derivation: 'detected_income',
+    });
   });
 
   it('counts only current-plan-period transactions in the living-limit answer', () => {

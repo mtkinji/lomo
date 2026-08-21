@@ -1,6 +1,10 @@
 import {
   buildMoneyOnboardingTarget,
+  getMoneyEntryDecision,
   getMoneyOnboardingCompletionDecision,
+  getMoneyOnboardingInitialStep,
+  getMoneyTransactionsAvailability,
+  mergeMoneyTransactionsAvailability,
   shouldOfferMoneyOnboarding,
 } from './moneyOnboarding';
 
@@ -51,5 +55,73 @@ describe('Money onboarding', () => {
       message: 'Refresh your connected account, then build your plan again.',
     });
     expect(getMoneyOnboardingCompletionDecision({ outcome: 'not_ready' }, true).complete).toBe(false);
+  });
+
+  it('preserves the requested Money place across first entry, dismissal, and completion', () => {
+    const evidence = {
+      localCompletedAt: null,
+      hasLivingTarget: false,
+      hasActiveLivingPlan: false,
+      hasLinkedAccount: false,
+    };
+
+    expect(getMoneyEntryDecision({
+      evidence,
+      introductionSeenAt: null,
+      requestedPlace: 'MoneyAccounts',
+      mode: 'automatic',
+    })).toEqual({ kind: 'introduce', requestedPlace: 'MoneyAccounts' });
+
+    expect(getMoneyEntryDecision({
+      evidence,
+      introductionSeenAt: '2026-08-20T12:00:00.000Z',
+      requestedPlace: 'MoneyTransactions',
+      mode: 'automatic',
+    })).toEqual({ kind: 'destination', requestedPlace: 'MoneyTransactions' });
+
+    expect(getMoneyEntryDecision({
+      evidence: { ...evidence, hasLinkedAccount: true, hasLivingTarget: true },
+      introductionSeenAt: null,
+      requestedPlace: 'MoneySummary',
+      mode: 'automatic',
+    })).toEqual({ kind: 'destination', requestedPlace: 'MoneySummary' });
+  });
+
+  it('allows an explicit setup action after the introduction was dismissed', () => {
+    expect(getMoneyEntryDecision({
+      evidence: {
+        localCompletedAt: null,
+        hasLivingTarget: false,
+        hasActiveLivingPlan: false,
+        hasLinkedAccount: false,
+      },
+      introductionSeenAt: '2026-08-20T12:00:00.000Z',
+      requestedPlace: 'MoneySummary',
+      mode: 'setup',
+    })).toEqual({ kind: 'introduce', requestedPlace: 'MoneySummary' });
+  });
+
+  it('uses one illustrated introduction across Money entry sources without repeating it', () => {
+    expect(getMoneyOnboardingInitialStep('capability-menu', null)).toBe('welcome');
+    expect(getMoneyOnboardingInitialStep('direct', null)).toBe('welcome');
+    expect(getMoneyOnboardingInitialStep('capability-onboarding', null)).toBe('account');
+    expect(getMoneyOnboardingInitialStep('empty-state', null)).toBe('account');
+    expect(getMoneyOnboardingInitialStep('capability-menu', 'account')).toBe('account');
+    expect(getMoneyOnboardingInitialStep('capability-menu', 'intent')).toBe('intent');
+    expect(getMoneyOnboardingInitialStep('capability-menu', 'target')).toBe('target');
+  });
+
+  it('hides Transactions only for authoritative pristine evidence', () => {
+    expect(getMoneyTransactionsAvailability(null)).toBe('unknown');
+    expect(getMoneyTransactionsAvailability({ accountCount: 0, transactionCount: 0 })).toBe('pristine');
+    expect(getMoneyTransactionsAvailability({ accountCount: 1, transactionCount: 0 })).toBe('available');
+    expect(getMoneyTransactionsAvailability({ accountCount: 0, transactionCount: 1 })).toBe('available');
+  });
+
+  it('keeps durable Transactions availability through empty or unknown refreshes', () => {
+    expect(mergeMoneyTransactionsAvailability('unknown', 'pristine')).toBe('pristine');
+    expect(mergeMoneyTransactionsAvailability('pristine', 'available')).toBe('available');
+    expect(mergeMoneyTransactionsAvailability('available', 'pristine')).toBe('available');
+    expect(mergeMoneyTransactionsAvailability('available', 'unknown')).toBe('available');
   });
 });

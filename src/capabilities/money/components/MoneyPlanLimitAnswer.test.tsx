@@ -1,4 +1,7 @@
 import { fireEvent, render, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { colors } from '../../../theme';
+import { Card } from '../../../ui/Card';
 import type { MoneyPlanLimitAnswer as Answer } from '../domain/moneyPlanLimitAnswer';
 import { MoneyPlanLimitAnswer } from './MoneyPlanLimitAnswer';
 
@@ -46,6 +49,10 @@ describe('MoneyPlanLimitAnswer', () => {
     expect(screen.queryByRole('button', { name: 'See calculation' })).toBeNull();
     expect(screen.queryByText(/left for flexible spending this month/i)).toBeNull();
     expect(screen.queryByText(/confidence/i)).toBeNull();
+    expect(screen.UNSAFE_getByType(Card).props.style).toEqual(expect.arrayContaining([
+      expect.objectContaining({ borderWidth: 0 }),
+      expect.objectContaining({ backgroundColor: colors.pine100 }),
+    ]));
   });
 
   it('reduces flexible overspending to one direct amount', () => {
@@ -73,6 +80,42 @@ describe('MoneyPlanLimitAnswer', () => {
     expect(screen.getByText('out of $3,745.19')).toBeTruthy();
     expect(screen.queryByText('$6,131.62 of $3,745.19 spent')).toBeNull();
     expect(screen.queryByText(/beyond the room/i)).toBeNull();
+    expect(screen.UNSAFE_getByType(Card).props.style).toEqual(expect.arrayContaining([
+      expect.objectContaining({ borderWidth: 0 }),
+      expect.objectContaining({ backgroundColor: colors.madder100 }),
+    ]));
+    expect(StyleSheet.flatten(screen.getByTestId('money-limit-amount-number').props.style).color).toBe(colors.textPrimary);
+  });
+
+  it('uses a watch surface when committed costs leave no flexible room', () => {
+    const screen = render(<MoneyPlanLimitAnswer
+      answer={answer('no_flexible_room', { headlineAmountCents: 0 })}
+      freshness="Updated just now"
+      onExplain={jest.fn()}
+      onReviewIncome={jest.fn()}
+    />);
+
+    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$0 left');
+    expect(screen.getByText('Protected costs use your full living limit')).toBeTruthy();
+    expect(screen.UNSAFE_getByType(Card).props.style).toEqual(expect.arrayContaining([
+      expect.objectContaining({ borderWidth: 0 }),
+      expect.objectContaining({ backgroundColor: colors.turmeric50 }),
+    ]));
+  });
+
+  it('keeps an unavailable calculation visually neutral', () => {
+    const screen = render(<MoneyPlanLimitAnswer
+      answer={answer('needs_one_answer', { headlineAmountCents: null })}
+      freshness="Updated just now"
+      onExplain={jest.fn()}
+      onReviewIncome={jest.fn()}
+    />);
+
+    expect(screen.getByText('Update unavailable')).toBeTruthy();
+    expect(screen.UNSAFE_getByType(Card).props.style).toEqual(expect.arrayContaining([
+      expect.objectContaining({ borderWidth: 0 }),
+      expect.objectContaining({ backgroundColor: colors.fieldFill }),
+    ]));
   });
 
   it('turns genuinely missing income into one compact recovery card', () => {

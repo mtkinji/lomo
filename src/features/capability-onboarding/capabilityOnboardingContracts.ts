@@ -13,6 +13,7 @@ export type CapabilityOnboardingPromotionState = 'development' | 'production';
 
 export type CapabilityOnboardingIllustrationKey =
   | 'money-app-control'
+  | 'money-foundation'
   | 'meals'
   | 'goals'
   | 'chat'
@@ -36,7 +37,7 @@ export type CapabilityOnboardingContract = {
     headline: string;
     body: string;
     actionLabel: string;
-    illustrationKey: CapabilityOnboardingIllustrationKey;
+    illustrationKey: CapabilityOnboardingIllustrationKey | null;
     illustrationLabel: string;
   };
   icon: IconName;
@@ -60,24 +61,24 @@ export const CAPABILITY_ONBOARDING_PATHS = [
     id: 'budget-app-controls',
     reelRank: 1,
     story: {
-      headline: 'Use a budget to pause apps like Amazon',
+      headline: 'Know where you stand before you spend',
       body:
-        'Choose the kind of spending, the apps to connect, and when Kwilt should pause them.',
-      actionLabel: 'Set app controls',
-      illustrationKey: 'money-app-control',
-      illustrationLabel: 'A shopping app held behind a calm budget boundary',
+        'Connect the accounts that matter and Kwilt will build a useful monthly view from real income and spending.',
+      actionLabel: 'Set up Money',
+      illustrationKey: 'money-foundation',
+      illustrationLabel: 'Money brought into one clear monthly view',
     },
     icon: 'creditCard',
     archetype: 'illustrated-setup',
     coordinatorOwnerId: 'money',
-    terminalOwnerIds: ['money', 'screen-time'],
+    terminalOwnerIds: ['money'],
     promotionState: 'development',
     handoff: { kind: 'money-app-control' },
     firstValue: {
-      event: 'money_app_control_policy_enabled',
-      evidenceSource: 'Money app-control settings and native shield delivery state',
+      event: 'money_foundation_completed',
+      evidenceSource: 'Money onboarding completion and authoritative plan state',
     },
-    nativeLanding: { root: 'Money', screen: 'MoneyAppControl' },
+    nativeLanding: { root: 'Money', screen: 'MoneySummary' },
   },
   {
     id: 'make-meals-easier',

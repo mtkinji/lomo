@@ -1179,13 +1179,19 @@ export function DevToolsScreen() {
                 testID="dev.capabilityOnboarding.openNoBudgets"
                 variant="secondary"
                 onPress={() => {
-                  useCapabilityOnboardingStore.getState().resetUser(authUserId);
-                  setCapabilityOnboardingMoneyBudgetState('none');
-                  setCapabilityOnboardingVisible(true);
+                  navigation.navigate('Money', {
+                    screen: 'MoneyEntry',
+                    params: {
+                      requestedPlace: 'MoneySummary',
+                      source: 'capability-onboarding',
+                      mode: 'setup',
+                      demoScenario: 'connected-household',
+                    },
+                  });
                 }}
                 style={styles.cardAction}
               >
-                <ButtonLabel size="md">Play with no budgets</ButtonLabel>
+                <ButtonLabel size="md">Play Money setup with sample data</ButtonLabel>
               </Button>
             </View>
 

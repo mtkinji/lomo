@@ -20,6 +20,7 @@ type KwiltLoaderProps = {
   accessibilityLabel?: string;
   color?: string;
   phase?: KwiltLoaderPhase;
+  resolvedOpacity?: number;
   size?: ActivityIndicatorProps['size'];
   style?: StyleProp<ViewStyle>;
 };
@@ -37,6 +38,7 @@ export function KwiltLoader({
   accessibilityLabel = 'Loading',
   color,
   phase = 'loading',
+  resolvedOpacity = 0.16,
   size = 'small',
   style,
 }: KwiltLoaderProps) {
@@ -47,7 +49,7 @@ export function KwiltLoader({
   const cruiseRef = useRef<Animated.CompositeAnimation | null>(null);
   const rotation = useRef(new Animated.Value(0)).current;
   const orbitScale = useRef(new Animated.Value(1)).current;
-  const markOpacity = useRef(new Animated.Value(0.16)).current;
+  const markOpacity = useRef(new Animated.Value(resolvedOpacity)).current;
   const originalOpacity = useRef(new Animated.Value(1)).current;
   const originalScale = useRef(new Animated.Value(1)).current;
   const pebbleOpacity = useRef(new Animated.Value(0)).current;
@@ -75,7 +77,7 @@ export function KwiltLoader({
       rotation.stopAnimation();
       rotation.setValue(0);
       orbitScale.setValue(1);
-      markOpacity.setValue(0.16);
+      markOpacity.setValue(resolvedOpacity);
       originalOpacity.setValue(1);
       originalScale.setValue(1);
       pebbleOpacity.setValue(0);
@@ -175,7 +177,7 @@ export function KwiltLoader({
 
     if (animationsDisabled) {
       rotation.stopAnimation();
-      markOpacity.setValue(0.16);
+      markOpacity.setValue(resolvedOpacity);
       originalOpacity.setValue(1);
       originalScale.setValue(1);
       pebbleOpacity.setValue(0);
@@ -247,14 +249,14 @@ export function KwiltLoader({
           }),
         ]),
         Animated.timing(markOpacity, {
-          toValue: 0.16,
+          toValue: resolvedOpacity,
           duration: KWILT_REFRESH_COMPLETION_MS,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
       ]).start();
     });
-  }, [animationsDisabled, markOpacity, orbitScale, originalOpacity, originalScale, pebbleColor, pebbleOpacity, pebbleScale, phase, rotation]);
+  }, [animationsDisabled, markOpacity, orbitScale, originalOpacity, originalScale, pebbleColor, pebbleOpacity, pebbleScale, phase, resolvedOpacity, rotation]);
 
   useEffect(() => () => {
     accelerationRef.current?.stop();

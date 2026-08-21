@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '../../../ui/DropdownMenu';
 import { menuItemTextProps, menuStyles } from '../../../ui/menuStyles';
-import { formatMoney, formatMoneyFreshness } from '../data/moneySnapshot';
+import { formatMoney, formatMoneyFreshness, type MonthlyHouseholdPlanStatement } from '../data/moneySnapshot';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { projectMoneyPeriodView, type MoneyPeriodView } from '../domain/moneyPeriodView';
 import type { MoneyStackParamList } from '../navigation/types';
@@ -48,6 +48,7 @@ import { projectMoneyPlanAudit, type MoneyPlanAudit } from '../domain/moneyPlanA
 import { MoneyCategoryReorderDrawer } from '../components/MoneyCategoryReorderDrawer';
 import { Coachmark } from '../../../ui/Coachmark';
 import { getMoneyCategoryDestination } from '../domain/moneyAppControlOnboarding';
+import { EmptyState } from '../../../ui/EmptyState';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
@@ -58,7 +59,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   const [measuredPagerWidth, setMeasuredPagerWidth] = useState(0);
   const [currentMonthIndex, setCurrentMonthIndex] = useState(INITIAL_MONTH_INDEX);
   const [limitExplanationOpen, setLimitExplanationOpen] = useState(false);
-  const [categoryPresentation, setCategoryPresentation] = useState<MoneyCategoryPresentation>('tiles');
+  const [categoryPresentation, setCategoryPresentation] = useState<MoneyCategoryPresentation>('list');
   const [categoryReorderOpen, setCategoryReorderOpen] = useState(false);
   const [appControlGuideVisible, setAppControlGuideVisible] = useState(
     route.params?.entryIntent === 'app-control-onboarding',
@@ -115,6 +116,12 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   );
 
   const livingLimitAnswer = snapshot?.livingLimitAnswer ?? null;
+  const isPristineMoney = Boolean(
+    snapshot
+      && snapshot.accounts.length === 0
+      && snapshot.transactions.length === 0
+      && !livingLimitAnswer,
+  );
   const planAudit = useMemo(() => (
     snapshot && livingLimitAnswer
       ? projectMoneyPlanAudit({
@@ -161,7 +168,21 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   return (
     <>
     <MoneyScreenFrame moreMenu={summaryMenu} title="Budget">
-      {snapshot && currentPeriod ? (
+      {isPristineMoney ? (
+        <EmptyState
+          illustration={null}
+          title="Build your budget from real life"
+          instructions="Connect the accounts that matter and Kwilt will shape a useful monthly view from your income and spending."
+          primaryAction={{
+            label: 'Connect accounts',
+            onPress: () => navigation.navigate('MoneyEntry', {
+              requestedPlace: 'MoneySummary',
+              source: 'empty-state',
+              mode: 'setup',
+            }),
+          }}
+        />
+      ) : snapshot && currentPeriod ? (
         <View
           style={styles.monthSwipeSurface}
           onLayout={(event) => {
@@ -222,6 +243,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
                 period={item}
                 freshness={formatMoneyFreshness(snapshot.lastSyncedAt)}
                 answer={item.monthOffset === 0 ? livingLimitAnswer : null}
+                monthlyPlan={item.monthOffset === 0 ? snapshot.monthlyPlan ?? null : null}
                 onExplain={() => {
                   if (livingLimitAnswer) capture(AnalyticsEvent.MoneyBudgetExplanationOpened, buildMoneyBudgetExplanationOpenedProps({ answer: livingLimitAnswer, surface: 'budget' }));
                   setLimitExplanationOpen(true);
@@ -327,6 +349,7 @@ function SummaryMonthPanel({
   categoryPresentation,
   categoryTargetRef,
   freshness,
+  monthlyPlan,
   onExplain,
   onOpenCategory,
   onReviewIncome,
@@ -334,6 +357,7 @@ function SummaryMonthPanel({
   period,
 }: {
   answer: LivingLimitAnswer | null;
+  monthlyPlan: MonthlyHouseholdPlanStatement | null;
   categoryPresentation: MoneyCategoryPresentation;
   categoryTargetRef?: RefObject<View | null>;
   freshness: string;
@@ -377,9 +401,9 @@ function SummaryMonthPanel({
             showHeader={false}
           />
         ) : null}
-        <View style={categoryView.layout === 'tiles' ? styles.categoryGrid : styles.categoryList}>
+        <View style={categoryView.layout === 'meters' ? styles.categoryGrid : styles.categoryList}>
           {flexibleCategories.map((category, index) => (
-            categoryView.layout === 'tiles' ? (
+            categoryView.layout === 'meters' ? (
               <MoneyCategoryMeterTile
                 key={category.id}
                 category={category}
@@ -394,7 +418,6 @@ function SummaryMonthPanel({
                 category={category}
                 onPress={() => onOpenCategory(category.id)}
                 targetRef={index === 0 ? categoryTargetRef : undefined}
-                valueMode={categoryView.valueMode}
               />
             )
           ))}
@@ -409,9 +432,9 @@ function SummaryMonthPanel({
               explanation="Bills and money already set aside before your flexible spending is calculated."
             />
           </View>
-          <View style={categoryView.layout === 'tiles' ? styles.categoryGrid : styles.categoryList}>
+          <View style={categoryView.layout === 'meters' ? styles.categoryGrid : styles.categoryList}>
             {committedCategories.map((category) => (
-              categoryView.layout === 'tiles' ? (
+              categoryView.layout === 'meters' ? (
                 <MoneyCategoryMeterTile
                   key={category.id}
                   category={category}
@@ -424,12 +447,36 @@ function SummaryMonthPanel({
                   key={category.id}
                   category={category}
                   onPress={() => onOpenCategory(category.id)}
-                  valueMode={categoryView.valueMode}
                 />
               )
             ))}
           </View>
         </View>
+      ) : null}
+      {monthlyPlan ? (
+        <Pressable
+          accessibilityLabel={`Review monthly plan breakdown, ${formatMoney(monthlyPlan.regularPlanCents)}`}
+          accessibilityRole="button"
+          onPress={onReviewIncome}
+          style={({ pressed }) => [styles.monthlyPlanSummary, pressed ? styles.monthlyPlanSummaryPressed : null]}
+        >
+          <View style={styles.monthlyPlanSummaryHeader}>
+            <Text style={styles.monthlyPlanSummaryTitle}>How your month is planned</Text>
+            <Icon name="chevronRight" size={17} color={colors.textSecondary} />
+          </View>
+          <View style={styles.monthlyPlanSummaryRow}>
+            <Text style={styles.monthlyPlanSummaryLabel}>Committed spending plan</Text>
+            <Text style={styles.monthlyPlanSummaryValue}>{formatMoney(monthlyPlan.committedPlanCents)}</Text>
+          </View>
+          <View style={styles.monthlyPlanSummaryRow}>
+            <Text style={styles.monthlyPlanSummaryLabel}>Flexible spending plan</Text>
+            <Text style={styles.monthlyPlanSummaryValue}>{formatMoney(monthlyPlan.flexiblePlanCents)}</Text>
+          </View>
+          <View style={[styles.monthlyPlanSummaryRow, styles.monthlyPlanSummaryTotal]}>
+            <Text style={styles.monthlyPlanSummaryTotalLabel}>Monthly plan</Text>
+            <Text style={styles.monthlyPlanSummaryTotalValue}>{formatMoney(monthlyPlan.regularPlanCents)}</Text>
+          </View>
+        </Pressable>
       ) : null}
       {!answer ? <View style={styles.totalSection}>
         <View style={styles.totalRow}>
@@ -494,9 +541,8 @@ function CategoryViewMenu({ onPresentationChange, onReorder, presentation }: {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="bottom" sideOffset={4}>
         <DropdownMenuRadioGroup value={presentation} onValueChange={(value) => value && onPresentationChange(value as MoneyCategoryPresentation)}>
-          <CategoryViewChoice label="Tiles" value="tiles" />
-          <CategoryViewChoice label="List · Percent used" value="list_percent" />
-          <CategoryViewChoice label="List · Dollars left" value="list_dollars" />
+          <CategoryViewChoice label="List" value="list" />
+          <CategoryViewChoice label="Meters" value="meters" />
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem accessibilityLabel="Reorder categories" onPress={onReorder}>
@@ -745,6 +791,16 @@ const styles = StyleSheet.create({
   iconButtonPressed: { backgroundColor: colors.fieldFillPressed },
   iconButtonDisabled: { opacity: 0.35 },
   monthBody: { minHeight: 520, gap: spacing.lg },
+  monthlyPlanSummary: { gap: spacing.sm, borderRadius: 18, backgroundColor: colors.fieldFill, padding: spacing.md },
+  monthlyPlanSummaryPressed: { backgroundColor: colors.fieldFillPressed },
+  monthlyPlanSummaryHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  monthlyPlanSummaryTitle: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, fontWeight: '600', letterSpacing: 0.4, textTransform: 'uppercase' },
+  monthlyPlanSummaryRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
+  monthlyPlanSummaryLabel: { flex: 1, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
+  monthlyPlanSummaryValue: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, fontWeight: '500', fontVariant: ['tabular-nums'] },
+  monthlyPlanSummaryTotal: { borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingTop: spacing.sm },
+  monthlyPlanSummaryTotalLabel: { flex: 1, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, fontWeight: '600' },
+  monthlyPlanSummaryTotalValue: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, fontWeight: '600', fontVariant: ['tabular-nums'] },
   categorySection: { gap: spacing.sm },
   categoryHeader: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   categoryConceptHeader: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },

@@ -92,7 +92,7 @@ describe('CapabilityOnboardingPager', () => {
     const { screen, onExplore, onStartDoor } = renderPager('budget-app-controls');
     const moneyPage = screen.getByTestId('capabilityOnboarding.door.budget-app-controls');
     fireEvent.press(
-      within(moneyPage).getByRole('button', { name: 'Set app controls' }),
+      within(moneyPage).getByRole('button', { name: 'Set up Money' }),
     );
     fireEvent.press(screen.getByRole('button', { name: 'Skip onboarding and open Kwilt' }));
     expect(onStartDoor).toHaveBeenCalledWith(

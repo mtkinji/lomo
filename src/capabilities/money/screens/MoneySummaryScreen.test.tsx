@@ -27,6 +27,11 @@ const initialSnapshot = {
     transaction('account-transfer', 5000, { providerCategoryDetailed: 'TRANSFER_OUT_ACCOUNT_TRANSFER' }),
   ], accounts: [],
   livingLimitAnswer: mockAnswer,
+  monthlyPlan: {
+    periodId: '2026-07', regularPlanCents: 336000, committedPlanCents: 200000,
+    flexiblePlanCents: 136000, additionCents: 0, plannedOutflowCents: 336000,
+    derivation: 'detected_income',
+  },
 } as MoneySnapshot;
 
 let mockSnapshot = initialSnapshot;
@@ -98,6 +103,10 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$342.96 left');
     expect(screen.getByText('left')).toBeTruthy();
     expect(screen.getByText('out of $1,360')).toBeTruthy();
+    expect(screen.getByText('Monthly plan')).toBeTruthy();
+    expect(screen.getByText('$3,360')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Review monthly plan breakdown, $3,360' }));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyLivingPlan');
     expect(screen.getAllByText('Flexible spending').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('money-limit-header')).toBeNull();
     expect(screen.queryByText('Categories')).toBeNull();
@@ -112,7 +121,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByText('Bills and money set aside')).toBeTruthy();
     expect(screen.getByText('Flexible room')).toBeTruthy();
     expect(screen.getByText('THIS MONTH')).toBeTruthy();
-    expect(screen.getByText('$1,360')).toBeTruthy();
+    expect(screen.getAllByText('$1,360').length).toBeGreaterThan(0);
     expect(screen.getByText('Left')).toBeTruthy();
     expect(screen.getByText('All July activity is accounted for')).toBeTruthy();
     expect(screen.queryByText('Protected costs')).toBeNull();
@@ -120,6 +129,26 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.queryByRole('button', { name: 'Adjust plan' })).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Change 70% living target' }));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyLivingPlan');
+  });
+
+  it('offers account-backed setup instead of an invented empty budget', () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      accounts: [],
+      transactions: [],
+      categories: [],
+      livingLimitAnswer: null,
+    };
+    const navigation = { navigate: jest.fn() };
+    const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-empty', name: 'MoneySummary' } as never} />);
+
+    expect(screen.getByText('Build your budget from real life')).toBeTruthy();
+    fireEvent.press(screen.getByText('Connect accounts'));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyEntry', {
+      requestedPlace: 'MoneySummary',
+      source: 'empty-state',
+      mode: 'setup',
+    });
   });
 
   it('separates flexible and committed categories and explains both concepts', () => {

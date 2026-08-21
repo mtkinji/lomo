@@ -218,6 +218,17 @@ export type MoneySnapshot = {
   transactions: MoneyTransaction[];
   accounts: MoneyAccount[];
   livingLimitAnswer?: MoneyPlanLimitAnswer | null;
+  monthlyPlan?: MonthlyHouseholdPlanStatement | null;
+};
+
+export type MonthlyHouseholdPlanStatement = {
+  periodId: string;
+  regularPlanCents: number;
+  committedPlanCents: number;
+  flexiblePlanCents: number;
+  additionCents: number;
+  plannedOutflowCents: number;
+  derivation: 'user_set' | 'detected_income' | 'prior_supported_basis' | 'unknown';
 };
 
 export type MoneySnapshotRows = {

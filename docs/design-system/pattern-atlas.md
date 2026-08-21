@@ -21,7 +21,7 @@ Job: When the current action must remain available at the bottom of a phone surf
 
 Status: Canonical. Explicit product/design-owner approval: Andrew, 2026-08-17.
 
-Approved routes: `ActionDock` and `SplitActionDock` phone-floating controls; `BottomDrawerFooter`; `BottomDrawer.bottomAccessory` when it contains a fixed full-width drawer action; Unified Chat Conversation Mode composer states.
+Approved routes: `ActionDock` and `SplitActionDock` phone-floating controls; `FullWidthActionDock` for one persistent full-width page button; `BottomDrawerFooter`; `BottomDrawer.bottomAccessory` when it contains a fixed full-width drawer action; Unified Chat Conversation Mode composer states.
 
 Rendered references: `artifacts/conversation-mode/listening-nested-improved.png`; `artifacts/bottom-dock/activity-schedule-full-width-action.png`; accepted iPhone 17 Pro web composer proof with approximately 21px visible side and 22px visible bottom gaps; iPhone 17 Pro native drawer proof with a 24pt visible inline gap and full home-indicator clearance.
 
@@ -33,13 +33,13 @@ Primary action: The capability-owned current action. Geometry never invents, dup
 
 Anatomy: Capability-owned content inside either a phone-floating frame or a fixed drawer-action frame. The frame owns inline gap, bottom gap, safe-area policy, keyboard relationship, and content clearance.
 
-Canonical components: `ActionDock`, `SplitActionDock`, `BottomDrawerFooter`, and `BottomDrawer`'s `bottomAccessory` region. Geometry tokens live in `@kwilt/tokens/bottomDock`.
+Canonical components: `ActionDock`, `SplitActionDock`, `FullWidthActionDock`, `BottomDrawerFooter`, and `BottomDrawer`'s `bottomAccessory` region. Geometry tokens live in `@kwilt/tokens/bottomDock`.
 
 States: Resting, pressed, disabled, loading, keyboard open, no home indicator, home indicator present, and capability-owned state transitions such as Conversation Mode listening/thinking/speaking/recovering. State changes replace content without moving the outer frame.
 
 Responsive and accessibility behavior: Phone-floating controls use a 24pt inline optical gap and target at least a 20pt bottom gap, with a partial safe-area lift where needed. Fixed drawer actions use a 24pt inline gap, 12pt content separation, and at least 20pt below, expanding to the full bottom safe-area inset. Controls retain 44pt minimum targets, Dynamic Type support, and Reduce Motion behavior. Keyboard and tab-bar collision checks are mandatory.
 
-Allowed variations: Floating versus drawer-contained anatomy; one full-width action versus a capability-owned split action; quiet top divider when scroll content needs separation; platform safe-area expansion. Visual materials and action semantics remain component-owned.
+Allowed variations: Floating versus drawer-contained anatomy; one full-width action versus a capability-owned split action; quiet top divider when scroll content needs separation; platform safe-area expansion. A persistent full-width page button uses `FullWidthActionDock` rather than screen-owned bottom padding. Visual materials and action semantics remain component-owned.
 
 Do not use when: The action is not persistent, the drawer action naturally belongs in scrolling content, a platform-native bar owns the placement, or persistence would duplicate a nearby primary action. Do not pass numeric placement overrides from feature code.
 
@@ -50,6 +50,45 @@ External-exemplar preserve/translate/reject ledger: Preserve the calm corner bal
 Kwilt localization: This is an optical contract, not a demand that every bottom action look alike. Conversation Live Dock, action docks, and full-width drawer buttons share placement while retaining their own semantics and state presentation.
 
 Last reviewed: 2026-08-17.
+
+### Capability Onboarding Step
+
+Job: When a capability asks for one setup decision or reports one setup phase, the user needs a
+friendly, stable full-screen frame whose visual anchors do not jump between steps.
+
+Status: Canonical. Explicit product/design-owner approval: Andrew, 2026-08-20.
+
+Approved routes: Sequential capability-owned setup moments after a value-door introduction and
+before entry into the application page. Money Target, Connect, Analyze, and Ready are the first
+accepted implementation.
+
+Three-second read: One setup moment, one grounded illustration, one decision or truthful status,
+and at most one persistent action.
+
+Scan order: Fixed logo/counter/close chrome -> centered two-line title region -> fixed illustration
+anchor -> vertically centered decision or status -> canonical full-width action dock.
+
+Anatomy: `CapabilityOnboardingStepScreen` owns the Parchment canvas, a 44pt top-chrome row, a
+112pt minimum title slot using `titleMd`, a 232pt illustration slot, a flexible centered decision
+slot, safe-area-aware scroll clearance, and `FullWidthActionDock`. Capability code does not replace
+these dimensions or recreate the shell.
+
+State continuity: Meaningfully different steps use distinct illustrations within one character,
+setting, and rendering family. Transient substates of one step retain that step's illustration so
+the dominant visual anchor does not move. External flows such as Plaid are temporary excursions;
+their preparation, return, exchange, cancellation, and recovery remain owned by the same step.
+
+Responsive and accessibility behavior: Titles reserve two lines even when copy uses one. Content
+may scroll at enlarged text sizes without moving the action into scroll content. The counter has a
+spoken capability-specific label, close remains a 44pt target, images have semantic labels, status
+changes use live regions, and Reduce Motion follows the canonical loader and button behavior.
+
+Do not use when: The capability is still making its value promise, the user has already entered a
+native application page, multiple independent decisions are required, or the moment is better
+served by an inline empty state. Do not add a progress track, cards, page chrome, floating gauges,
+ambiguous physical objects, or a second primary action.
+
+Last reviewed: 2026-08-20.
 
 ## Initial Atlas
 
@@ -65,7 +104,7 @@ Last reviewed: 2026-08-17.
 | Searchable relation choice | `RelationPickerField` / `ObjectPicker` | Candidate | Search, results, selected relationship, clear empty state. Presentation remains scope-sensitive. |
 | Contextual menu | `DropdownMenu` and title-adjacent three-dot trigger | Candidate | Current surface remains primary; low-frequency actions are grouped and destructive actions are last. |
 | Empty / permission / failure | `EmptyState`, `Dialog`, or inline feedback according to interruption cost | Candidate | What happened, what can be done now, one recovery action. Illustration remains secondary. |
-| Focused emotional moment | Capability-local full-screen composition using tokens and Canonical actions | Local | One message and one action; illustration supports rather than competes. |
+| Focused emotional moment | `CapabilityOnboardingStepScreen` for sequential setup; capability-local composition for one-off moments | Candidate | One message and one action; illustration supports rather than competes. |
 
 ## Airbnb-informed Candidate Patterns
 

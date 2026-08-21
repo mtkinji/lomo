@@ -32,7 +32,14 @@ export type CapabilityNavigationTarget =
     }
   | {
       name: 'Money';
-      params: { screen: 'MoneySummary' | 'MoneyTransactions' | 'MoneyAccounts' };
+      params: {
+        screen: 'MoneyEntry';
+        params: {
+          requestedPlace: 'MoneySummary' | 'MoneyTransactions' | 'MoneyAccounts';
+          source: 'capability-menu';
+          mode: 'automatic';
+        };
+      };
     }
   | {
       name: 'Explore';
@@ -66,7 +73,17 @@ export function resolveCapabilityNavigation(id: CapabilityNavigationId): Capabil
   }
 
   if (rootRoute.root === 'Money') {
-    return { name: 'Money', params: { screen: rootRoute.screen } };
+    return {
+      name: 'Money',
+      params: {
+        screen: 'MoneyEntry',
+        params: {
+          requestedPlace: rootRoute.screen,
+          source: 'capability-menu',
+          mode: 'automatic',
+        },
+      },
+    };
   }
   if (rootRoute.root === 'Explore') {
     return { name: 'Explore', params: { screen: rootRoute.screen } };
