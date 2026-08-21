@@ -1,7 +1,9 @@
 import {
   buildImageGenerationRequest,
+  buildRecipeImageQaInstructions,
   decideRecipeImageQa,
   parseRecipeImageQa,
+  parseRecipeImageListFilters,
   parseRecipeImageQueuePolicy,
   validateRecipeImageReview,
   verifyWebpEnvelope,
@@ -42,6 +44,25 @@ Deno.test("queue policy preserves weekly release time and bounded paid attempts"
   assert(rejected, "invalid queue policy was accepted");
 });
 
+Deno.test("image review listing can be bounded to one editorial batch", () => {
+  const filters = parseRecipeImageListFilters({
+    status: "rejected",
+    limit: 250,
+    rosterIds: ["DI101", "DI102", "DI101"],
+    promptVersion: "kwilt-recipe-hero-v2",
+  });
+  assert(filters.status === "rejected", "status filter drifted");
+  assert(filters.rosterIds?.join(",") === "DI101,DI102", "batch roster filter was not normalized");
+  assert(filters.promptVersion === "kwilt-recipe-hero-v2", "prompt version filter drifted");
+  let rejected = false;
+  try {
+    parseRecipeImageListFilters({ rosterIds: ["DI101", "unsafe"] });
+  } catch {
+    rejected = true;
+  }
+  assert(rejected, "invalid roster filter was accepted");
+});
+
 Deno.test("semantic QA parser is strict and bounded", () => {
   const qa = parseRecipeImageQa({
     identityScore: 5,
@@ -62,6 +83,18 @@ Deno.test("semantic QA parser is strict and bounded", () => {
     rejected = true;
   }
   assert(rejected, "malformed QA was accepted");
+});
+
+Deno.test("semantic QA instructions define one unambiguous positive score direction", () => {
+  const instructions = buildRecipeImageQaInstructions();
+  assert(instructions.includes("5 = excellent"), "best score is not defined");
+  assert(instructions.includes("1 = severe failure"), "worst score is not defined");
+  assert(instructions.includes("All five score fields use this same direction"), "score direction is not universal");
+  assert(instructions.includes("Do not assign 1 to an acceptable image"), "false-rejection guard is missing");
+  assert(
+    instructions.includes("Do not penalize the exact visible count of supporting serving accompaniments"),
+    "supporting-accompaniment quantity guard is missing",
+  );
 });
 
 Deno.test("semantic QA only advances faithful candidates", () => {

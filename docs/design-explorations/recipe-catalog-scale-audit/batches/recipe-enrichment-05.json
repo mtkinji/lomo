@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-05",
+  "manifestHash": "sha256:d8e17bea499721a8bef0d92ef1574bfa527c16ca7da327a0d2ace9960ae39bf9",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "BR071",
+      "sourceRecipeHash": "sha256:db46aa5d6efe4578ea1063ef307c8ece3edd7f74de5ec82eb54b4c3066114a02",
+      "title": "Syrniki",
+      "cuisine": "Ukrainian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR072",
+      "sourceRecipeHash": "sha256:25632e53c979cf0abdd1b38fc03184c4a3ba8a47ccdf13d42c3ecb6b14cad3d2",
+      "title": "Buckwheat blini",
+      "cuisine": "Russian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR073",
+      "sourceRecipeHash": "sha256:9c49faabeeddde826eab8dbcec63061a6912201faadb144a7fc2fd0513aff17e",
+      "title": "Adjarian khachapuri breakfast",
+      "cuisine": "Georgian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR074",
+      "sourceRecipeHash": "sha256:d44f10d467671b82b596d2beedcc65d9db294bb491ed8bf9a08213860a5ad13a",
+      "title": "Bourekas with egg and salad",
+      "cuisine": "Israeli",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR075",
+      "sourceRecipeHash": "sha256:a33ee78d41c57e4f5b17d8fbea757950bba1cbdcd8a24b1639ba3859cbc0c489",
+      "title": "Calentado with eggs",
+      "cuisine": "Colombian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR076",
+      "sourceRecipeHash": "sha256:64ed647ac653b9973936baea593cf6a49844e275dee0ef2d4239ebb2689610db",
+      "title": "Gallo pinto with eggs",
+      "cuisine": "Costa Rican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR077",
+      "sourceRecipeHash": "sha256:ca3aacc53904cdcaf9c09f8462293eeb9582950a692ada39c2ebd3918467466b",
+      "title": "Mangú with eggs",
+      "cuisine": "Dominican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR078",
+      "sourceRecipeHash": "sha256:e01c259e1a2049a5596e570d83968e71ae07f3407160a1731991bedd35751165",
+      "title": "Ackee and saltfish",
+      "cuisine": "Jamaican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR079",
+      "sourceRecipeHash": "sha256:7b882e53076d230df35837f62122fb643f1402fa4d21c0c0026169b3ba120f6d",
+      "title": "Haitian spaghetti breakfast",
+      "cuisine": "Haitian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR080",
+      "sourceRecipeHash": "sha256:dd052d5150ff3541f66969df6d4d5d74d2dc4e5e3ede7616099c2b2c1d8858d7",
+      "title": "Cuscuz nordestino with eggs",
+      "cuisine": "Brazilian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR081",
+      "sourceRecipeHash": "sha256:890c35255adcd54648ba9ba9055cf0012e1df1c531e22c4b02c77c325fb31970",
+      "title": "Arepas with scrambled eggs",
+      "cuisine": "Venezuelan",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR082",
+      "sourceRecipeHash": "sha256:0c09fca9963bb73409534aa7c77901a1634d74d047685053e5e70acee42f1502",
+      "title": "Tamal peruano breakfast",
+      "cuisine": "Peruvian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR083",
+      "sourceRecipeHash": "sha256:904200f3d4b217cb54dcf46cbf682416cc3a5bb3c28054e61f6f94af3b1b8c59",
+      "title": "Casamiento with eggs",
+      "cuisine": "Salvadoran",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR084",
+      "sourceRecipeHash": "sha256:95d54b619b6c9236baf4b4b9097b59f284c759f8b1daff1eab6c6b1d4531e49e",
+      "title": "Mealie pap with tomato and eggs",
+      "cuisine": "South African",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR085",
+      "sourceRecipeHash": "sha256:42737f2c81bd8352514968acc1977953a006b71c42e0c47336c6f11d4bf3ce97",
+      "title": "Chechebsa firfir",
+      "cuisine": "Ethiopian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR086",
+      "sourceRecipeHash": "sha256:60e76604dafc3bed9bf65f49a3baddac3931b8030cfc98c3c67df20b7a4286a7",
+      "title": "Msemen with honey",
+      "cuisine": "Moroccan",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR087",
+      "sourceRecipeHash": "sha256:ee2c96ee1c80e5b32055cfb727dd52ede1d2d56599a7b799788f392e36b48a94",
+      "title": "Akara with pap",
+      "cuisine": "Nigerian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR088",
+      "sourceRecipeHash": "sha256:5734b7a2a972652d68e25e47d630ad09201e0adf3edd7467903c6528eebb310c",
+      "title": "Avocado toast with poached eggs",
+      "cuisine": "Australian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR089",
+      "sourceRecipeHash": "sha256:92e2f3c0bd355b76efbc5ebef48873dd4200836d5c98ae89d83eb5a6297adc75",
+      "title": "Overnight oats with berries",
+      "cuisine": "Modern",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR090",
+      "sourceRecipeHash": "sha256:19fa1df1b6126ef4a0b3d5039e03514d5916236e3862f8be37f10f7c3374f74e",
+      "title": "Yogurt granola breakfast parfait",
+      "cuisine": "Modern",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE001",
+      "sourceRecipeHash": "sha256:d785493ad65591a96f7fd1b63c4c38b84e10e97a2b51e31d7c9cf824dee0626a",
+      "title": "Chewy chocolate chip cookies",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE002",
+      "sourceRecipeHash": "sha256:89c3be68c8151d17040655ee362e544b273feb947810e4e08555941634794925",
+      "title": "Fudgy chocolate brownies",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE003",
+      "sourceRecipeHash": "sha256:4833a5e49eee346217d5e1e5a9db669191466297270b76cf2b130ca7baceb8ca",
+      "title": "Classic apple pie",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE004",
+      "sourceRecipeHash": "sha256:9696ab16bb1e63a56e66881d8d6755935fa3fe0a35de4d10c263f52d7af614e4",
+      "title": "Cinnamon apple crisp",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DE005",
+      "sourceRecipeHash": "sha256:0d63cde0afb49da6af3db455ecf9e12c233d971b95edc96611e6748856e73cdb",
+      "title": "New York-style cheesecake",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

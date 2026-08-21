@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-11",
+  "manifestHash": "sha256:db6e038569f6f0228602fb4ef69ff60c538a4d9dcdc1c3ada34a543ccdbd2819",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DI101",
+      "sourceRecipeHash": "sha256:04d3611fc8f1a2e695f925e5150be41512e0988e7668f799829519ae1e25e7d8",
+      "title": "Soy sauce chicken",
+      "cuisine": "Cantonese Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI102",
+      "sourceRecipeHash": "sha256:e476fb94ec37d96fec188eb58b89f420841188be9bdbd6bfae51120220591030",
+      "title": "Steamed fish with ginger scallion",
+      "cuisine": "Cantonese Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI103",
+      "sourceRecipeHash": "sha256:380ad3fbb7670f778f0814f35f8c8f831ee476f263998dd73c12991f6c5a5c3f",
+      "title": "Salt and pepper shrimp",
+      "cuisine": "Cantonese Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI104",
+      "sourceRecipeHash": "sha256:afb9e37fec3eba16dfa3e03aec436babbe641872ebf7b23b12a8490823b607cd",
+      "title": "Chicken chow mein",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI105",
+      "sourceRecipeHash": "sha256:ae6b1607222b330c53c7819e63ffbafc46da66db6f4f82bad5f10927326c0938",
+      "title": "Yangzhou fried rice",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI106",
+      "sourceRecipeHash": "sha256:264ef7842bad87ebf6bd7672c180d84b4ee8cb1be4a42622e140a42687706ecb",
+      "title": "Moo shu pork",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI107",
+      "sourceRecipeHash": "sha256:1f243e8b49a5febd37ea56dab987195a667d603b0d1677e4e2247dbd37f8abb7",
+      "title": "Peking duck pancakes",
+      "cuisine": "Beijing Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI108",
+      "sourceRecipeHash": "sha256:ac1a386ef49ef1f9c20daf633d217f8fd052f990d24c9e79b09ffeaf59ed5721",
+      "title": "Red-braised pork belly",
+      "cuisine": "Shanghai Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI109",
+      "sourceRecipeHash": "sha256:a7bd9165991a84791dc77021527f5f697013b9e9863b541dce0865c94c0eab90",
+      "title": "Scallion oil noodles",
+      "cuisine": "Shanghai Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI110",
+      "sourceRecipeHash": "sha256:67dc7b43d203ede9d172696bb65379e92375c7f56ef9b0f0d4b90f91a5455045",
+      "title": "Biang biang noodles",
+      "cuisine": "Xi'an Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI111",
+      "sourceRecipeHash": "sha256:fca58e2f3a9b7db1bcf404fae177ba4d5d29ec053ddce2822907245482fc67dd",
+      "title": "Hand-pulled beef noodles",
+      "cuisine": "Lanzhou Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI112",
+      "sourceRecipeHash": "sha256:b38fdd2ccf9fa3e6d9df9e690e7d8723b6ac556d94fe22b3b49bd0146235973f",
+      "title": "Crossing-the-bridge rice noodles",
+      "cuisine": "Yunnan Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI113",
+      "sourceRecipeHash": "sha256:fa21fc2a63a31f2c2df0383c8a2874a42bd35dd29284c947931452d7e51832a7",
+      "title": "Di san xian",
+      "cuisine": "Dongbei Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI114",
+      "sourceRecipeHash": "sha256:4f41b03aab673f11cd0ff420d7d01bb10fd7fe9d1971af3112df5f6d049060f5",
+      "title": "Three cup chicken",
+      "cuisine": "Taiwanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI115",
+      "sourceRecipeHash": "sha256:101a462907ae0bb85895dbacb64898bed6b06f725035fd6e9499226ff86d110e",
+      "title": "Lu rou fan",
+      "cuisine": "Taiwanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI116",
+      "sourceRecipeHash": "sha256:d1e4b1d5952f2c1c4cf2beb47ec4c637b33be6db606109e8765259f0ec1b9e27",
+      "title": "Lion's head meatballs",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI117",
+      "sourceRecipeHash": "sha256:d96710135cbc104680ada67165e3386b9bf7ea79b0b1f1f4c62ea3f1d605169a",
+      "title": "Butter chicken",
+      "cuisine": "North Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI118",
+      "sourceRecipeHash": "sha256:aed60fa53d00ddc3337c45e78933039b099d9683404714416a96c34d7b5c9c66",
+      "title": "Chicken tikka masala",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI119",
+      "sourceRecipeHash": "sha256:99ff808242c3a21a5b7de816da3e481326afb428bf1ad2fde950523560931bf7",
+      "title": "Rogan josh",
+      "cuisine": "North Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI120",
+      "sourceRecipeHash": "sha256:4036ccee0f03180a762ebdf25f8947ba1a2d36a4d783378beacacb54a8b3f09d",
+      "title": "Saag paneer",
+      "cuisine": "Punjabi Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI121",
+      "sourceRecipeHash": "sha256:3998dc550f5e562dca77e96f918b4474db1adc8cf25138f8a2d338d5e8dcd10c",
+      "title": "Chana masala",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI122",
+      "sourceRecipeHash": "sha256:fa66bf68a2b2e706680b6cc9e9ebd5a5e4c40f511dcf847a7f5258334d805750",
+      "title": "Dal tadka",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI123",
+      "sourceRecipeHash": "sha256:9a1b1a06e8d92acc2da0f64d68c30bd001d240949a8c88d629d22dbd611af057",
+      "title": "Malai kofta",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI124",
+      "sourceRecipeHash": "sha256:7ae1bf1b40e4dc12d48157c8b74ebf136a0f9ba2606fec360ff4e9634e0b5dc5",
+      "title": "Palak chicken",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI125",
+      "sourceRecipeHash": "sha256:490e40f382c48fa694569f60c5823f3ae7169d53dc60a5d5532d20ff73af2dea",
+      "title": "Paneer butter masala",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

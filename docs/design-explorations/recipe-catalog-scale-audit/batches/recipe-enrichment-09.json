@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-09",
+  "manifestHash": "sha256:01b49f7e18ea29e1e16e0912514040126ddfd8a1ae10efa5962a3c0ee0bf39cb",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DI051",
+      "sourceRecipeHash": "sha256:e3c87874790e3d1c8496650a102e702c5aa090c18378d999064fc46240e50a25",
+      "title": "Eggplant parmigiana",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI052",
+      "sourceRecipeHash": "sha256:f39912d5823e9d1e49a7f46e638559a376ac41019e385d3f3785e28fbfb12ed3",
+      "title": "Chicken piccata",
+      "cuisine": "Italian-American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI053",
+      "sourceRecipeHash": "sha256:b211fd5865dd74f624de41357989d678358d4d11f3444c0725973371c6fc8619",
+      "title": "Osso buco",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI054",
+      "sourceRecipeHash": "sha256:d73e22a3ca378bc81ec2c67011431b7158c6bd525bb8bc0587d936cc133125e4",
+      "title": "Chicken saltimbocca",
+      "cuisine": "Roman Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI055",
+      "sourceRecipeHash": "sha256:02153a6f78861c247b22c954378df6b84bf155fc80070114993f17ca140f38c9",
+      "title": "Risotto alla milanese",
+      "cuisine": "Milanese Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI056",
+      "sourceRecipeHash": "sha256:3665b88ceb89eed693cf9ebd3b6226ab3da14a1c92412259ffaca2e5ad11645f",
+      "title": "Wild mushroom risotto",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI057",
+      "sourceRecipeHash": "sha256:709e1698d02815d4c18dfae35b2f346b58a0133472fd46be6d73b48633eafc76",
+      "title": "Potato gnocchi with brown butter sage",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI058",
+      "sourceRecipeHash": "sha256:18a0cb9e335311944e76ddbe6ef552d5244575481d495086c7d3242e2c3d339a",
+      "title": "Ricotta ravioli with tomato butter",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI059",
+      "sourceRecipeHash": "sha256:7616a059a105fc1a5104355be051864ebe3a59a17b2ac672eed1fffcc50574d0",
+      "title": "Spinach ricotta manicotti",
+      "cuisine": "Italian-American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI060",
+      "sourceRecipeHash": "sha256:c1fbfa43b18679cb0172623a75040aa6ac342c41e57f62596c03802070e40c3d",
+      "title": "Pizza margherita",
+      "cuisine": "Neapolitan Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI061",
+      "sourceRecipeHash": "sha256:887dc4adff4d5f68898fd1bc070526df12481035b9e23cbd8b95aa7575bf32d3",
+      "title": "Sicilian sheet-pan pizza",
+      "cuisine": "Sicilian Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI062",
+      "sourceRecipeHash": "sha256:99c04affefa7bfe0e757dca55fdb7fe00b96814c80d425731257979ab7622705",
+      "title": "Chicken cacciatore",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI063",
+      "sourceRecipeHash": "sha256:0c8fb34c847d6af85d46cf32b1f60ccf0e1e1ee1b96c6424b160784ca19f6ff3",
+      "title": "Roasted branzino with lemon",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI064",
+      "sourceRecipeHash": "sha256:25c412db64c732994d44f5dd0ed301baf0d2d880f7e55cf4a4d992ea200ed7da",
+      "title": "Porchetta with fennel and herbs",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI065",
+      "sourceRecipeHash": "sha256:017466e53e1bc12118d254b2e228073dfcf584f31f1b1e001aa1575b2dab5736",
+      "title": "Creamy polenta with beef ragù",
+      "cuisine": "Northern Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI066",
+      "sourceRecipeHash": "sha256:1bfba669439205df33e035efe7d930bcd9c1701eba1f4787d84623adffe31388",
+      "title": "Sausage and peppers",
+      "cuisine": "Italian-American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI067",
+      "sourceRecipeHash": "sha256:6d2518d0afbd1d0d0f721d788af294028032fc0a532adaef66b9f7f9ec5f5390",
+      "title": "Red chicken enchiladas",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI068",
+      "sourceRecipeHash": "sha256:3e10e09a1d1266fc3316fac0da5c56397687001753ac4e0429d922f801429b1a",
+      "title": "Birria de res",
+      "cuisine": "Jalisco Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI069",
+      "sourceRecipeHash": "sha256:5ab5caadea05d1eee813f1f011d9d00d3cd3ba8925566a1fc637cf844eab1288",
+      "title": "Carne asada",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI070",
+      "sourceRecipeHash": "sha256:c9a9483de40b9683680fb3eee0755e0cc803d081b4f1c73cb05c0389a97cbb94",
+      "title": "Tacos al pastor platter",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI071",
+      "sourceRecipeHash": "sha256:ea9a3f5631b567e95e048d58e09b1c740955b2b124adf4fcb83340ee46fbc7a7",
+      "title": "Cochinita pibil",
+      "cuisine": "Yucatecan Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI072",
+      "sourceRecipeHash": "sha256:22c3f5afd0af035ef15a6b7c8bd7f14b7b77038825a7ce4c368109c7dcfc83a3",
+      "title": "Carnitas",
+      "cuisine": "Michoacán Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI073",
+      "sourceRecipeHash": "sha256:34335d56637b8dcee44150ce13d1ee90160510e57eef514706ba99b6403eadde",
+      "title": "Chiles rellenos",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI074",
+      "sourceRecipeHash": "sha256:2f8f7d5447cf8a2b6744531276c72c185058592a84b6d8db8c4b9d3ba6ab980f",
+      "title": "Mole poblano chicken",
+      "cuisine": "Puebla Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI075",
+      "sourceRecipeHash": "sha256:e450534bab0c2fe85cfc1b3540eabc66fdb7f8cdf24bd4979e0c7d79a59ee8c5",
+      "title": "Red chile pork tamales",
+      "cuisine": "Mexican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

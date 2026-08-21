@@ -1,0 +1,5518 @@
+{
+  "schemaVersion": 2,
+  "source": "kwilt-codex-reviewed-recipe-enrichment",
+  "batchId": "recipe-enrichment-05",
+  "manifestHash": "sha256:d8e17bea499721a8bef0d92ef1574bfa527c16ca7da327a0d2ace9960ae39bf9",
+  "recipes": [
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR071",
+      "sourceRecipeHash": "sha256:db46aa5d6efe4578ea1063ef307c8ece3edd7f74de5ec82eb54b4c3066114a02",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 pound full-fat farmer cheese or tvorog",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "full-fat farmer cheese or tvorog",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 large egg",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large egg",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "3 tablespoons granulated sugar",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "granulated sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 teaspoon vanilla extract",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "vanilla extract",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 teaspoon kosher salt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup all-purpose flour, divided",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "all-purpose flour",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 6,
+          "originalText": "2 tablespoons fine semolina",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "fine semolina",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "3 tablespoons neutral oil, divided",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 8,
+          "originalText": "Sour cream and berry preserves, for serving",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "sour cream and berry preserves",
+          "preparation": "for serving",
+          "optional": true,
+          "parseConfidence": 0.82
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "skillet",
+        "reviewCategoryId": "10-inch-nonstick-skillet",
+        "rationale": "A sound nonstick surface lets the delicate, low-flour cheese cakes brown deeply and turn without tearing.",
+        "noPurchaseAlternative": "Use a sturdy 10-inch nonstick skillet already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "syrniki-br071",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "skillet",
+          "label": "10-inch nonstick skillet",
+          "reviewCategoryId": "10-inch-nonstick-skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 3,
+          "phrase": "nonstick skillet",
+          "needId": "skillet",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Ukraine",
+        "region": "Ukrainian cheese-cake traditions",
+        "markers": [
+          {
+            "label": "Ukraine",
+            "latitude": 48.3794,
+            "longitude": 31.1656
+          }
+        ],
+        "map": {
+          "center": [
+            31.1656,
+            48.3794
+          ],
+          "scale": 620,
+          "highlightedCountryIds": [
+            "804"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Syrnyky are Ukrainian farmer-cheese cakes shaped from a restrained dough, lightly floured outside, and pan-browned until the cheese center sets.",
+          "Syrnyky belong across several Eastern European traditions; this Ukrainian roster entry uses the dry farmer-cheese, shaped-cake form and does not claim exclusivity. This Kwilt version follows the reviewed household adaptation: Make a shaped, flour-dusted cheese cake so it remains structurally and texturally distinct from BR068 quark batter pancakes."
+        ],
+        "sources": [
+          {
+            "title": "Ukrainian Syrniki",
+            "publisher": "Natasha's Kitchen",
+            "url": "https://natashaskitchen.com/ukrainian-syrniki-recipe/"
+          },
+          {
+            "title": "Traditional Ukrainian Syrnyky",
+            "publisher": "Ukrainian Recipes",
+            "url": "https://ukrainian-recipes.com/cottage-cheese-pancakes-syrniki.html"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br071/kwilt-recipe-hero-v2/6b53c9bd529042fe-b8fe29eb28048733/candidate-0.webp",
+        "altText": "Golden Ukrainian syrnyky with lightly textured cheese centers, sour cream, and berry preserves.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR072",
+      "sourceRecipeHash": "sha256:25632e53c979cf0abdd1b38fc03184c4a3ba8a47ccdf13d42c3ecb6b14cad3d2",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 cup buckwheat flour",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "buckwheat flour",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1/2 cup all-purpose flour",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "all-purpose flour",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 teaspoon instant yeast",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "instant yeast",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 teaspoon granulated sugar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "granulated sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 teaspoon kosher salt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 1/2 cups whole milk, warm",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "whole milk",
+          "preparation": "warm",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 large eggs, separated",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large eggs",
+          "preparation": "separated",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "3 tablespoons unsalted butter, melted and divided",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": "melted and divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 8,
+          "originalText": "3/4 cup sour cream",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "sour cream",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "6 ounces cold-smoked salmon",
+          "quantityMin": 6,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "cold-smoked salmon",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "2 tablespoons chopped dill",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "chopped dill",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 11,
+          "originalText": "Lemon wedges, for serving",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "lemon wedges",
+          "preparation": "for serving",
+          "optional": true,
+          "parseConfidence": 0.82
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "griddle",
+        "reviewCategoryId": "cast-iron-skillet",
+        "rationale": "A heavy surface keeps moderate-low heat stable so the small fermented blini aerate and cook through without scorching.",
+        "noPurchaseAlternative": "Use a sturdy heavy skillet or griddle already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "buckwheat-blini-br072",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "griddle",
+          "label": "Heavy skillet or griddle",
+          "reviewCategoryId": "cast-iron-skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 2,
+          "phrase": "heavy skillet or griddle",
+          "needId": "griddle",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Russia",
+        "region": "Russian blini traditions",
+        "markers": [
+          {
+            "label": "Russia",
+            "latitude": 61.524,
+            "longitude": 105.3188
+          }
+        ],
+        "map": {
+          "center": [
+            105.3188,
+            61.524
+          ],
+          "scale": 430,
+          "highlightedCountryIds": [
+            "643"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Blini have a long place in Russian food culture; this yeast-raised buckwheat version uses folded egg whites for small aerated rounds served warm.",
+          "Russian blini vary in grain, size, and thickness. This is the small yeasted buckwheat form familiar for savory toppings, not a claim that all Russian blini use buckwheat. This Kwilt version follows the reviewed household adaptation: Use a yeast-raised buckwheat-and-wheat batter for both clear grain character and dependable home-kitchen structure."
+        ],
+        "sources": [
+          {
+            "title": "Blini",
+            "publisher": "King Arthur Baking",
+            "url": "https://www.kingarthurbaking.com/recipes/blini-recipe"
+          },
+          {
+            "title": "The Long Lost History of Russian Blinis",
+            "publisher": "The Moscow Times",
+            "url": "https://www.themoscowtimes.com/2023/02/18/the-long-lost-history-of-russian-blinis-a80265"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br072/kwilt-recipe-hero-v2/67f10ce58771b8f3-7f660dffbf1ee3f2/candidate-1.webp",
+        "altText": "Small yeast-raised buckwheat blini with sour cream, smoked salmon, dill, and lemon.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR073",
+      "sourceRecipeHash": "sha256:9c49faabeeddde826eab8dbcec63061a6912201faadb144a7fc2fd0513aff17e",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Advanced",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "3 cups bread flour",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "bread flour",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 teaspoon instant yeast",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "instant yeast",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 teaspoon granulated sugar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "granulated sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 1/4 teaspoons kosher salt, divided",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 4,
+          "originalText": "1 cup warm water",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "warm water",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons olive oil",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "10 ounces low-moisture mozzarella, shredded",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "low-moisture mozzarella",
+          "preparation": "shredded",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "6 ounces feta, crumbled",
+          "quantityMin": 6,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "feta",
+          "preparation": "crumbled",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "1/2 cup whole-milk ricotta, drained",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "whole-milk ricotta",
+          "preparation": "drained",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "4 pasteurized large eggs",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pasteurized large eggs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "4 tablespoons unsalted butter",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "sheet-pan",
+        "reviewCategoryId": "rimmed-half-sheet",
+        "rationale": "A preheated heavy sheet pan provides the hot rigid launch surface that browns the boat-shaped dough before the egg is added.",
+        "noPurchaseAlternative": "Preheat the heaviest rimmed sheet already owned and transfer the shaped boats on parchment."
+      },
+      "publication": {
+        "slug": "adjarian-khachapuri-breakfast-br073",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "sheet-pan",
+          "label": "Heavy rimmed sheet pan",
+          "reviewCategoryId": "rimmed-half-sheet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "heavy sheet pan",
+          "needId": "sheet-pan",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Adjara, Georgia",
+        "region": "Black Sea coast · South Caucasus",
+        "markers": [
+          {
+            "label": "Batumi",
+            "latitude": 41.646,
+            "longitude": 41.6415
+          }
+        ],
+        "map": {
+          "center": [
+            42,
+            42
+          ],
+          "scale": 1050,
+          "highlightedCountryIds": [
+            "268"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Khachapuri is not one bread but a Georgian family of cheese-filled breads, with forms tied to different regions. Adjarian khachapuri comes from Adjara on Georgia's Black Sea coast. Its open center, high rim, egg, and butter make it immediately distinct from the enclosed round breads of Imereti or the cheese-topped versions associated with Samegrelo.",
+          "The familiar story says the boat shape reflects Adjara's sailors and fishermen, with the egg standing in for the sun over the sea. Georgia's own tourism sources present that as a popular origin account, not settled documentary history. The useful tradition is how it is eaten: stir the hot egg and butter into the cheese, then tear pieces from the bread rim and dip. Kwilt's smaller breakfast boats preserve that shared, hands-on finish."
+        ],
+        "sources": [
+          {
+            "title": "Rediscovering Khachapuri, Georgia's must-try classic",
+            "publisher": "Georgia Travel",
+            "url": "https://georgia.travel/rediscovering-khachapuri-georgias-must-try-classic"
+          },
+          {
+            "title": "Khachapuri: True Symbol of Georgian Cuisine",
+            "publisher": "Georgia Travel",
+            "url": "https://georgia.travel/get-a-taste-of-khachapuri"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br073/kwilt-recipe-hero-v1/4e18441f198f21a1-88b16d8b0725ad84/candidate-0.webp",
+        "altText": "Boat-shaped Adjarian khachapuri with melted cheese, a soft egg, and butter.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR074",
+      "sourceRecipeHash": "sha256:d44f10d467671b82b596d2beedcc65d9db294bb491ed8bf9a08213860a5ad13a",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Advanced",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 pound all-butter puff pastry, thawed but cold",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "all-butter puff pastry",
+          "preparation": "thawed but cold",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "8 ounces russet potato, peeled and cubed",
+          "quantityMin": 8,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "russet potato",
+          "preparation": "peeled and cubed",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "5 ounces feta, crumbled",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "feta",
+          "preparation": "crumbled",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1/2 cup thick whole-milk yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "thick whole-milk yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "5 large eggs, divided",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large eggs",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons sesame seeds",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "sesame seeds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "3 Persian cucumbers, diced small",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "persian cucumbers",
+          "preparation": "diced small",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "3 ripe plum tomatoes, diced small",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "ripe plum tomatoes",
+          "preparation": "diced small",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "1/4 cup chopped parsley",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "chopped parsley",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "2 tablespoons extra-virgin olive oil",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "extra-virgin olive oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 11,
+          "originalText": "3/4 teaspoon kosher salt, divided",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 12,
+          "originalText": "1/2 cup tahini sauce and zhug, for serving",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "tahini sauce and zhug",
+          "preparation": "for serving",
+          "optional": true,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "sheet-pan",
+        "reviewCategoryId": "rimmed-half-sheet",
+        "rationale": "A rigid rimmed sheet keeps the cold pastry flat, catches any filling leaks, and supports deep even browning.",
+        "noPurchaseAlternative": "Use a sturdy rimmed half-sheet pan already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "bourekas-with-egg-and-salad-br074",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "sheet-pan",
+          "label": "Rimmed half-sheet pan",
+          "reviewCategoryId": "rimmed-half-sheet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 2,
+          "phrase": "parchment-lined sheet",
+          "needId": "sheet-pan",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Israel",
+        "region": "Israeli breakfast and boureka traditions",
+        "markers": [
+          {
+            "label": "Israel",
+            "latitude": 31.0461,
+            "longitude": 34.8516
+          }
+        ],
+        "map": {
+          "center": [
+            34.8516,
+            31.0461
+          ],
+          "scale": 760,
+          "highlightedCountryIds": [
+            "376"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Boureka traditions reached Israel through Sephardi and Ottoman migration and became a familiar breakfast pastry served with egg, chopped salad, tahini, and hot sauce.",
+          "Bourekas descend from Sephardic and Balkan Jewish börek traditions and became a shared Israeli bakery food. Shape and seed can signal filling, but conventions vary by bakery. This Kwilt version follows the reviewed household adaptation: Fully author the rostered plate, not merely the pastry, while naming the migration history behind an Israeli breakfast staple."
+        ],
+        "sources": [
+          {
+            "title": "Ziona's Turkish Bourekas",
+            "publisher": "Jewish Food Society",
+            "url": "https://www.jewishfoodsociety.org/stories/zionas-turkish-bourekas"
+          },
+          {
+            "title": "Cheese Bourekas",
+            "publisher": "Jewish Cuisine",
+            "url": "https://jewishcuisine.food/blog/cheese-bourekas-recipe"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br074/kwilt-recipe-hero-v2/ae78e418b2318434-e00e2fa356fd7bbf/candidate-1.webp",
+        "altText": "Puffed triangular bourekas with boiled egg, chopped Israeli salad, tahini, and zhug kept alongside.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR075",
+      "sourceRecipeHash": "sha256:a33ee78d41c57e4f5b17d8fbea757950bba1cbdcd8a24b1639ba3859cbc0c489",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "8 ounces Colombian-style fresh chorizo, casings removed",
+          "quantityMin": 8,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "colombian-style fresh chorizo",
+          "preparation": "casings removed",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 tablespoon neutral oil, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "1 small yellow onion, finely chopped",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small yellow onion",
+          "preparation": "finely chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 plum tomatoes, finely chopped",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "plum tomatoes",
+          "preparation": "finely chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 scallions, thinly sliced",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 teaspoon ground cumin",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "ground cumin",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 cups cold cooked white rice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "cold cooked white rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "2 cups cooked red beans with 1/2 cup bean liquid",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "cooked red beans with 1/2 cup bean liquid",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "3/4 teaspoon kosher salt",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "4 pasteurized large eggs",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pasteurized large eggs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "1 ripe avocado, sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "ripe avocado",
+          "preparation": "sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 11,
+          "originalText": "4 small arepas, warmed, for serving",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small arepas",
+          "preparation": "warmed, for serving",
+          "optional": true,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "skillet",
+        "reviewCategoryId": "cast-iron-skillet",
+        "rationale": "A broad skillet gives cold rice and beans room to reach a safe temperature while developing crisp edges instead of steaming.",
+        "noPurchaseAlternative": "Use a sturdy wide heavy skillet already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "calentado-with-eggs-br075",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "skillet",
+          "label": "Wide heavy skillet",
+          "reviewCategoryId": "cast-iron-skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "wide skillet",
+          "needId": "skillet",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Colombia",
+        "region": "Colombian leftover-breakfast traditions",
+        "markers": [
+          {
+            "label": "Colombia",
+            "latitude": 4.5709,
+            "longitude": -74.2973
+          }
+        ],
+        "map": {
+          "center": [
+            -74.2973,
+            4.5709
+          ],
+          "scale": 620,
+          "highlightedCountryIds": [
+            "170"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Calentado is a Colombian leftover breakfast that reheats rice and beans, often with hogao and meat, then serves them with eggs and other morning staples.",
+          "Calentado is a Colombian leftover practice, not one immutable recipe; rice and beans are the everyday base, while meat, plantain, arepa, and egg vary by region and household. This Kwilt version follows the reviewed household adaptation: Use a recognizable paisa-leaning breakfast plate while keeping the notes honest about calentado’s flexible leftover identity."
+        ],
+        "sources": [
+          {
+            "title": "Traditional Colombian Breakfast: Calentado",
+            "publisher": "My Colombian Recipes",
+            "url": "https://www.mycolombianrecipes.com/traditional-colombian-breakfast-calentado/"
+          },
+          {
+            "title": "Cómo se hace un verdadero calentao colombiano",
+            "publisher": "Infobae Colombia",
+            "url": "https://www.infobae.com/colombia/2025/06/12/como-se-hace-un-verdadero-calentao-colombiano-uno-de-los-mejores-desayunos-del-mundo-segun-taste-atlas/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br075/kwilt-recipe-hero-v2/35aac6681f6e9b19-fa94515a61d9c0a9/candidate-0.webp",
+        "altText": "Colombian calentado with rice, beans, hogao, chorizo, crisp edges, fried eggs, avocado, and arepas.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR076",
+      "sourceRecipeHash": "sha256:64ed647ac653b9973936baea593cf6a49844e275dee0ef2d4239ebb2689610db",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 tablespoons neutral oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 small yellow onion, finely diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small yellow onion",
+          "preparation": "finely diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 small red bell pepper, finely diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small red bell pepper",
+          "preparation": "finely diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 garlic cloves, minced",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "garlic cloves",
+          "preparation": "minced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 cups cooked black beans with 3/4 cup bean liquid",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "cooked black beans with 3/4 cup bean liquid",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "3 cups cold cooked long-grain white rice",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "cold cooked long-grain white rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "3 tablespoons Salsa Lizano",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "salsa lizano",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup chopped cilantro",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "chopped cilantro",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "3/4 teaspoon kosher salt, divided",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "4 pasteurized large eggs",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pasteurized large eggs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "Warm corn tortillas and natilla, for serving",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "warm corn tortillas and natilla",
+          "preparation": "for serving",
+          "optional": true,
+          "parseConfidence": 0.82
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "skillet",
+        "reviewCategoryId": "cast-iron-skillet",
+        "rationale": "A broad heavy skillet distributes bean liquid through cold rice while leaving enough room to fold without crushing the beans.",
+        "noPurchaseAlternative": "Use a sturdy wide heavy skillet already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "gallo-pinto-with-eggs-br076",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "skillet",
+          "label": "Wide heavy skillet",
+          "reviewCategoryId": "cast-iron-skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "wide skillet",
+          "needId": "skillet",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Costa Rica",
+        "region": "Costa Rican gallo pinto traditions",
+        "markers": [
+          {
+            "label": "Costa Rica",
+            "latitude": 9.7489,
+            "longitude": -83.7534
+          }
+        ],
+        "map": {
+          "center": [
+            -83.7534,
+            9.7489
+          ],
+          "scale": 780,
+          "highlightedCountryIds": [
+            "188"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Gallo pinto is central to Costa Rican breakfast and also has a distinct Nicaraguan tradition; this version uses a Costa Rican Central Valley profile with Salsa Lizano.",
+          "Gallo pinto is shared with Nicaragua and varies regionally. This Costa Rican Central Valley-style version uses black beans, sweet pepper, cilantro, and Salsa Lizano; it does not claim ownership of the wider dish. This Kwilt version follows the reviewed household adaptation: Use a Central Valley-leaning Costa Rican profile and a precise leftover reheating endpoint while acknowledging the Nicaraguan tradition."
+        ],
+        "sources": [
+          {
+            "title": "Gallo Pinto",
+            "publisher": "Cocina Costarricense",
+            "url": "https://www.recetasdecostarica.com/2008/01/gallo-pinto.html"
+          },
+          {
+            "title": "Costa Rican Gallo Pinto",
+            "publisher": "Pura Vida Moms",
+            "url": "https://puravidamoms.com/costa-rican-gallo-pinto-recipe/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br076/kwilt-recipe-hero-v2/25bf973b03441e5b-938eaf1769ce6000/candidate-1.webp",
+        "altText": "Costa Rican gallo pinto with separate rice and beans, fried eggs, warm tortillas, and natilla.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR077",
+      "sourceRecipeHash": "sha256:ca3aacc53904cdcaf9c09f8462293eeb9582950a692ada39c2ebd3918467466b",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "4 large green plantains",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large green plantains",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 teaspoons kosher salt, divided",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "4 tablespoons unsalted butter, divided",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 3,
+          "originalText": "1 large red onion, thinly sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large red onion",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons apple cider vinegar",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "apple cider vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons olive oil",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "4 pasteurized large eggs",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pasteurized large eggs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 ripe avocado, sliced, optional",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "ripe avocado",
+          "preparation": "sliced, optional",
+          "optional": true,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "saucepan",
+        "reviewCategoryId": "medium-saucepan",
+        "rationale": "A stable saucepan keeps plantain pieces submerged at a gentle boil until fully tender enough for a smooth mash.",
+        "noPurchaseAlternative": "Use a sturdy medium saucepan already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "mangu-with-eggs-br077",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "saucepan",
+          "label": "Medium saucepan",
+          "reviewCategoryId": "medium-saucepan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "boil gently",
+          "needId": "saucepan",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Dominican Republic",
+        "region": "Dominican plantain breakfast traditions",
+        "markers": [
+          {
+            "label": "Dominican Republic",
+            "latitude": 18.7357,
+            "longitude": -70.1627
+          }
+        ],
+        "map": {
+          "center": [
+            -70.1627,
+            18.7357
+          ],
+          "scale": 760,
+          "highlightedCountryIds": [
+            "214"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Mangú is a Dominican preparation of boiled green plantains mashed while hot and commonly served at breakfast with vinegary red onions and other accompaniments.",
+          "Mangú commonly anchors Los Tres Golpes with fried Dominican salami, frying cheese, and egg. This rostered egg-focused version is intentionally simpler and does not label itself the full three-hit plate. This Kwilt version follows the reviewed household adaptation: Honor the narrower roster title with mangú, onion, and egg while explaining rather than incompletely imitating Los Tres Golpes."
+        ],
+        "sources": [
+          {
+            "title": "Los Tres Golpes with Mangú",
+            "publisher": "Cocina Dominicana",
+            "url": "https://www.cocinadominicana.com/tres-golpes-desayuno-dominicano"
+          },
+          {
+            "title": "Mangú con Los Tres Golpes",
+            "publisher": "Visit Dominican Republic",
+            "url": "https://visitrepublicadominicana.com/recetas/mangu-con-los-tres-golpes"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br077/kwilt-recipe-hero-v2/29798140d057781d-da1b535aa87de77a/candidate-1.webp",
+        "altText": "Soft Dominican mangú topped with bright vinegary red onions and served with crisp-edged fried eggs.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR078",
+      "sourceRecipeHash": "sha256:e01c259e1a2049a5596e570d83968e71ae07f3407160a1731991bedd35751165",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-19",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "8 ounces boneless salt cod",
+          "quantityMin": 8,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "boneless salt cod",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "2 tablespoons neutral oil",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 small yellow onion, thinly sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small yellow onion",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1/2 green bell pepper, thinly sliced",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "green bell pepper",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 red bell pepper, thinly sliced",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "red bell pepper",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 scallions, sliced",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 garlic cloves, minced",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "garlic cloves",
+          "preparation": "minced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 plum tomato, diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "plum tomato",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 fresh thyme sprigs",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "fresh thyme sprigs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "1/4 Scotch bonnet pepper, seeded and minced, or to taste",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scotch bonnet pepper",
+          "preparation": "seeded and minced, or to taste",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 10,
+          "originalText": "1 can (19 ounces) ackee, drained carefully",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "ackee",
+          "preparation": "drained carefully",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 11,
+          "originalText": "1/2 teaspoon black pepper",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "black pepper",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 12,
+          "originalText": "Fried dumplings or boiled green banana, for serving",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "fried dumplings or boiled green banana",
+          "preparation": "for serving",
+          "optional": true,
+          "parseConfidence": 0.72
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "skillet",
+        "reviewCategoryId": "cast-iron-skillet",
+        "rationale": "A broad heavy skillet softens the aromatics and gives the delicate ackee room to heat with only a few folds.",
+        "noPurchaseAlternative": "Use a broad sturdy skillet already owned and fold the ackee only enough to heat it through."
+      },
+      "publication": {
+        "slug": "ackee-and-saltfish-br078",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "skillet",
+          "label": "Wide heavy skillet",
+          "reviewCategoryId": "cast-iron-skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "wide skillet",
+          "needId": "skillet",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Jamaica",
+        "region": "Caribbean",
+        "markers": [
+          {
+            "label": "Jamaica",
+            "latitude": 18.1096,
+            "longitude": -77.2975
+          }
+        ],
+        "map": {
+          "center": [
+            -75,
+            19
+          ],
+          "scale": 1050,
+          "highlightedCountryIds": [
+            "388"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Ackee and saltfish carries several parts of Jamaican history in one pan. Ackee came from West Africa; its Jamaican name traces to the Twi word ankye. The fruit became so closely identified with the island that it is now Jamaica's national fruit, while ackee cooked with salted cod is widely recognized as the national dish.",
+          "The pairing also reflects colonial trade and plantation life. Salted fish was durable imported food, while African cooks and their descendants shaped ingredients and techniques into a distinctly Jamaican cuisine. This version treats both ingredients with care: soak and gently flake the cod, use commercially canned ackee that has already been safely processed, and fold the tender fruit only a few times so it stays intact among the peppers, thyme, tomato, scallion, and Scotch bonnet."
+        ],
+        "sources": [
+          {
+            "title": "National Fruit — Ackee",
+            "publisher": "Office of the Prime Minister of Jamaica",
+            "url": "https://opm.gov.jm/symbols/national-fruit-ackee/"
+          },
+          {
+            "title": "History Notes: Jamaica's Culture & Heritage",
+            "publisher": "National Library of Jamaica",
+            "url": "https://nlj.gov.jm/history-notes-jamaica/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br078/kwilt-recipe-hero-v1/9572ee49638d9ee9-9a3fa11eb64e233f/candidate-2.webp",
+        "altText": "Ackee and saltfish with peppers and onion, fried dumplings, and boiled green banana.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR079",
+      "sourceRecipeHash": "sha256:7b882e53076d230df35837f62122fb643f1402fa4d21c0c0026169b3ba120f6d",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "12 ounces spaghetti",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "spaghetti",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "8 fully cooked beef hot dogs, sliced diagonally",
+          "quantityMin": 8,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "fully cooked beef hot dogs",
+          "preparation": "sliced diagonally",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "2 tablespoons neutral oil",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 green bell pepper, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "green bell pepper",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 4,
+          "originalText": "1 small yellow onion, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small yellow onion",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 5,
+          "originalText": "4 scallions, divided",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 6,
+          "originalText": "4 garlic cloves",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "garlic cloves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup flat-leaf parsley",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "flat-leaf parsley",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "4 fresh thyme sprigs, leaves stripped",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "fresh thyme sprigs",
+          "preparation": "leaves stripped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "1/2 Scotch bonnet pepper, seeded, or to taste",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scotch bonnet pepper",
+          "preparation": "seeded, or to taste",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 10,
+          "originalText": "2 tablespoons lime juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lime juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 11,
+          "originalText": "3 tablespoons tomato paste",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "tomato paste",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 12,
+          "originalText": "2 tablespoons ketchup",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "ketchup",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 13,
+          "originalText": "1 teaspoon kosher salt, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 14,
+          "originalText": "1 cup reserved pasta water",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "reserved pasta water",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "blender",
+        "reviewCategoryId": "blender",
+        "rationale": "A capable blender turns fresh aromatics into the coarse bright epis paste that grounds the finished sauce.",
+        "noPurchaseAlternative": "Use a sturdy high-powered blender already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "haitian-spaghetti-breakfast-br079",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "blender",
+          "label": "High-powered blender",
+          "reviewCategoryId": "blender"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "blend half the bell pepper",
+          "needId": "blender",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Haiti",
+        "region": "Haitian breakfast traditions",
+        "markers": [
+          {
+            "label": "Haiti",
+            "latitude": 18.9712,
+            "longitude": -72.2852
+          }
+        ],
+        "map": {
+          "center": [
+            -72.2852,
+            18.9712
+          ],
+          "scale": 760,
+          "highlightedCountryIds": [
+            "332"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Haitian spaghetti became a breakfast staple through local adaptation, commonly combining noodles with epis, tomato, ketchup, vegetables, and sliced hot dogs.",
+          "Haitian spaghetti varies by household and may use hot dogs, smoked sausage, Vienna sausage, or herring. Hot dogs and ketchup reflect the dish’s history during and after the U.S. occupation, not a failed attempt at Italian pasta. This Kwilt version follows the reviewed household adaptation: Fully author epis inside the recipe and retain the hot-dog-and-ketchup history rather than sanitizing away the dish’s Haitian identity."
+        ],
+        "sources": [
+          {
+            "title": "How Italian Spaghetti Became a Haitian Breakfast Staple",
+            "publisher": "Eater",
+            "url": "https://www.eater.com/2017/3/2/14780710/haitian-spaghetti"
+          },
+          {
+            "title": "Classic Haitian Spaghetti with Epis",
+            "publisher": "Food Fidelity",
+            "url": "https://www.foodfidelity.com/haitian-spaghetti/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br079/kwilt-recipe-hero-v2/bbe875789cb5ba81-0b109c0b0d77237f/candidate-1.webp",
+        "altText": "Haitian breakfast spaghetti coated in epis-tomato sauce with browned hot-dog slices, peppers, onion, and scallions.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR080",
+      "sourceRecipeHash": "sha256:dd052d5150ff3541f66969df6d4d5d74d2dc4e5e3ede7616099c2b2c1d8858d7",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cups Brazilian flocão cornmeal",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brazilian flocão cornmeal",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 cup cool water",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "cool water",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 teaspoon kosher salt, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 3,
+          "originalText": "4 tablespoons unsalted butter",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 cup boiling water",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "boiling water",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "4 pasteurized large eggs",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pasteurized large eggs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon white vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "white vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "Black pepper",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "black pepper",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.82
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons chopped parsley or cilantro",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "chopped parsley or cilantro",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "saucepan",
+        "reviewCategoryId": "medium-saucepan",
+        "rationale": "A stable saucepan provides the bare simmer needed to poach the eggs gently while the steamed corn stays fluffy.",
+        "noPurchaseAlternative": "Use a sturdy medium saucepan already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "cuscuz-nordestino-with-eggs-br080",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "saucepan",
+          "label": "Medium saucepan",
+          "reviewCategoryId": "medium-saucepan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 3,
+          "phrase": "wide pan of water",
+          "needId": "saucepan",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Northeastern Brazil",
+        "region": "Northeastern Brazilian corn breakfast traditions",
+        "markers": [
+          {
+            "label": "Northeastern Brazil",
+            "latitude": -8.0476,
+            "longitude": -34.877
+          }
+        ],
+        "map": {
+          "center": [
+            -34.877,
+            -8.0476
+          ],
+          "scale": 610,
+          "highlightedCountryIds": [
+            "076"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Cuscuz de milho is a defining breakfast in Northeastern Brazil, made by hydrating flocão cornmeal before steaming it into a tender, fragrant mass.",
+          "Nordestino cuscuz uses pre-cooked flaked cornmeal labeled flocão, not fine cornmeal, semolina couscous, or the ingredient-heavy São Paulo style. This Kwilt version follows the reviewed household adaptation: Use the canonical minimalist steamed base and a pasteurized poached egg, preserving the corn’s identity instead of turning it into a loaded bowl."
+        ],
+        "sources": [
+          {
+            "title": "Cuscuz de Milho com Ovo Pochê",
+            "publisher": "Panelinha",
+            "url": "https://panelinha.com.br/receita/cuscuz-milho-com-ovo-poche"
+          },
+          {
+            "title": "Cuscuz Nordestino com Ovo Pochê",
+            "publisher": "Globo Receitas",
+            "url": "https://receitas.globo.com/receitas-da-tv/cozinha-pratica/cuscuz-nordestino-com-ovo-poche-gnt.ghtml"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br080/kwilt-recipe-hero-v2/6d9dd68fe54f8eef-6f53830e7010c530/candidate-0.webp",
+        "altText": "Fluffy Northeastern Brazilian steamed corn cuscuz with soft poached eggs, butter, herbs, and black pepper.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR081",
+      "sourceRecipeHash": "sha256:890c35255adcd54648ba9ba9055cf0012e1df1c531e22c4b02c77c325fb31970",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Advanced",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 1/2 cups warm water",
+          "quantityMin": 2.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "warm water",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "2 teaspoons kosher salt, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "2 cups precooked white cornmeal for arepas",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "precooked white cornmeal for arepas",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 tablespoons neutral oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 4,
+          "originalText": "1 small yellow onion, finely diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small yellow onion",
+          "preparation": "finely diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 red bell pepper, finely diced",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "red bell pepper",
+          "preparation": "finely diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 plum tomatoes, seeded and diced",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "plum tomatoes",
+          "preparation": "seeded and diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "8 large eggs",
+          "quantityMin": 8,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large eggs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons unsalted butter",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "1/4 cup chopped cilantro",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "chopped cilantro",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "4 ounces queso fresco, crumbled, optional",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "queso fresco",
+          "preparation": "crumbled, optional",
+          "optional": true,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "griddle",
+        "reviewCategoryId": "cast-iron-skillet",
+        "rationale": "A heavy griddle develops a deep golden shell before the thick arepas finish through in the oven.",
+        "noPurchaseAlternative": "Use a sturdy heavy griddle or skillet already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "arepas-with-scrambled-eggs-br081",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "griddle",
+          "label": "Heavy griddle or skillet",
+          "reviewCategoryId": "cast-iron-skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "griddle over medium",
+          "needId": "griddle",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Venezuela",
+        "region": "Venezuelan arepa traditions",
+        "markers": [
+          {
+            "label": "Venezuela",
+            "latitude": 6.4238,
+            "longitude": -66.5897
+          }
+        ],
+        "map": {
+          "center": [
+            -66.5897,
+            6.4238
+          ],
+          "scale": 590,
+          "highlightedCountryIds": [
+            "862"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Venezuelan arepas are griddled cornmeal rounds split and filled in many ways; perico scrambled eggs with onion, pepper, and tomato make a familiar breakfast filling.",
+          "Arepas are shared across Venezuela and Colombia. This Venezuelan breakfast form uses perico—soft eggs with tomato, onion, and pepper—as the filling. This Kwilt version follows the reviewed household adaptation: Author both the corn pocket and its perico filling, with temperature and texture endpoints that remove guesswork."
+        ],
+        "sources": [
+          {
+            "title": "Venezuelan Perico",
+            "publisher": "EnriLemoine",
+            "url": "https://enrilemoine.com/en/2011/01/30/perico-scrambled-eggs-with-sofrito-recipe/"
+          },
+          {
+            "title": "Arepas Stuffed with Perico",
+            "publisher": "Qué Arepas",
+            "url": "https://www.quearepas.com/en/venezolanas/arepas-stuffed-with-perico/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br081/kwilt-recipe-hero-v2/bb909fc90f23ca6a-409accd9fe043084/candidate-0.webp",
+        "altText": "Golden Venezuelan arepas split and filled with soft perico scrambled eggs, tomato, pepper, onion, and cilantro.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR082",
+      "sourceRecipeHash": "sha256:0c09fca9963bb73409534aa7c77901a1634d74d047685053e5e70acee42f1502",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Advanced",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "10 banana-leaf rectangles, about 12 inches square",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "banana-leaf rectangles",
+          "preparation": "about 12 inches square",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 pounds boneless skinless chicken thighs",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "boneless skinless chicken thighs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 teaspoon kosher salt, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 3,
+          "originalText": "2 tablespoons neutral oil",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 small yellow onion, finely diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small yellow onion",
+          "preparation": "finely diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "3 garlic cloves, minced",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "garlic cloves",
+          "preparation": "minced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1/4 cup ají panca paste",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "ají panca paste",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "4 cups masa harina",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "masa harina",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "4 cups warm low-sodium chicken broth, plus more as needed",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "warm low-sodium chicken broth",
+          "preparation": "plus more as needed",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "3/4 cup lard or vegetable shortening, softened",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "lard or vegetable shortening",
+          "preparation": "softened",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 10,
+          "originalText": "1/2 cup roasted peanuts, chopped",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "roasted peanuts",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 11,
+          "originalText": "3 hard-boiled eggs, quartered",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "hard-boiled eggs",
+          "preparation": "quartered",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 12,
+          "originalText": "10 pitted black olives",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pitted black olives",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 13,
+          "originalText": "1 small red onion, thinly sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small red onion",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 14,
+          "originalText": "2 tablespoons lime juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lime juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 15,
+          "originalText": "2 tablespoons chopped cilantro",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "chopped cilantro",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "steamer-pot",
+        "reviewCategoryId": "dutch-oven",
+        "rationale": "A deep covered pot holds upright leaf packets above a stable simmer for the long steam without crowding or boiling dry.",
+        "noPurchaseAlternative": "Use a sturdy deep covered pot or dutch oven already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "tamal-peruano-breakfast-br082",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "steamer-pot",
+          "label": "Deep covered pot or Dutch oven",
+          "reviewCategoryId": "dutch-oven"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 3,
+          "phrase": "steamer over simmering water",
+          "needId": "steamer-pot",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Peru",
+        "region": "Peruvian tamal traditions",
+        "markers": [
+          {
+            "label": "Peru",
+            "latitude": -9.19,
+            "longitude": -75.0152
+          }
+        ],
+        "map": {
+          "center": [
+            -75.0152,
+            -9.19
+          ],
+          "scale": 600,
+          "highlightedCountryIds": [
+            "604"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Peruvian tamales vary by region; this criollo breakfast form wraps seasoned corn masa, chicken, egg, olive, and peanuts in softened banana leaves.",
+          "Peruvian tamales vary by region, corn, chile, filling, and wrapper. This is an accessible coastal criollo-style chicken version using masa harina in place of freshly ground Peruvian corn. This Kwilt version follows the reviewed household adaptation: Keep the full criollo filling and disclose masa harina as the practical substitution rather than calling it identical to fresh regional corn."
+        ],
+        "sources": [
+          {
+            "title": "Tamal Criollo",
+            "publisher": "Peru Travel",
+            "url": "https://www.peru.travel/gastronomy/en/recipes/entrees/tamal-criollo.html"
+          },
+          {
+            "title": "Peruvian Tamales",
+            "publisher": "Peru Delights",
+            "url": "https://perudelights.com/peruvian-tamales/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br082/kwilt-recipe-hero-v2/795d907d8650897b-5091b975344a3346/candidate-1.webp",
+        "altText": "Peruvian banana-leaf tamal opened to show seasoned masa, chicken, egg, olive, and peanuts, with salsa criolla.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR083",
+      "sourceRecipeHash": "sha256:904200f3d4b217cb54dcf46cbf682416cc3a5bb3c28054e61f6f94af3b1b8c59",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 tablespoons neutral oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 small yellow onion, finely diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small yellow onion",
+          "preparation": "finely diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1/2 green bell pepper, finely diced",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "green bell pepper",
+          "preparation": "finely diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 cups cooked Salvadoran red silk beans with 3/4 cup broth",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "cooked salvadoran red silk beans with 3/4 cup broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "3 cups cold cooked white rice",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "cold cooked white rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 teaspoon kosher salt, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 6,
+          "originalText": "6 large eggs",
+          "quantityMin": 6,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large eggs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "2 tablespoons unsalted butter",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "1/2 cup Salvadoran crema",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "salvadoran crema",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "4 ounces queso duro or queso fresco, crumbled",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "queso duro or queso fresco",
+          "preparation": "crumbled",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 10,
+          "originalText": "Warm thick corn tortillas and fried plantain, for serving",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "warm thick corn tortillas and fried plantain",
+          "preparation": "for serving",
+          "optional": true,
+          "parseConfidence": 0.82
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "skillet",
+        "reviewCategoryId": "cast-iron-skillet",
+        "rationale": "A broad skillet lets the cold rice and beans reheat safely and crisp in spots while only a minority of beans become the binder.",
+        "noPurchaseAlternative": "Use a sturdy wide heavy skillet already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "casamiento-with-eggs-br083",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "skillet",
+          "label": "Wide heavy skillet",
+          "reviewCategoryId": "cast-iron-skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "wide skillet",
+          "needId": "skillet",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "El Salvador",
+        "region": "Salvadoran rice-and-bean traditions",
+        "markers": [
+          {
+            "label": "El Salvador",
+            "latitude": 13.7942,
+            "longitude": -88.8965
+          }
+        ],
+        "map": {
+          "center": [
+            -88.8965,
+            13.7942
+          ],
+          "scale": 800,
+          "highlightedCountryIds": [
+            "222"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Casamiento is the Salvadoran union of rice and beans, often made with red silk beans and served as part of a breakfast plate.",
+          "Rice-and-bean “marriages” appear across Central America under several names. This Salvadoran breakfast form favors small red silk beans and common accompaniments without claiming exclusivity. This Kwilt version follows the reviewed household adaptation: Use red silk beans as the Salvadoran marker and keep the eggs separate so both textures remain legible."
+        ],
+        "sources": [
+          {
+            "title": "Casamiento Salvadoreño",
+            "publisher": "This Is Avocado",
+            "url": "https://thisisavocado.com/casamiento-salvadoreno/"
+          },
+          {
+            "title": "Casamiento Salvadoreño",
+            "publisher": "Cookpad",
+            "url": "https://cookpad.com/do/recetas/1568489-casamiento"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br083/kwilt-recipe-hero-v2/a22b94483458980c-961acace8869a13d/candidate-1.webp",
+        "altText": "Salvadoran casamiento with red beans and rice, soft scrambled eggs, crema, cheese, tortillas, and plantain.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR084",
+      "sourceRecipeHash": "sha256:95d54b619b6c9236baf4b4b9097b59f284c759f8b1daff1eab6c6b1d4531e49e",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "5 cups water, divided",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "water",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 teaspoon kosher salt, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "1 1/2 cups fine white maize meal",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fine white maize meal",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 tablespoons unsalted butter",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons neutral oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 5,
+          "originalText": "1 large yellow onion, thinly sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large yellow onion",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "4 ripe plum tomatoes, grated",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "ripe plum tomatoes",
+          "preparation": "grated",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 small green chile, minced, optional",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small green chile",
+          "preparation": "minced, optional",
+          "optional": true,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "1 teaspoon mild curry powder",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "mild curry powder",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon brown sugar, optional",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "brown sugar",
+          "preparation": "optional",
+          "optional": true,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "4 pasteurized large eggs",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pasteurized large eggs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 11,
+          "originalText": "Black pepper",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "black pepper",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.82
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "pot",
+        "reviewCategoryId": "dutch-oven",
+        "rationale": "A heavy covered pot moderates the long maize cook and supports frequent scraping until the raw grit is gone.",
+        "noPurchaseAlternative": "Use a sturdy heavy covered pot or dutch oven already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "mealie-pap-with-tomato-and-eggs-br084",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "pot",
+          "label": "Heavy covered pot or Dutch oven",
+          "reviewCategoryId": "dutch-oven"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "into the pot",
+          "needId": "pot",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "South Africa",
+        "region": "South African maize-porridge traditions",
+        "markers": [
+          {
+            "label": "South Africa",
+            "latitude": -30.5595,
+            "longitude": 22.9375
+          }
+        ],
+        "map": {
+          "center": [
+            22.9375,
+            -30.5595
+          ],
+          "scale": 560,
+          "highlightedCountryIds": [
+            "710"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Soft mealie pap is a South African white-maize porridge served in several contexts; tomato smoor and eggs make a transparent composed breakfast.",
+          "Pap spans many South African communities and consistencies. This is a soft savory breakfast composition; firmer stywe pap and crumbly putu pap serve different roles. This Kwilt version follows the reviewed household adaptation: Compose documented South African breakfast elements transparently and specify soft pap rather than implying one national consistency."
+        ],
+        "sources": [
+          {
+            "title": "Mieliepap",
+            "publisher": "SA Recipes",
+            "url": "https://sarecipes.co.za/browse/recipe/mieliepap-maize-meal-porridge"
+          },
+          {
+            "title": "Bhisto Fried Eggs",
+            "publisher": "Woolworths TASTE",
+            "url": "https://taste.co.za/recipes/bhisto-fried-eggs/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br084/kwilt-recipe-hero-v2/83ea411c120f638f-0f27fcb44bfcb5cd/candidate-1.webp",
+        "altText": "Soft South African mealie pap with concentrated tomato smoor and crisp-edged fried eggs.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR085",
+      "sourceRecipeHash": "sha256:42737f2c81bd8352514968acc1977953a006b71c42e0c47336c6f11d4bf3ce97",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cups all-purpose flour",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "all-purpose flour",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 teaspoon kosher salt, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "3/4 cup warm water, plus more as needed",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "warm water",
+          "preparation": "plus more as needed",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 3,
+          "originalText": "2 tablespoons neutral oil",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "6 tablespoons unsalted butter",
+          "quantityMin": 6,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons minced red onion",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "minced red onion",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 garlic clove, smashed",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "garlic clove",
+          "preparation": "smashed",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 teaspoon grated ginger",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "grated ginger",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "1/4 teaspoon ground cardamom",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "ground cardamom",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "Pinch each ground fenugreek, cinnamon, and clove",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "pinch each ground fenugreek",
+          "preparation": "cinnamon, and clove",
+          "optional": false,
+          "parseConfidence": 0.82
+        },
+        {
+          "position": 10,
+          "originalText": "1 1/2 tablespoons berbere, or to taste",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "berbere",
+          "preparation": "or to taste",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 11,
+          "originalText": "1 cup plain whole-milk yogurt, for serving",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain whole-milk yogurt",
+          "preparation": "for serving",
+          "optional": true,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "skillet",
+        "reviewCategoryId": "cast-iron-skillet",
+        "rationale": "A heavy skillet cooks the thin kita evenly, then provides the low-heat surface for coating and lightly crisping its torn edges.",
+        "noPurchaseAlternative": "Use a sturdy heavy skillet already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "chechebsa-firfir-br085",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "skillet",
+          "label": "Heavy skillet",
+          "reviewCategoryId": "cast-iron-skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 2,
+          "phrase": "lightly oiled skillet",
+          "needId": "skillet",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Ethiopia",
+        "region": "Ethiopian flatbread breakfast traditions",
+        "markers": [
+          {
+            "label": "Ethiopia",
+            "latitude": 9.145,
+            "longitude": 40.4897
+          }
+        ],
+        "map": {
+          "center": [
+            40.4897,
+            9.145
+          ],
+          "scale": 620,
+          "highlightedCountryIds": [
+            "231"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Chechebsa, also called kita firfir, is an Ethiopian breakfast of torn wheat flatbread coated with spiced butter and berbere, distinct from injera-based firfir.",
+          "Chechebsa is also called kita firfir and is especially associated with Oromo foodways. It uses torn unleavened kita, not leftover injera, which defines a different firfir family. This Kwilt version follows the reviewed household adaptation: Author an accessible niter-kibbeh-inspired infusion inside the recipe and explicitly distinguish kita firfir from injera firfir."
+        ],
+        "sources": [
+          {
+            "title": "Ethiopian Cooking: Che'che'bsa",
+            "publisher": "Ethiopian Review",
+            "url": "https://www.ethiopianreview.com/EthiopianCooking/EthiopianCooking_CheCheBsa.html"
+          },
+          {
+            "title": "Chechebsa",
+            "publisher": "Tara's Multicultural Table",
+            "url": "https://tarasmulticulturaltable.com/chechebsa-ethiopian-torn-flatbread/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br085/kwilt-recipe-hero-v2/8862fa6b1f5079f6-5e7da8fa50a173c9/candidate-0.webp",
+        "altText": "Ethiopian chechebsa with irregular torn kita coated in glossy red berbere butter and cool yogurt.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR086",
+      "sourceRecipeHash": "sha256:60e76604dafc3bed9bf65f49a3baddac3931b8030cfc98c3c67df20b7a4286a7",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Advanced",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "3 1/2 cups all-purpose or bread flour",
+          "quantityMin": 3.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "all-purpose or bread flour",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1/2 cup fine semolina, plus 1/2 cup for folding",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fine semolina",
+          "preparation": "plus 1/2 cup for folding",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "2 teaspoons granulated sugar",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "granulated sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 teaspoons kosher salt",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 teaspoon instant yeast",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "instant yeast",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 1/2 cups warm water, plus more as needed",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "warm water",
+          "preparation": "plus more as needed",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 6,
+          "originalText": "3/4 cup neutral oil, divided",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "neutral oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 7,
+          "originalText": "6 tablespoons unsalted butter, softened and divided",
+          "quantityMin": 6,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": "softened and divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 8,
+          "originalText": "1/2 cup honey",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "honey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "griddle",
+        "reviewCategoryId": "cast-iron-skillet",
+        "rationale": "A heavy griddle supplies stable contact heat while repeated turns cook the many folded layers without burning the butter.",
+        "noPurchaseAlternative": "Use a sturdy heavy griddle or skillet already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "msemen-with-honey-br086",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "griddle",
+          "label": "Heavy griddle or skillet",
+          "reviewCategoryId": "cast-iron-skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 3,
+          "phrase": "heavy griddle",
+          "needId": "griddle",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Morocco",
+        "region": "Moroccan laminated flatbread traditions",
+        "markers": [
+          {
+            "label": "Morocco",
+            "latitude": 31.7917,
+            "longitude": -7.0926
+          }
+        ],
+        "map": {
+          "center": [
+            -7.0926,
+            31.7917
+          ],
+          "scale": 650,
+          "highlightedCountryIds": [
+            "504"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Msemen is a Moroccan laminated square flatbread built by stretching elastic dough nearly translucent, folding it with fat and semolina, resting, and griddling.",
+          "Msemen or rghaif belongs across the Maghreb. This Moroccan breakfast form is square-laminated; round coiled meloui and holey one-sided baghrir are related but distinct breads. This Kwilt version follows the reviewed household adaptation: Use the classic square Moroccan form and a lightly applied butter-honey finish so lamination remains the focus."
+        ],
+        "sources": [
+          {
+            "title": "Moroccan Msemmen",
+            "publisher": "MarocMama",
+            "url": "https://marocmama.com/msemmen/"
+          },
+          {
+            "title": "Msemen",
+            "publisher": "Taste of Maroc",
+            "url": "https://tasteofmaroc.com/msemen-recipe/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br086/kwilt-recipe-hero-v2/04c5851715c7db07-c0fe7114154f3d67/candidate-1.webp",
+        "altText": "Square Moroccan msemen with crisp golden spots, visible laminated layers, and a light butter-honey glaze.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR087",
+      "sourceRecipeHash": "sha256:ee2c96ee1c80e5b32055cfb727dd52ede1d2d56599a7b799788f392e36b48a94",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Advanced",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cups dried black-eyed peas",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "dried black-eyed peas",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 small red onion, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small red onion",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "1 red bell pepper, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "red bell pepper",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 3,
+          "originalText": "1 Scotch bonnet pepper, seeded, or to taste",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scotch bonnet pepper",
+          "preparation": "seeded, or to taste",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 4,
+          "originalText": "1 1/2 teaspoons kosher salt, divided",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 5,
+          "originalText": "2 to 4 tablespoons cool water",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "to 4 tablespoons cool water",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 6,
+          "originalText": "Neutral oil, for deep-frying",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "neutral oil",
+          "preparation": "for deep-frying",
+          "optional": false,
+          "parseConfidence": 0.82
+        },
+        {
+          "position": 7,
+          "originalText": "1 cup fermented ogi paste",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fermented ogi paste",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "3 cups water, divided",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "water",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1/2 cup evaporated milk",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "evaporated milk",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "2 tablespoons granulated sugar, optional",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "granulated sugar",
+          "preparation": "optional",
+          "optional": true,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "thermometer",
+        "reviewCategoryId": "clip-on-frying-thermometer",
+        "rationale": "A clip-on thermometer keeps the oil in the narrow range that lets aerated bean batter float, brown, and cook through without greasiness.",
+        "noPurchaseAlternative": "Use a sturdy clip-on frying thermometer already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "akara-with-pap-br087",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "thermometer",
+          "label": "Clip-on frying thermometer",
+          "reviewCategoryId": "clip-on-frying-thermometer"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 2,
+          "phrase": "oil to 350°F",
+          "needId": "thermometer",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Nigeria",
+        "region": "Nigerian akara and ogi breakfast traditions",
+        "markers": [
+          {
+            "label": "Nigeria",
+            "latitude": 9.082,
+            "longitude": 8.6753
+          }
+        ],
+        "map": {
+          "center": [
+            8.6753,
+            9.082
+          ],
+          "scale": 560,
+          "highlightedCountryIds": [
+            "566"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Akara and fermented corn pap form a familiar Nigerian breakfast pairing; texture depends on peeled, well-drained beans, minimal blending water, and controlled frying.",
+          "Akara connects Yoruba foodways across West Africa and the Atlantic, including Ghanaian koose and Brazilian acarajé. This is a Nigerian breakfast pairing with fermented ogi/akamu pap. This Kwilt version follows the reviewed household adaptation: Author both components with separate hydration controls and preserve the fermented ogi identity rather than substituting generic cornmeal porridge."
+        ],
+        "sources": [
+          {
+            "title": "Akara: Black-Eyed Pea Fritters",
+            "publisher": "Chef Lola's Kitchen",
+            "url": "https://cheflolaskitchen.com/akara-acaraje/"
+          },
+          {
+            "title": "Perfect Nigerian Akara",
+            "publisher": "All Nigerian Recipes",
+            "url": "https://www.allnigerianrecipes.com/breakfast-recipes/perfect-nigerian-akara-recipe/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br087/kwilt-recipe-hero-v2/41b9f711c88a00ff-096d162788a31ed1/candidate-2.webp",
+        "altText": "Deep-golden Nigerian akara fritters with airy centers beside smooth glossy fermented-corn pap.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR088",
+      "sourceRecipeHash": "sha256:5734b7a2a972652d68e25e47d630ad09201e0adf3edd7467903c6528eebb310c",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 ripe Hass avocados",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "ripe hass avocados",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 tablespoon fresh lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "fresh lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 tablespoon extra-virgin olive oil",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "extra-virgin olive oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3/4 teaspoon kosher salt, divided",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 4,
+          "originalText": "Black pepper",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "black pepper",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.82
+        },
+        {
+          "position": 5,
+          "originalText": "4 thick slices seeded sourdough",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "thick slices seeded sourdough",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "4 pasteurized large eggs",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pasteurized large eggs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 tablespoon white vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "white vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons chopped flat-leaf parsley or chives",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "chopped flat-leaf parsley or chives",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "Aleppo pepper or chile flakes, for serving",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "aleppo pepper or chile flakes",
+          "preparation": "for serving",
+          "optional": true,
+          "parseConfidence": 0.72
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "strainer",
+        "reviewCategoryId": "fine-mesh-strainer",
+        "rationale": "A fine mesh sheds loose watery white before poaching, producing a neater set egg without aggressive swirling.",
+        "noPurchaseAlternative": "Use a sturdy fine-mesh strainer already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "avocado-toast-with-poached-eggs-br088",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "strainer",
+          "label": "Fine-mesh strainer",
+          "reviewCategoryId": "fine-mesh-strainer"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 2,
+          "phrase": "fine-mesh sieve",
+          "needId": "strainer",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Australia",
+        "region": "Australian café breakfast traditions",
+        "markers": [
+          {
+            "label": "Australia",
+            "latitude": -25.2744,
+            "longitude": 133.7751
+          }
+        ],
+        "map": {
+          "center": [
+            133.7751,
+            -25.2744
+          ],
+          "scale": 500,
+          "highlightedCountryIds": [
+            "036"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Avocado toast became an emblem of Australian café breakfast through a technique-first combination of deeply toasted bread, seasoned avocado, and carefully cooked eggs.",
+          "Avocado toast has international roots and no single inventor; this is labeled Australian because the roster targets the modern Australian café form, not an exclusive origin claim. This Kwilt version follows the reviewed household adaptation: Use technique—not a tower of toppings—to deliver the recognizable Australian café standard."
+        ],
+        "sources": [
+          {
+            "title": "Poached Eggs with Avocado on Toast",
+            "publisher": "Australian Eggs",
+            "url": "https://www.australianeggs.org.au/recipes-and-cooking/poached-eggs-with-avocado-on-toast"
+          },
+          {
+            "title": "Poached Eggs",
+            "publisher": "RecipeTin Eats",
+            "url": "https://www.recipetineats.com/poached-eggs/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br088/kwilt-recipe-hero-v2/75dd24b0da0c1635-be5428b229029d73/candidate-0.webp",
+        "altText": "Deeply toasted sourdough with rough-crushed avocado and neatly poached soft-yolk eggs.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR089",
+      "sourceRecipeHash": "sha256:92e2f3c0bd355b76efbc5ebef48873dd4200836d5c98ae89d83eb5a6297adc75",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cups old-fashioned rolled oats",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "old-fashioned rolled oats",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "2 tablespoons chia seeds",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "chia seeds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "2 cups whole milk",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "whole milk",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 cup plain Greek yogurt",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons maple syrup",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "maple syrup",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 teaspoon vanilla extract",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "vanilla extract",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1/2 teaspoon ground cinnamon",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "ground cinnamon",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/4 teaspoon kosher salt",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 cups mixed berries, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "mixed berries",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon fresh lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "fresh lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "1/4 cup toasted sliced almonds",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "toasted sliced almonds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "bowl",
+        "reviewCategoryId": "mixing-bowl",
+        "rationale": "A roomy mixing bowl makes it easy to disperse chia and coat every oat before dividing the cold soak into containers.",
+        "noPurchaseAlternative": "Use a sturdy large mixing bowl already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "overnight-oats-with-berries-br089",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "bowl",
+          "label": "Large mixing bowl",
+          "reviewCategoryId": "mixing-bowl"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "Stir in oats and chia",
+          "needId": "bowl",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Contemporary household kitchens",
+        "region": "Modern make-ahead breakfast traditions",
+        "markers": [
+          {
+            "label": "Contemporary household kitchens",
+            "latitude": 39.8283,
+            "longitude": -98.5795
+          }
+        ],
+        "map": {
+          "center": [
+            -98.5795,
+            39.8283
+          ],
+          "scale": 430,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Overnight oats are a modern make-ahead breakfast derived from cold-soaked rolled oats; this formula stays distinct from apple-led Bircher muesli through berries and chia.",
+          "Unlike Swiss Birchermüesli, this modern overnight-oats formula is chia-thickened and berry-forward, with no defining grated apple or lemon-preserved apple. This Kwilt version follows the reviewed household adaptation: Make a modern berry-and-chia formula deliberately distinct from BR067 Bircher muesli and add a bounded three-day storage window."
+        ],
+        "sources": [
+          {
+            "title": "Berry Overnight Oats",
+            "publisher": "Waitrose",
+            "url": "https://www.waitrose.com/ecom/recipe/berry-overnight-oats"
+          },
+          {
+            "title": "Overnight Oatmeal with Berries",
+            "publisher": "USDA MyPlate Kitchen",
+            "url": "https://myplate.food/recipes/overnight-oatmeal-berries"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br089/kwilt-recipe-hero-v2/2f2276a56b0d11ef-561a1547af5ab0ba/candidate-1.webp",
+        "altText": "Creamy berry-streaked overnight oats with visible rolled oats, fresh berries, and toasted almonds.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "BR090",
+      "sourceRecipeHash": "sha256:19fa1df1b6126ef4a0b3d5039e03514d5916236e3862f8be37f10f7c3374f74e",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cups old-fashioned rolled oats",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "old-fashioned rolled oats",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1/2 cup sliced almonds",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "sliced almonds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1/4 cup pumpkin seeds",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "pumpkin seeds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1/2 teaspoon ground cinnamon",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "ground cinnamon",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 teaspoon kosher salt, divided",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 5,
+          "originalText": "5 tablespoons maple syrup, divided",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "maple syrup",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 6,
+          "originalText": "3 tablespoons neutral oil",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "neutral oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "3 cups full-fat plain Greek yogurt",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "full-fat plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "1 teaspoon vanilla extract",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "vanilla extract",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "2 cups mixed berries, halved as needed",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "mixed berries",
+          "preparation": "halved as needed",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 10,
+          "originalText": "1 teaspoon fresh lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "fresh lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "sheet-pan",
+        "reviewCategoryId": "rimmed-half-sheet",
+        "rationale": "A broad rimmed sheet lets pressed granola dry and brown evenly while preserving large clusters as it cools.",
+        "noPurchaseAlternative": "Use a sturdy rimmed half-sheet pan already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "yogurt-granola-breakfast-parfait-br090",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "sheet-pan",
+          "label": "Rimmed half-sheet pan",
+          "reviewCategoryId": "rimmed-half-sheet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "parchment-lined sheet",
+          "needId": "sheet-pan",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "Contemporary household kitchens",
+        "region": "Modern make-ahead breakfast traditions",
+        "markers": [
+          {
+            "label": "Contemporary household kitchens",
+            "latitude": 39.8283,
+            "longitude": -98.5795
+          }
+        ],
+        "map": {
+          "center": [
+            -98.5795,
+            39.8283
+          ],
+          "scale": 430,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "The yogurt-granola parfait is a modern layered breakfast whose best texture depends on cluster-rich granola cooled fully and added only at service.",
+          "The granola is intentionally authored rather than treated as an invisible convenience ingredient; separate storage protects the texture that distinguishes this parfait from a bowl of flavored yogurt. This Kwilt version follows the reviewed household adaptation: Fully author a cluster-rich granola and make last-minute assembly the central quality rule."
+        ],
+        "sources": [
+          {
+            "title": "Fruit and Yogurt Parfaits",
+            "publisher": "Feel Good Foodie",
+            "url": "https://feelgoodfoodie.net/recipe/fruit-yogurt-parfait/"
+          },
+          {
+            "title": "Muesli Parfaits",
+            "publisher": "Food Network UK",
+            "url": "https://foodnetwork.co.uk/recipes/muesli-parfaits"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/br090/kwilt-recipe-hero-v2/d4af8dfd1aa165f1-dc17276dfa98404e/candidate-0.webp",
+        "altText": "Layered yogurt parfait with lightly macerated berries and large crisp oat, almond, and seed granola clusters.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DE001",
+      "sourceRecipeHash": "sha256:d785493ad65591a96f7fd1b63c4c38b84e10e97a2b51e31d7c9cf824dee0626a",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 1/4 cups (281 grams) all-purpose flour",
+          "quantityMin": 2.25,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "all-purpose flour",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 teaspoon baking soda",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "baking soda",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 1/2 teaspoons cornstarch",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "cornstarch",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3/4 teaspoon fine sea salt",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "fine sea salt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "3/4 cup (170 grams) unsalted butter, melted and cooled 10 minutes",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "unsalted butter",
+          "preparation": "melted and cooled 10 minutes",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 5,
+          "originalText": "3/4 cup (150 grams) packed dark brown sugar",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "packed dark brown sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 6,
+          "originalText": "1/2 cup (100 grams) granulated sugar",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "granulated sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 7,
+          "originalText": "1 large egg plus 1 large egg yolk",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large egg plus 1 large egg yolk",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 teaspoons vanilla extract",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "vanilla extract",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "1 1/4 cups (215 grams) semisweet chocolate chips",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "semisweet chocolate chips",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 10,
+          "originalText": "Flaky sea salt, optional",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "flaky sea salt",
+          "preparation": "optional",
+          "optional": true,
+          "parseConfidence": 0.82
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "sheet-pan",
+        "reviewCategoryId": "rimmed-half-sheet",
+        "rationale": "A sturdy light-colored sheet gives chilled dough even spread and browning while keeping portions widely separated.",
+        "noPurchaseAlternative": "Use a sturdy rimmed half-sheet pan already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "chewy-chocolate-chip-cookies-de001",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "sheet-pan",
+          "label": "Rimmed half-sheet pan",
+          "reviewCategoryId": "rimmed-half-sheet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 2,
+          "phrase": "two sheet pans",
+          "needId": "sheet-pan",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "United States",
+        "region": "American baking traditions",
+        "markers": [
+          {
+            "label": "United States",
+            "latitude": 39.8283,
+            "longitude": -98.5795
+          }
+        ],
+        "map": {
+          "center": [
+            -98.5795,
+            39.8283
+          ],
+          "scale": 430,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "The American chocolate chip cookie traces to Ruth Wakefield and the Toll House tradition; this version targets reproducible chew through melted butter, brown sugar, an extra yolk, and chilled dough.",
+          "The chocolate chip cookie began as an American drop cookie and became a home-baking standard because it balances crisp edges, a soft middle, caramel notes, and pockets of chocolate. This version makes the requested chew deliberate: melted butter and extra yolk add richness, brown sugar retains moisture, cornstarch limits toughness, and a short chill controls spread without requiring a mixer. This Kwilt version follows the reviewed household adaptation: Center the strongest large-review chewy-cookie formula, keep the no-mixer melted-butter advantage, and specify chilling and carryover setting so the texture claim is reproducible rather than subjective."
+        ],
+        "sources": [
+          {
+            "title": "Chewy Chocolate Chip Cookies",
+            "publisher": "Sally's Baking Addiction",
+            "url": "https://sallysbakingaddiction.com/chewy-chocolate-chip-cookies/"
+          },
+          {
+            "title": "Classic Chocolate Chip Cookies",
+            "publisher": "King Arthur Baking",
+            "url": "https://www.kingarthurbaking.com/recipes/classic-chocolate-chip-cookies-recipe"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/de001/kwilt-recipe-hero-v2/7d5c62187ee7dda1-67b9fdd13441ae24/candidate-0.webp",
+        "altText": "Chewy chocolate chip cookies with lightly golden edges, soft centers, melted chocolate, and flaky salt.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DE002",
+      "sourceRecipeHash": "sha256:89c3be68c8151d17040655ee362e544b273feb947810e4e08555941634794925",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "10 tablespoons (142 grams) unsalted butter",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/4 cups (250 grams) granulated sugar",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "granulated sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "3/4 cup (64 grams) Dutch-process cocoa powder",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "dutch-process cocoa powder",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 3,
+          "originalText": "1/2 teaspoon fine sea salt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "fine sea salt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 teaspoon espresso powder, optional",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "espresso powder",
+          "preparation": "optional",
+          "optional": true,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 teaspoons vanilla extract",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "vanilla extract",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 large eggs plus 1 large egg yolk",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large eggs plus 1 large egg yolk",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "3/4 cup (90 grams) all-purpose flour",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "all-purpose flour",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 8,
+          "originalText": "3/4 cup (128 grams) semisweet chocolate chips",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "semisweet chocolate chips",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "Neutral oil or softened butter, for the pan",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "neutral oil or softened butter",
+          "preparation": "for the pan",
+          "optional": false,
+          "parseConfidence": 0.72
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "baking-dish",
+        "reviewCategoryId": "baking-dish",
+        "rationale": "A compact square pan gives the batter the intended depth and predictable edge-to-center doneness for moist fudgy crumbs.",
+        "noPurchaseAlternative": "Use a sturdy 8-inch square baking dish already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "fudgy-chocolate-brownies-de002",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "baking-dish",
+          "label": "8-inch square baking dish",
+          "reviewCategoryId": "baking-dish"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "8-inch square light-metal pan",
+          "needId": "baking-dish",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "United States",
+        "region": "American baking traditions",
+        "markers": [
+          {
+            "label": "United States",
+            "latitude": 39.8283,
+            "longitude": -98.5795
+          }
+        ],
+        "map": {
+          "center": [
+            -98.5795,
+            39.8283
+          ],
+          "scale": 430,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Brownies are an American chocolate bar cookie; the fudgy form depends on a high-moisture cocoa batter, minimal flour development, careful doneness, and full cooling.",
+          "Brownies are an American bar dessert whose identity sits between cake and candy. Fudgy versions reduce flour and leavening while emphasizing cocoa, butter, eggs, and dissolved sugar. Heating the butter and sugar helps create the familiar paper-thin shiny crust; an extra yolk and a strict moist-crumb endpoint protect the dense center. This Kwilt version follows the reviewed household adaptation: Use the strongest large-review shiny-top technique in a household-size 8-inch pan, deepen cocoa with chips and optional espresso, and add temperature plus crumb cues to reduce the usual overbaking failure."
+        ],
+        "sources": [
+          {
+            "title": "Fudge Brownies",
+            "publisher": "King Arthur Baking",
+            "url": "https://www.kingarthurbaking.com/recipes/fudge-brownies-recipe"
+          },
+          {
+            "title": "Best Homemade Brownies",
+            "publisher": "Love & Lemons",
+            "url": "https://www.loveandlemons.com/brownies-recipe/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/de002/kwilt-recipe-hero-v2/3afeabe24aae31e9-afad86a91ea2f6f2/candidate-0.webp",
+        "altText": "Fudgy chocolate brownies with a thin crackled top, moist dense centers, and clean square cuts.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DE003",
+      "sourceRecipeHash": "sha256:4833a5e49eee346217d5e1e5a9db669191466297270b76cf2b130ca7baceb8ca",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Advanced",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 1/2 cups (300 grams) all-purpose flour",
+          "quantityMin": 2.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "all-purpose flour",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 teaspoon fine sea salt, divided",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "fine sea salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "1 tablespoon granulated sugar, plus more for finishing",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "granulated sugar",
+          "preparation": "plus more for finishing",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 3,
+          "originalText": "1 cup (226 grams) unsalted butter, very cold and cubed",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "unsalted butter",
+          "preparation": "very cold and cubed",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 cup (120 grams) ice water, as needed",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "ice water",
+          "preparation": "as needed",
+          "optional": false,
+          "parseConfidence": 0.78
+        },
+        {
+          "position": 5,
+          "originalText": "3 pounds firm apples, preferably a mix of Granny Smith and Honeycrisp",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "firm apples",
+          "preparation": "preferably a mix of granny smith and honeycrisp",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1/2 cup (100 grams) packed light brown sugar",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "packed light brown sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 7,
+          "originalText": "1/4 cup (50 grams) granulated sugar",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "granulated sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 8,
+          "originalText": "3 tablespoons cornstarch",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "cornstarch",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "2 teaspoons ground cinnamon",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "ground cinnamon",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "1/4 teaspoon ground nutmeg",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "ground nutmeg",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 11,
+          "originalText": "1 tablespoon lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 12,
+          "originalText": "1 teaspoon vanilla extract",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "vanilla extract",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 13,
+          "originalText": "1 large egg beaten with 1 tablespoon water, for washing",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large egg beaten with 1 tablespoon water",
+          "preparation": "for washing",
+          "optional": false,
+          "parseConfidence": 0.98
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "rolling-mat",
+        "reviewCategoryId": "shaping-mat",
+        "rationale": "A measured nonslip mat makes two consistent twelve-inch crust rounds easier to roll without warming or overworking the dough.",
+        "noPurchaseAlternative": "Use a sturdy measured pastry shaping mat already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "classic-apple-pie-de003",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rolling-mat",
+          "label": "Measured pastry shaping mat",
+          "reviewCategoryId": "shaping-mat"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 2,
+          "phrase": "Roll one dough disk",
+          "needId": "rolling-mat",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "United States",
+        "region": "American baking traditions",
+        "markers": [
+          {
+            "label": "United States",
+            "latitude": 39.8283,
+            "longitude": -98.5795
+          }
+        ],
+        "map": {
+          "center": [
+            -98.5795,
+            39.8283
+          ],
+          "scale": 430,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Double-crust apple pie is an American baking standard whose quality depends on cold flaky pastry, firm mixed apples, controlled juices, center bubbling, and a full cooling set.",
+          "Apple pies have deep European roots, but the double-crust apple pie became an enduring American household and holiday favorite. A mix of tart and sweet firm apples provides flavor and structure. Reducing the released juice before assembly concentrates apple flavor and prevents a watery gap, while the browned bottom crust and visibly bubbling center matter more than a decorative lattice. This Kwilt version follows the reviewed household adaptation: Retain the beloved double-crust form but prioritize mixed firm apples, concentrated juice, a hot sheet-pan start, center bubbling, and full cooling over ornamental lattice work."
+        ],
+        "sources": [
+          {
+            "title": "Apple Pie",
+            "publisher": "King Arthur Baking",
+            "url": "https://www.kingarthurbaking.com/recipes/apple-pie-recipe"
+          },
+          {
+            "title": "My Favorite Apple Pie",
+            "publisher": "Sally's Baking Addiction",
+            "url": "https://sallysbakingaddiction.com/apple-pie-recipe/"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/de003/kwilt-recipe-hero-v2/283bdbbdd7f1528d-155dad7328a08f2e/candidate-0.webp",
+        "altText": "Classic double-crust apple pie with deep-golden flaky pastry and defined tender apple slices.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DE004",
+      "sourceRecipeHash": "sha256:9696ab16bb1e63a56e66881d8d6755935fa3fe0a35de4d10c263f52d7af614e4",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 1/2 pounds firm tart-sweet apples",
+          "quantityMin": 2.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "firm tart-sweet apples",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "2 tablespoons granulated sugar",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "granulated sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 tablespoon lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 1/2 teaspoons ground cinnamon, divided",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "ground cinnamon",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 4,
+          "originalText": "1 tablespoon cornstarch",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "cornstarch",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 teaspoon vanilla extract",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "vanilla extract",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1/4 teaspoon fine sea salt, divided",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "fine sea salt",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 7,
+          "originalText": "3/4 cup (90 grams) all-purpose flour",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "all-purpose flour",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 8,
+          "originalText": "3/4 cup (75 grams) old-fashioned rolled oats",
+          "quantityMin": 0.75,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "old-fashioned rolled oats",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "2/3 cup (133 grams) packed light brown sugar",
+          "quantityMin": 0.6666666666666666,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "packed light brown sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 10,
+          "originalText": "1/2 cup (113 grams) cold unsalted butter, cubed",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "cold unsalted butter",
+          "preparation": "cubed",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 11,
+          "originalText": "Vanilla ice cream, optional for serving",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "vanilla ice cream",
+          "preparation": "optional for serving",
+          "optional": true,
+          "parseConfidence": 0.82
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "baking-dish",
+        "reviewCategoryId": "baking-dish",
+        "rationale": "A two-quart dish gives the apples and loose topping the right depth for bubbling fruit beneath crisp browned clusters.",
+        "noPurchaseAlternative": "Use a sturdy 2-quart baking dish already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "cinnamon-apple-crisp-de004",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "baking-dish",
+          "label": "2-quart baking dish",
+          "reviewCategoryId": "baking-dish"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "2-quart baking dish",
+          "needId": "baking-dish",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "United States",
+        "region": "American baking traditions",
+        "markers": [
+          {
+            "label": "United States",
+            "latitude": 39.8283,
+            "longitude": -98.5795
+          }
+        ],
+        "map": {
+          "center": [
+            -98.5795,
+            39.8283
+          ],
+          "scale": 430,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Apple crisp is a simpler American baked fruit dessert than pie, pairing tender sliced apples with a loose oat-and-butter cluster topping.",
+          "Apple crisp is the practical sibling of apple pie: the same warm fruit-and-spice comfort without rolling or crimping pastry. Rolled oats distinguish the craggy American topping from a fine streusel. Cold butter, loose clusters, a visible bubble, and an uncovered reheat keep the contrast clear between tender apples and a genuinely crisp top. This Kwilt version follows the reviewed household adaptation: Keep the beloved oat-cluster format deliberately simpler than pie, use pie-level apple and doneness discipline, and specify an uncovered reheat so the named crisp texture survives leftovers."
+        ],
+        "sources": [
+          {
+            "title": "Classic Apple Crisp",
+            "publisher": "Sally's Baking Addiction",
+            "url": "https://sallysbakingaddiction.com/apple-crisp/"
+          },
+          {
+            "title": "Old-Fashioned Apple Crisp",
+            "publisher": "Once Upon a Chef",
+            "url": "https://www.onceuponachef.com/recipes/apple-crisp.html"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/de004/kwilt-recipe-hero-v2/b0469df407e39750-b5308a820dd9313f/candidate-1.webp",
+        "altText": "Warm cinnamon apple crisp with defined tender slices and deep-golden oat clusters.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DE005",
+      "sourceRecipeHash": "sha256:0d63cde0afb49da6af3db455ecf9e12c233d971b95edc96611e6748856e73cdb",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-20",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Advanced",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cups (200 grams) fine graham cracker crumbs",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fine graham cracker crumbs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "3 tablespoons granulated sugar, plus 1 1/2 cups (300 grams) for filling",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "granulated sugar",
+          "preparation": "plus 1 1/2 cups (300 grams) for filling",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "6 tablespoons (85 grams) unsalted butter, melted",
+          "quantityMin": 6,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "unsalted butter",
+          "preparation": "melted",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 3,
+          "originalText": "1/4 teaspoon fine sea salt",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "fine sea salt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "32 ounces (908 grams) full-fat block cream cheese, room temperature",
+          "quantityMin": 32,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "full-fat block cream cheese",
+          "preparation": "room temperature",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 5,
+          "originalText": "3 tablespoons all-purpose flour",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "all-purpose flour",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 cup (240 grams) full-fat sour cream, room temperature",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "full-fat sour cream",
+          "preparation": "room temperature",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 7,
+          "originalText": "1 tablespoon vanilla extract",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "vanilla extract",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "1 teaspoon finely grated lemon zest",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "finely grated lemon zest",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 9,
+          "originalText": "4 large eggs, room temperature",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "large eggs",
+          "preparation": "room temperature",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 10,
+          "originalText": "Boiling water, for the water bath",
+          "quantityMin": null,
+          "quantityMax": null,
+          "unit": null,
+          "ingredientConcept": "boiling water",
+          "preparation": "for the water bath",
+          "optional": false,
+          "parseConfidence": 0.82
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "review_category",
+        "needId": "springform-pan",
+        "reviewCategoryId": "9-inch-springform-pan",
+        "rationale": "A well-sealing nine-inch springform provides the necessary depth and removable sides for the tall chilled cake.",
+        "noPurchaseAlternative": "Use a sturdy 9-inch springform pan already owned and follow the same heat, spacing, and doneness cues."
+      },
+      "publication": {
+        "slug": "new-york-style-cheesecake-de005",
+        "publishedAt": "2026-08-21T03:00:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "springform-pan",
+          "label": "9-inch springform pan",
+          "reviewCategoryId": "9-inch-springform-pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "9-inch springform pan",
+          "needId": "springform-pan",
+          "focus": "specialty"
+        }
+      ],
+      "origin": {
+        "label": "United States",
+        "region": "American baking traditions",
+        "markers": [
+          {
+            "label": "United States",
+            "latitude": 39.8283,
+            "longitude": -98.5795
+          }
+        ],
+        "map": {
+          "center": [
+            -98.5795,
+            39.8283
+          ],
+          "scale": 430,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "New York-style cheesecake is known for a tall dense-creamy cream-cheese filling, graham crust, gentle bake, gradual cooling, and long cold set.",
+          "New York-style cheesecake is known for a tall, dense yet creamy cream-cheese filling with enough tang to balance its richness. Room-temperature ingredients prevent lumps; low mixing avoids excess air; a gentle water bath and gradual cooling prevent the overbaked, puffed texture that leads to large cracks. The graham crust makes this familiar deli-style version distinct from crustless or lighter regional cheesecakes. This Kwilt version follows the reviewed household adaptation: Anchor the recipe in the strongest 1,138-review New York pattern, add explicit temperature and wobble cues, and count the long chill honestly while keeping the active method to one crust, one filling, and one controlled bake."
+        ],
+        "sources": [
+          {
+            "title": "Classic New York Cheesecake",
+            "publisher": "Once Upon a Chef",
+            "url": "https://www.onceuponachef.com/recipes/new-york-style-cheesecake.html"
+          },
+          {
+            "title": "New York-Style Cheesecake",
+            "publisher": "Martha Stewart",
+            "url": "https://www.marthastewart.com/865202/new-york-style-cheesecake"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/de005/kwilt-recipe-hero-v2/7dddc72b912e024f-25b1d7883ad9a295/candidate-0.webp",
+        "altText": "Tall New York-style cheesecake with smooth pale filling, graham crust, and a clean chilled slice.",
+        "width": 1536,
+        "height": 1024
+      }
+    }
+  ]
+}

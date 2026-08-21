@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-18",
+  "manifestHash": "sha256:b7266772b0740cbef57508d56e49b7f93b111836e1e33f34515ce2828b08aa48",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "LU046",
+      "sourceRecipeHash": "sha256:70a1fedd51a6eb7fc1ec030ba35e74ae8b73259f95096c193f683ecb7438ab0b",
+      "title": "Chacarero",
+      "cuisine": "Chilean",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU047",
+      "sourceRecipeHash": "sha256:5da9554875af24005dc5f9b6c71ad74a5c30a6b5b917cd05ec00ebe01e6fcaa8",
+      "title": "Chicken döner wrap",
+      "cuisine": "Turkish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU048",
+      "sourceRecipeHash": "sha256:549428477447b536adcc65184f4a17f444937f7521839bf2847b0ff46a97dddd",
+      "title": "Chicken shawarma pita",
+      "cuisine": "Levantine",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU049",
+      "sourceRecipeHash": "sha256:62f9e35e9eba904c542079a83005b70c2a09c0fe3015440346cac47228a1cc11",
+      "title": "Falafel pita",
+      "cuisine": "Levantine",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU050",
+      "sourceRecipeHash": "sha256:3e0197a052ace3b838eb9a29b81db98893f9d10b31d96ae198d9be6972d4943c",
+      "title": "Sabich",
+      "cuisine": "Israeli",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU051",
+      "sourceRecipeHash": "sha256:08e159bd3acb608f81554d507d0aa22368fafefddd3f7e453877988a57bdc1e6",
+      "title": "Beef arayes",
+      "cuisine": "Levantine",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU052",
+      "sourceRecipeHash": "sha256:318b8419b0a7b79f8ce0087287a3c418d2e594ad750be3ca28486748df44ec16",
+      "title": "Chicken gyro",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU053",
+      "sourceRecipeHash": "sha256:bc7f1a666960a65a016eb75ceeb5455ec95d9b4895fd8cf6718cf3cfa7527a9b",
+      "title": "Pork souvlaki pita",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU054",
+      "sourceRecipeHash": "sha256:992e8b4df75b8064ad7aaf96c1909c9be3561eca08454fadd087cd6198e88d67",
+      "title": "Caprese panini",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU055",
+      "sourceRecipeHash": "sha256:deed267c10e0cbee6874800d9f45bc47fc5f17fa3f2e6e21a6c2cabfa9706632",
+      "title": "Mortadella focaccia sandwich",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU056",
+      "sourceRecipeHash": "sha256:215661764f4da0fbc16db58468035654b507aa37279baff10c84a275f01a564c",
+      "title": "Piadina romagnola",
+      "cuisine": "Italian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU057",
+      "sourceRecipeHash": "sha256:13d60facbe6ad9f02990cc8967dbdfa7a428952a2360035e647cdc6fc61c7311",
+      "title": "Croque monsieur",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU058",
+      "sourceRecipeHash": "sha256:4ca23f724208c4cbca3bf9e2cbf326422b5e7ad4aeb5a30a099745b8be17222e",
+      "title": "Jambon-beurre",
+      "cuisine": "French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU059",
+      "sourceRecipeHash": "sha256:55c04b57fd8d4299de8030bc204730b508b36ce7c1fae1dc62a79626b21eeef3",
+      "title": "Pan bagnat",
+      "cuisine": "Provençal",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU060",
+      "sourceRecipeHash": "sha256:6fb376f9f99ebe12fa72592aed5d031fc41c016a42422dee9872f929c526f598",
+      "title": "Welsh rarebit",
+      "cuisine": "Welsh",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU061",
+      "sourceRecipeHash": "sha256:887184e6ae96671adf7bfd46eaeacf47ff398579c6c686a333f9d65b4172fd34",
+      "title": "Cornish pasty",
+      "cuisine": "Cornish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU062",
+      "sourceRecipeHash": "sha256:7e5e2e9b3cf3cd07a6c4660b0c87c84b42aa7e96fb9153142792acf61e31a778",
+      "title": "Sausage rolls",
+      "cuisine": "British",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU063",
+      "sourceRecipeHash": "sha256:c8e5f07814d8b02bd67d701bd1652acbdf1ba578c77e767728fee3002c215e14",
+      "title": "Ploughman’s lunch",
+      "cuisine": "British",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU064",
+      "sourceRecipeHash": "sha256:21d63e766adfa70252f85deaca8911651e8d973f14bbb63101441fc4d9fa6de0",
+      "title": "Bacon butty",
+      "cuisine": "British",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU065",
+      "sourceRecipeHash": "sha256:82fe8297577e66547e19f5234803bca4088b0595c5c4b23f3fa1d65ee26965eb",
+      "title": "Uitsmijter",
+      "cuisine": "Dutch",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU066",
+      "sourceRecipeHash": "sha256:01171fe406b416a93537d5850d9ad2ed238fcbc99f2ed71981b26cf5b007f18d",
+      "title": "Currywurst plate",
+      "cuisine": "German",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU067",
+      "sourceRecipeHash": "sha256:52c98aa23c1842a785cc8ec87dbf2f99038ee12b6f031e9ec3546025e103b215",
+      "title": "Schnitzel sandwich",
+      "cuisine": "Austrian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU068",
+      "sourceRecipeHash": "sha256:84c5cac06d54db618d4e8a8d87dc8856d0804f207fc721d6f4f443fac9cc5dfa",
+      "title": "Zapiekanka",
+      "cuisine": "Polish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU069",
+      "sourceRecipeHash": "sha256:abcd54b69a62b9eedcf005442344630e975666fe91cb4ca3638ed5756f57d3b3",
+      "title": "Lobiani bean bread",
+      "cuisine": "Georgian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU070",
+      "sourceRecipeHash": "sha256:610514efdab4a9534d5c8ace281e9619ea801195cb091a13760be492b876b529",
+      "title": "Ćevapi flatbread",
+      "cuisine": "Balkan",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

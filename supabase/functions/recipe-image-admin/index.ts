@@ -2,7 +2,9 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buildImageGenerationRequest,
+  buildRecipeImageQaInstructions,
   decideRecipeImageQa,
+  parseRecipeImageListFilters,
   parseRecipeImageQa,
   parseRecipeImageQueuePolicy,
   validateRecipeImageReview,
@@ -110,6 +112,7 @@ function recipeSource(value: unknown) {
     cuisine: stringField(input, "cuisine", 160)!,
     tier: stringField(input, "tier", 80, false),
     contentHash: stringField(input, "contentHash", 256)!,
+    imageDirection: stringField(input, "imageDirection", 1200, false),
     yieldQuantity: typeof input.yieldQuantity === "number" ? input.yieldQuantity : null,
     yieldUnit: stringField(input, "yieldUnit", 80, false),
     prepMinutes: Number.isInteger(input.prepMinutes) ? input.prepMinutes : null,
@@ -179,7 +182,7 @@ function qaRequest(prompt: string, bytes: Uint8Array) {
   return {
     model: Deno.env.get("RECIPE_IMAGE_QA_MODEL")?.trim() || "gpt-5-mini",
     messages: [
-      { role: "system", content: "You are a strict cookbook photo editor. Judge only visible evidence. A high artifactScore means artifact-free." },
+      { role: "system", content: buildRecipeImageQaInstructions() },
       { role: "user", content: [
         { type: "text", text: `Compare this image with the recipe image contract. Reject unsupported dominant ingredients, wrong dish structure, culturally implausible presentation, unsafe crops, text, logos, or synthetic artifacts.\n\n${prompt}` },
         { type: "image_url", image_url: { url: `data:image/webp;base64,${btoa(binary)}`, detail: "high" } },
@@ -370,12 +373,14 @@ async function review(body: JsonRecord, actorUserId: string | null) {
 }
 
 async function list(body: JsonRecord) {
-  const limit = Number.isInteger(body.limit) ? Math.max(1, Math.min(250, Number(body.limit))) : 100;
-  const status = typeof body.status === "string" ? body.status : "editorial_review";
+  const { limit, status, rosterIds, promptVersion } = parseRecipeImageListFilters(body);
   const client = adminClient();
-  const { data: jobs, error } = await client.from("kwilt_recipe_image_jobs")
+  let query = client.from("kwilt_recipe_image_jobs")
     .select("id,roster_id,candidate_index,status,prompt_version,model,qa_result,rejection_reasons,storage_path,media_asset_id,created_at")
-    .eq("status", status).order("roster_id").order("candidate_index").limit(limit);
+    .eq("status", status);
+  if (rosterIds) query = query.in("roster_id", rosterIds);
+  if (promptVersion) query = query.eq("prompt_version", promptVersion);
+  const { data: jobs, error } = await query.order("roster_id").order("candidate_index").limit(limit);
   if (error) throw error;
   const mediaIds = (jobs ?? []).map((job) => job.media_asset_id).filter(Boolean);
   const mediaResult = mediaIds.length

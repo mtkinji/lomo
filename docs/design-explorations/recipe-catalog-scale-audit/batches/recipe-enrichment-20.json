@@ -1,0 +1,2047 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-20",
+  "manifestHash": "sha256:38866167a704880d973e437d8f34bd60bfb6f211bf4c211885f645bf142abf99",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "SI001",
+      "sourceRecipeHash": "sha256:86af12d25b60500bd0e842c7e2e741aa34ddbc6a46613293142acff190435ff3",
+      "title": "Creamy mashed potatoes",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Fluffy Yukon Gold and russet potatoes enriched with warm milk, butter, sour cream, and black pepper.",
+        "category": "Sides",
+        "cuisine": "American",
+        "ingredients": [
+          "2 pounds Yukon Gold potatoes, peeled and cut in 1 1/2-inch chunks",
+          "1 pound russet potatoes, peeled and cut in 1 1/2-inch chunks",
+          "1 tablespoon kosher salt, plus more to taste",
+          "8 tablespoons unsalted butter, divided",
+          "1 cup whole milk",
+          "1/2 cup sour cream, at room temperature",
+          "1/2 teaspoon black pepper",
+          "2 tablespoons sliced chives"
+        ],
+        "instructions": [
+          "Put both potatoes in a large pot, cover with cool water by 1 inch, and add 1 tablespoon salt. Bring to a gentle boil, then simmer 15 to 20 minutes until a knife slides through the largest pieces without resistance.",
+          "Meanwhile, warm 6 tablespoons butter and the milk in a small saucepan until steaming; do not boil. Drain potatoes thoroughly, return them to the hot pot, and shake over low heat for 1 to 2 minutes until the surfaces look dry.",
+          "Mash the potatoes by hand or pass them once through a ricer. Fold in the warm butter-milk mixture in three additions just until absorbed; never use a blender or food processor, which can turn potato starch gluey.",
+          "Fold in sour cream and pepper. Taste and add salt as needed. If the mash is firmer than desired, loosen with another splash of warm milk rather than working it longer.",
+          "Spoon into a warm serving bowl, make shallow swirls, and melt remaining butter across the top. Finish with chives and serve promptly, or hold covered over barely simmering water for no more than 30 minutes."
+        ],
+        "notes": "Mashed potatoes are everyday comfort food across Europe and North America, with countless legitimate textures and enrichments. Yukon Gold potatoes bring buttery creaminess while russets bring fluffiness. The most important restaurant lesson is not extravagant butter: cook until truly tender, steam away water, warm the dairy, and stop mixing as soon as the potatoes are smooth.",
+        "sources": [
+          {
+            "publisher": "Favorite Family Recipes",
+            "title": "Homemade Mashed Potatoes",
+            "url": "https://www.favfamilyrecipes.com/perfect-mashed-potatoes/",
+            "signal": "A collection of five-star reader responses supports russet potatoes, butter, milk, sour cream, salt, and pepper as a familiar creamy household profile."
+          },
+          {
+            "publisher": "Good Food",
+            "title": "Best Ever Creamy Mashed Potatoes",
+            "url": "https://www.bbcgoodfood.com/recipes/best-ever-creamy-mashed-potatoes",
+            "signal": "An editorial method emphasizes the right floury potato and a five-minute steam-dry after draining to preserve a fluffy rather than watery mash."
+          },
+          {
+            "publisher": "Bon Appétit",
+            "title": "BA's Best Mashed Potatoes",
+            "url": "https://www.bonappetit.com/recipe/best-mashed-potatoes",
+            "signal": "A test-kitchen version confirms that technique matters as much as enrichment: fully tender potatoes, warmed dairy, and restrained handling create ultra-creamy results."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Cut potatoes evenly and simmer until completely tender.",
+            "Drain and steam-dry before adding any dairy.",
+            "Warm dairy separately and fold it into hand-mashed or riced potatoes without overworking."
+          ],
+          "repeatedSuccessSignals": [
+            "Potatoes are fluffy and creamy rather than watery",
+            "No hard lumps remain",
+            "Butter and tang enrich without hiding potato flavor",
+            "Mash holds soft swirls on the serving spoon"
+          ],
+          "repeatedFailureRisks": [
+            "Undercooked pieces create stubborn lumps.",
+            "Cold dairy cools and stiffens the mash.",
+            "Mechanical overmixing releases starch and creates glue."
+          ],
+          "adaptationDecision": "Blend the household sour-cream favorite with editorial steam-drying and warm-dairy technique, using a Yukon-russet mix to achieve creaminess and fluffiness without restaurant-level butter quantities."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SI002",
+      "sourceRecipeHash": "sha256:ad61aafa8859a7cfdff62e4eda626289d09e0ff3767fc54d6ecfbba47eab36ce",
+      "title": "Crispy roasted potatoes",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Deeply browned potato chunks with craggy crisp edges, fluffy centers, roasted garlic, and rosemary.",
+        "category": "Sides",
+        "cuisine": "American",
+        "ingredients": [
+          "3 pounds Yukon Gold potatoes, cut in 1 1/2-inch chunks",
+          "1 tablespoon kosher salt, plus more for finishing",
+          "1/2 teaspoon baking soda",
+          "1/4 cup olive oil",
+          "4 garlic cloves, finely grated",
+          "1 tablespoon chopped fresh rosemary",
+          "1/2 teaspoon black pepper",
+          "2 tablespoons chopped flat-leaf parsley"
+        ],
+        "instructions": [
+          "Heat oven to 450°F and place a rack in the center. Bring a large pot of water to a boil with salt and baking soda. Add potatoes and simmer 8 to 10 minutes until their exteriors are tender but the pieces still hold together.",
+          "Meanwhile, warm olive oil, garlic, and rosemary in a small skillet over low heat for 2 minutes until fragrant, not browned. Strain the oil into a large bowl and reserve the crisp aromatics separately.",
+          "Drain potatoes well and let steam escape 1 minute. Add them to the infused oil with pepper, then toss firmly until a starchy mashed coating forms on their edges; this craggy layer becomes the crust.",
+          "Spread on a large rimmed sheet pan with flat sides against the metal and generous space between pieces. Roast 25 minutes undisturbed, turn, then roast 20 to 25 minutes more until deeply browned on multiple sides.",
+          "Toss hot potatoes with reserved garlic-rosemary bits, parsley, and finishing salt. Serve uncovered so trapped steam does not soften the crust."
+        ],
+        "notes": "Roast potatoes belong to many cuisines; this high-crunch home-oven method became especially famous through technique-driven food media. Baking soda makes the cooking water alkaline, helping roughen the potato exterior. That sounds scientific but requires no special equipment: one pot, one bowl, and one sheet pan produce more crisp surface than simply oiling raw cubes.",
+        "sources": [
+          {
+            "publisher": "Serious Eats",
+            "title": "The Best Crispy Roast Potatoes Ever",
+            "url": "https://www.seriouseats.com/the-best-roast-potatoes-ever-recipe",
+            "signal": "A widely replicated technique establishes alkaline parboiling, roughened starch, infused fat, ample pan space, and a long hot roast as the strongest crisp-to-creamy method."
+          },
+          {
+            "publisher": "Rachel Cooks",
+            "title": "The Best Crispy Roasted Potatoes",
+            "url": "https://www.rachelcooks.com/how-to-make-crispy-roasted-potatoes/",
+            "signal": "A 4.51/5 pattern across 97 votes confirms strong demand for deeply crisp oven potatoes and careful surface drying, hot roasting, and uncrowded placement."
+          },
+          {
+            "publisher": "Bon Appétit",
+            "title": "Perfectly Roasted Potatoes",
+            "url": "https://www.bonappetit.com/recipe/perfectly-roasted-potatoes",
+            "signal": "A test-kitchen source reinforces the target contrast of a browned crisp shell and creamy potato interior as a foundational side rather than a novelty."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Parboil in salted alkaline water until the exterior is tender.",
+            "Toss drained potatoes enough to build a craggy starchy coating.",
+            "Roast in one uncrowded layer and leave the first side undisturbed until set."
+          ],
+          "repeatedSuccessSignals": [
+            "Edges are audibly crisp and deeply browned",
+            "Centers are fluffy and creamy",
+            "Garlic and rosemary taste fragrant rather than burned",
+            "Pieces remain distinct rather than greasy"
+          ],
+          "repeatedFailureRisks": [
+            "Skipping the parboil produces leathery rather than craggy crust.",
+            "Crowding steams the potatoes.",
+            "Raw minced garlic burns during the long hot roast."
+          ],
+          "adaptationDecision": "Keep the celebrated alkaline-parboil method but strain the garlic-rosemary oil so flavor survives the 450°F roast, accepting honest cook time in exchange for ordinary equipment and a large quality gain."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SI003",
+      "sourceRecipeHash": "sha256:34428f6d1bae664d89198383e4dae4adf2f2432e28c5155decf4b60af8f3b7a9",
+      "title": "Creamy scalloped potatoes",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Tender thin-sliced potatoes baked in garlic-thyme cream beneath a restrained golden Gruyère top.",
+        "category": "Sides",
+        "cuisine": "American",
+        "ingredients": [
+          "2 tablespoons unsalted butter, divided",
+          "1 garlic clove, halved",
+          "3 pounds Yukon Gold potatoes, peeled and sliced 1/8 inch thick",
+          "2 cups whole milk",
+          "1 cup heavy cream",
+          "2 teaspoons fresh thyme leaves",
+          "1 1/2 teaspoons kosher salt",
+          "1/2 teaspoon black pepper",
+          "1/8 teaspoon ground nutmeg",
+          "4 ounces Gruyère, freshly grated"
+        ],
+        "instructions": [
+          "Heat oven to 375°F. Rub a 3-quart baking dish with the cut garlic, then grease it with 1 tablespoon butter. Slice potatoes evenly with a mandoline fitted with its hand guard or with a sharp knife; never hold the potato below the guard's safe limit.",
+          "Combine potatoes, milk, cream, thyme, salt, pepper, nutmeg, and remaining butter in a wide pot. Bring just to a simmer over medium, stirring gently, then cook 5 minutes until the liquid lightly thickens and potato slices begin to bend.",
+          "Transfer half the potatoes and cream to the dish, arranging an even layer. Sprinkle with one-third of the Gruyère. Add remaining potatoes and cream, press slices below the liquid, and top with remaining cheese.",
+          "Cover tightly with foil and bake 40 minutes. Uncover and bake 25 to 35 minutes more until a knife meets no resistance in the center, the cream bubbles thickly, and the top is golden; broil briefly only if needed, watching continuously.",
+          "Rest 15 minutes before serving so the starch-thickened cream settles around the slices. This is the batch's special-occasion project recipe; the long bake and rest are part of the result, not hidden prep."
+        ],
+        "notes": "In American usage, scalloped potatoes usually means thin potato slices baked in milk or cream; cheese moves the dish toward potatoes au gratin, though modern names overlap. This version keeps cheese restrained and familiar. Briefly simmering the slices in the dairy releases starch and starts them evenly, preventing the common holiday disappointment of browned cream surrounding crunchy potatoes.",
+        "sources": [
+          {
+            "publisher": "The Kitchn",
+            "title": "Martha Stewart's Scalloped Potatoes Recipe Review",
+            "url": "https://www.thekitchn.com/martha-stewarts-scalloped-potatoes-22947855",
+            "signal": "A comparative review of a five-star recipe praises rubbing the dish with garlic and warming the slices in cream so natural starch thickens the sauce and potatoes cook evenly."
+          },
+          {
+            "publisher": "Williams Sonoma",
+            "title": "Rich Scalloped Potatoes",
+            "url": "https://www.williams-sonoma.com/recipe/rich-scalloped-potatoes.html",
+            "signal": "Repeated five-star reader comments support thin slices, cream, restrained Gruyère or cheddar, and a deeply tender holiday casserole worth repeating."
+          },
+          {
+            "publisher": "Inspired Taste",
+            "title": "Cheesy Scalloped Potatoes",
+            "url": "https://www.inspiredtaste.net/97405/scalloped-potatoes-recipe/",
+            "signal": "A home-cooking method corroborates Yukon Gold potatoes, sweet aromatics, thyme cream sauce, Gruyère, careful layering, and a browned finish."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Slice potatoes uniformly and use a mandoline guard if applicable.",
+            "Par-cook slices in seasoned dairy until starch begins to thicken it.",
+            "Bake covered until tender then uncover to brown and rest before cutting."
+          ],
+          "repeatedSuccessSignals": [
+            "Every potato slice is fully tender",
+            "Cream clings silkily instead of pooling thinly",
+            "Layers hold together after resting",
+            "Garlic thyme nutmeg and Gruyère stay balanced"
+          ],
+          "repeatedFailureRisks": [
+            "Uneven thick slices remain crunchy.",
+            "Boiling dairy aggressively can scorch or separate it.",
+            "Serving immediately sends thin cream running across the plate."
+          ],
+          "adaptationDecision": "Use the winning par-cook-in-cream method and garlic-rubbed dish, limit the cheese to a supportive Gruyère layer, and label the full two-hour commitment honestly as this batch's one project recipe."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SI004",
+      "sourceRecipeHash": "sha256:00971afe8d0460903e0a2e3d1a72c40a0813ad997ec1d5ca6522641a1a0ef35c",
+      "title": "Sweet potato casserole with pecan topping",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Orange sweet potatoes whipped with butter, vanilla, and warm spice beneath a crisp brown-sugar pecan crumble.",
+        "category": "Sides",
+        "cuisine": "American",
+        "ingredients": [
+          "3 pounds orange-fleshed sweet potatoes, peeled and cut in 1-inch chunks",
+          "6 tablespoons unsalted butter, melted and divided",
+          "1/3 cup whole milk",
+          "1 large egg",
+          "2 tablespoons maple syrup",
+          "1 teaspoon vanilla extract",
+          "1 teaspoon kosher salt, divided",
+          "1/2 teaspoon ground cinnamon",
+          "1/4 teaspoon ground nutmeg",
+          "3/4 cup chopped pecans",
+          "1/3 cup packed light brown sugar",
+          "1/3 cup all-purpose flour"
+        ],
+        "instructions": [
+          "Heat oven to 375°F and butter a 2-quart baking dish. Put sweet potatoes in a pot, cover with cool water, and simmer 12 to 15 minutes until completely tender; drain and steam-dry 2 minutes.",
+          "Mash potatoes smooth with 3 tablespoons melted butter, milk, maple syrup, vanilla, 3/4 teaspoon salt, cinnamon, and nutmeg. Let cool 5 minutes, then beat in the egg so it enriches rather than scrambles.",
+          "Spread the filling in the prepared dish. Mix pecans, brown sugar, flour, remaining salt, and remaining 3 tablespoons butter until clumps form; scatter evenly over the potatoes without pressing it flat.",
+          "Bake 25 to 30 minutes until the edges bubble, the center reaches 165°F, and the pecan topping smells toasted. Tent loosely with foil if the nuts darken before the center is hot.",
+          "Rest 5 minutes and serve warm. The casserole may be assembled without the topping one day ahead; refrigerate, add crumble just before baking, and allow 5 to 10 extra minutes from cold."
+        ],
+        "notes": "Sweet potato casserole became a defining American Thanksgiving side in the twentieth century, in both marshmallow-topped and pecan-streusel branches. This version chooses the crisp pecan branch and keeps sugar measured so the sweet potato still tastes like a vegetable. Maple, vanilla, and spice amplify its natural sweetness instead of turning the filling into pie custard.",
+        "sources": [
+          {
+            "publisher": "The Kitchn",
+            "title": "Sweet Potato Casserole Recipe Showdown",
+            "url": "https://www.thekitchn.com/best-sweet-potato-casserole-showdown-23457566",
+            "signal": "A four-recipe comparison identifies balanced sweetness, pronounced sweet-potato flavor, smooth filling, and a contrasting top as more important than maximal sugar."
+          },
+          {
+            "publisher": "Food Network Kitchen",
+            "title": "The Best Sweet Potato Casserole",
+            "url": "https://www.foodnetwork.com/recipes/food-network-kitchen/sweet-potato-casserole-3364945",
+            "signal": "A test-kitchen favorite repeatedly earns praise for being festive without becoming overly sweet, supporting a restrained filling and crisp nut topping."
+          },
+          {
+            "publisher": "Add a Pinch",
+            "title": "Southern Sweet Potato Casserole",
+            "url": "https://addapinch.com/sweet-potato-casserole-pecan-topping/",
+            "signal": "A longstanding Southern holiday source supports rich mashed sweet potatoes and a buttery pecan-brown-sugar crumble as a familiar alternative to marshmallows."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Cook sweet potatoes until fully tender and steam away excess water.",
+            "Cool the warm mash briefly before incorporating the egg.",
+            "Keep pecan crumble loose on top and protect it if it browns early."
+          ],
+          "repeatedSuccessSignals": [
+            "Filling tastes distinctly of sweet potato",
+            "Texture is smooth and light rather than watery",
+            "Pecan topping is crisp and toasted",
+            "Salt and warm spice balance the sweetness"
+          ],
+          "repeatedFailureRisks": [
+            "Waterlogged potatoes loosen the filling.",
+            "Too much sugar makes a cloying side dish.",
+            "Unprotected pecans burn before a cold center heats through."
+          ],
+          "adaptationDecision": "Choose the familiar pecan branch, apply the comparison lesson of restrained sweetness, and use a straightforward boiled-potato method with a make-ahead boundary rather than adding a separate roasting project."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SI005",
+      "sourceRecipeHash": "sha256:416176967d440135e3c43414708ce2124388aafb806e6589cc2704a367080a62",
+      "title": "Classic green bean casserole",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Tender green beans in savory mushroom cream sauce beneath the familiar crackle of fried onions.",
+        "category": "Sides",
+        "cuisine": "American",
+        "ingredients": [
+          "1 1/2 pounds fresh green beans, trimmed and cut in 2-inch pieces",
+          "1 tablespoon kosher salt, plus 1/2 teaspoon, divided",
+          "2 tablespoons unsalted butter",
+          "8 ounces cremini mushrooms, sliced",
+          "1 small shallot, finely diced",
+          "2 tablespoons all-purpose flour",
+          "1 cup low-sodium chicken or vegetable broth",
+          "3/4 cup half-and-half",
+          "1 teaspoon soy sauce",
+          "1/2 teaspoon black pepper",
+          "1 1/2 cups canned crispy fried onions, divided"
+        ],
+        "instructions": [
+          "Heat oven to 375°F. Bring a pot of water to a boil with 1 tablespoon salt. Blanch green beans 4 minutes until bright and barely tender, then drain and rinse under very cold water; dry well.",
+          "Melt butter in a large skillet over medium-high. Add mushrooms and cook undisturbed 3 minutes, then stir in shallot and remaining salt and cook 4 minutes until browned and their liquid evaporates.",
+          "Sprinkle flour over mushrooms and stir 1 minute. Gradually whisk in broth, then half-and-half. Simmer 3 to 5 minutes until the sauce thickly coats a spoon; stir in soy sauce and pepper.",
+          "Fold beans and 1/2 cup fried onions into the sauce. Transfer to a 2-quart baking dish and bake 18 to 20 minutes until bubbling and 165°F in the center.",
+          "Top with remaining fried onions and bake 5 minutes more until crisp and golden. Serve promptly; adding most onions only at the end preserves the nostalgic crunch instead of burying it in sauce."
+        ],
+        "notes": "Campbell test-kitchen manager Dorcas Reilly created green bean casserole in 1955 around ingredients widely stocked in American homes; the original recipe is now held by the National Inventors Hall of Fame. This version respects its mushroom-cream-and-fried-onion identity while using fresh beans and a quick skillet sauce. It is a recognizable upgrade, not a reinvention with cheese or luxury mushrooms.",
+        "sources": [
+          {
+            "publisher": "Campbell's",
+            "title": "Green Bean Casserole",
+            "url": "https://www.campbells.com/recipes/green-bean-casserole/",
+            "signal": "The originator's recipe establishes green beans, creamy mushroom sauce, soy sauce, black pepper, and crispy fried onions as the non-negotiable nostalgic identity."
+          },
+          {
+            "publisher": "The Kitchn",
+            "title": "Green Bean Casserole Recipe Showdown",
+            "url": "https://www.thekitchn.com/green-bean-casserole-recipe-reviews-23095185",
+            "signal": "A four-recipe comparison favors fresh beans, deeply savory mushrooms, a thick luscious rather than soupy sauce, and genuinely crisp onion contrast while rejecting cheese-heavy identity drift."
+          },
+          {
+            "publisher": "Axios Tampa Bay",
+            "title": "Elevate Your Thanksgiving Green Bean Casserole",
+            "url": "https://www.axios.com/local/tampa-bay/2023/11/19/thanksgiving-recipe-green-bean-casserole-jeannie-pierola",
+            "signal": "A chef method corroborates blanching beans, browning fresh mushrooms, building a creamy sauce, and ensuring beans are coated rather than swimming and becoming soggy."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Blanch fresh beans until barely tender then chill and dry them.",
+            "Brown mushrooms and reduce their moisture before building a thick sauce.",
+            "Add the majority of fried onions only for the final five minutes."
+          ],
+          "repeatedSuccessSignals": [
+            "Beans remain green and tender with some structure",
+            "Mushroom sauce clings instead of pooling",
+            "Fried onions stay audibly crisp",
+            "The result remains unmistakably nostalgic green bean casserole"
+          ],
+          "repeatedFailureRisks": [
+            "Wet blanched beans dilute the sauce.",
+            "Crowded pale mushrooms make a thin gray filling.",
+            "Early onion topping turns soft or scorches during the full bake."
+          ],
+          "adaptationDecision": "Protect the 1955 dish's recognizable flavor architecture, apply the comparison winner's fresh-bean and thick-sauce lessons, and retain store-bought fried onions as the beloved defining convenience ingredient."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SI006",
+      "sourceRecipeHash": "sha256:6922335243cbc704f21d36e169bb34c6faa7ba658bf231aef40428de350767ae",
+      "title": "Crispy roasted Brussels sprouts",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Deeply caramelized Brussels sprouts with crisp loose leaves, tender centers, lemon, and Parmesan.",
+        "category": "Sides",
+        "cuisine": "American",
+        "ingredients": [
+          "2 pounds Brussels sprouts",
+          "3 tablespoons olive oil",
+          "1 teaspoon kosher salt",
+          "1/2 teaspoon black pepper",
+          "1 small garlic clove, finely grated",
+          "1 teaspoon finely grated lemon zest",
+          "1 tablespoon fresh lemon juice",
+          "1/3 cup finely grated Parmesan"
+        ],
+        "instructions": [
+          "Heat oven to 450°F with a large rimmed sheet pan inside. Trim only the dry stem ends, remove damaged outer leaves, and halve sprouts lengthwise; keep sound loose leaves because they become crisp chips.",
+          "Dry sprouts thoroughly, then toss with olive oil, salt, and pepper. Carefully spread them on the hot pan in one uncrowded layer, placing the halves cut-side down.",
+          "Roast 18 minutes without moving. Turn the larger sprouts and roast 5 to 8 minutes more until cut sides are deeply brown, loose leaves are crisp, and centers yield to a knife without becoming mushy.",
+          "Mix garlic, lemon zest, and lemon juice in a serving bowl. Add the hot sprouts and toss so their residual heat softens the raw garlic; add Parmesan and toss once more.",
+          "Serve immediately and uncovered. If the pan is crowded, use two pans rather than accepting steamed, pale sprouts."
+        ],
+        "notes": "Brussels sprouts are buds from the same species as cabbage, broccoli, and collards. Older varieties and boiling gave them a bitter reputation; modern sweeter cultivars and high-heat roasting changed the familiar experience. A preheated pan and cut-side contact create the browned flavor people now seek, while lemon and Parmesan finish the vegetables without turning them into a sugary restaurant glaze.",
+        "sources": [
+          {
+            "publisher": "Jar of Lemons",
+            "title": "The Best Roasted Brussels Sprouts",
+            "url": "https://www.jaroflemons.com/roasted-brussels-sprouts/",
+            "signal": "More than 45 five-star reviews support high-heat roasting, caramelized edges, crisp leaves, and a salty bright finish as an approachable vegetable favorite."
+          },
+          {
+            "publisher": "Serious Eats",
+            "title": "Easy Roasted Brussels Sprouts",
+            "url": "https://www.seriouseats.com/easy-roasted-brussels-sprouts-food-lab-recipe",
+            "signal": "A technique source supports high heat, generous spacing, oil coverage, and deep exterior browning while cooking the dense centers through."
+          },
+          {
+            "publisher": "Associated Press",
+            "title": "Brussels Sprouts with Mustard Vinaigrette",
+            "url": "https://apnews.com/article/c10941c7084a063bd6864d0aa819b4fa",
+            "signal": "Food reporting confirms careful trimming, browned sprouts, fully tender centers, and an acidic finish as durable ways to balance the vegetable's earthy sweetness."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Dry halved sprouts and give their cut sides direct contact with a hot pan.",
+            "Roast in one uncrowded layer until deeply browned but not mushy.",
+            "Add garlic lemon and Parmesan only after roasting."
+          ],
+          "repeatedSuccessSignals": [
+            "Cut faces are darkly caramelized",
+            "Loose leaves are crisp",
+            "Centers are tender without sulfurous softness",
+            "Lemon and Parmesan sharpen rather than sweeten the vegetable"
+          ],
+          "repeatedFailureRisks": [
+            "Residual wash water causes steaming.",
+            "Crowding prevents browning.",
+            "Long low cooking amplifies cabbage aromas and softens the texture."
+          ],
+          "adaptationDecision": "Use the repeated high-heat cut-side method and a simple lemon-Parmesan finish, omitting bacon, dried fruit, nuts, and sticky glaze so the recipe remains a versatile ordinary side."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SI007",
+      "sourceRecipeHash": "sha256:a59debcec75f52b2f44929817b44df7b4f7a8278f16d5d3616db044a3c395365",
+      "title": "Honey-glazed carrots",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Tender stovetop carrots coated in a glossy honey-butter glaze brightened with orange and black pepper.",
+        "category": "Sides",
+        "cuisine": "American",
+        "ingredients": [
+          "2 pounds carrots, peeled and cut diagonally 1/2 inch thick",
+          "3/4 cup water",
+          "3 tablespoons unsalted butter",
+          "2 tablespoons honey",
+          "2 tablespoons fresh orange juice",
+          "1/2 teaspoon kosher salt",
+          "1/4 teaspoon black pepper",
+          "1 teaspoon fresh thyme leaves or 2 tablespoons chopped parsley"
+        ],
+        "instructions": [
+          "Place carrots, water, 1 tablespoon butter, and salt in a wide skillet. Bring to a boil, cover, and simmer 6 to 8 minutes until carrots are nearly tender but still resist slightly at the center.",
+          "Uncover and add honey, orange juice, pepper, and remaining butter. Raise heat to medium-high and cook 4 to 6 minutes, tossing frequently as the liquid reduces.",
+          "When only a few tablespoons of syrup remain, lower the heat and continue tossing until every carrot looks glossy and a knife slides through with light resistance. Do not walk away once the honey thickens.",
+          "Remove from heat and fold in thyme or parsley. Taste and correct with a pinch of salt or a few drops of orange juice if the glaze seems flat or overly sweet.",
+          "Transfer with all the glaze and serve warm. For a holiday meal, cut the carrots a day ahead, but cook them near service because reheating can turn the glaze greasy and the carrots soft."
+        ],
+        "notes": "Glazed carrots are a long-familiar European and American side built by tenderizing carrots and reducing butter with a sweetener around them. The best versions do not pour a separate sauce over already cooked vegetables. One skillet lets the carrot cooking liquid, honey, orange, and butter reduce together into a thin coating, while black pepper and herbs keep natural sweetness from becoming candy-like.",
+        "sources": [
+          {
+            "publisher": "The Kitchn",
+            "title": "The Best and Easiest Way to Make Glazed Carrots",
+            "url": "https://www.thekitchn.com/glazed-carrots-showdown-23649695",
+            "signal": "A method comparison shows that the glaze should reduce around the carrots and cling to them, not remain as an excessive pool of detached honey butter."
+          },
+          {
+            "publisher": "Bon Appétit",
+            "title": "Glazed Carrots",
+            "url": "https://www.bonappetit.com/recipe/glazed-carrots",
+            "signal": "A test-kitchen holiday version supports orange juice, honey, butter, and a reduced caramelized finish as a fast last-minute side."
+          },
+          {
+            "publisher": "Martha Stewart",
+            "title": "Honey-Glazed Carrots",
+            "url": "https://www.marthastewart.com/337371/honey-glazed-carrots",
+            "signal": "An established stovetop method confirms covered tenderizing followed by uncovered reduction until only a small amount of syrupy liquid remains."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Cut carrots evenly so they become tender together.",
+            "Tenderize covered before reducing honey and butter uncovered.",
+            "Stop when glaze clings thinly and carrots retain slight structure."
+          ],
+          "repeatedSuccessSignals": [
+            "Carrots are evenly tender rather than mushy",
+            "Glaze coats instead of pooling",
+            "Honey tastes balanced by orange salt and pepper",
+            "Herbs remain fresh at service"
+          ],
+          "repeatedFailureRisks": [
+            "Uneven cuts create hard and mushy pieces.",
+            "High heat too early evaporates water before carrots tenderize.",
+            "Reduced honey can scorch quickly near the end."
+          ],
+          "adaptationDecision": "Use the comparison-winning one-pan principle, combine the recurring honey-butter-orange profile, and keep the glaze thin and savory enough for an everyday side rather than a candied garnish."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SI008",
+      "sourceRecipeHash": "sha256:559c10302a3d74aa933de711470556d0cd6eaa1f1448cec1383c2234cbfa8811",
+      "title": "Steakhouse creamed spinach",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Tender chopped spinach folded into a silky garlic cream sauce with Parmesan and a whisper of nutmeg.",
+        "category": "Sides",
+        "cuisine": "American",
+        "ingredients": [
+          "2 packages (10 ounces each) frozen chopped spinach, thawed",
+          "3 tablespoons unsalted butter",
+          "1 small shallot, finely diced",
+          "2 garlic cloves, finely grated",
+          "3 tablespoons all-purpose flour",
+          "1 1/2 cups whole milk, warmed",
+          "1/2 cup heavy cream, warmed",
+          "1/3 cup finely grated Parmesan",
+          "1/2 teaspoon kosher salt, plus more to taste",
+          "1/4 teaspoon black pepper",
+          "1/8 teaspoon ground nutmeg",
+          "1 teaspoon fresh lemon juice"
+        ],
+        "instructions": [
+          "Squeeze thawed spinach in a clean towel until no more water drips, then loosen the compressed clumps with your fingers. Removing this water is what keeps the finished sauce rich rather than soupy.",
+          "Melt butter in a wide saucepan over medium-low. Cook shallot 3 minutes until soft, add garlic for 30 seconds, then stir in flour and cook 1 minute without browning.",
+          "Whisk in warm milk a little at a time, then cream. Simmer gently 3 to 4 minutes, whisking, until the sauce coats a spoon; keep the heat below a hard boil.",
+          "Stir in Parmesan, salt, pepper, and nutmeg until smooth. Fold in spinach and simmer 3 to 5 minutes until evenly hot and at least 165°F, loosening with milk only if it becomes stiff.",
+          "Finish with lemon juice, taste for salt, and serve hot. The spinach should be generously coated but remain recognizable leaves, not a green purée or cheese dip."
+        ],
+        "notes": "Creamed spinach became an enduring American steakhouse side, where its mild richness balances deeply browned beef. Frozen spinach is not a compromise here: it is available year-round, already collapsed, and far less bulky than several pounds of fresh leaves. Thorough squeezing and a separately thickened sauce solve the two most common problems—wateriness and an indistinct bowl of cream.",
+        "sources": [
+          {
+            "publisher": "Dinner, then Dessert",
+            "title": "Classic Steakhouse Creamed Spinach",
+            "url": "https://dinnerthendessert.com/classic-steakhouse-creamed-spinach/",
+            "signal": "A popular steakhouse-copycat pattern supports chopped spinach, onion, garlic, butter, flour-thickened dairy, nutmeg, and a silky indulgent texture from simple ingredients."
+          },
+          {
+            "publisher": "Food.com",
+            "title": "Ruth's Chris Steak House Creamed Spinach",
+            "url": "https://www.food.com/recipe/ruths-chris-steak-house-creamed-spinach-31045",
+            "signal": "Reader responses to a well-known steakhouse style reinforce a thick cream base, finely distributed spinach, modest seasoning, and brief final cooking."
+          },
+          {
+            "publisher": "Cooking with Shereen",
+            "title": "Steakhouse Creamed Spinach",
+            "url": "https://www.youtube.com/watch?v=6EW0DNIPCkM",
+            "signal": "A widely viewed one-pot demonstration corroborates butter, shallot, garlic, flour, milk, nutmeg, spinach, and grated cheese as the accessible steakhouse structure."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Squeeze thawed spinach extremely dry and loosen it before cooking.",
+            "Cook the flour and gradually whisk in warm dairy for a smooth sauce.",
+            "Fold spinach into the finished sauce and stop before the leaves lose identity."
+          ],
+          "repeatedSuccessSignals": [
+            "Sauce clings silkily without pooling water",
+            "Spinach remains the bulk of each spoonful",
+            "Garlic nutmeg Parmesan and lemon stay restrained",
+            "The side is hot and creamy but not gluey"
+          ],
+          "repeatedFailureRisks": [
+            "Wet spinach thins and grays the sauce.",
+            "Cold milk added quickly creates flour lumps.",
+            "Too much cheese turns the side into spinach dip."
+          ],
+          "adaptationDecision": "Translate the recurring steakhouse roux-and-cream pattern to reliable frozen spinach, retain modest Parmesan for savoriness, and add only enough lemon to lift the richness without changing the familiar identity."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SI009",
+      "sourceRecipeHash": "sha256:465945312b8809646b45ebed4fa54d43d88fc23c92015fd8e21003f836c30a68",
+      "title": "Southern collard greens with smoked turkey",
+      "cuisine": "Southern US",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Slow-braised collard greens and smoked turkey in a savory, peppery potlikker sharpened with cider vinegar.",
+        "category": "Sides",
+        "cuisine": "Southern US",
+        "ingredients": [
+          "2 pounds fresh collard greens",
+          "1 tablespoon neutral oil",
+          "1 large yellow onion, diced",
+          "4 garlic cloves, minced",
+          "1 smoked turkey wing, about 1 pound",
+          "6 cups low-sodium chicken broth",
+          "1 teaspoon crushed red pepper flakes",
+          "1/2 teaspoon black pepper",
+          "2 tablespoons apple cider vinegar, plus more to taste",
+          "1 teaspoon brown sugar",
+          "Kosher salt, as needed",
+          "Hot pepper vinegar, for serving"
+        ],
+        "instructions": [
+          "Strip collard leaves from their tough center stems. Wash in two changes of cold water until no grit remains, stack the leaves, roll them, and slice into 1-inch ribbons.",
+          "Heat oil in a Dutch oven over medium. Cook onion 6 minutes until soft; add garlic for 30 seconds. Add smoked turkey, broth, red pepper, and black pepper and bring to a gentle simmer.",
+          "Cover and simmer the turkey 40 minutes to build the potlikker. Add collards in handfuls, stirring each addition down. Cover and simmer 45 to 60 minutes more until the greens are silky-tender but not disintegrating.",
+          "Transfer turkey to a plate. Remove skin and bones, shred the meat, and return it to the pot. Stir in cider vinegar and brown sugar, then taste before adding salt because smoked turkey varies widely in salinity.",
+          "Serve greens with some potlikker and hot pepper vinegar alongside. Cool leftovers in shallow containers and refrigerate within two hours; the flavor often deepens overnight."
+        ],
+        "notes": "Collard greens are central to Southern and African American foodways, shaped by West African greens traditions and generations of Black cooks who made nourishing use of both leaves and potlikker—the deeply flavored cooking broth. Smoked turkey is one established branch alongside ham hock and other smoked pork. Long cooking is elapsed time, but this remains one pot with little active supervision.",
+        "sources": [
+          {
+            "publisher": "Divas Can Cook",
+            "title": "Southern Soul Food Collard Greens",
+            "url": "https://divascancook.com/soul-food-collard-greens-recipe-southern/",
+            "signal": "A Black Southern cooking source supports smoked turkey, properly cleaned collards, savory broth, slow tenderness, chile, and vinegar as a pork-free but culturally grounded branch."
+          },
+          {
+            "publisher": "Southern Living",
+            "title": "Southern-Style Collard Greens",
+            "url": "https://www.southernliving.com/recipes/southern-collard-greens",
+            "signal": "A regional authority corroborates smoked meat, onion, garlic, chicken broth, cider vinegar, slight sugar, pepper, and long cooking for tender greens and rich potlikker."
+          },
+          {
+            "publisher": "Associated Press",
+            "title": "JJ Johnson's Collard Greens and Rice Soup",
+            "url": "https://apnews.com/article/db05d97de9c912472c11a1aa4f8a1183",
+            "signal": "Chef-informed food reporting explains potlikker's flavor, nutrition, and importance in Southern Black cooking and reinforces a bright vinegar finish."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Remove tough stems and wash leaves repeatedly until grit-free.",
+            "Build smoked-turkey potlikker before adding the greens.",
+            "Braise gently until silky and adjust vinegar and salt only at the end."
+          ],
+          "repeatedSuccessSignals": [
+            "Greens are silky-tender without becoming paste",
+            "Potlikker tastes smoky savory peppery and bright",
+            "Turkey meat is tender and distributed through the pot",
+            "Vinegar balances bitterness and smoke"
+          ],
+          "repeatedFailureRisks": [
+            "Inadequate washing leaves grit in every serving.",
+            "Salting early can make smoked turkey broth harshly salty.",
+            "A hard boil reduces broth and toughens exposed leaves."
+          ],
+          "adaptationDecision": "Choose the established smoked-turkey branch, retain the long potlikker-building sequence and late vinegar, and make the one-pot low-supervision nature visible so long elapsed time is not mistaken for hidden complexity."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SI010",
+      "sourceRecipeHash": "sha256:9a3072315f92df5cf8246960251f5bf2cf975d026f6cedd7893478d88cfd6ee3",
+      "title": "Southern cornbread dressing",
+      "cuisine": "Southern US",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Savory skillet cornbread baked with celery, onion, sage, stock, and a custardy center under a crisp top.",
+        "category": "Sides",
+        "cuisine": "Southern US",
+        "ingredients": [
+          "1 cup plain yellow cornmeal",
+          "1 cup all-purpose flour, divided",
+          "2 teaspoons baking powder",
+          "1/2 teaspoon baking soda",
+          "1 1/2 teaspoons kosher salt, divided",
+          "2 large eggs, divided",
+          "1 cup buttermilk",
+          "8 tablespoons unsalted butter, divided",
+          "4 slices firm white sandwich bread, cubed and dried",
+          "1 large yellow onion, diced",
+          "4 celery ribs, diced",
+          "2 teaspoons rubbed sage",
+          "1 teaspoon dried thyme",
+          "1/2 teaspoon black pepper",
+          "3 to 4 cups low-sodium chicken or turkey stock, divided",
+          "2 tablespoons chopped flat-leaf parsley"
+        ],
+        "instructions": [
+          "At least 8 hours ahead, heat oven to 425°F with a 10-inch cast-iron skillet inside. Whisk cornmeal, 1/2 cup flour, baking powder, baking soda, and 1/2 teaspoon salt. Whisk 1 egg with buttermilk and 2 tablespoons melted butter, then stir into dry ingredients just until combined.",
+          "Melt 1 tablespoon butter in the hot skillet, add batter, and bake 18 to 22 minutes until browned and set. Cool, crumble onto a sheet pan with the bread cubes, and leave uncovered 8 hours or dry in a 250°F oven for 35 to 45 minutes. This advance drying is why the recipe is the batch's one holiday project.",
+          "For the dressing, heat oven to 375°F and butter a 3-quart baking dish with 1 tablespoon butter. Melt remaining 4 tablespoons butter in a skillet; cook onion and celery 8 to 10 minutes until soft. Stir in sage, thyme, pepper, and remaining salt for 30 seconds.",
+          "Combine dried cornbread, bread cubes, vegetables, and parsley. Whisk remaining egg with 3 cups stock, pour over, and fold gently. Add more stock until thoroughly moist and cohesive but not soupy; the exact amount depends on how dry the bread is.",
+          "Spread in the dish without packing. Bake 35 to 45 minutes until the center reaches 165°F, edges are browned, and top is crisp. Rest 10 minutes before serving. Dressing is baked separately; do not put this mixture inside a turkey."
+        ],
+        "notes": "Across much of the American South, dressing means a savory cornbread-based holiday casserole baked beside the bird; stuffing more often names bread cooked inside it. Recipes vary intensely by family. This version is intentionally traditional and savory—cornbread, a little white bread for structure, onion, celery, sage, stock, and egg—with no sausage or canned soup obscuring the foundational form.",
+        "sources": [
+          {
+            "publisher": "The Kitchn",
+            "title": "Cornbread Stuffing Recipe Showdown",
+            "url": "https://www.thekitchn.com/cornbread-stuffing-recipe-reviews-22956692",
+            "signal": "A four-recipe comparison shows that dry cornbread, aromatic vegetables, sufficient seasoned stock, egg binding, and crisp-versus-custardy contrast drive success across variations."
+          },
+          {
+            "publisher": "Add a Pinch",
+            "title": "Southern Cornbread Dressing",
+            "url": "https://addapinch.com/southern-cornbread-dressing/",
+            "signal": "A Southern household authority supports scratch cornbread, biscuit-or-bread structure, celery, onion, stock, sage, and a moist baked casserole as the familiar holiday form."
+          },
+          {
+            "publisher": "Dinner at the Zoo",
+            "title": "Southern Cornbread Dressing",
+            "url": "https://www.dinneratthezoo.com/southern-cornbread-dressing/",
+            "signal": "A popular old-fashioned version corroborates cornbread, dried white bread, buttered aromatics, poultry herbs, broth, egg, and a browned oven finish."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Bake savory cornbread ahead and dry both breads thoroughly.",
+            "Soften onion and celery and bloom dried herbs in butter.",
+            "Add stock by feel until moist not soupy and bake separately to 165°F."
+          ],
+          "repeatedSuccessSignals": [
+            "Center is moist and custardy but not gummy",
+            "Top and edges are crisp and browned",
+            "Corn flavor remains dominant",
+            "Sage celery onion and poultry stock taste balanced"
+          ],
+          "repeatedFailureRisks": [
+            "Fresh soft cornbread collapses into paste.",
+            "A fixed stock amount ignores variable bread dryness.",
+            "Packing the dish prevents a light interior and crisp surface."
+          ],
+          "adaptationDecision": "Author the foundational scratch-cornbread branch without sausage or canned soup, disclose the overnight drying and stock judgment explicitly, and bake outside the bird for predictable texture and safety."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO001",
+      "sourceRecipeHash": "sha256:9ffab00679ccba8ef64ae620740012a4ff70148033ef2cfafce7ffcb3467c594",
+      "title": "Classic chicken noodle soup",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "A clear, deeply savory broth with tender chicken, carrots, celery, egg noodles, dill, parsley, and a bright squeeze of lemon.",
+        "category": "Soups & stews",
+        "cuisine": "American",
+        "ingredients": [
+          "2 pounds bone-in skin-on chicken thighs, trimmed of excess fat",
+          "1 1/2 teaspoons kosher salt, divided, plus more to taste",
+          "1/2 teaspoon black pepper",
+          "1 tablespoon olive oil",
+          "1 large yellow onion, diced",
+          "3 medium carrots, sliced 1/4 inch thick",
+          "3 celery ribs, sliced 1/4 inch thick",
+          "3 garlic cloves, finely chopped",
+          "8 cups low-sodium chicken broth",
+          "2 bay leaves",
+          "1 teaspoon dried thyme",
+          "6 ounces wide egg noodles",
+          "2 tablespoons chopped fresh dill",
+          "2 tablespoons chopped flat-leaf parsley",
+          "1 tablespoon fresh lemon juice, plus wedges for serving"
+        ],
+        "instructions": [
+          "Pat chicken dry and season with 1 teaspoon salt and the pepper. Heat olive oil in a Dutch oven over medium-high. Brown chicken skin-side down 5 to 7 minutes, turn for 2 minutes, then transfer to a plate; the chicken will not yet be cooked through.",
+          "Pour off all but 1 tablespoon fat. Add onion, carrots, celery, and remaining 1/2 teaspoon salt and cook over medium 6 minutes until glossy and beginning to soften. Stir in garlic for 30 seconds.",
+          "Add broth, bay leaves, thyme, and chicken with any juices. Bring just to a simmer, partially cover, and cook gently 22 to 28 minutes until the thickest thigh reaches at least 175°F and pulls easily from the bone. Transfer chicken to a board and discard bay leaves.",
+          "Skim excess fat from the broth. Remove and discard chicken skin and bones, shred the meat, and return it to the pot. Bring the soup to a lively simmer, add noodles, and cook according to the package until just tender, usually 6 to 8 minutes.",
+          "Remove from heat and stir in dill, parsley, and lemon juice. Taste for salt and pepper, rest 5 minutes, and serve with lemon wedges. For planned leftovers, cook noodles separately and add them to each bowl so they do not absorb the broth overnight."
+        ],
+        "notes": "Chicken noodle soup became a familiar American name in the twentieth century, but its comforting idea is much older: chicken broth stretched with vegetables and noodles. Browning and then gently poaching bone-in thighs gives an everyday carton of broth more body, while lemon and fresh herbs keep the finished bowl lively rather than medicinal or salty.",
+        "sources": [
+          {
+            "publisher": "Inspired Taste",
+            "title": "Ultra-Satisfying Chicken Noodle Soup",
+            "url": "https://www.inspiredtaste.net/37475/homemade-chicken-noodle-soup-recipe/",
+            "signal": "A 4.9/5 pattern across 298 reviews supports a weeknight-friendly soup built from aromatic vegetables, good broth, chicken, noodles, herbs, and seasoning adjusted at the end."
+          },
+          {
+            "publisher": "The Kitchn",
+            "title": "We Tested 6 Popular Chicken Noodle Soup Recipes",
+            "url": "https://www.thekitchn.com/chicken-noodle-soup-recipe-showdown-23703447",
+            "signal": "A comparative cook-off of six prominent versions highlights the value of a genuinely chicken-rich broth, properly timed vegetables, restrained noodles, and bright finishing flavor."
+          },
+          {
+            "publisher": "Once Upon a Chef",
+            "title": "Easy Chicken Noodle Soup",
+            "url": "https://www.onceuponachef.com/recipes/easy-chicken-noodle-soup.html",
+            "signal": "A tested home-cooking method corroborates the familiar carrot-celery-onion base, egg noodles, fresh herbs, and an accessible one-pot structure appropriate for a household anchor."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Brown then gently poach bone-in chicken to deepen store-bought broth.",
+            "Cook vegetables before adding liquid so they taste sweet rather than raw.",
+            "Stop noodles at just tender and add fresh herbs and lemon off heat."
+          ],
+          "repeatedSuccessSignals": [
+            "Broth tastes clearly of chicken without greasy heaviness",
+            "Chicken is tender and moist",
+            "Carrots and celery hold their shape",
+            "Noodles remain distinct and herbs taste fresh"
+          ],
+          "repeatedFailureRisks": [
+            "A hard boil clouds the broth and toughens the chicken.",
+            "Overcooked noodles swell and consume the broth.",
+            "Unskimmed chicken fat makes the finished bowl feel oily."
+          ],
+          "adaptationDecision": "Use forgiving bone-in thighs to improve convenient boxed broth, preserve the most familiar vegetable-and-egg-noodle profile, and disclose the separate-noodle option for households intentionally making leftovers."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO002",
+      "sourceRecipeHash": "sha256:1eabe2dcd71f4fe45632f73c02e11774828aee73e85c7c39676258a0d1e9d228",
+      "title": "Creamy roasted tomato soup",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Whole tomatoes roasted with onion and garlic, then blended with stock, basil, butter, and just enough cream for a smooth grilled-cheese companion.",
+        "category": "Soups & stews",
+        "cuisine": "American",
+        "ingredients": [
+          "2 cans (28 ounces each) whole peeled tomatoes, drained with juices reserved",
+          "1 large yellow onion, cut in 1-inch wedges",
+          "5 garlic cloves, peeled",
+          "3 tablespoons olive oil",
+          "1 1/4 teaspoons kosher salt, divided",
+          "1/2 teaspoon black pepper",
+          "2 tablespoons tomato paste",
+          "2 cups low-sodium vegetable or chicken broth",
+          "1 teaspoon dried thyme",
+          "1 teaspoon sugar, only if needed",
+          "1/2 cup heavy cream",
+          "2 tablespoons unsalted butter",
+          "1/3 cup loosely packed fresh basil leaves, torn"
+        ],
+        "instructions": [
+          "Heat oven to 425°F. Crush each drained tomato by hand onto a rimmed sheet pan. Add onion and garlic, drizzle with olive oil, and season with 1 teaspoon salt and the pepper. Roast 30 to 35 minutes, stirring once, until tomato edges darken and onion is tender.",
+          "Scrape the roasted mixture and all pan juices into a Dutch oven. Stir tomato paste in over medium heat for 1 minute, then add reserved tomato juices, broth, thyme, and remaining 1/4 teaspoon salt. Simmer uncovered 10 minutes.",
+          "Blend until completely smooth with an immersion blender, or carefully blend in batches with the center cap removed and a towel held over the opening. Return to low heat.",
+          "Taste before sweetening; add the sugar only if the tomatoes remain sharply acidic. Stir in cream and butter and warm gently without boiling until silky and unified, 2 to 3 minutes.",
+          "Remove from heat, stir in basil, and adjust salt and pepper. Serve hot; the balanced sweetness and moderate cream are designed to leave room for grilled cheese rather than turn the soup into sauce."
+        ],
+        "notes": "Cream of tomato soup became an American pantry comfort through canned soup, especially beside grilled cheese. Roasting reliable canned whole tomatoes concentrates their flavor in any season. This version keeps that childhood identity but uses cream as a finish, not the main flavor, and asks the cook to taste before adding sugar because tomato acidity varies by brand.",
+        "sources": [
+          {
+            "publisher": "King Arthur Baking",
+            "title": "Creamy Tomato Soup",
+            "url": "https://www.kingarthurbaking.com/recipes/creamy-tomato-soup-recipe",
+            "signal": "A 4.8/5 pattern across 166 reviews supports canned tomato reliability, butter, onion, herbs, broth, controlled acidity, and a creamy but tomato-forward finish."
+          },
+          {
+            "publisher": "Martha Stewart",
+            "title": "Creamy Tomato Soup",
+            "url": "https://www.marthastewart.com/343299/creamy-tomato-soup",
+            "signal": "A broad 322-rating home-cooking pattern reinforces whole peeled canned tomatoes and a short, approachable method for a smooth everyday soup."
+          },
+          {
+            "publisher": "The Kitchn",
+            "title": "I Tried 4 of the Best Tomato Soup Recipes",
+            "url": "https://www.thekitchn.com/tomato-soup-recipe-showdown-23476719",
+            "signal": "A four-recipe comparison shows that strong tomato concentration and smooth body matter more than simply adding large amounts of cream."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Use dependable whole peeled canned tomatoes and reserve their juices.",
+            "Roast tomatoes and aromatics until browned at the edges before simmering.",
+            "Blend fully, then add dairy over low heat and taste before sweetening."
+          ],
+          "repeatedSuccessSignals": [
+            "Tomato flavor is concentrated rather than watery",
+            "Texture is smooth and pourable",
+            "Cream softens acidity without muting the tomato",
+            "Basil remains fresh and aromatic"
+          ],
+          "repeatedFailureRisks": [
+            "Undrained tomatoes steam instead of roast.",
+            "Sealed hot blending can force soup from the blender jar.",
+            "Boiling after cream is added can dull flavor or split the dairy."
+          ],
+          "adaptationDecision": "Combine the convenience and review strength of canned-tomato soups with a hands-off roasting step that develops sweetness naturally, then keep sugar conditional and cream restrained."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO003",
+      "sourceRecipeHash": "sha256:4d0f3820b58de824b378d3964ca7d20a70c22f1094b7003eaa0463aed9fc2753",
+      "title": "Broccoli cheddar soup",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Tender broccoli and carrot in a smooth, savory broth finished with sharp cheddar for café-style comfort without a gluey cheese sauce.",
+        "category": "Soups & stews",
+        "cuisine": "American",
+        "ingredients": [
+          "4 tablespoons unsalted butter",
+          "1 medium yellow onion, finely chopped",
+          "1 medium carrot, coarsely grated",
+          "3 garlic cloves, finely chopped",
+          "1/4 cup all-purpose flour",
+          "4 cups low-sodium chicken or vegetable broth",
+          "1 cup whole milk",
+          "1/2 teaspoon kosher salt, plus more to taste",
+          "1/4 teaspoon black pepper",
+          "1/8 teaspoon ground nutmeg",
+          "1 pound broccoli, stems peeled and diced and florets cut bite-size",
+          "8 ounces sharp cheddar, freshly grated",
+          "1 teaspoon Dijon mustard"
+        ],
+        "instructions": [
+          "Melt butter in a Dutch oven over medium. Add onion and carrot and cook 5 to 6 minutes until soft but not browned. Add garlic and stir 30 seconds. Sprinkle in flour and cook, stirring, 1 full minute.",
+          "Slowly whisk in broth, then milk, salt, pepper, and nutmeg. Add diced broccoli stems, bring to a gentle simmer, and cook 4 minutes, scraping the bottom so the roux does not catch.",
+          "Add florets, partially cover, and simmer 7 to 9 minutes until the stems are tender and the florets crush easily with a spoon but remain green. Blend two cups of soup and return it to the pot, or pulse briefly with an immersion blender, leaving visible broccoli pieces.",
+          "Turn heat to low. Add cheddar one small handful at a time, stirring until each addition melts before adding the next. Do not let the soup boil. Stir in Dijon until smooth.",
+          "Taste for salt and pepper and serve immediately. Reheat leftovers gently over low heat with a splash of milk; boiling a finished cheese soup makes it grainy and oily."
+        ],
+        "notes": "Broccoli cheddar soup is closely associated with American cafés and bread-bowl lunches. Its appeal is the contrast between a vegetable-rich base and unmistakable sharp cheese. Using the peeled broccoli stem prevents waste and builds body; freshly grated cheddar and low heat solve the graininess that often disappoints home cooks.",
+        "sources": [
+          {
+            "publisher": "Once Upon a Chef",
+            "title": "Broccoli Cheddar Soup",
+            "url": "https://www.onceuponachef.com/recipes/broccoli-cheddar-soup.html",
+            "signal": "A 4.9/5 pattern across 65 reviews supports softened aromatics, roux, broth, broccoli, cream or milk, sharp cheddar, nutmeg, and gradual cheese addition for café-style richness."
+          },
+          {
+            "publisher": "Inspired Taste",
+            "title": "Easy Broccoli Cheddar Soup",
+            "url": "https://www.inspiredtaste.net/52166/broccoli-cheddar-soup/",
+            "signal": "A highly reviewed home method reinforces abundant broccoli, creamy body, strong cheddar flavor, and a simple one-pot process."
+          },
+          {
+            "publisher": "Budget Bytes",
+            "title": "Easy Broccoli Cheddar Soup",
+            "url": "https://www.budgetbytes.com/easy-broccoli-cheddar-soup/",
+            "signal": "A budget-oriented pattern shows that whole milk and a moderate amount of cheese can still create a satisfying soup without relying on heavy cream."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Cook the flour for one minute and whisk liquid in gradually.",
+            "Cook stems before florets and blend only part of the soup.",
+            "Use freshly grated sharp cheddar and melt it gradually below a simmer."
+          ],
+          "repeatedSuccessSignals": [
+            "Broccoli flavor remains clear beneath the cheddar",
+            "Soup coats a spoon but still pours",
+            "Cheese melts smoothly without oiling out",
+            "Small florets provide recognizable texture"
+          ],
+          "repeatedFailureRisks": [
+            "Pre-shredded cheese can leave the soup gritty.",
+            "Boiling after cheese is added causes separation.",
+            "Large raw stem pieces remain hard after florets soften."
+          ],
+          "adaptationDecision": "Keep the beloved café profile, replace an all-cream base with milk and a partly blended vegetable base, and make fresh grating and below-simmer melting explicit rather than hiding the main failure point."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO004",
+      "sourceRecipeHash": "sha256:621b2d2ec2c8cb6ea5fa228f4a363b8683cf2bcd2f34da0e725e060a90756199",
+      "title": "New England clam chowder",
+      "cuisine": "New England US",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Briny clams, tender potatoes, bacon, onion, and celery in a lightly thickened cream broth with thyme and black pepper.",
+        "category": "Soups & stews",
+        "cuisine": "New England US",
+        "ingredients": [
+          "4 cans (6.5 ounces each) chopped clams in juice",
+          "2 bottles (8 ounces each) clam juice",
+          "4 slices thick-cut bacon, cut in 1/2-inch pieces",
+          "1 tablespoon unsalted butter, if needed",
+          "1 medium yellow onion, finely chopped",
+          "2 celery ribs, finely chopped",
+          "2 garlic cloves, finely chopped",
+          "1/4 cup all-purpose flour",
+          "1 1/2 pounds Yukon Gold potatoes, cut in 1/2-inch cubes",
+          "1 bay leaf",
+          "1 teaspoon dried thyme",
+          "1/2 teaspoon black pepper",
+          "1 cup whole milk",
+          "1 cup heavy cream",
+          "2 tablespoons chopped flat-leaf parsley",
+          "Oyster crackers, for serving"
+        ],
+        "instructions": [
+          "Drain clams through a fine sieve, reserving all their juice. Combine reserved canned juice with bottled clam juice and add enough water, only if needed, to make 4 cups. Refrigerate clam meat while the base cooks.",
+          "Cook bacon in a Dutch oven over medium heat 6 to 8 minutes until crisp. Transfer bacon to a plate. Leave 2 tablespoons fat in the pot, adding butter only if the bacon rendered less than that.",
+          "Add onion and celery and cook 6 minutes until soft without browning. Add garlic for 30 seconds, sprinkle in flour, and stir 1 minute. Slowly whisk in the 4 cups clam liquid.",
+          "Add potatoes, bay leaf, thyme, and pepper. Bring to a gentle simmer, partially cover, and cook 12 to 16 minutes until potatoes are tender but intact, stirring near the bottom occasionally.",
+          "Reduce heat to low and stir in milk and cream. Warm until steaming without boiling, then add clams and half the bacon for just 2 minutes. Discard bay leaf, taste before adding any salt, and finish with parsley. Serve with remaining bacon and oyster crackers."
+        ],
+        "notes": "New England clam chowder is the region's white, milk-or-cream style, distinct from tomato-based Manhattan chowder and clear Rhode Island chowder. Fresh clams are wonderful near the coast, but canned clams and bottled juice make the dish realistic inland. Adding the clam meat only at the end protects the tender texture that long-simmered chowders lose.",
+        "sources": [
+          {
+            "publisher": "Cooks.com",
+            "title": "New England Clam Chowder",
+            "url": "https://www.cooks.com/recipe/et00k16m/new-england-clam-chowder.html",
+            "signal": "A 4.8/5 regional-reader pattern supports a creamy, potato-rich chowder whose success depends on strong clam flavor and familiar New England richness."
+          },
+          {
+            "publisher": "Martha Stewart",
+            "title": "New England Clam Chowder",
+            "url": "https://www.marthastewart.com/new-england-clam-chowder-7212325",
+            "signal": "An editorial test-kitchen version corroborates clams, clam liquor, potatoes, onion, dairy, and the option of a meat-free base while retaining the white chowder identity."
+          },
+          {
+            "publisher": "Favorite Family Recipes",
+            "title": "Best Clam Chowder Recipe",
+            "url": "https://www.favfamilyrecipes.com/best-clam-chowder-ever/",
+            "signal": "A long-running family recipe reinforces that abundant tender clams, potatoes, a savory aromatic base, and controlled creaminess drive the restaurant-style appeal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Reserve and measure clam liquid as the primary broth.",
+            "Cook potatoes gently in the thickened broth before adding dairy.",
+            "Warm dairy without boiling and add clam meat only for the final two minutes."
+          ],
+          "repeatedSuccessSignals": [
+            "Broth tastes briny before it tastes creamy",
+            "Potato cubes are tender but retain edges",
+            "Clams remain tender rather than rubbery",
+            "Bacon seasons the soup without overwhelming seafood"
+          ],
+          "repeatedFailureRisks": [
+            "Salting before tasting the clam liquid can make the chowder inedible.",
+            "Boiling dairy can separate the broth.",
+            "Simmering canned clams with the potatoes makes them tough."
+          ],
+          "adaptationDecision": "Translate the coastal classic into an inland-accessible recipe with canned clams and bottled juice, preserve its cream-style regional identity, and add the clams late to address the most common texture failure."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO005",
+      "sourceRecipeHash": "sha256:3593c59c3f1ba9b805ffd6349917275a7ad8babba10c7aea5a29a4956f8becd5",
+      "title": "Sweet corn and potato chowder",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Sweet corn and small potatoes in a lightly creamy vegetable broth, partly blended for body and finished with scallions, chives, and lime.",
+        "category": "Soups & stews",
+        "cuisine": "American",
+        "ingredients": [
+          "5 ears fresh sweet corn, or 4 cups frozen corn, divided",
+          "3 tablespoons unsalted butter",
+          "1 medium yellow onion, diced",
+          "1 red bell pepper, diced",
+          "2 celery ribs, diced",
+          "2 garlic cloves, finely chopped",
+          "1/4 cup all-purpose flour",
+          "4 cups low-sodium vegetable broth",
+          "1 cup whole milk",
+          "1 pound Yukon Gold potatoes, cut in 1/2-inch cubes",
+          "1 teaspoon dried thyme",
+          "1 bay leaf",
+          "1 teaspoon kosher salt, plus more to taste",
+          "1/2 teaspoon black pepper",
+          "3 scallions, thinly sliced",
+          "2 tablespoons chopped fresh chives",
+          "1 lime, cut in wedges"
+        ],
+        "instructions": [
+          "If using fresh corn, cut kernels from the cobs into a wide bowl, then scrape the bare cobs with the back of a knife to capture the milky pulp. Reserve 1 cup kernels separately. If using frozen corn, thaw just the 1 cup that will be blended.",
+          "Melt butter in a Dutch oven over medium. Add onion, bell pepper, and celery and cook 6 to 7 minutes until soft but not browned. Add garlic for 30 seconds, then stir in flour for 1 minute.",
+          "Slowly whisk in broth and 1/2 cup milk. Add potatoes, thyme, bay leaf, salt, pepper, and all corn except the reserved cup. Bring to a gentle simmer, partially cover, and cook 12 to 15 minutes until potatoes are tender.",
+          "Blend reserved corn with remaining 1/2 cup milk until smooth, venting the blender if the corn is warm. Stir it into the soup with any fresh-corn pulp and simmer 3 minutes. For a thicker chowder, press several potato cubes against the pot rather than adding more flour.",
+          "Discard bay leaf and remove from heat. Stir in scallions and chives, adjust salt and pepper, and serve with lime wedges. The lime is a table finish: a small squeeze sharpens the corn without making the entire pot sour."
+        ],
+        "notes": "Corn chowder has appeared in American cookbooks since at least the nineteenth century, combining sweet corn with the potato-and-milk structure of coastal chowders. Fresh cobs give peak-season depth, but frozen corn keeps this a practical household meal. Blending only one cup preserves juicy kernels while releasing enough starch and sweetness to replace heavy cream.",
+        "sources": [
+          {
+            "publisher": "Once Upon a Chef",
+            "title": "Southwestern Corn Chowder",
+            "url": "https://www.onceuponachef.com/web-stories/southwestern-corn-chowder",
+            "signal": "A 4.97/5 pattern across 79 reviews shows that evenly diced potatoes, sweet corn, milk, aromatics, and blending a portion of corn produce a creamy chowder with distinct kernels."
+          },
+          {
+            "publisher": "HelloFresh",
+            "title": "Sweet Corn and Poblano Chowder",
+            "url": "https://www.hellofresh.com/recipes/sweet-corn-poblano-chowder-61a78482d3afc75ab13b9761",
+            "signal": "A very large 4.5/5 pattern across 16,300 ratings confirms the broad comfort appeal of sweet corn, potatoes, mild pepper, creamy broth, and a bright finish while warning against letting potato dominate."
+          },
+          {
+            "publisher": "A Couple Cooks",
+            "title": "Corn Chowder",
+            "url": "https://www.acouplecooks.com/corn-chowder/",
+            "signal": "A reader-favorite home recipe reinforces the savory-sweet balance, creamy texture, tender potatoes, and whole kernels that define a satisfying classic corn chowder."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Cut potatoes evenly so they finish together without dissolving.",
+            "Blend only a portion of corn with milk to build body and preserve kernels.",
+            "Add scallions, chives, and optional lime only after cooking."
+          ],
+          "repeatedSuccessSignals": [
+            "Corn remains the leading flavor",
+            "Potatoes are tender but secondary",
+            "Broth is creamy without feeling heavy",
+            "Whole kernels pop against the smooth base"
+          ],
+          "repeatedFailureRisks": [
+            "Too much potato turns corn chowder into potato soup.",
+            "A hard boil can scorch the thickened milk base.",
+            "Blending all the corn erases the chowder's texture."
+          ],
+          "adaptationDecision": "Keep the highest-rated partial-blending technique and the mass-appeal corn-potato-pepper profile, remove the extra Southwestern spice layer for a distinct classic anchor, and retain lime only as an optional table adjustment."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO006",
+      "sourceRecipeHash": "sha256:45c485cda8d56d5c5428d009de18c64e36dec0fc2ab20ca68dd33d12cebae205",
+      "title": "Loaded baked potato soup",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Creamy russet potato soup topped like a loaded baked potato with crisp bacon, sharp cheddar, sour cream, and scallions.",
+        "category": "Soups & stews",
+        "cuisine": "American",
+        "ingredients": [
+          "6 slices thick-cut bacon, cut in 1/2-inch pieces",
+          "1 medium yellow onion, diced",
+          "3 garlic cloves, finely chopped",
+          "1/4 cup all-purpose flour",
+          "4 cups low-sodium chicken broth",
+          "2 pounds russet potatoes, peeled and cut in 1/2-inch cubes",
+          "1 teaspoon kosher salt, plus more to taste",
+          "1/2 teaspoon black pepper",
+          "2 cups whole milk",
+          "4 ounces sharp cheddar, freshly grated, plus more for serving",
+          "1/2 cup sour cream, plus more for serving",
+          "4 scallions, thinly sliced, white and green parts separated",
+          "Hot sauce, for serving"
+        ],
+        "instructions": [
+          "Cook bacon in a Dutch oven over medium 7 to 9 minutes until crisp. Transfer to a paper-towel-lined plate. Leave 3 tablespoons bacon fat in the pot, discarding any excess.",
+          "Add onion and scallion whites and cook 5 minutes until soft. Stir in garlic for 30 seconds, then flour for 1 minute. Slowly whisk in broth until smooth.",
+          "Add potatoes, salt, and pepper. Bring to a gentle simmer, partially cover, and cook 12 to 16 minutes until the potatoes crush easily with a fork. Mash about one-third of them against the pot, leaving plenty of cubes intact.",
+          "Stir in milk and warm below a boil. Reduce heat to low and add cheddar by handfuls until smooth. Remove from heat, whisk 1 cup hot soup into the sour cream, then stir that mixture back into the pot.",
+          "Taste for salt and pepper. Serve with bacon, scallion greens, extra cheddar, sour cream, and hot sauce so each bowl gets the familiar loaded-potato contrast without every topping becoming soggy in the pot."
+        ],
+        "notes": "Loaded baked potato soup is an American restaurant-style transformation of a baked potato and its toppings. The best versions keep actual potato texture beneath the dairy. Mashing only part of the pot thickens the soup naturally, while adding cheddar on low heat and tempering sour cream prevents the grainy, split finish common in rushed versions.",
+        "sources": [
+          {
+            "publisher": "HelloFresh",
+            "title": "Loaded Baked Potato Soup",
+            "url": "https://www.hellofresh.com/recipes/loaded-baked-potato-soup-654a9e5533e8a37769159abd",
+            "signal": "A 4.5/5 pattern across 7,900 ratings strongly supports bacon, cheddar, sour cream, scallions, hot sauce, and a fast creamy potato base as the recognizable loaded profile."
+          },
+          {
+            "publisher": "Budget Bytes",
+            "title": "Creamy Loaded Potato Soup",
+            "url": "https://www.budgetbytes.com/loaded-potato-soup/",
+            "signal": "A 4.89/5 value-focused pattern across 44 votes corroborates a thick potato base with bacon, sour cream, cheddar, and green onion in an accessible six-serving format."
+          },
+          {
+            "publisher": "The Kitchn",
+            "title": "Loaded Baked Potato Soup",
+            "url": "https://www.thekitchn.com/best-loaded-baked-potato-soup-recipe-23709594",
+            "signal": "An editorial test-kitchen method reinforces delivering baked-potato flavor without the extra oven step and keeping the characteristic toppings distinct at service."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Render bacon first and use a measured amount of its fat for the base.",
+            "Mash only part of the tender potatoes for body.",
+            "Melt cheddar below a boil and temper sour cream before adding it."
+          ],
+          "repeatedSuccessSignals": [
+            "Potato remains the main flavor",
+            "Soup is thick but still spoonable",
+            "Cheese and sour cream stay smooth",
+            "Toppings retain salty crisp fresh contrast"
+          ],
+          "repeatedFailureRisks": [
+            "Blending every potato creates a gluey texture.",
+            "Boiling cheese or sour cream causes separation.",
+            "Stirring all bacon into the pot sacrifices its crispness."
+          ],
+          "adaptationDecision": "Preserve the exceptionally familiar five-topping profile, use partial hand-mashing instead of a blender or cornstarch, and stage most garnishes at the bowl so the soup still tastes loaded rather than uniformly heavy."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO007",
+      "sourceRecipeHash": "sha256:ce2711791a8b15af408301dee0de38b90899248138cd4393feb60d9d1769eed4",
+      "title": "Vegetable beef stew",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Fork-tender beef with potatoes, carrots, celery, peas, and mushrooms in a glossy tomato-herb gravy.",
+        "category": "Soups & stews",
+        "cuisine": "American",
+        "ingredients": [
+          "2 pounds boneless beef chuck, cut in 1 1/2-inch pieces",
+          "1 1/2 teaspoons kosher salt, divided",
+          "3/4 teaspoon black pepper, divided",
+          "3 tablespoons all-purpose flour",
+          "2 tablespoons neutral oil, divided",
+          "1 large yellow onion, chopped",
+          "3 celery ribs, cut in 1/2-inch pieces",
+          "8 ounces cremini mushrooms, quartered",
+          "4 garlic cloves, finely chopped",
+          "2 tablespoons tomato paste",
+          "1 cup dry red wine, or additional beef broth",
+          "4 cups low-sodium beef broth",
+          "1 tablespoon Worcestershire sauce",
+          "1 teaspoon dried thyme",
+          "2 bay leaves",
+          "1 pound Yukon Gold potatoes, cut in 1 1/2-inch pieces",
+          "4 medium carrots, cut in 1-inch pieces",
+          "1 cup frozen peas",
+          "2 tablespoons chopped flat-leaf parsley"
+        ],
+        "instructions": [
+          "Pat beef dry. Toss with 1 teaspoon salt, 1/2 teaspoon pepper, and flour. Heat 1 tablespoon oil in a Dutch oven over medium-high and brown half the beef without crowding, 5 to 7 minutes; transfer and repeat with remaining oil and beef.",
+          "Lower heat to medium. Add onion, celery, mushrooms, remaining salt, and remaining pepper. Cook 7 minutes until moisture cooks off and vegetables begin to brown. Add garlic and tomato paste and cook 1 minute.",
+          "Add wine and scrape up the browned layer; simmer 3 minutes. Return beef and its juices, then add broth, Worcestershire, thyme, and bay leaves. Bring to a simmer, cover slightly ajar, and cook gently 60 minutes.",
+          "Add potatoes and carrots and simmer partially covered 35 to 50 minutes more, until beef is fork-tender and vegetables are intact but tender. Add a splash of broth if the gravy reduces before the beef softens.",
+          "Stir in frozen peas for 3 minutes. Discard bay leaves, skim excess surface fat, and adjust salt and pepper. Rest 10 minutes and finish with parsley; the gravy will settle and thicken as it rests."
+        ],
+        "notes": "American vegetable beef stew is the practical descendant of long-simmered meat-and-root-vegetable dishes found across many cuisines. Chuck becomes tender through patient moist heat, not because it is labeled stew meat. Adding potatoes and carrots after the first hour protects them from dissolving while the beef finishes its slower transformation.",
+        "sources": [
+          {
+            "publisher": "Once Upon a Chef",
+            "title": "Beef Stew with Carrots and Potatoes",
+            "url": "https://www.onceuponachef.com/recipes/beef-stew-with-carrots-potatoes.html",
+            "signal": "A 4.86/5 pattern across 3,177 reviews establishes browned chuck, wine-rich broth, carrots, potatoes, and a slow covered braise as a highly reliable comfort-food structure."
+          },
+          {
+            "publisher": "Downshiftology",
+            "title": "Classic Beef Stew",
+            "url": "https://downshiftology.com/recipes/beef-stew/",
+            "signal": "A 4.99/5 pattern across 146 votes corroborates a one-pot stew with seared beef, low-sodium broth, tomato, herbs, and sturdy root vegetables."
+          },
+          {
+            "publisher": "Martha Stewart",
+            "title": "How to Make Beef Stew",
+            "url": "https://www.marthastewart.com/1545822/classic-beef-stew",
+            "signal": "A triple-tested 4.8/5 version reinforces small-batch searing, rich gravy, carrots, potatoes, peas, and fresh parsley added only at service."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Dry and brown beef in uncrowded batches.",
+            "Deglaze the browned pot before a gentle long braise.",
+            "Delay potatoes and carrots until the beef has had a head start."
+          ],
+          "repeatedSuccessSignals": [
+            "Beef separates under fork pressure",
+            "Vegetables remain recognizable",
+            "Gravy is glossy rather than floury",
+            "Wine tomato and herbs support rather than dominate beef"
+          ],
+          "repeatedFailureRisks": [
+            "Crowded wet beef steams gray instead of browning.",
+            "A hard boil dries the meat before collagen softens.",
+            "Adding every vegetable at the start produces mush."
+          ],
+          "adaptationDecision": "Use the strongest high-volume chuck-braise evidence, broaden the vegetable mix with celery, mushrooms, and peas, and retain delayed root vegetables so greater variety does not cost texture."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO008",
+      "sourceRecipeHash": "sha256:0dc4c1adfad6968f3fdd0bbe1ab2e80d584338da4f21f2a21ae94c4629480f40",
+      "title": "Beef and bean chili",
+      "cuisine": "Tex-Mex",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Ground beef and pinto beans in a thick tomato-chile sauce with cumin, oregano, and a small amount of cocoa for savory depth.",
+        "category": "Soups & stews",
+        "cuisine": "Tex-Mex",
+        "ingredients": [
+          "2 tablespoons neutral oil",
+          "1 large yellow onion, diced",
+          "1 red bell pepper, diced",
+          "1 1/2 teaspoons kosher salt, divided",
+          "4 garlic cloves, finely chopped",
+          "3 tablespoons mild chili powder",
+          "2 teaspoons ground cumin",
+          "1 teaspoon smoked paprika",
+          "1 teaspoon dried oregano",
+          "1 1/2 pounds 85% lean ground beef",
+          "3 tablespoons tomato paste",
+          "1 tablespoon unsweetened cocoa powder",
+          "1 can (28 ounces) crushed tomatoes",
+          "2 cans (15 ounces each) pinto or kidney beans, drained, one can lightly mashed",
+          "1 1/2 cups low-sodium beef broth",
+          "1 tablespoon Worcestershire sauce",
+          "Shredded cheddar, sour cream, diced onion, cilantro, and lime wedges, for serving"
+        ],
+        "instructions": [
+          "Heat oil in a Dutch oven over medium. Add onion, bell pepper, and 1/2 teaspoon salt and cook 7 minutes until softened and beginning to brown. Add garlic, chili powder, cumin, paprika, and oregano and stir 30 seconds.",
+          "Increase heat to medium-high. Add beef, season with another 1/2 teaspoon salt, and cook 6 to 8 minutes, breaking it into irregular bite-size crumbles, until no pink remains and browned bits form.",
+          "Stir in tomato paste and cocoa and cook 2 minutes until the paste darkens; the cocoa should smell toasted but not chocolatey. Add crushed tomatoes, whole and mashed beans, broth, Worcestershire, and remaining salt.",
+          "Bring to a simmer, reduce heat to medium-low, and cook uncovered 25 to 30 minutes, stirring occasionally, until thick enough to mound on a spoon. Add broth only if the pot catches before the flavors meld.",
+          "Taste for salt and heat and rest 10 minutes. Serve with toppings at the table, especially lime and sour cream, so one moderately spiced pot can work for different household preferences."
+        ],
+        "notes": "Chili con carne has borderlands roots and many fiercely defended regional forms; Texas competition chili often excludes beans. This is the equally familiar American household and Tex-Mex bowl built from ground beef, tomatoes, and beans. Cocoa is used in a one-tablespoon savory role to deepen toasted chile and tomato, not to make the chili sweet or claim a single canonical style.",
+        "sources": [
+          {
+            "publisher": "Milk Street via Associated Press",
+            "title": "Eight-Ingredient Beef and Bean Chili",
+            "url": "https://apnews.com/article/f2b2b83ac1896ce0b1e02f137648a016",
+            "signal": "A published test-kitchen method supports deeply browned tomato paste, assertive chili and cumin, a small amount of cocoa, and partially mashed beans for fast savory depth and body."
+          },
+          {
+            "publisher": "Food Network Kitchen",
+            "title": "Bean-and-Beef Chili",
+            "url": "https://www.foodnetwork.com/recipes/food-network-kitchen/bean-and-beef-chili-recipe-1973542.amp",
+            "signal": "A 25-review editorial pattern corroborates tomatoes, broth, pinto beans, browned beef, restrained heat, and layered seasoning in a familiar bean-and-beef pot."
+          },
+          {
+            "publisher": "The Kitchn",
+            "title": "We Tested 6 Popular Beef Chili Recipes",
+            "url": "https://www.thekitchn.com/beef-chili-recipe-showdown-23708114",
+            "signal": "A six-recipe comparison warns that elaborate specialty ingredients and excessive bitter-sweet additions can underperform a balanced, recognizable chili."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Bloom ground spices briefly before adding beef.",
+            "Brown tomato paste and cocoa before adding liquid.",
+            "Mash one can of beans and reduce uncovered for natural body."
+          ],
+          "repeatedSuccessSignals": [
+            "Beef remains in savory crumbles",
+            "Sauce clings to beans instead of pooling",
+            "Chile is warm and earthy rather than punishing",
+            "Cocoa adds depth without identifiable chocolate flavor"
+          ],
+          "repeatedFailureRisks": [
+            "Uncooked spices and tomato paste taste dusty and sharp.",
+            "Too much cocoa makes chili bitter or dessert-like.",
+            "A watery covered simmer prevents concentration."
+          ],
+          "adaptationDecision": "Choose the familiar ground-beef-and-bean household form, retain the evidence-backed paste browning and bean mashing, and reject expensive specialty-chile complexity that comparative testing found divisive."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO009",
+      "sourceRecipeHash": "sha256:40aee69f5b14b265e9951dddb305d86a8de172a6343a71abf239caa2862a0be9",
+      "title": "Turkey and white bean chili",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Ground turkey and creamy white beans in a green-chile broth with cumin, oregano, lime, cilantro, and a restrained sour-cream finish.",
+        "category": "Soups & stews",
+        "cuisine": "American",
+        "ingredients": [
+          "2 tablespoons olive oil",
+          "1 large yellow onion, diced",
+          "1 poblano pepper, seeded and diced",
+          "1 jalapeño, seeded and finely chopped, optional",
+          "1 1/4 teaspoons kosher salt, divided",
+          "4 garlic cloves, finely chopped",
+          "1 1/2 pounds 85% to 93% lean ground turkey",
+          "2 teaspoons ground cumin",
+          "1 teaspoon dried oregano",
+          "1/2 teaspoon ground coriander",
+          "2 cans (4 ounces each) diced mild green chiles",
+          "3 cans (15 ounces each) cannellini beans, drained, one can lightly mashed",
+          "4 cups low-sodium chicken broth",
+          "1 cup frozen corn",
+          "1/2 cup sour cream",
+          "1/3 cup chopped cilantro",
+          "1 lime, zested and cut in wedges"
+        ],
+        "instructions": [
+          "Heat oil in a Dutch oven over medium-high. Add onion, poblano, optional jalapeño, and 1/2 teaspoon salt and cook 6 minutes until tender and beginning to color. Stir in garlic for 30 seconds.",
+          "Add turkey and another 1/2 teaspoon salt. Cook 7 to 9 minutes, breaking it into bite-size crumbles, until no pink remains and the meat reaches 165°F. Add cumin, oregano, and coriander and stir 30 seconds.",
+          "Add green chiles, whole and mashed beans, broth, corn, and remaining salt. Bring to a simmer and cook uncovered 18 to 22 minutes until the broth lightly coats a spoon.",
+          "Remove from heat. Whisk 1 cup hot chili into sour cream, then stir the mixture back into the pot with lime zest. Do not boil after adding sour cream.",
+          "Fold in half the cilantro, taste for salt and brightness, and serve with remaining cilantro and lime wedges. Keep jalapeño optional and offer hot sauce separately for a family-flexible base."
+        ],
+        "notes": "White chili is a modern American counterpart to red beef chili, using poultry, white beans, green chiles, and a pale broth. Its best identity is creamy from beans rather than a pot of dairy. One mashed can gives body, while medium-fat turkey, browned before simmering, avoids the dry, gray texture that can make a lighter chili feel like a compromise.",
+        "sources": [
+          {
+            "publisher": "Martha Stewart",
+            "title": "Turkey and White-Bean Chili",
+            "url": "https://www.marthastewart.com/314655/turkey-and-white-bean-chili",
+            "signal": "A 102-rating weeknight pattern supports medium-lean turkey, cannellini beans, cumin, jalapeño, concentrated savory flavor, and a 45-minute format while indicating that a brothy base benefits from extra body."
+          },
+          {
+            "publisher": "Skinnytaste",
+            "title": "White Bean Turkey Chili",
+            "url": "https://www.skinnytaste.com/white-bean-turkey-chili-4-pts/",
+            "signal": "A popular tomato-free version corroborates ground turkey, canned white beans, aromatics, green-chile seasoning, and creaminess without turning the meal into red chili with different beans."
+          },
+          {
+            "publisher": "Epicurious",
+            "title": "White Bean Turkey Chili",
+            "url": "https://www.epicurious.com/recipes/food/views/white-bean-turkey-chili",
+            "signal": "A long-running Bon Appétit-derived pattern reinforces the durable one-pot combination of turkey, white beans, aromatics, chile, and a savory weeknight simmer."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Use turkey with enough fat to brown and cook it fully before simmering.",
+            "Mash one can of beans to thicken the broth without excess dairy.",
+            "Temper sour cream off heat and finish with lime and cilantro."
+          ],
+          "repeatedSuccessSignals": [
+            "Turkey stays moist and savory",
+            "White beans provide creamy body",
+            "Green chile flavor is present but adjustable",
+            "Lime and cilantro keep the pale chili fresh"
+          ],
+          "repeatedFailureRisks": [
+            "Ultra-lean turkey dries out before browning.",
+            "Leaving every bean whole produces thin soup.",
+            "Boiling sour cream causes curdling."
+          ],
+          "adaptationDecision": "Keep the defining tomato-free green-chile identity, answer the large but only moderate-rated brothy pattern with mashed-bean body, and use dairy only as a tempered finish."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO010",
+      "sourceRecipeHash": "sha256:edae222547fc3c020f6eb61b2837f9b3c896ebb8eb0100fd8a37154097e31731",
+      "title": "Chicken and fluffy drop dumplings",
+      "cuisine": "American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Tender chicken and vegetables in a rich herb broth topped with light, steamed buttermilk drop dumplings.",
+        "category": "Soups & stews",
+        "cuisine": "American",
+        "ingredients": [
+          "1 1/2 pounds boneless skinless chicken thighs",
+          "1 1/2 teaspoons kosher salt, divided",
+          "1/2 teaspoon black pepper, divided",
+          "2 tablespoons olive oil",
+          "3 tablespoons unsalted butter, divided",
+          "1 large yellow onion, diced",
+          "3 medium carrots, sliced",
+          "3 celery ribs, sliced",
+          "3 garlic cloves, finely chopped",
+          "1/4 cup all-purpose flour, plus 1 1/2 cups for dumplings",
+          "6 cups low-sodium chicken broth",
+          "1 teaspoon dried thyme",
+          "1 bay leaf",
+          "1 cup frozen peas",
+          "2 teaspoons baking powder",
+          "1/2 teaspoon baking soda",
+          "3/4 cup cold buttermilk",
+          "2 tablespoons chopped flat-leaf parsley, divided"
+        ],
+        "instructions": [
+          "Season chicken with 1 teaspoon salt and 1/4 teaspoon pepper. Heat olive oil in a Dutch oven over medium-high and brown chicken 4 minutes per side; transfer. Melt 1 tablespoon butter in the pot, add onion, carrots, and celery, and cook 6 minutes. Add garlic for 30 seconds.",
+          "Sprinkle 1/4 cup flour over the vegetables and cook 1 minute. Slowly whisk in broth, then add thyme, bay leaf, and chicken with its juices. Simmer gently 15 to 18 minutes until chicken reaches 175°F. Transfer chicken, shred it, and return it with peas; discard bay leaf.",
+          "For dumplings, whisk remaining 1 1/2 cups flour, baking powder, baking soda, remaining 1/2 teaspoon salt, remaining 1/4 teaspoon pepper, and 1 tablespoon parsley. Melt remaining 2 tablespoons butter and stir it with cold buttermilk into the dry ingredients just until no dry pockets remain.",
+          "Keep the stew at a gentle simmer. Drop 12 loosely rounded 2-tablespoon portions over the surface with space between them. Cover tightly and cook without lifting the lid for 14 minutes; steam, not a hard boil, cooks the centers.",
+          "Insert a toothpick into the center of the largest dumpling; it should emerge without wet batter. If needed, cover and cook 2 minutes more. Rest uncovered 5 minutes, finish with remaining parsley, and serve without stirring the dumplings into the gravy."
+        ],
+        "notes": "Chicken and dumplings is a long-standing American comfort dish with regional disagreement over flat noodle-like dumplings versus fluffy drops. This recipe plainly chooses the fluffy style. The dumplings are mixed minimally, portioned loosely, and steamed under an untouched lid—the small disciplines that create tenderness without requiring biscuit mix or a separate oven.",
+        "sources": [
+          {
+            "publisher": "Inspired Taste",
+            "title": "The Best Chicken and Dumplings",
+            "url": "https://www.inspiredtaste.net/62425/chicken-and-dumplings/",
+            "signal": "A 4.9/5 pattern across 26 reviews supports flavorful chicken broth, tender meat, herbs, and simple from-scratch drop dumplings cooked directly over the stew."
+          },
+          {
+            "publisher": "Food Network Kitchen",
+            "title": "The Best Chicken and Dumplings",
+            "url": "https://www.foodnetwork.com/recipes/food-network-kitchen/the-best-chicken-and-dumplings-8615356",
+            "signal": "An editorial test-kitchen method corroborates chicken, vegetables, a lightly creamy roux-thickened broth, and pillowy two-tablespoon dumplings covered until a toothpick tests clean."
+          },
+          {
+            "publisher": "Tyler Florence via Food Network",
+            "title": "Chicken and Dumplings",
+            "url": "https://www.foodnetwork.com/recipes/tyler-florence/chicken-and-dumplings-recipe2-2014345.amp",
+            "signal": "A 312-review pattern reinforces a cooked roux, carrots, celery, peas, buttermilk dumplings, gentle poaching, and leaving space between portions so they become firm and puffy."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Build a browned chicken and vegetable broth before adding dumplings.",
+            "Mix cold buttermilk dough only until combined and portion it loosely.",
+            "Cover tightly and maintain a gentle simmer without lifting the lid."
+          ],
+          "repeatedSuccessSignals": [
+            "Chicken is tender in a gravy-like broth",
+            "Dumplings rise and feel light rather than gummy",
+            "Dumpling centers are fully cooked",
+            "Vegetables remain visible beneath the dumplings"
+          ],
+          "repeatedFailureRisks": [
+            "Overmixing develops tough dumplings.",
+            "Crowding or stirring portions together creates a raw mass.",
+            "Lifting the lid releases the steam before centers set."
+          ],
+          "adaptationDecision": "Choose the familiar fluffy-drop branch, use accessible boneless thighs and boxed broth while browning both for depth, and preserve the repeated buttermilk, minimal-mixing, spaced-portion, covered-steam success pattern."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO011",
+      "sourceRecipeHash": "sha256:e0db21537cf0f5aadd0fb077d93cf54c4f949f1962418f12d6cb529feb2dff7d",
+      "title": "Louisiana chicken and sausage gumbo",
+      "cuisine": "Louisiana US",
+      "equipmentState": "pending",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SO012",
+      "sourceRecipeHash": "sha256:3a215202c0a895cc859346a8f598598fcf277509be92e6c5fb9b7b5ddb35736b",
+      "title": "Louisiana seafood gumbo",
+      "cuisine": "Louisiana Creole",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Shrimp, crab, and oysters folded into an okra-thickened, medium-roux gumbo with tomatoes, the Louisiana trinity, and seafood stock.",
+        "category": "Soups & stews",
+        "cuisine": "Louisiana Creole",
+        "ingredients": [
+          "1 pound medium shrimp, peeled and deveined, shells reserved",
+          "6 cups low-sodium seafood stock",
+          "1/2 cup neutral oil",
+          "1/2 cup all-purpose flour",
+          "1 large yellow onion, diced",
+          "1 green bell pepper, diced",
+          "3 celery ribs, diced",
+          "5 garlic cloves, finely chopped",
+          "12 ounces sliced okra, fresh or frozen",
+          "1 can (14.5 ounces) diced tomatoes",
+          "2 bay leaves",
+          "1 teaspoon dried thyme",
+          "1 teaspoon smoked paprika",
+          "1/2 teaspoon cayenne, or less to taste",
+          "1 1/2 teaspoons kosher salt, divided",
+          "1/2 teaspoon black pepper",
+          "8 ounces lump crabmeat, picked over for shell",
+          "8 ounces shucked oysters with their liquor",
+          "1 teaspoon filé powder, optional",
+          "4 scallions, thinly sliced",
+          "Cooked white rice and lemon wedges, for serving"
+        ],
+        "instructions": [
+          "Simmer reserved shrimp shells in seafood stock for 15 minutes, then strain and keep the stock warm; discard shells. Pat shrimp dry and refrigerate with crab and oysters until needed.",
+          "In a heavy Dutch oven, whisk oil and flour over medium to medium-low heat for 18 to 25 minutes, stirring continuously, until the roux is a uniform copper or peanut-butter brown. Do not take this seafood roux as dark as the chicken gumbo.",
+          "Stir in onion, bell pepper, and celery and cook 6 minutes. Add garlic and okra and cook 5 minutes until the okra's stringiness subsides. Add tomatoes, bay leaves, thyme, paprika, cayenne, 1 teaspoon salt, and pepper.",
+          "Slowly whisk in warm shrimp stock and oyster liquor. Simmer partially covered 35 minutes, stirring occasionally, until the okra and roux create a lightly thickened broth. Taste and add remaining salt only as needed.",
+          "Add shrimp and oysters and simmer gently 3 minutes. Fold in crab and warm 2 minutes more; shrimp should be opaque and 145°F and oysters curled at the edges. Remove from heat, discard bay leaves, and add optional filé. Serve with rice, scallions, and lemon."
+        ],
+        "notes": "Seafood gumbo reflects Louisiana Creole and Gulf Coast abundance and often uses a lighter roux than chicken-and-sausage gumbo so shellfish remains audible. Okra, whose West African name helped give gumbo its name, supplies both history and body. This is the batch's special-occasion project: it requires three seafoods, shell inspection, a roux, and precise late cooking, and it is labeled accordingly rather than sold as easy.",
+        "sources": [
+          {
+            "publisher": "Rouses Markets",
+            "title": "Donny Rouse's Seafood Gumbo",
+            "url": "https://www.rouses.com/cooking/recipes/donny-rouses-seafood-gumbo/",
+            "signal": "A Louisiana grocery authority supports a roux-and-trinity seafood gumbo with Gulf shellfish, layered stock, rice, and careful seasoning."
+          },
+          {
+            "publisher": "Hallmark Ideas",
+            "title": "Seafood Gumbo",
+            "url": "https://ideas.hallmark.com/wp-content/uploads/2015/06/seafood-gumbo-recipe.pdf",
+            "signal": "A New Orleans cooking-class recipe described as highly sought-after reinforces the special-occasion layering of roux, aromatics, okra, stock, and multiple seafoods."
+          },
+          {
+            "publisher": "Axios New Orleans",
+            "title": "R&O's Makes a Great New Orleans Gumbo",
+            "url": "https://www.axios.com/local/new-orleans/2023/10/23/best-new-orleans-gumbo-ros",
+            "signal": "Local restaurant reporting identifies densely packed shrimp, occasional crawfish, okra, thick broth, and unfussy service as the qualities of a dependable New Orleans seafood gumbo."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Use shrimp shells to reinforce the seafood stock.",
+            "Stop the roux at medium brown so it supports rather than buries shellfish.",
+            "Cook shrimp oysters and crab only at the end and on gentle heat."
+          ],
+          "repeatedSuccessSignals": [
+            "Broth tastes of shellfish before spice",
+            "Okra and roux thicken without making paste",
+            "Shrimp and oysters remain tender",
+            "Crab stays in recognizable pieces"
+          ],
+          "repeatedFailureRisks": [
+            "A very dark roux overwhelms delicate seafood.",
+            "Uninspected crab can leave shell fragments.",
+            "Long simmering makes all three seafoods tough."
+          ],
+          "adaptationDecision": "Treat this as the batch's one disclosed project, use Louisiana and local New Orleans evidence, and distinguish it from chicken gumbo through medium roux, okra, tomato, shell stock, and strictly late seafood."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO013",
+      "sourceRecipeHash": "sha256:b1230d9f57dd4cd5f492aba18455219732adf1efa678232dad1bd42b54d29363",
+      "title": "Classic vegetable minestrone",
+      "cuisine": "Italian",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "A generous Italian vegetable soup with beans, tomatoes, zucchini, green beans, cabbage, and small pasta in a Parmesan-scented broth.",
+        "category": "Soups & stews",
+        "cuisine": "Italian",
+        "ingredients": [
+          "3 tablespoons extra-virgin olive oil",
+          "1 large yellow onion, diced",
+          "2 medium carrots, diced",
+          "2 celery ribs, diced",
+          "1 1/2 teaspoons kosher salt, divided",
+          "4 garlic cloves, finely chopped",
+          "2 tablespoons tomato paste",
+          "1 can (28 ounces) crushed tomatoes",
+          "6 cups low-sodium vegetable broth",
+          "1 Parmesan rind, optional",
+          "1 teaspoon dried oregano",
+          "1 bay leaf",
+          "1 can (15 ounces) cannellini beans, drained",
+          "1 small zucchini, diced",
+          "6 ounces green beans, cut in 1-inch pieces",
+          "3 cups thinly sliced green cabbage",
+          "3/4 cup small pasta such as ditalini",
+          "1 tablespoon red wine vinegar",
+          "1/3 cup chopped basil or parsley",
+          "Grated Parmesan, for serving"
+        ],
+        "instructions": [
+          "Heat olive oil in a Dutch oven over medium. Add onion, carrots, celery, and 1 teaspoon salt and cook 8 minutes until soft and lightly golden. Add garlic and tomato paste and cook 1 minute.",
+          "Add crushed tomatoes, broth, optional Parmesan rind, oregano, bay leaf, and remaining salt. Simmer uncovered 15 minutes so the broth develops before the quick vegetables arrive.",
+          "Add beans, zucchini, green beans, and cabbage and simmer 8 minutes. Add pasta and cook according to its package, usually 8 to 10 minutes, until just tender and the vegetables remain distinct.",
+          "Discard rind and bay leaf. Stir in vinegar and half the herbs, then taste for salt and pepper. Add a splash of broth if the pasta has made the soup thicker than desired.",
+          "Serve with remaining herbs, Parmesan, and olive oil if desired. For planned leftovers, cook pasta separately and add it to bowls so it does not absorb the vegetable broth overnight."
+        ],
+        "notes": "Minestrone means a substantial soup, not one immutable ingredient list. Italian versions follow season and pantry, typically building flavor from vegetables, beans, and sometimes pasta or rice. This all-season household version offers a reliable roster while preserving that spirit: cabbage, green beans, or zucchini can rotate, but the layered aromatic broth and vegetable abundance should not disappear.",
+        "sources": [
+          {
+            "publisher": "Good Food",
+            "title": "Classic Minestrone Soup",
+            "url": "https://www.bbcgoodfood.com/recipes/classic-minestrone-soup",
+            "signal": "A 4.8/5 pattern across 203 ratings supports an easy tomato-based Italian vegetable soup with beans and pasta as a satisfying household meal."
+          },
+          {
+            "publisher": "Once Upon a Chef",
+            "title": "Minestrone Soup",
+            "url": "https://www.onceuponachef.com/recipes/minestrone-soup.html",
+            "signal": "A 4.95/5 pattern reinforces colorful vegetables, beans, pasta, a flavorful tomato broth, partial body, and finishing oil or cheese."
+          },
+          {
+            "publisher": "The Kitchn",
+            "title": "I Tried Four Popular Minestrone Soup Recipes",
+            "url": "https://www.thekitchn.com/minestrone-soup-recipe-reviews-23269316",
+            "signal": "A four-recipe comparison emphasizes vegetable celebration and a broth deep enough for bread, while warning that a very fast tomato-heavy version can taste shallow."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Give the aromatic base and tomato paste time to brown lightly.",
+            "Develop broth before adding quick-cooking vegetables and pasta.",
+            "Finish with acid herbs and Parmesan rather than over-reducing."
+          ],
+          "repeatedSuccessSignals": [
+            "Broth tastes layered rather than like canned tomato",
+            "Vegetables retain distinct colors and textures",
+            "Beans and pasta make the soup satisfying",
+            "Vinegar and herbs brighten the final bowl"
+          ],
+          "repeatedFailureRisks": [
+            "Adding every vegetable at once creates uneven doneness.",
+            "Overcooked pasta swells and drinks the broth.",
+            "Too much tomato obscures the vegetable identity."
+          ],
+          "adaptationDecision": "Combine two high-rated classic patterns with comparative testing, build a longer aromatic broth before the quick vegetables, and keep the leftover-safe separate-pasta option explicit."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO014",
+      "sourceRecipeHash": "sha256:78a51e3f7cae9b2fbc968e138cad78937d12a915464b42e3c6c1b7202ccce01c",
+      "title": "Italian pasta and bean soup (pasta e fagioli)",
+      "cuisine": "Italian",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Creamy cannellini beans and small pasta in a rosemary-garlic tomato broth finished with olive oil and Parmesan.",
+        "category": "Soups & stews",
+        "cuisine": "Italian",
+        "ingredients": [
+          "3 tablespoons extra-virgin olive oil, plus more for serving",
+          "1 medium yellow onion, finely diced",
+          "1 medium carrot, finely diced",
+          "1 celery rib, finely diced",
+          "1 teaspoon kosher salt, divided",
+          "4 garlic cloves, thinly sliced",
+          "1/4 teaspoon red pepper flakes",
+          "2 tablespoons tomato paste",
+          "1 can (14.5 ounces) crushed tomatoes",
+          "3 cans (15 ounces each) cannellini beans, drained, one can mashed",
+          "5 cups low-sodium vegetable or chicken broth",
+          "1 rosemary sprig",
+          "1 Parmesan rind, optional",
+          "6 ounces ditalini or other small pasta",
+          "1 tablespoon red wine vinegar",
+          "1/3 cup chopped flat-leaf parsley",
+          "Grated Parmesan and black pepper, for serving"
+        ],
+        "instructions": [
+          "Heat olive oil in a Dutch oven over medium. Add onion, carrot, celery, and 1/2 teaspoon salt and cook 8 minutes until very soft. Add garlic and pepper flakes for 30 seconds, then tomato paste for 1 minute.",
+          "Add crushed tomatoes, whole and mashed beans, broth, rosemary, optional Parmesan rind, and remaining salt. Simmer uncovered 15 minutes, stirring occasionally, until the mashed beans make the broth lightly creamy.",
+          "Add pasta and cook at a gentle simmer according to the package, usually 8 to 10 minutes, stirring often near the end so the starch-rich soup does not catch.",
+          "Remove rosemary and rind. Stir in vinegar and parsley and adjust salt and black pepper. The soup should be thick but loose; add broth or hot water before serving if it has tightened.",
+          "Ladle into bowls and finish with olive oil, Parmesan, and pepper. For leftovers, expect the pasta to absorb broth and loosen each reheated portion with water or stock."
+        ],
+        "notes": "Pasta e fagioli simply means pasta and beans. It is Italian cucina povera—resourceful regional cooking with versions that may be brothy or nearly spoon-standing, white or tomato-tinted, vegetarian or enriched with pork. This pantry version leads with the familiar English description while keeping its proper name, and uses mashed beans rather than cream for its characteristic body.",
+        "sources": [
+          {
+            "publisher": "Budget Bytes",
+            "title": "Pasta e Fagioli",
+            "url": "https://www.budgetbytes.com/pasta-e-fagioli/",
+            "signal": "A budget-focused home method supports beans, pasta, vegetables, tomato broth, parsley, black pepper, and Parmesan as an accessible Italian pantry meal."
+          },
+          {
+            "publisher": "Food Network UK",
+            "title": "Pasta e Fagioli",
+            "url": "https://foodnetwork.co.uk/recipes/pasta-e-fagioli",
+            "signal": "A 4/5 Italian pattern supports a simple garlic, chile, tomato, cannellini, bean-liquid, and ditalini structure with enough reserved liquid to control thickness."
+          },
+          {
+            "publisher": "Home Chef",
+            "title": "Pasta e Fagioli Soup",
+            "url": "https://asset.homechef.com/uploads/meal/pdf/2224/258-Recipe-Cards_5.pdf",
+            "signal": "A meal-kit interpretation corroborates the familiar English translation, tomato-based broth, mixed aromatics, beans, small pasta, and parsley in a practical household format."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Cook the aromatic battuto until fully soft before adding liquid.",
+            "Mash a portion of beans to build body without cream.",
+            "Stir starch-rich pasta frequently and loosen the final soup as needed."
+          ],
+          "repeatedSuccessSignals": [
+            "Beans create a creamy rustic broth",
+            "Pasta remains tender but distinct",
+            "Rosemary garlic and tomato stay balanced",
+            "Finishing oil and Parmesan lift the pantry ingredients"
+          ],
+          "repeatedFailureRisks": [
+            "Undercooked aromatics leave a harsh base.",
+            "Pasta sticks as the bean broth thickens.",
+            "Unadjusted leftovers become a solid mass."
+          ],
+          "adaptationDecision": "Lead with the familiar English name, preserve the Italian regional flexibility in the story, and use the repeated bean-mashing and small-pasta pattern for an inexpensive one-pot cuisine anchor."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "SO015",
+      "sourceRecipeHash": "sha256:00fab42a7758d3758bd58d35ab33e80085d000299ae904a290754d02a68668e1",
+      "title": "Italian wedding soup with mini meatballs",
+      "cuisine": "Italian-American",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Tiny beef-and-pork meatballs, escarole, carrots, and small pasta in a clear Parmesan-scented chicken broth.",
+        "category": "Soups & stews",
+        "cuisine": "Italian-American",
+        "ingredients": [
+          "1/2 pound ground beef",
+          "1/2 pound ground pork",
+          "1/3 cup plain breadcrumbs",
+          "1 large egg",
+          "1/3 cup finely grated Parmesan, plus more for serving",
+          "2 tablespoons chopped flat-leaf parsley, divided",
+          "2 garlic cloves, finely grated, divided",
+          "1 teaspoon kosher salt, divided",
+          "1/2 teaspoon black pepper, divided",
+          "2 tablespoons olive oil, divided",
+          "1 medium yellow onion, finely diced",
+          "2 medium carrots, finely diced",
+          "2 celery ribs, finely diced",
+          "8 cups low-sodium chicken broth",
+          "1 Parmesan rind, optional",
+          "3/4 cup acini di pepe or orzo",
+          "1 small head escarole, washed and chopped, or 5 ounces baby spinach",
+          "1 tablespoon lemon juice"
+        ],
+        "instructions": [
+          "Gently mix beef, pork, breadcrumbs, egg, Parmesan, 1 tablespoon parsley, half the garlic, 1/2 teaspoon salt, 1/4 teaspoon pepper, and 1 tablespoon olive oil. Roll into 36 loose 3/4-inch meatballs; do not compact them.",
+          "Heat remaining oil in a Dutch oven over medium. Brown meatballs in two batches for 3 to 4 minutes, turning carefully; transfer. They will finish cooking in the broth.",
+          "Add onion, carrots, celery, remaining garlic, remaining salt, and remaining pepper and cook 6 minutes. Add broth and optional Parmesan rind and bring to a simmer.",
+          "Return meatballs and simmer 8 minutes. Add pasta and cook according to its package, usually 7 to 9 minutes, until just tender and meatballs reach 160°F. Stir in escarole for the final 3 minutes, or spinach for the final minute.",
+          "Discard rind, add lemon juice and remaining parsley, and adjust seasoning. Serve with Parmesan. For planned leftovers, cook pasta separately and add it to bowls to protect the clear broth."
+        ],
+        "notes": "Italian wedding soup is not named for a wedding ceremony. The English name comes from minestra maritata, a 'married soup' describing the pleasing union of greens, broth, and meat. Italian-American versions made mini meatballs and tiny pasta especially familiar. This version keeps those beloved cues while returning escarole to equal billing with the meatballs.",
+        "sources": [
+          {
+            "publisher": "Once Upon a Chef",
+            "title": "Italian Wedding Soup",
+            "url": "https://www.onceuponachef.com/recipes/italian-wedding-soup.html",
+            "signal": "A 4.92/5 pattern across 279 reviews strongly supports rich broth, greens, tiny pasta, mini meatballs, and a vegetable base as a repeatable family meal."
+          },
+          {
+            "publisher": "King Arthur Baking",
+            "title": "Italian Wedding Soup",
+            "url": "https://www.kingarthurbaking.com/recipes/italian-wedding-soup-recipe",
+            "signal": "A 4.9/5 pattern across 41 reviews corroborates a hearty combination of onions, carrots, spinach, pasta, Parmesan-seasoned meatballs, and broth."
+          },
+          {
+            "publisher": "HelloFresh",
+            "title": "Italian Wedding Soup",
+            "url": "https://www.hellofresh.com/recipes/italian-wedding-soup-5fc6c5f99072d15ffa65c4f6",
+            "signal": "A very large 4.5/5 pattern across 9,100 ratings confirms mini meatballs, greens, grain or pasta, aromatic broth, and Parmesan as an easy, generous household favorite."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Mix and roll tiny meatballs gently so they stay tender.",
+            "Brown in batches then finish meatballs in the broth to 160°F.",
+            "Add tiny pasta and greens late and finish the clear broth with lemon."
+          ],
+          "repeatedSuccessSignals": [
+            "Mini meatballs remain tender and bite-size",
+            "Broth stays clear and savory",
+            "Greens retain color and presence",
+            "Tiny pasta supports rather than overwhelms the soup"
+          ],
+          "repeatedFailureRisks": [
+            "Compacted meatballs become dense.",
+            "Crowded browning breaks or steams them.",
+            "Overcooked pasta absorbs the clear broth."
+          ],
+          "adaptationDecision": "Use the overwhelming high-volume household pattern, keep the familiar title, explain its actual name story, and balance Italian-American mini meatballs and pasta with the greens central to minestra maritata."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    }
+  ]
+}

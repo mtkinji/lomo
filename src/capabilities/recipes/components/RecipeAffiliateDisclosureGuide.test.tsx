@@ -14,9 +14,14 @@ jest.mock('../../../ui/BottomGuide', () => ({
 const pick: RecipeEditorialPick = {
   id: 'kitchenaid-7-cup-food-processor',
   equipmentId: 'food-processor',
-  asin: 'B07BW1ZPB5',
+  productId: 'kitchenaid-7-cup-food-processor',
+  retailerListingId: 'amazon-us-kitchenaid-7-cup-food-processor',
+  retailerExternalProductId: 'B07BW1ZPB5',
   title: 'KitchenAid 7-Cup Food Processor',
   rationale: 'A practical size for everyday chopping, slicing, and puréeing.',
+  tradeoff: 'It takes more cabinet space than a knife.',
+  substituteSummary: 'A sharp knife works when you do not need a fine, even texture.',
+  recipeCount: 4,
   thumbnailAsset: 'food-processor',
 };
 
@@ -37,6 +42,10 @@ describe('RecipeAffiliateDisclosureGuide', () => {
     expect(screen.getByText(
       'As an Amazon Associate, Kwilt earns from qualifying purchases.',
     )).toBeTruthy();
+    expect(screen.getByText('You may not need it')).toBeTruthy();
+    expect(screen.getByText(pick.substituteSummary)).toBeTruthy();
+    expect(screen.getByText('Worth knowing')).toBeTruthy();
+    expect(screen.getByText(pick.tradeoff)).toBeTruthy();
     fireEvent.press(screen.getByText('Continue to Amazon'));
     expect(onContinue).toHaveBeenCalledTimes(1);
   });

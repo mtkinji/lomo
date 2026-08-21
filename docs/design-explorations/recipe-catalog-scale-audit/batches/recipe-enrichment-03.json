@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-03",
+  "manifestHash": "sha256:fab1ce41e25d34c1c598e3abc55859dbee9a4c878494e63df941262b46237952",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "BR021",
+      "sourceRecipeHash": "sha256:328f2d0417c4bfdf9368e8515dedcc6e590b21c9aee0938d70595044b6f2ee41",
+      "title": "Masala dosa with sambar",
+      "cuisine": "South Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR022",
+      "sourceRecipeHash": "sha256:e7b18dfe8bdb79ee8de85fad33f6b3e7b154a509e7d430e4ec03865b70057df0",
+      "title": "Idli with coconut chutney",
+      "cuisine": "South Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR023",
+      "sourceRecipeHash": "sha256:d6b838e03e9ce5cb693e3f16dfd708dc99261ecce3528db4279dfe3d749e330c",
+      "title": "Vegetable poha",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR024",
+      "sourceRecipeHash": "sha256:68e1eecb9b987138848edf4585f744ba6fde33f1846f375dd05f096626e1cb72",
+      "title": "Savory semolina upma",
+      "cuisine": "South Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR025",
+      "sourceRecipeHash": "sha256:04afee05da0d8fa66c8da379a6804e71d5b593f6a9569dc0cf19715c3fd557b2",
+      "title": "Aloo paratha with yogurt",
+      "cuisine": "North Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR026",
+      "sourceRecipeHash": "sha256:9b8cf887bf93bd5dee6a36fb13163aba9bef14a9e2acdcb3d7a6b2f218c24c91",
+      "title": "Chole bhature",
+      "cuisine": "North Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR027",
+      "sourceRecipeHash": "sha256:3a8a70564bfa14c8d3664eac3ff2443b4aa1d278b9b89d3dd9c1d363d69a6d11",
+      "title": "Masala omelet",
+      "cuisine": "Indian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR028",
+      "sourceRecipeHash": "sha256:9b8d001eb5fee14ce972b6652bb03813a236a32ae757f390dcc5cd1cbe2252ee",
+      "title": "Chicken and ginger congee",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR029",
+      "sourceRecipeHash": "sha256:fc7ce3cf87649bd0a9239ab7456aac890c2b6cf95e36df28f06e7243dbc59305",
+      "title": "Jianbing breakfast crepes",
+      "cuisine": "Chinese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR030",
+      "sourceRecipeHash": "sha256:929238fc8363253f9e4e41ef394dd26eed3e6fead5064d6304a0de38bae45947",
+      "title": "Dan bing egg crepes",
+      "cuisine": "Taiwanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR031",
+      "sourceRecipeHash": "sha256:0005dd8ae4a0525c62f6fdbd6900bae6087c78ba0ac1eba320f66b4c0395eda3",
+      "title": "Tamagoyaki breakfast set",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR032",
+      "sourceRecipeHash": "sha256:9879a89cdc46c9ee63253cc00066b4360a2a466192941431d47bf2fe987479e1",
+      "title": "Tamago kake gohan",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR033",
+      "sourceRecipeHash": "sha256:019d618f8f7a41dc0a541e21b045c3e02d8cb5add9c569405f285b0ffc689b71",
+      "title": "Okayu rice porridge",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR034",
+      "sourceRecipeHash": "sha256:151307cbaf0dc1a869175a607ff0ecb1fb29c4527de331dfa89820ea4415a170",
+      "title": "Salted salmon rice breakfast",
+      "cuisine": "Japanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR035",
+      "sourceRecipeHash": "sha256:ce99c844a676d6e3c21910a680f7b4ee1ff5bc66e766b86bcdb221c4cc716984",
+      "title": "Kimchi fried rice with egg",
+      "cuisine": "Korean",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR036",
+      "sourceRecipeHash": "sha256:5075061260c0bdd54103a4b988008b97c5d1e004a6131add03be97ffaaf17f78",
+      "title": "Gyeran bap",
+      "cuisine": "Korean",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR037",
+      "sourceRecipeHash": "sha256:ff68a49c10acd0881733645d3fa849d2408ad9300f1b9563dc4a80b8bfd5539a",
+      "title": "Jok rice porridge",
+      "cuisine": "Thai",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR038",
+      "sourceRecipeHash": "sha256:e54f8d6ccbfebb06d9da4d6e3543896997c904d3d21a82f9b2f53987ec31383c",
+      "title": "Bánh cuốn",
+      "cuisine": "Vietnamese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR039",
+      "sourceRecipeHash": "sha256:3b17a939a1ed9b389c8469eea9655ed0bfe0ef2bb65fd5b1daa20d6bd2f65f11",
+      "title": "Bò kho breakfast with baguette",
+      "cuisine": "Vietnamese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR040",
+      "sourceRecipeHash": "sha256:1a736987febbecb81e0693e557dbe8b042fed8cce9219e0be81994d76ed76cfd",
+      "title": "Tocino silog",
+      "cuisine": "Filipino",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR041",
+      "sourceRecipeHash": "sha256:4a6e61c2d778ae6469e3c31114cb427320faa5acb02acb30a83f12ab74ae646e",
+      "title": "Longganisa silog",
+      "cuisine": "Filipino",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR042",
+      "sourceRecipeHash": "sha256:f1e688f80031f29c924d0a4622b0a044bea4957199fdaabd32a2ce26ccd6666d",
+      "title": "Champorado with salted fish",
+      "cuisine": "Filipino",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR043",
+      "sourceRecipeHash": "sha256:e3a2155018301c6e493d0f80c2e95a8a612d47a232c879105f87412fa380e2f7",
+      "title": "Nasi lemak",
+      "cuisine": "Malaysian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR044",
+      "sourceRecipeHash": "sha256:b2aa576a10d3eed773be1acb8e4d61663abbbbe3a0b3b270ae61f866c6f28ccd",
+      "title": "Kaya toast with soft eggs",
+      "cuisine": "Singaporean",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "BR045",
+      "sourceRecipeHash": "sha256:43dcf2bb61420862d8e6ee3e6ebc10085c46f23c034e4dbda26b494e489d9416",
+      "title": "Bubur ayam",
+      "cuisine": "Indonesian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

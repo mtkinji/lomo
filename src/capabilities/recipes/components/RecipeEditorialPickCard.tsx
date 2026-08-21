@@ -38,6 +38,9 @@ export function RecipeEditorialPickCard({
       <View style={styles.copy}>
         <Text variant="label" numberOfLines={2}>{pick.title}</Text>
         <Text tone="secondary" numberOfLines={2}>{pick.rationale}</Text>
+        <Text tone="secondary">
+          Useful for {pick.recipeCount} Kwilt {pick.recipeCount === 1 ? 'Recipe' : 'Recipes'}
+        </Text>
         <View style={styles.action}>
           <Text variant="label">View on Amazon</Text>
           <Icon name="arrowRight" size={16} color={colors.textPrimary} />

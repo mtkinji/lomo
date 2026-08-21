@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "batchSize": 25,
+  "totalRecipes": 500,
+  "batches": [
+    {
+      "batchId": "recipe-enrichment-01",
+      "manifestHash": "sha256:f812b447f21555e5e2a9ba9564fd21e73c10fb5b105353108330eba0255da027",
+      "recipeCount": 25,
+      "firstRosterId": "AP001",
+      "lastRosterId": "BA015"
+    },
+    {
+      "batchId": "recipe-enrichment-02",
+      "manifestHash": "sha256:0c216a7efab35da7d08f310fe969d295cd0f51517486ed5cbc146bd42eeb57ea",
+      "recipeCount": 25,
+      "firstRosterId": "BA016",
+      "lastRosterId": "BR020"
+    },
+    {
+      "batchId": "recipe-enrichment-03",
+      "manifestHash": "sha256:fab1ce41e25d34c1c598e3abc55859dbee9a4c878494e63df941262b46237952",
+      "recipeCount": 25,
+      "firstRosterId": "BR021",
+      "lastRosterId": "BR045"
+    },
+    {
+      "batchId": "recipe-enrichment-04",
+      "manifestHash": "sha256:ae9d970d624d985ff780b42781c1ef561faf7295ae135e5f3c5c8c6d30156885",
+      "recipeCount": 25,
+      "firstRosterId": "BR046",
+      "lastRosterId": "BR070"
+    },
+    {
+      "batchId": "recipe-enrichment-05",
+      "manifestHash": "sha256:d8e17bea499721a8bef0d92ef1574bfa527c16ca7da327a0d2ace9960ae39bf9",
+      "recipeCount": 25,
+      "firstRosterId": "BR071",
+      "lastRosterId": "DE005"
+    },
+    {
+      "batchId": "recipe-enrichment-06",
+      "manifestHash": "sha256:a592c4473ac2725bd44d8f8b4aea599b43baf092f498360a66a72c2a3292ad57",
+      "recipeCount": 25,
+      "firstRosterId": "DE006",
+      "lastRosterId": "DE030"
+    },
+    {
+      "batchId": "recipe-enrichment-07",
+      "manifestHash": "sha256:4e4e837646e69ac88b242700ae3ec32ec807c14a981cb51c3ca3cd980df9d69e",
+      "recipeCount": 25,
+      "firstRosterId": "DI001",
+      "lastRosterId": "DI025"
+    },
+    {
+      "batchId": "recipe-enrichment-08",
+      "manifestHash": "sha256:d9ed4892e59d350b7e52691d2c525a9a98aa49663250bb5d14ad7e675dc18c72",
+      "recipeCount": 25,
+      "firstRosterId": "DI026",
+      "lastRosterId": "DI050"
+    },
+    {
+      "batchId": "recipe-enrichment-09",
+      "manifestHash": "sha256:01b49f7e18ea29e1e16e0912514040126ddfd8a1ae10efa5962a3c0ee0bf39cb",
+      "recipeCount": 25,
+      "firstRosterId": "DI051",
+      "lastRosterId": "DI075"
+    },
+    {
+      "batchId": "recipe-enrichment-10",
+      "manifestHash": "sha256:330baa963e9dd981920a4701f8c7e22c4536a348f1675e015516f653dc0a6c0d",
+      "recipeCount": 25,
+      "firstRosterId": "DI076",
+      "lastRosterId": "DI100"
+    },
+    {
+      "batchId": "recipe-enrichment-11",
+      "manifestHash": "sha256:db6e038569f6f0228602fb4ef69ff60c538a4d9dcdc1c3ada34a543ccdbd2819",
+      "recipeCount": 25,
+      "firstRosterId": "DI101",
+      "lastRosterId": "DI125"
+    },
+    {
+      "batchId": "recipe-enrichment-12",
+      "manifestHash": "sha256:e4d3c5bbde08f9f1d64142b2309cd0d33118261f3aa2ac30a9a49c67dfe70db6",
+      "recipeCount": 25,
+      "firstRosterId": "DI126",
+      "lastRosterId": "DI150"
+    },
+    {
+      "batchId": "recipe-enrichment-13",
+      "manifestHash": "sha256:713516cd35d75dfabc74dfd30128988462a732e44675f6a07624236828a9a832",
+      "recipeCount": 25,
+      "firstRosterId": "DI151",
+      "lastRosterId": "DI175"
+    },
+    {
+      "batchId": "recipe-enrichment-14",
+      "manifestHash": "sha256:ce765b79cebd4656a1894ef2e190308b65e41bb576cd50139c31ee8f45e4aa07",
+      "recipeCount": 25,
+      "firstRosterId": "DI176",
+      "lastRosterId": "DI200"
+    },
+    {
+      "batchId": "recipe-enrichment-15",
+      "manifestHash": "sha256:b8fbecc47d3037d031636ee523ed481eb2a65550db15d414ef8b5f37cc91c339",
+      "recipeCount": 25,
+      "firstRosterId": "DI201",
+      "lastRosterId": "DI225"
+    },
+    {
+      "batchId": "recipe-enrichment-16",
+      "manifestHash": "sha256:85eb74fa3eb4a2cc844b36e0fbbbd03d9c8547552b63f5d15c5fbe4f86280a8e",
+      "recipeCount": 25,
+      "firstRosterId": "DI226",
+      "lastRosterId": "LU020"
+    },
+    {
+      "batchId": "recipe-enrichment-17",
+      "manifestHash": "sha256:6b27da509f297f1f58103b7fd30a9d3c5eb9108bc93fc8df38f8c9206e7d293a",
+      "recipeCount": 25,
+      "firstRosterId": "LU021",
+      "lastRosterId": "LU045"
+    },
+    {
+      "batchId": "recipe-enrichment-18",
+      "manifestHash": "sha256:b7266772b0740cbef57508d56e49b7f93b111836e1e33f34515ce2828b08aa48",
+      "recipeCount": 25,
+      "firstRosterId": "LU046",
+      "lastRosterId": "LU070"
+    },
+    {
+      "batchId": "recipe-enrichment-19",
+      "manifestHash": "sha256:8386460fc5c00198501b7e142ff38e6db4eaefc9b901247fe7923bb9f73215f0",
+      "recipeCount": 25,
+      "firstRosterId": "LU071",
+      "lastRosterId": "SA010"
+    },
+    {
+      "batchId": "recipe-enrichment-20",
+      "manifestHash": "sha256:38866167a704880d973e437d8f34bd60bfb6f211bf4c211885f645bf142abf99",
+      "recipeCount": 25,
+      "firstRosterId": "SI001",
+      "lastRosterId": "SO015"
+    }
+  ]
+}

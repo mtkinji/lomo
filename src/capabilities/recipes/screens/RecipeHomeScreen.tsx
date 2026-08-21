@@ -39,6 +39,7 @@ import { RecipeIngredientList } from "../components/RecipeIngredientList";
 import { RecipeAffiliateDisclosureGuide } from "../components/RecipeAffiliateDisclosureGuide";
 import { RecipeEditorialPickCard } from "../components/RecipeEditorialPickCard";
 import { RecipeMethodPreview } from "../components/RecipeMethodPreview";
+import { RecipeOriginStory } from "../components/RecipeOriginStory";
 import { RecipeRecommendationsSection } from "../components/RecipeRecommendationsSection";
 import { RecipeSummaryBar } from "../components/RecipeSummaryBar";
 import type { RecipeProjection } from "../data/recipeCache";
@@ -53,11 +54,13 @@ import {
   type RecipeCookRecordProjection,
 } from "../data/recipeCookRepository";
 import {
+  getStarterRecipeEnrichment,
   getStarterRecipeMetadata,
   buildRecipeLibraryInventory,
   isStarterRecipe,
   STARTER_RECIPE_PROJECTIONS,
 } from "../data/starterRecipeCatalog";
+import type { RecipeEditorialEnrichment } from "../data/recipeEditorialEnrichment";
 import {
   buildContextualRecipeRecommendations,
   type RecipeRecommendation,
@@ -87,6 +90,7 @@ import {
 import { UnifiedChatDrawer } from "../../../features/unifiedChat/UnifiedChatDrawer";
 import type { UnifiedChatLaunchContext } from "../../../features/unifiedChat/launchContext";
 import {
+  countRecipeEquipmentUsage,
   resolveRecipeEditorialPicks,
   type RecipeEditorialPick,
 } from "../domain/recipeEditorialPicks";
@@ -95,6 +99,13 @@ import {
   getAffiliateRetailerLinkDisclosure,
   openAffiliateProductDetail,
 } from "../../groceries/providers/affiliateRetailerProvider";
+
+const STARTER_RECIPE_EQUIPMENT_USAGE_COUNTS = countRecipeEquipmentUsage({
+  recipes: STARTER_RECIPE_PROJECTIONS.map(({ currentVersion }) => ({
+    equipmentRequirements: currentVersion.equipmentRequirements ?? [],
+    instructions: currentVersion.instructions.map((step) => step.text),
+  })),
+});
 
 type HideToast = {
   message: string;
@@ -210,6 +221,7 @@ export function RecipeHomeView({
   editorialPicks,
   onOpenEditorialPick,
   onboardingTargetRef,
+  enrichment = null,
 }: {
   projection: RecipeProjection;
   servings: number;
@@ -231,6 +243,7 @@ export function RecipeHomeView({
   editorialPicks?: readonly RecipeEditorialPick[];
   onOpenEditorialPick?(pick: RecipeEditorialPick): void;
   onboardingTargetRef?: RefObject<View | null>;
+  enrichment?: RecipeEditorialEnrichment | null;
 }) {
   const { recipe, currentVersion: version } = projection;
   const starterMetadata = getStarterRecipeMetadata(recipe.id);
@@ -385,6 +398,7 @@ export function RecipeHomeView({
               <Text>{version.notes}</Text>
             </View>
           ) : null}
+          {enrichment ? <RecipeOriginStory enrichment={enrichment} /> : null}
           <View style={styles.provenance}>
             {syncPending ? (
               <Text tone="secondary">Saved on this device · Will sync when connected</Text>
@@ -486,7 +500,11 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     return resolveRecipeEditorialPicks({
       equipmentRequirements: projection.currentVersion.equipmentRequirements ?? [],
       instructions: projection.currentVersion.instructions.map((step) => step.text),
-    }).filter((pick) => Boolean(buildApprovedAffiliateProductDetail('amazon', pick.asin)));
+      equipmentUsageCounts: STARTER_RECIPE_EQUIPMENT_USAGE_COUNTS,
+    }).filter((pick) => Boolean(buildApprovedAffiliateProductDetail(
+      'amazon',
+      pick.retailerExternalProductId,
+    )));
   }, [projection]);
   const mealChatLaunchContext = useMemo<UnifiedChatLaunchContext>(
     () => ({
@@ -826,6 +844,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         editorialPicks={editorialPicks}
         onOpenEditorialPick={setPendingEditorialPick}
         onboardingTargetRef={planActionRef}
+        enrichment={getStarterRecipeEnrichment(projection.recipe.id)}
       />
       <Coachmark
         visible={
@@ -884,7 +903,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         onContinue={() => {
           const pick = pendingEditorialPick;
           setPendingEditorialPick(null);
-          if (pick) void openAffiliateProductDetail('amazon', pick.asin);
+          if (pick) void openAffiliateProductDetail('amazon', pick.retailerExternalProductId);
         }}
       />
     </AppShell>

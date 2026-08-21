@@ -1,4 +1,5 @@
 import type { EditorialRecipe } from "./editorialRecipeCatalog";
+import type { RecipeEditorialEnrichment } from './recipeEditorialEnrichment';
 import type { RecipeProjection } from "./recipeCache";
 import { getStarterRecipeDisplayTitle } from "./starterRecipePresentation";
 import { segmentEditorialInstructionCues } from "../domain/recipeInstructionPhases";
@@ -8,12 +9,16 @@ const CATALOG_CREATED_AT = "2026-08-06T12:00:00.000Z";
 
 export function compileEditorialRecipeProjection(
   editorial: EditorialRecipe,
+  enrichment?: Pick<RecipeEditorialEnrichment, 'review' | 'structuredIngredients'> | null,
 ): RecipeProjection {
   const rosterKey = editorial.rosterId.toLowerCase();
   const recipeId = `kwilt-recipe-${rosterKey}`;
   const versionId = `${recipeId}-v1`;
   const contentHash = `kwilt:${editorial.rosterId}:v1`;
   const displayTitle = getStarterRecipeDisplayTitle(editorial);
+  const structuredByPosition = enrichment?.review.sections.structuredIngredients === 'reviewed'
+    ? new Map(enrichment.structuredIngredients.map((line) => [line.position, line] as const))
+    : null;
 
   return {
     recipe: {
@@ -71,20 +76,23 @@ export function compileEditorialRecipeProjection(
       prepMinutes: editorial.prepMinutes,
       cookMinutes: editorial.cookMinutes,
       notes: editorial.notes,
-      ingredients: editorial.ingredients.map((originalText, position) => ({
-        id: `${versionId}-ingredient-${position + 1}`,
-        recipeVersionId: versionId,
-        position,
-        groupLabel: null,
-        originalText,
-        quantityMin: null,
-        quantityMax: null,
-        unit: null,
-        ingredientConcept: null,
-        preparation: null,
-        optional: false,
-        parseConfidence: 1,
-      })),
+      ingredients: editorial.ingredients.map((originalText, position) => {
+        const structured = structuredByPosition?.get(position);
+        return {
+          id: `${versionId}-ingredient-${position + 1}`,
+          recipeVersionId: versionId,
+          position,
+          groupLabel: null,
+          originalText,
+          quantityMin: structured?.quantityMin ?? null,
+          quantityMax: structured?.quantityMax ?? null,
+          unit: structured?.unit ?? null,
+          ingredientConcept: structured?.ingredientConcept ?? null,
+          preparation: structured?.preparation ?? null,
+          optional: structured?.optional ?? false,
+          parseConfidence: structured?.parseConfidence ?? 1,
+        };
+      }),
       instructions: editorial.instructions.map((text, position) => ({
         id: `${versionId}-step-${position + 1}`,
         recipeVersionId: versionId,

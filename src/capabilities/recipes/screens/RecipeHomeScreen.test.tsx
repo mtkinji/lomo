@@ -201,7 +201,7 @@ describe("Recipe Home", () => {
     expect(screen.getByText('KitchenAid 7-Cup Food Processor')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('View KitchenAid 7-Cup Food Processor on Amazon'));
     expect(onOpenEditorialPick).toHaveBeenCalledWith(expect.objectContaining({
-      asin: 'B07BW1ZPB5',
+      retailerExternalProductId: 'B07BW1ZPB5',
     }));
   });
 

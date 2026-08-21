@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-19",
+  "manifestHash": "sha256:8386460fc5c00198501b7e142ff38e6db4eaefc9b901247fe7923bb9f73215f0",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "LU071",
+      "sourceRecipeHash": "sha256:435b78454c8bace6a3ad558430267ebe350bcea00c39314fbb2179b61f23cca9",
+      "title": "Swedish meatball open sandwich",
+      "cuisine": "Swedish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU072",
+      "sourceRecipeHash": "sha256:c2aaf9318cf52f5ecfba56fe0837ce12b7fe0f97d34bedb79ed5f2138f869e44",
+      "title": "Smørrebrød with smoked salmon",
+      "cuisine": "Danish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU073",
+      "sourceRecipeHash": "sha256:3bc655c420b62506b0743ed2be0957ab6f906a09a7158996042572bcf13e5c94",
+      "title": "Tortilla bocadillo",
+      "cuisine": "Spanish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU074",
+      "sourceRecipeHash": "sha256:67eb23dc3ebce995c95e2a368db0b30b46fe68e9933cdc1485bc360ecea6ac01",
+      "title": "Bifana pork sandwich",
+      "cuisine": "Portuguese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU075",
+      "sourceRecipeHash": "sha256:b34dc32b23f3da4583ab30341ab1cf21cfded21cc50e63d9bcdfacc3687bab13",
+      "title": "Durban bunny chow",
+      "cuisine": "South African",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU076",
+      "sourceRecipeHash": "sha256:3ad72a52b1e4a025234b246984c9cb57cf8b109e769058500d0b10de9cfb56a1",
+      "title": "Kefta sandwich",
+      "cuisine": "Moroccan",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU077",
+      "sourceRecipeHash": "sha256:1a9e10624c24136f2f7fa1a9c3deca05dd63b40439483cf55c718cf2dd2e0efb",
+      "title": "Fricassé sandwich",
+      "cuisine": "Tunisian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU078",
+      "sourceRecipeHash": "sha256:3e2421fa96988f9becaa6f779e775a8477638a8f4f041c787a97062f318a462f",
+      "title": "Jerk chicken wrap",
+      "cuisine": "Jamaican",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU079",
+      "sourceRecipeHash": "sha256:2398eae3be455e8bbd926649dd04c27df8e4a38af8c657f158d20328a06ba6d1",
+      "title": "Doubles",
+      "cuisine": "Trinidadian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU080",
+      "sourceRecipeHash": "sha256:891bc535669525ea4f7674ed44ade2161ec69459673f12de91512e1a413f48da",
+      "title": "Spam musubi",
+      "cuisine": "Hawaiian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU081",
+      "sourceRecipeHash": "sha256:7c4dccc2c86210ae58e0d8e0306c36d80def13d00ab9a7056dc4cb48478bcbd8",
+      "title": "Mediterranean hummus veggie wrap",
+      "cuisine": "Modern",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU082",
+      "sourceRecipeHash": "sha256:a124f63523a9559b8299f3bc22fb5f31b79b002a51e911d28da7e41eebbf55de",
+      "title": "Crispy chicken Caesar wrap",
+      "cuisine": "Modern",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU083",
+      "sourceRecipeHash": "sha256:6bae11b869fdc053da84814f8ca1e0327a305decb126d62e5b3f4e3ec1f29d53",
+      "title": "Black bean avocado rice bowl",
+      "cuisine": "Modern",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU084",
+      "sourceRecipeHash": "sha256:8209e1f52a341624c6b0262a153e91f77e52193a13338eafd6df80d766c3bce7",
+      "title": "Pesto pasta lunch salad",
+      "cuisine": "Modern",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "LU085",
+      "sourceRecipeHash": "sha256:4253da00022998dad178a3735882be2e1d480b99d539d885c0aa602d651d39ce",
+      "title": "Sesame soba lunch box",
+      "cuisine": "Modern",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SA001",
+      "sourceRecipeHash": "sha256:81c62776a17da5b0bd3198c02521504f866962e6b3a2c8268a455a63a781c46f",
+      "title": "Classic Caesar salad",
+      "cuisine": "Tijuana / North American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SA002",
+      "sourceRecipeHash": "sha256:8e4794183a3e619ab4415d4de9c3fe05910a7fbbac4c8f8f69c1f177eb6b6c43",
+      "title": "Classic Cobb salad",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SA003",
+      "sourceRecipeHash": "sha256:bdf192ebce0e974ecd49da3e578377f5421053d8868c2a190787e8d54de7184a",
+      "title": "Classic chef salad",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SA004",
+      "sourceRecipeHash": "sha256:c581a9a1b2c9528d663bcf581ee1f7706b3210b667e67c497b17cd70e90d34c1",
+      "title": "Chicken ranch chopped salad",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SA005",
+      "sourceRecipeHash": "sha256:1dfd1fd91ec3d5579a95a86eec03cfaded04f1ec8c11336f74c814433d963552",
+      "title": "Buffalo chicken salad",
+      "cuisine": "American",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SA006",
+      "sourceRecipeHash": "sha256:29ea36268f6fd7e546ec3a50fb0897f43566b211c1b120777ec17b68854e517d",
+      "title": "Grilled chicken and avocado bowl",
+      "cuisine": "Californian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SA007",
+      "sourceRecipeHash": "sha256:7594d6d031fe902fbf329eda3dbbf7ced5bee6deedc6cb5115811e2d4c83d803",
+      "title": "Hawaiian ahi poke bowl",
+      "cuisine": "Hawaiian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SA008",
+      "sourceRecipeHash": "sha256:c79c260dab9d99567ecd5bb5a1aa7bb6a7502b2dd5495c70e539edb76ea48228",
+      "title": "Chicken fajita salad",
+      "cuisine": "Tex-Mex",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SA009",
+      "sourceRecipeHash": "sha256:e464a680b1dc5ab2a59846f26a5dd0c39f0f4f466e32168a2a21cf626c7f39e0",
+      "title": "Ground beef taco salad",
+      "cuisine": "Tex-Mex",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "SA010",
+      "sourceRecipeHash": "sha256:58e26b334e90741183d212bd11c2d702a8bd2bc8dd07af4c1d87454867d496b6",
+      "title": "Southwest black bean, corn, and quinoa bowl",
+      "cuisine": "Southwestern US",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

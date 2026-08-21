@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-14",
+  "manifestHash": "sha256:ce765b79cebd4656a1894ef2e190308b65e41bb576cd50139c31ee8f45e4aa07",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DI176",
+      "sourceRecipeHash": "sha256:d1b23fa8bbecf3600c1349ad4ed80e067276847a6aa72b8e8118dc2b59e0cfeb",
+      "title": "Choucroute garnie (Alsatian sauerkraut platter)",
+      "cuisine": "Alsatian French",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI177",
+      "sourceRecipeHash": "sha256:c3b70e8d05f721152537420fc07a2472b88696593e229c7c46f2e2711ad31908",
+      "title": "Chicken souvlaki plates",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI178",
+      "sourceRecipeHash": "sha256:14aff440cab3e098d181d1cc583c09e82d5d19f5a27b96610652f29f4337aab6",
+      "title": "Moussaka (Greek eggplant casserole)",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI179",
+      "sourceRecipeHash": "sha256:f57fd92a4a59a6d7a79742b45f0d219259edd57376f5241c4d5deab15012a9b7",
+      "title": "Pastitsio (Greek baked pasta)",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI180",
+      "sourceRecipeHash": "sha256:a1c4eb4a249a6921d673207d5f435271c0375519ecd6ef6daf4b9f5f3fe73b62",
+      "title": "Greek lemon chicken and potatoes",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI181",
+      "sourceRecipeHash": "sha256:58f7b64e14e8cb5259b0e3fd98bb541f7f482b9dfbb694278c9964efb753cfac",
+      "title": "Youvetsi (Greek beef and orzo stew)",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI182",
+      "sourceRecipeHash": "sha256:159b55ef579b31d191693a6618cf46582d2d4dc60f5486f05a579aab1985bc99",
+      "title": "Gemista (Greek stuffed tomatoes and peppers)",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI183",
+      "sourceRecipeHash": "sha256:07615fa9b3b368ba580bac799b7133f3705bb24ff74ba2740a38f1ec1a058221",
+      "title": "Soutzoukakia (Smyrna-style cumin meatballs)",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI184",
+      "sourceRecipeHash": "sha256:7518790bf9de59ad7499070b71721a7c97b4cf3e6b95f85006530d1c145539c9",
+      "title": "Spanakopita dinner pie",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI185",
+      "sourceRecipeHash": "sha256:23543b20e8c7e1c6181a2eacc5cecaca8bcf194ddf8a754f9cd87df69543a25f",
+      "title": "Psari plaki (Greek tomato-baked fish)",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI186",
+      "sourceRecipeHash": "sha256:66e89dfd42c270dd5e633b4398567c35f1dba19db45ed5c820abb00cc09a2c19",
+      "title": "Lamb kleftiko (Greek parchment-baked lamb)",
+      "cuisine": "Greek",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI187",
+      "sourceRecipeHash": "sha256:5e340d92015ef63c5ab6ab53eace0a42288ad223eba5bc02a14230475e52ec3d",
+      "title": "Sheftalia (Cypriot sausage pitas)",
+      "cuisine": "Cypriot",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI188",
+      "sourceRecipeHash": "sha256:3419a64044c9b05f14c2d158904e1dc95f6eb8ee1f304c1d514ee8b31b27099e",
+      "title": "Halloumi and vegetable souvlaki",
+      "cuisine": "Cypriot",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI189",
+      "sourceRecipeHash": "sha256:9eed6d8c76394c1d70d990e06a971fbbe184663bb727874ce923462d28cd8265",
+      "title": "Chicken shawarma rice plates",
+      "cuisine": "Levantine",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI190",
+      "sourceRecipeHash": "sha256:64a31a4d7de24da88f8503d4158300783b7441f7a89bf720f49181f574c789e1",
+      "title": "Beef kofta with tahini",
+      "cuisine": "Levantine",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI191",
+      "sourceRecipeHash": "sha256:c1d7c1e71700b94cfb1e6b2a3dc2d502ebf27cc4cfd2d1143dee159b18581c4b",
+      "title": "Lebanese baked kibbeh (kibbeh bil sanieh)",
+      "cuisine": "Lebanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI192",
+      "sourceRecipeHash": "sha256:2da0037d994c1a35afb095f6e0cfcf34b8ba17942c42052e07c88a1283be0919",
+      "title": "Lebanese lentils and rice (mujadara)",
+      "cuisine": "Lebanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI193",
+      "sourceRecipeHash": "sha256:f870a388472b052f1f28be716537966a9c95f02dd9f2db34c1d273ce733c68f2",
+      "title": "Palestinian sumac chicken flatbread (musakhan)",
+      "cuisine": "Palestinian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI194",
+      "sourceRecipeHash": "sha256:764eee10a11cac0d84ce4865be9a8da660ea71b7358725803c5e351fd19f2997",
+      "title": "Palestinian upside-down chicken and rice (maqluba)",
+      "cuisine": "Palestinian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI195",
+      "sourceRecipeHash": "sha256:1f913715d8e83e6f23a5c8f879af11414b79e2d0daeba119c0e4f7f591be801f",
+      "title": "Lebanese grilled chicken skewers (shish tawook)",
+      "cuisine": "Lebanese",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI196",
+      "sourceRecipeHash": "sha256:319def0601f5f2d7be0e4da462916e2e8f391cf401e73020f39779d416e2038e",
+      "title": "Syrian chickpea-yogurt pita bowls (fatteh)",
+      "cuisine": "Syrian",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI197",
+      "sourceRecipeHash": "sha256:c10aea4964fb44e89bfa05d52a9927e6477a064d977c6a1b1dcb6159d3d47a6b",
+      "title": "Turkish döner with tomato, yogurt, and pita (İskender kebab)",
+      "cuisine": "Turkish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI198",
+      "sourceRecipeHash": "sha256:bf74b95cf358b9157d9694c6eacdce02dc5766ab354672aa186fd361c21e3055",
+      "title": "Turkish tomato-stuffed eggplant (İmam bayıldı)",
+      "cuisine": "Turkish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI199",
+      "sourceRecipeHash": "sha256:7af93875fc7e2dec3789f453f87a376f05dcccb933bce4efe8e50b8de438e33a",
+      "title": "Turkish lamb stew with smoked eggplant purée (Hünkar beğendi)",
+      "cuisine": "Turkish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    },
+    {
+      "rosterId": "DI200",
+      "sourceRecipeHash": "sha256:d734f564bf6fb3f5a05f0dc1ccff3d9530122e313d511216030c437f16616321",
+      "title": "Turkish beef-and-rice stuffed peppers (etli biber dolması)",
+      "cuisine": "Turkish",
+      "equipmentState": "reviewed",
+      "originHistoryState": "reviewed",
+      "historySourceCount": 2,
+      "heroImageState": "published",
+      "researchTask": null
+    }
+  ]
+}

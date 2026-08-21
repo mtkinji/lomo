@@ -5,9 +5,14 @@ import { RecipeEditorialPickCard } from './RecipeEditorialPickCard';
 const pick: RecipeEditorialPick = {
   id: 'kitchenaid-7-cup-food-processor',
   equipmentId: 'food-processor',
-  asin: 'B07BW1ZPB5',
+  productId: 'kitchenaid-7-cup-food-processor',
+  retailerListingId: 'amazon-us-kitchenaid-7-cup-food-processor',
+  retailerExternalProductId: 'B07BW1ZPB5',
   title: 'KitchenAid 7-Cup Food Processor',
   rationale: 'A practical size for everyday chopping, slicing, and puréeing.',
+  tradeoff: 'It takes more cabinet space than a knife.',
+  substituteSummary: 'A sharp knife works when you do not need a fine, even texture.',
+  recipeCount: 4,
   thumbnailAsset: 'food-processor',
 };
 
@@ -19,6 +24,7 @@ describe('RecipeEditorialPickCard', () => {
     expect(screen.queryByText('Kwilt pick')).toBeNull();
     expect(screen.getByText('KitchenAid 7-Cup Food Processor')).toBeTruthy();
     expect(screen.getByText(pick.rationale)).toBeTruthy();
+    expect(screen.getByText('Useful for 4 Kwilt Recipes')).toBeTruthy();
     expect(screen.getByText('View on Amazon')).toBeTruthy();
     expect(screen.getByLabelText('Illustration of a compact food processor')).toBeTruthy();
 

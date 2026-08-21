@@ -36,6 +36,23 @@ function preserveAuthoredCase(
     : parsedText;
 }
 
+function preserveAuthoredParentheticals(
+  originalText: string,
+  concept: string | null,
+): string | null {
+  if (!concept) return concept;
+  const conceptStart = originalText
+    .toLocaleLowerCase()
+    .indexOf(concept.toLocaleLowerCase());
+  if (conceptStart < 0) return concept;
+  const parentheticals = originalText
+    .slice(0, conceptStart)
+    .match(/\([^)]*\)/g);
+  return parentheticals?.length
+    ? `${parentheticals.join(" ")} ${concept}`
+    : concept;
+}
+
 export function scaledIngredientDisplay(
   line: RecipeIngredientLine,
   fromYield: number | null,
@@ -48,9 +65,13 @@ export function scaledIngredientDisplay(
   if (parsed && fromYield === toYield) return line.originalText;
   const quantityMin = line.quantityMin ?? parsed?.quantityMin ?? null;
   const quantityMax = line.quantityMax ?? parsed?.quantityMax ?? null;
-  const concept =
+  const authoredConcept =
     line.ingredientConcept?.trim() ||
     preserveAuthoredCase(line.originalText, parsed?.concept.trim() ?? null);
+  const concept = preserveAuthoredParentheticals(
+    line.originalText,
+    authoredConcept,
+  );
   const quantityIsReliable = line.ingredientConcept
     ? (line.parseConfidence ?? 0) >= 0.8
     : parsed?.quantityMin !== null;
@@ -103,12 +124,16 @@ function ingredientDisplayPartsFromText(display: string): {
   if (ingredientStart < 0)
     return { amount: null, ingredient: display, qualifier: null, display };
 
+  const parenthetical = /\([^)]*\)\s*$/.exec(
+    display.slice(0, ingredientStart),
+  );
+  const displayIngredientStart = parenthetical?.index ?? ingredientStart;
   const ingredient = display.slice(
-    ingredientStart,
+    displayIngredientStart,
     ingredientStart + parsedConcept.length,
   );
-  const amount = display.slice(0, ingredientStart).trim() || null;
-  const qualifier = display.slice(ingredientStart + ingredient.length) || null;
+  const amount = display.slice(0, displayIngredientStart).trim() || null;
+  const qualifier = display.slice(displayIngredientStart + ingredient.length) || null;
   return { amount, ingredient, qualifier, display };
 }
 

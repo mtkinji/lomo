@@ -8,6 +8,7 @@ import {
   countActiveRecipeInventoryFilters,
   filterRecipeInventory,
   getBundledRecipeArtworkIndex,
+  getStarterRecipeEnrichment,
   getStarterRecipeMetadata,
 } from "./starterRecipeCatalog";
 import {
@@ -55,6 +56,24 @@ describe("starter Recipe catalog", () => {
     expect(
       metadata.every((item) => typeof item?.artworkIndex === "number"),
     ).toBe(true);
+  });
+
+  it('joins reviewed editorial context by stable catalog identity without widening the Recipe cache', () => {
+    const reviewed = getStarterRecipeEnrichment('kwilt-recipe-br031');
+    expect(reviewed).toEqual(expect.objectContaining({
+      rosterId: 'BR031',
+      origin: expect.objectContaining({ region: 'East Asia' }),
+      history: expect.objectContaining({ paragraphs: expect.any(Array) }),
+      heroImage: expect.objectContaining({ state: 'published' }),
+    }));
+    expect(reviewed?.equipmentNeeds).toHaveLength(7);
+    expect(getStarterRecipeEnrichment('kwilt-recipe-br001')).toEqual(
+      expect.objectContaining({
+        rosterId: 'BR001',
+        review: expect.objectContaining({ state: 'reviewed' }),
+      }),
+    );
+    expect(getStarterRecipeEnrichment('private-recipe')).toBeNull();
   });
 
   it("puts personal recipes before the bundled catalog without duplicate identities", () => {
