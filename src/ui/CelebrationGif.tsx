@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  type ImageSourcePropType,
+  type ImageResizeMode,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Text } from './Typography';
 import { Icon } from './Icon';
@@ -35,6 +44,12 @@ type CelebrationGifProps = {
    * on dark backgrounds (e.g. celebration interstitials).
    */
   variant?: 'light' | 'dark';
+  /** Optional owned artwork shown when remote celebration media is unavailable. */
+  fallbackSource?: ImageSourcePropType;
+  /** Layout-only frame override for deliberate host compositions such as full-width guide media. */
+  frameStyle?: StyleProp<ViewStyle>;
+  /** How remote animated media fills its frame. */
+  resizeMode?: ImageResizeMode;
 };
 
 /**
@@ -53,6 +68,9 @@ export function CelebrationGif({
   maxHeight,
   showControls = true,
   variant = 'light',
+  fallbackSource,
+  frameStyle,
+  resizeMode = 'contain',
 }: CelebrationGifProps) {
   // Color scheme based on variant
   const controlColor = variant === 'dark' ? colors.pine200 : colors.muted;
@@ -162,14 +180,20 @@ export function CelebrationGif({
   };
 
   const fallbackHeight = size === 'md' ? 180 : 140;
+  const frameSizeStyle = resizeMode === 'cover' && typeof maxHeight === 'number'
+    ? { height: maxHeight }
+    : aspectRatio
+      ? { aspectRatio }
+      : { height: fallbackHeight };
 
   return (
     <View>
       <View
         style={[
           styles.frame,
-          aspectRatio ? { aspectRatio } : { height: fallbackHeight },
-          typeof maxHeight === 'number' ? { maxHeight } : null,
+          frameStyle,
+          frameSizeStyle,
+          resizeMode !== 'cover' && typeof maxHeight === 'number' ? { maxHeight } : null,
         ]}
       >
         {isLoading ? (
@@ -177,11 +201,11 @@ export function CelebrationGif({
             <KwiltLoader color={colors.accent} />
           </View>
         ) : url ? (
-          <Image source={{ uri: url }} style={styles.image} resizeMode="contain" />
+          <Image source={{ uri: url }} style={styles.image} resizeMode={resizeMode} />
+        ) : fallbackSource ? (
+          <Image source={fallbackSource} style={styles.image} resizeMode="contain" />
         ) : (
-          <View style={styles.fallback}>
-            {/* Simple fallback shimmer; hosts still provide the main copy. */}
-          </View>
+          <View style={styles.fallback} />
         )}
       </View>
       {url && showControls ? (
@@ -277,5 +301,3 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
 });
-
-

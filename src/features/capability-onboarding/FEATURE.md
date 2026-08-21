@@ -31,3 +31,7 @@ last_reviewed: 2026-08-19
 
 Owns the universal first-install Welcome, ranked value-door reel, resumption, and typed handoffs.
 Capability owners retain setup, mutation, first-value evidence, and native landing responsibility.
+
+Sequential setup moments use the Canonical `CapabilityOnboardingStepScreen`. It owns stable page
+geometry; capability owners provide step copy, distinct meaningful illustrations, state, and one
+optional action without recreating the shell.

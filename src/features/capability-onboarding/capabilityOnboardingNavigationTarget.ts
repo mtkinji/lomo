@@ -4,10 +4,12 @@ export type CapabilityOnboardingNavigationTarget =
   | {
       root: 'Money';
       params: {
-        screen: 'MoneySummary';
+        screen: 'MoneyEntry';
         params: {
-          entryIntent: 'app-control-onboarding';
-          devBudgetState?: 'none';
+          requestedPlace: 'MoneySummary';
+          source: 'capability-onboarding';
+          mode: 'automatic' | 'setup';
+          demoScenario?: 'connected-household';
         };
       };
     }
@@ -31,17 +33,19 @@ export type CapabilityOnboardingNavigationTarget =
 
 export function buildCapabilityOnboardingNavigationTarget(
   handoff: CapabilityOnboardingHandoff,
-  options: { moneyBudgetState?: 'current' | 'none' } = {},
+  _options: { moneyBudgetState?: 'current' | 'none' } = {},
 ): CapabilityOnboardingNavigationTarget {
   switch (handoff.kind) {
     case 'money-app-control':
       return {
         root: 'Money',
         params: {
-          screen: 'MoneySummary',
+          screen: 'MoneyEntry',
           params: {
-            entryIntent: 'app-control-onboarding',
-            ...(options.moneyBudgetState === 'none' ? { devBudgetState: 'none' as const } : {}),
+            requestedPlace: 'MoneySummary',
+            source: 'capability-onboarding',
+            mode: _options.moneyBudgetState === 'none' ? 'setup' : 'automatic',
+            ...(_options.moneyBudgetState === 'none' ? { demoScenario: 'connected-household' as const } : {}),
           },
         },
       };

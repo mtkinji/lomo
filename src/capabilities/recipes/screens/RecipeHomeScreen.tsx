@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Crypto from "expo-crypto";
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
 import { colors, spacing } from "../../../theme";
 import { SplitActionDock } from "../../../ui/SplitActionDock";
+import { Coachmark } from "../../../ui/Coachmark";
 import { Icon } from "../../../ui/Icon";
 import { AppShell } from "../../../ui/layout/AppShell";
 import {
@@ -53,8 +54,8 @@ import {
   type RecipeCookRecordProjection,
 } from "../data/recipeCookRepository";
 import {
-  getStarterRecipeMetadata,
   getStarterRecipeEnrichment,
+  getStarterRecipeMetadata,
   buildRecipeLibraryInventory,
   isStarterRecipe,
   STARTER_RECIPE_PROJECTIONS,
@@ -75,6 +76,11 @@ import {
 } from "../domain/mealPlanSelection";
 import { getHouseholdSnapshot } from "../../../features/household/data/household";
 import { getSupabaseClient } from "../../../services/backend/supabaseClient";
+import { useCapabilityOnboardingStore } from "../../../features/capability-onboarding/useCapabilityOnboardingStore";
+import {
+  FOOD_FIRST_CYCLE_CHECKPOINTS,
+  foodFirstCycleStepFromCheckpoint,
+} from "../../../features/household-food/onboarding/foodFirstCycleGuide";
 import { createGroceryRepository } from "../../groceries/data/groceryRepository";
 import {
   deriveRecipeNextActions,
@@ -214,6 +220,7 @@ export function RecipeHomeView({
   onOpenRecipe = () => undefined,
   editorialPicks,
   onOpenEditorialPick,
+  onboardingTargetRef,
   enrichment = null,
 }: {
   projection: RecipeProjection;
@@ -235,6 +242,7 @@ export function RecipeHomeView({
   onOpenRecipe?(recipeId: string): void;
   editorialPicks?: readonly RecipeEditorialPick[];
   onOpenEditorialPick?(pick: RecipeEditorialPick): void;
+  onboardingTargetRef?: RefObject<View | null>;
   enrichment?: RecipeEditorialEnrichment | null;
 }) {
   const { recipe, currentVersion: version } = projection;
@@ -420,6 +428,7 @@ export function RecipeHomeView({
         </ObjectDetailMediaShell>
       </Animated.ScrollView>
       <SplitActionDock
+        targetRef={onboardingTargetRef}
         recommendedAction={recommendedAction}
         menuActions={menuActions}
         onActionPress={onDockAction}
@@ -480,6 +489,11 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     useState<RecipeCookRecordProjection | null>(null);
   const [cookCount, setCookCount] = useState(0);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
+  const foodGuideCheckpoint = useCapabilityOnboardingStore((state) =>
+    userId ? state.recordsByUserId[userId]?.checkpoint : null,
+  );
+  const dispatchCapabilityOnboarding = useCapabilityOnboardingStore((state) => state.dispatch);
+  const planActionRef = useRef<View>(null);
   const { capture } = useAnalytics();
   const editorialPicks = useMemo(() => {
     if (!projection) return [];
@@ -525,9 +539,9 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   }, [userId]);
   const reloadSharedCart = useCallback(async () => {
     const household = await getHouseholdSnapshot(getSupabaseClient());
-    if (!household.household) throw new Error("Set up your Household before starting a shared Plan.");
-    const next = await createMealPlanningRepository().getSharedCart(household.household.id);
+    const next = await createMealPlanningRepository().getMealCart(household.household?.id ?? null);
     setSharedCart(next);
+    if (!next) throw new Error('The Plan is not available yet.');
     return next;
   }, []);
   useFocusEffect(
@@ -545,10 +559,8 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
           if (!cancelled) setActivePlan(getActiveMealPlan(latest));
           await mealPlanningCache.write(userId, latest);
           const household = await getHouseholdSnapshot(getSupabaseClient());
-          if (household.household) {
-            const cart = await createMealPlanningRepository().getSharedCart(household.household.id);
-            if (!cancelled) setSharedCart(cart);
-          }
+          const cart = await createMealPlanningRepository().getMealCart(household.household?.id ?? null);
+          if (!cancelled) setSharedCart(cart);
         } catch {
           // Keep the cached plan while offline.
         }
@@ -619,10 +631,9 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     try {
       const repository = createMealPlanningRepository();
       const household = await getHouseholdSnapshot(getSupabaseClient());
-      if (!household.household) throw new Error("Set up your Household before starting a shared Plan.");
       const result = await toggleRecipeInSharedMealCart({
         cart: sharedCart,
-        householdId: household.household.id,
+        householdId: household.household?.id ?? null,
         projection,
         servings,
         candidateId: Crypto.randomUUID(),
@@ -630,6 +641,14 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         reloadCart: reloadSharedCart,
       });
       setSharedCart(result.cart);
+      if (result.selected && foodFirstCycleStepFromCheckpoint(foodGuideCheckpoint) === 'add-to-plan' && userId) {
+        dispatchCapabilityOnboarding(userId, {
+          type: 'checkpoint',
+          checkpoint: FOOD_FIRST_CYCLE_CHECKPOINTS['share-plan'],
+          now: Date.now(),
+        });
+        navigation.navigate('RecipeLibrary', { openPlan: true });
+      }
     } catch (caught) {
       Alert.alert(
         "Meal Plan not updated",
@@ -824,7 +843,36 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         }
         editorialPicks={editorialPicks}
         onOpenEditorialPick={setPendingEditorialPick}
+        onboardingTargetRef={planActionRef}
         enrichment={getStarterRecipeEnrichment(projection.recipe.id)}
+      />
+      <Coachmark
+        visible={
+          foodFirstCycleStepFromCheckpoint(foodGuideCheckpoint) === 'add-to-plan' &&
+          nextActions.recommendedAction.id === 'add_to_plan'
+        }
+        targetRef={planActionRef}
+        title={<Text style={{ fontWeight: '700' }}>Keep it in Plan</Text>}
+        body={<Text tone="secondary">Save this meal so you can ask for feedback and build one grocery list from it.</Text>}
+        actions={[{ id: 'dismiss', label: 'I’ll explore', variant: 'ghost' }]}
+        spotlight="hole"
+        spotlightRadius="auto"
+        attentionPulse
+        placement="above"
+        onAction={() => {
+          if (userId) dispatchCapabilityOnboarding(userId, {
+            type: 'checkpoint',
+            checkpoint: FOOD_FIRST_CYCLE_CHECKPOINTS.dismissed,
+            now: Date.now(),
+          });
+        }}
+        onDismiss={() => {
+          if (userId) dispatchCapabilityOnboarding(userId, {
+            type: 'checkpoint',
+            checkpoint: FOOD_FIRST_CYCLE_CHECKPOINTS.dismissed,
+            now: Date.now(),
+          });
+        }}
       />
       <RecipeActionsMenu
         visible={showMore}

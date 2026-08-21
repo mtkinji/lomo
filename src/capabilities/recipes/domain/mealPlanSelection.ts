@@ -4,8 +4,8 @@ import type { RecipeProjection } from '../data/recipeCache';
 import { buildMealPlanRecipeCandidate } from './mealPlanRecipeCandidate';
 
 type SharedCartSelectionRepository = {
-  addSharedCandidate(householdId: string, candidate: MealPlanCandidateDraft): Promise<unknown> | unknown;
-  withdrawSharedCandidate(candidateId: string): Promise<unknown> | unknown;
+  addMealCandidate(householdId: string | null, candidate: MealPlanCandidateDraft): Promise<unknown> | unknown;
+  withdrawMealCandidate(householdId: string | null, candidateId: string): Promise<unknown> | unknown;
 };
 
 export function sharedMealCartContainsRecipeVersion(
@@ -26,7 +26,7 @@ export async function toggleRecipeInSharedMealCart({
   reloadCart,
 }: {
   cart: SharedMealCartProjection | null;
-  householdId: string;
+  householdId: string | null;
   projection: RecipeProjection;
   servings: number;
   candidateId: string;
@@ -38,10 +38,10 @@ export async function toggleRecipeInSharedMealCart({
   if (existing) {
     if (existing.lifecycle !== 'idea') throw new Error('Open Plan to remove a recipe that has been sent to Groceries.');
     if (!existing.canRemove) throw new Error('An adult can remove this recipe from Plan.');
-    await repository.withdrawSharedCandidate(existing.id);
+    await repository.withdrawMealCandidate(householdId, existing.id);
     return { cart: await reloadCart(), selected: false };
   }
-  await repository.addSharedCandidate(
+  await repository.addMealCandidate(
     householdId,
     buildMealPlanRecipeCandidate(projection, { candidateId, servings }),
   );
@@ -50,13 +50,15 @@ export async function toggleRecipeInSharedMealCart({
 
 export async function removeCandidateFromSharedMealCart({
   candidateId,
+  householdId,
   repository,
   reloadCart,
 }: {
   candidateId: string;
-  repository: Pick<SharedCartSelectionRepository, 'withdrawSharedCandidate'>;
+  householdId: string | null;
+  repository: Pick<SharedCartSelectionRepository, 'withdrawMealCandidate'>;
   reloadCart(): Promise<SharedMealCartProjection>;
 }): Promise<SharedMealCartProjection> {
-  await repository.withdrawSharedCandidate(candidateId);
+  await repository.withdrawMealCandidate(householdId, candidateId);
   return reloadCart();
 }

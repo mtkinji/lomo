@@ -83,6 +83,8 @@ import {
   getAffiliateRetailerTestingEnabled,
   getAmazonBatchPreparationEnabled,
 } from '../../../utils/getEnv';
+import { useCapabilityOnboardingStore } from '../../../features/capability-onboarding/useCapabilityOnboardingStore';
+import { foodFirstCycleStepFromCheckpoint } from '../../../features/household-food/onboarding/foodFirstCycleGuide';
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'GroceryList'>;
 
@@ -236,6 +238,10 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const { openMenu } = useCapabilityShell();
   const capabilityMenuOpen = useCapabilityMenuOpen();
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
+  const foodGuideCheckpoint = useCapabilityOnboardingStore((state) =>
+    userId ? state.recordsByUserId[userId]?.checkpoint : null,
+  );
+  const dispatchCapabilityOnboarding = useCapabilityOnboardingStore((state) => state.dispatch);
   const personalRecipes = useRecipeStore((state) => state.recipes);
   const [list, setList] = useState<GroceryProjection | null>(null);
   const [sourcePlan, setSourcePlan] = useState<MealPlanProjection | null>(null);
@@ -578,6 +584,27 @@ export function GroceryListScreen({ navigation, route }: Props) {
     }
   };
 
+  const startManualList = async () => {
+    if (busy || offline) return;
+    if (list) {
+      setShowAddDrawer(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      const receipt = await createGroceryRepository().createManualList();
+      navigation.replace('GroceryList', { listId: receipt.groceryListId });
+      setShowAddDrawer(true);
+    } catch (error) {
+      Alert.alert(
+        'Grocery list did not start',
+        error instanceof Error ? error.message : 'Try again in a moment.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const addEquipmentSuggestion = async (id: string, label: string) => {
     if (!list || equipmentActionId || busy || offline || list.status === 'stale') return;
     setEquipmentActionId(id);
@@ -653,6 +680,12 @@ export function GroceryListScreen({ navigation, route }: Props) {
     !showAddDrawer &&
     list?.status !== 'stale' &&
     coachmarkTargetItemId !== null;
+  const showFirstCyclePayoff =
+    isFocused &&
+    !capabilityMenuOpen &&
+    !showAddDrawer &&
+    foodFirstCycleStepFromCheckpoint(foodGuideCheckpoint) === 'review-groceries' &&
+    checklistItems.length > 0;
   const dismissAlreadyHaveCoachmark = () => {
     setAlreadyHaveEducationSeen(true);
     void groceryEducation.markAlreadyHaveSeen(userId).catch(() => undefined);
@@ -696,7 +729,13 @@ export function GroceryListScreen({ navigation, route }: Props) {
               variant="screen"
               illustration={GROCERY_EMPTY_ILLUSTRATION}
               title="No grocery list yet"
-              instructions="Add meals to your Plan and your list will come together here."
+              instructions="Start with an item now, or send meals from Plan and their ingredients will come together here."
+              primaryAction={{
+                label: 'Add first item',
+                accessibilityLabel: 'Start a grocery list with an item',
+                disabled: offline,
+                onPress: () => { void startManualList(); },
+              }}
               style={styles.empty}
             />
           ) : null}
@@ -823,9 +862,9 @@ export function GroceryListScreen({ navigation, route }: Props) {
             icon="plus"
             isProminent
             size={RESTING_COMPOSER_HEIGHT_PX}
-            disabled={!list || busy || offline}
+            disabled={busy || offline}
             onPress={() => {
-              setShowAddDrawer(true);
+              void startManualList();
             }}
           />
         </View>
@@ -853,7 +892,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
         submitAccessibilityLabel="Add grocery item to list"
       />
       <Coachmark
-        visible={showAlreadyHaveCoachmark}
+        visible={showAlreadyHaveCoachmark && !showFirstCyclePayoff}
         targetRef={firstGroceryItemRef}
         spotlight="hole"
         spotlightPadding={spacing.xs}
@@ -869,6 +908,37 @@ export function GroceryListScreen({ navigation, route }: Props) {
         actions={[{ id: 'dismiss', label: 'Got it', variant: 'accent' }]}
         onAction={dismissAlreadyHaveCoachmark}
         onDismiss={dismissAlreadyHaveCoachmark}
+        placement="below"
+      />
+      <Coachmark
+        visible={showFirstCyclePayoff}
+        targetRef={firstGroceryItemRef}
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius={12}
+        highlightColor={colors.textPrimary}
+        actionColor={colors.textPrimary}
+        title={<Text style={styles.coachmarkTitle}>One list, ready to finish</Text>}
+        body={<Text style={styles.coachmarkBody}>Recipe ingredients stay together here. Add anything else your household needs.</Text>}
+        actions={[{ id: 'done', label: 'Got it', variant: 'accent' }]}
+        onAction={() => {
+          if (!userId || !list) return;
+          dispatchCapabilityOnboarding(userId, {
+            type: 'complete-path',
+            pathId: 'make-meals-easier',
+            receiptId: list.id,
+            now: Date.now(),
+          });
+        }}
+        onDismiss={() => {
+          if (!userId || !list) return;
+          dispatchCapabilityOnboarding(userId, {
+            type: 'complete-path',
+            pathId: 'make-meals-easier',
+            receiptId: list.id,
+            now: Date.now(),
+          });
+        }}
         placement="below"
       />
     </AppShell>

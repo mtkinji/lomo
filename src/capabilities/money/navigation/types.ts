@@ -1,7 +1,17 @@
+import type { MoneyEntryMode, MoneyEntrySource, MoneyPlaceRouteName } from '../domain/moneyOnboarding';
+import type { MoneyOnboardingHandoffReceipt } from '../domain/moneyOnboardingHandoff';
+
 export type MoneyStackParamList = {
+  MoneyEntry: {
+    requestedPlace: MoneyPlaceRouteName;
+    source: MoneyEntrySource;
+    mode: MoneyEntryMode;
+    demoScenario?: 'connected-household';
+  };
   MoneySummary: {
     entryIntent?: 'app-control-onboarding';
-    devBudgetState?: 'none';
+    devBudgetState?: 'none' | 'onboarding-sample';
+    onboardingHandoff?: MoneyOnboardingHandoffReceipt;
   } | undefined;
   MoneyTransactions: {
     accountId?: string;
@@ -16,7 +26,7 @@ export type MoneyStackParamList = {
   MoneyAccounts: undefined;
   MoneyCategoryDetail: { categoryId: string; monthOffset?: number };
   MoneyCategoryCreate: undefined;
-  MoneySetup: undefined;
+  MoneySetup: { requestedPlace?: MoneyPlaceRouteName; demoScenario?: 'connected-household' } | undefined;
   MoneyAppControl: {
     categoryId: string;
     suggestedPreset?: 'always_review' | 'when_hot' | 'at_95_percent' | 'when_over' | 'needs_review';
@@ -28,4 +38,4 @@ export type MoneyStackParamList = {
   MoneyTransactionDetail: { transactionId: string; economicRoleReview?: boolean };
 };
 
-export type MoneyPlaceRouteName = 'MoneySummary' | 'MoneyTransactions' | 'MoneyAccounts';
+export type { MoneyPlaceRouteName } from '../domain/moneyOnboarding';

@@ -101,6 +101,21 @@ describe('CapabilityMenu', () => {
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('money-transactions');
   });
 
+  it('can hide pristine Transactions without hiding Budgets or Accounts', () => {
+    const menu = render(
+      <CapabilityMenu
+        activeCapabilityId={null}
+        chats={chats}
+        hiddenCapabilityIds={['money-transactions']}
+        {...handlers}
+      />,
+    );
+
+    expect(menu.getByLabelText('Budgets')).toBeTruthy();
+    expect(menu.queryByLabelText('Transactions')).toBeNull();
+    expect(menu.getByLabelText('Accounts')).toBeTruthy();
+  });
+
   it('uses the user-facing Budgets name for the Money home destination', () => {
     const menu = render(
       <CapabilityMenu activeCapabilityId="money-summary" displayName="Andy" chats={chats} {...handlers} />,

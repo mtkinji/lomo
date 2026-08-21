@@ -1,8 +1,9 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { MoneySnapshot } from '../data/moneySnapshot';
-import { MoneySummaryScreen } from './MoneySummaryScreen';
+import { MoneyOnboardingHandoffGuide, MoneySummaryScreen } from './MoneySummaryScreen';
+import type { MoneyOnboardingHandoffState } from '../domain/moneyOnboardingHandoff';
 
 const mockAnswer: NonNullable<MoneySnapshot['livingLimitAnswer']> = {
   state: 'supported', headlineAmountCents: 34296,
@@ -27,6 +28,11 @@ const initialSnapshot = {
     transaction('account-transfer', 5000, { providerCategoryDetailed: 'TRANSFER_OUT_ACCOUNT_TRANSFER' }),
   ], accounts: [],
   livingLimitAnswer: mockAnswer,
+  monthlyPlan: {
+    periodId: '2026-07', regularPlanCents: 336000, committedPlanCents: 200000,
+    flexiblePlanCents: 136000, additionCents: 0, plannedOutflowCents: 336000,
+    derivation: 'detected_income',
+  },
 } as MoneySnapshot;
 
 let mockSnapshot = initialSnapshot;
@@ -40,6 +46,7 @@ jest.mock('../data/MoneyDataContext', () => ({
     reconcileConnectedActivity: mockReconcileConnectedActivity,
     reorderCategories: mockReorderCategories,
     savingCategoryOrder: false,
+    userId: null,
   }),
 }));
 jest.mock('../runtime/moneySummaryAutoRefresh', () => ({
@@ -64,13 +71,26 @@ jest.mock('./MoneyScreenFrame', () => {
 jest.mock('../../../ui/BottomDrawer', () => {
   const { View } = require('react-native');
   return {
-    BottomDrawer: ({ children, visible }: { children: React.ReactNode; visible: boolean }) => visible ? <View>{children}</View> : null,
+    BottomDrawer: ({ children, visible, bottomAccessory }: {
+      children: React.ReactNode;
+      visible: boolean;
+      bottomAccessory?: React.ReactNode;
+    }) => visible ? (
+      <View>
+        {children}
+        <View testID="money-bottom-guide-accessory">{bottomAccessory}</View>
+      </View>
+    ) : null,
     BottomDrawerScrollView: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
   };
 });
 jest.mock('../../../ui/Coachmark', () => {
   const { View } = require('react-native');
   return { Coachmark: ({ visible }: { visible: boolean }) => visible ? <View testID="money-app-control-guide" /> : null };
+});
+jest.mock('../../../ui/CelebrationGif', () => {
+  const { View } = require('react-native');
+  return { CelebrationGif: () => <View testID="money-budget-ready-celebration" /> };
 });
 
 describe('MoneySummaryScreen living limit answer', () => {
@@ -98,6 +118,10 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$342.96 left');
     expect(screen.getByText('left')).toBeTruthy();
     expect(screen.getByText('out of $1,360')).toBeTruthy();
+    expect(screen.getByText('Monthly plan')).toBeTruthy();
+    expect(screen.getByText('$3,360')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Review monthly plan breakdown, $3,360' }));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyLivingPlan');
     expect(screen.getAllByText('Flexible spending').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('money-limit-header')).toBeNull();
     expect(screen.queryByText('Categories')).toBeNull();
@@ -112,7 +136,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByText('Bills and money set aside')).toBeTruthy();
     expect(screen.getByText('Flexible room')).toBeTruthy();
     expect(screen.getByText('THIS MONTH')).toBeTruthy();
-    expect(screen.getByText('$1,360')).toBeTruthy();
+    expect(screen.getAllByText('$1,360').length).toBeGreaterThan(0);
     expect(screen.getByText('Left')).toBeTruthy();
     expect(screen.getByText('All July activity is accounted for')).toBeTruthy();
     expect(screen.queryByText('Protected costs')).toBeNull();
@@ -120,6 +144,83 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.queryByRole('button', { name: 'Adjust plan' })).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Change 70% living target' }));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyLivingPlan');
+  });
+
+  it('offers account-backed setup instead of an invented empty budget', () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      accounts: [],
+      transactions: [],
+      categories: [],
+      livingLimitAnswer: null,
+    };
+    const navigation = { navigate: jest.fn() };
+    const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-empty', name: 'MoneySummary' } as never} />);
+
+    expect(screen.getByText('Build your budget from real life')).toBeTruthy();
+    fireEvent.press(screen.getByText('Connect accounts'));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyEntry', {
+      requestedPlace: 'MoneySummary',
+      source: 'empty-state',
+      mode: 'setup',
+    });
+  });
+
+  it('lands directly on Budget with a focused budget-ready guide', () => {
+    const handoff = moneyOnboardingHandoff();
+    const navigation = { addListener: jest.fn(() => jest.fn()), navigate: jest.fn(), setParams: jest.fn() };
+    const screen = render(<MoneySummaryScreen
+      navigation={navigation as never}
+      route={{ key: 'summary-ready', name: 'MoneySummary', params: { onboardingHandoff: handoff } } as never}
+    />);
+
+    expect(screen.getByText('Budget')).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Your budgets are ready 🎉' })).toBeTruthy();
+    expect(screen.getByTestId('money-budget-ready-celebration')).toBeTruthy();
+    expect(screen.getByText('We built a $6,175 monthly plan from the accounts you connected. You can change any budget.')).toBeTruthy();
+    expect(screen.queryByText('Goal ready')).toBeNull();
+    expect(screen.queryByText('2 To-dos ready')).toBeNull();
+    expect(within(screen.getByTestId('money-bottom-guide-accessory')).getByRole('button', {
+      name: 'Explore budgets',
+    })).toBeTruthy();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Explore budgets' }));
+    expect(screen.queryByRole('header', { name: 'Your budgets are ready 🎉' })).toBeNull();
+    expect(navigation.setParams).toHaveBeenCalledWith({ onboardingHandoff: undefined });
+  });
+
+  it('keeps the development handoff and the Budget canvas on the same sample plan', () => {
+    const navigation = { addListener: jest.fn(() => jest.fn()), navigate: jest.fn(), setParams: jest.fn() };
+    const screen = render(<MoneySummaryScreen
+      navigation={navigation as never}
+      route={{
+        key: 'summary-demo-ready',
+        name: 'MoneySummary',
+        params: { onboardingHandoff: moneyOnboardingHandoff(), devBudgetState: 'onboarding-sample' },
+      } as never}
+    />);
+
+    expect(screen.getByText('We built a $6,175 monthly plan from the accounts you connected. You can change any budget.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Review monthly plan breakdown, $6,175' })).toBeTruthy();
+    expect(screen.getAllByText('Groceries').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Housing').length).toBeGreaterThan(0);
+  });
+
+  it('reveals the Spend Less follow-through without exposing every To-do on the Budget canvas', () => {
+    const onAcknowledgeFollowThrough = jest.fn();
+    const screen = render(<MoneyOnboardingHandoffGuide
+      guide="follow_through"
+      handoff={{ ...moneyOnboardingHandoff(), budgetGuideAcknowledgedAt: '2026-08-21T18:01:00.000Z' }}
+      onAcknowledgeBudgets={jest.fn()}
+      onAcknowledgeFollowThrough={onAcknowledgeFollowThrough}
+    />);
+
+    expect(screen.getByRole('header', { name: 'Your Spend Less goal is ready' })).toBeTruthy();
+    expect(screen.getByText('Save about $205 a month with 2 practical first steps. Nothing has been scheduled.')).toBeTruthy();
+    expect(screen.queryByText('Review recurring services for one to stop or downgrade')).toBeNull();
+    expect(screen.queryByText('Plan one lower-cost week of meals')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Review goal' }));
+    expect(onAcknowledgeFollowThrough).toHaveBeenCalledWith(true);
   });
 
   it('separates flexible and committed categories and explains both concepts', () => {
@@ -251,6 +352,19 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByText('left')).toBeTruthy();
   });
 });
+
+function moneyOnboardingHandoff(): MoneyOnboardingHandoffState {
+  return {
+    createdAtIso: '2026-08-21T18:00:00.000Z',
+    selectedPlanCents: 617_500,
+    goalId: 'goal-money-onboarding-spend-less-v1',
+    goalTitle: 'Spend $205 less each month',
+    savingsCents: 20_500,
+    todoCount: 2,
+    budgetGuideAcknowledgedAt: null,
+    followThroughGuideAcknowledgedAt: null,
+  };
+}
 
 describe('MoneySummaryScreen drawer anatomy', () => {
   it('inherits the compact standard drawer title', () => {

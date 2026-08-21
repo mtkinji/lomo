@@ -8,6 +8,7 @@ export type CelebrationKind =
   | 'firstArcCelebrate'
   | 'firstArcDreamsPrompt'
   | 'firstGoal'
+  | 'firstBudget'
   | 'streak'
   | 'milestone'
   /**
@@ -53,6 +54,25 @@ export type FetchCelebrationGifParams = {
   skipLikedCache?: boolean;
 };
 
+const CURATED_FIRST_BUDGET_GIF: CelebrationGif = {
+  id: 'PotiYSwEnO33KX007a',
+  url: 'https://media.giphy.com/media/PotiYSwEnO33KX007a/giphy.gif',
+};
+
+/**
+ * High-salience product moments use reviewed media instead of a randomized
+ * provider result. This keeps the emotional meaning stable across sessions.
+ */
+export function getCuratedCelebrationGif(
+  params: FetchCelebrationGifParams,
+): CelebrationGif | null {
+  if (params.role === 'celebration' && params.kind === 'firstBudget') {
+    return CURATED_FIRST_BUDGET_GIF;
+  }
+
+  return null;
+}
+
 const EXCLUDED_KEYWORDS = [
   // Identity/adult themes
   'pride', 'gay', 'lgbt', 'nsfw', 'sexy',
@@ -89,7 +109,7 @@ function containsExcludedKeyword(text: string | undefined): boolean {
   return EXCLUDED_KEYWORDS.some((keyword) => lower.includes(keyword));
 }
 
-function buildGiphyQuery(params: FetchCelebrationGifParams): string {
+export function buildCelebrationGifQuery(params: FetchCelebrationGifParams): string {
   const { role, kind, stylePreference, ageRange } = params;
 
   // Base term from role/kind – keep queries upbeat and generic enough to avoid
@@ -105,6 +125,9 @@ function buildGiphyQuery(params: FetchCelebrationGifParams): string {
   if (role === 'celebration' && kind === 'firstGoal') {
     // Lean slightly into a playful soccer metaphor while keeping things broad.
     return 'small win you did it yes goal soccer goallll celebration';
+  }
+  if (role === 'celebration' && kind === 'firstBudget') {
+    return 'minimal abstract confetti celebration animation';
   }
   if (kind === 'streak') {
     return 'you did it keep going celebration';
@@ -164,6 +187,9 @@ function buildGiphyQuery(params: FetchCelebrationGifParams): string {
 export async function fetchCelebrationGif(
   params: FetchCelebrationGifParams,
 ): Promise<CelebrationGif | null> {
+  const curatedGif = getCuratedCelebrationGif(params);
+  if (curatedGif) return curatedGif;
+
   const state = useAppStore.getState();
   const blockedIds = new Set(state.blockedCelebrationGifIds ?? []);
   const useLikedCache = !params.skipLikedCache;
@@ -188,7 +214,7 @@ export async function fetchCelebrationGif(
     return null;
   }
 
-  const query = buildGiphyQuery(params);
+  const query = buildCelebrationGifQuery(params);
 
   const ageRange = params.ageRange;
   const rating = isUnder18(ageRange) ? 'g' : 'pg';
@@ -272,5 +298,3 @@ export async function fetchCelebrationGif(
     clearTimeout(timeoutId);
   }
 }
-
-

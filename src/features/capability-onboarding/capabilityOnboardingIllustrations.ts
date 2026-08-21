@@ -7,6 +7,7 @@ export const CAPABILITY_ONBOARDING_ILLUSTRATIONS: Record<
   ImageSourcePropType
 > = {
   'money-app-control': require('../../../assets/illustrations/capability-onboarding/money-app-control.png'),
+  'money-foundation': require('../../../assets/illustrations/capability-onboarding/money-foundation-v3.png'),
   meals: require('../../../assets/illustrations/capability-onboarding/meals.png'),
   goals: require('../../../assets/illustrations/goal-set.png'),
   chat: require('../../../assets/illustrations/capability-onboarding/chat-v2.png'),

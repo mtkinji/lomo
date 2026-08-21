@@ -21,9 +21,11 @@ import { CAPABILITY_ONBOARDING_ILLUSTRATIONS } from './capabilityOnboardingIllus
 import { shouldEnableVerticalOnboardingScroll } from './capabilityOnboardingPagerModel';
 
 export function CapabilityValueDoorScreen({
+  bottomAccessoryHeight = 76,
   door,
   onStart,
 }: {
+  bottomAccessoryHeight?: number;
   door: CapabilityOnboardingContract;
   onStart: () => void;
 }) {
@@ -58,7 +60,7 @@ export function CapabilityValueDoorScreen({
         {
           minHeight: height,
           paddingTop: insets.top + spacing.lg,
-          paddingBottom: insets.bottom + 76,
+          paddingBottom: insets.bottom + bottomAccessoryHeight,
         },
       ]}
       nestedScrollEnabled
@@ -71,12 +73,18 @@ export function CapabilityValueDoorScreen({
         accessibilityRole="image"
         style={styles.illustrationSlot}
       >
-        <Image
-          fadeDuration={0}
-          resizeMode="contain"
-          source={CAPABILITY_ONBOARDING_ILLUSTRATIONS[door.story.illustrationKey]}
-          style={{ width: illustrationWidth, height: illustrationHeight }}
-        />
+        {door.story.illustrationKey ? (
+          <Image
+            fadeDuration={0}
+            resizeMode="contain"
+            source={CAPABILITY_ONBOARDING_ILLUSTRATIONS[door.story.illustrationKey]}
+            style={{ width: illustrationWidth, height: illustrationHeight }}
+          />
+        ) : (
+          <View style={styles.iconMoment}>
+            <Icon color={colors.pine700} name={door.icon} size={72} /> {/* @kwilt-brand-moment: capability onboarding illustration fallback */}
+          </View>
+        )}
       </View>
 
       <View style={styles.footer}>
@@ -131,6 +139,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 180,
+  },
+  iconMoment: {
+    width: 144,
+    height: 144,
+    borderRadius: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.pine50, // @kwilt-brand-moment: capability onboarding illustration fallback
   },
   footer: {
     gap: spacing.sm,

@@ -12,6 +12,7 @@ import { MoneyAppControlScreen } from '../screens/MoneyAppControlScreen';
 import { MoneyLivingPlanScreen } from '../screens/MoneyLivingPlanScreen';
 import { MoneyLivingPlanReceiptScreen } from '../screens/MoneyLivingPlanReceiptScreen';
 import { MoneySetupScreen } from '../screens/MoneySetupScreen';
+import { MoneyEntryScreen } from '../screens/MoneyEntryScreen';
 import { useAppStore } from '../../../store/useAppStore';
 
 const Stack = createNativeStackNavigator<MoneyStackParamList>();
@@ -22,6 +23,7 @@ export function MoneyNavigator() {
     <MoneyPrivacyGate>
       <MoneyDataProvider key={userId ?? 'signed-out'} userId={userId}>
         <Stack.Navigator initialRouteName="MoneySummary" screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="MoneyEntry" component={MoneyEntryScreen} />
           <Stack.Screen name="MoneySummary" component={MoneySummaryScreen} />
           <Stack.Screen name="MoneyTransactions" component={MoneyTransactionsScreen} />
           <Stack.Screen name="MoneyAccounts" component={MoneyAccountsScreen} />

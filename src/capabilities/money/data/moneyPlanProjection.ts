@@ -123,6 +123,8 @@ export function projectMoneyPlanProjection(
     protectedPlanCents: protectedRequirement.protectedPlanCents,
     protectedOverageCents: protectedRequirement.protectedOverageCents,
   });
+  const regularPlanCents = Math.max(0, Math.round(active.targetCents));
+  const committedPlanCents = Math.max(0, Math.round(protectedRequirement.protectedPlanCents));
   return {
     versionId: active.versionId,
     receipt: active.receipt,
@@ -130,6 +132,15 @@ export function projectMoneyPlanProjection(
       ...snapshot,
       generatedAt: now.toISOString(),
       livingLimitAnswer,
+      monthlyPlan: {
+        periodId: currentPeriodId,
+        regularPlanCents,
+        committedPlanCents,
+        flexiblePlanCents: Math.max(0, regularPlanCents - committedPlanCents),
+        additionCents: 0,
+        plannedOutflowCents: regularPlanCents,
+        derivation: evidence.resourceBasisKind,
+      },
       categories,
       totals: { ...snapshot.totals, plannedCents, spentCents, remainingCents: plannedCents - spentCents },
       forecast: {

@@ -59,6 +59,7 @@ const ARCS_STACK_SCHEMA: ChildSchema = {
 
 const MONEY_STACK_SCHEMA: ChildSchema = {
   allowed: [
+    'MoneyEntry',
     'MoneySummary',
     'MoneyTransactions',
     'MoneyAccounts',

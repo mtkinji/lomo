@@ -21,6 +21,7 @@ import { formatMoney, formatMoneyFreshness, type MoneyTransaction } from '../dat
 import { projectMoneyTransactionsForCategory } from '../domain/moneyPeriodView';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
+import { EmptyState } from '../../../ui/EmptyState';
 
 type Filter = 'all' | 'unmatched' | 'matched' | 'outflow' | 'inflow';
 type Sort = 'newest' | 'oldest' | 'amount_high' | 'merchant';
@@ -151,10 +152,20 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
               {group.rows.map((transaction) => <TransactionInventoryRow key={transaction.id} transaction={transaction} onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id, economicRoleReview: Boolean(reviewTransactionIds) })} />)}
             </View>
           </View>
-        )) : (
+        )) : scopedInventory.length === 0 && !isScopedInventory ? (
+          <EmptyState
+            illustration={null}
+            title="Transactions start with an account"
+            instructions="Connect an account, then Kwilt will sync its activity here."
+            primaryAction={{
+              label: 'Connect an account',
+              onPress: () => navigation.navigate('MoneyAccounts'),
+            }}
+          />
+        ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{scopedInventory.length > 0 ? 'No transactions in this view' : 'No transactions yet'}</Text>
-            <Text style={styles.emptyCopy}>{scopedInventory.length > 0 ? 'Adjust the date scope or filter to review the rest of the inventory.' : 'Connect and sync an account from Accounts.'}</Text>
+            <Text style={styles.emptyTitle}>No transactions in this view</Text>
+            <Text style={styles.emptyCopy}>Adjust the date scope or filter to review the rest of the inventory.</Text>
           </View>
         )}
       </MoneyInventoryListFrame>

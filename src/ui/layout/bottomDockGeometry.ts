@@ -8,6 +8,17 @@ export function resolvePhoneFloatingBottomInset(safeAreaBottom: number): number 
   return Math.max(bottomDockGeometry.phoneFloating.minimumBottomGap, safeAreaAwareInset);
 }
 
+export function resolvePhoneFloatingActionContentInset(
+  safeAreaBottom: number,
+  actionHeight: number,
+): number {
+  return (
+    resolvePhoneFloatingBottomInset(safeAreaBottom)
+    + actionHeight
+    + bottomDockGeometry.phoneFloating.contentGap
+  );
+}
+
 export function resolveDrawerActionBottomInset(safeAreaBottom: number): number {
   return Math.max(bottomDockGeometry.drawerAction.minimumBottomGap, safeAreaBottom);
 }

@@ -23,6 +23,7 @@ import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
+import { EmptyState } from '../../../ui/EmptyState';
 
 type AccountFilter = 'all' | 'linked' | 'needs_review';
 type AccountSort = 'name' | 'transactions_high' | 'status';
@@ -149,10 +150,21 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
         ) : null}
         {visibleAccounts.length > 0 ? visibleAccounts.map((account) => (
           <AccountInventoryRow key={account.id} account={account} onPress={() => navigation.navigate('MoneyTransactions', { accountId: account.id })} />
-        )) : (
+        )) : accounts.length === 0 ? (
+          <EmptyState
+            illustration={null}
+            title="Connect your first account"
+            instructions="Accounts give Kwilt the real income and spending needed to keep Money useful."
+            primaryAction={{
+              label: connectionAction ? 'Connecting…' : 'Connect an account',
+              disabled: Boolean(connectionAction),
+              onPress: () => void connectAccount(),
+            }}
+          />
+        ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{accounts.length > 0 ? 'No accounts in this view' : 'No Plaid accounts yet'}</Text>
-            <Text style={styles.emptyCopy}>{accounts.length > 0 ? 'Adjust the filter to review the rest of the account inventory.' : 'Connect an account to populate account rows.'}</Text>
+            <Text style={styles.emptyTitle}>No accounts in this view</Text>
+            <Text style={styles.emptyCopy}>Adjust the filter to review the rest of the account inventory.</Text>
           </View>
         )}
       </MoneyInventoryListFrame>

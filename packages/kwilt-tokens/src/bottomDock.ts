@@ -10,6 +10,7 @@ import { spacing } from './spacing';
 export const bottomDockGeometry = {
   phoneFloating: {
     inlineGap: spacing.xl,
+    contentGap: spacing.md,
     minimumBottomGap: spacing.lg + spacing.xs,
     safeAreaLiftRatio: 0.5,
     safeAreaBottomAdjustment: spacing.xs,

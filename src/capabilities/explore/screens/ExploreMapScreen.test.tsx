@@ -7,6 +7,7 @@ import { useAppStore } from '../../../store/useAppStore';
 import { reconstructExploreRecordedPath } from '../runtime/explorePathReconstruction';
 import * as exploreGeometry from '../domain/exploreGeometry';
 import { useCapabilityDiscoveryStore } from '../../../store/useCapabilityDiscoveryStore';
+import type { ExploreData } from '../domain/types';
 
 const mockOpenMenu = jest.fn();
 const mockNavigate = jest.fn();
@@ -336,6 +337,31 @@ describe('ExploreMapScreen', () => {
 
     expect(buildFogHole).not.toHaveBeenCalled();
     buildFogHole.mockRestore();
+  });
+
+  it('does not scan explored cells for Android polygon fog on iOS', () => {
+    let cellReads = 0;
+    const exploredCells: ExploreData['exploredCells'] = {};
+    Object.defineProperty(exploredCells, 'cell-a', {
+      enumerable: true,
+      get: () => {
+        cellReads += 1;
+        return {
+          id: 'cell-a',
+          center: { latitude: 40.55, longitude: -105.12 },
+          firstExploredAt: '2026-08-21T12:00:00.000Z',
+          lastExploredAt: '2026-08-21T12:00:00.000Z',
+        };
+      },
+    });
+    act(() => {
+      useExploreStore.setState({ exploredCells });
+    });
+    cellReads = 0;
+
+    render(<ExploreMapScreen />);
+
+    expect(cellReads).toBe(1);
   });
 
   it('continues building and rendering polygon fog holes on Android', () => {

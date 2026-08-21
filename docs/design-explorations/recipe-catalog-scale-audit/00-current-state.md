@@ -1,9 +1,9 @@
 # Recipe catalog scale audit
 
-Date: 2026-08-20  
-Worktree: `/Users/andrewwatanabe/Kwilt/.worktrees/recipe-catalog-scale-audit`  
-Branch: `codex/recipe-catalog-scale-audit`  
-Base: `fd618bef` (`origin/main`)  
+Date: 2026-08-20
+Worktree: `/Users/andrewwatanabe/Kwilt/.worktrees/recipe-catalog-scale-audit`
+Branch: `codex/recipe-catalog-scale-audit`
+Base: `fd618bef` (`origin/main`)
 Integration target: `main`
 
 ## Decision

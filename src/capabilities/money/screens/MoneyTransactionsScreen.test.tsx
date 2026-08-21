@@ -77,12 +77,14 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
       params: undefined,
     };
 
-    const { getByLabelText, queryByLabelText } = render(
+    const { getByLabelText, getByText, queryByLabelText } = render(
       <MoneyTransactionsScreen navigation={navigation as never} route={route as never} />,
     );
 
     expect(getByLabelText('Open navigation menu')).toBeTruthy();
     expect(queryByLabelText(/Go back from/)).toBeNull();
+    fireEvent.press(getByText('Connect an account'));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyAccounts');
   });
 
   it('shows exactly the requested purchases in the focused review flow', () => {

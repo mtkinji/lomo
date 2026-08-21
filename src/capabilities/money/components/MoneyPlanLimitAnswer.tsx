@@ -53,7 +53,21 @@ export function MoneyPlanLimitAnswer({ answer, freshness, showHeader = true, onE
           <Text style={styles.explainActionText}>{actionLabel}</Text>
         </Pressable>
       </View> : null}
-      <Card elevation="none" marginVertical={0} padding="sm" style={styles.answerCard}>
+      <Card
+        elevation="none"
+        marginVertical={0}
+        padding="sm"
+        style={[
+          styles.answerCard,
+          compact.surfaceTone === 'over'
+            ? styles.answerCardOver
+            : compact.surfaceTone === 'watch'
+              ? styles.answerCardWatch
+              : compact.surfaceTone === 'neutral'
+                ? styles.answerCardNeutral
+                : styles.answerCardOnTrack,
+        ]}
+      >
         <View
           accessible
           accessibilityLabel={[compact.amount, compact.status].filter(Boolean).join(' ')}
@@ -65,7 +79,7 @@ export function MoneyPlanLimitAnswer({ answer, freshness, showHeader = true, onE
             {displayAmount.currency ? (
               <Text
                 testID="money-limit-currency-symbol"
-                style={[styles.currencySymbol, compact.isOver ? styles.answerOver : null]}
+                style={styles.currencySymbol}
               >
                 {displayAmount.currency}
               </Text>
@@ -75,13 +89,13 @@ export function MoneyPlanLimitAnswer({ answer, freshness, showHeader = true, onE
               minimumFontScale={0.72}
               numberOfLines={1}
               testID="money-limit-amount-number"
-              style={[styles.answer, compact.isOver ? styles.answerOver : null]}
+              style={styles.answer}
             >
               {displayAmount.number}
             </Text>
           </View>
           {compact.status ? (
-            <Text style={[styles.amountStatus, compact.isOver ? styles.answerOver : null]}>{compact.status}</Text>
+            <Text style={styles.amountStatus}>{compact.status}</Text>
           ) : null}
         </View>
         <Text style={styles.limit}>{compact.support}</Text>
@@ -100,7 +114,7 @@ function compactAnswer(answer: Answer, fallback: { headline: string; support: st
   amount: string;
   status: string | null;
   support: string;
-  isOver: boolean;
+  surfaceTone: 'on_track' | 'watch' | 'over' | 'neutral';
 } {
   const { facts } = answer;
   if (answer.state === 'over_limit') {
@@ -109,14 +123,14 @@ function compactAnswer(answer: Answer, fallback: { headline: string; support: st
       amount: formatMoney(Math.abs(answer.headlineAmountCents ?? facts.overLimitCents)),
       status: 'over limit',
       support: `Your ${facts.livingPercent}% living limit is ${formatMoney(facts.livingLimitCents ?? 0)}`,
-      isOver: true,
+      surfaceTone: 'over',
     };
   }
   if (answer.state === 'no_flexible_room') {
-    return { label: 'Flexible spending', amount: '$0', status: 'left', support: 'Protected costs use your full living limit', isOver: false };
+    return { label: 'Flexible spending', amount: '$0', status: 'left', support: 'Protected costs use your full living limit', surfaceTone: 'watch' };
   }
   if (answer.state === 'needs_one_answer' || answer.state === 'insufficient_meaning') {
-    return { label: 'Monthly plan this month', amount: 'Update unavailable', status: null, support: fallback.support, isOver: false };
+    return { label: 'Monthly plan this month', amount: 'Update unavailable', status: null, support: fallback.support, surfaceTone: 'neutral' };
   }
   const room = facts.flexibleRoomCents ?? answer.headlineAmountCents ?? 0;
   const hasCapacity = facts.flexibleCapacityCents != null;
@@ -127,13 +141,17 @@ function compactAnswer(answer: Answer, fallback: { headline: string; support: st
     support: hasCapacity
       ? `out of ${formatMoney(facts.flexibleCapacityCents!)}`
       : fallback.support,
-    isOver: room < 0,
+    surfaceTone: room < 0 ? 'over' : 'on_track',
   };
 }
 
 const styles = StyleSheet.create({
   answerSection: { gap: spacing.xs },
-  answerCard: { gap: spacing.xs },
+  answerCard: { gap: spacing.xs, borderWidth: 0 },
+  answerCardOnTrack: { backgroundColor: colors.pine100 }, // @kwilt-brand-moment: a healthy monthly plan deserves calm positive reinforcement
+  answerCardWatch: { backgroundColor: colors.turmeric50 },
+  answerCardOver: { backgroundColor: colors.madder100 },
+  answerCardNeutral: { backgroundColor: colors.fieldFill },
   sectionHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   sectionLabel: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   amountRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
@@ -141,7 +159,6 @@ const styles = StyleSheet.create({
   currencySymbol: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 24, lineHeight: 30, fontWeight: '800', marginTop: 2 },
   answer: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 42, lineHeight: 46, fontWeight: '800', letterSpacing: -1.2 },
   amountStatus: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 22, fontWeight: '600', marginBottom: 4 },
-  answerOver: { color: colors.destructive },
   explainAction: { paddingHorizontal: spacing.xs, paddingVertical: 4, borderRadius: 6 },
   explainActionPressed: { backgroundColor: colors.fieldFillPressed },
   explainActionText: { color: colors.pine700, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, fontWeight: '500' },

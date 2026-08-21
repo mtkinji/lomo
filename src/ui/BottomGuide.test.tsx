@@ -85,6 +85,20 @@ describe('BottomGuide interaction semantics', () => {
     });
   });
 
+  it('supports a canonical edge-to-edge media region without feature geometry overrides', () => {
+    renderWithProviders(
+      <BottomGuide visible contentLayout="edgeToEdge" onClose={jest.fn()}>
+        <Text>Full-width media</Text>
+      </BottomGuide>,
+    );
+
+    const drawerProps = mockBottomDrawerProps.at(-1);
+    expect(drawerProps?.contentLayout).toBe('edgeToEdge');
+    expect(StyleSheet.flatten(drawerProps?.sheetStyle as object)).toMatchObject({
+      paddingHorizontal: 0,
+    });
+  });
+
   it('keeps drawer-like guides anchored when inset layout is explicit', () => {
     renderWithProviders(
       <BottomGuide visible layout="inset" onClose={jest.fn()}>

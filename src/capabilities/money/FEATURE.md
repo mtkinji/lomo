@@ -13,6 +13,7 @@ serves:
   - jtbd-get-help-without-retelling-my-life
 briefs:
   - kwilt-money-capability-integration
+  - money-capability-first-entry
   - money-progressive-activation
   - money-category-ordering
   - accounts-inventory-shell

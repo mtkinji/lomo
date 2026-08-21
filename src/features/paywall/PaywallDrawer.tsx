@@ -114,6 +114,12 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
         subtitle:
           'Upgrade and we\u2019ll bring your streak back. Pro also adds Streak Shields for the weeks when life gets crowded.',
       };
+    case 'pro_only_additional_financial_institution':
+      return {
+        title: 'See more of your financial life',
+        subtitle:
+          'Your first institution is included. Pro lets Kwilt connect additional institutions so your plan can reflect more of your household money.',
+      };
     default:
       return {
         title: 'Build a system you’ll actually stick with',

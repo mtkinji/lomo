@@ -15,15 +15,14 @@ const TICK_COUNT = 52;
 const MAX_OVER_BUDGET_TICK_WIDTH_MULTIPLIER = 3.2;
 
 export type MoneyCategoryValueMode = 'percent_used' | 'dollars_left';
-export type MoneyCategoryPresentation = 'tiles' | 'list_percent' | 'list_dollars';
+export type MoneyCategoryPresentation = 'list' | 'meters';
 
 export function resolveCategoryPresentation(presentation: MoneyCategoryPresentation): {
-  layout: 'tiles' | 'list';
+  layout: 'meters' | 'list';
   valueMode: MoneyCategoryValueMode;
 } {
-  if (presentation === 'list_dollars') return { layout: 'list', valueMode: 'dollars_left' };
-  if (presentation === 'list_percent') return { layout: 'list', valueMode: 'percent_used' };
-  return { layout: 'tiles', valueMode: 'percent_used' };
+  if (presentation === 'meters') return { layout: 'meters', valueMode: 'percent_used' };
+  return { layout: 'list', valueMode: 'dollars_left' };
 }
 
 export function MoneyCategoryMeterTile({
@@ -97,30 +96,52 @@ export function MoneyCategoryMeterTile({
   );
 }
 
-export function MoneyCategoryListRow({ category, onPress, targetRef, valueMode }: {
+export type MoneyCategoryListStatus = {
+  label: 'Projected to go over' | null;
+  tone: 'danger' | 'watch' | 'neutral';
+};
+
+export function getCategoryListStatus(category: MoneyCategory): MoneyCategoryListStatus {
+  const attentionThresholdCents = Math.max(2_500, Math.round(category.plannedCents * 0.1));
+  const currentOverageCents = Math.max(0, -category.remainingCents);
+  const projectedOverageCents = Math.max(0, category.forecast.projectedOverageCents ?? 0);
+  if (currentOverageCents >= attentionThresholdCents) {
+    return { label: null, tone: 'danger' };
+  }
+  if (currentOverageCents > 0) {
+    return { label: null, tone: 'neutral' };
+  }
+  if (projectedOverageCents >= attentionThresholdCents || category.forecast.status === 'watch' || category.forecast.status === 'over') {
+    return { label: 'Projected to go over', tone: 'watch' };
+  }
+  return { label: null, tone: 'neutral' };
+}
+
+export function MoneyCategoryListRow({ category, onPress, targetRef }: {
   category: MoneyCategory;
   onPress: () => void;
   targetRef?: Ref<View>;
-  valueMode: MoneyCategoryValueMode;
 }) {
-  const percent = Math.round(category.percentUsed);
   const isOver = category.remainingCents < 0;
-  const value = valueMode === 'percent_used'
-    ? `${percent}% used`
-    : `${formatMoney(Math.abs(category.remainingCents))} ${isOver ? 'over' : 'left'}`;
+  const value = `${formatMoney(Math.abs(category.remainingCents))} ${isOver ? 'over' : 'left'}`;
+  const status = getCategoryListStatus(category);
   return (
     <Pressable
       ref={targetRef}
-      accessibilityLabel={`Open ${category.name} category, ${value}`}
+      accessibilityLabel={`Open ${category.name} category, ${value}${status.label ? `, ${status.label}` : ''}`}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.listRow, pressed ? styles.pressed : null]}
     >
       <View style={styles.listCopy}>
         <Text numberOfLines={2} style={styles.listName}>{category.name}</Text>
-        <Text numberOfLines={1} style={styles.listDetail}>{formatMoney(category.spentCents)} / {formatMoney(category.plannedCents)}</Text>
+        {status.label ? (
+          <Text numberOfLines={1} style={[styles.listStatus, styles.listStatusWatch]}>
+            {status.label}
+          </Text>
+        ) : null}
       </View>
-      <Text numberOfLines={1} style={[styles.listValue, isOver ? styles.valueRisk : null]}>{value}</Text>
+      <Text numberOfLines={1} style={[styles.listValue, status.tone === 'danger' ? styles.valueRisk : null]}>{value}</Text>
       <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.listChevron}>›</Text>
     </Pressable>
   );
@@ -357,7 +378,8 @@ const styles = StyleSheet.create({
   },
   listCopy: { flex: 1, minWidth: 0, gap: 2 },
   listName: { color: colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '600' },
-  listDetail: { color: colors.textSecondary, fontSize: 12, lineHeight: 16, fontVariant: ['tabular-nums'] },
+  listStatus: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
+  listStatusWatch: { color: colors.turmeric600 },
   listValue: { flexShrink: 0, color: colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '600', fontVariant: ['tabular-nums'] },
   listChevron: { color: colors.textSecondary, fontSize: 22, lineHeight: 24 },
 });

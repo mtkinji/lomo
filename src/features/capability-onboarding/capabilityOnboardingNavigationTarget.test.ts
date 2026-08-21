@@ -5,8 +5,12 @@ describe('buildCapabilityOnboardingNavigationTarget', () => {
     expect(buildCapabilityOnboardingNavigationTarget({ kind: 'money-app-control' })).toEqual({
       root: 'Money',
       params: {
-        screen: 'MoneySummary',
-        params: { entryIntent: 'app-control-onboarding' },
+        screen: 'MoneyEntry',
+        params: {
+          requestedPlace: 'MoneySummary',
+          source: 'capability-onboarding',
+          mode: 'automatic',
+        },
       },
     });
   });
@@ -18,10 +22,12 @@ describe('buildCapabilityOnboardingNavigationTarget', () => {
     )).toEqual({
       root: 'Money',
       params: {
-        screen: 'MoneySummary',
+        screen: 'MoneyEntry',
         params: {
-          entryIntent: 'app-control-onboarding',
-          devBudgetState: 'none',
+          requestedPlace: 'MoneySummary',
+          source: 'capability-onboarding',
+          mode: 'setup',
+          demoScenario: 'connected-household',
         },
       },
     });

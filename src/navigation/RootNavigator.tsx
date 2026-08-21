@@ -165,6 +165,7 @@ import { useChoreLearningStore } from '../capabilities/chores/runtime/useChoreLe
 import { shouldShowCapabilityDiscoveryDot } from './capabilityDiscovery';
 import { useCapabilityDiscoveryStore } from '../store/useCapabilityDiscoveryStore';
 import { CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
+import { useMoneyNavigationAvailabilityStore } from '../capabilities/money/runtime/useMoneyNavigationAvailabilityStore';
 
 export type RootDrawerParamList = {
   StandaloneFocus: { source?: string } | undefined;
@@ -1223,6 +1224,15 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const { capture } = useAnalytics();
   const { coverMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
+  const liveTransactionsAvailability = useMoneyNavigationAvailabilityStore((state) => (
+    authIdentity?.userId
+      ? state.transactionsByUserId[authIdentity.userId] ?? 'unknown'
+      : 'unknown'
+  ));
+  const [menuTransactionsAvailability, setMenuTransactionsAvailability] = useState(liveTransactionsAvailability);
+  useEffect(() => {
+    if (!menuOpen) setMenuTransactionsAvailability(liveTransactionsAvailability);
+  }, [liveTransactionsAvailability, menuOpen]);
   const exploreEnabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('explore'));
   const choresEnabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('chores'));
   const choreRecord = useChoreLearningStore((state) => state.record);
@@ -1374,6 +1384,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         chatsError={chatsError}
         displayName={displayName}
         avatarUrl={userProfile?.avatarUrl || authIdentity?.avatarUrl}
+        hiddenCapabilityIds={menuTransactionsAvailability === 'pristine' ? ['money-transactions'] : []}
         onSelectCapability={(id) => {
           const capability = resolveCapabilityNavigation(id);
           capture(AnalyticsEvent.CapabilitySelected, {

@@ -96,14 +96,14 @@ export type SharedMealCartCandidate = {
 
 export type SharedMealCartProjection = {
   planId: string | null;
-  householdId: string;
+  householdId: string | null;
   version: number | null;
   state: 'draft' | 'finalized' | null;
   activeCount: number;
   groceryListId: string | null;
   viewer: {
     personId: string;
-    role: 'owner' | 'caregiver' | 'child';
+    role: 'organizer' | 'owner' | 'caregiver' | 'child';
     canAdd: boolean;
     canManage: boolean;
   };
