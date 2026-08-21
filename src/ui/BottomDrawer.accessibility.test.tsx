@@ -145,4 +145,28 @@ describe('BottomDrawer accessibility contract', () => {
 
     expect(getByTestId('bottom-drawer.keyboard-resized-content')).toBeTruthy();
   });
+
+  it('keeps a dynamically sized drawer visually hidden, touch-inert, and non-modal until measured', () => {
+    const { getByTestId } = renderWithProviders(
+      <BottomDrawer visible dynamicSizing snapPoints={['35%']} onClose={jest.fn()}>
+        <Text>Measured content</Text>
+      </BottomDrawer>,
+    );
+
+    expect(getByTestId('bottom-drawer.surface', { includeHiddenElements: true }).props).toMatchObject({
+      pointerEvents: 'none',
+      accessibilityViewIsModal: false,
+      importantForAccessibility: 'yes',
+    });
+
+    fireEvent(getByTestId('bottom-drawer.dynamic-measurement', { includeHiddenElements: true }), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 12, width: 320, height: 220 } },
+    });
+
+    expect(getByTestId('bottom-drawer.surface').props).toMatchObject({
+      pointerEvents: 'auto',
+      accessibilityViewIsModal: true,
+      importantForAccessibility: 'yes',
+    });
+  });
 });

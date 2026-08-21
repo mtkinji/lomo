@@ -169,6 +169,7 @@ export type MoneyTransaction = {
   categoryId: string | null;
   categoryName: string;
   reviewState: 'assigned' | 'needs_review' | 'not_counted';
+  matchSource?: MoneyTransactionRow['budget_match_source'];
   merchantRuleCategoryId?: string | null;
   assignmentSource?: MoneyTransactionRow['budget_assignment_source'];
   assignmentPolicyVersion?: string | null;
@@ -519,6 +520,7 @@ function projectTransaction(
     categoryName: allocations?.length ? 'Split across categories' : category?.name.trim()
       || (reviewState === 'not_counted' ? 'Not counted' : transaction.direction === 'inflow' ? 'Income or transfer' : 'Needs review'),
     reviewState,
+    matchSource: transaction.budget_match_source ?? null,
     merchantRuleCategoryId: merchantRuleCategory
       ? merchantRuleCategory.legacy_budget_id?.trim() || merchantRuleCategory.slug
       : null,

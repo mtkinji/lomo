@@ -337,6 +337,26 @@ describe('projectMoneySnapshot', () => {
     expect(snapshot.transactions[0]?.merchantRuleCategoryId).toBe('groceries');
   });
 
+  it('preserves an explicit category correction so the detail screen can restore its rule offer', () => {
+    const snapshot = projectMoneySnapshot(
+      {
+        categories,
+        plans,
+        accounts: [],
+        connections: [],
+        rules: [],
+        transactions: [{
+          id: 'transaction-1', financial_account_id: null, name: 'MAVERIK #00635', merchant_name: 'Maverik',
+          amount_cents: 5270, direction: 'outflow', date: '2026-08-18', pending: false,
+          iso_currency_code: 'USD', budget_id: 'category-grocery-uuid', budget_match_source: 'corrected', money_meaning: null,
+        }],
+      },
+      new Date('2026-08-21T18:00:00.000Z'),
+    );
+
+    expect(snapshot.transactions[0]?.matchSource).toBe('corrected');
+  });
+
   it('keeps one mixed-purchase row while allocating exact cents to each category meter', () => {
     const snapshot = projectMoneySnapshot(
       {

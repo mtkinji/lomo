@@ -16,14 +16,49 @@ import {
   MoneyAnalysisStatus,
   MoneyPlanBuildStatus,
   MoneyPlanningIntentScreen,
+  MoneySetupExperience,
   MoneySetupIntroduction,
   MoneySetupStepInterstitial,
   MoneyTargetScreen,
 } from './MoneySetupScreen';
 
+const mockUseMoneyData = jest.fn();
+
 jest.mock('../native/moneyPlaidLink', () => ({
   startMoneyPlaidLink: jest.fn(),
 }));
+jest.mock('../data/MoneyDataContext', () => ({
+  useMoneyData: () => mockUseMoneyData(),
+}));
+jest.mock('../../../navigation/CapabilityShellContext', () => ({
+  useCapabilityShell: () => ({ openMenu: jest.fn() }),
+}));
+
+describe('MoneySetupExperience entry resolution', () => {
+  it('keeps onboarding hidden while existing Money state is still loading', () => {
+    mockUseMoneyData.mockReturnValue({
+      error: null,
+      reconcileConnectedActivity: jest.fn(),
+      refresh: jest.fn(async () => undefined),
+      snapshot: null,
+      status: 'loading',
+    });
+    const navigation = { replace: jest.fn() };
+
+    const screen = renderWithProviders(
+      <MoneySetupExperience
+        mode="automatic"
+        navigation={navigation as never}
+        requestedPlace="MoneySummary"
+        source="capability-menu"
+      />,
+    );
+
+    expect(screen.getByTestId('money-loading-preview')).toBeTruthy();
+    expect(screen.queryByRole('header', { name: 'Know where you stand before you spend' })).toBeNull();
+    expect(navigation.replace).not.toHaveBeenCalled();
+  });
+});
 
 describe('MoneySetupIntroduction', () => {
   it('reuses the shared illustrated Money door instead of the native setup card', () => {

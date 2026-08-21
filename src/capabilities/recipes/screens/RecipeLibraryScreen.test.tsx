@@ -187,6 +187,23 @@ describe('Recipe library', () => {
     expect(onSeeAll).toHaveBeenCalledWith({ ...DEFAULT_RECIPE_INVENTORY_FILTERS, cuisine: 'Mexican' });
   });
 
+  it('virtualizes discovery sections and recipe rails instead of mounting the full library at launch', () => {
+    const recipes = buildRecipeLibraryInventory([]);
+    const screen = render(<RecipeLibraryView {...viewProps} recipes={recipes} />);
+
+    const discovery = screen.getByTestId('recipe-discovery-shelves');
+    expect(discovery.props.data.length).toBeGreaterThan(discovery.props.initialNumToRender);
+    expect(discovery.props.maxToRenderPerBatch).toBeLessThan(discovery.props.data.length);
+
+    const recommended = screen.getByTestId('recipe-shelf-scroll-recommended');
+    expect(recommended.props.horizontal).toBe(true);
+    expect(recommended.props.initialNumToRender).toBeLessThan(recommended.props.data.length);
+
+    const breakfast = screen.getByTestId('recipe-shelf-scroll-breakfast');
+    expect(breakfast.props.horizontal).toBe(true);
+    expect(breakfast.props.initialNumToRender).toBeLessThan(breakfast.props.data.length);
+  });
+
   it('opens a compact illustrated cuisine family from discovery', () => {
     const onSeeAll = jest.fn();
     const recipes = buildRecipeLibraryInventory([]);
@@ -196,11 +213,13 @@ describe('Recipe library', () => {
 
     expect(screen.getByTestId('cuisine-family-row')).toBeTruthy();
     expect(screen.getByText('American')).toBeTruthy();
-    expect(screen.getByText('Vietnamese').props.numberOfLines).toBe(1);
-    expect(StyleSheet.flatten(screen.getByText('Vietnamese').props.style)).toMatchObject({
+    const cuisineRail = screen.getByTestId('cuisine-family-scroll');
+    expect(cuisineRail.props.data.some((family: { shortLabel: string }) => family.shortLabel === 'Vietnamese')).toBe(true);
+    expect(screen.getByText('French').props.numberOfLines).toBe(1);
+    expect(StyleSheet.flatten(screen.getByText('French').props.style)).toMatchObject({
       fontSize: 10,
     });
-    expect(StyleSheet.flatten(screen.getByLabelText('Browse Vietnamese meals').props.style)).toMatchObject({
+    expect(StyleSheet.flatten(screen.getByLabelText('Browse French meals').props.style)).toMatchObject({
       width: 88,
     });
     fireEvent.press(screen.getByLabelText('Browse French meals'));
@@ -404,13 +423,12 @@ describe('Recipe library', () => {
       <RecipeLibraryView {...viewProps} recipes={recipes} onOpenCollection={onOpenCollection} />,
     );
 
-    const offers = screen.getAllByTestId(/^editorial-collection-offer-/);
-    expect(offers).toHaveLength(2);
     const firstCollection = EDITORIAL_MEAL_COLLECTIONS.find((collection) => collection.id === editorialPlacements[0].collectionId)!;
     fireEvent.press(screen.getByRole('button', { name: `Open Collection: ${firstCollection.title}` }));
     expect(onOpenCollection).toHaveBeenCalledWith(firstCollection.id);
 
     const discovery = buildRecipeDiscoverySections(buildRecipeShelves(recipes), editorialPlacements);
+    expect(discovery.filter((item) => item.kind === 'offer')).toHaveLength(2);
     const firstOfferIndex = discovery.findIndex((item) => item.kind === 'offer');
     const secondOfferIndex = discovery.findIndex((item, index) => item.kind === 'offer' && index > firstOfferIndex);
     expect(discovery.slice(0, firstOfferIndex).filter((item) => item.kind === 'shelf')).toHaveLength(3);

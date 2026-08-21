@@ -196,19 +196,32 @@ export function MoneyDataProvider({
     trigger: ConnectedMoneyActivityTrigger;
     sync: boolean;
   }) => {
-    const result = await reconcileConnectedMoneyActivity({
-      client: getSupabaseClient(),
-      repository: resolvedRepository,
-      trigger: input.trigger,
-      sync: input.sync,
-    });
-    acceptSnapshot(result.snapshot);
-    captureMoneyClassification(capture, {
-      trigger: input.trigger,
-      outcome: result.classification.outcome,
-      ...(result.classification.outcome === 'succeeded' ? { receipt: result.classification.receipt } : {}),
-    });
-    return result.syncResult;
+    const version = ++mutationVersionRef.current;
+    dispatch({ type: 'load' });
+    try {
+      const result = await reconcileConnectedMoneyActivity({
+        client: getSupabaseClient(),
+        repository: resolvedRepository,
+        trigger: input.trigger,
+        sync: input.sync,
+      });
+      if (mutationVersionRef.current !== version) return result.syncResult;
+      acceptSnapshot(result.snapshot);
+      captureMoneyClassification(capture, {
+        trigger: input.trigger,
+        outcome: result.classification.outcome,
+        ...(result.classification.outcome === 'succeeded' ? { receipt: result.classification.receipt } : {}),
+      });
+      return result.syncResult;
+    } catch (error) {
+      if (mutationVersionRef.current === version) {
+        dispatch({
+          type: 'failure',
+          message: error instanceof Error ? error.message : 'Money data could not be refreshed.',
+        });
+      }
+      throw error;
+    }
   }, [acceptSnapshot, capture, resolvedRepository]);
 
   useEffect(() => {

@@ -1,5 +1,16 @@
 export type PostCategorySelectionOutcome = 'offer_rule' | 'return_to_summary' | 'stay';
 
+export function getPersistedMerchantRuleOfferCategoryId(input: {
+  direction: 'inflow' | 'outflow';
+  categoryId: string | null | undefined;
+  matchSource: string | null | undefined;
+  existingRuleCategoryId: string | null | undefined;
+}): string | null {
+  const categoryId = input.categoryId?.trim();
+  if (input.direction !== 'outflow' || !categoryId || input.matchSource !== 'corrected') return null;
+  return input.existingRuleCategoryId === categoryId ? null : categoryId;
+}
+
 export function getPostCategorySelectionOutcome(input: {
   direction: 'inflow' | 'outflow';
   economicRoleReview: boolean;

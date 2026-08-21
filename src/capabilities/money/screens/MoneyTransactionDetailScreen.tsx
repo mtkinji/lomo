@@ -15,7 +15,7 @@ import { MoneyTransactionSplitDrawer } from '../components/MoneyTransactionSplit
 import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
-import { getPostCategorySelectionOutcome } from '../domain/merchantRuleOffer';
+import { getPersistedMerchantRuleOfferCategoryId, getPostCategorySelectionOutcome } from '../domain/merchantRuleOffer';
 import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
 import { getPaymentSourcePresentation, type InstitutionPalette } from '../domain/paymentSourcePresentation';
 import { getTransactionMeaningOptions, type TransactionMeaningOption } from '../domain/transactionMeaningOptions';
@@ -55,6 +55,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryAmount, setNewCategoryAmount] = useState('100.00');
   const [pendingRuleCategory, setPendingRuleCategory] = useState<MoneyCategory | null>(null);
+  const [dismissedRuleCategoryId, setDismissedRuleCategoryId] = useState<string | null>(null);
   const [ruleDrawerOpen, setRuleDrawerOpen] = useState(false);
   const [splitEditorOpen, setSplitEditorOpen] = useState(false);
   const splitSessionRef = useRef<{ mode: TransactionSplitMode; startedAtMs: number } | null>(null);
@@ -66,6 +67,16 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const currentCategory = transaction?.categoryId
     ? categories.find((category) => category.id === transaction.categoryId || category.sourceId === transaction.categoryId)
     : undefined;
+  const persistedRuleOfferCategoryId = transaction ? getPersistedMerchantRuleOfferCategoryId({
+    direction: transaction.direction,
+    categoryId: transaction.categoryId,
+    matchSource: transaction.matchSource,
+    existingRuleCategoryId: transaction.merchantRuleCategoryId,
+  }) : null;
+  const persistedRuleOfferCategory = persistedRuleOfferCategoryId && persistedRuleOfferCategoryId !== dismissedRuleCategoryId
+    ? categories.find((category) => category.id === persistedRuleOfferCategoryId || category.sourceId === persistedRuleOfferCategoryId) ?? null
+    : null;
+  const ruleOfferCategory = pendingRuleCategory ?? persistedRuleOfferCategory;
   const filteredCategories = useMemo(() => {
     const query = categoryQuery.trim().toLowerCase();
     return query ? categories.filter((category) => category.name.toLowerCase().includes(query)) : categories;
@@ -108,6 +119,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     if (!changed) return;
     setCategoryPickerOpen(false);
     setCategoryQuery('');
+    setDismissedRuleCategoryId(null);
     const outcome = getPostCategorySelectionOutcome({
       direction: transaction.direction,
       economicRoleReview: Boolean(route.params.economicRoleReview),
@@ -180,12 +192,12 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   };
 
   const applyRule = async () => {
-    if (!transaction || !pendingRuleCategory) return;
+    if (!transaction || !ruleOfferCategory) return;
     const saved = await runReview(() => saveMerchantRule({
       transactionId: transaction.id,
       merchantName: transaction.merchantName,
-      categoryId: pendingRuleCategory.sourceId,
-      categoryName: pendingRuleCategory.name,
+      categoryId: ruleOfferCategory.sourceId,
+      categoryName: ruleOfferCategory.name,
       matchMode: ruleMode,
     }));
     if (saved) {
@@ -199,6 +211,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   };
 
   const dismissRuleOffer = async () => {
+    setDismissedRuleCategoryId(ruleOfferCategory?.id ?? null);
     setPendingRuleCategory(null);
     setRuleDrawerOpen(false);
     if (route.params.economicRoleReview) {
@@ -346,14 +359,14 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                 {transaction.allocations?.length ? 'Edit split' : 'Split transaction'}
               </Button>
             ) : null}
-            {pendingRuleCategory && !ruleDrawerOpen ? (
+            {ruleOfferCategory && !ruleDrawerOpen ? (
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setRuleDrawerOpen(true)}
                 style={({ pressed }) => [styles.ruleOffer, pressed ? styles.pressed : null]}
               >
                 <View style={styles.ruleOfferCopy}>
-                  <Text style={styles.ruleOfferTitle}>Use {pendingRuleCategory.name} for future {transaction.merchantName} transactions?</Text>
+                  <Text style={styles.ruleOfferTitle}>Use {ruleOfferCategory.name} for future {transaction.merchantName} transactions?</Text>
                   <Text style={styles.ruleOfferDetail}>Review the match before creating a rule.</Text>
                 </View>
                 <Icon name="chevronRight" size={18} color={colors.pine700} />
@@ -484,12 +497,25 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
         </BottomDrawerScrollView>
       </BottomDrawer>
 
-      <BottomDrawer visible={Boolean(pendingRuleCategory) && ruleDrawerOpen} onClose={() => setRuleDrawerOpen(false)} snapPoints={['88%']} enableContentPanningGesture>
+      <BottomDrawer
+        visible={Boolean(ruleOfferCategory) && ruleDrawerOpen}
+        onClose={() => setRuleDrawerOpen(false)}
+        snapPoints={['88%']}
+        enableContentPanningGesture
+        bottomAccessory={ruleOfferCategory ? (
+          <View style={styles.ruleActions}>
+            {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
+            <Button disabled={saving} fullWidth onPress={() => void applyRule()}>{saving ? 'Saving…' : 'Create rule'}</Button>
+            <Button fullWidth variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
+          </View>
+        ) : undefined}
+        bottomAccessoryShowTopBorder
+      >
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
           <BottomDrawerHeader
             closeAccessibilityLabel="Close merchant rule"
             onClose={() => setRuleDrawerOpen(false)}
-            title={`Rule for ${pendingRuleCategory?.name ?? 'category'}`}
+            title={`Rule for ${ruleOfferCategory?.name ?? 'category'}`}
             variant="withClose"
           />
           <Text style={styles.drawerCopy}>Apply this category across your full transaction history and to future {transaction.merchantName} charges.</Text>
@@ -510,9 +536,6 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               </View>
             ))}
           </View>
-          {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
-          <Button disabled={saving} fullWidth onPress={() => void applyRule()}>{saving ? 'Saving…' : 'Create rule'}</Button>
-          <Button fullWidth variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
         </BottomDrawerScrollView>
       </BottomDrawer>
 
@@ -755,6 +778,7 @@ const styles = StyleSheet.create({
   ruleModeActive: { borderColor: colors.pine700, backgroundColor: colors.pine50 },
   ruleModeText: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   ruleModeTextActive: { color: colors.pine700 },
+  ruleActions: { gap: spacing.sm },
   matchPreview: { gap: spacing.xs, padding: spacing.lg, borderRadius: 12, backgroundColor: colors.gray50 },
   matchPreviewLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.7 },
   matchPreviewValue: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 17, lineHeight: 22, fontWeight: '600' },

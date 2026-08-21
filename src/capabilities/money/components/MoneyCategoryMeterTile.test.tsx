@@ -35,9 +35,24 @@ describe('Money category inventory presentations', () => {
   });
 
   it('shows dollars left without repeating category arithmetic in the list', () => {
-    const screen = render(<MoneyCategoryListRow category={{ ...category, remainingCents: -520 }} onPress={jest.fn()} />);
+    const screen = render(<MoneyCategoryListRow category={{ ...category, remainingCents: -520 }} onPress={jest.fn()} periodElapsedPercent={75} />);
     expect(screen.getByText('$5.20 over')).toBeTruthy();
     expect(screen.queryByText('$375.95 / $400')).toBeNull();
+  });
+
+  it('uses a compact warning indicator instead of persistent projection copy', () => {
+    const screen = render(<MoneyCategoryListRow category={category} onPress={jest.fn()} periodElapsedPercent={75} />);
+
+    expect(screen.queryByText('Projected to go over')).toBeNull();
+    expect(screen.getByTestId('money-category-projected-warning', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByLabelText('Open Shopping category, $24.05 left, Projected to go over')).toBeTruthy();
+  });
+
+  it('shows category use against elapsed month pace', () => {
+    const screen = render(<MoneyCategoryListRow category={category} onPress={jest.fn()} periodElapsedPercent={75} />);
+
+    expect(screen.getByTestId('money-category-pace-used', { includeHiddenElements: true })).toHaveStyle({ width: '94%' });
+    expect(screen.getByTestId('money-category-pace-elapsed', { includeHiddenElements: true })).toHaveStyle({ left: '75%' });
   });
 
   it('reserves attention treatment for material overages and forecast risk', () => {

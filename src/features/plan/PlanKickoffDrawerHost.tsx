@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus, InteractionManager } from 'react-native';
 import { useAppStore } from '../../store/useAppStore';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { BottomGuide } from '../../ui/BottomGuide';
@@ -57,6 +57,7 @@ function shouldShowPlanKickoffToday(params: {
 
 export function PlanKickoffDrawerHost() {
   const [visible, setVisible] = useState(false);
+  const pendingInteractionRef = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
   const lastKickoffShownDateKey = useAppStore((s) => s.lastKickoffShownDateKey);
   const setLastKickoffShownDateKey = useAppStore((s) => s.setLastKickoffShownDateKey);
   const setPlanKickoffVisible = useAppStore((s) => s.setPlanKickoffVisible);
@@ -64,7 +65,7 @@ export function PlanKickoffDrawerHost() {
   const hasCompletedFirstTimeOnboarding = useAppStore((s) => s.hasCompletedFirstTimeOnboarding);
   const isFirstTimeFlowActive = useFirstTimeUxStore((s) => s.isFlowActive);
 
-  const checkAndShow = () => {
+  const checkAndShow = useCallback(() => {
     setVisible(
       shouldShowPlanKickoffToday({
         now: new Date(),
@@ -76,21 +77,36 @@ export function PlanKickoffDrawerHost() {
         planKickoffWeeklyDay: notificationPreferences.planKickoffWeeklyDay,
       }),
     );
-  };
+  }, [
+    hasCompletedFirstTimeOnboarding,
+    isFirstTimeFlowActive,
+    lastKickoffShownDateKey,
+    notificationPreferences,
+  ]);
+
+  const scheduleCheckAndShow = useCallback(() => {
+    pendingInteractionRef.current?.cancel();
+    pendingInteractionRef.current = InteractionManager.runAfterInteractions(() => {
+      pendingInteractionRef.current = null;
+      checkAndShow();
+    });
+  }, [checkAndShow]);
 
   useEffect(() => {
-    checkAndShow();
+    scheduleCheckAndShow();
 
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
-        checkAndShow();
+        scheduleCheckAndShow();
       }
     });
 
     return () => {
+      pendingInteractionRef.current?.cancel();
+      pendingInteractionRef.current = null;
       subscription.remove();
     };
-  }, [hasCompletedFirstTimeOnboarding, isFirstTimeFlowActive, lastKickoffShownDateKey, notificationPreferences]);
+  }, [scheduleCheckAndShow]);
 
   useEffect(() => {
     setPlanKickoffVisible(visible);

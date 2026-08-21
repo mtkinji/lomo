@@ -16,8 +16,9 @@ import {
   MoneyInventoryControlSurface,
   MoneyInventoryListFrame,
 } from '../components/MoneyInventoryListFrame';
+import { MoneyFreshnessStamp } from '../components/MoneyFreshnessStamp';
 import { useMoneyData } from '../data/MoneyDataContext';
-import { formatMoney, formatMoneyFreshness, type MoneyTransaction } from '../data/moneySnapshot';
+import { formatMoney, type MoneyTransaction } from '../data/moneySnapshot';
 import { projectMoneyTransactionsForCategory } from '../domain/moneyPeriodView';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
@@ -52,7 +53,6 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const [dateScope, setDateScope] = useState<DateScope>('current_month');
   const [filter, setFilter] = useState<Filter>(route.params?.reviewState === 'needs_review' ? 'unmatched' : 'all');
   const [sort, setSort] = useState<Sort>('newest');
-  const [activityMessage, setActivityMessage] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const accountId = route.params?.accountId;
   const categoryId = route.params?.categoryId;
@@ -99,13 +99,10 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const checkActivity = async () => {
     if (syncing) return;
     setSyncing(true);
-    setActivityMessage('Checking…');
     try {
-      const result = await reconcileConnectedActivity({ trigger: 'manual_sync', sync: true });
-      const added = result?.added ?? 0;
-      setActivityMessage(added > 0 ? `${added} new ${added === 1 ? 'transaction' : 'transactions'}` : 'Up to date');
+      await reconcileConnectedActivity({ trigger: 'manual_sync', sync: true });
     } catch {
-      setActivityMessage('Unable to check right now');
+      // MoneyScreenFrame keeps the last successful data visible and owns the warning.
     } finally {
       setSyncing(false);
     }
@@ -113,6 +110,10 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
 
   return (
     <MoneyScreenFrame
+      headerRightElement={snapshot?.lastSyncedAt
+        ? <MoneyFreshnessStamp lastSyncedAt={snapshot.lastSyncedAt} />
+        : undefined}
+      onRefresh={checkActivity}
       title={title}
       onPressBack={isScopedInventory ? () => navigation.goBack() : undefined}
     >
@@ -141,10 +142,6 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
         )}
         variant="list"
       >
-        <View style={styles.freshnessRow}>
-          <Text numberOfLines={1} style={styles.freshnessText}>{formatMoneyFreshness(snapshot?.lastSyncedAt ?? null)}</Text>
-          {activityMessage ? <Text numberOfLines={1} style={styles.activityCheckText}>{activityMessage}</Text> : null}
-        </View>
         {groups.length > 0 ? groups.map((group) => (
           <View key={group.label} style={styles.dateGroup}>
             <Text style={styles.dateGroupHeader}>{group.label}</Text>
@@ -247,9 +244,6 @@ const styles = StyleSheet.create({
   iconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   iconButtonPressed: { backgroundColor: colors.fieldFillPressed },
   iconButtonDisabled: { opacity: 0.35 },
-  freshnessRow: { minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  freshnessText: { flexShrink: 0, ...typography.bodyXs, color: colors.textSecondary },
-  activityCheckText: { flex: 1, ...typography.bodyXs, color: colors.textSecondary, textAlign: 'right' },
   dateGroup: { gap: spacing.xs },
   dateGroupHeader: { ...typography.bodyXs, fontFamily: fonts.semibold, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, paddingTop: spacing.sm },
   dateGroupRows: { gap: 2 },

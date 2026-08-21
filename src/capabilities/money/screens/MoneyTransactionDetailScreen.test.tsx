@@ -9,7 +9,7 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(source).toContain('<BottomDrawerHeader');
     expect(source).toContain('title="Choose a category"');
     expect(source).toContain('title="How should this count?"');
-    expect(source).toContain('title={`Rule for ${pendingRuleCategory?.name ?? \'category\'}`}');
+    expect(source).toContain('title={`Rule for ${ruleOfferCategory?.name ?? \'category\'}`}');
     expect(source).not.toContain('styles.drawerEyebrow');
     expect(source).not.toContain('drawerEyebrow:');
     expect(source).not.toContain('titleVariant="lg"');
@@ -40,6 +40,18 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
 
     expect(selectMeaning).toContain('setPendingRuleCategory(null)');
     expect(selectMeaning).toContain('setRuleDrawerOpen(false)');
+  });
+
+  it('keeps the merchant-rule decision visible while transaction examples scroll', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
+    const ruleDrawerVisible = source.indexOf('visible={Boolean(ruleOfferCategory) && ruleDrawerOpen}');
+    const ruleDrawer = source.slice(source.lastIndexOf('<BottomDrawer', ruleDrawerVisible), source.indexOf('<MoneyTransactionSplitDrawer'));
+
+    expect(ruleDrawer).toContain('bottomAccessory={ruleOfferCategory ? (');
+    expect(ruleDrawer).toContain('bottomAccessoryShowTopBorder');
+    expect(ruleDrawer).toContain("{saving ? 'Saving…' : 'Create rule'}");
+    expect(ruleDrawer).toContain('Not now');
+    expect(ruleDrawer.indexOf('bottomAccessory=')).toBeLessThan(ruleDrawer.indexOf('<BottomDrawerScrollView'));
   });
 
   it('makes transaction counts-as treatment compact and removes the standalone plan-treatment field', () => {

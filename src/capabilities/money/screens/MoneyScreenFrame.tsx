@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
 import { colors, spacing } from '../../../theme';
@@ -9,25 +9,36 @@ import { PageHeader } from '../../../ui/layout/PageHeader';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { KwiltLoader } from '../../../ui/KwiltLoader';
 import { KwiltRefreshFrame, useKwiltRefresh } from '../../../ui/KwiltRefresh';
+import { HapticsService } from '../../../services/HapticsService';
 export function MoneyScreenFrame({
   children,
+  headerRightElement,
   moreMenu,
+  onRefresh,
   onPressBack,
   title,
 }: {
   children: ReactNode;
+  headerRightElement?: ReactNode;
   moreMenu?: ReactNode;
+  onRefresh?: () => Promise<unknown>;
   onPressBack?: () => void;
   title: string;
 }) {
   const { openMenu } = useCapabilityShell();
   const { error, refresh, snapshot, status } = useMoneyData();
-  const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: refresh });
+  const refreshMoney = onRefresh ?? refresh;
+  const handlePullRefresh = useCallback(() => {
+    void HapticsService.trigger('canvas.selection');
+    return refreshMoney();
+  }, [refreshMoney]);
+  const { onScroll, refreshControl, refreshOverlay, refreshing, scrollEventThrottle } = useKwiltRefresh({ onRefresh: handlePullRefresh });
 
   return (
     <AppShell>
       <PageHeader
         title={title}
+        rightElement={headerRightElement}
         moreMenu={moreMenu}
         onPressBack={onPressBack}
         onPressMenu={onPressBack ? undefined : openMenu}

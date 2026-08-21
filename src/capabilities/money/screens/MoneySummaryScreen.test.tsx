@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { MoneySnapshot } from '../data/moneySnapshot';
@@ -37,12 +37,15 @@ const initialSnapshot = {
 
 let mockSnapshot = initialSnapshot;
 const mockReconcileConnectedActivity = jest.fn(async () => null);
+const mockRefresh = jest.fn(async () => undefined);
 const mockRefreshStaleMoneySummary = jest.fn(async (_input: unknown) => undefined);
 const mockReorderCategories = jest.fn(async (_categoryIds: string[]) => undefined);
+let mockMoneyScreenFrameOnRefresh: (() => Promise<unknown>) | undefined;
 
 jest.mock('../data/MoneyDataContext', () => ({
   useMoneyData: () => ({
     snapshot: mockSnapshot,
+    refresh: mockRefresh,
     reconcileConnectedActivity: mockReconcileConnectedActivity,
     reorderCategories: mockReorderCategories,
     savingCategoryOrder: false,
@@ -66,7 +69,17 @@ jest.mock('../components/MoneyCategoryMeterTile', () => ({
 }));
 jest.mock('./MoneyScreenFrame', () => {
   const { Text, View } = require('react-native');
-  return { MoneyScreenFrame: ({ children, title }: { children: React.ReactNode; title: string }) => <View><Text>{title}</Text>{children}</View> };
+  return {
+    MoneyScreenFrame: ({ children, headerRightElement, onRefresh, title }: {
+      children: React.ReactNode;
+      headerRightElement?: React.ReactNode;
+      onRefresh?: () => Promise<unknown>;
+      title: string;
+    }) => {
+      mockMoneyScreenFrameOnRefresh = onRefresh;
+      return <View><Text>{title}</Text>{headerRightElement}{children}</View>;
+    },
+  };
 });
 jest.mock('../../../ui/BottomDrawer', () => {
   const { View } = require('react-native');
@@ -96,9 +109,44 @@ jest.mock('../../../ui/CelebrationGif', () => {
 describe('MoneySummaryScreen living limit answer', () => {
   beforeEach(() => {
     mockSnapshot = initialSnapshot;
+    mockMoneyScreenFrameOnRefresh = undefined;
     mockReconcileConnectedActivity.mockClear();
+    mockRefresh.mockClear();
     mockRefreshStaleMoneySummary.mockClear();
     mockReorderCategories.mockClear();
+  });
+
+  it('checks connected institutions before rebuilding Budget on pull-to-refresh', async () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      accounts: [{
+        id: 'account-1', name: 'Credit card', institutionName: 'Bank', mask: '1234',
+        type: 'credit', subtype: 'credit card', status: 'healthy',
+        lastSyncedAt: initialSnapshot.lastSyncedAt, transactionCount: 1,
+        latestTransactionDate: '2026-07-24',
+      }],
+    };
+    const screen = render(<MoneySummaryScreen navigation={{ navigate: jest.fn() } as never} route={{ key: 'summary-refresh', name: 'MoneySummary' } as never} />);
+
+    expect(screen.getByText('Just now')).toBeTruthy();
+
+    await act(async () => {
+      await mockMoneyScreenFrameOnRefresh?.();
+    });
+
+    expect(mockReconcileConnectedActivity).toHaveBeenCalledWith({ trigger: 'manual_sync', sync: true });
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  it('reloads Kwilt data without asking Plaid when Budget has no connected accounts', async () => {
+    render(<MoneySummaryScreen navigation={{ navigate: jest.fn() } as never} route={{ key: 'summary-empty-refresh', name: 'MoneySummary' } as never} />);
+
+    await act(async () => {
+      await mockMoneyScreenFrameOnRefresh?.();
+    });
+
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(mockReconcileConnectedActivity).not.toHaveBeenCalled();
   });
 
   beforeAll(() => {

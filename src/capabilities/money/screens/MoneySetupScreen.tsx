@@ -74,6 +74,7 @@ import { prepareMoneyPlaidLink } from '../native/moneyPlaidLink';
 import type { MoneyPlaidLinkSession } from '../native/moneyPlaidLinkTypes';
 import type { MoneyStackParamList } from '../navigation/types';
 import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
+import { MoneyScreenFrame } from './MoneyScreenFrame';
 import {
   completeMoneyOnboarding,
   loadMoneyOnboardingState,
@@ -156,6 +157,7 @@ export function MoneySetupExperience({
   const [planningIntent, setPlanningIntent] = useState<MoneyPlanningIntent | null>(null);
   const [followThrough, setFollowThrough] = useState<MoneyOnboardingFollowThrough | null>(null);
   const [demoConnected, setDemoConnected] = useState(false);
+  const [entryDecisionResolved, setEntryDecisionResolved] = useState(mode === 'setup');
   const entryResolved = useRef(false);
   const experienceMounted = useRef(true);
   const snapshotAccountCount = useRef(snapshot?.accounts.length ?? 0);
@@ -179,6 +181,7 @@ export function MoneySetupExperience({
         setUserId('money-onboarding-demo');
         setHouseholdSize(MONEY_ONBOARDING_DEMO_EVIDENCE.householdSize);
         setStep('account');
+        setEntryDecisionResolved(true);
         return;
       }
       try {
@@ -230,8 +233,14 @@ export function MoneySetupExperience({
           }
         }
         setStep(initialStep);
+        setEntryDecisionResolved(true);
       } catch (error) {
-        if (experienceMounted.current) setMessage(error instanceof Error ? error.message : 'Money setup could not be loaded.');
+        if (!experienceMounted.current) return;
+        if (mode === 'automatic') {
+          navigation.replace(requestedPlace);
+          return;
+        }
+        setMessage(error instanceof Error ? error.message : 'Money setup could not be loaded.');
       }
     };
     void load();
@@ -502,6 +511,16 @@ export function MoneySetupExperience({
       setBusy(false);
     }
   };
+
+  if (!entryDecisionResolved) {
+    return (
+      <MoneyScreenFrame title={requestedPlace === 'MoneySummary' ? 'Budget' : requestedPlace === 'MoneyTransactions' ? 'Transactions' : 'Accounts'}>
+        <View accessibilityLabel={`Opening ${requestedPlace === 'MoneySummary' ? 'Budget' : requestedPlace === 'MoneyTransactions' ? 'Transactions' : 'Accounts'}`} style={styles.entryResolution}>
+          <KwiltLoader color={colors.accent} size="small" />
+        </View>
+      </MoneyScreenFrame>
+    );
+  }
 
   if (step === 'welcome') {
     return (
@@ -1243,6 +1262,7 @@ function clampLivingPercent(value: number) {
 }
 
 const styles = StyleSheet.create({
+  entryResolution: { alignItems: 'center', justifyContent: 'center', minHeight: 240 },
   introductionRoot: { flex: 1, backgroundColor: colors.parchment },
   introductionHost: { paddingHorizontal: 0, paddingVertical: 0 },
   introductionViewport: { flex: 1, overflow: 'hidden', backgroundColor: colors.parchment },

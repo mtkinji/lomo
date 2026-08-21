@@ -15,7 +15,7 @@ Today, the user cannot:
 After this release, the user can:
 
 - See compact freshness copy in Transactions, Summary, Accounts, and budget detail.
-- Tap or pull `Check for new activity` on Transactions and Accounts.
+- Pull Budget or use the action on Transactions and Accounts to check for new activity.
 - Receive clear result copy: new rows arrived, no new activity found, still checking, or unable to check.
 - Understand when recent purchases may still be arriving.
 
@@ -29,9 +29,9 @@ Still intentionally not supported:
 
 ## User Experience
 
-Transactions opens with the existing inventory controls and row list. Near the count, the surface shows a terse list-level timestamp such as `Last updated: 2 hr ago`. If the user expects a recent purchase, they can pull or tap `Check for new activity`. While checking, the surface says `Checking for new bank activity...`. Afterward it says either `No new activity found` or `New transactions arrived` and refreshes the list.
+Transactions opens with the existing inventory controls and row list. Its upper-right PageHeader shows the same compact freshness stamp as Budget, such as `23m ago` or `Yesterday`, without duplicating freshness inside the list. If the user expects a recent purchase, they can pull or tap `Check for new activity`.
 
-Accounts shows the same minimal recency per connection and remains the deeper place for connection health. Summary keeps pull-to-refresh for the latest Kwilt snapshot and shows a compact freshness boundary only when stale/unknown state affects trust. Budget detail inherits the same state so its meter does not look more authoritative than the data deserves.
+Accounts shows the same minimal recency per connection and remains the deeper place for connection health. Budget and Transactions show the last successful bank-check time as quiet, non-interactive metadata in the upper-right PageHeader. Pull-to-refresh acknowledges the committed gesture with one light haptic, checks connected institutions, reconciles returned activity, and then rebuilds the authoritative Kwilt snapshot, changing that metadata from a prior time such as `23m ago` to `Just now`. It does not promise that a just-made purchase is already available from the institution. Budget detail inherits the same freshness state so its meter does not look more authoritative than the data deserves.
 
 ## Existing Product Relationship
 
@@ -59,7 +59,7 @@ Must be real:
 Can be thin or temporary:
 
 - Manual refresh can target the latest or selected connection only.
-- Summary can continue to refresh Kwilt DB snapshot rather than bank activity in the first slice if copy is explicit.
+- A Budget with no connected accounts can fall back to refreshing Kwilt's database snapshot because no institution is available to check.
 - Connection repair can route to Accounts without solving every provider failure.
 - Analytics can be local/manual notes for the first pass.
 

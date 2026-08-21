@@ -32,6 +32,7 @@ export const styles = StyleSheet.create({
       spacing.lg,
     gap: spacing.lg,
   },
+  discoveryHeader: { gap: spacing.lg },
   inventoryControls: { gap: spacing.sm },
   appShellHeaderInset: { paddingHorizontal: spacing.sm },
   discoveryNavigation: { gap: spacing.md },

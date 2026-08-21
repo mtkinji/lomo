@@ -1,4 +1,4 @@
-import { getPostCategorySelectionOutcome } from './merchantRuleOffer';
+import { getPersistedMerchantRuleOfferCategoryId, getPostCategorySelectionOutcome } from './merchantRuleOffer';
 
 describe('getPostCategorySelectionOutcome', () => {
   it('keeps review-queue transactions open so a changed outflow category can offer a merchant rule', () => {
@@ -26,5 +26,34 @@ describe('getPostCategorySelectionOutcome', () => {
       existingRuleCategoryId: null,
       selectedCategoryId: 'income',
     })).toBe('stay');
+  });
+});
+
+describe('getPersistedMerchantRuleOfferCategoryId', () => {
+  it('restores the rule offer after a confirmed category correction survives a refresh', () => {
+    expect(getPersistedMerchantRuleOfferCategoryId({
+      direction: 'outflow',
+      categoryId: 'cars-and-transportation',
+      matchSource: 'corrected',
+      existingRuleCategoryId: null,
+    })).toBe('cars-and-transportation');
+  });
+
+  it('does not offer a duplicate rule when the merchant already targets that category', () => {
+    expect(getPersistedMerchantRuleOfferCategoryId({
+      direction: 'outflow',
+      categoryId: 'cars-and-transportation',
+      matchSource: 'corrected',
+      existingRuleCategoryId: 'cars-and-transportation',
+    })).toBeNull();
+  });
+
+  it('does not turn an automated category assignment into a user-authored rule offer', () => {
+    expect(getPersistedMerchantRuleOfferCategoryId({
+      direction: 'outflow',
+      categoryId: 'cars-and-transportation',
+      matchSource: 'merchant_rule',
+      existingRuleCategoryId: null,
+    })).toBeNull();
   });
 });

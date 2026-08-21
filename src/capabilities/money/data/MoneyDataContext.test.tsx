@@ -5,9 +5,12 @@ import { MoneyDataProvider, useMoneyData } from './MoneyDataContext';
 import type { MoneyRepository } from './moneyRepository';
 import type { MoneySnapshot } from './moneySnapshot';
 import type { MoneySnapshotCache } from '../runtime/moneySnapshotCache';
+import { reconcileConnectedMoneyActivity } from '../runtime/reconcileConnectedMoneyActivity';
 
 jest.mock('../runtime/moneyGlanceableState', () => ({ syncMoneyGlanceableState: jest.fn() }));
 jest.mock('../runtime/moneyAppControlRuntime', () => ({ reconcileMoneyAppControls: jest.fn() }));
+jest.mock('../runtime/reconcileConnectedMoneyActivity', () => ({ reconcileConnectedMoneyActivity: jest.fn() }));
+jest.mock('../../../services/backend/supabaseClient', () => ({ getSupabaseClient: jest.fn(() => ({})) }));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -66,6 +69,22 @@ function ReorderProbe() {
   );
 }
 
+function ConnectedRefreshProbe() {
+  const { error, reconcileConnectedActivity: refreshConnectedActivity, snapshot: currentSnapshot } = useMoneyData();
+  return (
+    <View>
+      <Text>{currentSnapshot?.generatedAt ?? 'no-snapshot'}</Text>
+      <Text>{error ?? 'no-error'}</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => { void refreshConnectedActivity({ trigger: 'manual_sync', sync: true }).catch(() => undefined); }}
+      >
+        <Text>Refresh connected activity</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function snapshotCache(cached: MoneySnapshot | null): MoneySnapshotCache {
   return {
     load: jest.fn(async () => cached),
@@ -75,6 +94,30 @@ function snapshotCache(cached: MoneySnapshot | null): MoneySnapshotCache {
 }
 
 describe('MoneyDataProvider merchant-rule confirmation', () => {
+  beforeEach(() => jest.mocked(reconcileConnectedMoneyActivity).mockReset());
+
+  it('keeps the last snapshot visible and surfaces a connected-refresh failure', async () => {
+    const repository = {
+      loadSnapshot: jest.fn().mockResolvedValue(snapshot),
+      classifyUnresolvedTransactions: jest.fn().mockResolvedValue({
+        policyVersion: 'money-category-v2', consideredCount: 0, assignedCount: 0,
+        deterministicAssignedCount: 0, aiAssignedCount: 0, unresolvedCount: 0, retryableCount: 0,
+      }),
+    } as unknown as MoneyRepository;
+    jest.mocked(reconcileConnectedMoneyActivity).mockRejectedValue(new Error('Unable to check connected accounts.'));
+    const screen = render(
+      <MoneyDataProvider repository={repository}>
+        <ConnectedRefreshProbe />
+      </MoneyDataProvider>,
+    );
+
+    await screen.findByText('before');
+    fireEvent.press(screen.getByRole('button', { name: 'Refresh connected activity' }));
+
+    await screen.findByText('Unable to check connected accounts.');
+    expect(screen.getByText('before')).toBeTruthy();
+  });
+
   it('applies a confirmed category order immediately and refreshes broader Money truth in the background', async () => {
     const orderedSnapshot = {
       ...snapshot,

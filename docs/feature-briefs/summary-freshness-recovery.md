@@ -10,7 +10,7 @@ job_step: see-budget-reality
 serves: [jtbd-trust-this-app-with-my-life, jtbd-review-budget-reality-before-spending, jtbd-put-intention-before-impulse]
 related_briefs: [brief-plaid-transaction-backed-meter, brief-prediction-trust-contract]
 owner: andrew
-last_updated: 2026-07-06
+last_updated: 2026-08-21
 source_repo: mtkinji/kwilt-budget
 source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 ---
@@ -38,7 +38,9 @@ The product problem is freshness trust: if current month fails while prior month
 
 Summary should treat current-month snapshot failure as a stale-while-refreshing freshness state:
 
-- pull-to-refresh should reread the latest available Kwilt DB snapshot
+- pull-to-refresh should ask connected institutions for new activity, reconcile returned transactions and the Living Plan, then reread the authoritative Kwilt DB snapshot
+- the upper-right PageHeader should show the last successful bank-check time with compact copy such as `23m ago` and change to `Just now` only after a successful check
+- a committed Money pull should acknowledge the gesture with one light haptic before the bank check begins
 - while Summary is open, relevant DB changes should automatically refresh the snapshot
 - when the living-limit answer is stale, Summary should make one silent connected-activity check for that stale snapshot
 - preserve the last successful current-month snapshot when a later refresh fails
@@ -62,7 +64,7 @@ As Maya, when a new transaction appears in Kwilt's data while I already have Sum
 - Preserved charts show a footer freshness label that says refresh did not complete.
 - The unavailable state is centered and not framed as a card.
 - The state includes a retry action.
-- Pull-to-refresh reruns the same connected snapshot load.
+- Pull-to-refresh on a connected Budget runs the connected-activity sync and reconciliation pipeline before accepting the refreshed snapshot; without connected accounts it reruns the database snapshot load.
 - Relevant transaction, connection, forecast-setting, and match-rule DB changes trigger a Summary refresh while the screen is open.
 - Ordinary stale connected activity never becomes a blocking Summary card or maintenance action; the last useful answer remains visible and qualified while one background check runs.
 - Live DB refreshes are debounced so a multi-row sync only causes a compact UI refresh.

@@ -65,11 +65,12 @@ import {
   loadMoneyOnboardingState,
 } from '../runtime/moneyOnboardingStorage';
 import { buildMoneyOnboardingDemoBudget } from '../domain/moneyOnboardingDemoBudget';
+import { MoneyFreshnessStamp } from '../components/MoneyFreshnessStamp';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
 export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
-  const { snapshot: liveSnapshot, reconcileConnectedActivity, reorderCategories, savingCategoryOrder, userId } = useMoneyData();
+  const { snapshot: liveSnapshot, refresh, reconcileConnectedActivity, reorderCategories, savingCategoryOrder, userId } = useMoneyData();
   const { capture } = useAnalytics();
   const { width: windowWidth } = useWindowDimensions();
   const [measuredPagerWidth, setMeasuredPagerWidth] = useState(0);
@@ -112,6 +113,13 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   const currentPeriod = periods[currentMonthIndex] ?? periods[INITIAL_MONTH_INDEX];
   const selectableBudgetCount = snapshot?.categories.filter((category) => category.planRole !== 'protected').length ?? 0;
   const rehearsingNoBudgets = __DEV__ && route.params?.devBudgetState === 'none';
+  const refreshBudget = useCallback(async () => {
+    if (!liveSnapshot?.accounts.length) {
+      await refresh();
+      return;
+    }
+    await reconcileConnectedActivity({ trigger: 'manual_sync', sync: true });
+  }, [liveSnapshot?.accounts.length, reconcileConnectedActivity, refresh]);
 
   onboardingHandoffRef.current = onboardingHandoff;
   budgetGuideAcknowledgedRef.current = Boolean(onboardingHandoff?.budgetGuideAcknowledgedAt);
@@ -240,7 +248,14 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
 
   return (
     <>
-    <MoneyScreenFrame moreMenu={summaryMenu} title="Budget">
+    <MoneyScreenFrame
+      headerRightElement={liveSnapshot?.lastSyncedAt
+        ? <MoneyFreshnessStamp lastSyncedAt={liveSnapshot.lastSyncedAt} />
+        : undefined}
+      moreMenu={summaryMenu}
+      onRefresh={refreshBudget}
+      title="Budget"
+    >
       {isPristineMoney ? (
         <EmptyState
           illustration={null}
@@ -608,6 +623,7 @@ function SummaryMonthPanel({
                 key={category.id}
                 category={category}
                 onPress={() => onOpenCategory(category.id)}
+                periodElapsedPercent={period.periodElapsedPercent}
                 targetRef={index === 0 ? categoryTargetRef : undefined}
               />
             )
@@ -638,6 +654,7 @@ function SummaryMonthPanel({
                   key={category.id}
                   category={category}
                   onPress={() => onOpenCategory(category.id)}
+                  periodElapsedPercent={period.periodElapsedPercent}
                 />
               )
             ))}
@@ -1005,7 +1022,13 @@ const styles = StyleSheet.create({
   viewTrigger: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 8, paddingHorizontal: spacing.xs },
   viewTriggerText: { color: colors.textSecondary, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, fontWeight: '500' },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.md, columnGap: spacing.sm },
-  categoryList: { borderTopWidth: 1, borderTopColor: colors.cardBorder },
+  categoryList: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: radii.card,
+    backgroundColor: colors.fieldFill,
+  },
   totalSection: { gap: spacing.xs, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.cardBorder, paddingVertical: spacing.lg },
   totalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   totalLabel: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600' },

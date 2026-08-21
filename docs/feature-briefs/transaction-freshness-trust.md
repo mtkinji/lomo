@@ -10,7 +10,7 @@ job_step: connect-spend-source
 serves: [jtbd-trust-this-app-with-my-life, jtbd-review-budget-reality-before-spending, jtbd-carry-intentions-into-action]
 related_briefs: [brief-accounts-inventory-shell, brief-transaction-inventory-date-scope, brief-prediction-trust-contract]
 owner: andrew
-last_updated: 2026-08-17
+last_updated: 2026-08-21
 source_repo: mtkinji/kwilt-budget
 source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 ---
@@ -80,6 +80,8 @@ Accounts:
 Summary and budget detail:
 
 - Continue showing budget reality.
+- Show the last successful bank-check time as quiet, non-interactive metadata in the upper-right PageHeader space on Budget and Transactions; keep the page title as the dominant header read.
+- Treat pull-to-refresh on Budget as an explicit request to check connected institutions for new activity, reconcile what returns, and then reload the authoritative Kwilt snapshot.
 - When bank-check state is stale, make one throttled foreground check automatically and keep the last useful answer visible while it runs.
 - Qualify a retained answer with minimal freshness language; do not turn ordinary freshness into a card, warning, or user task.
 - Reserve user involvement for a classified connection-repair condition and keep that repair in Accounts.
@@ -94,7 +96,8 @@ Summary and budget detail:
 - A cached snapshot may render transaction evidence but must not drive widgets or app-control enforcement until an authoritative server read succeeds.
 - Treat row-level changes separately: pending transactions may settle, pending/posted duplicate handling may change visibility, and review/category state may change.
 - Use the existing `sync-plaid-transactions` function for user-triggered checks.
-- Budget may use the same function for one silent, throttled check when its current answer is stale.
+- Budget uses the same function when the user pulls to refresh and for one silent, throttled check when its current answer is stale.
+- A Budget with no connected accounts falls back to a database snapshot refresh instead of invoking Plaid without a source.
 - Throttle refresh attempts enough to avoid duplicate calls and provider/API abuse.
 - Refresh the connected-spend snapshot after a successful or completed sync attempt.
 - Keep last useful budget data visible when possible, with freshness/status copy.
@@ -135,6 +138,11 @@ Avoid:
 - Transactions shows freshness once at the inventory/list level, not on each transaction row.
 - Refresh result copy distinguishes new rows, no new activity, failure, and delayed/stale states.
 - Summary and budget detail can display a compact freshness boundary without clearing useful data.
+- Pulling to refresh a connected Budget invokes `sync-plaid-transactions`, classifies and reconciles returned activity, and only then accepts the refreshed authoritative snapshot.
+- Use compact visible freshness copy such as `23m ago`, `Yesterday`, and `Just now`, while assistive technology receives the full bank-data description.
+- After a successful Budget or Transactions pull, the PageHeader freshness label changes to `Just now`; after failure, the prior successful time remains and the existing failure warning is visible.
+- A committed pull produces one light haptic acknowledgment before the check begins.
+- The header timestamp remains one secondary line at supported text sizes and does not become a button, badge, card, or duplicate refresh action.
 - Summary does not ask the user to maintain ordinary transaction freshness.
 - A stale Summary initiates at most one background check for the same plan version and last-sync receipt while mounted.
 - The shared freshness model is covered by focused tests.
@@ -164,7 +172,7 @@ Avoid:
 
 Clear enough to build with these assumptions:
 
-- Transactions and Accounts retain manual checks, while Budget silently checks once when stale before any future scheduled/webhook sync exists.
+- Transactions and Accounts retain manual checks. Budget pull-to-refresh is also a manual bank check, while stale Budget data can still trigger one silent check before any future scheduled/webhook sync exists.
 - The action label should be `Check for new activity`, not `Refresh`, because it avoids promising instant bank truth.
 - Accounts is the deeper health surface; Transactions and Summary should remain focused on budget reality.
 - Freshness copy should appear only where it affects trust or interpretation, should be list/surface-level, and should default to a terse timestamp like `Last updated: 2 hr ago`.
@@ -172,7 +180,6 @@ Clear enough to build with these assumptions:
 Open implementation questions:
 
 - What exact age buckets define `fresh`, `recent`, `stale`, and `unknown` for the first TestFlight release?
-- Should Summary include bank-check action in the first slice, or only database snapshot refresh plus freshness copy?
 - Should sync checks target the latest connection or all healthy connections for the signed-in user?
 
 Deferred decisions:

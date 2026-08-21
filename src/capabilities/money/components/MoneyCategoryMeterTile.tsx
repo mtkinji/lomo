@@ -9,6 +9,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { colors, spacing } from '../../../theme';
+import { Icon } from '../../../ui/Icon';
 import { formatMoney, type MoneyCategory } from '../data/moneySnapshot';
 
 const TICK_COUNT = 52;
@@ -117,14 +118,22 @@ export function getCategoryListStatus(category: MoneyCategory): MoneyCategoryLis
   return { label: null, tone: 'neutral' };
 }
 
-export function MoneyCategoryListRow({ category, onPress, targetRef }: {
+export function MoneyCategoryListRow({ category, onPress, periodElapsedPercent, targetRef }: {
   category: MoneyCategory;
   onPress: () => void;
+  periodElapsedPercent: number;
   targetRef?: Ref<View>;
 }) {
   const isOver = category.remainingCents < 0;
   const value = `${formatMoney(Math.abs(category.remainingCents))} ${isOver ? 'over' : 'left'}`;
   const status = getCategoryListStatus(category);
+  const usedPercent = Math.min(100, Math.max(0, category.percentUsed));
+  const elapsedPercent = Math.min(100, Math.max(0, periodElapsedPercent));
+  const paceColor = status.tone === 'danger'
+    ? colors.destructive
+    : status.tone === 'watch'
+      ? colors.turmeric500
+      : colors.gray500;
   return (
     <Pressable
       ref={targetRef}
@@ -133,16 +142,44 @@ export function MoneyCategoryListRow({ category, onPress, targetRef }: {
       onPress={onPress}
       style={({ pressed }) => [styles.listRow, pressed ? styles.pressed : null]}
     >
-      <View style={styles.listCopy}>
+      <View style={styles.listRowContent}>
         <Text numberOfLines={2} style={styles.listName}>{category.name}</Text>
-        {status.label ? (
-          <Text numberOfLines={1} style={[styles.listStatus, styles.listStatusWatch]}>
-            {status.label}
-          </Text>
-        ) : null}
+        <View style={styles.listTrailing}>
+          <Text numberOfLines={1} style={[styles.listValue, status.tone === 'danger' ? styles.valueRisk : null]}>{value}</Text>
+          {status.tone === 'watch' ? (
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              testID="money-category-projected-warning"
+            >
+              <Icon color={colors.turmeric600} name="warning" size={14} strokeWidth={2.25} />
+            </View>
+          ) : null}
+          <Icon
+            accessibilityElementsHidden
+            color={colors.gray400}
+            importantForAccessibility="no-hide-descendants"
+            name="chevronRight"
+            size={18}
+            strokeWidth={2}
+          />
+        </View>
       </View>
-      <Text numberOfLines={1} style={[styles.listValue, status.tone === 'danger' ? styles.valueRisk : null]}>{value}</Text>
-      <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.listChevron}>›</Text>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={styles.paceRail}
+      >
+        <View style={styles.paceRailTrack} />
+        <View
+          testID="money-category-pace-used"
+          style={[styles.paceRailUsed, { backgroundColor: paceColor, width: `${usedPercent}%` }]}
+        />
+        <View
+          testID="money-category-pace-elapsed"
+          style={[styles.paceRailMarker, { left: `${elapsedPercent}%` }]}
+        />
+      </View>
     </Pressable>
   );
 }
@@ -368,18 +405,18 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   listRow: {
-    minHeight: 66,
-    flexDirection: 'row',
-    alignItems: 'center',
+    minHeight: 82,
+    justifyContent: 'center',
     gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  listCopy: { flex: 1, minWidth: 0, gap: 2 },
-  listName: { color: colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '600' },
-  listStatus: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
-  listStatusWatch: { color: colors.turmeric600 },
+  listRowContent: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  listName: { flex: 1, minWidth: 0, color: colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '600' },
+  listTrailing: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   listValue: { flexShrink: 0, color: colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  listChevron: { color: colors.textSecondary, fontSize: 22, lineHeight: 24 },
+  paceRail: { height: 9, justifyContent: 'center', position: 'relative' },
+  paceRailTrack: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: colors.gray200 },
+  paceRailUsed: { position: 'absolute', left: 0, height: 2, borderRadius: 999 },
+  paceRailMarker: { position: 'absolute', width: 2, height: 9, marginLeft: -1, borderRadius: 999, backgroundColor: colors.gray500 },
 });

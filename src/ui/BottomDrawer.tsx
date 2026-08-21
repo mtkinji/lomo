@@ -395,6 +395,7 @@ export function BottomDrawer({
 
   const [dynamicTargetHeight, setDynamicTargetHeight] = useState<number | null>(null);
   const hasDynamicTarget = dynamicSizing && dynamicTargetHeight !== null;
+  const dynamicMeasurementPending = dynamicSizing && dynamicTargetHeight === null;
 
   const snapHeights = useMemo(() => {
     if (!hasDynamicTarget) return parsedSnapHeights;
@@ -497,11 +498,12 @@ export function BottomDrawer({
   // Safety: if the modal ever remains mounted after `visible` becomes false (e.g. an interrupted
   // animation completion callback), ensure it cannot block taps on the underlying canvas.
   const overlayPointerEvents = useMemo<'auto' | 'none' | 'box-none'>(() => {
+    if (dynamicMeasurementPending) return 'none';
     // Inline drawers can optionally be "non-blocking" to allow interaction with the canvas.
     if (presentation === 'inline' && hideBackdrop) return 'box-none';
     // For modal presentation, treat `visible=false` as fully transparent to touch input.
     return visible ? 'auto' : 'none';
-  }, [hideBackdrop, presentation, visible]);
+  }, [dynamicMeasurementPending, hideBackdrop, presentation, visible]);
 
   const setScrollableGesture = (gesture: ReturnType<typeof Gesture.Native> | null) => {
     setScrollableGestureState(gesture);
@@ -566,14 +568,17 @@ export function BottomDrawer({
   useEffect(() => {
     if (!mounted) return;
     if (!visible) return;
+    // Measure dynamic content before starting the entrance so the opening
+    // transform never competes with a layout-affecting height animation.
+    if (dynamicMeasurementPending) return;
     const targetHeight = snapHeights[openToIndex] ?? maxSnapHeight;
 
     if (!hasRunOpenAnimationRef.current) {
       hasRunOpenAnimationRef.current = true;
       isAnimating.value = true;
-      // Animate from off-screen to reinforce the "drawer slides up" mental model.
-      translateY.value = closedOffset;
+      // Commit the final height once, then animate only the transform.
       sheetHeight.value = targetHeight;
+      translateY.value = targetHeight + 24;
       translateY.value = withTiming(0, { duration: motionDuration(320) }, (finished) => {
         isAnimating.value = false;
         if (finished) runOnJS(notifySnapIndexChange)(openToIndex);
@@ -588,18 +593,7 @@ export function BottomDrawer({
       if (finished) runOnJS(notifySnapIndexChange)(openToIndex);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, visible, openToIndex, maxSnapHeight, motionDuration, snapHeights.join('|')]);
-
-  useEffect(() => {
-    if (!dynamicSizing) return;
-    if (!mounted || !visible) return;
-    if (dynamicTargetHeight === null) return;
-    // Once content has laid out, animate down to the measured compact height.
-    sheetHeight.value = withTiming(clamp(dynamicTargetHeight, 0, maxSnapHeight), { duration: motionDuration(260) }, (finished) => {
-      if (finished) runOnJS(notifySnapIndexChange)(0);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dynamicSizing, dynamicTargetHeight, mounted, visible, maxSnapHeight, motionDuration]);
+  }, [dynamicMeasurementPending, mounted, visible, openToIndex, maxSnapHeight, motionDuration, snapHeights.join('|')]);
 
   const progress = useDerivedValue(() => {
     // 0=open, 1=closed.
@@ -821,6 +815,7 @@ export function BottomDrawer({
 
   const sheetChildren = dynamicSizing ? (
     <View
+      testID="bottom-drawer.dynamic-measurement"
       onLayout={(event) => {
         const { y, height } = event.nativeEvent.layout;
         const safeAreaHeight = bottomAccessory || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom;
@@ -892,9 +887,10 @@ export function BottomDrawer({
           <GestureDetector gesture={contentPanGesture}>
             <Animated.View
               testID="bottom-drawer.surface"
-              accessibilityViewIsModal={accessibilityModal}
+              pointerEvents={dynamicMeasurementPending ? 'none' : 'auto'}
+              accessibilityViewIsModal={!dynamicMeasurementPending && accessibilityModal}
               importantForAccessibility="yes"
-              onAccessibilityEscape={dismissable ? requestCloseAnimated : undefined}
+              onAccessibilityEscape={!dynamicMeasurementPending && dismissable ? requestCloseAnimated : undefined}
               style={[
                 styles.sheet,
                 {
@@ -903,6 +899,7 @@ export function BottomDrawer({
                   maxHeight: availableHeight,
                 },
                 sheetAnimatedStyle,
+                dynamicMeasurementPending ? styles.measurementPending : null,
                 webSheetStaticStyle,
                 contentLayout === 'edgeToEdge' ? styles.edgeToEdgeSheet : null,
                 sheetStyle,
@@ -961,9 +958,10 @@ export function BottomDrawer({
           <GestureDetector gesture={contentPanGesture}>
             <Animated.View
               testID="bottom-drawer.surface"
-              accessibilityViewIsModal={accessibilityModal}
+              pointerEvents={dynamicMeasurementPending ? 'none' : 'auto'}
+              accessibilityViewIsModal={!dynamicMeasurementPending && accessibilityModal}
               importantForAccessibility="yes"
-              onAccessibilityEscape={dismissable ? requestCloseAnimated : undefined}
+              onAccessibilityEscape={!dynamicMeasurementPending && dismissable ? requestCloseAnimated : undefined}
               style={[
                 styles.sheet,
                 {
@@ -971,6 +969,7 @@ export function BottomDrawer({
                   maxHeight: availableHeight,
                 },
                 sheetAnimatedStyle,
+                dynamicMeasurementPending ? styles.measurementPending : null,
                 webSheetStaticStyle,
                 contentLayout === 'edgeToEdge' ? styles.edgeToEdgeSheet : null,
                 sheetStyle,
@@ -1121,6 +1120,9 @@ const styles = StyleSheet.create({
     shadowRadius: 28,
     shadowOffset: { width: 0, height: -8 },
     elevation: 12,
+  },
+  measurementPending: {
+    opacity: 0,
   },
   handleGrabRegion: {
     position: 'relative',

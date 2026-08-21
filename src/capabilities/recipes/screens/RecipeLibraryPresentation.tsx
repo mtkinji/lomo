@@ -3,7 +3,6 @@ import { useMemo } from "react";
 import {
   FlatList,
   Pressable,
-  ScrollView,
   View,
 } from "react-native";
 
@@ -115,7 +114,14 @@ export function RecipeLibraryView({
         : [],
     [isFavorite, recipes, showShelves],
   );
-  const shelves = showShelves ? buildRecipeShelves(recipes) : [];
+  const shelves = useMemo(
+    () => (showShelves ? buildRecipeShelves(recipes) : []),
+    [recipes, showShelves],
+  );
+  const discoverySections = useMemo(
+    () => (showShelves ? buildRecipeDiscoverySections(shelves, editorialPlacements) : []),
+    [editorialPlacements, shelves, showShelves],
+  );
 
   const controls = (
     <RecipeInventoryControls
@@ -131,45 +137,54 @@ export function RecipeLibraryView({
   if (showShelves) {
     return (
       <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
-        <ScrollView
+        <FlatList
           testID="recipe-discovery-shelves"
+          data={discoverySections}
+          keyExtractor={(section) => section.kind === "shelf"
+            ? `shelf-${section.shelf.id}`
+            : `offer-${section.placement.collectionId}`}
           refreshControl={refreshControl}
           contentContainerStyle={styles.discoveryList}
           onScroll={onScroll}
           scrollEventThrottle={scrollEventThrottle}
           showsVerticalScrollIndicator={false}
-        >
-          {controls}
-        <View testID="recipe-discovery-navigation" style={styles.discoveryNavigation}>
-          <RecipeQuickFilterRow
-            filters={filters}
-            likedOnly={likedOnly}
-            onClearFilter={onClearFilter}
-            onToggleLiked={onToggleLiked}
-            onSelect={onSeeAll}
-          />
-          <CuisineFamilyRow
-            onOpen={(family) =>
-              onSeeAll({
-                ...DEFAULT_RECIPE_INVENTORY_FILTERS,
-                cuisine: family.shortLabel,
-              })
-            }
-          />
-        </View>
-        <RecommendedRecipeRow
-          recommendations={recommendations}
-          onOpen={onOpen}
-          onAddToPlan={onAddToPlan}
-          isInPlan={isInPlan}
-          onboardingTargetRef={onboardingTargetRef}
-        />
-        {buildRecipeDiscoverySections(shelves, editorialPlacements).map(
-          (section) => {
+          keyboardShouldPersistTaps="handled"
+          initialNumToRender={5}
+          maxToRenderPerBatch={2}
+          windowSize={4}
+          ListHeaderComponent={(
+            <View style={styles.discoveryHeader}>
+              {controls}
+              <View testID="recipe-discovery-navigation" style={styles.discoveryNavigation}>
+                <RecipeQuickFilterRow
+                  filters={filters}
+                  likedOnly={likedOnly}
+                  onClearFilter={onClearFilter}
+                  onToggleLiked={onToggleLiked}
+                  onSelect={onSeeAll}
+                />
+                <CuisineFamilyRow
+                  onOpen={(family) =>
+                    onSeeAll({
+                      ...DEFAULT_RECIPE_INVENTORY_FILTERS,
+                      cuisine: family.shortLabel,
+                    })
+                  }
+                />
+              </View>
+              <RecommendedRecipeRow
+                recommendations={recommendations}
+                onOpen={onOpen}
+                onAddToPlan={onAddToPlan}
+                isInPlan={isInPlan}
+                onboardingTargetRef={onboardingTargetRef}
+              />
+            </View>
+          )}
+          renderItem={({ item: section }) => {
             if (section.kind === "shelf")
               return (
                 <RecipeShelfRow
-                  key={section.shelf.id}
                   section={section.shelf}
                   onOpen={onOpen}
                   onSeeAll={onSeeAll}
@@ -183,7 +198,6 @@ export function RecipeLibraryView({
             if (!collection) return null;
             return (
               <EditorialCollectionOffer
-                key={`offer-${collection.id}`}
                 collection={collection}
                 hero={recipes.find(
                   (recipe) => recipe.recipe.id === collection.heroRecipeId,
@@ -191,9 +205,8 @@ export function RecipeLibraryView({
                 onPress={() => onOpenCollection(collection.id)}
               />
             );
-          },
-        )}
-        </ScrollView>
+          }}
+        />
       </KwiltRefreshFrame>
     );
   }

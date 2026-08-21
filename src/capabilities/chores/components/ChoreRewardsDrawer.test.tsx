@@ -48,7 +48,7 @@ function renderDrawer(
   rewards: ChoreRewardsProjection,
   overrides: Partial<React.ComponentProps<typeof ChoreRewardsDrawer>> = {},
 ) {
-  return renderWithProviders(
+  const screen = renderWithProviders(
     <ChoreRewardsDrawer
       visible
       rewards={[rewards]}
@@ -60,6 +60,15 @@ function renderDrawer(
       {...overrides}
     />,
   );
+  const measurement = screen.queryByTestId('bottom-drawer.dynamic-measurement', {
+    includeHiddenElements: true,
+  });
+  if (measurement) {
+    fireEvent(measurement, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 12, width: 320, height: 420 } },
+    });
+  }
+  return screen;
 }
 
 describe('ChoreRewardsDrawer child hierarchy', () => {

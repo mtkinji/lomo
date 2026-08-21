@@ -16,8 +16,8 @@
 Build a transaction freshness trust contract that starts with visible freshness and manual recovery:
 
 1. Create one shared connected-spend freshness state.
-2. Show minimal surface-level freshness copy where budget reality is checked.
-3. Add a user-triggered `Check for new activity` action on Transactions and Accounts, with Summary able to refresh the Kwilt snapshot.
+2. Show minimal surface-level freshness copy where budget reality is checked; on Budget, place the last successful bank-check time as quiet metadata in the upper-right PageHeader space.
+3. Treat pull-to-refresh on Budget and Transactions as a user-triggered `Check for new activity`: acknowledge the committed pull with one light haptic, check connected institutions, reconcile returned activity, then refresh the Kwilt snapshot. Transactions and Accounts retain their explicit action.
 4. Route deeper connection-health detail to Accounts.
 5. Defer scheduled/webhook sync until the visible contract and manual recovery path are understood.
 
@@ -63,7 +63,8 @@ Still intentionally not possible:
 
 - `ConnectedSpendBudgetSnapshot` should expose enough metadata to derive freshness state, not just transaction rows.
 - `sync-plaid-transactions` needs a safe user-facing wrapper behavior: throttling, loading state, result copy, and failure copy.
-- Summary's current refresh behavior should remain "latest Kwilt DB snapshot" unless the user explicitly checks bank activity.
+- Pull-to-refresh on Summary is an explicit bank-activity check, not only a reread of the latest Kwilt database snapshot.
+- The gesture completes after the existing connected-activity pipeline attempts provider sync, classification, Living Plan reconciliation, and authoritative snapshot reload.
 - Transactions should know both inventory scope and bank-check state.
 - Accounts should remain the deeper connection-health surface.
 
@@ -72,6 +73,7 @@ Still intentionally not possible:
 - Keep one action label: `Check for new activity`.
 - Keep one deeper place: Accounts.
 - Keep one freshness model reused across surfaces.
+- Keep the Budget and Transactions freshness timestamp as compact, non-interactive header metadata (`23m ago`, `Yesterday`, `Just now`); the pull gesture remains the action and the accessibility label carries the full meaning.
 - Do not add a sync settings screen.
 - Do not add user-maintained refresh schedules.
 - Do not add provider jargon unless a repair flow later requires it.

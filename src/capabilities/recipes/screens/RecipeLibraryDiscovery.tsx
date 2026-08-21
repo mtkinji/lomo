@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import {
+  FlatList,
   Image,
   Pressable,
   ScrollView,
@@ -296,17 +297,20 @@ export function RecommendedRecipeRow({
       <View style={styles.shelfHeader}>
         <Heading variant="sm">Recommended</Heading>
       </View>
-      <ScrollView
+      <FlatList
         testID="recipe-shelf-scroll-recommended"
+        data={recommendations}
+        keyExtractor={({ projection }) => projection.recipe.id}
         horizontal
         nestedScrollEnabled
         style={styles.edgeToEdgeRail}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.shelfContent}
-      >
-        {recommendations.map(({ projection, reason }, index) => (
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={3}
+        renderItem={({ item: { projection, reason }, index }) => (
           <RecipeCard
-            key={projection.recipe.id}
             projection={projection}
             recommendationReason={reason}
             onOpen={onOpen}
@@ -316,8 +320,8 @@ export function RecommendedRecipeRow({
             instance="recommended"
             targetRef={index === 0 ? onboardingTargetRef : undefined}
           />
-        ))}
-      </ScrollView>
+        )}
+      />
     </View>
   );
 }
@@ -350,17 +354,20 @@ export function RecipeShelfRow({
           </Pressable>
         )}
       </View>
-      <ScrollView
+      <FlatList
         testID={`recipe-shelf-scroll-${section.id}`}
+        data={section.recipes.slice(0, 12)}
+        keyExtractor={(projection) => projection.recipe.id}
         horizontal
         nestedScrollEnabled
         style={styles.edgeToEdgeRail}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.shelfContent}
-      >
-        {section.recipes.slice(0, 12).map((projection) => (
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={3}
+        renderItem={({ item: projection }) => (
           <RecipeCard
-            key={projection.recipe.id}
             projection={projection}
             onOpen={onOpen}
             onAddToPlan={onAddToPlan}
@@ -368,8 +375,8 @@ export function RecipeShelfRow({
             shelf
             instance={section.id}
           />
-        ))}
-      </ScrollView>
+        )}
+      />
     </View>
   );
 }
@@ -468,16 +475,19 @@ export function CuisineFamilyRow({
     : null;
   return (
     <View testID="cuisine-family-row">
-      <ScrollView
+      <FlatList
         testID="cuisine-family-scroll"
+        data={FEATURED_CUISINE_FAMILIES}
+        keyExtractor={(item) => item.id}
         horizontal
         style={styles.edgeToEdgeRail}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.cuisineRow}
-      >
-        {FEATURED_CUISINE_FAMILIES.map((item) => (
+        initialNumToRender={5}
+        maxToRenderPerBatch={4}
+        windowSize={3}
+        renderItem={({ item }) => (
           <Pressable
-            key={item.id}
             accessibilityRole="button"
             accessibilityLabel={`Browse ${item.shortLabel} meals`}
             accessibilityHint="Shows matching meals and regional cuisines"
@@ -500,8 +510,8 @@ export function CuisineFamilyRow({
               {item.shortLabel}
             </Text>
           </Pressable>
-        ))}
-      </ScrollView>
+        )}
+      />
     </View>
   );
 }

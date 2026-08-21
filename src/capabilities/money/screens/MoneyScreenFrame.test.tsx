@@ -1,10 +1,15 @@
-import { fireEvent, render } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import { RefreshControl, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { HapticsService } from '../../../services/HapticsService';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 
 const mockRefresh = jest.fn(async () => undefined);
 const mockUseMoneyData = jest.fn();
+
+jest.mock('../../../services/HapticsService', () => ({
+  HapticsService: { trigger: jest.fn(async () => undefined) },
+}));
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: jest.fn() }),
@@ -31,6 +36,7 @@ function moneyState(overrides: Record<string, unknown>) {
 describe('MoneyScreenFrame recovery states', () => {
   beforeEach(() => {
     mockRefresh.mockClear();
+    jest.mocked(HapticsService.trigger).mockClear();
   });
 
   const renderFrame = () => render(
@@ -80,5 +86,20 @@ describe('MoneyScreenFrame recovery states', () => {
 
     expect(screen.getByText('Budget content')).toBeTruthy();
     expect(screen.getByText('Showing the last successful update')).toBeTruthy();
+  });
+
+  it('acknowledges a committed pull with one selection haptic', () => {
+    mockUseMoneyData.mockReturnValue(moneyState({
+      snapshot: { generatedAt: 'now' },
+      status: 'ready',
+    }));
+
+    const screen = renderFrame();
+    act(() => {
+      screen.UNSAFE_getByType(RefreshControl).props.onRefresh();
+    });
+
+    expect(HapticsService.trigger).toHaveBeenCalledTimes(1);
+    expect(HapticsService.trigger).toHaveBeenCalledWith('canvas.selection');
   });
 });

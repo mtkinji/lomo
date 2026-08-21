@@ -1,14 +1,15 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { MoneyTransactionsScreen } from './MoneyTransactionsScreen';
 
 const mockRefresh = jest.fn(async () => undefined);
 const mockReconcileGovernedPlanFoundation = jest.fn(async () => undefined);
 const mockReconcileConnectedActivity = jest.fn(async () => null);
+let mockMoneyScreenFrameOnRefresh: (() => Promise<unknown>) | undefined;
 const mockSnapshot = {
   accounts: [{ id: 'chase-savings', name: 'Chase Savings' }],
   categories: [],
   transactions: [] as Array<Record<string, unknown>>,
-  lastSyncedAt: null,
+  lastSyncedAt: null as string | null,
 };
 
 jest.mock('../data/MoneyDataContext', () => ({
@@ -25,23 +26,36 @@ jest.mock('./MoneyScreenFrame', () => {
   const { Pressable, Text, View } = require('react-native');
 
   return {
-    MoneyScreenFrame: ({ children, onPressBack, title }: { children?: React.ReactNode; onPressBack?: () => void; title: string }) => (
-      <View>
-        <Text>{title}</Text>
-        {onPressBack ? (
-          <Pressable accessibilityLabel={`Go back from ${title}`} onPress={onPressBack} />
-        ) : (
-          <View accessibilityLabel="Open navigation menu" />
-        )}
-        {children}
-      </View>
-    ),
+    MoneyScreenFrame: ({ children, headerRightElement, onPressBack, onRefresh, title }: {
+      children?: React.ReactNode;
+      headerRightElement?: React.ReactNode;
+      onPressBack?: () => void;
+      onRefresh?: () => Promise<unknown>;
+      title: string;
+    }) => {
+      mockMoneyScreenFrameOnRefresh = onRefresh;
+      return (
+        <View>
+          <Text>{title}</Text>
+          {headerRightElement}
+          {onPressBack ? (
+            <Pressable accessibilityLabel={`Go back from ${title}`} onPress={onPressBack} />
+          ) : (
+            <View accessibilityLabel="Open navigation menu" />
+          )}
+          {children}
+        </View>
+      );
+    },
   };
 });
 
 describe('MoneyTransactionsScreen navigation hierarchy', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     mockSnapshot.transactions = [];
+    mockSnapshot.lastSyncedAt = null;
+    mockMoneyScreenFrameOnRefresh = undefined;
   });
 
   it('replaces global navigation with back navigation for an account inventory', () => {
@@ -85,6 +99,25 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
     expect(queryByLabelText(/Go back from/)).toBeNull();
     fireEvent.press(getByText('Connect an account'));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyAccounts');
+  });
+
+  it('shares the compact bank freshness stamp and pull sync contract with Budget', async () => {
+    mockSnapshot.lastSyncedAt = new Date().toISOString();
+    const navigation = { goBack: jest.fn(), navigate: jest.fn(), setParams: jest.fn() };
+    const route = { key: 'fresh-transactions', name: 'MoneyTransactions' as const, params: undefined };
+
+    const screen = render(<MoneyTransactionsScreen navigation={navigation as never} route={route as never} />);
+
+    expect(screen.getByText('Just now')).toBeTruthy();
+    expect(screen.getByLabelText('Bank data updated just now')).toBeTruthy();
+    expect(screen.queryByText('Updated just now')).toBeNull();
+    expect(mockMoneyScreenFrameOnRefresh).toBeDefined();
+
+    await act(async () => {
+      await mockMoneyScreenFrameOnRefresh?.();
+    });
+
+    expect(mockReconcileConnectedActivity).toHaveBeenCalledWith({ trigger: 'manual_sync', sync: true });
   });
 
   it('shows exactly the requested purchases in the focused review flow', () => {
