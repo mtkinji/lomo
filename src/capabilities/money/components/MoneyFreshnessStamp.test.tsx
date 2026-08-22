@@ -16,7 +16,7 @@ describe('MoneyFreshnessStamp', () => {
   it('shows the last successful bank refresh as quiet header metadata and keeps aging it', () => {
     const screen = render(<MoneyFreshnessStamp lastSyncedAt="2026-08-21T18:00:00.000Z" />);
 
-    expect(screen.getAllByTestId('money-freshness-icon').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('money-freshness-clock-icon').length).toBeGreaterThan(0);
     const stamp = screen.getByText('23m ago');
     expect(stamp.props).toMatchObject({
       accessibilityLabel: 'Bank data updated 23 min ago',
@@ -25,7 +25,7 @@ describe('MoneyFreshnessStamp', () => {
       numberOfLines: 1,
     });
     expect(StyleSheet.flatten(stamp.props.style)).toMatchObject({
-      color: colors.textSecondary,
+      color: colors.muted,
       fontSize: typography.caption.fontSize,
     });
 

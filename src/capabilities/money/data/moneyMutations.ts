@@ -52,13 +52,19 @@ export function buildMerchantRuleUpsert(input: {
   categoryId: string;
   categoryName: string;
   matchMode?: 'exact' | 'partial';
+  merchantPattern?: string;
 }): MerchantRuleUpsert {
   const userId = input.userId.trim();
   const transactionId = input.transactionId.trim();
   const categoryId = input.categoryId.trim();
   const matchMode = input.matchMode ?? 'exact';
+  const partialPattern = input.merchantPattern ?? input.merchantName;
+  const partialPatternError = matchMode === 'partial'
+    ? getPartialMerchantRulePatternError(input.merchantName, partialPattern)
+    : null;
+  if (partialPatternError) throw new Error(partialPatternError);
   const merchantContains = matchMode === 'partial'
-    ? normalizePartialMerchant(input.merchantName)
+    ? normalizePartialMerchant(partialPattern)
     : normalizeExactMerchant(input.merchantName);
   if (!userId) throw new Error('Sign in before saving a merchant rule.');
   if (!transactionId) throw new Error('Choose a transaction before saving a merchant rule.');
@@ -168,4 +174,11 @@ export function normalizePartialMerchant(value: string): string {
     .filter((word) => word && !/^[0-9]+$/.test(word) && !GENERIC_MERCHANT_WORDS.has(word))
     .slice(0, 2)
     .join(' ');
+}
+
+export function getPartialMerchantRulePatternError(sourceMerchant: string, pattern: string): string | null {
+  const sourceKey = normalizePartialMerchant(sourceMerchant);
+  const patternKey = normalizePartialMerchant(pattern);
+  if (!patternKey) return 'Enter merchant words to match.';
+  return sourceKey.includes(patternKey) ? null : 'Use words that appear in this merchant name.';
 }

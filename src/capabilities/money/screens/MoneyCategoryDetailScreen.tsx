@@ -17,12 +17,25 @@ import {
 } from '../../../ui/DropdownMenu';
 import { Icon } from '../../../ui/Icon';
 import { Input } from '../../../ui/Input';
-import { KwiltSwitch } from '../../../ui/KwiltSwitch';
 import { KwiltRefreshFrame, useKwiltRefresh } from '../../../ui/KwiltRefresh';
+import {
+  SettingsChoiceRow,
+  SettingsDivider,
+  SettingsGroup,
+  SettingsRow,
+  SettingsTextInputRow,
+  SettingsToggleRow,
+} from '../../../ui/SettingsSurface';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import {
+  ObjectDetailMediaHero,
+  ObjectDetailMediaSheet,
+  resolveObjectDetailMediaGeometry,
+} from '../../../ui/layout/ObjectDetailMediaShell';
+import {
   HeaderActionPill,
+  ObjectPageHeader,
   OBJECT_PAGE_HEADER_BAR_HEIGHT,
 } from '../../../ui/layout/ObjectPageHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
@@ -49,9 +62,9 @@ import { buildMoneyRebalanceChangesOpenedProps, buildMoneyRebalanceOutcomeProps,
 import { signalMoneyMutationOutcome, signalMoneyToggle } from '../runtime/moneyMutationFeedback';
 
 const ACTIVITY_INLINE_LIMIT = 5;
-const CATEGORY_HERO_HEIGHT = 168;
 const CATEGORY_HEADER_PILL_SIZE = 44;
 const CATEGORY_HEADER_BAR_HEIGHT = OBJECT_PAGE_HEADER_BAR_HEIGHT + 8;
+const CATEGORY_MEDIA_GEOMETRY = resolveObjectDetailMediaGeometry('compact');
 
 export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyCategoryDetail'>) {
   const { capture } = useAnalytics();
@@ -116,15 +129,11 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     (view?.transactions ?? []).slice(0, ACTIVITY_INLINE_LIMIT),
   ), [view?.transactions]);
   const headerTotalHeight = insets.top + CATEGORY_HEADER_BAR_HEIGHT;
-  const heroFadeEnd = Math.max(1, CATEGORY_HERO_HEIGHT - headerTotalHeight);
-  const heroFadeStart = Math.max(0, heroFadeEnd - 40);
-  const heroOpacity = scrollY.interpolate({
-    inputRange: [0, heroFadeStart, heroFadeEnd],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
-  });
-  const heroParallaxTranslateY = Animated.multiply(scrollY, 0.35);
-  const statusBarStyle = useScrollLinkedStatusBarStyle(scrollY, heroFadeEnd, {
+  const headerTransitionStartScrollY = Math.max(
+    1,
+    CATEGORY_MEDIA_GEOMETRY.heroHeight - CATEGORY_MEDIA_GEOMETRY.overlap - headerTotalHeight,
+  );
+  const statusBarStyle = useScrollLinkedStatusBarStyle(scrollY, headerTransitionStartScrollY, {
     enabled: isFocused,
     initialStyle: 'light',
     inactiveStyle: 'dark',
@@ -281,7 +290,6 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       <DropdownMenuContent align="end" side="bottom" sideOffset={6}>
         <DetailMenuItem icon="edit" label="Category settings" onPress={() => setSettingsOpen(true)} />
         {category.fundingRhythm === 'monthly' ? <DetailMenuItem icon="gauge" label="Forecast settings" onPress={() => setForecastSettingsOpen(true)} /> : null}
-        <DetailMenuItem icon="shield" label="App controls" onPress={() => navigation.navigate('MoneyAppControl', { categoryId: category.id })} />
         <DetailMenuItem icon="image" label="Edit cover" onPress={() => setCoverDrawerOpen(true)} />
       </DropdownMenuContent>
     </DropdownMenu>
@@ -292,6 +300,21 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       <AppShell fullBleedCanvas>
         <StatusBar style={statusBarStyle} animated />
         <View style={styles.screen}>
+          <ObjectPageHeader
+            barHeight={CATEGORY_HEADER_BAR_HEIGHT}
+            showFullWidthBackground={false}
+            left={(
+              <HeaderActionPill
+                accessibilityLabel="Back to budget summary"
+                materialVariant="floatingWhite"
+                onPress={() => navigation.goBack()}
+                size={CATEGORY_HEADER_PILL_SIZE}
+              >
+                <Icon name="arrowLeft" size={22} color={colors.textPrimary} />
+              </HeaderActionPill>
+            )}
+            right={<HStack alignItems="center" space="sm">{moreMenu}</HStack>}
+          />
           <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing} style={styles.refreshBackdrop}>
             <Animated.ScrollView
               contentInsetAdjustmentBehavior="never"
@@ -303,40 +326,28 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
               scrollEventThrottle={scrollEventThrottle}
             >
             <View style={styles.refreshPage}>
-            <View style={styles.heroStage}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Edit ${category.name} cover`}
-                onPress={() => setCoverDrawerOpen(true)}
-                style={styles.heroClip}
+              <ObjectDetailMediaHero
+                variant="compact"
+                scrollY={scrollY}
+                headerBoundary={headerTotalHeight}
+                extendArtworkBehindSheetCorners
               >
-                <Animated.View
-                  style={[
-                    styles.heroArtwork,
-                    { opacity: heroOpacity, transform: [{ translateY: heroParallaxTranslateY }] },
-                  ]}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${category.name} cover`}
+                  onPress={() => setCoverDrawerOpen(true)}
+                  style={StyleSheet.absoluteFillObject}
                 >
-                  <MoneyCategoryCover cover={category.coverImage} />
-                </Animated.View>
-              </Pressable>
-              <View
-                pointerEvents="box-none"
-                style={[styles.heroHeader, { height: headerTotalHeight, paddingTop: insets.top }]}
-              >
-                <View>
-                  <HeaderActionPill
-                    accessibilityLabel="Back to budget summary"
-                    materialVariant="floatingWhite"
-                    onPress={() => navigation.goBack()}
-                    size={CATEGORY_HEADER_PILL_SIZE}
-                  >
-                    <Icon name="arrowLeft" size={22} color={colors.textPrimary} />
-                  </HeaderActionPill>
-                </View>
-                <HStack alignItems="center" space="sm">{moreMenu}</HStack>
-              </View>
-            </View>
-            <View style={styles.summarySection}>
+                  <MoneyCategoryCover
+                    attributionBottomInset={CATEGORY_MEDIA_GEOMETRY.sheetRadius}
+                    cover={category.coverImage}
+                  />
+                </Pressable>
+              </ObjectDetailMediaHero>
+
+              <ObjectDetailMediaSheet variant="compact">
+                <View style={styles.detailSheetInner}>
+                  <View style={styles.summarySection}>
               <Text accessibilityRole="header" style={styles.categoryTitle}>{category.name}</Text>
               <MoneyDetailMeter
                 category={category}
@@ -355,16 +366,16 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
               />
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Change ${category.name} plan`}
+                accessibilityLabel={`Open ${category.name} settings`}
                 onPress={() => setSettingsOpen(true)}
-                style={({ pressed }) => [styles.changePlanLink, pressed ? styles.changePlanLinkPressed : null]}
+                style={({ pressed }) => [styles.categorySettingsLink, pressed ? styles.categorySettingsLinkPressed : null]}
               >
-                <Text style={styles.changePlanText}>Change plan</Text>
-                <Icon name="chevronRight" size={18} color={colors.pine700} />
+                <Text style={styles.categorySettingsText}>Category settings</Text>
+                <Icon name="chevronRight" size={18} color={colors.textSecondary} />
               </Pressable>
-            </View>
+                  </View>
 
-            <View style={styles.activitySection}>
+                  <View style={styles.activitySection}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Activity</Text>
                 <Text style={styles.sectionCount}>{view.transactions.length} {view.transactions.length === 1 ? 'transaction' : 'transactions'}</Text>
@@ -372,13 +383,16 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
               {groups.length > 0 ? groups.map((group) => (
                 <View key={group.dateIso} style={styles.activityGroup}>
                   <Text style={styles.dateLabel}>{group.label}</Text>
-                  {group.transactions.map((transaction) => (
-                    <CategoryTransactionRow
-                      key={transaction.id}
-                      transaction={transaction}
-                      onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id })}
-                    />
-                  ))}
+                  <View style={styles.activityRows}>
+                    {group.transactions.map((transaction, index) => (
+                      <CategoryTransactionRow
+                        key={transaction.id}
+                        transaction={transaction}
+                        showDivider={index < group.transactions.length - 1}
+                        onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id })}
+                      />
+                    ))}
+                  </View>
                 </View>
               )) : (
                 <View style={styles.emptyState}>
@@ -397,11 +411,11 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
                 style={styles.viewAllRow}
               >
                 <Text style={styles.viewAllText}>View all in Transactions</Text>
-                <Icon name="chevronRight" size={18} color={colors.pine700} />
+                <Icon name="chevronRight" size={18} color={colors.textSecondary} />
               </Pressable>
-            </View>
+                  </View>
 
-            <View style={styles.statsSection}>
+                  <View style={styles.statsSection}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>This month</Text>
                 <Text style={styles.sectionCount}>{formatMoneyFreshness(snapshot?.lastSyncedAt ?? null)}</Text>
@@ -418,7 +432,9 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
                 <Fact label="Month elapsed" value={`${view.periodElapsedPercent}%`} />
                 <Fact label="Funding" value={category.fundingRhythm === 'reserve' ? 'Reserve' : 'Monthly'} />
               </View>
-            </View>
+                  </View>
+                </View>
+              </ObjectDetailMediaSheet>
             </View>
             </Animated.ScrollView>
           </KwiltRefreshFrame>
@@ -460,88 +476,104 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         visible={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         snapPoints={['82%']}
-        keyboardBehavior="extend"
+        keyboardBehavior="resize"
+        bottomAccessory={(
+          <Button
+            disabled={savingCategory}
+            fullWidth
+            loading={savingCategory}
+            loadingLabel="Saving…"
+            onPress={() => void saveCategorySettings()}
+          >
+            Save changes
+          </Button>
+        )}
+        bottomAccessoryPlacement="phoneFloating"
+        sheetStyle={styles.settingsDrawerSheet}
       >
         <View style={styles.drawerFixedHeader}>
           <BottomDrawerHeader
             closeAccessibilityLabel="Close category settings"
             onClose={() => setSettingsOpen(false)}
-            title="Category settings"
+            title={`${category.name} settings`}
             variant="withClose"
           />
         </View>
         <BottomDrawerScrollView
           automaticallyAdjustKeyboardInsets
-          contentContainerStyle={styles.drawerScrollContent}
+          contentContainerStyle={styles.settingsDrawerScrollContent}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
         >
-          <Input editable={!savingCategory} label="Name" onChangeText={(value) => { setCategoryNameDraft(value); setPlanImpact(null); setShowPlanChanges(false); }} value={categoryNameDraft} />
-          <Input editable={!savingCategory} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); setPlanImpact(null); }} value={categoryAmountDraft} />
-          <View style={styles.settingGroup}>
-            <Text style={styles.settingLabel}>COUNTS AS</Text>
-            <View style={styles.modeList}>
-              <ForecastModeRow active={planRoleDraft === 'protected'} detail="Keep this amount aside before flexible spending." label="Protected" onPress={() => setPlanRoleDraft('protected')} />
-              <ForecastModeRow active={planRoleDraft === 'flexible'} detail="Count spending here against flexible room." label="Flexible" onPress={() => setPlanRoleDraft('flexible')} />
-            </View>
-            {planRoleDraft !== category.planRole ? (
-              <Text style={styles.drawerCopy}>{planRoleDraft === 'protected'
-                ? 'This category will be kept aside before Kwilt calculates flexible room.'
-                : 'Spending here will count against flexible room instead of being kept aside.'}</Text>
-            ) : null}
-          </View>
-          <View style={styles.settingGroup}>
-            <Text style={styles.settingLabel}>FUNDING RHYTHM</Text>
-          <View style={styles.modeList}>
-            <ForecastModeRow active={fundingRhythmDraft === 'monthly'} detail="Use this amount for the month. Optional rollover stays separate." label="Monthly" onPress={() => { signalMoneyToggle(false); setFundingRhythmDraft('monthly'); setPlanImpact(null); }} />
-            <ForecastModeRow active={fundingRhythmDraft === 'reserve'} detail="Build available money across months for lumpy needs." label="Reserve" onPress={() => { signalMoneyToggle(true); setFundingRhythmDraft('reserve'); setForecastSettingsOpen(false); setPlanImpact(null); }} />
-          </View>
-          </View>
+          <SettingsGroup title="CATEGORY">
+            <SettingsTextInputRow editable={!savingCategory} label="Name" onChangeText={(value) => { setCategoryNameDraft(value); setPlanImpact(null); setShowPlanChanges(false); }} value={categoryNameDraft} />
+            <SettingsDivider />
+            <SettingsTextInputRow editable={!savingCategory} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); setPlanImpact(null); }} value={categoryAmountDraft} />
+          </SettingsGroup>
+
+          <SettingsGroup
+            title="COUNTS AS"
+            footer={planRoleDraft === 'protected'
+              ? 'Kwilt keeps this amount aside before calculating flexible room.'
+              : 'Spending here counts against flexible room.'}
+          >
+            <SettingsChoiceRow disabled={savingCategory} selected={planRoleDraft === 'protected'} description="Keep this amount aside before flexible spending." title="Protected" onPress={() => setPlanRoleDraft('protected')} />
+            <SettingsDivider />
+            <SettingsChoiceRow disabled={savingCategory} selected={planRoleDraft === 'flexible'} description="Count spending here against flexible room." title="Flexible" onPress={() => setPlanRoleDraft('flexible')} />
+          </SettingsGroup>
+
+          <SettingsGroup title="FUNDING RHYTHM">
+            <SettingsChoiceRow disabled={savingCategory} selected={fundingRhythmDraft === 'monthly'} description="Use this amount for the month. Rollover stays separate." title="Monthly" onPress={() => { signalMoneyToggle(false); setFundingRhythmDraft('monthly'); setPlanImpact(null); }} />
+            <SettingsDivider />
+            <SettingsChoiceRow disabled={savingCategory} selected={fundingRhythmDraft === 'reserve'} description="Build available money across months for lumpy needs." title="Reserve" onPress={() => { signalMoneyToggle(true); setFundingRhythmDraft('reserve'); setForecastSettingsOpen(false); setPlanImpact(null); }} />
+          </SettingsGroup>
+
           {fundingRhythmDraft === 'reserve' ? (
-            <View style={styles.forecastInputs}>
-              <Input editable={!savingCategory} keyboardType="decimal-pad" label="Expected amount (optional)" onChangeText={(value) => { setExpectedNeedDraft(value); setPlanImpact(null); }} value={expectedNeedDraft} />
-              <Input autoCapitalize="none" editable={!savingCategory} label="Due month (YYYY-MM)" onChangeText={(value) => { setExpectedNeedDueMonthDraft(value); setPlanImpact(null); }} value={expectedNeedDueMonthDraft} />
-              <Text style={styles.drawerCopy}>{reserveCoverageCopy(category, categoryAmountDraft, expectedNeedDraft, expectedNeedDueMonthDraft)}</Text>
-            </View>
+            <SettingsGroup title="EXPECTED NEED" footer={reserveCoverageCopy(category, categoryAmountDraft, expectedNeedDraft, expectedNeedDueMonthDraft)}>
+              <SettingsTextInputRow editable={!savingCategory} keyboardType="decimal-pad" label="Amount" onChangeText={(value) => { setExpectedNeedDraft(value); setPlanImpact(null); }} value={expectedNeedDraft} />
+              <SettingsDivider />
+              <SettingsTextInputRow autoCapitalize="none" editable={!savingCategory} label="Due month" accessibilityHint="Enter a month in YYYY-MM format" onChangeText={(value) => { setExpectedNeedDueMonthDraft(value); setPlanImpact(null); }} value={expectedNeedDueMonthDraft} />
+            </SettingsGroup>
           ) : (
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleCopy}>
-              <Text style={styles.toggleTitle}>Carry unused money forward</Text>
-              <Text style={styles.toggleDescription}>Unused or overspent amounts carry into the next month.</Text>
-            </View>
-            <KwiltSwitch
-              accessibilityLabel="Carry unused money forward"
+            <SettingsGroup footer="Unused or overspent amounts carry into the next month." title="ROLLOVER">
+              <SettingsToggleRow
               disabled={savingCategory}
-              value={category.rolloverEnabled}
+              enabled={category.rolloverEnabled}
               onPress={() => void toggleRollover()}
-            />
-          </View>
+              title="Carry unused money forward"
+              />
+            </SettingsGroup>
           )}
           {planImpact?.outcome === 'ready' && rebalanceAnswer ? (
-            <RebalanceConsequence
-              answer={rebalanceAnswer}
-              editedCategoryId={category.id}
-              livingPercent={planImpact.after.livingPercent}
-              livingLimitCents={planImpact.after.targetCents}
-              categories={snapshot?.categories ?? []}
-              expanded={showPlanChanges}
-              onToggle={() => setShowPlanChanges((value) => {
-                if (!value) capture(AnalyticsEvent.MoneyRebalanceChangesOpened, buildMoneyRebalanceChangesOpenedProps({ changedCount: rebalanceAnswer.changedCategories.length }));
-                return !value;
-              })}
-            />
+            <SettingsGroup title="PLAN IMPACT">
+              <View style={styles.settingsSummary}>
+                <RebalanceConsequence
+                  answer={rebalanceAnswer}
+                  editedCategoryId={category.id}
+                  livingPercent={planImpact.after.livingPercent}
+                  livingLimitCents={planImpact.after.targetCents}
+                  categories={snapshot?.categories ?? []}
+                  expanded={showPlanChanges}
+                  onToggle={() => setShowPlanChanges((value) => {
+                    if (!value) capture(AnalyticsEvent.MoneyRebalanceChangesOpened, buildMoneyRebalanceChangesOpenedProps({ changedCount: rebalanceAnswer.changedCategories.length }));
+                    return !value;
+                  })}
+                />
+              </View>
+            </SettingsGroup>
           ) : null}
+          <SettingsGroup footer="Choose apps and decide when this category should ask for a spending review." title="FOLLOW THROUGH">
+            <SettingsRow
+              disabled={savingCategory}
+              onPress={() => {
+                setSettingsOpen(false);
+                navigation.navigate('MoneyAppControl', { categoryId: category.id });
+              }}
+              title="App controls"
+              value="Manage"
+            />
+          </SettingsGroup>
           {categoryError ? <Text style={styles.errorText}>{categoryError}</Text> : null}
-          <Button
-            disabled={savingCategory}
-            fullWidth
-            onPress={() => void saveCategorySettings()}
-          >
-            {savingCategory ? 'Saving…' : 'Save changes'}
-          </Button>
-          <Button fullWidth variant="outline" onPress={() => { setSettingsOpen(false); navigation.navigate('MoneyAppControl', { categoryId: category.id }); }}>
-            App controls
-          </Button>
         </BottomDrawerScrollView>
       </BottomDrawer>
 
@@ -598,11 +630,11 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   );
 }
 
-function CategoryTransactionRow({ onPress, transaction }: { onPress: () => void; transaction: MoneyTransaction }) {
+function CategoryTransactionRow({ onPress, showDivider, transaction }: { onPress: () => void; showDivider: boolean; transaction: MoneyTransaction }) {
   const amount = transaction.direction === 'inflow' ? transaction.amountCents : -transaction.amountCents;
   const amountLabel = `${amount > 0 ? '+' : ''}${formatMoney(amount, transaction.currencyCode)}`;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction, ${transaction.accountName}, ${amountLabel}`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.pressed : null]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction, ${transaction.accountName}, ${amountLabel}`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, showDivider ? styles.transactionRowDivider : null, pressed ? styles.pressed : null]}>
       <View style={styles.transactionCopy}>
         <Text numberOfLines={1} style={styles.transactionMerchant}>{transaction.merchantName}</Text>
         <Text numberOfLines={1} style={styles.transactionMeta}>{transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.accountName}</Text>
@@ -621,7 +653,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   return <View style={styles.fact}><Text style={styles.factLabel}>{label}</Text><Text numberOfLines={1} style={styles.factValue}>{value}</Text></View>;
 }
 
-function DetailMenuItem({ icon, label, onPress }: { icon: 'edit' | 'gauge' | 'image' | 'shield'; label: string; onPress: () => void }) {
+function DetailMenuItem({ icon, label, onPress }: { icon: 'edit' | 'gauge' | 'image'; label: string; onPress: () => void }) {
   return <DropdownMenuItem accessibilityLabel={label} onPress={onPress}><View style={menuStyles.menuItemRow}><Icon name={icon} size={18} color={colors.textPrimary} /><Text style={menuStyles.menuItemText} {...menuItemTextProps}>{label}</Text></View></DropdownMenuItem>;
 }
 
@@ -767,40 +799,23 @@ const styles = StyleSheet.create({
   refreshPage: {
     flexGrow: 1,
     position: 'relative',
-    overflow: 'hidden',
-    borderTopLeftRadius: radii.deviceSheet,
-    borderTopRightRadius: radii.deviceSheet,
     backgroundColor: colors.canvas,
-    paddingBottom: 80,
-    paddingHorizontal: spacing.xl,
-    gap: spacing.xl,
   },
-  heroStage: { height: CATEGORY_HERO_HEIGHT, marginHorizontal: -spacing.xl, position: 'relative' },
-  heroClip: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
-  heroHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 50,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xl,
-  },
-  heroArtwork: { ...StyleSheet.absoluteFillObject },
+  detailSheetInner: { gap: spacing.xl, paddingTop: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 80 },
   summarySection: { gap: spacing.md },
   categoryTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 28, lineHeight: 34, fontWeight: '700' },
-  changePlanLink: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.sm },
-  changePlanLinkPressed: { opacity: 0.62 },
-  changePlanText: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  categorySettingsLink: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.sm },
+  categorySettingsLinkPressed: { opacity: 0.62 },
+  categorySettingsText: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, fontWeight: '600' },
   activitySection: { gap: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, fontWeight: '700' },
   sectionCount: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   activityGroup: { gap: spacing.xs },
   dateLabel: { paddingTop: spacing.xs, color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  transactionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.cardBorder, paddingVertical: spacing.sm },
+  activityRows: { overflow: 'hidden', borderRadius: radii.card, backgroundColor: colors.fieldFill },
+  transactionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  transactionRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.cardBorder },
   pressed: { opacity: 0.72 },
   transactionCopy: { flex: 1, minWidth: 0 },
   transactionMerchant: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 15, lineHeight: 20, fontWeight: '500' },
@@ -811,7 +826,7 @@ const styles = StyleSheet.create({
   emptyTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, fontWeight: '600' },
   emptyCopy: { ...typography.bodySm, color: colors.textSecondary },
   viewAllRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  viewAllText: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, fontWeight: '600' },
+  viewAllText: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, fontWeight: '600' },
   statsSection: { gap: spacing.md, borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingTop: spacing.lg },
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   stat: { flex: 1, alignItems: 'center', gap: 2 },
@@ -833,15 +848,13 @@ const styles = StyleSheet.create({
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
   drawerFixedHeader: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg },
   drawerScrollContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 60 },
+  settingsDrawerSheet: { backgroundColor: colors.shellAlt },
+  settingsDrawerScrollContent: { gap: spacing.xl, paddingHorizontal: spacing.md, paddingBottom: spacing['3xl'] },
+  settingsSummary: { paddingHorizontal: spacing.md, paddingVertical: spacing.md },
   drawerCopy: { ...typography.bodySm, color: colors.textSecondary },
   forecastFacts: { flexDirection: 'row', gap: spacing.sm },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.md, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.cardBorder },
-  toggleCopy: { flex: 1, gap: 2 },
-  toggleTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, fontWeight: '600' },
   toggleDescription: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   modeList: { gap: spacing.sm },
-  settingGroup: { gap: spacing.sm },
-  settingLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.7 },
   modeRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
   modeRowActive: { borderColor: colors.pine300, backgroundColor: colors.pine50 },
   modeCopy: { flex: 1, minWidth: 0, gap: 2 },

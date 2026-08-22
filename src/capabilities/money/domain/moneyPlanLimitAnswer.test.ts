@@ -32,6 +32,7 @@ function reconciliation(overrides: Partial<MoneyEconomicRoleReconciliation['tota
       outsidePlanCents: 0,
       neutralCents: 0,
       unresolvedInScopeCents: 0,
+      savedResourceSpendingCents: 0,
       ...overrides,
     },
     invariant: { valid: true, transactionCount: 0, accountedTransactionCount: 0 },
@@ -142,12 +143,34 @@ describe('projectMoneyPlanLimitAnswer', () => {
     });
   });
 
+  it('keeps committed overspending separate from the fixed flexible plan', () => {
+    const projected = projectMoneyPlanLimitAnswer({
+      active: active(),
+      evidence,
+      reconciliation: reconciliation({ flexibleSpendingCents: 158_400 }),
+      freshness: 'fresh',
+      protectedPlanCents: 200_000,
+      protectedOverageCents: 5_000,
+    });
+
+    expect(projected.facts).toMatchObject({
+      policyVersion: 'money-plan-limit-v3',
+      protectedPlanCents: 200_000,
+      protectedOverageCents: 5_000,
+      flexibleCapacityCents: 150_000,
+      countedFlexibleSpendCents: 158_400,
+      flexibleRoomCents: -8_400,
+    });
+    expect(projected.state).toBe('over_flexible_room');
+    expect(projected.headlineAmountCents).toBe(8_400);
+  });
+
   it('counts unresolved ordinary outflows conservatively instead of asking the customer to classify them', () => {
     const rows = reconciliation({ flexibleSpendingCents: 145000, unresolvedInScopeCents: 9000 });
     rows.rows = [
-      { transactionId: 'small', disposition: 'unresolved', amountCents: 1000, contributions: [] },
-      { transactionId: 'large', disposition: 'unresolved', amountCents: 6000, contributions: [] },
-      { transactionId: 'medium', disposition: 'unresolved', amountCents: 2000, contributions: [] },
+      { transactionId: 'small', disposition: 'unresolved', amountCents: 1000, monthlyPlanCents: 1000, savedResourceCents: 0, contributions: [] },
+      { transactionId: 'large', disposition: 'unresolved', amountCents: 6000, monthlyPlanCents: 6000, savedResourceCents: 0, contributions: [] },
+      { transactionId: 'medium', disposition: 'unresolved', amountCents: 2000, monthlyPlanCents: 2000, savedResourceCents: 0, contributions: [] },
     ];
 
     const answer = projectMoneyPlanLimitAnswer({ active: active(), evidence, reconciliation: rows, freshness: 'fresh' });

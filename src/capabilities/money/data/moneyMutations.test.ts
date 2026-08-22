@@ -146,6 +146,33 @@ describe('buildMerchantRuleUpsert', () => {
     });
   });
 
+  it('uses a user-edited partial merchant key when it still matches the source merchant', () => {
+    expect(buildMerchantRuleUpsert({
+      userId: 'user-1',
+      transactionId: 'transaction-1',
+      merchantName: 'Amazon Marketplace Purchase',
+      merchantPattern: 'Amazon',
+      categoryId: 'category-1',
+      categoryName: 'Shopping',
+      matchMode: 'partial',
+    })).toMatchObject({
+      merchant_contains: 'amazon',
+      merchant_match_mode: 'partial',
+    });
+  });
+
+  it('rejects an edited partial merchant key that cannot match the source merchant', () => {
+    expect(() => buildMerchantRuleUpsert({
+      userId: 'user-1',
+      transactionId: 'transaction-1',
+      merchantName: 'Amazon Marketplace Purchase',
+      merchantPattern: 'Target',
+      categoryId: 'category-1',
+      categoryName: 'Shopping',
+      matchMode: 'partial',
+    })).toThrow('Use words that appear in this merchant name.');
+  });
+
   it('rejects a rule without a usable merchant or category', () => {
     expect(() => buildMerchantRuleUpsert({
       userId: 'user-1', transactionId: 'transaction-1', merchantName: '---', categoryId: 'category-1', categoryName: 'Groceries',

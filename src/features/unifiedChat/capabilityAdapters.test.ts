@@ -106,7 +106,7 @@ describe('Unified Chat capability adapters', () => {
         state: 'supported', headlineAmountCents: 34296, qualification: null, recoveryAction: null,
         reviewTransactionIds: [], limitLine: { livingPercent: 70, livingLimitCents: 350000 },
         facts: {
-          periodId: '2026-07', planVersionId: 'plan-1', policyVersion: 'money-plan-limit-v2',
+          periodId: '2026-07', planVersionId: 'plan-1', policyVersion: 'money-plan-limit-v3',
           resourceBasisCents: 500000, resourceBasisKind: 'detected_income', resourceBasisUpdatedAtIso: '2026-07-23T17:00:00.000Z',
           livingPercent: 70, livingLimitCents: 350000, protectedPlanCents: 200000, protectedOverageCents: 0, flexibleCapacityCents: 150000,
           countedFlexibleSpendCents: 115704, flexibleRoomCents: 34296, flexibleRoomLowCents: 34296,

@@ -8,7 +8,7 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
 
     expect(source.match(/<BottomDrawerHeader/g)).toHaveLength(3);
     expect(source).toContain('title="How this forecast works"');
-    expect(source).toContain('title="Category settings"');
+    expect(source).toContain('title={`${category.name} settings`}');
     expect(source).toContain('title="Forecast settings"');
     expect(source).not.toContain('styles.drawerEyebrow');
     expect(source).not.toContain('drawerEyebrow:');
@@ -19,7 +19,9 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
 
     expect(source).toContain('label="Edit cover"');
-    expect(source).toContain('<MoneyCategoryCover cover={category.coverImage} />');
+    expect(source).toContain('cover={category.coverImage}');
+    expect(source).toContain('extendArtworkBehindSheetCorners');
+    expect(source).toContain('attributionBottomInset={CATEGORY_MEDIA_GEOMETRY.sheetRadius}');
     expect(source).toContain('accessibilityLabel={`Edit ${category.name} cover`}');
     expect(source).toContain('<MoneyCategoryCoverDrawer');
     expect(source).not.toContain('getCategoryCover(');
@@ -33,23 +35,25 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(menuLabels).toEqual([
       'Category settings',
       'Forecast settings',
-      'App controls',
       'Edit cover',
     ]);
-    expect(source).toContain('title="Category settings"');
+    expect(source).toContain('title={`${category.name} settings`}');
   });
 
-  it('keeps the floating controls owned by the scroll-linked hero treatment', () => {
+  it('keeps floating controls fixed while the compact detail sheet scrolls over the cover', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
 
-    expect(source).toContain('const CATEGORY_HERO_HEIGHT = 168;');
-    expect(source).toContain('style={[styles.heroHeader, { height: headerTotalHeight, paddingTop: insets.top }]}');
-    expect(source).not.toContain('<ObjectPageHeader');
+    expect(source).toContain('<ObjectPageHeader');
+    expect(source.indexOf('<ObjectPageHeader')).toBeLessThan(source.indexOf('<Animated.ScrollView'));
+    expect(source).toContain('showFullWidthBackground={false}');
+    expect(source).toContain('<ObjectDetailMediaHero');
+    expect(source).toContain('<ObjectDetailMediaSheet variant="compact">');
+    expect(source).toContain('const CATEGORY_MEDIA_GEOMETRY = resolveObjectDetailMediaGeometry(\'compact\');');
+    expect(source).toContain('extendArtworkBehindSheetCorners');
+    expect(source).toContain('attributionBottomInset={CATEGORY_MEDIA_GEOMETRY.sheetRadius}');
     expect(source.match(/materialVariant="floatingWhite"/g)).toHaveLength(2);
-    expect(source).toContain('heroParallaxTranslateY');
-    expect(source).toContain('heroOpacity');
     expect(source).toContain('style={styles.categoryTitle}>{category.name}</Text>');
-    expect(source).not.toContain('styles.headerSurface');
+    expect(source).not.toContain('styles.heroHeader');
   });
 
   it('refreshes the real Money snapshot behind the branded pull interaction', () => {
@@ -57,9 +61,9 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
 
     expect(source).toContain('useKwiltRefresh');
     expect(source).toContain('refreshControl={refreshControl}');
-    expect(source.indexOf('style={[styles.heroHeader')).toBeGreaterThan(source.indexOf('<Animated.ScrollView'));
-    expect(source.indexOf('style={[styles.heroHeader')).toBeGreaterThan(source.indexOf('<View style={styles.heroStage}>'));
-    expect(source.indexOf('style={[styles.heroHeader')).toBeLessThan(source.indexOf('<View style={styles.summarySection}>'));
+    expect(source.indexOf('<ObjectPageHeader')).toBeLessThan(source.indexOf('<Animated.ScrollView'));
+    expect(source.indexOf('<ObjectDetailMediaHero')).toBeGreaterThan(source.indexOf('<Animated.ScrollView'));
+    expect(source.indexOf('<ObjectDetailMediaSheet')).toBeLessThan(source.indexOf('<View style={styles.summarySection}>'));
     expect(source).toContain('contentContainerStyle={styles.scrollContent}');
     expect(source).toContain('<View style={styles.refreshPage}>');
     expect(source).toContain("refreshPage: {\n    flexGrow: 1,\n    position: 'relative',");
@@ -67,7 +71,7 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).not.toContain("key={refreshing ? 'refreshing' : 'pulling'}");
     expect(source).toContain('<KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing} style={styles.refreshBackdrop}>');
     expect(source).toContain('refreshBackdrop: { backgroundColor: colors.parchment },');
-    expect(source).toContain('backgroundColor: colors.canvas,');
+    expect(source).toContain('detailSheetInner: { gap: spacing.xl, paddingTop: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 80 },');
     expect(source).not.toContain('{refreshIndicator}');
     expect(source).not.toContain('refreshReveal');
     expect(source).not.toContain('<KwiltPullToRefresh');
@@ -77,8 +81,9 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
 
     expect(source).toContain('<RebalanceConsequence');
-    expect(source).toContain('accessibilityLabel={`Change ${category.name} plan`}');
-    expect(source).toContain('<Text style={styles.changePlanText}>Change plan</Text>');
+    expect(source).toContain('accessibilityLabel={`Open ${category.name} settings`}');
+    expect(source).toContain('<Text style={styles.categorySettingsText}>Category settings</Text>');
+    expect(source).toContain('categorySettingsText: { color: colors.textPrimary');
     expect(source).toContain('This stays within your ${livingPercent}% living limit');
     expect(source).toContain('preview?.outcome === \'ready\' ? preview : undefined');
     expect(source).toContain("accessibilityLabel={expanded ? 'Hide changes' : 'See changes'}");
@@ -99,11 +104,28 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
   it('keeps editable drawers bottom-attached while their forms reveal focused inputs', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
 
-    expect(source.match(/keyboardBehavior="extend"/g)).toHaveLength(2);
+    expect(source.match(/keyboardBehavior="extend"/g)).toHaveLength(1);
+    expect(source.match(/keyboardBehavior="resize"/g)).toHaveLength(1);
     expect(source.match(/automaticallyAdjustKeyboardInsets/g)).toHaveLength(2);
     expect(source.match(/style=\{styles\.drawerFixedHeader\}/g)).toHaveLength(2);
     expect(source).toContain('visible={settingsOpen}');
     expect(source).toContain('visible={forecastSettingsOpen}');
+  });
+
+  it('uses grouped neutral settings with one fixed save action and an app-controls offer', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('<SettingsGroup title="CATEGORY">');
+    expect(source).toContain('title="COUNTS AS"');
+    expect(source).toContain('<SettingsGroup title="FUNDING RHYTHM">');
+    expect(source.match(/<SettingsChoiceRow/g)).toHaveLength(4);
+    expect(source).toContain('bottomAccessoryPlacement="phoneFloating"');
+    expect(source).toContain('loadingLabel="Saving…"');
+    expect(source).toContain('Save changes');
+    expect(source).toContain('title="FOLLOW THROUGH"');
+    expect(source).toContain('title="App controls"');
+    expect(source).not.toContain('<DetailMenuItem icon="shield" label="App controls"');
+    expect(source).not.toContain('<Button fullWidth variant="outline"');
   });
 
   it('keeps settlement status out of category activity metadata', () => {
@@ -112,5 +134,17 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).not.toContain("transaction.pending ? 'Pending'");
     expect(source).toContain("transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.accountName");
     expect(source).not.toContain('Temporary hold');
+  });
+
+  it('groups dated activity rows in the inventory surface and keeps the exit neutral', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('<View style={styles.activityRows}>');
+    expect(source).toContain('activityRows: { overflow: \'hidden\', borderRadius: radii.card, backgroundColor: colors.fieldFill }');
+    expect(source).toContain('showDivider={index < group.transactions.length - 1}');
+    expect(source).toContain('transactionRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.cardBorder }');
+    expect(source).toContain('viewAllText: { color: colors.textPrimary');
+    expect(source).toContain('<Icon name="chevronRight" size={18} color={colors.textSecondary} />');
+    expect(source).not.toContain('viewAllText: { color: colors.pine700');
   });
 });

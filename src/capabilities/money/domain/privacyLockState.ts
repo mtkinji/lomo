@@ -1,4 +1,4 @@
-export type MoneyPrivacyPresentation = 'content' | 'privacy-cover' | 'unlock';
+export type MoneyPrivacyPresentation = 'content' | 'loading' | 'privacy-cover' | 'unlock';
 
 export function shouldRequestMoneyUnlock(input: {
   locked: boolean;
@@ -15,6 +15,7 @@ export function getMoneyPrivacyPresentation(input: {
   locked: boolean;
   automaticUnlockPending?: boolean;
 }): MoneyPrivacyPresentation {
-  if (!input.loaded || input.covered || input.automaticUnlockPending) return 'privacy-cover';
+  if (!input.loaded) return 'loading';
+  if (input.covered || input.automaticUnlockPending) return 'privacy-cover';
   return input.locked ? 'unlock' : 'content';
 }

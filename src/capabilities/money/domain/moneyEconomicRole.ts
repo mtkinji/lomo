@@ -18,6 +18,8 @@ export type MoneyEconomicRoleRow = {
   transactionId: string;
   disposition: MoneyEconomicRole;
   amountCents: number;
+  monthlyPlanCents: number;
+  savedResourceCents: number;
   contributions: MoneyEconomicContribution[];
 };
 
@@ -29,6 +31,7 @@ export type MoneyEconomicRoleReconciliation = {
     outsidePlanCents: number;
     neutralCents: number;
     unresolvedInScopeCents: number;
+    savedResourceSpendingCents: number;
   };
   invariant: {
     valid: boolean;
@@ -68,6 +71,7 @@ export function reconcileMoneyEconomicRoles(input: {
     if (row.disposition === 'outside_plan') result.outsidePlanCents += row.amountCents;
     if (row.disposition === 'not_spending' && row.contributions.length === 0) result.neutralCents += row.amountCents;
     if (row.disposition === 'unresolved') result.unresolvedInScopeCents += row.amountCents;
+    result.savedResourceSpendingCents += row.savedResourceCents;
     return result;
   }, {
     protectedSpendingCents: 0,
@@ -75,6 +79,7 @@ export function reconcileMoneyEconomicRoles(input: {
     outsidePlanCents: 0,
     neutralCents: 0,
     unresolvedInScopeCents: 0,
+    savedResourceSpendingCents: 0,
   });
 
   totals.protectedSpendingCents = Math.max(0, totals.protectedSpendingCents);
@@ -98,7 +103,15 @@ function reconcileTransaction(
   roleByCategoryId: Map<string, SpendingRole>,
 ): MoneyEconomicRoleRow {
   const amountCents = validCents(transaction.amountCents);
-  const base = { transactionId: transaction.id, amountCents };
+  const savedResourceCents = transaction.direction === 'outflow'
+    && !transaction.pending
+    && transaction.reviewState !== 'not_counted'
+    && transaction.moneyMeaning !== 'not_counted'
+    && transaction.moneyMeaning !== 'transfer'
+      ? Math.min(amountCents, validCents(transaction.savedResourceCents ?? 0))
+      : 0;
+  const monthlyPlanCents = amountCents - savedResourceCents;
+  const base = { transactionId: transaction.id, amountCents, monthlyPlanCents, savedResourceCents };
 
   if (transaction.moneyMeaning === 'transfer') {
     return { ...base, disposition: 'not_spending', contributions: [] };
@@ -162,7 +175,7 @@ function reconcileTransaction(
     return {
       ...base,
       disposition: role,
-      contributions: [{ role, amountCents, spendDeltaCents: amountCents }],
+      contributions: [{ role, amountCents, spendDeltaCents: monthlyPlanCents }],
     };
   }
 
@@ -174,7 +187,7 @@ function reconcileTransaction(
     return {
       ...base,
       disposition: 'protected_spending',
-      contributions: [{ role: 'protected_spending', amountCents, spendDeltaCents: amountCents }],
+      contributions: [{ role: 'protected_spending', amountCents, spendDeltaCents: monthlyPlanCents }],
     };
   }
 

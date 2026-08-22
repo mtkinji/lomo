@@ -14,7 +14,7 @@ function answer(state: Answer['state'], overrides: Partial<Answer> = {}): Answer
     recoveryAction: null,
     reviewTransactionIds: [],
     facts: {
-      periodId: '2026-07', planVersionId: 'version-1', policyVersion: 'money-plan-limit-v2',
+      periodId: '2026-07', planVersionId: 'version-1', policyVersion: 'money-plan-limit-v3',
       resourceBasisCents: 480000, resourceBasisKind: 'detected_income', resourceBasisUpdatedAtIso: '2026-07-24T12:00:00Z',
       livingPercent: 70, livingLimitCents: 336000, protectedPlanCents: 200000, protectedOverageCents: 0, flexibleCapacityCents: 136000,
       countedFlexibleSpendCents: 101704, flexibleRoomCents: 34296, flexibleRoomLowCents: 34296,
@@ -33,30 +33,32 @@ describe('MoneyPlanLimitAnswer', () => {
     expect(screen.getByTestId('money-limit-card')).toBeTruthy();
     const header = screen.getByTestId('money-limit-header');
     expect(within(header).getByText('Flexible spending')).toBeTruthy();
-    expect(within(header).getByRole('button', { name: 'What’s included?' })).toBeTruthy();
+    expect(within(header).getByRole('button', { name: 'About flexible spending' })).toBeTruthy();
     expect(screen.queryByText('Flexible spending this month')).toBeNull();
     expect(screen.getByTestId('money-limit-currency-symbol').props.children).toBe('$');
-    expect(screen.getByTestId('money-limit-amount-number').props.children).toBe('342.96');
-    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$342.96 left');
+    expect(screen.getByTestId('money-limit-amount-number').props.children).toBe('343');
+    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$343 left');
     expect(screen.getByTestId('money-limit-amount-row').props.accessible).toBe(true);
     expect(screen.queryByText('$342.96')).toBeNull();
     expect(screen.getByText('left')).toBeTruthy();
     expect(screen.queryByText('$342.96 left')).toBeNull();
-    expect(screen.getByText('out of $1,360')).toBeTruthy();
+    expect(screen.queryByText('Current budget $1,360')).toBeNull();
     expect(screen.queryByText('$1,017.04 of $1,360 spent')).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'What’s included?' }));
+    fireEvent.press(screen.getByRole('button', { name: 'About flexible spending' }));
     expect(onExplain).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: 'See calculation' })).toBeNull();
     expect(screen.queryByText(/left for flexible spending this month/i)).toBeNull();
     expect(screen.queryByText(/confidence/i)).toBeNull();
     expect(screen.UNSAFE_getByType(Card).props.style).toEqual(expect.arrayContaining([
       expect.objectContaining({ borderWidth: 0 }),
-      expect.objectContaining({ backgroundColor: colors.pine100 }),
+      expect.objectContaining({ backgroundColor: colors.fieldFill }),
     ]));
+    expect(StyleSheet.flatten(screen.getByTestId('money-limit-amount-number').props.style).fontSize).toBe(38);
   });
 
   it('reduces flexible overspending to one direct amount', () => {
     const base = answer('supported');
+    const onReviewOverages = jest.fn();
     const screen = render(<MoneyPlanLimitAnswer
       answer={{
         ...base,
@@ -72,19 +74,48 @@ describe('MoneyPlanLimitAnswer', () => {
       freshness="Updated just now"
       onExplain={jest.fn()}
       onReviewIncome={jest.fn()}
+      onReviewOverages={onReviewOverages}
     />);
 
     expect(screen.getByTestId('money-limit-currency-symbol').props.children).toBe('$');
-    expect(screen.getByTestId('money-limit-amount-number').props.children).toBe('2,386.43');
-    expect(screen.getByText('over')).toBeTruthy();
-    expect(screen.getByText('out of $3,745.19')).toBeTruthy();
+    expect(screen.getByTestId('money-limit-amount-number').props.children).toBe('2,386');
+    expect(screen.getByText('over budget')).toBeTruthy();
+    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$2,386 over budget');
+    expect(screen.queryByText('Current budget $3,745')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Review overages' }));
+    expect(onReviewOverages).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('$6,131.62 of $3,745.19 spent')).toBeNull();
     expect(screen.queryByText(/beyond the room/i)).toBeNull();
     expect(screen.UNSAFE_getByType(Card).props.style).toEqual(expect.arrayContaining([
       expect.objectContaining({ borderWidth: 0 }),
-      expect.objectContaining({ backgroundColor: colors.madder100 }),
+      expect.objectContaining({ backgroundColor: colors.fieldFill }),
     ]));
-    expect(StyleSheet.flatten(screen.getByTestId('money-limit-amount-number').props.style).color).toBe(colors.textPrimary);
+    expect(StyleSheet.flatten(screen.getByTestId('money-limit-amount-number').props.style).color).toBe(colors.destructive);
+    expect(StyleSheet.flatten(screen.getByText('over budget').props.style).color).toBe(colors.destructive);
+  });
+
+  it('keeps committed overspending out of the fixed flexible budget', () => {
+    const base = answer('supported');
+    const screen = render(<MoneyPlanLimitAnswer
+      answer={{
+        ...base,
+        state: 'over_flexible_room',
+        facts: {
+          ...base.facts,
+          protectedOverageCents: 21_253,
+          flexibleCapacityCents: 374_519,
+          countedFlexibleSpendCents: 622_515,
+          flexibleRoomCents: -247_996,
+        },
+      }}
+      freshness="Updated just now"
+      onExplain={jest.fn()}
+      onReviewIncome={jest.fn()}
+    />);
+
+    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$2,480 over budget');
+    expect(screen.queryByText('Current budget $3,745')).toBeNull();
+    expect(screen.queryByText(/shifted to committed spending/i)).toBeNull();
   });
 
   it('uses a watch surface when committed costs leave no flexible room', () => {
@@ -99,7 +130,7 @@ describe('MoneyPlanLimitAnswer', () => {
     expect(screen.getByText('Protected costs use your full living limit')).toBeTruthy();
     expect(screen.UNSAFE_getByType(Card).props.style).toEqual(expect.arrayContaining([
       expect.objectContaining({ borderWidth: 0 }),
-      expect.objectContaining({ backgroundColor: colors.turmeric50 }),
+      expect.objectContaining({ backgroundColor: colors.fieldFill }),
     ]));
   });
 
@@ -134,11 +165,11 @@ describe('MoneyPlanLimitAnswer', () => {
     const screen = render(<MoneyPlanLimitAnswer answer={answer('stale')} freshness="Updated 4 days ago" onExplain={jest.fn()} onReviewIncome={jest.fn()} />);
     expect(screen.queryByTestId('money-limit-recovery-card')).toBeNull();
     expect(screen.getByTestId('money-limit-currency-symbol').props.children).toBe('$');
-    expect(screen.getByTestId('money-limit-amount-number').props.children).toBe('342.96');
+    expect(screen.getByTestId('money-limit-amount-number').props.children).toBe('343');
     expect(screen.getByText('left')).toBeTruthy();
-    expect(screen.getByText('out of $1,360')).toBeTruthy();
+    expect(screen.queryByText('Current budget $1,360')).toBeNull();
     expect(screen.queryByText(/transactions need/i)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open connected accounts' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'What’s included?' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'About flexible spending' })).toBeTruthy();
   });
 });

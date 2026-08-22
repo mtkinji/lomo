@@ -55,6 +55,7 @@ type MoneyDataContextValue = MoneyDataState & {
   splitTransaction: (input: Parameters<MoneyRepository['splitTransaction']>[0]) => Promise<void>;
   reviewTransactionMeaning: (transactionId: string, input: TransactionMeaningReviewInput) => Promise<void>;
   setTransactionPlanRoleOverride: (transactionId: string, planRoleOverride: 'protected' | 'flexible' | null) => Promise<void>;
+  setTransactionPlanCoverage: (transactionId: string, savedResourceCents: number) => Promise<void>;
   saveMerchantRule: (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => Promise<void>;
   savingCategory: boolean;
   savingCategoryOrder: boolean;
@@ -365,6 +366,14 @@ export function MoneyDataProvider({
     }
   }, [refreshInBackground, resolvedRepository]);
 
+  const setTransactionPlanCoverage = useCallback(
+    (transactionId: string, savedResourceCents: number) => reviewBroadTransaction(
+      transactionId,
+      () => resolvedRepository.setTransactionPlanCoverage(transactionId, savedResourceCents),
+    ),
+    [resolvedRepository, reviewBroadTransaction],
+  );
+
   const saveMerchantRule = useCallback(
     (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => reviewMerchantRule(
       input.transactionId,
@@ -545,7 +554,8 @@ export function MoneyDataProvider({
     markTransactionNotCounted,
     splitTransaction,
     reviewTransactionMeaning,
-    setTransactionPlanRoleOverride,
+      setTransactionPlanRoleOverride,
+      setTransactionPlanCoverage,
     saveMerchantRule,
     savingCategory,
     savingCategoryOrder,
@@ -556,7 +566,7 @@ export function MoneyDataProvider({
     updateCategoryPlan,
     previewCategoryPlanAmount,
     reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanCoverage, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

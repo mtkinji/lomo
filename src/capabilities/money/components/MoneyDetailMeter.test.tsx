@@ -111,4 +111,22 @@ describe('MoneyDetailMeter chart presentation', () => {
     expect(source).toContain('buildMonotoneMoneyLinePath(historicalPoints)');
     expect(source).not.toContain('buildNaturalMoneyLinePath');
   });
+
+  it('matches Budget Inventory month navigation and removes unlabeled chart guides', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyDetailMeter.tsx'), 'utf8');
+
+    expect(source).toContain('<InventoryControlGroup testID="money-detail-month-switcher">');
+    expect(source.indexOf('accessibilityLabel="Previous month"')).toBeLessThan(source.indexOf('accessibilityLabel="Next month"'));
+    expect(source.indexOf('accessibilityLabel="Next month"')).toBeLessThan(source.indexOf('style={styles.monthLabelBlock}'));
+    expect(source).not.toContain('x1={pad.left} y1={y(budgetCents)}');
+    expect(source).not.toContain('x1={x(elapsedPercent)} y1={pad.top}');
+    expect(source).toContain('strokeDasharray="5 5"');
+  });
+
+  it('does not explain reserve carryover on the category detail surface', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyDetailMeter.tsx'), 'utf8');
+
+    expect(source).not.toContain('Availability carries across months');
+    expect(source).not.toContain('This reserve adds the same contribution each month');
+  });
 });

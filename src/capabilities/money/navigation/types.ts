@@ -22,6 +22,8 @@ export type MoneyStackParamList = {
     inventoryTitle?: string;
     reviewState?: 'needs_review' | 'not_counted';
     reviewTransactionIds?: string[];
+    overageReview?: boolean;
+    flexibleRoomCents?: number;
   } | undefined;
   MoneyAccounts: undefined;
   MoneyCategoryDetail: { categoryId: string; monthOffset?: number };
@@ -35,7 +37,7 @@ export type MoneyStackParamList = {
   };
   MoneyLivingPlan: undefined;
   MoneyLivingPlanReceipt: { receiptId: string };
-  MoneyTransactionDetail: { transactionId: string; economicRoleReview?: boolean };
+  MoneyTransactionDetail: { transactionId: string; economicRoleReview?: boolean; coverageReview?: boolean };
 };
 
 export type { MoneyPlaceRouteName } from '../domain/moneyOnboarding';

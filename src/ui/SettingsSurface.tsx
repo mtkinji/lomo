@@ -1,8 +1,9 @@
 import { type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { colors, fonts, spacing, typography } from '../theme';
 import { Icon } from './Icon';
 import { KwiltSwitch, type KwiltSwitchProps } from './KwiltSwitch';
+import { Input } from './Input';
 import { AppShell } from './layout/AppShell';
 
 export function SettingsPage({
@@ -141,6 +142,92 @@ export function SettingsRow({
     >
       {content}
     </Pressable>
+  );
+}
+
+export function SettingsChoiceRow({
+  description,
+  disabled = false,
+  onPress,
+  selected,
+  title,
+}: {
+  description?: string;
+  disabled?: boolean;
+  onPress: () => void;
+  selected: boolean;
+  title: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityLabel={title}
+      accessibilityState={{ checked: selected, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, disabled ? styles.disabled : null, pressed ? styles.pressed : null]}
+    >
+      <View style={styles.rowCopy}>
+        <Text selectable={false} numberOfLines={1} style={styles.rowTitle}>
+          {title}
+        </Text>
+        {description ? (
+          <Text selectable={false} style={styles.rowDescription}>
+            {description}
+          </Text>
+        ) : null}
+      </View>
+      <View
+        testID={`settings.choice.${title}.indicator`}
+        style={[styles.choiceIndicator, selected ? styles.choiceIndicatorSelected : null]}
+      >
+        {selected ? <View testID={`settings.choice.${title}.dot`} style={styles.choiceDot} /> : null}
+      </View>
+    </Pressable>
+  );
+}
+
+export function SettingsTextInputRow({
+  accessibilityHint,
+  autoCapitalize,
+  editable = true,
+  keyboardType,
+  label,
+  onBlur,
+  onChangeText,
+  value,
+}: {
+  accessibilityHint?: string;
+  autoCapitalize?: TextInputProps['autoCapitalize'];
+  editable?: boolean;
+  keyboardType?: TextInputProps['keyboardType'];
+  label: string;
+  onBlur?: TextInputProps['onBlur'];
+  onChangeText: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <View style={styles.textInputRow}>
+      <Text selectable={false} style={styles.textInputLabel}>
+        {label}
+      </Text>
+      <View style={styles.textInputControl}>
+        <Input
+          accessibilityHint={accessibilityHint}
+          accessibilityLabel={label}
+          accentLabelOnFocus={false}
+          autoCapitalize={autoCapitalize}
+          editable={editable}
+          elevation="flat"
+          inputStyle={styles.textInputValue}
+          keyboardType={keyboardType}
+          onBlur={onBlur}
+          onChangeText={onChangeText}
+          value={value}
+          variant="inline"
+        />
+      </View>
+    </View>
   );
 }
 
@@ -408,6 +495,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: spacing.xs,
+  },
+  choiceIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  choiceIndicatorSelected: {
+    borderColor: colors.textPrimary,
+  },
+  choiceDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.textPrimary,
+  },
+  textInputRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  textInputLabel: {
+    flexShrink: 0,
+    color: colors.textPrimary,
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  textInputControl: {
+    flex: 1,
+    minWidth: 0,
+  },
+  textInputValue: {
+    color: colors.textSecondary,
+    textAlign: 'right',
   },
   rowValue: {
     color: colors.textSecondary,

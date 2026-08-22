@@ -3,7 +3,6 @@ import { AppState, StyleSheet, View, type AppStateStatus } from 'react-native';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
-import { Logo } from '../../../ui/Logo';
 import { Heading, Text } from '../../../ui/Typography';
 import { getMoneyPrivacyPresentation, shouldRequestMoneyUnlock } from '../domain/privacyLockState';
 import {
@@ -87,34 +86,33 @@ export function MoneyPrivacyGate({ children }: { children: ReactNode }) {
   if (!settings.enabled && loaded) return <>{children}</>;
   const presentation = getMoneyPrivacyPresentation({ loaded, covered, locked, automaticUnlockPending });
   if (presentation === 'content') return <>{children}</>;
+  if (presentation === 'loading') {
+    return <View style={styles.loadingCover} testID="money-privacy-loading-cover" />;
+  }
+  if (presentation === 'privacy-cover') {
+    return <View style={styles.privacyCover} testID="money-privacy-cover" />;
+  }
 
   return (
-    <View style={[styles.cover, presentation === 'privacy-cover' ? styles.privateCover : styles.unlockCover]}>
-      {presentation === 'privacy-cover' ? (
-        <View accessibilityLabel="Kwilt Money" style={styles.brand}>
-          <Logo size={72} variant="parchment" />
-          <Heading variant="lg" tone="inverse">Kwilt Money</Heading>
-        </View>
-      ) : (
-        <View style={styles.panel}>
-          <View style={styles.lockIcon}><Icon name="lock" size={28} color={colors.canvas} /></View>
-          <Heading variant="md" tone="inverse">Kwilt Money is locked</Heading>
-          <Text tone="inverse" style={styles.centeredText}>Unlock to view accounts, transactions, and plan details.</Text>
-          <Button disabled={unlocking} onPress={() => void unlock()} variant="inverse">
-            {unlocking ? 'Unlocking…' : 'Unlock'}
-          </Button>
-          {message ? <Text tone="inverse" style={styles.centeredText}>{message}</Text> : null}
-        </View>
-      )}
+    <View style={[styles.cover, styles.unlockCover]}>
+      <View style={styles.panel}>
+        <View style={styles.lockIcon}><Icon name="lock" size={28} color={colors.canvas} /></View>
+        <Heading variant="md" tone="inverse">Kwilt Money is locked</Heading>
+        <Text tone="inverse" style={styles.centeredText}>Unlock to view accounts, transactions, and plan details.</Text>
+        <Button disabled={unlocking} onPress={() => void unlock()} variant="inverse">
+          {unlocking ? 'Unlocking…' : 'Unlock'}
+        </Button>
+        {message ? <Text tone="inverse" style={styles.centeredText}>{message}</Text> : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   cover: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
-  privateCover: { backgroundColor: colors.quiltBlue700 },
+  loadingCover: { flex: 1, backgroundColor: colors.canvas },
+  privacyCover: { flex: 1, backgroundColor: colors.canvas },
   unlockCover: { backgroundColor: colors.pine900 },
-  brand: { alignItems: 'center', gap: spacing.md },
   panel: { width: '100%', maxWidth: 360, alignItems: 'center', gap: spacing.md },
   lockIcon: {
     width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center',

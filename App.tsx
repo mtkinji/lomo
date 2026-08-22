@@ -78,6 +78,7 @@ import { startPartnerProgressService } from './src/services/partnerProgressServi
 import { startScreenTimeProtectionForegroundSync } from './src/services/screenTimeProtectionForegroundSync';
 import { startScreenTimeHandoffForegroundSync } from './src/features/screen-time/runtime/screenTimeHandoffForegroundSync';
 import { moneySnapshotCache } from './src/capabilities/money/runtime/moneySnapshotCache';
+import { loadMoneyPrivacyLockSettings } from './src/capabilities/money/runtime/moneyPrivacyLock';
 import { fireResendSignupEvent } from './src/services/resendSignupEvent';
 import { startPushTokenSync } from './src/services/pushTokenService';
 import { startEntitlementsAuthSync } from './src/services/entitlementsAuthSync';
@@ -157,6 +158,10 @@ export default function App() {
     resolveLaunchScreenDurationForToday()
       .then(setLaunchScreenDurationMs)
       .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void loadMoneyPrivacyLockSettings();
   }, []);
 
   useEffect(() => {

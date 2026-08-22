@@ -197,7 +197,7 @@ describe('projectMoneyPlanProjection', () => {
     });
   });
 
-  it('reduces flexible room when monthly bills exceed the amount kept aside', () => {
+  it('keeps the flexible plan fixed when monthly bills exceed their own budget', () => {
     const snapshot = {
       periodLabel: 'July 2026', generatedAt: 'before', lastSyncedAt: '2026-07-24T10:00:00Z',
       totals: { plannedCents: 60000, spentCents: 50000, remainingCents: 10000, needsReviewCount: 0 },
@@ -222,12 +222,13 @@ describe('projectMoneyPlanProjection', () => {
 
     expect(result.snapshot.livingLimitAnswer).toMatchObject({
       state: 'supported',
-      headlineAmountCents: 10000,
+      headlineAmountCents: 15000,
       facts: {
         protectedPlanCents: 40000,
         protectedOverageCents: 5000,
-        flexibleCapacityCents: 15000,
+        flexibleCapacityCents: 20000,
         countedFlexibleSpendCents: 5000,
+        flexibleRoomCents: 15000,
       },
     });
   });

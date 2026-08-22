@@ -102,6 +102,7 @@ describe('reconcileMoneyEconomicRoles', () => {
       outsidePlanCents: 5000,
       neutralCents: 9000,
       unresolvedInScopeCents: 2500,
+      savedResourceSpendingCents: 0,
     });
     expect(result.rows.find((row) => row.transactionId === 'costco')).toMatchObject({
       disposition: 'flexible_spending',
@@ -174,6 +175,29 @@ describe('reconcileMoneyEconomicRoles', () => {
       contributions: [{ role: 'protected_spending', amountCents: 20000, spendDeltaCents: 20000 }],
     });
     expect(result.totals.flexibleSpendingCents).toBe(0);
+  });
+
+  it('keeps actual spending intact while only monthly-plan coverage contributes to flexible use', () => {
+    const result = reconcileMoneyEconomicRoles({
+      transactions: [
+        transaction('orthodontics', 311600, {
+          categoryId: 'health',
+          categoryName: 'Health & Activities',
+          reviewState: 'assigned',
+          savedResourceCents: 200000,
+        }),
+      ],
+      allocations: [allocation('health', 19362)],
+    });
+
+    expect(result.rows[0]).toMatchObject({
+      amountCents: 311600,
+      savedResourceCents: 200000,
+      monthlyPlanCents: 111600,
+      contributions: [{ role: 'flexible_spending', amountCents: 311600, spendDeltaCents: 111600 }],
+    });
+    expect(result.totals.flexibleSpendingCents).toBe(111600);
+    expect(result.totals.savedResourceSpendingCents).toBe(200000);
   });
 
   it('requires a category credit to reference a governed spending role', () => {

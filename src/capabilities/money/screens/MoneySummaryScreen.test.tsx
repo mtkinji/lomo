@@ -1,16 +1,18 @@
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { StyleSheet } from 'react-native';
 import type { MoneySnapshot } from '../data/moneySnapshot';
 import { MoneyOnboardingHandoffGuide, MoneySummaryScreen } from './MoneySummaryScreen';
 import type { MoneyOnboardingHandoffState } from '../domain/moneyOnboardingHandoff';
+import { colors, spacing } from '../../../theme';
 
 const mockAnswer: NonNullable<MoneySnapshot['livingLimitAnswer']> = {
   state: 'supported', headlineAmountCents: 34296,
   limitLine: { livingPercent: 70, livingLimitCents: 336000 }, qualification: null,
   recoveryAction: null, reviewTransactionIds: [],
   facts: {
-    periodId: '2026-07', planVersionId: 'version-1', policyVersion: 'money-plan-limit-v2',
+    periodId: '2026-07', planVersionId: 'version-1', policyVersion: 'money-plan-limit-v3',
     resourceBasisCents: 480000, resourceBasisKind: 'detected_income', resourceBasisUpdatedAtIso: '2026-07-24T12:00:00Z',
     livingPercent: 70, livingLimitCents: 336000, protectedPlanCents: 200000, protectedOverageCents: 0, flexibleCapacityCents: 136000,
     countedFlexibleSpendCents: 101704, flexibleRoomCents: 34296, flexibleRoomLowCents: 34296,
@@ -24,7 +26,7 @@ const initialSnapshot = {
   totals: { plannedCents: 336000, spentCents: 101704, remainingCents: 234296, needsReviewCount: 0 },
   forecast: { projectedSpendCents: 101704, projectionRangeLowCents: 101704, projectionRangeHighCents: 101704, projectedRemainingCents: 234296, projectedOverageCents: 0, confidence: 'high', atRiskCategoryCount: 0 },
   outsidePlan: { spentCents: 0, transactionCount: 0 }, categories: [], transactions: [
-    transaction('flexible-purchase', 101704),
+    transaction('flexible-purchase', 101704, { planRoleOverride: 'flexible', reviewState: 'assigned' }),
     transaction('account-transfer', 5000, { providerCategoryDetailed: 'TRANSFER_OUT_ACCOUNT_TRANSFER' }),
   ], accounts: [],
   livingLimitAnswer: mockAnswer,
@@ -41,7 +43,11 @@ const mockRefresh = jest.fn(async () => undefined);
 const mockRefreshStaleMoneySummary = jest.fn(async (_input: unknown) => undefined);
 const mockReorderCategories = jest.fn(async (_categoryIds: string[]) => undefined);
 let mockMoneyScreenFrameOnRefresh: (() => Promise<unknown>) | undefined;
+const mockBottomDrawerProps: Array<Record<string, unknown>> = [];
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 47, right: 0, bottom: 34, left: 0 }),
+}));
 jest.mock('../data/MoneyDataContext', () => ({
   useMoneyData: () => ({
     snapshot: mockSnapshot,
@@ -84,16 +90,19 @@ jest.mock('./MoneyScreenFrame', () => {
 jest.mock('../../../ui/BottomDrawer', () => {
   const { View } = require('react-native');
   return {
-    BottomDrawer: ({ children, visible, bottomAccessory }: {
+    BottomDrawer: ({ children, visible, bottomAccessory, ...props }: {
       children: React.ReactNode;
       visible: boolean;
       bottomAccessory?: React.ReactNode;
-    }) => visible ? (
-      <View>
-        {children}
-        <View testID="money-bottom-guide-accessory">{bottomAccessory}</View>
-      </View>
-    ) : null,
+    } & Record<string, unknown>) => {
+      mockBottomDrawerProps.push({ visible, ...props });
+      return visible ? (
+        <View>
+          {children}
+          <View testID="money-bottom-guide-accessory">{bottomAccessory}</View>
+        </View>
+      ) : null;
+    },
     BottomDrawerScrollView: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
   };
 });
@@ -110,6 +119,7 @@ describe('MoneySummaryScreen living limit answer', () => {
   beforeEach(() => {
     mockSnapshot = initialSnapshot;
     mockMoneyScreenFrameOnRefresh = undefined;
+    mockBottomDrawerProps.length = 0;
     mockReconcileConnectedActivity.mockClear();
     mockRefresh.mockClear();
     mockRefreshStaleMoneySummary.mockClear();
@@ -163,35 +173,200 @@ describe('MoneySummaryScreen living limit answer', () => {
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary', name: 'MoneySummary' } as never} />);
 
     expect(screen.getByText('Budget')).toBeTruthy();
-    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$342.96 left');
+    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$343 left');
+    expect(screen.queryByText('Committed spending plan')).toBeNull();
+    expect(screen.queryByText('Planned flexible spending')).toBeNull();
     expect(screen.getByText('left')).toBeTruthy();
-    expect(screen.getByText('out of $1,360')).toBeTruthy();
+    expect(screen.queryByText('Current budget $1,360')).toBeNull();
     expect(screen.getByText('Monthly plan')).toBeTruthy();
     expect(screen.getByText('$3,360')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Review monthly plan breakdown, $3,360' }));
+    const monthSummary = screen.getByTestId('money-month-summary');
+    expect(within(monthSummary).getByText('July summary')).toBeTruthy();
+    expect(within(monthSummary).getByText('ACTUAL')).toBeTruthy();
+    expect(within(monthSummary).getByText('Income received')).toBeTruthy();
+    expect(within(monthSummary).getByText('$0')).toBeTruthy();
+    expect(within(monthSummary).getByText('Total spent')).toBeTruthy();
+    expect(within(monthSummary).getByText('$1,017')).toBeTruthy();
+    expect(within(monthSummary).getByText('PLAN')).toBeTruthy();
+    expect(within(monthSummary).getByText('Monthly plan')).toBeTruthy();
+    expect(within(monthSummary).getByText('Left in plan')).toBeTruthy();
+    expect(monthSummary.props.accessibilityLabel).toContain('$1,017.04 spent');
+    fireEvent.press(monthSummary);
+    expect(screen.getByRole('header', { name: 'July summary' })).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Review monthly plan' }));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyLivingPlan');
     expect(screen.getAllByText('Flexible spending').length).toBeGreaterThan(0);
-    expect(screen.queryByTestId('money-limit-header')).toBeNull();
+    expect(screen.getByTestId('money-limit-header')).toBeTruthy();
     expect(screen.queryByText('Categories')).toBeNull();
     expect(screen.getAllByRole('button', { name: 'View category display' }).length).toBeGreaterThan(0);
+    const monthSwitcher = screen.getByTestId('money-month-switcher');
+    expect(monthSwitcher).toBeTruthy();
+    expect(within(monthSwitcher).queryByText('July 2026')).toBeNull();
+    expect(screen.getByText('July 2026')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('money-add-category-fab'));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyCategoryCreate');
+    expect(StyleSheet.flatten(screen.getAllByTestId('money-flexible-category-collection')[0].props.style)).toMatchObject({
+      marginTop: spacing.sm,
+      borderWidth: 0,
+      backgroundColor: colors.fieldFill,
+    });
     expect(screen.queryByText('$1,017.04 / $3,360 (30%)')).toBeNull();
     expect(screen.getAllByText('Saved transaction history').length).toBeGreaterThan(0);
-    fireEvent.press(screen.getByRole('button', { name: 'What’s included?' }));
+    expect(screen.queryByRole('button', { name: 'What’s included?' })).toBeNull();
+    fireEvent.press(screen.getByTestId('money-limit-explanation-trigger'));
     expect(screen.getAllByText('Flexible spending').length).toBeGreaterThan(0);
-    expect(screen.getByText('$342.96 left this month')).toBeTruthy();
-    expect(screen.getByText('YOUR MONTHLY BOUNDARY')).toBeTruthy();
-    expect(screen.getByText('Living target · 70%')).toBeTruthy();
+    expect(screen.queryByText('$342.96 left this month')).toBeNull();
+    expect(screen.getByText('JULY SPENDING')).toBeTruthy();
+    expect(screen.getByText('HOW YOUR FLEXIBLE ROOM WORKS')).toBeTruthy();
+    expect(screen.getAllByText('Monthly plan').length).toBeGreaterThan(0);
     expect(screen.getByText('Bills and money set aside')).toBeTruthy();
-    expect(screen.getByText('Flexible room')).toBeTruthy();
-    expect(screen.getByText('THIS MONTH')).toBeTruthy();
-    expect(screen.getAllByText('$1,360').length).toBeGreaterThan(0);
-    expect(screen.getByText('Left')).toBeTruthy();
-    expect(screen.getByText('All July activity is accounted for')).toBeTruthy();
+    expect(screen.getByText('Flexible spending this month')).toBeTruthy();
+    expect(screen.getByText('Budget $1,360 · $342.96 left')).toBeTruthy();
+    expect(screen.getByText('Left in monthly plan')).toBeTruthy();
+    expect(screen.getByText('$50 in income, transfers, and other non-spending activity is outside this total.')).toBeTruthy();
     expect(screen.queryByText('Protected costs')).toBeNull();
     expect(screen.queryByText('Not included in flexible spending')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Adjust plan' })).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Change 70% living target' }));
+    expect(screen.queryByRole('button', { name: 'Monthly living boundary · 70%' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Flexible spending this month' })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Change 70% target' }));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyLivingPlan');
+
+    const explanationDrawer = mockBottomDrawerProps.find((props) => (
+      Array.isArray(props.snapPoints) && props.snapPoints.includes('78%')
+    ));
+    expect(explanationDrawer).toMatchObject({ dynamicSizing: false });
+  });
+
+  it('shows actual spending without charging saved-money or outside-plan spending to the plan result', () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      transactions: [
+        transaction('paycheck', 100000, { direction: 'inflow', moneyMeaning: 'income' }),
+        transaction('purchase', 50000, {
+          planRoleOverride: 'flexible', reviewState: 'assigned', savedResourceCents: 10000,
+        }),
+        transaction('outside', 5000, { reviewState: 'not_counted', moneyMeaning: 'not_counted' }),
+      ],
+      livingLimitAnswer: {
+        ...mockAnswer,
+        headlineAmountCents: 20000,
+        facts: {
+          ...mockAnswer.facts,
+          livingLimitCents: 80000,
+          protectedPlanCents: 20000,
+          flexibleCapacityCents: 60000,
+          countedFlexibleSpendCents: 40000,
+          flexibleRoomCents: 20000,
+          flexibleRoomLowCents: 20000,
+          flexibleRoomHighCents: 20000,
+          plannedCents: 80000,
+        },
+      },
+      monthlyPlan: {
+        ...initialSnapshot.monthlyPlan!,
+        regularPlanCents: 80000,
+        committedPlanCents: 20000,
+        flexiblePlanCents: 60000,
+        plannedOutflowCents: 80000,
+      },
+    };
+
+    const screen = render(<MoneySummaryScreen navigation={{ navigate: jest.fn() } as never} route={{ key: 'summary-actual-plan', name: 'MoneySummary' } as never} />);
+    const summary = screen.getByTestId('money-month-summary');
+
+    expect(within(summary).getByText('$1,000')).toBeTruthy();
+    expect(within(summary).getByText('$550')).toBeTruthy();
+    expect(within(summary).getByText('$800')).toBeTruthy();
+    expect(within(summary).getByText('$200')).toBeTruthy();
+    expect(within(summary).getByText('$150 of spending did not count toward this month’s plan.')).toBeTruthy();
+  });
+
+  it('keeps flexible and committed variances separate before totaling the month', () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      livingLimitAnswer: {
+        ...mockAnswer,
+        state: 'over_flexible_room',
+        headlineAmountCents: 247_996,
+        facts: {
+          ...mockAnswer.facts,
+          livingLimitCents: 774_519,
+          protectedPlanCents: 400_000,
+          protectedOverageCents: 21_253,
+          flexibleCapacityCents: 374_519,
+          countedFlexibleSpendCents: 622_515,
+          flexibleRoomCents: -247_996,
+          flexibleRoomLowCents: -247_996,
+          flexibleRoomHighCents: -247_996,
+          plannedCents: 774_519,
+        },
+      },
+      monthlyPlan: {
+        ...initialSnapshot.monthlyPlan!,
+        regularPlanCents: 774_519,
+        committedPlanCents: 400_000,
+        flexiblePlanCents: 374_519,
+        plannedOutflowCents: 774_519,
+      },
+    };
+    const navigation = { navigate: jest.fn() };
+    const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'fixed-plan', name: 'MoneySummary' } as never} />);
+
+    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$2,480 over budget');
+    expect(screen.queryByText('Current budget $3,745')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Review overages' })).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Review overages' }));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactions', expect.objectContaining({ overageReview: true }));
+    fireEvent.press(screen.getByTestId('money-limit-explanation-trigger'));
+    expect(screen.getAllByText('Monthly plan').length).toBeGreaterThan(0);
+    expect(screen.getByText('Bills and money set aside')).toBeTruthy();
+    expect(screen.getByText('Budget $4,000 · $212.53 over')).toBeTruthy();
+    expect(screen.getByText('Flexible spending this month')).toBeTruthy();
+    expect(screen.getByText('Budget $3,745.19 · $2,479.96 over')).toBeTruthy();
+    expect(screen.getByText('Over monthly plan')).toBeTruthy();
+    expect(screen.getByText('$2,692.49')).toBeTruthy();
+  });
+
+  it('projects unclear spending as review work and explains the complete spending total', () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      categories: [
+        category('housing', 'Housing', 'protected'),
+        category('shopping', 'Shopping', 'flexible'),
+      ],
+      transactions: [
+        transaction('rent', 8000, { categoryId: 'housing', categoryName: 'Housing', reviewState: 'assigned' }),
+        transaction('purchase', 1200, { categoryId: 'shopping', categoryName: 'Shopping', reviewState: 'assigned' }),
+        transaction('unclear-charge', 800),
+        transaction('outside', 500, { reviewState: 'not_counted', moneyMeaning: 'not_counted' }),
+        transaction('transfer', 30000, { providerCategoryDetailed: 'TRANSFER_OUT_ACCOUNT_TRANSFER' }),
+      ],
+    };
+    const navigation = { navigate: jest.fn() };
+    const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-reconciliation', name: 'MoneySummary' } as never} />);
+
+    const unclearSummary = screen.getByRole('button', { name: 'Review unclear spending, $8 across 1 transaction' });
+    expect(unclearSummary).toBeTruthy();
+    fireEvent.press(unclearSummary);
+    expect(screen.getByRole('header', { name: 'Unclear spending' })).toBeTruthy();
+    expect(screen.getByText('1 transaction · $8')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Review unclear-charge, $8' }));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactionDetail', {
+      transactionId: 'unclear-charge',
+      economicRoleReview: true,
+    });
+
+    fireEvent.press(screen.getByTestId('money-limit-explanation-trigger'));
+    expect(screen.getByText('JULY SPENDING')).toBeTruthy();
+    expect(screen.getAllByText('Total spent').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('$105').length).toBeGreaterThan(0);
+    expect(screen.getByText('Committed')).toBeTruthy();
+    expect(screen.getByText('Unclear')).toBeTruthy();
+    expect(screen.getByText('Outside the plan')).toBeTruthy();
+    expect(screen.getByText('HOW YOUR FLEXIBLE ROOM WORKS')).toBeTruthy();
+    expect(screen.getByText('Flexible and unclear spending')).toBeTruthy();
+    expect(screen.getByText('$300 in income, transfers, and other non-spending activity is outside this total.')).toBeTruthy();
   });
 
   it('offers account-backed setup instead of an invented empty budget', () => {
@@ -249,7 +424,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     />);
 
     expect(screen.getByText('We built a $6,175 monthly plan from the accounts you connected. You can change any budget.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Review monthly plan breakdown, $6,175' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Review July summary, .*\$6,175 monthly plan/ })).toBeTruthy();
     expect(screen.getAllByText('Groceries').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Housing').length).toBeGreaterThan(0);
   });
@@ -288,10 +463,10 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getAllByText('Housing').length).toBeGreaterThan(0);
 
     const flexibleInfo = screen.getAllByRole('button', { name: 'About flexible spending' })[0];
-    expect(flexibleInfo.props.accessibilityHint).toBe('Everyday categories that use the flexible spending amount shown here.');
+    expect(flexibleInfo.props.accessibilityHint).toBe('Explains what is included and how this amount is calculated.');
     fireEvent.press(flexibleInfo);
-    expect(flexibleInfo.props.accessibilityState).toMatchObject({ expanded: true });
-    fireEvent.press(flexibleInfo);
+    expect(screen.getByText('Left in monthly plan')).toBeTruthy();
+    expect(screen.getByText('$342.96')).toBeTruthy();
 
     const committedInfo = screen.getAllByRole('button', { name: 'About committed spending' })[0];
     expect(committedInfo.props.accessibilityHint).toBe('Bills and money already set aside before your flexible spending is calculated.');
@@ -366,8 +541,8 @@ describe('MoneySummaryScreen living limit answer', () => {
     const navigation = { navigate: jest.fn() };
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary', name: 'MoneySummary' } as never} />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'What’s included?' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Review flexible spending transactions' }));
+    fireEvent.press(screen.getByTestId('money-limit-explanation-trigger'));
+    fireEvent.press(screen.getByRole('button', { name: 'Review flexible transactions' }));
 
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactions', {
       inventoryTitle: 'Flexible spending',
@@ -396,7 +571,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(mockReconcileConnectedActivity).toHaveBeenCalledWith({ trigger: 'stale_summary', sync: true });
     expect(screen.queryByText(/transactions need/i)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open connected accounts' })).toBeNull();
-    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$342.96 left');
+    expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$343 left');
     expect(screen.getByText('left')).toBeTruthy();
   });
 });
@@ -423,7 +598,11 @@ describe('MoneySummaryScreen drawer anatomy', () => {
   });
 });
 
-function transaction(id: string, amountCents: number, overrides: Record<string, unknown> = {}) {
+function transaction(
+  id: string,
+  amountCents: number,
+  overrides: Partial<MoneySnapshot['transactions'][number]> = {},
+): MoneySnapshot['transactions'][number] {
   return {
     id, accountId: 'checking', accountName: 'Checking', institutionName: 'Bank', merchantName: id,
     amountCents, direction: 'outflow', date: '2026-07-15', pending: false,

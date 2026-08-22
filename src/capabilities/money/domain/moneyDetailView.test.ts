@@ -48,6 +48,17 @@ describe('money detail view projection', () => {
     ];
     expect(getSimilarMerchantTransactions(rows, selected, 'partial').map((row) => row.id)).toEqual(['same']);
   });
+
+  it('previews candidates using the edited partial merchant value', () => {
+    const selected = transaction({ id: 'selected', merchantName: 'Amazon Marketplace Purchase' });
+    const rows = [
+      selected,
+      transaction({ id: 'amazon', merchantName: 'Amazon Prime' }),
+      transaction({ id: 'purchase', merchantName: 'Local Purchase' }),
+    ];
+
+    expect(getSimilarMerchantTransactions(rows, selected, 'partial', 'Amazon').map((row) => row.id)).toEqual(['amazon']);
+  });
 });
 
 describe('buildHistoricalAverageSpendSeries', () => {

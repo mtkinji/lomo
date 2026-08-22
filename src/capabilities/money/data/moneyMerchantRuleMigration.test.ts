@@ -12,6 +12,11 @@ const optimizedMigration = readFileSync(
   'utf8',
 ).toLowerCase();
 
+const editablePartialMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260822005604_allow_editable_partial_merchant_rules.sql'),
+  'utf8',
+).toLowerCase();
+
 describe('Money merchant rule persistence migration', () => {
   it('atomically saves a rule and reapplies it across matching history', () => {
     expect(migration).toContain('function public.upsert_budget_transaction_match_rule');
@@ -60,5 +65,13 @@ describe('Money merchant rule persistence migration', () => {
     expect(optimizedMigration).toContain("set_config('kwilt.merchant_rule_applied_count'");
     expect(rpcBody).toContain("current_setting('kwilt.merchant_rule_applied_count', true)");
     expect(rpcBody).not.toContain('with resolved as');
+  });
+
+  it('accepts an edited partial key only when it remains inside the source merchant', () => {
+    expect(editablePartialMigration).toContain("p_match_mode = 'partial'");
+    expect(editablePartialMigration).toContain('strpos(v_source_merchant_key, v_rule_merchant_key) = 0');
+    expect(editablePartialMigration).toContain('trim(p_budget_id),\n    v_rule_merchant_key');
+    expect(editablePartialMigration).toContain('security invoker');
+    expect(editablePartialMigration).toContain('set search_path = \'\'');
   });
 });

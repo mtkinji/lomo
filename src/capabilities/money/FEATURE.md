@@ -24,6 +24,7 @@ briefs:
   - budget-credits-and-income-classification
   - budget-detail-month-scoped-activity
   - budget-reality-gate
+  - budget-overage-recovery
   - budget-unlock-bottom-guide
   - category-budget-planning
   - category-rollovers
@@ -48,7 +49,7 @@ briefs:
   - transaction-rule-truth
   - transaction-truth-to-five
 status: shipping
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-21
 ---
 
 # Money
