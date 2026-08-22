@@ -200,6 +200,42 @@ describe('reconcileMoneyEconomicRoles', () => {
     expect(result.totals.savedResourceSpendingCents).toBe(200000);
   });
 
+  it('apportions monthly-plan coverage across a split without double-counting saved money', () => {
+    const result = reconcileMoneyEconomicRoles({
+      transactions: [transaction('split-purchase', 10000, {
+        categoryName: 'Split across categories',
+        reviewState: 'assigned',
+        savedResourceCents: 3000,
+        allocations: [
+          { categoryId: 'home', sourceCategoryId: 'home-uuid', categoryName: 'Home', amountCents: 6000 },
+          { categoryId: 'groceries', sourceCategoryId: 'grocery-uuid', categoryName: 'Groceries', amountCents: 4000 },
+        ],
+      })],
+      allocations: [
+        allocation('home', 6000, { fixedCents: 6000, flexibleCents: 0, source: 'fixed' }),
+        allocation('groceries', 4000),
+      ],
+    });
+
+    expect(result.rows[0]).toMatchObject({
+      amountCents: 10000,
+      savedResourceCents: 3000,
+      monthlyPlanCents: 7000,
+      contributions: [
+        { role: 'protected_spending', amountCents: 6000, spendDeltaCents: 4200 },
+        { role: 'flexible_spending', amountCents: 4000, spendDeltaCents: 2800 },
+      ],
+    });
+    expect(result.totals.protectedSpendingCents).toBe(4200);
+    expect(result.totals.flexibleSpendingCents).toBe(2800);
+    expect(result.totals.savedResourceSpendingCents).toBe(3000);
+    expect(
+      result.totals.protectedSpendingCents
+        + result.totals.flexibleSpendingCents
+        + result.totals.savedResourceSpendingCents,
+    ).toBe(10000);
+  });
+
   it('requires a category credit to reference a governed spending role', () => {
     const result = reconcileMoneyEconomicRoles({
       transactions: [transaction('orphan-refund', 2500, {
@@ -234,6 +270,38 @@ describe('reconcileMoneyEconomicRoles', () => {
     expect(result.rows.map((row) => row.disposition)).toEqual(['not_spending', 'not_spending']);
     expect(result.totals.neutralCents).toBe(287397);
     expect(result.totals.unresolvedInScopeCents).toBe(0);
+  });
+
+  it('keeps an assigned credit-card payment neutral despite its category or split', () => {
+    const result = reconcileMoneyEconomicRoles({
+      transactions: [
+        transaction('assigned-card-payment', 4297, {
+          categoryId: 'debt',
+          categoryName: 'Debt & fees',
+          reviewState: 'assigned',
+          providerCategoryPrimary: 'LOAN_PAYMENTS',
+          providerCategoryDetailed: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT',
+          providerCategoryConfidence: 'HIGH',
+        }),
+        transaction('split-card-payment', 10000, {
+          categoryName: 'Split across categories',
+          reviewState: 'assigned',
+          providerCategoryPrimary: 'LOAN_PAYMENTS',
+          providerCategoryDetailed: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT',
+          providerCategoryConfidence: 'HIGH',
+          allocations: [
+            { categoryId: 'debt', sourceCategoryId: 'debt-uuid', categoryName: 'Debt & fees', amountCents: 6000 },
+            { categoryId: 'groceries', sourceCategoryId: 'grocery-uuid', categoryName: 'Groceries', amountCents: 4000 },
+          ],
+        }),
+      ],
+      allocations: [allocation('debt', 6000), allocation('groceries', 4000)],
+    });
+
+    expect(result.rows.map((row) => row.disposition)).toEqual(['not_spending', 'not_spending']);
+    expect(result.totals.neutralCents).toBe(14297);
+    expect(result.totals.protectedSpendingCents).toBe(0);
+    expect(result.totals.flexibleSpendingCents).toBe(0);
   });
 
   it('does not assume payment-app transfers are neutral spending', () => {

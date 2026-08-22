@@ -1,3 +1,16 @@
+-- Credit-card payments move money between owned accounts; they are not spending.
+-- Repair only automatic v2 assignments so household-reviewed choices remain intact.
+update public.budget_transactions
+set budget_id = null,
+    budget_assignment_source = null,
+    budget_assignment_policy_version = null,
+    budget_assignment_governed = false,
+    budget_match_confidence = null,
+    budget_match_reason = null
+where upper(coalesce(personal_finance_category_detailed, '')) = 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT'
+  and budget_assignment_source = 'provider_policy'
+  and budget_assignment_policy_version = 'governed-category-v2';
+
 -- Canonical Money categories v2. This changes the starter policy for new
 -- households and may add one evidence-backed conditional category. Existing
 -- household category names, slugs, rules, corrections, and plans stay intact.

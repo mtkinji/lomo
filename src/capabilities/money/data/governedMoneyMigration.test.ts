@@ -21,6 +21,10 @@ const canonicalCategoryV2Migration = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260822005804_canonical_money_categories_v2.sql'),
   'utf8',
 );
+const neutralPaymentRepairMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260822020828_preserve_neutral_payments_in_governed_reconciliation.sql'),
+  'utf8',
+);
 
 describe('governed household Money migration', () => {
   const foundation = migration.slice(
@@ -109,5 +113,24 @@ describe('governed household Money migration', () => {
     expect(canonicalCategoryV2Migration).toMatch(
       /grant execute on function public\.reconcile_governed_household_money_foundation\(uuid\)\s+to service_role;/,
     );
+  });
+
+  it('never auto-assigns credit-card payments and repairs only v2 provider assignments', () => {
+    expect(canonicalCategoryV2Migration).toContain(
+      "upper(coalesce(txn.personal_finance_category_detailed, '')) <> 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT'",
+    );
+    expect(neutralPaymentRepairMigration).toContain(
+      "upper(coalesce(txn.personal_finance_category_detailed, '')) <> 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT'",
+    );
+    expect(neutralPaymentRepairMigration).toContain(
+      "upper(coalesce(personal_finance_category_detailed, '')) = 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT'",
+    );
+    expect(neutralPaymentRepairMigration).toContain(
+      "budget_assignment_source = 'provider_policy'",
+    );
+    expect(neutralPaymentRepairMigration).toContain(
+      "budget_assignment_policy_version = 'governed-category-v2'",
+    );
+    expect(neutralPaymentRepairMigration).not.toMatch(/budget_assignment_governed\s*=\s*true/);
   });
 });
