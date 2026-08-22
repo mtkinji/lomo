@@ -30,7 +30,7 @@ export async function shareUrlWithPreview(params: {
         result = await KwiltShareSheet.present(
           url,
           params.subject ?? null,
-          'Ask Household',
+          params.onAskHousehold ? 'Ask Household' : null,
         );
       } finally {
         dismissalSubscription?.remove();

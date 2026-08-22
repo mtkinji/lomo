@@ -9,7 +9,7 @@ Ship “Add to calendar” as an MVP feature without requiring Google/Microsoft 
 - Launch plan: `docs/launch/mvp-app-launch-jan-1-2026.md`
 - Activity model: `src/domain/types.ts` (includes `scheduledAt?: string | null` and `scheduledDate?: string | null`)
 - Activity detail UI: `src/features/activities/ActivityDetailScreen.tsx`
-- Today view rendering: `src/features/home/TodayScreen.tsx` (currently interprets `scheduledDate` as time-of-day)
+- The retired Today view no longer renders calendar data; active calendar presentation belongs to Plan.
 
 ---
 
@@ -77,4 +77,3 @@ That link opens the to-do with the Focus sheet ready. It does not immediately ac
 - Exported `.ics` imports into Apple Calendar successfully.
 - No OAuth required for MVP.
 - Scheduling data model avoids breaking migrations by using a new field.
-

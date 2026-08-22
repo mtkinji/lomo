@@ -62,8 +62,9 @@ describe('Meal Planning repository', () => {
     await repository.setSharedReaction('candidate-1', 'hard_pass', 'Mushrooms');
     await repository.sendSharedCandidates('plan-1', 2, ['candidate-1'], { acknowledgeHardPasses: true });
     await repository.removeSentSharedCandidate('plan-1', 3, 'candidate-1');
-    await repository.keepGroceriesAndRemoveSharedCandidate('candidate-2', 4);
-    await repository.markSharedCandidateMade('candidate-3', 5);
+    await repository.returnSharedCandidateToPlan('plan-1', 4, 'candidate-2');
+    await repository.keepGroceriesAndRemoveSharedCandidate('candidate-3', 5);
+    await repository.markSharedCandidateMade('candidate-4', 6);
 
     expect(rpc.mock.calls).toEqual([
       ['get_kwilt_shared_meal_cart', { p_household_id: 'household-1' }],
@@ -71,12 +72,13 @@ describe('Meal Planning repository', () => {
       ['withdraw_kwilt_shared_meal_candidate', { p_candidate_id: 'candidate-1' }],
       ['set_kwilt_shared_meal_reaction', { p_candidate_id: 'candidate-1', p_reaction: null }],
       ['set_kwilt_shared_meal_reaction', { p_candidate_id: 'candidate-1', p_reaction: 'hard_pass', p_reason: 'Mushrooms' }],
-      ['remove_kwilt_sent_plan_candidate_keep_groceries', { p_candidate_id: 'candidate-2', p_expected_version: 4 }],
-      ['mark_kwilt_plan_candidate_made', { p_candidate_id: 'candidate-3', p_expected_version: 5 }],
+      ['remove_kwilt_sent_plan_candidate_keep_groceries', { p_candidate_id: 'candidate-3', p_expected_version: 5 }],
+      ['mark_kwilt_plan_candidate_made', { p_candidate_id: 'candidate-4', p_expected_version: 6 }],
     ]);
     expect(invoke.mock.calls).toEqual([
       ['grocery-compile', { body: { planAction: 'send', planId: 'plan-1', expectedVersion: 2, candidateIds: ['candidate-1'], acknowledgeHardPasses: true } }],
       ['grocery-compile', { body: { planAction: 'remove', planId: 'plan-1', expectedVersion: 3, candidateIds: ['candidate-1'] } }],
+      ['grocery-compile', { body: { planAction: 'return', planId: 'plan-1', expectedVersion: 4, candidateIds: ['candidate-2'] } }],
     ]);
   });
 

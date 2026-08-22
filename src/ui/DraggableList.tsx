@@ -21,7 +21,7 @@ import { HapticsService } from '../services/HapticsService';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DraggableList - Generic drag-and-drop reorderable list
-// - Long press initiates drag mode
+// - Long press or a dedicated handle initiates drag mode
 // - Other items animate their translateY to make room
 // - On drag end, we commit the new order to data and reset transforms
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,15 +37,24 @@ type DraggableRowProps<T extends { id: string }> = {
   itemHeights: SharedValue<Record<string, number>>;
   orderedIds: SharedValue<string[]>;
   pendingReset: SharedValue<boolean>;
+  activationMode: 'longPress' | 'handle';
+  reportDraggingOnJS: boolean;
   onReorderWithPendingReset: (fromIndex: number, toIndex: number) => void;
-  onDragStart: () => void;
-  onDragEnd: () => void;
+  onDragStart: (index: number) => void;
+  onDragPositionChange: (fromIndex: number, toIndex: number) => void;
+  onDragEnd: (fromIndex: number, toIndex: number) => void;
+  onDragCancel: (fromIndex: number, toIndex: number) => void;
   triggerDragHaptic: () => void;
   scrollRef: ReturnType<typeof useAnimatedRef<Animated.ScrollView>>;
   scrollY: SharedValue<number>;
   containerHeight: SharedValue<number>;
   containerTop: SharedValue<number>;
-  renderContent: (item: T, isDragging: boolean, index: number) => React.ReactNode;
+  renderContent: (
+    item: T,
+    isDragging: boolean,
+    index: number,
+    renderDragHandle: (handle: React.ReactElement) => React.ReactElement,
+  ) => React.ReactNode;
 };
 
 type DraggableScrollEvent = NativeSyntheticEvent<NativeScrollEvent>;
@@ -61,9 +70,13 @@ function DraggableRow<T extends { id: string }>({
   itemHeights,
   orderedIds,
   pendingReset,
+  activationMode,
+  reportDraggingOnJS,
   onReorderWithPendingReset,
   onDragStart,
+  onDragPositionChange,
   onDragEnd,
+  onDragCancel,
   triggerDragHaptic,
   scrollRef,
   scrollY,
@@ -165,39 +178,46 @@ function DraggableRow<T extends { id: string }>({
       }
     };
 
+    const beginDrag = () => {
+      'worklet';
+      activeId.value = itemId;
+      activeIndex.value = index;
+      currentIndex.value = index;
+      dragTranslateY.value = 0;
+      startScrollY.value = scrollY.value;
+      runOnJS(triggerDragHaptic)();
+      if (reportDraggingOnJS) runOnJS(setDraggingTrue)();
+      runOnJS(onDragStart)(index);
+    };
+
     const longPress = Gesture.LongPress()
       .minDuration(300)
       .maxDistance(24)
-      .onStart(() => {
-        activeId.value = itemId;
-        activeIndex.value = index;
-        currentIndex.value = index;
-        dragTranslateY.value = 0;
-        startScrollY.value = scrollY.value;
-        runOnJS(triggerDragHaptic)();
-        runOnJS(setDraggingTrue)();
-        runOnJS(onDragStart)();
-      });
+      .onStart(beginDrag);
 
     const pan = Gesture.Pan()
       .manualActivation(true)
-      .onTouchesMove((e, stateManager) => {
-        // Only activate the pan gesture when we're in drag mode
-        // This allows scroll to work normally when not dragging
-        if (activeId.value === itemId) {
+      .onTouchesMove((_event, stateManager) => {
+        if (activationMode === 'handle') {
+          stateManager.activate();
+        } else if (activeId.value === itemId) {
+          // Long-press mode arms the row before handing movement to the pan.
           stateManager.activate();
         } else {
           stateManager.fail();
         }
       })
-      .onUpdate((e) => {
+      .onStart(() => {
+        if (activationMode === 'handle') beginDrag();
+      })
+      .onUpdate((event) => {
         if (activeId.value !== itemId) return;
 
         // Update drag position with scroll compensation
         const scrollDelta = scrollY.value - startScrollY.value;
-        dragTranslateY.value = e.translationY + scrollDelta;
+        dragTranslateY.value = event.translationY + scrollDelta;
 
-        maybeAutoScroll(e.absoluteY);
+        maybeAutoScroll(event.absoluteY);
 
         // Calculate which index we're hovering over based on cumulative heights
         const fromIdx = activeIndex.value;
@@ -234,6 +254,7 @@ function DraggableRow<T extends { id: string }>({
 
         if (newIndex !== currentIndex.value) {
           currentIndex.value = newIndex;
+          runOnJS(onDragPositionChange)(fromIdx, newIndex);
         }
       })
       .onEnd(() => {
@@ -242,8 +263,8 @@ function DraggableRow<T extends { id: string }>({
         const fromIdx = activeIndex.value;
         const toIdx = currentIndex.value;
 
-        runOnJS(setDraggingFalse)();
-        runOnJS(onDragEnd)();
+        if (reportDraggingOnJS) runOnJS(setDraggingFalse)();
+        runOnJS(onDragEnd)(fromIdx, toIdx);
 
         if (fromIdx !== toIdx) {
           // DON'T reset state yet - keep transforms in place while data reorders
@@ -261,17 +282,20 @@ function DraggableRow<T extends { id: string }>({
       .onFinalize(() => {
         // Only reset if not pending (i.e., drag was cancelled, not completed with reorder)
         if (activeId.value === itemId && !pendingReset.value) {
+          const fromIdx = activeIndex.value;
+          const toIdx = currentIndex.value;
           dragTranslateY.value = withTiming(0, { duration: 150 });
           activeId.value = null;
           activeIndex.value = -1;
           currentIndex.value = -1;
-          runOnJS(setDraggingFalse)();
-          runOnJS(onDragEnd)();
+          if (reportDraggingOnJS) runOnJS(setDraggingFalse)();
+          runOnJS(onDragCancel)(fromIdx, toIdx);
         }
       });
 
-    return Gesture.Simultaneous(longPress, pan);
+    return activationMode === 'handle' ? pan : Gesture.Simultaneous(longPress, pan);
   }, [
+    activationMode,
     activeId,
     activeIndex,
     currentIndex,
@@ -282,10 +306,13 @@ function DraggableRow<T extends { id: string }>({
     itemHeights,
     itemId,
     onDragEnd,
+    onDragCancel,
+    onDragPositionChange,
     onDragStart,
     onReorderWithPendingReset,
     orderedIds,
     pendingReset,
+    reportDraggingOnJS,
     scrollRef,
     scrollY,
     setDraggingFalse,
@@ -293,6 +320,13 @@ function DraggableRow<T extends { id: string }>({
     startScrollY,
     triggerDragHaptic,
   ]);
+
+  const renderDragHandle = React.useCallback(
+    (handle: React.ReactElement) => (
+      <GestureDetector gesture={gesture}>{handle}</GestureDetector>
+    ),
+    [gesture],
+  );
 
   const handleLayout = React.useCallback(
     (e: { nativeEvent: { layout: { height: number } } }) => {
@@ -305,17 +339,32 @@ function DraggableRow<T extends { id: string }>({
 
   return (
     <Animated.View style={animatedStyle} onLayout={handleLayout}>
-      <GestureDetector gesture={gesture}>
-        <View>{renderContent(item, isDragging, index)}</View>
-      </GestureDetector>
+      {activationMode === 'handle' ? (
+        <View>{renderContent(item, isDragging, index, renderDragHandle)}</View>
+      ) : (
+        <GestureDetector gesture={gesture}>
+          <View>{renderContent(item, isDragging, index, renderDragHandle)}</View>
+        </GestureDetector>
+      )}
     </Animated.View>
   );
 }
 
 export type DraggableListProps<T extends { id: string }> = {
   items: T[];
-  onOrderChange: (orderedIds: string[]) => void;
-  renderItem: (item: T, isDragging: boolean, index: number) => React.ReactNode;
+  onOrderChange: (orderedIds: string[], move: { fromIndex: number; toIndex: number }) => void;
+  renderItem: (
+    item: T,
+    isDragging: boolean,
+    index: number,
+    renderDragHandle: (handle: React.ReactElement) => React.ReactElement,
+  ) => React.ReactNode;
+  activationMode?: 'longPress' | 'handle';
+  reportDraggingOnJS?: boolean;
+  onDragStart?: (index: number) => void;
+  onDragPositionChange?: (fromIndex: number, toIndex: number) => void;
+  onDragEnd?: (fromIndex: number, toIndex: number) => void;
+  onDragCancel?: (fromIndex: number, toIndex: number) => void;
   contentContainerStyle?: StyleProp<ViewStyle>;
   extraBottomPadding?: number;
   ListHeaderComponent?: React.ReactNode;
@@ -336,6 +385,12 @@ export function DraggableList<T extends { id: string }>({
   items,
   onOrderChange,
   renderItem,
+  activationMode = 'longPress',
+  reportDraggingOnJS = true,
+  onDragStart,
+  onDragPositionChange,
+  onDragEnd,
+  onDragCancel,
   contentContainerStyle,
   extraBottomPadding = 0,
   ListHeaderComponent,
@@ -352,7 +407,7 @@ export function DraggableList<T extends { id: string }>({
   scrollToTopRequestId,
 }: DraggableListProps<T>) {
   const triggerDragHaptic = React.useCallback(() => {
-    void HapticsService.trigger('canvas.selection');
+    void HapticsService.trigger('canvas.drag.pickup');
   }, []);
 
   // Shared values for drag state
@@ -432,18 +487,23 @@ export function DraggableList<T extends { id: string }>({
       const newOrder = [...items];
       const [moved] = newOrder.splice(fromIndex, 1);
       newOrder.splice(toIndex, 0, moved);
-      onOrderChange(newOrder.map((item) => item.id));
+      onOrderChange(newOrder.map((item) => item.id), { fromIndex, toIndex });
     },
     [items, onOrderChange],
   );
 
-  // Callbacks for drag start/end (no-ops now that Pan manualActivation handles scroll blocking)
-  const handleDragStart = React.useCallback(() => {
-    // Pan gesture's manualActivation handles blocking scroll during drag
-  }, []);
-  const handleDragEnd = React.useCallback(() => {
-    // No action needed
-  }, []);
+  const handleDragStart = React.useCallback((index: number) => {
+    onDragStart?.(index);
+  }, [onDragStart]);
+  const handleDragPositionChange = React.useCallback((fromIndex: number, toIndex: number) => {
+    onDragPositionChange?.(fromIndex, toIndex);
+  }, [onDragPositionChange]);
+  const handleDragEnd = React.useCallback((fromIndex: number, toIndex: number) => {
+    onDragEnd?.(fromIndex, toIndex);
+  }, [onDragEnd]);
+  const handleDragCancel = React.useCallback((fromIndex: number, toIndex: number) => {
+    onDragCancel?.(fromIndex, toIndex);
+  }, [onDragCancel]);
 
   return (
     <Animated.ScrollView
@@ -489,9 +549,13 @@ export function DraggableList<T extends { id: string }>({
               itemHeights={itemHeights}
               orderedIds={orderedIds}
               pendingReset={pendingReset}
+              activationMode={activationMode}
+              reportDraggingOnJS={reportDraggingOnJS}
               onReorderWithPendingReset={handleReorderWithPendingReset}
               onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
+              onDragPositionChange={handleDragPositionChange}
+                  onDragEnd={handleDragEnd}
+                  onDragCancel={handleDragCancel}
               triggerDragHaptic={triggerDragHaptic}
               scrollRef={scrollRef}
               scrollY={scrollY}

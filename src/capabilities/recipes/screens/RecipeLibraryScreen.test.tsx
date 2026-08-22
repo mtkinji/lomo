@@ -1,11 +1,14 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { createRef, type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+
+type TestTreeNode = { props: { style?: StyleProp<ViewStyle>; [key: string]: unknown } };
 
 type MockBottomDrawerProps = {
   visible: boolean;
   children?: ReactNode;
   bottomAccessory?: ReactNode;
+  bottomAccessoryPlacement?: 'drawer' | 'phoneFloating';
   snapIndex?: number;
   snapPoints?: Array<number | string>;
   dismissable?: boolean;
@@ -27,6 +30,25 @@ jest.mock('../../../features/unifiedChat/UnifiedChatDrawer', () => ({
 jest.mock('../../../ui/hooks/useAccessibilityPreferences', () => ({
   useAccessibilityPreferences: () => ({ reduceMotionEnabled: false, screenReaderEnabled: false }),
 }));
+jest.mock('../../../ui/ActionDock', () => {
+  const { Pressable, View } = require('react-native');
+  return {
+    ActionDock: ({ rightItem }: { rightItem?: Record<string, unknown> }) => (
+      <View>
+        {rightItem ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={rightItem.accessibilityLabel as string}
+            testID={rightItem.testID as string}
+            onPress={rightItem.onPress as () => void}
+            style={{ width: 56, height: 56 }}
+          />
+        ) : null}
+      </View>
+    ),
+    useActionDockClearance: () => 88,
+  };
+});
 jest.mock('../../../ui/AlertDialog', () => ({
   AlertDialog: ({ visible, title, description, cancelLabel, actionLabel, onCancel, onAction }: Record<string, unknown>) => {
     if (!visible) return null;
@@ -73,6 +95,7 @@ import {
   RESTING_COMPOSER_HEIGHT_PX,
   RESTING_COMPOSER_HORIZONTAL_INSET_PX,
 } from '../../../ui/layout/restingComposerMetrics';
+import { FOOD_FIRST_CYCLE_CHECKPOINTS } from '../../../features/household-food/onboarding/foodFirstCycleGuide';
 import {
   MealPlanHeaderAction,
   MealPlanDrawer,
@@ -83,6 +106,7 @@ import {
   buildRecipeDiscoverySections,
   buildRecipeShelves,
   resolveRecipeBrowseMode,
+  shouldShowPickMealGuide,
 } from './RecipeLibraryScreen';
 import { RecipeCaptureDrawer, RecipeFilterDrawer } from './RecipeLibraryDrawers';
 
@@ -689,14 +713,15 @@ describe('Recipe library', () => {
       />,
     );
 
-    expect(drawer.getByText('Plan')).toBeTruthy();
-    expect(drawer.getByLabelText('Plan, 6 recipes')).toBeTruthy();
+    expect(drawer.getByText('Ideas')).toBeTruthy();
+    expect(drawer.getByLabelText('Ideas, 6 recipes')).toBeTruthy();
     expect(drawer.queryByTestId('meal-plan-drawer-count')).toBeNull();
     expect(drawer.queryByTestId('meal-plan-drawer-thumbnail')).toBeNull();
     expect(drawer.queryByLabelText('Search meals')).toBeNull();
     expect(drawer.getByText('Meal 6')).toBeTruthy();
     expect(drawer.queryByLabelText('More actions for Meal 1')).toBeNull();
-    fireEvent.press(drawer.getByRole('button', { name: 'Remove Meal 1 from Plan' }));
+    expect(drawer.getAllByTestId('plan-remove-minus-candidate-1').length).toBeGreaterThan(0);
+    fireEvent.press(drawer.getByRole('button', { name: 'Remove Meal 1 from Meal ideas' }));
     expect(onRemove).toHaveBeenCalledWith(items[0]);
   });
 
@@ -719,7 +744,7 @@ describe('Recipe library', () => {
       />,
     );
 
-    expect(StyleSheet.flatten(drawer.getByText('Plan').props.style)).toMatchObject({
+    expect(StyleSheet.flatten(drawer.getByText('Ideas').props.style)).toMatchObject({
       fontFamily: typography.titleLg.fontFamily,
       fontSize: typography.titleLg.fontSize,
     });
@@ -743,6 +768,24 @@ describe('Recipe library', () => {
     expect(drawer.queryByRole('button', { name: 'Ask household' })).toBeNull();
   });
 
+  it('lets a durable Food checkpoint override a stale pick-meal route hint', () => {
+    expect(shouldShowPickMealGuide({
+      routeOnboarding: 'pick-meal',
+      foodGuideCheckpoint: FOOD_FIRST_CYCLE_CHECKPOINTS['share-plan'],
+      hasRecipes: true,
+    })).toBe(false);
+    expect(shouldShowPickMealGuide({
+      routeOnboarding: 'pick-meal',
+      foodGuideCheckpoint: 'complete',
+      hasRecipes: true,
+    })).toBe(false);
+    expect(shouldShowPickMealGuide({
+      routeOnboarding: 'pick-meal',
+      foodGuideCheckpoint: null,
+      hasRecipes: true,
+    })).toBe(true);
+  });
+
   it('moves the grocery action below the translucent native share sheet without unmounting it', () => {
     const drawer = render(
       <MealPlanDrawer
@@ -759,13 +802,14 @@ describe('Recipe library', () => {
         shareBusy
         shareSheetVisible
         onSendToGroceries={jest.fn()}
+        onOpenGroceries={jest.fn()}
       />,
     );
 
     const planDrawer = mockBottomDrawerProps.find((props) => (
       props.visible && props.snapPoints?.[0] === '100%'
     ));
-    expect(planDrawer?.bottomAccessory).toBeTruthy();
+    expect(planDrawer?.bottomAccessory).toBeUndefined();
     const transition = drawer.getByTestId(
       'plan-grocery-action-transition',
       { includeHiddenElements: true },
@@ -829,7 +873,7 @@ describe('Recipe library', () => {
     expect(within(drawer.getByTestId('plan-copy-candidate-long')).getByTestId(
       'plan-reaction-row-candidate-long',
     )).toBeTruthy();
-    expect(drawer.getByRole('button', { name: `Remove ${title} from Plan` })).toBeTruthy();
+    expect(drawer.getByRole('button', { name: `Remove ${title} from Meal ideas` })).toBeTruthy();
   });
 
   it('keeps one two-row thumbnail height when a Plan title wraps to a third row', () => {
@@ -857,7 +901,7 @@ describe('Recipe library', () => {
     expect(StyleSheet.flatten(drawer.getByLabelText(longTitle).props.style)).toMatchObject({ width: 56, height: 56 });
   });
 
-  it('reuses the household food illustration to invite recipes into an empty Plan', () => {
+  it('reuses the household food illustration to invite an empty first idea', () => {
     const drawer = render(
       <MealPlanDrawer
         visible
@@ -868,7 +912,7 @@ describe('Recipe library', () => {
       />,
     );
 
-    expect(drawer.getByText('Add recipes to your Plan')).toBeTruthy();
+    expect(drawer.getByText('Add a meal idea')).toBeTruthy();
     expect(drawer.queryByText('Nothing in Plan yet')).toBeNull();
     expect(drawer.queryByText('Add any recipe you might want to make.')).toBeNull();
   });
@@ -893,23 +937,28 @@ describe('Recipe library', () => {
     expect(planDrawerProps?.dismissable).not.toBe(false);
     expect(planDrawerProps?.dismissOnBackdropPress).not.toBe(false);
     expect(drawer.queryByRole('button', { name: 'Close Plan' })).toBeNull();
-    expect(StyleSheet.flatten(drawer.getByLabelText('Plan, 0 recipes').props.style).flex).toBeUndefined();
+    expect(StyleSheet.flatten(drawer.getByLabelText('Ideas, 0 recipes').props.style).flex).toBeUndefined();
     expect(drawer.queryByTestId('meal-plan-drawer-count')).toBeNull();
   });
 
-  it('groups the persistent Plan by readiness and keeps grocery commitment primary', () => {
+  it('shows Meal ideas and Planned as two sections of one list with a View groceries dock', () => {
     const onSendToGroceries = jest.fn();
     const onOpenGroceries = jest.fn();
-    const item = {
+    const idea = {
       id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
       lifecycle: 'idea' as const, createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
       voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 }, missingItemCount: null,
       contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
       supporters: [], viewerReaction: null, canReact: false, canRemove: true, canMarkMade: false,
     };
+    const sent = {
+      ...idea,
+      id: 'meal-2', candidateId: 'candidate-2', title: 'Soup', lifecycle: 'sent' as const,
+      sentAt: '2026-08-11T13:00:00.000Z', missingItemCount: 4, canMarkMade: true,
+    };
     const drawer = render(
       <MealPlanDrawer
-        visible items={[item]} canManage onClose={jest.fn()}
+        visible items={[idea, sent]} canManage onClose={jest.fn()}
         onRemove={jest.fn()} onSendToGroceries={onSendToGroceries} onOpenGroceries={onOpenGroceries}
       />,
     );
@@ -919,11 +968,268 @@ describe('Recipe library', () => {
     );
     expect(drawer.queryByText('Open for ideas')).toBeNull();
     expect(drawer.queryByText(/Everyone can add/)).toBeNull();
-    expect(drawer.queryByText('Ideas')).toBeNull();
-    fireEvent.press(drawer.getByRole('button', { name: 'Send to Groceries' }));
-    fireEvent.press(drawer.getByRole('checkbox', { name: 'Send Tacos to Groceries' }));
-    fireEvent.press(drawer.getByRole('button', { name: 'Send 1 recipe to Groceries' }));
+    expect(drawer.queryByText('Sent to groceries')).toBeNull();
+    expect(drawer.queryByRole('button', { name: 'Send to Groceries' })).toBeNull();
+    expect(drawer.getByRole('button', { name: 'Move Tacos' })).toBeTruthy();
+    expect(drawer.getByText('Planned').props.accessibilityRole).toBe('header');
+    expect(drawer.getByText('Soup')).toBeTruthy();
+    expect(drawer.queryByText(/item.*left/i)).toBeNull();
+    expect(drawer.queryByText(/grocer.*left/i)).toBeNull();
+    expect(drawer.queryByText('Drop in Planned')).toBeNull();
+    const groceryAction = drawer.getByRole('button', { name: 'View groceries' });
+    expect(StyleSheet.flatten(groceryAction.props.style)).toMatchObject({
+      position: 'absolute',
+      right: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+      bottom: RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+      width: RESTING_COMPOSER_HEIGHT_PX,
+      height: RESTING_COMPOSER_HEIGHT_PX,
+    });
+    expect(drawer.queryByText('View groceries')).toBeNull();
+    const planDrawerProps = mockBottomDrawerProps.find((props) => props.visible);
+    expect(planDrawerProps?.bottomAccessory).toBeUndefined();
+    expect(planDrawerProps?.bottomAccessoryPlacement).toBeUndefined();
+    fireEvent(drawer.getByRole('button', { name: 'Move Tacos' }), 'accessibilityAction', {
+      nativeEvent: { actionName: 'addToGroceries' },
+    });
     expect(onSendToGroceries).toHaveBeenCalledWith(['candidate-1']);
+    fireEvent.press(drawer.getByRole('button', { name: 'View groceries' }));
+    expect(onOpenGroceries).toHaveBeenCalledTimes(1);
+  });
+
+  it('lights the destination section and commits exactly one lifecycle move from the live placeholder index', () => {
+    const onSendToGroceries = jest.fn();
+    const onReturnToPlan = jest.fn();
+    const base = {
+      storageRef: null,
+      createdAt: '2026-08-11T12:00:00.000Z',
+      voteCount: 0,
+      reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 },
+      missingItemCount: null,
+      supporters: [],
+      viewerReaction: null,
+      canReact: false,
+      canRemove: true,
+      canMarkMade: false,
+    };
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[
+          { ...base, id: 'idea', candidateId: 'idea', title: 'Tacos', lifecycle: 'idea', sentAt: null },
+          { ...base, id: 'planned', candidateId: 'planned', title: 'Soup', lifecycle: 'sent', sentAt: '2026-08-11T13:00:00.000Z' },
+        ]}
+        canManage
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+        onSendToGroceries={onSendToGroceries}
+        onReturnToPlan={onReturnToPlan}
+      />,
+    );
+    const draggableList = drawer.UNSAFE_root.findAll((node: TestTreeNode) => (
+      typeof node.props.onDragPositionChange === 'function'
+      && typeof node.props.onDragStart === 'function'
+      && typeof node.props.onOrderChange === 'function'
+    ))[0];
+
+    act(() => {
+      draggableList.props.onDragStart(0);
+      draggableList.props.onDragPositionChange(0, 2);
+    });
+
+    const firstDropIds = draggableList.props.items.map((entry: { id: string }) => entry.id);
+    const [firstMoved] = firstDropIds.splice(0, 1);
+    firstDropIds.splice(2, 0, firstMoved);
+    act(() => draggableList.props.onOrderChange(firstDropIds, { fromIndex: 0, toIndex: 2 }));
+    expect(onSendToGroceries).toHaveBeenCalledTimes(1);
+    expect(onSendToGroceries).toHaveBeenCalledWith(['idea']);
+    expect(onReturnToPlan).not.toHaveBeenCalled();
+
+    const nextDraggableList = drawer.UNSAFE_root.findAll((node: TestTreeNode) => (
+      typeof node.props.onDragPositionChange === 'function'
+      && typeof node.props.onDragStart === 'function'
+      && typeof node.props.onOrderChange === 'function'
+    ))[0];
+    const plannedIndex = nextDraggableList.props.items.findIndex((entry: { id: string }) => entry.id === 'planned');
+    const secondDropIds = nextDraggableList.props.items.map((entry: { id: string }) => entry.id);
+    const [secondMoved] = secondDropIds.splice(plannedIndex, 1);
+    secondDropIds.splice(0, 0, secondMoved);
+    act(() => {
+      nextDraggableList.props.onDragStart(plannedIndex);
+      nextDraggableList.props.onDragPositionChange(plannedIndex, 0);
+      nextDraggableList.props.onOrderChange(secondDropIds, { fromIndex: plannedIndex, toIndex: 0 });
+    });
+    expect(onReturnToPlan).toHaveBeenCalledTimes(1);
+    expect(onReturnToPlan).toHaveBeenCalledWith('planned');
+  });
+
+  it('keeps a meal where it was dropped through the lifecycle receipt and an identical reload', () => {
+    const base = {
+      storageRef: null,
+      voteCount: 0,
+      reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 },
+      missingItemCount: null,
+      supporters: [],
+      viewerReaction: null,
+      canReact: false,
+      canRemove: true,
+      canMarkMade: false,
+    };
+    const idea = {
+      ...base,
+      id: 'idea', candidateId: 'idea', title: 'Tacos', lifecycle: 'idea' as const,
+      createdAt: '2026-08-11T14:00:00.000Z', sentAt: null, voteCount: 10,
+    };
+    const soup = {
+      ...base,
+      id: 'soup', candidateId: 'soup', title: 'Soup', lifecycle: 'sent' as const,
+      createdAt: '2026-08-11T12:00:00.000Z', sentAt: '2026-08-11T15:00:00.000Z',
+    };
+    const pie = {
+      ...base,
+      id: 'pie', candidateId: 'pie', title: 'Pie', lifecycle: 'sent' as const,
+      createdAt: '2026-08-11T13:00:00.000Z', sentAt: '2026-08-11T15:00:00.000Z',
+    };
+    const commonProps = {
+      visible: true,
+      canManage: true,
+      onClose: jest.fn(),
+      onRemove: jest.fn(),
+      onSendToGroceries: jest.fn(() => Promise.resolve({ version: 2 })),
+    };
+    const drawer = render(<MealPlanDrawer {...commonProps} items={[idea, soup, pie]} />);
+    const findDraggableList = () => drawer.UNSAFE_root.findAll((node: TestTreeNode) => (
+      typeof node.props.onOrderChange === 'function' && Array.isArray(node.props.items)
+    ))[0];
+    const draggableList = findDraggableList();
+    const dropIds = draggableList.props.items.map((entry: { id: string }) => entry.id);
+    const [moved] = dropIds.splice(0, 1);
+    dropIds.splice(3, 0, moved);
+
+    act(() => draggableList.props.onOrderChange(dropIds, { fromIndex: 0, toIndex: 3 }));
+    expect(findDraggableList().props.items.map((entry: { id: string }) => entry.id)).toEqual([
+      'planned-heading', 'pie', 'soup', 'idea',
+    ]);
+
+    const authoritativeItems = [{ ...idea, lifecycle: 'sent' as const, sentAt: '2026-08-11T16:00:00.000Z' }, soup, pie];
+    drawer.rerender(<MealPlanDrawer {...commonProps} items={authoritativeItems} />);
+    expect(findDraggableList().props.items.map((entry: { id: string }) => entry.id)).toEqual([
+      'planned-heading', 'pie', 'soup', 'idea',
+    ]);
+
+    drawer.rerender(<MealPlanDrawer {...commonProps} items={authoritativeItems.map((item) => ({ ...item }))} />);
+    expect(findDraggableList().props.items.map((entry: { id: string }) => entry.id)).toEqual([
+      'planned-heading', 'pie', 'soup', 'idea',
+    ]);
+  });
+
+  it('restores the original section and position when a lifecycle move is rejected', async () => {
+    const base = {
+      storageRef: null,
+      voteCount: 0,
+      reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 },
+      missingItemCount: null,
+      supporters: [],
+      viewerReaction: null,
+      canReact: false,
+      canRemove: true,
+      canMarkMade: false,
+    };
+    const firstIdea = {
+      ...base,
+      id: 'first', candidateId: 'first', title: 'First idea', lifecycle: 'idea' as const,
+      createdAt: '2026-08-11T14:00:00.000Z', sentAt: null,
+    };
+    const secondIdea = {
+      ...base,
+      id: 'second', candidateId: 'second', title: 'Second idea', lifecycle: 'idea' as const,
+      createdAt: '2026-08-11T13:00:00.000Z', sentAt: null,
+    };
+    const planned = {
+      ...base,
+      id: 'planned', candidateId: 'planned', title: 'Planned meal', lifecycle: 'sent' as const,
+      createdAt: '2026-08-11T12:00:00.000Z', sentAt: '2026-08-11T15:00:00.000Z',
+    };
+    const onSendToGroceries = jest.fn(() => Promise.reject(new Error('offline')));
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[firstIdea, secondIdea, planned]}
+        canManage
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+        onSendToGroceries={onSendToGroceries}
+      />,
+    );
+    const findDraggableList = () => drawer.UNSAFE_root.findAll((node: TestTreeNode) => (
+      typeof node.props.onOrderChange === 'function' && Array.isArray(node.props.items)
+    ))[0];
+    const draggableList = findDraggableList();
+    const dropIds = draggableList.props.items.map((entry: { id: string }) => entry.id);
+    const [moved] = dropIds.splice(0, 1);
+    dropIds.push(moved);
+
+    act(() => draggableList.props.onOrderChange(dropIds, { fromIndex: 0, toIndex: dropIds.length - 1 }));
+    expect(findDraggableList().props.items.map((entry: { id: string }) => entry.id)).toEqual([
+      'second', 'planned-heading', 'planned', 'first',
+    ]);
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(findDraggableList().props.items.map((entry: { id: string }) => entry.id)).toEqual([
+      'first', 'second', 'planned-heading', 'planned',
+    ]);
+  });
+
+  it('keeps a meal where it was dropped within Planned without issuing a lifecycle move', () => {
+    const onSendToGroceries = jest.fn();
+    const onReturnToPlan = jest.fn();
+    const base = {
+      storageRef: null,
+      createdAt: '2026-08-11T12:00:00.000Z',
+      voteCount: 0,
+      reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 },
+      missingItemCount: null,
+      supporters: [],
+      viewerReaction: null,
+      canReact: false,
+      canRemove: true,
+      canMarkMade: false,
+      lifecycle: 'sent' as const,
+      sentAt: '2026-08-11T13:00:00.000Z',
+    };
+    const drawer = render(
+      <MealPlanDrawer
+        visible
+        items={[
+          { ...base, id: 'huevos', candidateId: 'huevos', title: 'Huevos rancheros', voteCount: 2 },
+          { ...base, id: 'grilled', candidateId: 'grilled', title: 'Grilled cheeseburgers', voteCount: 1 },
+          { ...base, id: 'pie', candidateId: 'pie', title: 'Classic apple pie' },
+        ]}
+        canManage
+        onClose={jest.fn()}
+        onRemove={jest.fn()}
+        onSendToGroceries={onSendToGroceries}
+        onReturnToPlan={onReturnToPlan}
+      />,
+    );
+    const findDraggableList = () => drawer.UNSAFE_root.findAll((node: TestTreeNode) => (
+      typeof node.props.onOrderChange === 'function' && Array.isArray(node.props.items)
+    ))[0];
+    const draggableList = findDraggableList();
+    const from = draggableList.props.items.findIndex((entry: { id: string }) => entry.id === 'grilled');
+    const dropIds = draggableList.props.items.map((entry: { id: string }) => entry.id);
+    const [moved] = dropIds.splice(from, 1);
+    dropIds.push(moved);
+
+    act(() => draggableList.props.onOrderChange(dropIds, { fromIndex: from, toIndex: dropIds.length - 1 }));
+
+    expect(findDraggableList().props.items.map((entry: { id: string }) => entry.id)).toEqual([
+      'planned-heading', 'huevos', 'pie', 'grilled',
+    ]);
+    expect(onSendToGroceries).not.toHaveBeenCalled();
+    expect(onReturnToPlan).not.toHaveBeenCalled();
   });
 
   it('shows existing positive reactions, reveals their people, and allows only one viewer reaction', () => {
@@ -1114,11 +1420,17 @@ describe('Recipe library', () => {
       />,
     );
 
-    fireEvent.press(drawer.getByText('Send to Groceries'));
-    fireEvent.press(drawer.getByLabelText('Send Tacos to Groceries'));
-    fireEvent.press(drawer.getByLabelText('Send 1 recipe to Groceries'));
+    const draggableList = drawer.UNSAFE_root.findAll((node: TestTreeNode) => (
+      typeof node.props.onDragStart === 'function'
+      && typeof node.props.onOrderChange === 'function'
+    ))[0];
+    const dropIds = draggableList.props.items.map((entry: { id: string }) => entry.id);
+    const [moved] = dropIds.splice(0, 1);
+    dropIds.splice(2, 0, moved);
+    act(() => draggableList.props.onOrderChange(dropIds, { fromIndex: 0, toIndex: 2 }));
 
     expect(onSendToGroceries).not.toHaveBeenCalled();
+    expect(drawer.getByText('Tacos')).toBeTruthy();
     expect(drawer.getByText('Tacos has a hard pass')).toBeTruthy();
     expect(drawer.getByText(/Alex: “Mushrooms”/)).toBeTruthy();
     fireEvent.press(drawer.getByLabelText('Include anyway'));
@@ -1155,37 +1467,49 @@ describe('Recipe library', () => {
 
   });
 
-  it('keeps the familiar Plan icon and meal counter', () => {
+  it('calls the durable Recipes header entry Ideas and shows only unseen attention', () => {
     const onPress = jest.fn();
-    const screen = render(<MealPlanHeaderAction count={5} onPress={onPress} />);
+    const screen = render(<MealPlanHeaderAction needsAttention onPress={onPress} />);
 
-    expect(screen.getByText('Plan')).toBeTruthy();
+    expect(screen.getByText('Ideas')).toBeTruthy();
+    expect(screen.queryByText('Plan')).toBeNull();
     expect(screen.queryByText('Meal Plan')).toBeNull();
-    expect(screen.getByText('5')).toBeTruthy();
+    expect(screen.queryByText('5')).toBeNull();
     const actionStyle = StyleSheet.flatten(screen.getByTestId('meal-plan-header-action').props.style);
-    const countStyle = StyleSheet.flatten(screen.getByTestId('meal-plan-header-count', { includeHiddenElements: true }).props.style);
+    const attentionStyle = StyleSheet.flatten(screen.getByTestId('meal-plan-header-attention', { includeHiddenElements: true }).props.style);
     expect(actionStyle).toMatchObject({ minHeight: 36, backgroundColor: colors.fieldFill });
     expect(actionStyle).not.toHaveProperty('borderColor');
-    expect(countStyle).toMatchObject({
-      minWidth: 18,
-      height: 18,
-      borderRadius: 999,
+    expect(attentionStyle).toMatchObject({
+      width: 8,
+      height: 8,
+      borderRadius: 4,
       alignSelf: 'center',
       backgroundColor: colors.actionAttention,
     });
-    expect(countStyle).not.toHaveProperty('position');
-    fireEvent.press(screen.getByLabelText('Plan, 5 meals'));
+    expect(attentionStyle).not.toHaveProperty('position');
+    fireEvent.press(screen.getByLabelText('Ideas, new meal ideas'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('leads with ready recipes, keeps sent recipes visible, and resolves Made explicitly', () => {
+  it('keeps planned meals visible without exposing Groceries inventory state and can return them to ideas', () => {
     const onOpenGroceries = jest.fn();
     const onMarkMade = jest.fn();
+    const onReturnToPlan = jest.fn();
+    const onReact = jest.fn();
     const drawer = render(
       <MealPlanDrawer
         visible
         items={[
-          { id: 'ready', candidateId: 'ready', title: 'Tacos', storageRef: null, lifecycle: 'ready', createdAt: '2026-08-10T12:00:00.000Z', sentAt: '2026-08-11T12:00:00.000Z', voteCount: 3, missingItemCount: 0, canRemove: true, canMarkMade: true },
+          {
+            id: 'ready', candidateId: 'ready', title: 'Tacos', storageRef: null, lifecycle: 'ready',
+            createdAt: '2026-08-10T12:00:00.000Z', sentAt: '2026-08-11T12:00:00.000Z',
+            voteCount: 3, reactionCounts: { thumbs_up: 2, heart: 1, yum: 0, excited: 0, fire: 0, downvote: 0 },
+            supporters: [
+              { personId: 'person-2', displayName: 'Sam', avatarUrl: null, reaction: 'thumbs_up' as const },
+              { personId: 'person-3', displayName: 'Alex', avatarUrl: null, reaction: 'heart' as const },
+            ],
+            viewerReaction: 'heart' as const, canReact: true, missingItemCount: 0, canRemove: true, canMarkMade: true,
+          },
           { id: 'sent', candidateId: 'sent', title: 'Soup', storageRef: null, lifecycle: 'sent', createdAt: '2026-08-11T12:00:00.000Z', sentAt: '2026-08-11T13:00:00.000Z', voteCount: 1, missingItemCount: 1, canRemove: true, canMarkMade: true },
         ]}
         canManage
@@ -1193,17 +1517,26 @@ describe('Recipe library', () => {
         onRemove={jest.fn()}
         onOpenGroceries={onOpenGroceries}
         onMarkMade={onMarkMade}
+        onReturnToPlan={onReturnToPlan}
+        onReact={onReact}
       />,
     );
 
-    expect(drawer.getByText('Ready to cook')).toBeTruthy();
-    expect(drawer.getByText('Sent to groceries')).toBeTruthy();
+    expect(drawer.getByText('Planned').props.accessibilityRole).toBe('header');
+    expect(drawer.queryByText('Ready to cook')).toBeNull();
     expect(drawer.getByText('Tacos')).toBeTruthy();
-    expect(drawer.getByText('Missing 1 item')).toBeTruthy();
+    expect(within(drawer.getByTestId('plan-grocery-row-ready')).getByLabelText('Thumbs up Tacos, 2')).toBeTruthy();
+    expect(within(drawer.getByTestId('plan-grocery-row-ready')).getByLabelText('Love Tacos, 1')).toBeTruthy();
+    fireEvent.press(drawer.getByLabelText('Love Tacos, 1'));
+    expect(onReact).toHaveBeenCalledWith('ready', null);
+    expect(drawer.queryByText('1 grocery left')).toBeNull();
     expect(drawer.getByLabelText('More actions for Tacos')).toBeTruthy();
     expect(drawer.queryByRole('button', { name: 'Remove Tacos from Plan' })).toBeNull();
-    fireEvent.press(drawer.getAllByRole('button', { name: 'Made' })[0]);
-    expect(onMarkMade).toHaveBeenCalledWith('ready');
+    expect(drawer.getByRole('button', { name: 'Move Tacos' })).toBeTruthy();
+    fireEvent(drawer.getByRole('button', { name: 'Move Tacos' }), 'accessibilityAction', {
+      nativeEvent: { actionName: 'returnToPlan' },
+    });
+    expect(onReturnToPlan).toHaveBeenCalledWith('ready');
     fireEvent.press(drawer.getByRole('button', { name: 'View groceries' }));
     expect(onOpenGroceries).toHaveBeenCalledTimes(1);
   });

@@ -61,6 +61,7 @@ type NotificationData =
   | { type: 'streak' }
   | { type: 'reactivation' }
   | { type: 'moneyCheck'; savedCheckId: string }
+  | { type: 'mealPlanAttention'; planId: string }
   | { type: 'sharedDelivery'; deliveryId: string };
 
 // Local in-memory map of scheduled notification ids, hydrated on init.
@@ -2062,6 +2063,15 @@ function attachNotificationResponseListener() {
         navigateWhenReady('SharedHome', { deliveryId, source: 'push' });
         break;
       }
+      case 'mealPlanAttention': {
+        const planId = (data as { planId?: string }).planId?.trim();
+        if (!planId) return;
+        navigateWhenReady('Food', {
+          screen: 'RecipeLibrary',
+          params: { openPlan: true, planId },
+        });
+        break;
+      }
       default:
         break;
     }
@@ -2157,6 +2167,15 @@ async function captureLastNotificationOpenIfAny() {
     if (data.type === 'sharedDelivery') {
       const deliveryId = (data as { deliveryId?: string }).deliveryId?.trim();
       if (deliveryId) navigateWhenReady('SharedHome', { deliveryId, source: 'push' });
+    }
+    if (data.type === 'mealPlanAttention') {
+      const planId = (data as { planId?: string }).planId?.trim();
+      if (planId) {
+        navigateWhenReady('Food', {
+          screen: 'RecipeLibrary',
+          params: { openPlan: true, planId },
+        });
+      }
     }
   } catch (error) {
     if (__DEV__) {

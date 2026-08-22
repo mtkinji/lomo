@@ -1,3 +1,5 @@
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 type ExpoPushMessage = {
@@ -5,7 +7,9 @@ type ExpoPushMessage = {
   title: string;
   body: string;
   sound: 'default';
-  data: { type: 'sharedDelivery'; deliveryId: string };
+  data:
+    | { type: 'sharedDelivery'; deliveryId: string }
+    | { type: 'mealPlanAttention'; planId: string };
 };
 
 type ExpoPushTicket = {
@@ -13,7 +17,38 @@ type ExpoPushTicket = {
   details?: { error?: string };
 };
 
-export function buildExpoPushMessages(tokens: string[], deliveryId: string): ExpoPushMessage[] {
+type SharedDeliveryPushCopy = { title: string; body: string };
+
+export function buildMealPlanAttentionPushMessages(
+  tokens: string[],
+  planId: string,
+  copy: SharedDeliveryPushCopy = {
+    title: 'Meal Plan',
+    body: 'There are new meal ideas in Plan.',
+  },
+): ExpoPushMessage[] {
+  const id = planId.trim();
+  if (!id) return [];
+  return tokens
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .map((to) => ({
+      to,
+      title: copy.title.trim().slice(0, 80) || 'Meal Plan',
+      body: copy.body.trim().slice(0, 180) || 'There are new meal ideas in Plan.',
+      sound: 'default' as const,
+      data: { type: 'mealPlanAttention' as const, planId: id },
+    }));
+}
+
+export function buildExpoPushMessages(
+  tokens: string[],
+  deliveryId: string,
+  copy: SharedDeliveryPushCopy = {
+    title: 'Kwilt',
+    body: 'Something shared in Kwilt is ready for you.',
+  },
+): ExpoPushMessage[] {
   const id = deliveryId.trim();
   if (!id) return [];
   return tokens
@@ -21,8 +56,8 @@ export function buildExpoPushMessages(tokens: string[], deliveryId: string): Exp
     .filter(Boolean)
     .map((to) => ({
       to,
-      title: 'Kwilt',
-      body: 'Something shared in Kwilt is ready for you.',
+      title: copy.title.trim().slice(0, 80) || 'Kwilt',
+      body: copy.body.trim().slice(0, 180) || 'Something shared in Kwilt is ready for you.',
       sound: 'default' as const,
       data: { type: 'sharedDelivery' as const, deliveryId: id },
     }));
@@ -33,6 +68,7 @@ export async function sendSharedDeliveryPush(
   recipientUserId: string,
   deliveryId: string,
   fetchImpl: typeof fetch = fetch,
+  copy?: SharedDeliveryPushCopy,
 ): Promise<{ attempted: number; accepted: number; rejected: number }> {
   const tokenResult = await admin
     .from('kwilt_push_tokens')
@@ -43,7 +79,39 @@ export async function sendSharedDeliveryPush(
   const tokens = (tokenResult.data ?? [])
     .map((row: { token?: unknown }) => typeof row.token === 'string' ? row.token : '')
     .filter(Boolean);
-  const messages = buildExpoPushMessages(tokens, deliveryId);
+  const messages = buildExpoPushMessages(tokens, deliveryId, copy);
+  return sendExpoMessages(admin, messages, fetchImpl);
+}
+
+export async function sendMealPlanAttentionPush(
+  admin: SupabaseClient,
+  recipientUserId: string,
+  planId: string,
+  fetchImpl: typeof fetch = fetch,
+  copy?: SharedDeliveryPushCopy,
+): Promise<{ attempted: number; accepted: number; rejected: number }> {
+  const tokenResult = await admin
+    .from('kwilt_push_tokens')
+    .select('token')
+    .eq('user_id', recipientUserId);
+  if (tokenResult.error) throw tokenResult.error;
+
+  const tokens = (tokenResult.data ?? [])
+    .map((row: { token?: unknown }) => typeof row.token === 'string' ? row.token : '')
+    .filter(Boolean);
+  const messages = buildMealPlanAttentionPushMessages(tokens, planId, copy);
+  const receipt = await sendExpoMessages(admin, messages, fetchImpl);
+  if (receipt.attempted > 0 && receipt.accepted === 0) {
+    throw new Error('meal_plan_push_rejected');
+  }
+  return receipt;
+}
+
+async function sendExpoMessages(
+  admin: SupabaseClient,
+  messages: ExpoPushMessage[],
+  fetchImpl: typeof fetch,
+): Promise<{ attempted: number; accepted: number; rejected: number }> {
   if (messages.length === 0) return { attempted: 0, accepted: 0, rejected: 0 };
 
   let response: Response;
@@ -86,4 +154,3 @@ export async function sendSharedDeliveryPush(
     rejected: messages.length - accepted,
   };
 }
-import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';

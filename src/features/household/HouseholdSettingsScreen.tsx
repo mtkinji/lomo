@@ -2,6 +2,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
+import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
 import { colors, fonts, spacing, typography } from '../../theme';
@@ -34,10 +35,11 @@ import {
 } from './data/household';
 import { resolveHouseholdAvatars, type HouseholdAvatarMap } from './data/householdAvatars';
 
-const CAPABILITIES: readonly { id: ChildCapabilityId; name: string }[] = [
+const CAREGIVER_MANAGED_CAPABILITIES: readonly { id: ChildCapabilityId; name: string }[] = [
   { id: 'todos', name: 'To-dos' },
   { id: 'screen-time', name: 'Screen Time' },
 ];
+const MEAL_PLANNING_CAPABILITY = { id: 'meal-planning', name: 'Meal Planning' } as const;
 
 const enabledStates = new Set<ChildCapabilityState>(['active', 'pending_setup', 'blocked']);
 type EntryMode = 'child-choice' | 'child-account' | 'child-profile' | 'caregiver' | 'join';
@@ -111,6 +113,7 @@ function HouseholdMemberRow({
 export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreenProps<SettingsStackParamList, 'SettingsHousehold'>) {
   const authIdentity = useAppStore((state) => state.authIdentity);
   const linkedInviteCode = route.params?.inviteCode?.trim().toUpperCase() ?? '';
+  const enteredFromMealPlan = route.params?.entrySurface === 'meal-plan';
   const [snapshot, setSnapshot] = useState<HouseholdSnapshot | null>(null);
   const [childName, setChildName] = useState('');
   const [childEmail, setChildEmail] = useState('');
@@ -128,6 +131,20 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   const children = snapshot?.members.filter((member) => member.role === 'child') ?? [];
   const caregivers = snapshot?.members.filter((member) => member.role === 'caregiver') ?? [];
   const isOwner = currentMember?.role === 'owner' || snapshot?.household == null;
+  const childCapabilities: readonly { id: ChildCapabilityId; name: string }[] = enteredFromMealPlan
+    ? [MEAL_PLANNING_CAPABILITY, ...CAREGIVER_MANAGED_CAPABILITIES]
+    : [...CAREGIVER_MANAGED_CAPABILITIES, MEAL_PLANNING_CAPABILITY];
+
+  const handleBack = useCallback(() => {
+    if (enteredFromMealPlan) {
+      rootNavigationRef.navigate('Food', {
+        screen: 'RecipeLibrary',
+        params: { openPlan: true },
+      });
+      return;
+    }
+    navigation.goBack();
+  }, [enteredFromMealPlan, navigation]);
 
   const load = useCallback(async () => {
     if (!client) return;
@@ -446,7 +463,7 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
 
   if (!authIdentity) {
     return (
-      <SettingsPage onBack={() => navigation.goBack()} title="Household">
+      <SettingsPage onBack={handleBack} title="Household">
         <SettingsGroup footer="Sign in with your own Kwilt account before setting up family participation." title="Your family">
           <SettingsRow title="Household" value="Sign in required" />
         </SettingsGroup>
@@ -455,15 +472,19 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   }
 
   return (
-    <SettingsPage onBack={() => navigation.goBack()} title="Household">
+    <SettingsPage onBack={handleBack} title="Household">
       {!snapshot?.household ? (
         <View style={styles.setupIntro}>
           <View style={styles.heroIcon}>
             <Icon color={colors.textPrimary} name="users" size={25} />
           </View>
-          <Text style={styles.setupTitle}>{loading ? 'Finding your household…' : 'Start with your people'}</Text>
+          <Text style={styles.setupTitle}>
+            {loading ? 'Finding your household…' : enteredFromMealPlan ? 'Plan meals together' : 'Start with your people'}
+          </Text>
           <Text style={styles.setupDescription}>
-            Bring the people you coordinate with into Kwilt. You can decide what each child uses later.
+            {enteredFromMealPlan
+              ? 'Add the people you plan with. Eligible Household members can add ideas and weigh in from the same Plan.'
+              : 'Bring the people you coordinate with into Kwilt. You can decide what each child uses later.'}
           </Text>
           <View style={styles.privacyNote}>
             <Icon color={colors.textSecondary} name="shield" size={16} />
@@ -511,7 +532,7 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
           footer="Choose only what this child should use. A sibling's settings never change automatically."
           title={child.displayName}
         >
-          {CAPABILITIES.map((capability, index) => {
+          {childCapabilities.map((capability, index) => {
             const state = snapshot?.activations.find((activation) => (
               activation.childMembershipId === child.id && activation.capabilityId === capability.id
             ))?.state;
@@ -545,7 +566,7 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
                     />
                   </>
                 ) : null}
-                {index < CAPABILITIES.length - 1 ? <SettingsDivider /> : null}
+                {index < childCapabilities.length - 1 ? <SettingsDivider /> : null}
               </Fragment>
             );
           })}
@@ -558,14 +579,14 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
           footer="These grants allow family administration only. They do not reveal personal capability content."
           title={`${caregiver.displayName}'s access`}
         >
-          {children.flatMap((child) => CAPABILITIES.map((capability, index) => {
+          {children.flatMap((child) => CAREGIVER_MANAGED_CAPABILITIES.map((capability, index) => {
             const granted = snapshot?.grants.some((grant) => (
               grant.caregiverMembershipId === caregiver.id
               && grant.childMembershipId === child.id
               && grant.capabilityId === capability.id
             )) ?? false;
             const key = `grant:${caregiver.id}:${child.id}:${capability.id}`;
-            const isLast = child.id === children.at(-1)?.id && index === CAPABILITIES.length - 1;
+            const isLast = child.id === children.at(-1)?.id && index === CAREGIVER_MANAGED_CAPABILITIES.length - 1;
             return (
               <Fragment key={key}>
                 <SettingsToggleRow

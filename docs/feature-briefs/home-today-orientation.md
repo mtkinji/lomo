@@ -1,7 +1,7 @@
 ---
 id: brief-home-today-orientation
 title: Home today orientation
-status: shipped
+status: retired
 audiences: [audience-faith-and-values-driven-builders]
 personas: [Sarah]
 hero_jtbd: jtbd-see-who-im-becoming
@@ -9,10 +9,16 @@ job_flow: job-flow-sarah-see-who-im-becoming
 serves: [jtbd-see-who-im-becoming, jtbd-see-my-arcs-in-everyday-moments, jtbd-move-the-few-things-that-matter, jtbd-capture-and-find-meaning]
 related_briefs: [brief-arc-goal-lifecycle-and-limits]
 owner: andrew
-last_updated: 2026-05-09
+last_updated: 2026-08-22
 ---
 
 # Home Today Orientation
+
+## Retirement
+
+Retired on 2026-08-22. The Today screen was never registered in current app
+navigation and has been removed from the client. This brief remains as product
+decision history, not as a claim about a user-facing Kwilt surface.
 
 ## Context
 

@@ -37,7 +37,7 @@ import {
 } from './foodNavigationOptions';
 
 export type FoodStackParamList = {
-  RecipeLibrary: { openPlan?: boolean; onboarding?: 'pick-meal' } | undefined;
+  RecipeLibrary: { openPlan?: boolean; planId?: string; onboarding?: 'pick-meal' } | undefined;
   EditorialMealCollection: { collectionId: string };
   RecipeEdit: { recipeId?: string };
   RecipeHome: { recipeId: string; source?: 'meal_plan' };

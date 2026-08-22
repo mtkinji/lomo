@@ -1,4 +1,7 @@
-import { buildMealChoiceDelivery } from '../mealPlanningDelivery.ts';
+import {
+  buildMealChoiceDelivery,
+} from '../mealPlanningDelivery.ts';
+import { buildMealPlanAttentionPushMessages } from '../expoPush.ts';
 
 Deno.test('meal choice delivery is exact, neutral, opaque, and idempotent per participant', () => {
   const delivery = buildMealChoiceDelivery({ roundId: 'round-1', recipientUserId: 'user-2', actorUserId: 'user-1', actorDisplayName: 'Maya', closesAt: '2026-08-08T18:00:00.000Z', nowIso: '2026-08-05T18:00:00.000Z' });
@@ -6,4 +9,15 @@ Deno.test('meal choice delivery is exact, neutral, opaque, and idempotent per pa
   if (delivery.title !== 'Help choose the next meals' || delivery.body !== 'Pick what sounds good, pass, or suggest one.') throw new Error('neutral copy changed');
   if (JSON.stringify(delivery.destination) !== JSON.stringify({ kind: 'meal_choice', roundId: 'round-1' })) throw new Error('destination leaked data');
   if ('candidateIds' in delivery.destination || JSON.stringify(delivery).includes('recipe')) throw new Error('private candidate leaked');
+});
+
+Deno.test('meal plan attention push deep-links directly to the live Plan without leaking meals', () => {
+  const messages = buildMealPlanAttentionPushMessages(
+    ['ExponentPushToken[token]'],
+    'plan-1',
+    { title: 'Meal Plan', body: 'There are new meal ideas in Plan.' },
+  );
+  if (messages[0].title !== 'Meal Plan' || messages[0].body !== 'There are new meal ideas in Plan.') throw new Error('attention copy changed');
+  if (JSON.stringify(messages[0].data) !== JSON.stringify({ type: 'mealPlanAttention', planId: 'plan-1' })) throw new Error('attention does not deep-link to the live Plan');
+  if (JSON.stringify(messages).includes('candidate') || JSON.stringify(messages).includes('recipe')) throw new Error('private Plan content leaked');
 });

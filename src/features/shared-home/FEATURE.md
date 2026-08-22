@@ -29,7 +29,6 @@ share with her, while each capability remains authoritative.
 
 ## Notes
 
-This folder does not reuse `src/features/home/TodayScreen.tsx`, which serves a
-different personal-orientation job and is not registered in active navigation.
+This production-hidden experiment is separate from the retired Today concept.
 Shared Home projects authorized recipient items; it does not own Goal, Game, or
 future Explore content, relationship access, or AI Chat records.

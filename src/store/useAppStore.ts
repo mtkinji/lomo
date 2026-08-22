@@ -650,6 +650,7 @@ interface AppState {
     allowGoalNudges: boolean;
     goalNudgeTime: string | null;
     allowStreakAndReactivation: boolean;
+    allowHouseholdMealPlanPush?: boolean;
   };
   /**
    * Location-based completion offers (arrive/leave prompts).
@@ -1612,6 +1613,7 @@ export const useAppStore = create<AppState>()(
         allowGoalNudges: true,
         goalNudgeTime: null,
         allowStreakAndReactivation: true,
+        allowHouseholdMealPlanPush: true,
       },
       locationOfferPreferences: {
         enabled: false,
@@ -3720,6 +3722,12 @@ export const useAppStore = create<AppState>()(
             state.notificationPreferences = {
               ...state.notificationPreferences,
               goalNudgeTime: DEFAULT_GOAL_NUDGE_TIME,
+            };
+          }
+          if (typeof prefs.allowHouseholdMealPlanPush !== 'boolean') {
+            state.notificationPreferences = {
+              ...state.notificationPreferences,
+              allowHouseholdMealPlanPush: true,
             };
           }
 

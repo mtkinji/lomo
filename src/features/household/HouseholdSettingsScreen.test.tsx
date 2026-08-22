@@ -16,6 +16,11 @@ const mockCreateHouseholdMemberInvite = jest.fn();
 const mockPreviewHouseholdInvite = jest.fn();
 const mockAcceptHouseholdMemberInvite = jest.fn();
 const mockResolveHouseholdAvatars = jest.fn();
+const mockRootNavigate = jest.fn();
+
+jest.mock('../../navigation/rootNavigationRef', () => ({
+  rootNavigationRef: { navigate: (...args: unknown[]) => mockRootNavigate(...args) },
+}));
 
 jest.mock('../../services/backend/supabaseClient', () => ({
   getSupabaseClient: () => ({ rpc: jest.fn() }),
@@ -83,7 +88,52 @@ describe('HouseholdSettingsScreen', () => {
     });
     mockAcceptHouseholdMemberInvite.mockReset().mockResolvedValue(familySnapshot);
     mockResolveHouseholdAvatars.mockReset().mockResolvedValue({});
+    mockRootNavigate.mockReset();
     screenProps.navigation.navigate.mockReset();
+    screenProps.navigation.goBack.mockReset();
+  });
+
+  it('returns a Meal Plan setup visit to the open plan', async () => {
+    const mealPlanProps = {
+      ...screenProps,
+      route: {
+        key: 'meal-plan-household',
+        name: 'SettingsHousehold',
+        params: { entrySurface: 'meal-plan' },
+      },
+    };
+    const { getByRole, getByText } = renderWithProviders(<HouseholdSettingsScreen {...mealPlanProps} />);
+
+    await waitFor(() => expect(getByText('Plan meals together')).toBeTruthy());
+    fireEvent.press(getByRole('button', { name: 'Go back from Household' }));
+
+    expect(mockRootNavigate).toHaveBeenCalledWith('Food', {
+      screen: 'RecipeLibrary',
+      params: { openPlan: true },
+    });
+    expect(screenProps.navigation.goBack).not.toHaveBeenCalled();
+  });
+
+  it('offers Meal Planning first for a child when opened from Plan', async () => {
+    mockGetHouseholdSnapshot.mockResolvedValue(familySnapshot);
+    const mealPlanProps = {
+      ...screenProps,
+      route: {
+        key: 'meal-plan-household',
+        name: 'SettingsHousehold',
+        params: { entrySurface: 'meal-plan' },
+      },
+    };
+    const { getAllByLabelText, getByText } = renderWithProviders(<HouseholdSettingsScreen {...mealPlanProps} />);
+
+    await waitFor(() => expect(getByText('Your family')).toBeTruthy());
+    fireEvent.press(getAllByLabelText('Meal Planning')[0]);
+
+    await waitFor(() => expect(mockSetChildCapabilityActivation).toHaveBeenCalledWith(expect.anything(), {
+      childMembershipId: 'child-1',
+      capabilityId: 'meal-planning',
+      enabled: true,
+    }));
   });
 
   it('creates the Household just in time when the first child is added', async () => {
