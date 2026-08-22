@@ -107,9 +107,9 @@ function projectCategoryForMonth(
     snapshot.transactions.filter((transaction) => transaction.date.startsWith(monthKey) && !transaction.pending),
     category,
   );
-  const outflowCents = transactions
-    .filter((transaction) => transaction.direction === 'outflow' && transaction.moneyMeaning !== 'not_counted')
-    .reduce((total, transaction) => total + transaction.amountCents, 0);
+  const outflowCents = snapshot.transactions
+    .filter((transaction) => transaction.date.startsWith(monthKey) && !transaction.pending)
+    .reduce((total, transaction) => total + projectPlanCoveredAmountForCategory(transaction, category), 0);
   const creditCents = transactions
     .filter((transaction) => transaction.direction === 'inflow' && transaction.moneyMeaning === 'category_credit')
     .reduce((total, transaction) => total + transaction.amountCents, 0);
@@ -173,19 +173,17 @@ function projectFundingForSelectedPeriod(
       known: false,
     };
   }
-  const countedSpendSinceAnchorCents = projectMoneyTransactionsForCategory(
-    snapshot.transactions.filter((transaction) => {
-      const periodId = transaction.date.slice(0, 7);
-      return periodId >= anchorPeriodId && periodId <= monthKey && !transaction.pending;
-    }),
-    category,
-  ).reduce((total, transaction) => {
-    if (transaction.moneyMeaning === 'not_counted' || transaction.moneyMeaning === 'transfer') return total;
-    return transaction.direction === 'outflow'
-      ? total + transaction.amountCents
-      : transaction.moneyMeaning === 'category_credit'
-        ? total - transaction.amountCents
-        : total;
+  const transactionsSinceAnchor = snapshot.transactions.filter((transaction) => {
+    const periodId = transaction.date.slice(0, 7);
+    return periodId >= anchorPeriodId && periodId <= monthKey && !transaction.pending;
+  });
+  const countedSpendSinceAnchorCents = transactionsSinceAnchor.reduce((total, transaction) => {
+    const categoryTransaction = projectTransactionForCategory(transaction, category);
+    if (!categoryTransaction) return total;
+    if (categoryTransaction.direction === 'inflow' && categoryTransaction.moneyMeaning === 'category_credit') {
+      return total - categoryTransaction.amountCents;
+    }
+    return total + projectPlanCoveredAmountForCategory(transaction, category);
   }, 0);
   const availableCents = projectReserveAvailabilityFromAnchor({
     anchorPeriodId,
@@ -203,6 +201,31 @@ function projectFundingForSelectedPeriod(
     expectedNeed: category.expectedNeed,
   });
   return { ...projected, known: availableCents != null };
+}
+
+function projectPlanCoveredAmountForCategory(
+  transaction: MoneyTransaction,
+  category: MoneyCategory,
+): number {
+  if (transaction.direction !== 'outflow'
+    || transaction.moneyMeaning === 'not_counted'
+    || transaction.moneyMeaning === 'transfer') return 0;
+  const monthlyPlanCents = Math.max(
+    0,
+    transaction.amountCents - Math.min(transaction.amountCents, transaction.savedResourceCents ?? 0),
+  );
+  if (transaction.categoryId === category.id || transaction.categoryId === category.sourceId) {
+    return monthlyPlanCents;
+  }
+  const allocations = transaction.allocations ?? [];
+  const allocation = allocations.find((candidate) => (
+    candidate.categoryId === category.id || candidate.sourceCategoryId === category.sourceId
+  ));
+  if (!allocation) return 0;
+  const totalAmountCents = allocations.reduce((sum, candidate) => sum + candidate.amountCents, 0);
+  return totalAmountCents > 0
+    ? Math.floor((monthlyPlanCents * allocation.amountCents) / totalAmountCents)
+    : 0;
 }
 
 export function projectMoneyTransactionsForCategory(

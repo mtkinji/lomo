@@ -27,6 +27,13 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(source).toContain('It stays in {currentCategory?.name ?? transaction.categoryName}');
   });
 
+  it('does not also call a purchase flexible or committed when saved money covers all of it', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('usesOnlySavedMoney(transaction)');
+    expect(source).toContain("transaction.direction === 'outflow' && currentCategory && !transaction.allocations?.length && !usesOnlySavedMoney(transaction)");
+  });
+
   it('does not report a restored transaction as unavailable while Money is still loading', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
 

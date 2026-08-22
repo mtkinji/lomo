@@ -89,6 +89,23 @@ describe('projectMoneyPeriodView', () => {
     });
     expect(view.periodElapsedPercent).toBe(100);
   });
+
+  it('removes saved-money coverage from historical category plan usage', () => {
+    const historicalSavedMoneySnapshot: MoneySnapshot = {
+      ...snapshot,
+      transactions: snapshot.transactions.map((transaction) => transaction.id === 'june'
+        ? { ...transaction, savedResourceCents: transaction.amountCents }
+        : transaction),
+    };
+
+    const view = projectMoneyPeriodView(historicalSavedMoneySnapshot, -1, new Date(2026, 6, 24));
+
+    expect(view.categories[0]).toMatchObject({
+      spentCents: 0,
+      remainingCents: 50000,
+      percentUsed: 0,
+    });
+  });
 });
 
 describe('projectMoneyCategoryPeriodView', () => {

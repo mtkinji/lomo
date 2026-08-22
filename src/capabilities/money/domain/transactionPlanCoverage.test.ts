@@ -1,4 +1,8 @@
-import { buildTransactionPlanCoverage, projectTransactionCoverageImpact } from './transactionPlanCoverage';
+import {
+  buildTransactionPlanCoverage,
+  projectTransactionCoverageImpact,
+  usesOnlySavedMoney,
+} from './transactionPlanCoverage';
 
 describe('transaction plan coverage', () => {
   it('derives exact month-plan and saved-money portions for a posted outflow', () => {
@@ -45,5 +49,18 @@ describe('transaction plan coverage', () => {
       transactionAmountCents: 311600,
       savedResourceDeltaCents: 200000,
     });
+  });
+
+  it('identifies only a fully saved-money-covered posted outflow', () => {
+    const transaction = {
+      amountCents: 311600,
+      direction: 'outflow' as const,
+      pending: false,
+      moneyMeaning: null,
+      reviewState: 'assigned' as const,
+    };
+
+    expect(usesOnlySavedMoney({ ...transaction, savedResourceCents: 311600 })).toBe(true);
+    expect(usesOnlySavedMoney({ ...transaction, savedResourceCents: 200000 })).toBe(false);
   });
 });

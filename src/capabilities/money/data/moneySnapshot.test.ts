@@ -279,6 +279,32 @@ describe('projectMoneySnapshot', () => {
     });
   });
 
+  it('does not count saved-money coverage against current category plan usage', () => {
+    const snapshot = projectMoneySnapshot({
+      categories: [categories[0]],
+      plans: [{ ...plans[0], base_budget_cents: 19362 }],
+      accounts: [],
+      connections: [],
+      transactions: [{
+        id: 'orthodontics', financial_account_id: null, name: 'Jeremy B Matthews Dmd', merchant_name: 'Jeremy B Matthews Dmd',
+        amount_cents: 311600, direction: 'outflow', date: '2026-07-22', pending: false,
+        iso_currency_code: 'USD', budget_id: 'groceries', money_meaning: null,
+        saved_resource_cents: 311600,
+      }],
+    }, new Date('2026-07-23T18:00:00.000Z'));
+
+    expect(snapshot.categories[0]).toMatchObject({
+      spentCents: 0,
+      remainingCents: 19362,
+      percentUsed: 0,
+    });
+    expect(snapshot.totals).toMatchObject({ spentCents: 0, remainingCents: 19362 });
+    expect(snapshot.transactions[0]).toMatchObject({
+      amountCents: 311600,
+      savedResourceCents: 311600,
+    });
+  });
+
   it('keeps an explicitly excluded transaction outside the review queue', () => {
     const snapshot = projectMoneySnapshot(
       {

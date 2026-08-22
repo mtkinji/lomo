@@ -1,6 +1,8 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
+import type { SettingsStackParamList } from '../../../navigation/RootNavigator';
+import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import {
   SettingsDivider,
@@ -13,6 +15,7 @@ import { Button } from '../../../ui/Button';
 import { spacing } from '../../../theme';
 import {
   getLivingPlanSettings,
+  restoreDefaultBudgetCategories,
   savePlanningBasisOverride,
   saveLivingTargetIntent,
   type LivingPlanSettingsSnapshot,
@@ -23,9 +26,45 @@ import { parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import { MoneyWeeklyCheckRow } from '../components/MoneyWeeklyCheckRow';
 
 export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneyLivingPlan'>) {
+  return (
+    <BudgetSettingsSurface
+      onBack={() => navigation.goBack()}
+      onOpenHouseholdAccess={() => rootNavigationRef.navigate('Settings', { screen: 'SettingsMoneyHousehold' })}
+      onOpenPrivacyLock={() => rootNavigationRef.navigate('Settings', { screen: 'SettingsMoneyPrivacy' })}
+      onOpenReceipt={(receiptId) => navigation.navigate('MoneyLivingPlanReceipt', { receiptId })}
+    />
+  );
+}
+
+export function BudgetSettingsScreen({ navigation }: NativeStackScreenProps<SettingsStackParamList, 'SettingsBudget'>) {
+  return (
+    <BudgetSettingsSurface
+      onBack={() => navigation.goBack()}
+      onOpenHouseholdAccess={() => navigation.navigate('SettingsMoneyHousehold')}
+      onOpenPrivacyLock={() => navigation.navigate('SettingsMoneyPrivacy')}
+      onOpenReceipt={(receiptId) => rootNavigationRef.navigate('Money', {
+        screen: 'MoneyLivingPlanReceipt',
+        params: { receiptId },
+      })}
+    />
+  );
+}
+
+export function BudgetSettingsSurface({
+  onBack,
+  onOpenHouseholdAccess,
+  onOpenPrivacyLock,
+  onOpenReceipt,
+}: {
+  onBack: () => void;
+  onOpenHouseholdAccess: () => void;
+  onOpenPrivacyLock: () => void;
+  onOpenReceipt: (receiptId: string) => void;
+}) {
   const [state, setState] = useState<LivingPlanSettingsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [restoringCategories, setRestoringCategories] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [planningBasisDraft, setPlanningBasisDraft] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
@@ -38,7 +77,7 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
       setUserId(authResult.data.user?.id ?? null);
       setPlanningBasisDraft(next.planningBasis ? (next.planningBasis.monthlyBasisCents / 100).toFixed(2) : '');
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Money plan settings could not be loaded.');
+      setStatus(error instanceof Error ? error.message : 'Budget settings could not be loaded.');
     } finally {
       setLoading(false);
     }
@@ -82,9 +121,36 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
     }
   };
 
+  const restoreCategories = async () => {
+    if (restoringCategories) return;
+    setRestoringCategories(true);
+    setStatus(null);
+    try {
+      const receipt = await restoreDefaultBudgetCategories(client);
+      setStatus(receipt.createdCategoryCount === 0
+        ? 'All default categories are already available.'
+        : `${receipt.createdCategoryCount} default ${receipt.createdCategoryCount === 1 ? 'category was' : 'categories were'} restored.`);
+    } catch (error) {
+      Alert.alert('Unable to restore default categories', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setRestoringCategories(false);
+    }
+  };
+
+  const confirmRestoreCategories = () => {
+    Alert.alert(
+      'Restore default categories?',
+      'This adds any missing Budget defaults. Your existing categories, names, amounts, and transaction assignments stay unchanged.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Restore', onPress: () => void restoreCategories() },
+      ],
+    );
+  };
+
   const livingPercent = state?.target?.livingPercent ?? 80;
   return (
-    <SettingsPage onBack={() => navigation.goBack()} title="Money plan">
+    <SettingsPage onBack={onBack} title="Budget">
       <SettingsGroup
         footer="Your living target is the share of trustworthy monthly income available for category plans. Kwilt preserves fixed and user-set amounts first."
         title="Living target"
@@ -115,6 +181,24 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
 
       {userId ? <MoneyWeeklyCheckRow userId={userId} /> : null}
 
+      <SettingsGroup
+        footer="Adds only missing Kwilt defaults. Existing categories, names, amounts, and transaction assignments stay unchanged."
+        title="Categories"
+      >
+        <SettingsRow
+          disabled={restoringCategories}
+          onPress={confirmRestoreCategories}
+          title="Restore default categories"
+          value={restoringCategories ? 'Restoring…' : undefined}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup title="Privacy & access">
+        <SettingsRow onPress={onOpenPrivacyLock} title="Privacy lock" />
+        <SettingsDivider />
+        <SettingsRow onPress={onOpenHouseholdAccess} title="Household access" />
+      </SettingsGroup>
+
       {status ? <SettingsGroup footer={status}><SettingsRow title="Latest result" /></SettingsGroup> : null}
 
       {state?.receipts.length ? (
@@ -123,7 +207,7 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
             <ReceiptRow
               key={receipt.id}
               divider={index > 0}
-              onPress={() => navigation.navigate('MoneyLivingPlanReceipt', { receiptId: receipt.id })}
+              onPress={() => onOpenReceipt(receipt.id)}
               title={receipt.cause}
               value={receipt.seenAtIso ? undefined : 'New'}
             />

@@ -12,6 +12,7 @@ serves:
   - jtbd-trust-this-app-with-my-life
   - jtbd-get-help-without-retelling-my-life
 briefs:
+  - budget-settings
   - kwilt-money-capability-integration
   - money-capability-first-entry
   - money-progressive-activation

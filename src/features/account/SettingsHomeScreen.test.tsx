@@ -132,10 +132,11 @@ describe('SettingsHomeScreen planning group', () => {
 
     expect(getByText('Activity areas')).toBeTruthy();
     expect(getByText('Meal preferences')).toBeTruthy();
-    expect(getByText('Privacy lock')).toBeTruthy();
-    expect(getByText('Household access')).toBeTruthy();
+    expect(getByText('Budget')).toBeTruthy();
     expect(getByText('Profile & account')).toBeTruthy();
     expect(getByText('Subscription')).toBeTruthy();
+    expect(queryByText('Privacy lock')).toBeNull();
+    expect(queryByText('Household access')).toBeNull();
     expect(queryByText('Money privacy')).toBeNull();
     expect(queryByText('Money household')).toBeNull();
   });
@@ -228,16 +229,10 @@ describe('SettingsHomeScreen planning group', () => {
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsLegalPrivacy');
   });
 
-  it('navigates to capability-scoped Money privacy from its concrete root label', () => {
+  it('opens the canonical Budget settings surface from the Money group', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
-    fireEvent.press(getByText('Privacy lock'));
-    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsMoneyPrivacy');
-  });
-
-  it('navigates to Money household access from its concrete root label', () => {
-    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
-    fireEvent.press(getByText('Household access'));
-    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsMoneyHousehold');
+    fireEvent.press(getByText('Budget'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsBudget');
   });
 
   it('keeps account deletion off the root Settings menu', () => {

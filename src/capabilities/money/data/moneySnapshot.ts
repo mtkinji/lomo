@@ -296,8 +296,12 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
       });
       const outflowCents = categoryTransactions
         .filter(isCommittedRowOutflow)
-        .reduce((sum, transaction) => sum + validCents(transaction.amount_cents), 0)
-        + allocatedTransactions.reduce((sum, allocation) => sum + allocation.amountCents, 0);
+        .reduce((sum, transaction) => sum + planCoveredRowAmountCents(transaction), 0)
+        + allocatedTransactions.reduce((sum, allocation) => sum + planCoveredAllocationAmountCents(
+          allocation.transaction,
+          allocation.amountCents,
+          allocationsByTransactionId.get(allocation.transaction.id) ?? [],
+        ), 0);
       const creditCents = categoryTransactions
         .filter((transaction) => !transaction.pending && transaction.direction === 'inflow' && transaction.money_meaning === 'category_credit')
         .reduce((sum, transaction) => sum + validCents(transaction.amount_cents), 0);
@@ -663,16 +667,39 @@ function countedCategorySpendBetween(input: {
     if (periodId < input.startPeriodId || periodId > input.endPeriodId) return;
     const assignedCategory = transaction.budget_id ? input.categoryByAlias.get(transaction.budget_id) : null;
     if (assignedCategory?.id === input.categoryId) {
-      if (isCommittedRowOutflow(transaction)) outflowCents += validCents(transaction.amount_cents);
+      if (isCommittedRowOutflow(transaction)) outflowCents += planCoveredRowAmountCents(transaction);
       if (!transaction.pending && transaction.direction === 'inflow' && transaction.money_meaning === 'category_credit') {
         creditCents += validCents(transaction.amount_cents);
       }
     }
     const allocation = input.allocationsByTransactionId.get(transaction.id)
       ?.find((candidate) => candidate.sourceCategoryId === input.categoryId);
-    if (allocation) outflowCents += allocation.amountCents;
+    if (allocation) {
+      outflowCents += planCoveredAllocationAmountCents(
+        transaction,
+        allocation.amountCents,
+        input.allocationsByTransactionId.get(transaction.id) ?? [],
+      );
+    }
   });
   return Math.max(0, outflowCents - creditCents);
+}
+
+function planCoveredRowAmountCents(transaction: MoneyTransactionRow): number {
+  const amountCents = validCents(transaction.amount_cents);
+  if (!isCommittedRowOutflow(transaction)) return amountCents;
+  return Math.max(0, amountCents - Math.min(amountCents, validCents(transaction.saved_resource_cents ?? 0)));
+}
+
+function planCoveredAllocationAmountCents(
+  transaction: MoneyTransactionRow,
+  allocationAmountCents: number,
+  allocations: MoneyTransactionAllocation[],
+): number {
+  const monthlyPlanCents = planCoveredRowAmountCents(transaction);
+  const totalAmountCents = allocations.reduce((sum, allocation) => sum + allocation.amountCents, 0);
+  if (totalAmountCents <= 0) return 0;
+  return Math.floor((monthlyPlanCents * allocationAmountCents) / totalAmountCents);
 }
 
 function getMostRecentSync(connections: MoneyConnectionRow[], accounts: MoneyAccount[]): string | null {

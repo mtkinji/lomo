@@ -214,6 +214,12 @@ describe('linkingConfig', () => {
       expect(leaf?.path).toEqual(['Settings', 'SettingsMoneyPrivacy']);
     });
 
+    test('kwilt://settings/budget resolves to canonical Budget settings', () => {
+      const leaf = parse('settings/budget');
+      expect(leaf?.name).toBe('SettingsBudget');
+      expect(leaf?.path).toEqual(['Settings', 'SettingsBudget']);
+    });
+
     test('friend invite links resolve to the explicit Settings decision screen', () => {
       const leaf = parse('friend/abc123');
       expect(leaf?.name).toBe('SettingsJoinFriend');

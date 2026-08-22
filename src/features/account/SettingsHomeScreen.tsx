@@ -65,8 +65,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: 'money',
     title: 'Money',
     entries: [
-      { id: 'money_privacy', title: 'Privacy lock', route: 'SettingsMoneyPrivacy' },
-      { id: 'money_household', title: 'Household access', route: 'SettingsMoneyHousehold' },
+      { id: 'budget', title: 'Budget', route: 'SettingsBudget' },
     ],
   },
   {

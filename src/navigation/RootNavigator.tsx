@@ -38,6 +38,7 @@ import { PlanAvailabilitySettingsScreen } from '../features/plan/PlanAvailabilit
 import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSettingsScreen';
 import { MoneyPrivacySettingsScreen } from '../capabilities/money/screens/MoneyPrivacySettingsScreen';
 import { MoneyHouseholdSettingsScreen } from '../capabilities/money/screens/MoneyHouseholdSettingsScreen';
+import { BudgetSettingsScreen } from '../capabilities/money/screens/MoneyLivingPlanScreen';
 import { AiChatScreen } from '../features/ai/AiChatScreen';
 import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
 import { SharedHomeScreen } from '../features/shared-home/SharedHomeScreen';
@@ -384,6 +385,7 @@ export type SettingsStackParamList = {
   };
   SettingsMoneyPrivacy: undefined;
   SettingsMoneyHousehold: undefined;
+  SettingsBudget: undefined;
   SettingsWeeklyChapters: undefined;
   SettingsPhoneAgent: undefined;
   SettingsConnectedTools: undefined;
@@ -1127,6 +1129,7 @@ function SettingsStackNavigator() {
       />
       <SettingsStack.Screen name="SettingsMoneyPrivacy" component={MoneyPrivacySettingsScreen} />
       <SettingsStack.Screen name="SettingsMoneyHousehold" component={MoneyHouseholdSettingsScreen} />
+      <SettingsStack.Screen name="SettingsBudget" component={BudgetSettingsScreen} />
       <SettingsStack.Screen
         name="SettingsWeeklyChapters"
         component={ChapterDigestSettingsScreen}

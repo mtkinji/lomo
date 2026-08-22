@@ -3,6 +3,7 @@ import { Animated, View } from 'react-native';
 
 import {
   buildObjectDetailMediaMotionRange,
+  ObjectDetailMediaHero,
   ObjectDetailMediaShell,
   resolveObjectDetailMediaGeometry,
 } from './ObjectDetailMediaShell';
@@ -104,6 +105,33 @@ describe('ObjectDetailMediaShell', () => {
         }),
       ]),
     );
+  });
+
+  it('can preserve compact layout while reusing the standard motion profile', () => {
+    const scrollY = new Animated.Value(0);
+    const interpolate = jest.spyOn(scrollY, 'interpolate');
+    const multiply = jest.spyOn(Animated, 'multiply');
+
+    const screen = render(
+      <ObjectDetailMediaHero
+        variant="compact"
+        motionVariant="standard"
+        scrollY={scrollY}
+        headerBoundary={80}
+      >
+        <View />
+      </ObjectDetailMediaHero>,
+    );
+
+    expect(screen.getByTestId('object-detail-media-hero').props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ height: 168 })]),
+    );
+    expect(interpolate).toHaveBeenCalledWith({
+      inputRange: [0, 50, 140],
+      outputRange: [1, 1, 0],
+      extrapolate: 'clamp',
+    });
+    expect(multiply).toHaveBeenCalledWith(scrollY, 0.5);
   });
 
   it('removes scroll-linked translation when Reduce Motion is enabled', () => {

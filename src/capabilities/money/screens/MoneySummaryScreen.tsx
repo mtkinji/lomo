@@ -189,6 +189,10 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
     }
   }, [currentMonthIndex, pagerWidth, periods.length]);
 
+  const openBudgetSettings = useCallback(() => {
+    rootNavigationRef.navigate('Settings', { screen: 'SettingsBudget' });
+  }, []);
+
   const summaryMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -202,7 +206,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
         <SummaryMenuItem
           icon="settings"
           label="Settings"
-          onPress={() => rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' })}
+          onPress={openBudgetSettings}
         />
       </DropdownMenuContent>
     </DropdownMenu>
@@ -354,7 +358,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
                   setLimitExplanationOpen(true);
                 }}
                 onOpenMonthlySummary={() => setMonthlySummaryOpen(true)}
-                onReviewIncome={() => navigation.navigate('MoneyLivingPlan')}
+                onReviewIncome={openBudgetSettings}
                 onReviewOverages={() => navigation.navigate('MoneyTransactions', {
                   inventoryTitle: 'Review overages',
                   overageReview: true,
@@ -420,7 +424,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
             freshness={formatMoneyFreshness(snapshot?.lastSyncedAt ?? null)}
             onChangeTarget={() => {
               setLimitExplanationOpen(false);
-              navigation.navigate('MoneyLivingPlan');
+              openBudgetSettings();
             }}
             onOpenUnclear={() => {
               setLimitExplanationOpen(false);
@@ -459,7 +463,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
             summary={monthlyBudgetSummary}
             onReviewPlan={() => {
               setMonthlySummaryOpen(false);
-              navigation.navigate('MoneyLivingPlan');
+              openBudgetSettings();
             }}
           />
         </BottomDrawerScrollView>

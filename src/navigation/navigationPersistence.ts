@@ -132,6 +132,7 @@ const SETTINGS_STACK_SCHEMA: ChildSchema = {
     'SettingsFamilyScreenTime',
     'SettingsMoneyPrivacy',
     'SettingsMoneyHousehold',
+    'SettingsBudget',
     'SettingsWeeklyChapters',
     'SettingsPhoneAgent',
     'SettingsConnectedTools',

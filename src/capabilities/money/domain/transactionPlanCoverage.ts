@@ -25,6 +25,20 @@ export function canEditTransactionPlanCoverage(transaction: CoverageTransaction)
   }
 }
 
+export function usesOnlySavedMoney(
+  transaction: CoverageTransaction & { savedResourceCents?: number },
+): boolean {
+  try {
+    const coverage = buildTransactionPlanCoverage({
+      ...transaction,
+      savedResourceCents: transaction.savedResourceCents ?? 0,
+    });
+    return coverage.savedResourceCents > 0 && coverage.monthlyPlanCents === 0;
+  } catch {
+    return false;
+  }
+}
+
 export function projectTransactionCoverageImpact(input: {
   flexibleRoomCents: number;
   currentSavedResourceCents: number;

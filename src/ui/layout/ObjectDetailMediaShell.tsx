@@ -90,6 +90,7 @@ type Props = {
 
 type HeroProps = {
   variant: ObjectDetailMediaVariant;
+  motionVariant?: ObjectDetailMediaVariant;
   scrollY: Animated.Value;
   headerBoundary: number;
   children: ReactNode;
@@ -99,6 +100,7 @@ type HeroProps = {
 
 export function ObjectDetailMediaHero({
   variant,
+  motionVariant = variant,
   scrollY,
   headerBoundary,
   children,
@@ -107,12 +109,13 @@ export function ObjectDetailMediaHero({
 }: HeroProps) {
   const { reduceMotionEnabled } = useAccessibilityPreferences();
   const geometry = resolveObjectDetailMediaGeometry(variant);
+  const motionGeometry = resolveObjectDetailMediaGeometry(motionVariant);
   const fade = buildObjectDetailMediaMotionRange({
-    heroHeight: geometry.heroHeight,
-    overlap: geometry.overlap,
+    heroHeight: motionGeometry.heroHeight,
+    overlap: motionGeometry.overlap,
     headerBoundary,
-    fadeHold: geometry.fadeHold,
-    fadeLead: geometry.fadeLead,
+    fadeHold: motionGeometry.fadeHold,
+    fadeLead: motionGeometry.fadeLead,
   });
   const opacity = reduceMotionEnabled
     ? 1
@@ -123,7 +126,7 @@ export function ObjectDetailMediaHero({
       });
   const translateY = reduceMotionEnabled
     ? null
-    : Animated.multiply(scrollY, geometry.parallaxFactor);
+    : Animated.multiply(scrollY, motionGeometry.parallaxFactor);
   const cornerArtworkUnderlay = extendArtworkBehindSheetCorners
     ? Math.max(0, geometry.sheetRadius - geometry.overlap)
     : 0;

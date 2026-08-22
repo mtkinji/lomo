@@ -39,6 +39,32 @@ export type LivingPlanSettingsSnapshot = {
   receipts: LivingPlanReceipt[];
 };
 
+export type RestoreDefaultBudgetCategoriesReceipt = {
+  createdCategoryCount: number;
+  categoryIds: string[];
+};
+
+export async function restoreDefaultBudgetCategories(
+  client: SupabaseClient,
+): Promise<RestoreDefaultBudgetCategoriesReceipt> {
+  const { data, error } = await client.rpc('restore_default_budget_categories');
+  if (error) throw error;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Budget could not confirm which default categories were restored.');
+  }
+  const receipt = data as Record<string, unknown>;
+  const createdCategoryCount = receipt.createdCategoryCount;
+  const categoryIds = Array.isArray(receipt.categoryIds)
+    ? receipt.categoryIds.filter((categoryId): categoryId is string => typeof categoryId === 'string' && Boolean(categoryId.trim()))
+    : [];
+  if (!Number.isInteger(createdCategoryCount)
+    || (createdCategoryCount as number) < 0
+    || categoryIds.length !== createdCategoryCount) {
+    throw new Error('Budget could not confirm which default categories were restored.');
+  }
+  return { createdCategoryCount: createdCategoryCount as number, categoryIds };
+}
+
 export async function getLivingPlanSettings(client: SupabaseClient): Promise<LivingPlanSettingsSnapshot> {
   const userId = await requireUserId(client);
   const [targetResult, configResult, planningBasis, active, receiptResult] = await Promise.all([

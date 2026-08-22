@@ -25,6 +25,10 @@ const neutralPaymentRepairMigration = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260822020828_preserve_neutral_payments_in_governed_reconciliation.sql'),
   'utf8',
 );
+const restoreDefaultsMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260822023044_restore_default_budget_categories.sql'),
+  'utf8',
+);
 
 describe('governed household Money migration', () => {
   const foundation = migration.slice(
@@ -132,5 +136,25 @@ describe('governed household Money migration', () => {
       "budget_assignment_policy_version = 'governed-category-v2'",
     );
     expect(neutralPaymentRepairMigration).not.toMatch(/budget_assignment_governed\s*=\s*true/);
+  });
+
+  it('restores only missing canonical categories through an owner-scoped additive RPC', () => {
+    expect(restoreDefaultsMigration).toContain(
+      'create or replace function public.restore_default_budget_categories()',
+    );
+    expect(restoreDefaultsMigration).toContain('security invoker');
+    expect(restoreDefaultsMigration).toContain('auth.uid()');
+    expect(restoreDefaultsMigration).toContain("auth.jwt()->>'is_anonymous'");
+    expect(restoreDefaultsMigration).toContain("('groceries', 'Groceries'");
+    expect(restoreDefaultsMigration).toContain("category.mapping_tags && starter.mapping_tags");
+    expect(restoreDefaultsMigration).toContain('not exists');
+    expect(restoreDefaultsMigration).toContain("'createdCategoryCount'");
+    expect(restoreDefaultsMigration).not.toMatch(/update public\.budget_categories[\s\S]*set\s+(?:name|slug|mapping_tags)\s*=/i);
+    expect(restoreDefaultsMigration).toMatch(
+      /revoke execute on function public\.restore_default_budget_categories\(\) from public, anon;/,
+    );
+    expect(restoreDefaultsMigration).toMatch(
+      /grant execute on function public\.restore_default_budget_categories\(\) to authenticated;/,
+    );
   });
 });

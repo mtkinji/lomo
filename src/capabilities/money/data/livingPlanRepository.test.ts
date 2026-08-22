@@ -3,6 +3,7 @@ import {
   applyGovernedCategoryPlanChange,
   getLivingPlanReceiptDetail,
   holdLivingPlanCandidate,
+  restoreDefaultBudgetCategories,
   savePlanningBasisOverride,
 } from './livingPlanRepository';
 import type { LivingPlanCandidate } from '../domain/living-plan';
@@ -146,6 +147,30 @@ describe('living plan governed persistence', () => {
         provenance: 'user_set',
       }),
     }]);
+  });
+
+  it('returns the confirmed additive default-category restoration receipt', async () => {
+    const rpc = jest.fn(async () => ({
+      data: { createdCategoryCount: 2, categoryIds: ['category-1', 'category-2'] },
+      error: null,
+    }));
+    const client = { rpc } as unknown as SupabaseClient;
+
+    await expect(restoreDefaultBudgetCategories(client)).resolves.toEqual({
+      createdCategoryCount: 2,
+      categoryIds: ['category-1', 'category-2'],
+    });
+    expect(rpc).toHaveBeenCalledWith('restore_default_budget_categories');
+  });
+
+  it('rejects an unconfirmed default-category restoration response', async () => {
+    const client = {
+      rpc: jest.fn(async () => ({ data: { createdCategoryCount: 1, categoryIds: [] }, error: null })),
+    } as unknown as SupabaseClient;
+
+    await expect(restoreDefaultBudgetCategories(client)).rejects.toThrow(
+      'could not confirm which default categories were restored',
+    );
   });
 
   it('holds an automatic candidate for the next period without promoting it', async () => {

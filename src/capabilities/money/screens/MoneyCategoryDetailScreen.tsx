@@ -129,6 +129,12 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     (view?.transactions ?? []).slice(0, ACTIVITY_INLINE_LIMIT),
   ), [view?.transactions]);
   const headerTotalHeight = insets.top + CATEGORY_HEADER_BAR_HEIGHT;
+  const refreshHeaderTranslateY = scrollY.interpolate({
+    inputRange: [-1, 0],
+    outputRange: [1, 0],
+    extrapolateLeft: 'extend',
+    extrapolateRight: 'clamp',
+  });
   const headerTransitionStartScrollY = Math.max(
     1,
     CATEGORY_MEDIA_GEOMETRY.heroHeight - CATEGORY_MEDIA_GEOMETRY.overlap - headerTotalHeight,
@@ -300,22 +306,27 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       <AppShell fullBleedCanvas>
         <StatusBar style={statusBarStyle} animated />
         <View style={styles.screen}>
-          <ObjectPageHeader
-            barHeight={CATEGORY_HEADER_BAR_HEIGHT}
-            showFullWidthBackground={false}
-            left={(
-              <HeaderActionPill
-                accessibilityLabel="Back to budget summary"
-                materialVariant="floatingWhite"
-                onPress={() => navigation.goBack()}
-                size={CATEGORY_HEADER_PILL_SIZE}
-              >
-                <Icon name="arrowLeft" size={22} color={colors.textPrimary} />
-              </HeaderActionPill>
-            )}
-            right={<HStack alignItems="center" space="sm">{moreMenu}</HStack>}
-          />
           <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing} style={styles.refreshBackdrop}>
+            <Animated.View
+              pointerEvents="box-none"
+              style={[styles.refreshHeader, { height: headerTotalHeight, transform: [{ translateY: refreshHeaderTranslateY }] }]}
+            >
+              <ObjectPageHeader
+                barHeight={CATEGORY_HEADER_BAR_HEIGHT}
+                showFullWidthBackground={false}
+                left={(
+                  <HeaderActionPill
+                    accessibilityLabel="Back to budget summary"
+                    materialVariant="floatingWhite"
+                    onPress={() => navigation.goBack()}
+                    size={CATEGORY_HEADER_PILL_SIZE}
+                  >
+                    <Icon name="arrowLeft" size={22} color={colors.textPrimary} />
+                  </HeaderActionPill>
+                )}
+                right={<HStack alignItems="center" space="sm">{moreMenu}</HStack>}
+              />
+            </Animated.View>
             <Animated.ScrollView
               contentInsetAdjustmentBehavior="never"
               scrollEnabled={!chartScrubbing}
@@ -328,6 +339,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
             <View style={styles.refreshPage}>
               <ObjectDetailMediaHero
                 variant="compact"
+                motionVariant="standard"
                 scrollY={scrollY}
                 headerBoundary={headerTotalHeight}
                 extendArtworkBehindSheetCorners
@@ -380,26 +392,28 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
                 <Text style={styles.sectionTitle}>Activity</Text>
                 <Text style={styles.sectionCount}>{view.transactions.length} {view.transactions.length === 1 ? 'transaction' : 'transactions'}</Text>
               </View>
-              {groups.length > 0 ? groups.map((group) => (
-                <View key={group.dateIso} style={styles.activityGroup}>
-                  <Text style={styles.dateLabel}>{group.label}</Text>
-                  <View style={styles.activityRows}>
-                    {group.transactions.map((transaction, index) => (
-                      <CategoryTransactionRow
-                        key={transaction.id}
-                        transaction={transaction}
-                        showDivider={index < group.transactions.length - 1}
-                        onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id })}
-                      />
-                    ))}
+              <View style={styles.activityInventory}>
+                {groups.length > 0 ? groups.map((group) => (
+                  <View key={group.dateIso} style={styles.activityGroup}>
+                    <Text style={styles.dateLabel}>{group.label}</Text>
+                    <View style={styles.activityRows}>
+                      {group.transactions.map((transaction, index) => (
+                        <CategoryTransactionRow
+                          key={transaction.id}
+                          transaction={transaction}
+                          showDivider={index < group.transactions.length - 1}
+                          onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id })}
+                        />
+                      ))}
+                    </View>
                   </View>
-                </View>
-              )) : (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyTitle}>No {view.periodLabel} {category.name} activity yet</Text>
-                  <Text style={styles.emptyCopy}>Transactions assigned to this category will appear here.</Text>
-                </View>
-              )}
+                )) : (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyTitle}>No {view.periodLabel} {category.name} activity yet</Text>
+                    <Text style={styles.emptyCopy}>Transactions assigned to this category will appear here.</Text>
+                  </View>
+                )}
+              </View>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => navigation.navigate('MoneyTransactions', {
@@ -630,16 +644,25 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   );
 }
 
-function CategoryTransactionRow({ onPress, showDivider, transaction }: { onPress: () => void; showDivider: boolean; transaction: MoneyTransaction }) {
+export function CategoryTransactionRow({ onPress, showDivider, transaction }: { onPress: () => void; showDivider: boolean; transaction: MoneyTransaction }) {
   const amount = transaction.direction === 'inflow' ? transaction.amountCents : -transaction.amountCents;
   const amountLabel = `${amount > 0 ? '+' : ''}${formatMoney(amount, transaction.currencyCode)}`;
+  const savedResourceCents = Math.min(transaction.amountCents, Math.max(0, transaction.savedResourceCents ?? 0));
+  const planCoverageCents = Math.max(0, transaction.amountCents - savedResourceCents);
+  const coverageLabel = savedResourceCents > 0
+    ? `Saved money · ${formatMoney(planCoverageCents, transaction.currencyCode)} from plan`
+    : null;
+  const coverageAccessibilityLabel = savedResourceCents > 0
+    ? `, covered by saved money, ${formatMoney(planCoverageCents, transaction.currencyCode)} from plan`
+    : '';
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction, ${transaction.accountName}, ${amountLabel}`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, showDivider ? styles.transactionRowDivider : null, pressed ? styles.pressed : null]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction, ${transaction.accountName}, ${amountLabel}${coverageAccessibilityLabel}`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, showDivider ? styles.transactionRowDivider : null, pressed ? styles.pressed : null]}>
       <View style={styles.transactionCopy}>
         <Text numberOfLines={1} style={styles.transactionMerchant}>{transaction.merchantName}</Text>
         <Text numberOfLines={1} style={styles.transactionMeta}>{transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.accountName}</Text>
+        {coverageLabel ? <Text numberOfLines={1} style={styles.transactionCoverage}>{coverageLabel}</Text> : null}
       </View>
-      <Text style={[styles.transactionAmount, transaction.direction === 'inflow' ? styles.inflow : null]}>{amountLabel}</Text>
+      <Text style={[styles.transactionAmount, transaction.direction === 'inflow' ? styles.inflow : null, coverageLabel ? styles.savedTransactionAmount : null]}>{amountLabel}</Text>
       <Icon name="chevronRight" size={16} color={colors.gray400} />
     </Pressable>
   );
@@ -795,6 +818,7 @@ function naturalList(values: string[]): string {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   refreshBackdrop: { backgroundColor: colors.parchment },
+  refreshHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 },
   scrollContent: { flexGrow: 1 },
   refreshPage: {
     flexGrow: 1,
@@ -811,9 +835,10 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, fontWeight: '700' },
   sectionCount: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  activityInventory: { gap: spacing.md, padding: spacing.sm, borderRadius: radii.card, backgroundColor: colors.fieldFill },
   activityGroup: { gap: spacing.xs },
   dateLabel: { paddingTop: spacing.xs, color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  activityRows: { overflow: 'hidden', borderRadius: radii.card, backgroundColor: colors.fieldFill },
+  activityRows: { overflow: 'hidden', borderRadius: radii.card, backgroundColor: colors.card },
   transactionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   transactionRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.cardBorder },
   pressed: { opacity: 0.72 },
@@ -821,6 +846,8 @@ const styles = StyleSheet.create({
   transactionMerchant: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 15, lineHeight: 20, fontWeight: '500' },
   transactionMeta: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 16 },
   transactionAmount: { minWidth: 72, color: colors.textPrimary, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  savedTransactionAmount: { color: colors.textSecondary },
+  transactionCoverage: { color: colors.textSecondary, fontFamily: fonts.medium, fontSize: 10, lineHeight: 14, fontWeight: '500' },
   inflow: { color: colors.pine700 },
   emptyState: { gap: spacing.xs, paddingVertical: spacing.lg },
   emptyTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, fontWeight: '600' },

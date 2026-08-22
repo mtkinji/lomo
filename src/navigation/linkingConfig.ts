@@ -288,6 +288,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
           path: 'household/:inviteCode?',
         },
         SettingsMoneyPrivacy: 'settings/money-privacy',
+        SettingsBudget: 'settings/budget',
         SettingsJoinFriend: 'friend/:inviteCode',
       },
     },

@@ -44,9 +44,11 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
 
     expect(source).toContain('<ObjectPageHeader');
+    expect(source.indexOf('<KwiltRefreshFrame')).toBeLessThan(source.indexOf('<ObjectPageHeader'));
     expect(source.indexOf('<ObjectPageHeader')).toBeLessThan(source.indexOf('<Animated.ScrollView'));
     expect(source).toContain('showFullWidthBackground={false}');
     expect(source).toContain('<ObjectDetailMediaHero');
+    expect(source).toContain('motionVariant="standard"');
     expect(source).toContain('<ObjectDetailMediaSheet variant="compact">');
     expect(source).toContain('const CATEGORY_MEDIA_GEOMETRY = resolveObjectDetailMediaGeometry(\'compact\');');
     expect(source).toContain('extendArtworkBehindSheetCorners');
@@ -60,6 +62,11 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
 
     expect(source).toContain('useKwiltRefresh');
+    expect(source).toContain('const refreshHeaderTranslateY = scrollY.interpolate({');
+    expect(source).toContain("extrapolateLeft: 'extend',\n    extrapolateRight: 'clamp',");
+    expect(source).toContain('style={[styles.refreshHeader, { height: headerTotalHeight, transform: [{ translateY: refreshHeaderTranslateY }] }]}');
+    expect(source).toContain("refreshHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 },");
+    expect(source).not.toContain('style={{ transform: [{ translateY: refreshHeaderTranslateY }] }}');
     expect(source).toContain('refreshControl={refreshControl}');
     expect(source.indexOf('<ObjectPageHeader')).toBeLessThan(source.indexOf('<Animated.ScrollView'));
     expect(source.indexOf('<ObjectDetailMediaHero')).toBeGreaterThan(source.indexOf('<Animated.ScrollView'));
@@ -139,8 +146,10 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
   it('groups dated activity rows in the inventory surface and keeps the exit neutral', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
 
+    expect(source).toContain('<View style={styles.activityInventory}>');
     expect(source).toContain('<View style={styles.activityRows}>');
-    expect(source).toContain('activityRows: { overflow: \'hidden\', borderRadius: radii.card, backgroundColor: colors.fieldFill }');
+    expect(source).toContain('activityInventory: { gap: spacing.md, padding: spacing.sm, borderRadius: radii.card, backgroundColor: colors.fieldFill }');
+    expect(source).toContain('activityRows: { overflow: \'hidden\', borderRadius: radii.card, backgroundColor: colors.card }');
     expect(source).toContain('showDivider={index < group.transactions.length - 1}');
     expect(source).toContain('transactionRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.cardBorder }');
     expect(source).toContain('viewAllText: { color: colors.textPrimary');

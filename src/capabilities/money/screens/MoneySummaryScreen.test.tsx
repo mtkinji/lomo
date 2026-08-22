@@ -42,6 +42,7 @@ const mockReconcileConnectedActivity = jest.fn(async () => null);
 const mockRefresh = jest.fn(async () => undefined);
 const mockRefreshStaleMoneySummary = jest.fn(async (_input: unknown) => undefined);
 const mockReorderCategories = jest.fn(async (_categoryIds: string[]) => undefined);
+const mockRootNavigate = jest.fn();
 let mockMoneyScreenFrameOnRefresh: (() => Promise<unknown>) | undefined;
 const mockBottomDrawerProps: Array<Record<string, unknown>> = [];
 
@@ -61,6 +62,9 @@ jest.mock('../data/MoneyDataContext', () => ({
 jest.mock('../runtime/moneySummaryAutoRefresh', () => ({
   refreshStaleMoneySummary: (input: unknown) => mockRefreshStaleMoneySummary(input),
 }));
+jest.mock('../../../navigation/rootNavigationRef', () => ({
+  rootNavigationRef: { navigate: (...args: unknown[]) => mockRootNavigate(...args) },
+}));
 jest.mock('../../../services/analytics/useFeatureFlag', () => ({ useFeatureFlag: () => false }));
 jest.mock('../components/MoneyCategoryMeterTile', () => ({
   ...jest.requireActual('../components/MoneyCategoryMeterTile'),
@@ -76,14 +80,15 @@ jest.mock('../components/MoneyCategoryMeterTile', () => ({
 jest.mock('./MoneyScreenFrame', () => {
   const { Text, View } = require('react-native');
   return {
-    MoneyScreenFrame: ({ children, headerRightElement, onRefresh, title }: {
+    MoneyScreenFrame: ({ children, headerRightElement, moreMenu, onRefresh, title }: {
       children: React.ReactNode;
       headerRightElement?: React.ReactNode;
+      moreMenu?: React.ReactNode;
       onRefresh?: () => Promise<unknown>;
       title: string;
     }) => {
       mockMoneyScreenFrameOnRefresh = onRefresh;
-      return <View><Text>{title}</Text>{headerRightElement}{children}</View>;
+      return <View><Text>{title}</Text>{moreMenu}{headerRightElement}{children}</View>;
     },
   };
 });
@@ -114,6 +119,54 @@ jest.mock('../../../ui/CelebrationGif', () => {
   const { View } = require('react-native');
   return { CelebrationGif: () => <View testID="money-budget-ready-celebration" /> };
 });
+jest.mock('../../../ui/DropdownMenu', () => {
+  const React = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  const MenuContext = React.createContext({ open: false, setOpen: (_open: boolean) => undefined });
+  return {
+    DropdownMenu: ({ children }: { children: React.ReactNode }) => {
+      const [open, setOpen] = React.useState(false);
+      return <MenuContext.Provider value={{ open, setOpen }}>{children}</MenuContext.Provider>;
+    },
+    DropdownMenuContent: ({ children }: { children: React.ReactNode }) => {
+      const { open } = React.useContext(MenuContext);
+      return open ? <View>{children}</View> : null;
+    },
+    DropdownMenuItem: ({ accessibilityLabel, children, label, onPress }: {
+      accessibilityLabel?: string;
+      children?: React.ReactNode;
+      label?: string;
+      onPress?: () => void;
+    }) => {
+      const { setOpen } = React.useContext(MenuContext);
+      return (
+        <Pressable accessibilityLabel={accessibilityLabel ?? label} accessibilityRole="menuitem" onPress={() => { onPress?.(); setOpen(false); }}>
+          {children ?? <Text>{label}</Text>}
+        </Pressable>
+      );
+    },
+    DropdownMenuRadioGroup: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
+    DropdownMenuRadioItem: ({ accessibilityLabel, children, onPress }: {
+      accessibilityLabel?: string;
+      children?: React.ReactNode;
+      onPress?: () => void;
+    }) => <Pressable accessibilityLabel={accessibilityLabel} onPress={onPress}>{children}</Pressable>,
+    DropdownMenuSeparator: () => <View />,
+    DropdownMenuTrigger: ({ children }: { children: React.ReactElement<{
+      accessibilityState?: Record<string, unknown>;
+      onPress?: () => void;
+    }> }) => {
+      const { open, setOpen } = React.useContext(MenuContext);
+      return React.cloneElement(children, {
+        accessibilityState: { ...children.props.accessibilityState, expanded: open },
+        onPress: () => {
+          children.props.onPress?.();
+          setOpen(!open);
+        },
+      });
+    },
+  };
+});
 
 describe('MoneySummaryScreen living limit answer', () => {
   beforeEach(() => {
@@ -124,6 +177,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     mockRefresh.mockClear();
     mockRefreshStaleMoneySummary.mockClear();
     mockReorderCategories.mockClear();
+    mockRootNavigate.mockClear();
   });
 
   it('checks connected institutions before rebuilding Budget on pull-to-refresh', async () => {
@@ -194,7 +248,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     fireEvent.press(monthSummary);
     expect(screen.getByRole('header', { name: 'July summary' })).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Review monthly plan' }));
-    expect(navigation.navigate).toHaveBeenCalledWith('MoneyLivingPlan');
+    expect(mockRootNavigate).toHaveBeenCalledWith('Settings', { screen: 'SettingsBudget' });
     expect(screen.getAllByText('Flexible spending').length).toBeGreaterThan(0);
     expect(screen.getByTestId('money-limit-header')).toBeTruthy();
     expect(screen.queryByText('Categories')).toBeNull();
@@ -230,7 +284,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.queryByRole('button', { name: 'Monthly living boundary · 70%' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Flexible spending this month' })).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Change 70% target' }));
-    expect(navigation.navigate).toHaveBeenCalledWith('MoneyLivingPlan');
+    expect(mockRootNavigate).toHaveBeenCalledWith('Settings', { screen: 'SettingsBudget' });
 
     const explanationDrawer = mockBottomDrawerProps.find((props) => (
       Array.isArray(props.snapPoints) && props.snapPoints.includes('78%')
@@ -535,6 +589,16 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(source).toContain('<DropdownMenuSeparator />');
     expect(source).toContain('accessibilityLabel="Reorder categories" onPress={onReorder}');
     expect(source).toContain('<MoneyCategoryReorderDrawer');
+  });
+
+  it('opens the canonical Budget settings page from the ellipsis menu', () => {
+    const navigation = { navigate: jest.fn() };
+    const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-settings', name: 'MoneySummary' } as never} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Budget options' }));
+    fireEvent.press(screen.getByRole('menuitem', { name: 'Settings' }));
+
+    expect(mockRootNavigate).toHaveBeenCalledWith('Settings', { screen: 'SettingsBudget' });
   });
 
   it('opens the exact transactions behind flexible spending', () => {

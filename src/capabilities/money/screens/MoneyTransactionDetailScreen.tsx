@@ -23,7 +23,7 @@ import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
 import { getPaymentSourcePresentation, type InstitutionPalette } from '../domain/paymentSourcePresentation';
 import { getTransactionMeaningOptions, type TransactionMeaningOption } from '../domain/transactionMeaningOptions';
 import { getTransactionPlanTreatment } from '../domain/transactionPlanTreatment';
-import { canEditTransactionPlanCoverage, projectTransactionCoverageImpact } from '../domain/transactionPlanCoverage';
+import { canEditTransactionPlanCoverage, projectTransactionCoverageImpact, usesOnlySavedMoney } from '../domain/transactionPlanCoverage';
 import type { TransactionSplitMode } from '../domain/transactionTruthTelemetry';
 import type { MoneyStackParamList } from '../navigation/types';
 import {
@@ -374,7 +374,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               </View>
               <Icon name="chevronDown" size={18} color={colors.textSecondary} />
             </Pressable>
-            {transaction.direction === 'outflow' && currentCategory && !transaction.allocations?.length ? (
+            {transaction.direction === 'outflow' && currentCategory && !transaction.allocations?.length && !usesOnlySavedMoney(transaction) ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Counts as ${planTreatment.label}. Change how this transaction counts.`}
@@ -413,7 +413,9 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                     : (transaction.savedResourceCents ?? 0) === transaction.amountCents
                       ? 'Saved money'
                       : `${formatMoney(transaction.savedResourceCents ?? 0)} saved money`}</Text>
-                  <Text style={styles.countsAsDetail}>Changes this month’s plan, not the purchase or its category.</Text>
+                  <Text style={styles.countsAsDetail}>{usesOnlySavedMoney(transaction)
+                    ? `Does not use the ${snapshot?.periodLabel.split(' ')[0] ?? 'month'} plan. The purchase stays in ${currentCategory?.name ?? transaction.categoryName}.`
+                    : 'Changes this month’s plan, not the purchase or its category.'}</Text>
                 </View>
                 <Icon name="chevronRight" size={15} color={colors.textSecondary} />
               </Pressable>
