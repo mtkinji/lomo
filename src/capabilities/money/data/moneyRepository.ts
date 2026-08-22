@@ -119,12 +119,14 @@ export interface MoneyRepository {
   }): Promise<MoneySnapshot>;
   reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput): Promise<ConfirmedTransactionWrite>;
   setTransactionPlanRoleOverride(transactionId: string, planRoleOverride: MoneyCategoryPlanRole | null): Promise<ConfirmedTransactionPlanRoleWrite>;
+  setTransactionPlanCoverage(transactionId: string, savedResourceCents: number): Promise<MoneySnapshot>;
   saveMerchantRule(input: {
     transactionId: string;
     merchantName: string;
     categoryId: string;
     categoryName: string;
     matchMode?: 'exact' | 'partial';
+    merchantPattern?: string;
   }): Promise<ConfirmedMerchantRuleWrite>;
   createCategory(input: CategoryPlanInput): Promise<{ categoryId: string; snapshot: MoneySnapshot }>;
   reorderCategories(categoryIds: string[]): Promise<ConfirmedCategoryOrderWrite>;
@@ -207,6 +209,8 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 money_meaning,
                 plan_role_override,
                 plan_role_override_reviewed_at,
+                saved_resource_cents,
+                plan_coverage_reviewed_at,
                 personal_finance_category_primary,
                 personal_finance_category_detailed,
                 personal_finance_category_confidence,
@@ -381,6 +385,29 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         transactionId: normalizedTransactionId,
         planRoleOverride,
       };
+    },
+    async setTransactionPlanCoverage(transactionId, savedResourceCents) {
+      const normalizedTransactionId = transactionId.trim();
+      if (!normalizedTransactionId) throw new Error('Choose a transaction before changing plan coverage.');
+      const normalizedSavedResourceCents = Number.isFinite(savedResourceCents)
+        ? Math.max(0, Math.round(savedResourceCents))
+        : 0;
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      const updatedRows = await readPart<Array<{ id: string }>>(
+        'transaction plan coverage',
+        db
+          .from('budget_transactions')
+          .update({
+            saved_resource_cents: normalizedSavedResourceCents,
+            plan_coverage_reviewed_at: new Date().toISOString(),
+            plan_coverage_provenance: 'user_declared',
+          })
+          .eq('id', normalizedTransactionId)
+          .select('id'),
+      );
+      requireConfirmedRows('transaction plan coverage', updatedRows, 1);
+      return loadSnapshot();
     },
     async saveMerchantRule(input) {
       const userId = await requireSignedIn(client);

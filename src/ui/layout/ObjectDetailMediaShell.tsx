@@ -26,7 +26,7 @@ const GEOMETRY: Record<ObjectDetailMediaVariant, ObjectDetailMediaGeometry> = {
   immersive: {
     heroHeight: 320,
     overlap: 28,
-    sheetRadius: radii.sheet,
+    sheetRadius: radii.deviceSheet,
     parallaxFactor: 0.5,
     fadeHold: 60,
     fadeLead: 180,
@@ -34,7 +34,7 @@ const GEOMETRY: Record<ObjectDetailMediaVariant, ObjectDetailMediaGeometry> = {
   standard: {
     heroHeight: 240,
     overlap: 20,
-    sheetRadius: radii.sheet,
+    sheetRadius: radii.deviceSheet,
     parallaxFactor: 0.5,
     fadeHold: 50,
     fadeLead: 160,
@@ -42,7 +42,7 @@ const GEOMETRY: Record<ObjectDetailMediaVariant, ObjectDetailMediaGeometry> = {
   compact: {
     heroHeight: 168,
     overlap: 16,
-    sheetRadius: radii.panel,
+    sheetRadius: radii.deviceSheet,
     parallaxFactor: 0.35,
     fadeHold: 24,
     fadeLead: 64,
@@ -79,6 +79,7 @@ type Props = {
   headerBoundary: number;
   hero: ReactNode;
   children: ReactNode;
+  extendArtworkBehindSheetCorners?: boolean;
   heroStyle?: StyleProp<ViewStyle>;
   sheetStyle?: StyleProp<ViewStyle>;
   sheetInnerStyle?: StyleProp<ViewStyle>;
@@ -92,6 +93,7 @@ type HeroProps = {
   scrollY: Animated.Value;
   headerBoundary: number;
   children: ReactNode;
+  extendArtworkBehindSheetCorners?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -100,6 +102,7 @@ export function ObjectDetailMediaHero({
   scrollY,
   headerBoundary,
   children,
+  extendArtworkBehindSheetCorners = false,
   style,
 }: HeroProps) {
   const { reduceMotionEnabled } = useAccessibilityPreferences();
@@ -121,11 +124,21 @@ export function ObjectDetailMediaHero({
   const translateY = reduceMotionEnabled
     ? null
     : Animated.multiply(scrollY, geometry.parallaxFactor);
+  const cornerArtworkUnderlay = extendArtworkBehindSheetCorners
+    ? Math.max(0, geometry.sheetRadius - geometry.overlap)
+    : 0;
 
   return (
     <View
       testID="object-detail-media-hero"
-      style={[styles.hero, { height: geometry.heroHeight }, style]}
+      style={[
+        styles.hero,
+        {
+          height: geometry.heroHeight + cornerArtworkUnderlay,
+          marginBottom: -cornerArtworkUnderlay,
+        },
+        style,
+      ]}
     >
       <Animated.View
         testID="object-detail-media-animated-hero"
@@ -185,6 +198,7 @@ export function ObjectDetailMediaShell({
   headerBoundary,
   hero,
   children,
+  extendArtworkBehindSheetCorners,
   heroStyle,
   sheetStyle,
   sheetInnerStyle,
@@ -198,6 +212,7 @@ export function ObjectDetailMediaShell({
         variant={variant}
         scrollY={scrollY}
         headerBoundary={headerBoundary}
+        extendArtworkBehindSheetCorners={extendArtworkBehindSheetCorners}
         style={heroStyle}
       >
         {hero}

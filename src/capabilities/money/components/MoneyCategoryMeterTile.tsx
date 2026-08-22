@@ -11,6 +11,7 @@ import {
 import { colors, spacing } from '../../../theme';
 import { Icon } from '../../../ui/Icon';
 import { formatMoney, type MoneyCategory } from '../data/moneySnapshot';
+import { formatBudgetOverviewMoney } from '../presentation/budgetOverviewMoney';
 
 const TICK_COUNT = 52;
 const MAX_OVER_BUDGET_TICK_WIDTH_MULTIPLIER = 3.2;
@@ -90,7 +91,7 @@ export function MoneyCategoryMeterTile({
       </View>
       <View style={styles.captionRow}>
         <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={styles.caption}>
-          {formatMoney(category.spentCents)} / {formatMoney(category.plannedCents)}
+          {formatBudgetOverviewMoney(category.spentCents)} / {formatBudgetOverviewMoney(category.plannedCents)}
         </Text>
       </View>
     </Pressable>
@@ -106,11 +107,8 @@ export function getCategoryListStatus(category: MoneyCategory): MoneyCategoryLis
   const attentionThresholdCents = Math.max(2_500, Math.round(category.plannedCents * 0.1));
   const currentOverageCents = Math.max(0, -category.remainingCents);
   const projectedOverageCents = Math.max(0, category.forecast.projectedOverageCents ?? 0);
-  if (currentOverageCents >= attentionThresholdCents) {
-    return { label: null, tone: 'danger' };
-  }
   if (currentOverageCents > 0) {
-    return { label: null, tone: 'neutral' };
+    return { label: null, tone: 'danger' };
   }
   if (projectedOverageCents >= attentionThresholdCents || category.forecast.status === 'watch' || category.forecast.status === 'over') {
     return { label: 'Projected to go over', tone: 'watch' };
@@ -125,7 +123,7 @@ export function MoneyCategoryListRow({ category, onPress, periodElapsedPercent, 
   targetRef?: Ref<View>;
 }) {
   const isOver = category.remainingCents < 0;
-  const value = `${formatMoney(Math.abs(category.remainingCents))} ${isOver ? 'over' : 'left'}`;
+  const value = `${formatBudgetOverviewMoney(Math.abs(category.remainingCents))} ${isOver ? 'over' : 'left'}`;
   const status = getCategoryListStatus(category);
   const usedPercent = Math.min(100, Math.max(0, category.percentUsed));
   const elapsedPercent = Math.min(100, Math.max(0, periodElapsedPercent));

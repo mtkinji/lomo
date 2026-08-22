@@ -332,6 +332,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     paddingBottom: spacing.md,
     paddingLeft: spacing.sm,
+    paddingRight: spacing.sm,
   },
   conversationContainer: {
     paddingBottom: spacing.xs,

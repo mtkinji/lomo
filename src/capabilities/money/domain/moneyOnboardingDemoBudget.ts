@@ -76,7 +76,7 @@ export function buildMoneyOnboardingDemoBudget(now = new Date()): MoneySnapshot 
       facts: {
         periodId: month,
         planVersionId: 'money-onboarding-demo-v1',
-        policyVersion: 'money-plan-limit-v2',
+        policyVersion: 'money-plan-limit-v3',
         resourceBasisCents: 950_000,
         resourceBasisKind: 'detected_income',
         resourceBasisUpdatedAtIso: syncedAt,

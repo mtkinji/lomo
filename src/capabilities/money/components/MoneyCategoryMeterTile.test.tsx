@@ -1,4 +1,6 @@
 import { render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { colors } from '../../../theme';
 import type { MoneyCategory } from '../data/moneySnapshot';
 import {
   getCategoryListStatus,
@@ -34,10 +36,18 @@ describe('Money category inventory presentations', () => {
     expect(screen.queryByText('over')).toBeNull();
   });
 
-  it('shows dollars left without repeating category arithmetic in the list', () => {
+  it('rounds dollars left without repeating category arithmetic in the list', () => {
     const screen = render(<MoneyCategoryListRow category={{ ...category, remainingCents: -520 }} onPress={jest.fn()} periodElapsedPercent={75} />);
-    expect(screen.getByText('$5.20 over')).toBeTruthy();
+    expect(screen.getByText('$5 over')).toBeTruthy();
     expect(screen.queryByText('$375.95 / $400')).toBeNull();
+  });
+
+  it('uses destructive text and pace color for every actual overage', () => {
+    const screen = render(<MoneyCategoryListRow category={{ ...category, remainingCents: -116 }} onPress={jest.fn()} periodElapsedPercent={75} />);
+
+    expect(getCategoryListStatus({ ...category, remainingCents: -116 })).toEqual({ label: null, tone: 'danger' });
+    expect(StyleSheet.flatten(screen.getByText('$1 over').props.style).color).toBe(colors.destructive);
+    expect(screen.getByTestId('money-category-pace-used', { includeHiddenElements: true })).toHaveStyle({ backgroundColor: colors.destructive });
   });
 
   it('uses a compact warning indicator instead of persistent projection copy', () => {
@@ -45,7 +55,7 @@ describe('Money category inventory presentations', () => {
 
     expect(screen.queryByText('Projected to go over')).toBeNull();
     expect(screen.getByTestId('money-category-projected-warning', { includeHiddenElements: true })).toBeTruthy();
-    expect(screen.getByLabelText('Open Shopping category, $24.05 left, Projected to go over')).toBeTruthy();
+    expect(screen.getByLabelText('Open Shopping category, $24 left, Projected to go over')).toBeTruthy();
   });
 
   it('shows category use against elapsed month pace', () => {
@@ -55,8 +65,8 @@ describe('Money category inventory presentations', () => {
     expect(screen.getByTestId('money-category-pace-elapsed', { includeHiddenElements: true })).toHaveStyle({ left: '75%' });
   });
 
-  it('reserves attention treatment for material overages and forecast risk', () => {
-    expect(getCategoryListStatus({ ...category, remainingCents: -520 })).toEqual({ label: null, tone: 'neutral' });
+  it('distinguishes actual overages from forecast risk', () => {
+    expect(getCategoryListStatus({ ...category, remainingCents: -520 })).toEqual({ label: null, tone: 'danger' });
     expect(getCategoryListStatus({ ...category, remainingCents: -5200 })).toEqual({ label: null, tone: 'danger' });
     expect(getCategoryListStatus(category)).toEqual({ label: 'Projected to go over', tone: 'watch' });
     expect(getCategoryListStatus({

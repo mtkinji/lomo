@@ -20,6 +20,7 @@ import { MoneyFreshnessStamp } from '../components/MoneyFreshnessStamp';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyTransaction } from '../data/moneySnapshot';
 import { projectMoneyTransactionsForCategory } from '../domain/moneyPeriodView';
+import { projectBudgetOverageReview } from '../domain/budgetOverageReview';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 import { EmptyState } from '../../../ui/EmptyState';
@@ -61,6 +62,7 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const monthLabel = route.params?.monthLabel;
   const inventoryTitle = route.params?.inventoryTitle;
   const reviewTransactionIds = route.params?.reviewTransactionIds;
+  const overageReview = route.params?.overageReview === true;
   const reviewTransactionIdSet = useMemo(() => new Set(reviewTransactionIds ?? []), [reviewTransactionIds]);
   const allTransactions = snapshot?.transactions ?? [];
   const selectedCategory = categoryId
@@ -88,6 +90,12 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
     ? 'Review purchases'
     : [categoryLabel ?? accountLabel, monthLabel].filter(Boolean).join(' · ') || 'Transactions');
   const isScopedInventory = Boolean(accountId || categoryId || reviewTransactionIds);
+  const overageProjection = useMemo(() => overageReview && snapshot ? projectBudgetOverageReview({
+    periodId: snapshot.livingLimitAnswer?.facts.periodId ?? new Date().toISOString().slice(0, 7),
+    flexibleRoomCents: route.params?.flexibleRoomCents ?? snapshot.livingLimitAnswer?.facts.flexibleRoomCents ?? 0,
+    categories: snapshot.categories,
+    transactions: snapshot.transactions,
+  }) : null, [overageReview, route.params?.flexibleRoomCents, snapshot]);
 
   const selectDateScope = (next: DateScope) => {
     setDateScope(next);
@@ -115,8 +123,31 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
         : undefined}
       onRefresh={checkActivity}
       title={title}
-      onPressBack={isScopedInventory ? () => navigation.goBack() : undefined}
+      onPressBack={isScopedInventory || overageReview ? () => navigation.goBack() : undefined}
     >
+      {overageProjection ? (
+        <View style={styles.overageReview}>
+          <Text style={styles.overageIntro}>Budgets over their {snapshot?.periodLabel.split(' ')[0]} amounts</Text>
+          {overageProjection.offsetCents > 0 ? (
+            <Text style={styles.overageOffset}>Other flexible budgets are {formatMoney(overageProjection.offsetCents)} under their amounts.</Text>
+          ) : null}
+          {overageProjection.groups.map((group) => (
+            <View key={group.categoryId} style={styles.overageGroup}>
+              <View style={styles.overageHeader}>
+                <Text style={styles.overageCategory}>{group.categoryName}</Text>
+                <Text style={styles.overageAmount}>{formatMoney(group.overageCents)} over</Text>
+              </View>
+              {group.transactions.map((transaction) => (
+                <TransactionInventoryRow
+                  key={transaction.id}
+                  transaction={transaction}
+                  onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id, coverageReview: true })}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : (
       <MoneyInventoryListFrame
         controls={(
           <MoneyInventoryControlGroup>
@@ -166,6 +197,7 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
           </View>
         )}
       </MoneyInventoryListFrame>
+      )}
     </MoneyScreenFrame>
   );
 }
@@ -241,6 +273,13 @@ function formatDateGroup(date: string) {
 }
 
 const styles = StyleSheet.create({
+  overageReview: { gap: spacing.lg, paddingHorizontal: spacing.md, paddingBottom: spacing['2xl'] },
+  overageIntro: { ...typography.bodySm, color: colors.textSecondary },
+  overageOffset: { ...typography.bodyXs, color: colors.textSecondary },
+  overageGroup: { gap: spacing.xs },
+  overageHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
+  overageCategory: { ...typography.body, fontFamily: fonts.semibold, color: colors.textPrimary },
+  overageAmount: { ...typography.bodySm, fontFamily: fonts.semibold, color: colors.destructive },
   iconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   iconButtonPressed: { backgroundColor: colors.fieldFillPressed },
   iconButtonDisabled: { opacity: 0.35 },

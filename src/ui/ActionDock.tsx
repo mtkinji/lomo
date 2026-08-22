@@ -15,7 +15,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { bottomDockGeometry, colors, floatingControl, spacing, typography, fonts } from '../theme';
-import { resolvePhoneFloatingBottomInset } from './layout/bottomDockGeometry';
+import {
+  resolvePhoneFloatingActionContentInset,
+  resolvePhoneFloatingBottomInset,
+} from './layout/bottomDockGeometry';
 import { HStack, VStack } from './primitives';
 import { Icon, type IconName } from './Icon';
 import Svg, { Circle } from 'react-native-svg';
@@ -193,7 +196,8 @@ const DOCK_PADDING_X = 8;
 const DOCK_RADIUS = 99;
 const DOCK_ICON_SIZE = 22;
 const LEFT_ITEM_SIZE = 44;
-const RIGHT_ITEM_SIZE = 56;
+export const ACTION_DOCK_RIGHT_ITEM_SIZE_PX = 56;
+const RIGHT_ITEM_SIZE = ACTION_DOCK_RIGHT_ITEM_SIZE_PX;
 const THINKING_DOT_SIZE = 5;
 const THINKING_DOT_GAP = 4;
 
@@ -603,7 +607,7 @@ export function ActionDock({
       ]}
     >
       <HStack alignItems="center" justifyContent="space-between">
-        <View style={[styles.dockShadow, hasLeftContent ? styles.leftContentDockShadow : null]}>
+        {hasLeftContent || effectiveLeftItems.length > 0 ? <View style={[styles.dockShadow, hasLeftContent ? styles.leftContentDockShadow : null]}>
           <View
             ref={leftDockTargetRef}
             collapsable={false}
@@ -652,7 +656,7 @@ export function ActionDock({
               </HStack>
             )}
           </View>
-        </View>
+        </View> : <View />}
 
         {rightItem ? (
           <View style={styles.dockShadow}>
@@ -769,6 +773,11 @@ export function ActionDock({
       </HStack>
     </Animated.View>
   );
+}
+
+export function useActionDockClearance(): number {
+  const insets = useSafeAreaInsets();
+  return resolvePhoneFloatingActionContentInset(insets.bottom, ACTION_DOCK_RIGHT_ITEM_SIZE_PX);
 }
 
 const styles = StyleSheet.create({

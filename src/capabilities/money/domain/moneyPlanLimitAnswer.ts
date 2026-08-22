@@ -3,7 +3,7 @@ import type { ActiveLivingPlan } from '../data/livingPlanRepository';
 import type { MoneyEconomicRoleReconciliation } from './moneyEconomicRole';
 import { formatMoney } from '../data/moneySnapshot';
 
-export const MONEY_PLAN_LIMIT_POLICY_VERSION = 'money-plan-limit-v2';
+export const MONEY_PLAN_LIMIT_POLICY_VERSION = 'money-plan-limit-v3';
 
 export type MoneyPlanLimitAnswerState =
   | 'supported'
@@ -148,9 +148,7 @@ export function projectMoneyPlanLimitAnswer(input: {
         };
   const protectedPlanCents = capacity?.protectedPlanCents ?? null;
   const protectedOverageCents = validCents(input.protectedOverageCents ?? 0);
-  const flexibleCapacityCents = capacity == null
-    ? null
-    : Math.max(0, capacity.flexibleCapacityCents - protectedOverageCents);
+  const flexibleCapacityCents = capacity?.flexibleCapacityCents ?? null;
   const countedFlexibleSpendCents = hasIncomeBasis
     ? reconciliation.totals.flexibleSpendingCents + reconciliation.totals.unresolvedInScopeCents
     : null;

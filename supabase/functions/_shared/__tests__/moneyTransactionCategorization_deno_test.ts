@@ -24,6 +24,34 @@ Deno.test('high-confidence provider evidence assigns an active mapped category',
   }
 });
 
+Deno.test('provider policy distinguishes household food and work spending', () => {
+  const categories = [
+    { id: 'groceries', aliases: [], mappingTags: ['food_at_home'] },
+    { id: 'dining', aliases: [], mappingTags: ['food_away'] },
+    { id: 'work', aliases: ['startup'], mappingTags: ['work_business'] },
+  ];
+  const cases = [
+    ['FOOD_AND_DRINK_GROCERIES', 'groceries'],
+    ['FOOD_AND_DRINK_RESTAURANT', 'dining'],
+    ['GENERAL_SERVICES_BUSINESS_SERVICES', 'work'],
+  ] as const;
+  for (const [providerDetailed, expectedCategoryId] of cases) {
+    const result = resolveDeterministicMoneyCategory({
+      candidate: {
+        merchant: providerDetailed,
+        providerPrimary: providerDetailed.split('_').slice(0, 3).join('_'),
+        providerDetailed,
+        providerConfidence: 'HIGH',
+      },
+      categories,
+      history: [],
+    });
+    if (result.outcome !== 'assigned' || result.categoryId !== expectedCategoryId) {
+      throw new Error(`${providerDetailed} should assign ${expectedCategoryId}`);
+    }
+  }
+});
+
 Deno.test('consistent posted household history assigns a pending merchant when provider evidence is weak', () => {
   const result = resolveDeterministicMoneyCategory({
     candidate: { ...amazon, providerConfidence: 'MEDIUM', providerPrimary: null, providerDetailed: null },

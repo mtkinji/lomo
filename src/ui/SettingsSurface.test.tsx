@@ -2,10 +2,12 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import {
   SettingsDivider,
+  SettingsChoiceRow,
   SettingsCopyField,
   SettingsGroup,
   SettingsInstructionSection,
   SettingsRow,
+  SettingsTextInputRow,
   SettingsToggleRow,
 } from './SettingsSurface';
 
@@ -51,6 +53,44 @@ describe('SettingsSurface', () => {
     expect(switches).toHaveLength(1);
     fireEvent.press(switches[0]);
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses neutral radio rows for mutually exclusive settings', () => {
+    const onPress = jest.fn();
+    const { getByLabelText, getByTestId, queryByTestId } = render(
+      <>
+        <SettingsChoiceRow
+          description="Keep this amount aside before flexible spending."
+          onPress={onPress}
+          selected={false}
+          title="Protected"
+        />
+        <SettingsChoiceRow
+          description="Count spending here against flexible room."
+          onPress={onPress}
+          selected
+          title="Flexible"
+        />
+      </>,
+    );
+
+    expect(getByLabelText('Flexible').props.accessibilityState).toMatchObject({ checked: true });
+    expect(getByTestId('settings.choice.Protected.indicator')).toBeTruthy();
+    expect(queryByTestId('settings.choice.Protected.dot')).toBeNull();
+    expect(getByTestId('settings.choice.Flexible.indicator')).toBeTruthy();
+    expect(getByTestId('settings.choice.Flexible.dot')).toBeTruthy();
+    fireEvent.press(getByLabelText('Flexible'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps editable values inside the grouped settings row grammar', () => {
+    const onChangeText = jest.fn();
+    const { getByLabelText } = render(
+      <SettingsTextInputRow label="Name" onChangeText={onChangeText} value="Groceries" />,
+    );
+
+    fireEvent.changeText(getByLabelText('Name'), 'Household groceries');
+    expect(onChangeText).toHaveBeenCalledWith('Household groceries');
   });
 
   it('exposes destructive rows as buttons with their title label', () => {

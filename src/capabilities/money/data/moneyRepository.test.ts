@@ -80,6 +80,24 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; 
 }
 
 describe('createMoneyRepository transaction review', () => {
+  it('persists user-declared saved-money coverage without changing category or meaning', async () => {
+    const { client, calls } = createClient();
+
+    await createMoneyRepository(client).setTransactionPlanCoverage('transaction-1', 200000);
+
+    const write = calls.find((call) => call.table === 'budget_transactions' && call.update?.saved_resource_cents === 200000);
+    expect(write).toMatchObject({
+      update: {
+        saved_resource_cents: 200000,
+        plan_coverage_provenance: 'user_declared',
+        plan_coverage_reviewed_at: expect.any(String),
+      },
+      filters: [['id', 'transaction-1']],
+    });
+    expect(write?.update).not.toHaveProperty('budget_id');
+    expect(write?.update).not.toHaveProperty('money_meaning');
+  });
+
   it('persists the complete category order through the owner-scoped RPC', async () => {
     const { client, rpcCalls } = createClient({
       rpcResult: {
@@ -343,6 +361,7 @@ describe('createMoneyRepository transaction review', () => {
     await repository.saveMerchantRule({
       transactionId: 'transaction-1',
       merchantName: "Trader Joe's #01234",
+      merchantPattern: 'Trader',
       categoryId: 'category-1',
       categoryName: 'Groceries',
       matchMode: 'partial',
@@ -354,7 +373,7 @@ describe('createMoneyRepository transaction review', () => {
         p_budget_id: 'category-1',
         p_label: 'Groceries merchant rule',
         p_match_mode: 'partial',
-        p_merchant_contains: 'trader joe',
+        p_merchant_contains: 'trader',
         p_transaction_id: 'transaction-1',
       },
     });

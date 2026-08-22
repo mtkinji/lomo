@@ -10,7 +10,7 @@ import {
 } from './moneyPlanLimitAnalytics';
 
 const answer = {
-  state: 'supported', facts: { freshness: 'fresh', policyVersion: 'money-plan-limit-v2' },
+  state: 'supported', facts: { freshness: 'fresh', policyVersion: 'money-plan-limit-v3' },
 } as MoneyPlanLimitAnswer;
 const rebalance = {
   state: 'within_reallocated',

@@ -25,16 +25,19 @@ describe('ObjectDetailMediaShell', () => {
     expect(resolveObjectDetailMediaGeometry('immersive')).toMatchObject({
       heroHeight: 320,
       overlap: 28,
+      sheetRadius: 44,
       parallaxFactor: 0.5,
     });
     expect(resolveObjectDetailMediaGeometry('standard')).toMatchObject({
       heroHeight: 240,
       overlap: 20,
+      sheetRadius: 44,
       parallaxFactor: 0.5,
     });
     expect(resolveObjectDetailMediaGeometry('compact')).toMatchObject({
       heroHeight: 168,
       overlap: 16,
+      sheetRadius: 44,
       parallaxFactor: 0.35,
     });
   });
@@ -69,6 +72,38 @@ describe('ObjectDetailMediaShell', () => {
     expect(screen.getByTestId('object-detail-media-sheet')).toBeTruthy();
     expect(screen.getByTestId('hero-content')).toBeTruthy();
     expect(screen.getByTestId('sheet-content')).toBeTruthy();
+  });
+
+  it('paints artwork through the rounded sheet corners without moving the sheet', () => {
+    const screen = render(
+      <ObjectDetailMediaShell
+        extendArtworkBehindSheetCorners
+        variant="compact"
+        scrollY={new Animated.Value(0)}
+        headerBoundary={80}
+        hero={<View />}
+      >
+        <View />
+      </ObjectDetailMediaShell>,
+    );
+
+    expect(screen.getByTestId('object-detail-media-hero').props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          height: 196,
+          marginBottom: -28,
+        }),
+      ]),
+    );
+    expect(screen.getByTestId('object-detail-media-sheet').props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          marginTop: -16,
+          borderTopLeftRadius: 44,
+          borderTopRightRadius: 44,
+        }),
+      ]),
+    );
   });
 
   it('removes scroll-linked translation when Reduce Motion is enabled', () => {

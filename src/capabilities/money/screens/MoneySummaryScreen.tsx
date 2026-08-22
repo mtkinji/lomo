@@ -30,7 +30,12 @@ import {
   DropdownMenuTrigger,
 } from '../../../ui/DropdownMenu';
 import { menuItemTextProps, menuStyles } from '../../../ui/menuStyles';
-import { formatMoney, formatMoneyFreshness, type MonthlyHouseholdPlanStatement } from '../data/moneySnapshot';
+import {
+  formatMoney,
+  formatMoneyFreshness,
+  type MoneyTransaction,
+  type MonthlyHouseholdPlanStatement,
+} from '../data/moneySnapshot';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { projectMoneyPeriodView, type MoneyPeriodView } from '../domain/moneyPeriodView';
 import type { MoneyStackParamList } from '../navigation/types';
@@ -46,6 +51,7 @@ import { MoneyScreenFrame } from './MoneyScreenFrame';
 import { buildMoneyBudgetAnswerViewedProps, buildMoneyBudgetExplanationOpenedProps } from '../runtime/moneyPlanLimitAnalytics';
 import { refreshStaleMoneySummary } from '../runtime/moneySummaryAutoRefresh';
 import { projectMoneyPlanAudit, type MoneyPlanAudit } from '../domain/moneyPlanAudit';
+import { projectMonthlyBudgetSummary, type MonthlyBudgetSummary } from '../domain/monthlyBudgetSummary';
 import { MoneyCategoryReorderDrawer } from '../components/MoneyCategoryReorderDrawer';
 import { Coachmark } from '../../../ui/Coachmark';
 import { getMoneyCategoryDestination } from '../domain/moneyAppControlOnboarding';
@@ -66,6 +72,9 @@ import {
 } from '../runtime/moneyOnboardingStorage';
 import { buildMoneyOnboardingDemoBudget } from '../domain/moneyOnboardingDemoBudget';
 import { MoneyFreshnessStamp } from '../components/MoneyFreshnessStamp';
+import { formatBudgetOverviewMoney } from '../presentation/budgetOverviewMoney';
+import { ActionDock, useActionDockClearance } from '../../../ui/ActionDock';
+import { InventoryControlGroup } from '../../../ui/InventoryControlGroup';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
@@ -73,9 +82,12 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   const { snapshot: liveSnapshot, refresh, reconcileConnectedActivity, reorderCategories, savingCategoryOrder, userId } = useMoneyData();
   const { capture } = useAnalytics();
   const { width: windowWidth } = useWindowDimensions();
+  const actionDockClearance = useActionDockClearance();
   const [measuredPagerWidth, setMeasuredPagerWidth] = useState(0);
   const [currentMonthIndex, setCurrentMonthIndex] = useState(INITIAL_MONTH_INDEX);
   const [limitExplanationOpen, setLimitExplanationOpen] = useState(false);
+  const [monthlySummaryOpen, setMonthlySummaryOpen] = useState(false);
+  const [unclearReviewOpen, setUnclearReviewOpen] = useState(false);
   const [categoryPresentation, setCategoryPresentation] = useState<MoneyCategoryPresentation>('list');
   const [categoryReorderOpen, setCategoryReorderOpen] = useState(false);
   const [appControlGuideVisible, setAppControlGuideVisible] = useState(
@@ -203,15 +215,26 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
       && snapshot.transactions.length === 0
       && !livingLimitAnswer,
   );
+  const planAuditPeriodId = livingLimitAnswer?.facts.periodId ?? snapshot?.monthlyPlan?.periodId ?? null;
   const planAudit = useMemo(() => (
-    snapshot && livingLimitAnswer
+    snapshot && planAuditPeriodId
       ? projectMoneyPlanAudit({
-          periodId: livingLimitAnswer.facts.periodId,
+          periodId: planAuditPeriodId,
           categories: snapshot.categories,
           transactions: snapshot.transactions,
         })
       : null
-  ), [livingLimitAnswer, snapshot]);
+  ), [planAuditPeriodId, snapshot]);
+  const monthlyBudgetSummary = useMemo(() => (
+    planAudit && snapshot?.monthlyPlan
+      ? projectMonthlyBudgetSummary({ audit: planAudit, monthlyPlan: snapshot.monthlyPlan, answer: livingLimitAnswer })
+      : null
+  ), [livingLimitAnswer, planAudit, snapshot?.monthlyPlan]);
+  const unclearTransactions = useMemo(() => {
+    if (!snapshot || !planAudit) return [];
+    const unclearIds = new Set(planAudit.unclearTransactionIds);
+    return snapshot.transactions.filter((transaction) => unclearIds.has(transaction.id));
+  }, [planAudit, snapshot]);
 
   useEffect(() => {
     if (!livingLimitAnswer || currentMonthIndex !== INITIAL_MONTH_INDEX) return;
@@ -272,7 +295,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
         />
       ) : snapshot && currentPeriod ? (
         <View
-          style={styles.monthSwipeSurface}
+          style={[styles.monthSwipeSurface, { paddingBottom: actionDockClearance }]}
           onLayout={(event) => {
             const width = Math.round(event.nativeEvent.layout.width);
             if (width > 24) setMeasuredPagerWidth(width);
@@ -280,18 +303,20 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
         >
           <View style={styles.monthHeader}>
             <View style={styles.monthPicker}>
-              <MonthArrow
-                direction="left"
-                disabled={currentMonthIndex === 0}
-                label={`Show previous month from ${currentPeriod.periodLabel}`}
-                onPress={() => scrollToMonth(currentMonthIndex - 1)}
-              />
-              <MonthArrow
-                direction="right"
-                disabled={currentMonthIndex === periods.length - 1}
-                label={`Show next month from ${currentPeriod.periodLabel}`}
-                onPress={() => scrollToMonth(currentMonthIndex + 1)}
-              />
+              <InventoryControlGroup testID="money-month-switcher">
+                <MonthArrow
+                  direction="left"
+                  disabled={currentMonthIndex === 0}
+                  label={`Show previous month from ${currentPeriod.periodLabel}`}
+                  onPress={() => scrollToMonth(currentMonthIndex - 1)}
+                />
+                <MonthArrow
+                  direction="right"
+                  disabled={currentMonthIndex === periods.length - 1}
+                  label={`Show next month from ${currentPeriod.periodLabel}`}
+                  onPress={() => scrollToMonth(currentMonthIndex + 1)}
+                />
+              </InventoryControlGroup>
               <Text numberOfLines={1} style={styles.monthTitle}>{currentPeriod.periodLabel}</Text>
             </View>
             <View style={styles.monthActions}>
@@ -300,15 +325,6 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
                 onReorder={() => setCategoryReorderOpen(true)}
                 presentation={categoryPresentation}
               />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Add category"
-                hitSlop={10}
-                onPress={() => navigation.navigate('MoneyCategoryCreate')}
-                style={({ pressed }) => [styles.iconButton, pressed ? styles.iconButtonPressed : null]}
-              >
-                <Icon name="plus" size={20} color={colors.textPrimary} />
-              </Pressable>
             </View>
           </View>
 
@@ -331,12 +347,20 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
                 period={item}
                 freshness={formatMoneyFreshness(snapshot.lastSyncedAt)}
                 answer={item.monthOffset === 0 ? livingLimitAnswer : null}
+                audit={item.monthOffset === 0 ? planAudit : null}
                 monthlyPlan={item.monthOffset === 0 ? snapshot.monthlyPlan ?? null : null}
                 onExplain={() => {
                   if (livingLimitAnswer) capture(AnalyticsEvent.MoneyBudgetExplanationOpened, buildMoneyBudgetExplanationOpenedProps({ answer: livingLimitAnswer, surface: 'budget' }));
                   setLimitExplanationOpen(true);
                 }}
+                onOpenMonthlySummary={() => setMonthlySummaryOpen(true)}
                 onReviewIncome={() => navigation.navigate('MoneyLivingPlan')}
+                onReviewOverages={() => navigation.navigate('MoneyTransactions', {
+                  inventoryTitle: 'Review overages',
+                  overageReview: true,
+                  flexibleRoomCents: livingLimitAnswer?.facts.flexibleRoomCents ?? 0,
+                })}
+                onReviewUnclear={() => setUnclearReviewOpen(true)}
                 onOpenCategory={(categoryId) => {
                   exploredBudgetThisVisitRef.current = true;
                   const destination = getMoneyCategoryDestination({
@@ -364,11 +388,22 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
         </View>
       ) : null}
     </MoneyScreenFrame>
+    {!isPristineMoney && snapshot && currentPeriod ? (
+      <ActionDock
+        rightItem={{
+          id: 'add-category',
+          icon: 'plus',
+          accessibilityLabel: 'Add category',
+          testID: 'money-add-category-fab',
+          onPress: () => navigation.navigate('MoneyCategoryCreate'),
+        }}
+      />
+    ) : null}
     <BottomDrawer
       visible={Boolean(livingLimitAnswer) && limitExplanationOpen}
       onClose={() => setLimitExplanationOpen(false)}
       snapPoints={['78%']}
-      dynamicSizing
+      dynamicSizing={false}
       enableContentPanningGesture
     >
       {livingLimitAnswer && planAudit ? (
@@ -387,9 +422,9 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
               setLimitExplanationOpen(false);
               navigation.navigate('MoneyLivingPlan');
             }}
-            onOpenCategory={(categoryId) => {
+            onOpenUnclear={() => {
               setLimitExplanationOpen(false);
-              navigation.navigate('MoneyCategoryDetail', { categoryId, monthOffset: 0 });
+              setUnclearReviewOpen(true);
             }}
             onOpenTransactions={(title, transactionIds) => {
               if (transactionIds.length === 0) return;
@@ -397,6 +432,62 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
               navigation.navigate('MoneyTransactions', {
                 inventoryTitle: title,
                 reviewTransactionIds: transactionIds,
+              });
+            }}
+          />
+        </BottomDrawerScrollView>
+      ) : null}
+    </BottomDrawer>
+    <BottomDrawer
+      visible={monthlySummaryOpen && Boolean(monthlyBudgetSummary && planAudit && snapshot?.monthlyPlan)}
+      onClose={() => setMonthlySummaryOpen(false)}
+      snapPoints={['72%']}
+      dynamicSizing={false}
+      enableContentPanningGesture
+    >
+      {monthlyBudgetSummary && planAudit && snapshot?.monthlyPlan ? (
+        <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
+          <BottomDrawerHeader
+            title={`${moneyMonthName(snapshot.monthlyPlan.periodId)} summary`}
+            variant="withClose"
+            closeAccessibilityLabel="Close monthly budget summary"
+            onClose={() => setMonthlySummaryOpen(false)}
+          />
+          <MonthlySummaryFacts
+            answer={livingLimitAnswer}
+            audit={planAudit}
+            summary={monthlyBudgetSummary}
+            onReviewPlan={() => {
+              setMonthlySummaryOpen(false);
+              navigation.navigate('MoneyLivingPlan');
+            }}
+          />
+        </BottomDrawerScrollView>
+      ) : null}
+    </BottomDrawer>
+    <BottomDrawer
+      visible={unclearReviewOpen && unclearTransactions.length > 0}
+      onClose={() => setUnclearReviewOpen(false)}
+      snapPoints={['84%']}
+      dynamicSizing={false}
+      enableContentPanningGesture
+    >
+      {planAudit && unclearTransactions.length > 0 ? (
+        <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
+          <BottomDrawerHeader
+            title="Unclear spending"
+            variant="withClose"
+            closeAccessibilityLabel="Close unclear spending review"
+            onClose={() => setUnclearReviewOpen(false)}
+          />
+          <UnclearSpendingReview
+            audit={planAudit}
+            transactions={unclearTransactions}
+            onReviewTransaction={(transactionId) => {
+              setUnclearReviewOpen(false);
+              navigation.navigate('MoneyTransactionDetail', {
+                transactionId,
+                economicRoleReview: true,
               });
             }}
           />
@@ -552,24 +643,32 @@ function handoffStateFromReceipt(receipt: MoneyOnboardingHandoffReceipt): MoneyO
 
 function SummaryMonthPanel({
   answer,
+  audit,
   categoryPresentation,
   categoryTargetRef,
   freshness,
   monthlyPlan,
   onExplain,
+  onOpenMonthlySummary,
   onOpenCategory,
   onReviewIncome,
+  onReviewOverages,
+  onReviewUnclear,
   pageWidth,
   period,
 }: {
   answer: LivingLimitAnswer | null;
+  audit: MoneyPlanAudit | null;
   monthlyPlan: MonthlyHouseholdPlanStatement | null;
   categoryPresentation: MoneyCategoryPresentation;
   categoryTargetRef?: RefObject<View | null>;
   freshness: string;
   onExplain: () => void;
+  onOpenMonthlySummary: () => void;
   onOpenCategory: (categoryId: string) => void;
   onReviewIncome: () => void;
+  onReviewOverages: () => void;
+  onReviewUnclear: () => void;
   pageWidth: number;
   period: MoneyPeriodView;
 }) {
@@ -577,37 +676,35 @@ function SummaryMonthPanel({
   const categoryView = resolveCategoryPresentation(categoryPresentation);
   const flexibleCategories = period.categories.filter((category) => category.planRole !== 'protected');
   const committedCategories = period.categories.filter((category) => category.planRole === 'protected');
+  const monthlySummary = audit && monthlyPlan
+    ? projectMonthlyBudgetSummary({ audit, monthlyPlan, answer })
+    : null;
   return (
     <View style={[styles.monthBody, { width: pageWidth }]}>
       <View style={styles.categorySection}>
-        <View style={styles.categoryHeader}>
+        {!answer || answer.state === 'missing_income_basis' ? <View style={styles.categoryHeader}>
           <CategoryConceptHeader
             label="Flexible spending"
             accessibilityLabel="About flexible spending"
             explanation="Everyday categories that use the flexible spending amount shown here."
           />
-          {answer && answer.state !== 'missing_income_basis' ? (
-            <Pressable
-              accessibilityLabel="What’s included?"
-              accessibilityRole="button"
-              hitSlop={10}
-              onPress={onExplain}
-              style={({ pressed }) => [styles.explainAction, pressed ? styles.iconButtonPressed : null]}
-            >
-              <Text style={styles.explainActionText}>What’s included?</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        </View> : null}
         {answer ? (
           <MoneyPlanLimitAnswer
             answer={answer}
             freshness={freshness}
             onExplain={onExplain}
             onReviewIncome={onReviewIncome}
-            showHeader={false}
+            onReviewOverages={onReviewOverages}
           />
         ) : null}
-        <View style={categoryView.layout === 'meters' ? styles.categoryGrid : styles.categoryList}>
+        <View
+          testID="money-flexible-category-collection"
+          style={[
+            categoryView.layout === 'meters' ? styles.categoryGrid : styles.categoryList,
+            answer ? styles.flexibleCategoryCollection : null,
+          ]}
+        >
           {flexibleCategories.map((category, index) => (
             categoryView.layout === 'meters' ? (
               <MoneyCategoryMeterTile
@@ -661,41 +758,216 @@ function SummaryMonthPanel({
           </View>
         </View>
       ) : null}
-      {monthlyPlan ? (
+      {audit && audit.unclearTransactionIds.length > 0 ? (
+        <UnclearSpendingProjection audit={audit} onPress={onReviewUnclear} />
+      ) : null}
+      {monthlySummary ? (
         <Pressable
-          accessibilityLabel={`Review monthly plan breakdown, ${formatMoney(monthlyPlan.regularPlanCents)}`}
+          accessibilityLabel={monthlySummaryAccessibilityLabel(period.periodLabel, monthlySummary)}
           accessibilityRole="button"
-          onPress={onReviewIncome}
+          onPress={onOpenMonthlySummary}
+          testID="money-month-summary"
           style={({ pressed }) => [styles.monthlyPlanSummary, pressed ? styles.monthlyPlanSummaryPressed : null]}
         >
           <View style={styles.monthlyPlanSummaryHeader}>
-            <Text style={styles.monthlyPlanSummaryTitle}>How your month is planned</Text>
+            <Text style={styles.monthlyPlanSummaryTitle}>{moneyPeriodMonthName(period.periodLabel)} summary</Text>
             <Icon name="chevronRight" size={17} color={colors.textSecondary} />
           </View>
+          <Text style={styles.monthlyPlanSummarySectionLabel}>ACTUAL</Text>
           <View style={styles.monthlyPlanSummaryRow}>
-            <Text style={styles.monthlyPlanSummaryLabel}>Committed spending plan</Text>
-            <Text style={styles.monthlyPlanSummaryValue}>{formatMoney(monthlyPlan.committedPlanCents)}</Text>
+            <Text style={styles.monthlyPlanSummaryLabel}>Income received</Text>
+            <Text style={styles.monthlyPlanSummaryValue}>{formatBudgetOverviewMoney(monthlySummary.incomeReceivedCents)}</Text>
           </View>
           <View style={styles.monthlyPlanSummaryRow}>
-            <Text style={styles.monthlyPlanSummaryLabel}>Flexible spending plan</Text>
-            <Text style={styles.monthlyPlanSummaryValue}>{formatMoney(monthlyPlan.flexiblePlanCents)}</Text>
+            <Text style={styles.monthlyPlanSummaryLabel}>Total spent</Text>
+            <Text style={styles.monthlyPlanSummaryValue}>{formatBudgetOverviewMoney(monthlySummary.totalSpendingCents)}</Text>
           </View>
-          <View style={[styles.monthlyPlanSummaryRow, styles.monthlyPlanSummaryTotal]}>
+          {monthlySummary.spendingOutsideCurrentPlanCents > 0 ? (
+            <Text style={styles.monthlyPlanSummarySupport}>
+              {formatBudgetOverviewMoney(monthlySummary.spendingOutsideCurrentPlanCents)} of spending did not count toward this month’s plan.
+            </Text>
+          ) : null}
+          <Text style={[styles.monthlyPlanSummarySectionLabel, styles.monthlyPlanSummaryPlanLabel]}>PLAN</Text>
+          <View style={styles.monthlyPlanSummaryRow}>
             <Text style={styles.monthlyPlanSummaryTotalLabel}>Monthly plan</Text>
-            <Text style={styles.monthlyPlanSummaryTotalValue}>{formatMoney(monthlyPlan.regularPlanCents)}</Text>
+            <Text style={styles.monthlyPlanSummaryTotalValue}>{formatBudgetOverviewMoney(monthlySummary.monthlyPlanCents)}</Text>
           </View>
+          <MonthPlanResultRow summary={monthlySummary} />
         </Pressable>
       ) : null}
       {!answer ? <View style={styles.totalSection}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalValue}>
-            {formatMoney(period.totals.spentCents)} / {formatMoney(period.totals.plannedCents)} ({period.totals.percentUsed}%)
+            {formatBudgetOverviewMoney(period.totals.spentCents)} / {formatBudgetOverviewMoney(period.totals.plannedCents)} ({period.totals.percentUsed}%)
           </Text>
         </View>
-        <Text style={styles.remainingLabel}>{formatMoney(period.totals.remainingCents)} left across planned categories</Text>
+        <Text style={styles.remainingLabel}>{formatBudgetOverviewMoney(period.totals.remainingCents)} left across planned categories</Text>
       </View> : null}
       <Text style={styles.updatedLabel}>{period.monthOffset === 0 ? `Connected accounts · ${freshness}` : 'Saved transaction history'}</Text>
+    </View>
+  );
+}
+
+function MonthlySummaryFacts({
+  answer,
+  audit,
+  onReviewPlan,
+  summary,
+}: {
+  answer: LivingLimitAnswer | null;
+  audit: MoneyPlanAudit;
+  onReviewPlan: () => void;
+  summary: MonthlyBudgetSummary;
+}) {
+  const effectiveProtectedCents = answer?.facts.protectedPlanCents == null
+    ? null
+    : answer.facts.protectedPlanCents + answer.facts.protectedOverageCents;
+  return (
+    <View style={styles.drawerFacts}>
+      <StatementSection label="ACTUAL">
+        <StatementRow label="Income received" value={formatMoney(summary.incomeReceivedCents)} />
+        <StatementRow label="Total spent" value={formatMoney(summary.totalSpendingCents)} emphasized />
+        {audit.savedResourceSpendingCents > 0 ? (
+          <StatementRow label="Paid from saved money" value={formatMoney(audit.savedResourceSpendingCents)} />
+        ) : null}
+        {audit.outsidePlanSpendingCents > 0 ? (
+          <StatementRow label="Outside this month’s plan" value={formatMoney(audit.outsidePlanSpendingCents)} />
+        ) : null}
+      </StatementSection>
+
+      <StatementSection label="PLAN">
+        <StatementRow label="Monthly plan" value={formatMoney(summary.monthlyPlanCents)} />
+        {answer ? (
+          <>
+            <StatementRow
+              label="Bills and money set aside"
+              value={effectiveProtectedCents == null ? 'Not available' : formatStatementOutflow(effectiveProtectedCents)}
+            />
+            <StatementRow
+              label={audit.unclearSpendingCents > 0 ? 'Flexible and unclear spending' : 'Flexible spending from plan'}
+              value={answer.facts.countedFlexibleSpendCents == null
+                ? 'Not available'
+                : formatStatementOutflow(answer.facts.countedFlexibleSpendCents)}
+            />
+          </>
+        ) : null}
+        <View style={styles.drawerRule} />
+        <StatementRow
+          label={monthPlanResultLabel(summary)}
+          value={summary.planResult ? formatMoney(summary.planResult.amountCents) : 'Not available'}
+          emphasized
+          destructive={summary.planResult?.status === 'over'}
+        />
+      </StatementSection>
+
+      {summary.spendingOutsideCurrentPlanCents > 0 ? (
+        <Text style={styles.drawerEvidence}>
+          {formatMoney(summary.spendingOutsideCurrentPlanCents)} of actual spending did not count toward this month’s plan.
+        </Text>
+      ) : null}
+      <View style={styles.drawerActions}>
+        <Button accessibilityLabel="Review monthly plan" fullWidth onPress={onReviewPlan} size="sm" variant="outline">
+          Review monthly plan
+        </Button>
+      </View>
+    </View>
+  );
+}
+
+function MonthPlanResultRow({ summary }: { summary: MonthlyBudgetSummary }) {
+  return (
+    <View style={[styles.monthlyPlanSummaryRow, styles.monthlyPlanSummaryTotal]}>
+      <Text style={styles.monthlyPlanSummaryTotalLabel}>{monthPlanResultLabel(summary)}</Text>
+      <Text style={[
+        styles.monthlyPlanSummaryTotalValue,
+        summary.planResult?.status === 'over' ? styles.monthlyPlanSummaryResultOver : null,
+      ]}>
+        {summary.planResult ? formatBudgetOverviewMoney(summary.planResult.amountCents) : 'Not available'}
+      </Text>
+    </View>
+  );
+}
+
+function monthPlanResultLabel(summary: MonthlyBudgetSummary): string {
+  if (!summary.planResult) return 'Plan result';
+  if (summary.planResult.status === 'over') return 'Over plan';
+  if (summary.planResult.status === 'even') return 'On plan';
+  return 'Left in plan';
+}
+
+function monthlySummaryAccessibilityLabel(periodLabel: string, summary: MonthlyBudgetSummary): string {
+  const result = summary.planResult
+    ? `${formatMoney(summary.planResult.amountCents)} ${summary.planResult.status === 'over' ? 'over plan' : summary.planResult.status === 'left' ? 'left in plan' : 'on plan'}`
+    : 'plan comparison unavailable';
+  return `Review ${moneyPeriodMonthName(periodLabel)} summary, ${formatMoney(summary.incomeReceivedCents)} income received, ${formatMoney(summary.totalSpendingCents)} spent, ${formatMoney(summary.monthlyPlanCents)} monthly plan, ${result}`;
+}
+
+function moneyPeriodMonthName(periodLabel: string): string {
+  return periodLabel.trim().split(/\s+/)[0] || 'Monthly';
+}
+
+function UnclearSpendingProjection({ audit, onPress }: {
+  audit: MoneyPlanAudit;
+  onPress: () => void;
+}) {
+  const count = audit.unclearTransactionIds.length;
+  const transactionLabel = count === 1 ? 'transaction' : 'transactions';
+  return (
+    <View style={styles.categorySection}>
+      <View style={styles.categoryHeader}>
+        <Text style={styles.categoryTitle}>Unclear spending</Text>
+      </View>
+      <Pressable
+        accessibilityLabel={`Review unclear spending, ${formatMoney(audit.unclearSpendingCents)} across ${count} ${transactionLabel}`}
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [styles.unclearProjection, pressed ? styles.monthlyPlanSummaryPressed : null]}
+      >
+        <View style={styles.unclearProjectionCopy}>
+          <Text style={styles.unclearProjectionAmount}>{formatMoney(audit.unclearSpendingCents)}</Text>
+          <Text style={styles.unclearProjectionSupport}>
+            {count} {transactionLabel} {count === 1 ? 'needs' : 'need'} a place
+          </Text>
+        </View>
+        <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+      </Pressable>
+    </View>
+  );
+}
+
+function UnclearSpendingReview({ audit, onReviewTransaction, transactions }: {
+  audit: MoneyPlanAudit;
+  onReviewTransaction: (transactionId: string) => void;
+  transactions: MoneyTransaction[];
+}) {
+  const count = transactions.length;
+  return (
+    <View style={styles.unclearReview}>
+      <Text style={styles.unclearReviewSummary}>
+        {count} {count === 1 ? 'transaction' : 'transactions'} · {formatMoney(audit.unclearSpendingCents)}
+      </Text>
+      <Text style={styles.unclearReviewIntroduction}>
+        Kwilt could not place these confidently. Review only the ones you recognize; the rest can wait here.
+      </Text>
+      <View style={styles.unclearReviewRows}>
+        {transactions.map((transaction) => (
+          <Pressable
+            key={transaction.id}
+            accessibilityLabel={`Review ${transaction.merchantName}, ${formatMoney(transaction.amountCents)}`}
+            accessibilityRole="button"
+            onPress={() => onReviewTransaction(transaction.id)}
+            style={({ pressed }) => [styles.unclearReviewRow, pressed ? styles.monthlyPlanSummaryPressed : null]}
+          >
+            <View style={styles.unclearReviewRowCopy}>
+              <Text numberOfLines={1} style={styles.unclearReviewMerchant}>{transaction.merchantName}</Text>
+              <Text style={styles.unclearReviewMeta}>{formatTransactionDate(transaction.date)} · Needs a place</Text>
+            </View>
+            <Text style={styles.unclearReviewAmount}>{formatMoney(transaction.amountCents)}</Text>
+            <Icon name="chevronRight" size={17} color={colors.textSecondary} />
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }
@@ -777,107 +1049,127 @@ function LimitFacts({
   audit,
   freshness,
   onChangeTarget,
-  onOpenCategory,
+  onOpenUnclear,
   onOpenTransactions,
 }: {
   answer: LivingLimitAnswer;
   audit: MoneyPlanAudit;
   freshness: string;
   onChangeTarget: () => void;
-  onOpenCategory: (categoryId: string) => void;
+  onOpenUnclear: () => void;
   onOpenTransactions: (title: string, transactionIds: string[]) => void;
 }) {
   const { facts } = answer;
-  const [protectedOpen, setProtectedOpen] = useState(false);
   const protectedOverageCents = facts.protectedOverageCents ?? 0;
   const effectiveProtectedCents = facts.protectedPlanCents == null
     ? null
     : facts.protectedPlanCents + protectedOverageCents;
   const roomCents = facts.flexibleRoomCents;
+  const monthlyRoomCents = roomCents == null ? null : roomCents - protectedOverageCents;
   const monthName = moneyMonthName(facts.periodId);
-  const headline = roomCents == null
-    ? 'Update unavailable'
-    : `${formatMoney(Math.abs(roomCents))} ${roomCents < 0 ? 'over' : 'left'} this month`;
+  const monthlyResultValue = monthlyRoomCents == null
+    ? 'Not available'
+    : formatMoney(Math.abs(monthlyRoomCents));
+  const committedSupport = facts.protectedPlanCents == null
+    ? undefined
+    : protectedOverageCents > 0
+      ? `Budget ${formatMoney(facts.protectedPlanCents)} · ${formatMoney(protectedOverageCents)} over`
+      : `Budget ${formatMoney(facts.protectedPlanCents)}`;
+  const flexibleSupport = facts.flexibleCapacityCents == null
+    ? undefined
+    : roomCents == null
+      ? `Budget ${formatMoney(facts.flexibleCapacityCents)}`
+      : `Budget ${formatMoney(facts.flexibleCapacityCents)} · ${formatMoney(Math.abs(roomCents))} ${roomCents < 0 ? 'over' : 'left'}`;
+  const calculationSpendingLabel = audit.unclearSpendingCents > 0
+    ? 'Flexible and unclear spending'
+    : 'Flexible spending this month';
   return (
     <View style={styles.drawerFacts}>
-      <Text
-        accessibilityRole="header"
-        adjustsFontSizeToFit
-        minimumFontScale={0.78}
-        numberOfLines={1}
-        style={[styles.drawerHeadline, roomCents != null && roomCents < 0 ? styles.drawerHeadlineOver : null]}
-      >
-        {headline}
-      </Text>
-
-      <StatementSection label="YOUR MONTHLY BOUNDARY">
-        <LimitFact
-          accessibilityLabel={`Change ${facts.livingPercent}% living target`}
-          label={`Living target · ${facts.livingPercent}%`}
-          value={facts.livingLimitCents == null ? 'Not available' : formatMoney(facts.livingLimitCents)}
-          onPress={onChangeTarget}
-        />
-        <LimitFact
-          accessibilityLabel="Review bills and money set aside"
-          expanded={protectedOpen}
-          label="Bills and money set aside"
-          value={effectiveProtectedCents == null ? 'Not available' : formatStatementOutflow(effectiveProtectedCents)}
-          onPress={audit.protectedCategories.length > 0 ? () => setProtectedOpen((open) => !open) : undefined}
-        />
-        {facts.protectedPlanCents != null ? (
-          <Text style={styles.drawerSupportingFact}>
-            {protectedOverageCents > 0
-              ? `${formatMoney(facts.protectedPlanCents)} planned · ${formatMoney(protectedOverageCents)} higher this month`
-              : `${formatMoney(facts.protectedPlanCents)} kept aside`}
-          </Text>
-        ) : null}
-        {protectedOpen ? (
-          <View style={styles.protectedCategoryList}>
-            {audit.protectedCategories.map((category) => (
-              <LimitFact
-                key={category.categoryId}
-                accessibilityLabel={`Open ${category.name}`}
-                label={category.name}
-                value={formatMoney(category.plannedCents)}
-                onPress={() => onOpenCategory(category.categoryId)}
-                secondary
-              />
-            ))}
-          </View>
-        ) : null}
-        <View style={styles.drawerRule} />
-        <LimitFact label="Flexible room" value={facts.flexibleCapacityCents == null ? 'Not available' : formatMoney(facts.flexibleCapacityCents)} emphasized />
-      </StatementSection>
-
-      <StatementSection label="THIS MONTH">
-        <LimitFact
-          accessibilityLabel="Review flexible spending transactions"
-          label="Flexible spending"
-          value={facts.countedFlexibleSpendCents == null ? 'Not available' : formatStatementOutflow(facts.countedFlexibleSpendCents)}
-          onPress={audit.flexibleTransactionIds.length > 0
-            ? () => onOpenTransactions('Flexible spending', audit.flexibleTransactionIds)
-            : undefined}
-        />
-        <View style={styles.drawerRule} />
-        <LimitFact
-          label="Left"
-          value={roomCents == null ? 'Not available' : roomCents < 0 ? `${formatMoney(Math.abs(roomCents))} over` : formatMoney(roomCents)}
+      <StatementSection label={`${monthName.toUpperCase()} SPENDING`}>
+        <StatementRow
+          label="Total spent"
+          value={formatMoney(audit.totalSpendingCents)}
           emphasized
         />
+        <StatementRow label="Committed" value={formatMoney(audit.committedSpendingCents)} />
+        <StatementRow label="Flexible" value={formatMoney(audit.flexibleSpendingCents)} />
+        {audit.unclearSpendingCents > 0 ? (
+          <StatementRow label="Unclear" value={formatMoney(audit.unclearSpendingCents)} />
+        ) : null}
+        {audit.outsidePlanSpendingCents > 0 ? (
+          <StatementRow label="Outside the plan" value={formatMoney(audit.outsidePlanSpendingCents)} />
+        ) : null}
       </StatementSection>
 
-      <LimitFact
-        accessibilityLabel={`Review other ${monthName} activity`}
-        label={audit.isComplete ? `All ${monthName} activity is accounted for` : `${monthName} activity could not be reconciled`}
-        value={audit.notCountedTransactionIds.length > 0 ? 'See details' : 'Complete'}
-        onPress={audit.notCountedTransactionIds.length > 0
-          ? () => onOpenTransactions(`Other ${monthName} activity`, audit.notCountedTransactionIds)
-          : undefined}
-        secondary
-      />
+      <StatementSection label="HOW YOUR FLEXIBLE ROOM WORKS">
+        <StatementRow
+          label="Monthly plan"
+          value={facts.livingLimitCents == null ? 'Not available' : formatMoney(facts.livingLimitCents)}
+        />
+        <StatementRow
+          label="Bills and money set aside"
+          value={effectiveProtectedCents == null ? 'Not available' : formatStatementOutflow(effectiveProtectedCents)}
+          support={committedSupport}
+        />
+        <StatementRow
+          label={calculationSpendingLabel}
+          value={facts.countedFlexibleSpendCents == null ? 'Not available' : formatStatementOutflow(facts.countedFlexibleSpendCents)}
+          support={flexibleSupport}
+        />
+        {audit.savedResourceSpendingCents > 0 ? (
+          <StatementRow label="Paid from saved money" value={formatMoney(audit.savedResourceSpendingCents)} />
+        ) : null}
+        <View style={styles.drawerRule} />
+        <StatementRow
+          label={monthlyRoomCents != null && monthlyRoomCents < 0 ? 'Over monthly plan' : 'Left in monthly plan'}
+          value={monthlyResultValue}
+          emphasized
+          destructive={monthlyRoomCents != null && monthlyRoomCents < 0}
+        />
+      </StatementSection>
+
+      {audit.nonSpendingCents > 0 ? (
+        <Text style={styles.drawerEvidence}>
+          {formatMoney(audit.nonSpendingCents)} in income, transfers, and other non-spending activity is outside this total.
+        </Text>
+      ) : null}
       <Text style={styles.drawerBasis}>
         {facts.resourceBasisCents == null ? 'Income basis unavailable' : `${basisLabel(facts.resourceBasisKind)}: ${formatMoney(facts.resourceBasisCents)}`} · {freshness}
       </Text>
+
+      <View style={styles.drawerActions}>
+        {audit.flexibleTransactionIds.length > 0 ? (
+          <Button
+            accessibilityLabel="Review flexible transactions"
+            fullWidth
+            onPress={() => onOpenTransactions('Flexible spending', audit.flexibleTransactionIds)}
+            size="sm"
+            variant="outline"
+          >
+            Review flexible transactions
+          </Button>
+        ) : null}
+        {audit.unclearTransactionIds.length > 0 ? (
+          <Button
+            accessibilityLabel="Review unclear spending"
+            fullWidth
+            onPress={onOpenUnclear}
+            size="sm"
+            variant="outline"
+          >
+            Review unclear spending
+          </Button>
+        ) : null}
+        <Button
+          accessibilityLabel={`Change ${facts.livingPercent}% target`}
+          fullWidth
+          onPress={onChangeTarget}
+          size="sm"
+          variant="ghost"
+        >
+          {`Change ${facts.livingPercent}% target`}
+        </Button>
+      </View>
     </View>
   );
 }
@@ -891,45 +1183,27 @@ function StatementSection({ children, label }: { children: ReactNode; label: str
   );
 }
 
-function LimitFact({
-  accessibilityLabel,
+function StatementRow({
+  destructive = false,
   emphasized = false,
-  expanded,
   label,
-  onPress,
-  secondary = false,
+  support,
   value,
 }: {
-  accessibilityLabel?: string;
+  destructive?: boolean;
   emphasized?: boolean;
-  expanded?: boolean;
   label: string;
-  onPress?: () => void;
-  secondary?: boolean;
+  support?: string;
   value: string;
 }) {
-  const content = (
-    <>
-      <Text style={[styles.drawerFactLabel, emphasized ? styles.drawerFactEmphasized : null]}>{label}</Text>
-      <Text style={[styles.drawerFactValue, emphasized ? styles.drawerFactEmphasized : null]}>{value}</Text>
-      {onPress ? <Icon name={expanded ? 'chevronUp' : 'chevronRight'} size={16} color={colors.textSecondary} /> : null}
-    </>
-  );
-  if (onPress) {
-    return (
-      <Pressable
-        accessibilityLabel={accessibilityLabel ?? label}
-        accessibilityRole="button"
-        accessibilityState={expanded == null ? undefined : { expanded }}
-        onPress={onPress}
-        style={({ pressed }) => [styles.drawerFactRow, secondary ? styles.drawerFactSecondary : null, pressed ? styles.drawerFactPressed : null]}
-      >
-        {content}
-      </Pressable>
-    );
-  }
   return (
-    <View style={[styles.drawerFactRow, secondary ? styles.drawerFactSecondary : null]}>{content}</View>
+    <View style={styles.drawerStatementItem}>
+      <View style={styles.drawerFactRow}>
+        <Text style={[styles.drawerFactLabel, emphasized ? styles.drawerFactEmphasized : null, destructive ? styles.drawerFactDestructive : null]}>{label}</Text>
+        <Text style={[styles.drawerFactValue, emphasized ? styles.drawerFactEmphasized : null, destructive ? styles.drawerFactDestructive : null]}>{value}</Text>
+      </View>
+      {support ? <Text style={styles.drawerSupportingFact}>{support}</Text> : null}
+    </View>
   );
 }
 
@@ -944,6 +1218,12 @@ function moneyMonthName(periodId: string): string {
   const [year, month] = periodId.split('-').map(Number);
   if (!Number.isInteger(year) || !Number.isInteger(month)) return 'Monthly';
   return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long' });
+}
+
+function formatTransactionDate(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return date;
+  return new Date(year, month - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function formatStatementOutflow(cents: number): string {
@@ -965,13 +1245,12 @@ function MonthArrow({ direction, disabled, label, onPress }: {
       hitSlop={10}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.iconButton,
         styles.monthArrowButton,
         disabled ? styles.iconButtonDisabled : null,
         pressed ? styles.iconButtonPressed : null,
       ]}
     >
-      <Icon name={direction === 'left' ? 'chevronLeft' : 'chevronRight'} size={22} color={disabled ? colors.textSecondary : colors.textPrimary} />
+      <Icon name={direction === 'left' ? 'chevronLeft' : 'chevronRight'} size={15} color={disabled ? colors.textSecondary : colors.textPrimary} />
     </Pressable>
   );
 }
@@ -991,11 +1270,11 @@ const styles = StyleSheet.create({
   monthSwipeSurface: { gap: spacing.lg, overflow: 'hidden' },
   monthPager: { overflow: 'hidden' },
   monthHeader: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
-  monthPicker: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  monthPicker: { minWidth: 0, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   monthActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  monthTitle: { flexShrink: 1, marginLeft: spacing.xs, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600' },
+  monthTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, fontWeight: '600' },
   iconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
-  monthArrowButton: { width: 32, height: 32 },
+  monthArrowButton: { width: 40, height: 34, alignItems: 'center', justifyContent: 'center' },
   iconButtonPressed: { backgroundColor: colors.fieldFillPressed },
   iconButtonDisabled: { opacity: 0.35 },
   monthBody: { minHeight: 520, gap: spacing.lg },
@@ -1003,32 +1282,49 @@ const styles = StyleSheet.create({
   monthlyPlanSummaryPressed: { backgroundColor: colors.fieldFillPressed },
   monthlyPlanSummaryHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   monthlyPlanSummaryTitle: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, fontWeight: '600', letterSpacing: 0.4, textTransform: 'uppercase' },
+  monthlyPlanSummarySectionLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.8 },
+  monthlyPlanSummaryPlanLabel: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.cardBorder, paddingTop: spacing.sm, marginTop: spacing.xs },
   monthlyPlanSummaryRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   monthlyPlanSummaryLabel: { flex: 1, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
   monthlyPlanSummaryValue: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, fontWeight: '500', fontVariant: ['tabular-nums'] },
   monthlyPlanSummaryTotal: { borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingTop: spacing.sm },
   monthlyPlanSummaryTotalLabel: { flex: 1, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, fontWeight: '600' },
   monthlyPlanSummaryTotalValue: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  monthlyPlanSummaryResultOver: { color: colors.destructive },
+  monthlyPlanSummarySupport: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   categorySection: { gap: spacing.sm },
   categoryHeader: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   categoryConceptHeader: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  categoryTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600' },
+  categoryTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   categoryInfoButton: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   categoryConceptPopover: { width: 260, paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: spacing.xs },
   categoryConceptPopoverTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, fontWeight: '600' },
   categoryConceptPopoverCopy: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
-  explainAction: { paddingHorizontal: spacing.xs, paddingVertical: 4, borderRadius: 6 },
-  explainActionText: { color: colors.pine700, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, fontWeight: '500' },
   viewTrigger: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 8, paddingHorizontal: spacing.xs },
   viewTriggerText: { color: colors.textSecondary, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, fontWeight: '500' },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.md, columnGap: spacing.sm },
+  flexibleCategoryCollection: { marginTop: spacing.sm },
   categoryList: {
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderWidth: 0,
     borderRadius: radii.card,
     backgroundColor: colors.fieldFill,
+    paddingBottom: spacing.sm,
   },
+  unclearProjection: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    borderRadius: radii.card,
+    backgroundColor: colors.fieldFill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  unclearProjectionCopy: { minWidth: 0, flex: 1, gap: 2 },
+  unclearProjectionAmount: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 20, lineHeight: 27, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  unclearProjectionSupport: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   totalSection: { gap: spacing.xs, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.cardBorder, paddingVertical: spacing.lg },
   totalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   totalLabel: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600' },
@@ -1037,21 +1333,29 @@ const styles = StyleSheet.create({
   updatedLabel: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'] },
   drawerFacts: { gap: spacing.lg },
-  drawerHeadline: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 30, lineHeight: 36, fontWeight: '800', letterSpacing: -0.6 },
-  drawerHeadlineOver: { color: colors.destructive },
   statementSection: { gap: spacing.xs },
   statementLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', letterSpacing: 0.7 },
-  statementRows: { gap: spacing.xs },
-  drawerFactRow: { minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, borderRadius: 8 },
-  drawerFactSecondary: { paddingLeft: spacing.md },
-  drawerFactPressed: { backgroundColor: colors.fieldFillPressed },
+  statementRows: { gap: 0 },
+  drawerStatementItem: { paddingVertical: spacing.xs },
+  drawerFactRow: { minHeight: 32, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   drawerFactLabel: { flex: 1, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
   drawerFactValue: { flexShrink: 1, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, textAlign: 'right', fontVariant: ['tabular-nums'] },
   drawerFactEmphasized: { color: colors.textPrimary, fontFamily: fonts.bold, fontWeight: '700' },
-  drawerRule: { height: 1, backgroundColor: colors.cardBorder, marginTop: spacing.xs },
-  drawerSupportingFact: { marginTop: -spacing.xs, paddingLeft: spacing.sm, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  drawerFactDestructive: { color: colors.destructive },
+  drawerRule: { height: 1, backgroundColor: colors.cardBorder, marginVertical: spacing.xs },
+  drawerSupportingFact: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  drawerEvidence: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   drawerBasis: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
-  protectedCategoryList: { gap: spacing.xs },
+  drawerActions: { gap: spacing.xs },
+  unclearReview: { gap: spacing.md },
+  unclearReviewSummary: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 20, lineHeight: 27, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  unclearReviewIntroduction: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
+  unclearReviewRows: { overflow: 'hidden', borderRadius: radii.card, backgroundColor: colors.fieldFill },
+  unclearReviewRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.cardBorder, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  unclearReviewRowCopy: { minWidth: 0, flex: 1, gap: 2 },
+  unclearReviewMerchant: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 15, lineHeight: 21, fontWeight: '500' },
+  unclearReviewMeta: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  unclearReviewAmount: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, fontWeight: '600', fontVariant: ['tabular-nums'] },
   onboardingGuideBody: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
   onboardingWelcomeContent: { paddingTop: spacing.sm },
   onboardingWelcomeGifFrame: { borderRadius: radii.card, marginBottom: 0 },

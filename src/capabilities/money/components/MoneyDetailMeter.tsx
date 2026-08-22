@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { Icon } from '../../../ui/Icon';
+import { InventoryControlGroup } from '../../../ui/InventoryControlGroup';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
 import { buildCumulativeSpendSeries, buildHistoricalAverageSpendSeries, type MoneySpendPoint } from '../domain/moneyDetailView';
 import { signalMoneyChoice } from '../runtime/moneyMutationFeedback';
@@ -93,24 +94,21 @@ export function MoneyDetailMeter({
       </View>
 
       <View style={styles.monthSelector}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Previous month" hitSlop={10} onPress={onPreviousMonth} style={styles.monthButton}>
-          <Icon name="chevronLeft" size={20} color={colors.textPrimary} />
-        </Pressable>
+        <InventoryControlGroup testID="money-detail-month-switcher">
+          <Pressable accessibilityRole="button" accessibilityLabel="Previous month" hitSlop={10} onPress={onPreviousMonth} style={styles.monthButton}>
+            <Icon name="chevronLeft" size={15} color={colors.textPrimary} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Next month" hitSlop={10} onPress={onNextMonth} style={styles.monthButton}>
+            <Icon name="chevronRight" size={15} color={colors.textPrimary} />
+          </Pressable>
+        </InventoryControlGroup>
         <Pressable accessibilityRole={monthOffset !== 0 ? 'button' : undefined} accessibilityLabel={monthOffset !== 0 ? 'Return to this month' : undefined} disabled={monthOffset === 0} onPress={onResetMonth} style={styles.monthLabelBlock}>
           <Text style={styles.monthLabel}>{periodLabel}</Text>
           {monthOffset !== 0 ? <Text style={styles.monthMeta}>Tap month to return to current</Text> : null}
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Next month" hitSlop={10} onPress={onNextMonth} style={styles.monthButton}>
-          <Icon name="chevronRight" size={20} color={colors.textPrimary} />
-        </Pressable>
       </View>
 
-      {isReserve ? (
-        <View style={styles.reserveExplanation}>
-          <Text style={styles.reserveExplanationTitle}>Availability carries across months</Text>
-          <Text style={styles.reserveExplanationCopy}>This reserve adds the same contribution each month and subtracts counted spending. Kwilt checks the accumulated amount against an expected need instead of pacing it as a monthly limit.</Text>
-        </View>
-      ) : (
+      {!isReserve ? (
         <>
           <View onLayout={(event) => setChartWidth(Math.max(240, Math.round(event.nativeEvent.layout.width)))} style={styles.chart}>
             <MoneySpendChart
@@ -132,7 +130,7 @@ export function MoneyDetailMeter({
             <Text style={styles.axisLabel}>{formatAxisDate(periodEndIso)}</Text>
           </View>
         </>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -266,8 +264,6 @@ function MoneySpendChart({ accentColor, budgetCents, elapsedPercent, height, his
   return (
     <View style={{ width, height }}>
       <Svg width={width} height={height}>
-        <Line x1={pad.left} y1={y(budgetCents)} x2={width - pad.right} y2={y(budgetCents)} stroke={colors.gray300} strokeWidth={1} strokeDasharray="4 5" />
-        <Line x1={x(elapsedPercent)} y1={pad.top} x2={x(elapsedPercent)} y2={height - pad.bottom} stroke={colors.gray300} strokeWidth={1} strokeDasharray="2 5" />
         {historicalPath ? <Path d={historicalPath} fill="none" stroke={colors.gray300} strokeOpacity={0.45} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" /> : null}
         {actualPath ? <Path d={actualPath} fill="none" stroke={accentColor} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /> : null}
         <Path d={projectionPath} fill="none" stroke={accentColor} strokeOpacity={0.45} strokeWidth={2} strokeDasharray="5 5" />
@@ -512,9 +508,9 @@ const styles = StyleSheet.create({
   signalGlyph: { fontSize: 9, lineHeight: 14 },
   signalValue: { flexShrink: 0, fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, fontWeight: '600', fontVariant: ['tabular-nums'] },
   signalLabel: { minWidth: 0, flex: 1, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 11, lineHeight: 16 },
-  monthSelector: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg },
-  monthButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
-  monthLabelBlock: { minWidth: 148, alignItems: 'center' },
+  monthSelector: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: spacing.sm },
+  monthButton: { width: 40, height: 34, alignItems: 'center', justifyContent: 'center' },
+  monthLabelBlock: { minWidth: 0, alignItems: 'flex-start' },
   monthLabel: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, fontWeight: '600' },
   monthMeta: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 10, lineHeight: 14 },
   chart: { height: 184, overflow: 'hidden' },
@@ -526,7 +522,4 @@ const styles = StyleSheet.create({
   chartTooltipDelta: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 10, lineHeight: 14 },
   chartAxisRow: { marginTop: -spacing.md, flexDirection: 'row', justifyContent: 'space-between' },
   axisLabel: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 10, lineHeight: 14 },
-  reserveExplanation: { gap: spacing.xs, padding: spacing.lg, borderRadius: 12, backgroundColor: colors.pine50 },
-  reserveExplanationTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, fontWeight: '600' },
-  reserveExplanationCopy: { ...typography.bodySm, color: colors.textSecondary },
 });

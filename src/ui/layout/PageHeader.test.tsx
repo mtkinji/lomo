@@ -116,4 +116,15 @@ describe('PageHeader capability menu affordance', () => {
     );
     expect(getByRole('header', { name: 'Goals' })).toBeTruthy();
   });
+
+  it('keeps leading and trailing content on the same canvas inset', () => {
+    const { getByTestId } = render(
+      <PageHeader title="Budget" rightElement={<></>} />,
+    );
+
+    expect(StyleSheet.flatten(getByTestId('page.header').props.style)).toMatchObject({
+      paddingLeft: spacing.sm,
+      paddingRight: spacing.sm,
+    });
+  });
 });

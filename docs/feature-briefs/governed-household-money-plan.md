@@ -10,7 +10,7 @@ job_step: establish-plan-and-categories
 serves: [jtbd-carry-intentions-into-action, jtbd-review-budget-reality-before-spending, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-auto-budget-from-living-target, brief-budget-amount-adjustment, brief-accounts-inventory-shell, brief-transaction-rule-truth, brief-budget-credits-and-income-classification, brief-category-rollovers, brief-prediction-trust-contract]
 owner: andrew
-last_updated: 2026-07-27
+last_updated: 2026-08-21
 ---
 
 # Governed Household Money Plan
@@ -76,13 +76,30 @@ Current spending can become accurate before the evidence is sufficient to genera
 For a user with no governed categories:
 
 1. Canonicalize transactions and remove duplicates, pending/settled overlap, transfers, refunds, and unsupported money meanings from spend inference.
-2. Create one compact, versioned broad starter category template regardless of which account arrived first. Partial accounts must not create a permanently partial taxonomy.
+2. Create one compact, versioned canonical starter category template regardless of which account arrived first. Partial accounts must not invent a permanently partial or bespoke taxonomy.
 3. Use high-confidence Plaid personal-finance metadata plus merchant, recurrence, and account context to assign transactions into that stable template.
 4. Use broad household defaults for ambiguity. Phone begins in Utilities; a separate Phone category appears only through a user split or strong repeated evidence plus an explicit structural proposal.
-5. Include Other as the conservative supported fallback. Do not expose Plaid's full taxonomy as the user's permanent category inventory.
+5. Include Other spending as the conservative supported fallback. `Needs review` is a transaction state and review surface, not a budget category; unresolved activity must not distort a category merely to clear an inbox.
 6. Persist category creation and transaction assignments through ordinary governed write adapters, then rebuild the authoritative snapshot.
 
-After the first governed set exists, automation may assign into it but may not silently create, split, merge, rename, or delete visible categories.
+The canonical v2 core is:
+
+- Housing
+- Utilities
+- Groceries
+- Dining
+- Transportation
+- Health & insurance
+- Family & care
+- Shopping & personal
+- Entertainment & subscriptions
+- Travel, gifts & occasions
+- Debt & fees
+- Other spending
+
+`Work & business` is a canonical conditional category, not part of the permanent core. Activate it only from high-confidence business-services, office-supplies, accounting, or advertising evidence, or when an existing user category such as Startup or Entrepreneurship clearly supplies that meaning. A personal-card startup purchase remains household spending in Work & business; a dedicated business account remains outside the household plan unless the user includes it. Reimbursed purchases become governed category credits. Recurring required business services may be committed spending; optional business purchases remain flexible.
+
+After the first governed set exists, automation may assign into it and may activate a versioned canonical conditional category when its explicit evidence threshold is met. It may not otherwise silently create, split, merge, rename, or delete visible categories. Existing household categories remain authoritative: migration may add an empty semantic mapping to a clearly named startup/business category, but it may not rename or replace that category.
 
 ### Assignment precedence
 
@@ -205,6 +222,6 @@ After connecting a realistic partial account set, Maya sees recognizable categor
 ## Open questions
 
 - Calibrate the minimum completed-period and coverage thresholds for stable and variable income.
-- Calibrate the broad starter vocabulary/default weights, assignment confidence, evidence/default blending, and receipt-notice threshold.
+- Calibrate the v2 default weights, assignment confidence, evidence/default blending, and receipt-notice threshold against realistic Sandbox and dogfood history.
 - Decide when repeated evidence is strong enough to propose—not silently perform—a category split such as Phone from Utilities.
-- Validate the starter vocabulary and Plaid mapping policy against realistic Sandbox and dogfood history before treating them as product policy.
+- Validate category activation and transaction coverage against realistic Sandbox and dogfood history before promoting runtime proof beyond code and migration tests.

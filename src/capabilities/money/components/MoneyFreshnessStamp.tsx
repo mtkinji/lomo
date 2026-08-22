@@ -25,10 +25,10 @@ export function MoneyFreshnessStamp({ lastSyncedAt }: { lastSyncedAt: string }) 
     <View style={styles.container}>
       <Icon
         accessible={false}
-        color={colors.textSecondary}
-        name="refresh"
+        color={colors.muted}
+        name="clock"
         size={12}
-        testID="money-freshness-icon"
+        testID="money-freshness-clock-icon"
       />
       <Text
         accessibilityLabel={`Bank data ${accessibilityLabel.toLowerCase()}`}
@@ -60,8 +60,8 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.caption,
-    color: colors.textSecondary,
-    fontFamily: fonts.medium,
+    color: colors.muted,
+    fontFamily: fonts.regular,
     textAlign: 'right',
   },
 });

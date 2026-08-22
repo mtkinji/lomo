@@ -18,6 +18,8 @@ export type MoneyEconomicRoleRow = {
   transactionId: string;
   disposition: MoneyEconomicRole;
   amountCents: number;
+  monthlyPlanCents: number;
+  savedResourceCents: number;
   contributions: MoneyEconomicContribution[];
 };
 
@@ -29,6 +31,7 @@ export type MoneyEconomicRoleReconciliation = {
     outsidePlanCents: number;
     neutralCents: number;
     unresolvedInScopeCents: number;
+    savedResourceSpendingCents: number;
   };
   invariant: {
     valid: boolean;
@@ -68,6 +71,7 @@ export function reconcileMoneyEconomicRoles(input: {
     if (row.disposition === 'outside_plan') result.outsidePlanCents += row.amountCents;
     if (row.disposition === 'not_spending' && row.contributions.length === 0) result.neutralCents += row.amountCents;
     if (row.disposition === 'unresolved') result.unresolvedInScopeCents += row.amountCents;
+    result.savedResourceSpendingCents += row.savedResourceCents;
     return result;
   }, {
     protectedSpendingCents: 0,
@@ -75,6 +79,7 @@ export function reconcileMoneyEconomicRoles(input: {
     outsidePlanCents: 0,
     neutralCents: 0,
     unresolvedInScopeCents: 0,
+    savedResourceSpendingCents: 0,
   });
 
   totals.protectedSpendingCents = Math.max(0, totals.protectedSpendingCents);
@@ -98,7 +103,17 @@ function reconcileTransaction(
   roleByCategoryId: Map<string, SpendingRole>,
 ): MoneyEconomicRoleRow {
   const amountCents = validCents(transaction.amountCents);
-  const base = { transactionId: transaction.id, amountCents };
+  const providerRole = providerEconomicRole(transaction);
+  const savedResourceCents = transaction.direction === 'outflow'
+    && !transaction.pending
+    && transaction.reviewState !== 'not_counted'
+    && transaction.moneyMeaning !== 'not_counted'
+    && transaction.moneyMeaning !== 'transfer'
+    && providerRole !== 'not_spending'
+      ? Math.min(amountCents, validCents(transaction.savedResourceCents ?? 0))
+      : 0;
+  const monthlyPlanCents = amountCents - savedResourceCents;
+  const base = { transactionId: transaction.id, amountCents, monthlyPlanCents, savedResourceCents };
 
   if (transaction.moneyMeaning === 'transfer') {
     return { ...base, disposition: 'not_spending', contributions: [] };
@@ -127,15 +142,27 @@ function reconcileTransaction(
     return { ...base, disposition: 'outside_plan', contributions: [] };
   }
 
+  if (providerRole === 'not_spending') {
+    return { ...base, disposition: 'not_spending', contributions: [] };
+  }
+
   if (transaction.allocations?.length) {
     const allocationTotalCents = transaction.allocations.reduce(
       (sum, allocation) => sum + validCents(allocation.amountCents),
       0,
     );
-    const contributions = transaction.allocations.map((allocation) => {
+    const spendDeltas = apportionCents(
+      transaction.allocations.map((allocation) => validCents(allocation.amountCents)),
+      monthlyPlanCents,
+    );
+    const contributions = transaction.allocations.map((allocation, index) => {
       const role = roleByCategoryId.get(allocation.categoryId);
       return role
-        ? { role, amountCents: validCents(allocation.amountCents), spendDeltaCents: validCents(allocation.amountCents) }
+        ? {
+          role,
+          amountCents: validCents(allocation.amountCents),
+          spendDeltaCents: spendDeltas[index] ?? 0,
+        }
         : null;
     });
     if (allocationTotalCents === amountCents && contributions.every(isContribution)) {
@@ -162,23 +189,32 @@ function reconcileTransaction(
     return {
       ...base,
       disposition: role,
-      contributions: [{ role, amountCents, spendDeltaCents: amountCents }],
+      contributions: [{ role, amountCents, spendDeltaCents: monthlyPlanCents }],
     };
   }
 
-  const providerRole = providerEconomicRole(transaction);
-  if (providerRole === 'not_spending') {
-    return { ...base, disposition: 'not_spending', contributions: [] };
-  }
   if (providerRole === 'protected_spending') {
     return {
       ...base,
       disposition: 'protected_spending',
-      contributions: [{ role: 'protected_spending', amountCents, spendDeltaCents: amountCents }],
+      contributions: [{ role: 'protected_spending', amountCents, spendDeltaCents: monthlyPlanCents }],
     };
   }
 
   return { ...base, disposition: 'unresolved', contributions: [] };
+}
+
+function apportionCents(weights: number[], totalCents: number): number[] {
+  const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
+  if (weights.length === 0 || weightTotal === 0) return weights.map(() => 0);
+
+  let assignedCents = 0;
+  return weights.map((weight, index) => {
+    if (index === weights.length - 1) return totalCents - assignedCents;
+    const apportionedCents = Math.floor((totalCents * weight) / weightTotal);
+    assignedCents += apportionedCents;
+    return apportionedCents;
+  });
 }
 
 function providerEconomicRole(transaction: MoneyTransaction): 'not_spending' | 'protected_spending' | null {

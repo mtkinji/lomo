@@ -101,10 +101,11 @@ export function getSimilarMerchantTransactions(
   transactions: MoneyTransaction[],
   selected: MoneyTransaction,
   mode: 'exact' | 'partial',
+  partialPattern?: string,
 ): MoneyTransaction[] {
   const target = mode === 'exact'
     ? normalizeExactMerchant(selected.merchantName)
-    : normalizePartialMerchant(selected.merchantName);
+    : normalizePartialMerchant(partialPattern ?? selected.merchantName);
   if (!target) return [];
   return transactions.filter((transaction) => {
     if (transaction.id === selected.id) return false;

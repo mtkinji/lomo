@@ -94,6 +94,8 @@ export type MoneyTransactionRow = {
   money_meaning: 'income' | 'category_credit' | 'transfer' | 'not_counted' | 'unknown' | null;
   plan_role_override?: MoneyCategoryPlanRole | null;
   plan_role_override_reviewed_at?: string | null;
+  saved_resource_cents?: number | null;
+  plan_coverage_reviewed_at?: string | null;
   personal_finance_category_primary?: string | null;
   personal_finance_category_detailed?: string | null;
   personal_finance_category_confidence?: 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN' | null;
@@ -176,6 +178,8 @@ export type MoneyTransaction = {
   assignmentGoverned?: boolean;
   moneyMeaning: MoneyTransactionRow['money_meaning'];
   planRoleOverride?: MoneyCategoryPlanRole | null;
+  savedResourceCents?: number;
+  planCoverageReviewedAt?: string | null;
   allocations?: MoneyTransactionAllocation[];
 };
 
@@ -537,6 +541,8 @@ function projectTransaction(
     planRoleOverride: transaction.plan_role_override === 'protected' || transaction.plan_role_override === 'flexible'
       ? transaction.plan_role_override
       : null,
+    savedResourceCents: Math.min(validCents(transaction.saved_resource_cents ?? 0), validCents(transaction.amount_cents)),
+    planCoverageReviewedAt: transaction.plan_coverage_reviewed_at ?? null,
     ...(allocations?.length ? { allocations } : {}),
   };
 }

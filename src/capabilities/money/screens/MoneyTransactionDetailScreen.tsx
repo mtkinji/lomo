@@ -1,25 +1,29 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { KwiltLoader } from '../../../ui/KwiltLoader';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
+import { BottomGuide } from '../../../ui/BottomGuide';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
 import { Input } from '../../../ui/Input';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
+import { SettingsChoiceRow } from '../../../ui/SettingsSurface';
 import { MoneyTransactionSplitDrawer } from '../components/MoneyTransactionSplitDrawer';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
+import { getPartialMerchantRulePatternError, normalizePartialMerchant } from '../data/moneyMutations';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import { getPersistedMerchantRuleOfferCategoryId, getPostCategorySelectionOutcome } from '../domain/merchantRuleOffer';
 import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
 import { getPaymentSourcePresentation, type InstitutionPalette } from '../domain/paymentSourcePresentation';
 import { getTransactionMeaningOptions, type TransactionMeaningOption } from '../domain/transactionMeaningOptions';
 import { getTransactionPlanTreatment } from '../domain/transactionPlanTreatment';
+import { canEditTransactionPlanCoverage, projectTransactionCoverageImpact } from '../domain/transactionPlanCoverage';
 import type { TransactionSplitMode } from '../domain/transactionTruthTelemetry';
 import type { MoneyStackParamList } from '../navigation/types';
 import {
@@ -39,6 +43,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     markTransactionNotCounted,
     reviewTransactionMeaning,
     setTransactionPlanRoleOverride,
+    setTransactionPlanCoverage,
     reviewingTransactionId,
     refresh,
     saveMerchantRule,
@@ -50,6 +55,10 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const transaction = snapshot?.transactions.find((candidate) => candidate.id === route.params.transactionId);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(Boolean(route.params.economicRoleReview));
   const [countsAsOpen, setCountsAsOpen] = useState(false);
+  const [coverageOpen, setCoverageOpen] = useState(Boolean(route.params.coverageReview));
+  const [coverageMode, setCoverageMode] = useState<'month' | 'saved' | 'split'>('month');
+  const [savedAmount, setSavedAmount] = useState('0');
+  const [coverageReceipt, setCoverageReceipt] = useState<string | null>(null);
   const [categoryQuery, setCategoryQuery] = useState('');
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -60,6 +69,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const [splitEditorOpen, setSplitEditorOpen] = useState(false);
   const splitSessionRef = useRef<{ mode: TransactionSplitMode; startedAtMs: number } | null>(null);
   const [ruleMode, setRuleMode] = useState<RuleMatchMode>('exact');
+  const [partialRuleMatch, setPartialRuleMatch] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [pendingChoice, setPendingChoice] = useState<string | null>(null);
   const saving = Boolean(transaction && reviewingTransactionId === transaction.id);
@@ -77,15 +87,30 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     ? categories.find((category) => category.id === persistedRuleOfferCategoryId || category.sourceId === persistedRuleOfferCategoryId) ?? null
     : null;
   const ruleOfferCategory = pendingRuleCategory ?? persistedRuleOfferCategory;
+  const partialRuleError = ruleMode === 'partial' && transaction
+    ? getPartialMerchantRulePatternError(transaction.merchantName, partialRuleMatch)
+    : null;
   const filteredCategories = useMemo(() => {
     const query = categoryQuery.trim().toLowerCase();
     return query ? categories.filter((category) => category.name.toLowerCase().includes(query)) : categories;
   }, [categories, categoryQuery]);
   const flexibleCategories = filteredCategories.filter((category) => category.planRole !== 'protected');
   const committedCategories = filteredCategories.filter((category) => category.planRole === 'protected');
-  const similarRows = useMemo(() => transaction
-    ? getSimilarMerchantTransactions(snapshot?.transactions ?? [], transaction, ruleMode)
-    : [], [ruleMode, snapshot?.transactions, transaction]);
+  const similarRows = useMemo(() => {
+    if (!transaction || partialRuleError) return [];
+    return getSimilarMerchantTransactions(snapshot?.transactions ?? [], transaction, ruleMode, partialRuleMatch);
+  }, [partialRuleError, partialRuleMatch, ruleMode, snapshot?.transactions, transaction]);
+
+  useEffect(() => {
+    setPartialRuleMatch(normalizePartialMerchant(transaction?.merchantName ?? ''));
+  }, [transaction?.id, transaction?.merchantName]);
+
+  useEffect(() => {
+    if (!route.params.coverageReview || !transaction) return;
+    const current = transaction.savedResourceCents ?? 0;
+    setCoverageMode(current === 0 ? 'month' : current === transaction.amountCents ? 'saved' : 'split');
+    setSavedAmount((current / 100).toFixed(2));
+  }, [route.params.coverageReview, transaction]);
 
   const runReview = async (mutation: () => Promise<void>, operation?: MoneyMutationOperation) => {
     const startedAtMs = Date.now();
@@ -170,6 +195,41 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     if (changed) setCountsAsOpen(false);
   };
 
+  const openCoverage = () => {
+    if (!transaction) return;
+    const current = transaction.savedResourceCents ?? 0;
+    setCoverageMode(current === 0 ? 'month' : current === transaction.amountCents ? 'saved' : 'split');
+    setSavedAmount((current / 100).toFixed(2));
+    setCoverageOpen(true);
+  };
+
+  const nextSavedResourceCents = !transaction ? 0 : coverageMode === 'month'
+    ? 0
+    : coverageMode === 'saved'
+      ? transaction.amountCents
+      : Math.max(0, Math.min(transaction.amountCents, Math.round(Number(savedAmount || 0) * 100)));
+  const coverageImpact = transaction && snapshot?.livingLimitAnswer?.facts.flexibleRoomCents != null
+    ? projectTransactionCoverageImpact({
+        flexibleRoomCents: snapshot.livingLimitAnswer.facts.flexibleRoomCents,
+        currentSavedResourceCents: transaction.savedResourceCents ?? 0,
+        nextSavedResourceCents,
+        transactionAmountCents: transaction.amountCents,
+      })
+    : null;
+
+  const saveCoverage = async () => {
+    if (!transaction) return;
+    const changed = await runReview(
+      () => setTransactionPlanCoverage(transaction.id, nextSavedResourceCents),
+      'transaction_plan_role',
+    );
+    if (!changed) return;
+    setCoverageOpen(false);
+    setCoverageReceipt(nextSavedResourceCents === 0
+      ? `This purchase is covered by the ${snapshot?.periodLabel.split(' ')[0] ?? 'month'} plan.`
+      : `${formatMoney(nextSavedResourceCents)} stays in ${currentCategory?.name ?? transaction.categoryName} and is covered by saved money.`);
+  };
+
   const createAndSelectCategory = async () => {
     if (!transaction) return;
     setReviewError(null);
@@ -199,6 +259,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       categoryId: ruleOfferCategory.sourceId,
       categoryName: ruleOfferCategory.name,
       matchMode: ruleMode,
+      merchantPattern: ruleMode === 'partial' ? partialRuleMatch : undefined,
     }));
     if (saved) {
       setPendingRuleCategory(null);
@@ -337,6 +398,32 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
             ) : transaction.allocations?.length ? (
               <Text style={styles.classificationDetail}>{planTreatment.label}</Text>
             ) : null}
+            {canEditTransactionPlanCoverage(transaction) && !transaction.allocations?.length ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`How this is covered, ${(transaction.savedResourceCents ?? 0) > 0 ? 'saved money' : `${snapshot?.periodLabel.split(' ')[0] ?? 'month'} plan`}`}
+                disabled={saving}
+                onPress={openCoverage}
+                style={({ pressed }) => [styles.countsAsRow, pressed ? styles.pressed : null]}
+              >
+                <View style={styles.countsAsCopy}>
+                  <Text style={styles.countsAsLabel}>HOW THIS IS COVERED</Text>
+                  <Text style={styles.countsAsValue}>{(transaction.savedResourceCents ?? 0) === 0
+                    ? `${snapshot?.periodLabel.split(' ')[0] ?? 'Month'} plan`
+                    : (transaction.savedResourceCents ?? 0) === transaction.amountCents
+                      ? 'Saved money'
+                      : `${formatMoney(transaction.savedResourceCents ?? 0)} saved money`}</Text>
+                  <Text style={styles.countsAsDetail}>Changes this month’s plan, not the purchase or its category.</Text>
+                </View>
+                <Icon name="chevronRight" size={15} color={colors.textSecondary} />
+              </Pressable>
+            ) : null}
+            {coverageReceipt ? (
+              <View style={styles.ruleReceipt}>
+                <Icon name="checkCircle" size={16} color={colors.pine700} />
+                <Text style={styles.ruleReceiptText}>{coverageReceipt}</Text>
+              </View>
+            ) : null}
             {transaction.merchantRuleCategoryId && currentCategory?.id === transaction.merchantRuleCategoryId ? (
               <View style={styles.ruleReceipt}>
                 <Icon name="checkCircle" size={16} color={colors.pine700} />
@@ -359,23 +446,71 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                 {transaction.allocations?.length ? 'Edit split' : 'Split transaction'}
               </Button>
             ) : null}
-            {ruleOfferCategory && !ruleDrawerOpen ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setRuleDrawerOpen(true)}
-                style={({ pressed }) => [styles.ruleOffer, pressed ? styles.pressed : null]}
-              >
-                <View style={styles.ruleOfferCopy}>
-                  <Text style={styles.ruleOfferTitle}>Use {ruleOfferCategory.name} for future {transaction.merchantName} transactions?</Text>
-                  <Text style={styles.ruleOfferDetail}>Review the match before creating a rule.</Text>
-                </View>
-                <Icon name="chevronRight" size={18} color={colors.pine700} />
-              </Pressable>
-            ) : null}
             {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
           </View>
         </ScrollView>
       </AppShell>
+
+      <BottomGuide
+        dynamicSizing
+        onClose={() => void dismissRuleOffer()}
+        snapPoints={['42%']}
+        visible={Boolean(ruleOfferCategory) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen}
+      >
+        <View style={styles.ruleGuideCopy}>
+          <Text style={styles.ruleGuideTitle}>Use {ruleOfferCategory?.name} next time?</Text>
+          <Text style={styles.ruleGuideDetail}>
+            Review how future {transaction.merchantName} transactions would match. Kwilt won’t create a rule until you confirm.
+          </Text>
+        </View>
+        <View style={styles.ruleGuideActions}>
+          <Button fullWidth onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>
+          <Button fullWidth variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
+        </View>
+      </BottomGuide>
+
+      <BottomDrawer
+        visible={coverageOpen}
+        onClose={() => setCoverageOpen(false)}
+        snapPoints={['78%']}
+        enableContentPanningGesture
+        bottomAccessory={(
+          <View style={styles.ruleActions}>
+            {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
+            <Button fullWidth disabled={saving} onPress={() => void saveCoverage()}>{saving ? 'Saving…' : coverageMode === 'month' ? 'Use month plan' : 'Use this coverage'}</Button>
+          </View>
+        )}
+        bottomAccessoryShowTopBorder
+      >
+        <BottomDrawerScrollView contentContainerStyle={styles.drawerContent} keyboardShouldPersistTaps="handled">
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close plan coverage options"
+            onClose={() => setCoverageOpen(false)}
+            title="How this is covered"
+            variant="withClose"
+          />
+          <Text style={styles.drawerCopy}>This changes how the purchase affects {snapshot?.periodLabel.split(' ')[0] ?? 'this month'}. It stays in {currentCategory?.name ?? transaction.categoryName}.</Text>
+          <View style={styles.coverageChoices}>
+            <SettingsChoiceRow title={`${snapshot?.periodLabel.split(' ')[0] ?? 'Month'} plan`} description="Count the full purchase against this month." selected={coverageMode === 'month'} onPress={() => setCoverageMode('month')} disabled={saving} />
+            <SettingsChoiceRow title="Saved money" description="Keep the purchase, but do not use this month’s flexible allocation." selected={coverageMode === 'saved'} onPress={() => setCoverageMode('saved')} disabled={saving} />
+            <SettingsChoiceRow title="Split between both" description="Choose how much is covered by saved money." selected={coverageMode === 'split'} onPress={() => setCoverageMode('split')} disabled={saving} />
+          </View>
+          {coverageMode === 'split' ? (
+            <Input accessibilityLabel="Amount covered by saved money" keyboardType="decimal-pad" label="Saved money amount" value={savedAmount} onChangeText={setSavedAmount} />
+          ) : null}
+          <View style={styles.coveragePreview}>
+            <View style={styles.receiptRow}><Text style={styles.receiptLabel}>This purchase</Text><Text style={styles.receiptValue}>{formatMoney(transaction.amountCents)}</Text></View>
+            <View style={styles.receiptRow}><Text style={styles.receiptLabel}>Covered by saved money</Text><Text style={styles.receiptValue}>{formatMoney(nextSavedResourceCents)}</Text></View>
+            {coverageImpact ? (
+              <View style={styles.coverageResult}>
+                <Text style={styles.coverageResultLabel}>Flexible spending</Text>
+                <Text style={styles.coverageResultValue}>{formatPlanResult(coverageImpact.currentFlexibleRoomCents)} → {formatPlanResult(coverageImpact.nextFlexibleRoomCents)}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.drawerCopy}>Kwilt is not estimating your remaining savings.</Text>
+        </BottomDrawerScrollView>
+      </BottomDrawer>
 
       <BottomDrawer visible={countsAsOpen} onClose={() => setCountsAsOpen(false)} snapPoints={['46%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
@@ -505,7 +640,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
         bottomAccessory={ruleOfferCategory ? (
           <View style={styles.ruleActions}>
             {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
-            <Button disabled={saving} fullWidth onPress={() => void applyRule()}>{saving ? 'Saving…' : 'Create rule'}</Button>
+            <Button disabled={saving || Boolean(partialRuleError)} fullWidth onPress={() => void applyRule()}>{saving ? 'Saving…' : 'Create rule'}</Button>
             <Button fullWidth variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
           </View>
         ) : undefined}
@@ -523,19 +658,34 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
             <RuleModeButton active={ruleMode === 'exact'} label="Exact match" onPress={() => setRuleMode('exact')} />
             <RuleModeButton active={ruleMode === 'partial'} label="Partial match" onPress={() => setRuleMode('partial')} />
           </View>
-          <View style={styles.matchPreview}>
-            <Text style={styles.matchPreviewLabel}>WILL MATCH</Text>
-            <Text style={styles.matchPreviewValue}>{ruleMode === 'exact' ? transaction.merchantName : getPartialRuleLabel(transaction.merchantName)}</Text>
-          </View>
-          <View style={styles.similarSection}>
-            <Text style={styles.similarTitle}>Matching transaction examples</Text>
-            {similarRows.slice(0, 6).map((row) => (
-              <View key={row.id} style={styles.similarRow}>
-                <View style={styles.similarCopy}><Text numberOfLines={1} style={styles.similarMerchant}>{row.merchantName}</Text><Text style={styles.similarMeta}>{formatTransactionDate(row.date)} · {row.categoryName}</Text></View>
-                <Text style={styles.similarAmount}>{formatMoney(row.amountCents, row.currencyCode)}</Text>
-              </View>
-            ))}
-          </View>
+          {ruleMode === 'partial' ? (
+            <Input
+              autoCapitalize="none"
+              autoCorrect={false}
+              errorText={partialRuleError ?? undefined}
+              helperText="Future merchant names containing these words will match."
+              label="Merchant contains"
+              onChangeText={setPartialRuleMatch}
+              returnKeyType="done"
+              value={partialRuleMatch}
+            />
+          ) : (
+            <View style={styles.matchPreview}>
+              <Text style={styles.matchPreviewLabel}>WILL MATCH</Text>
+              <Text style={styles.matchPreviewValue}>{transaction.merchantName}</Text>
+            </View>
+          )}
+          {!partialRuleError ? (
+            <View style={styles.similarSection}>
+              <Text style={styles.similarTitle}>Matching transaction examples</Text>
+              {similarRows.slice(0, 6).map((row) => (
+                <View key={row.id} style={styles.similarRow}>
+                  <View style={styles.similarCopy}><Text numberOfLines={1} style={styles.similarMerchant}>{row.merchantName}</Text><Text style={styles.similarMeta}>{formatTransactionDate(row.date)} · {row.categoryName}</Text></View>
+                  <Text style={styles.similarAmount}>{formatMoney(row.amountCents, row.currencyCode)}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </BottomDrawerScrollView>
       </BottomDrawer>
 
@@ -685,13 +835,13 @@ function getCategoryRelationLabel(transaction: MoneyTransaction, category?: Mone
   return null;
 }
 
-function getPartialRuleLabel(value: string): string {
-  return value.toLowerCase().replace(/'s\b/g, '').replace(/#[0-9]+/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter((token) => token && !/^[0-9]+$/.test(token)).slice(0, 2).join(' ');
-}
-
 function formatTransactionDate(dateIso: string): string {
   const date = new Date(`${dateIso}T00:00:00.000Z`);
   return Number.isFinite(date.getTime()) ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : dateIso;
+}
+
+function formatPlanResult(roomCents: number): string {
+  return roomCents < 0 ? `${formatMoney(Math.abs(roomCents))} over` : `${formatMoney(roomCents)} left`;
 }
 
 const styles = StyleSheet.create({
@@ -741,10 +891,10 @@ const styles = StyleSheet.create({
   classificationDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   ruleReceipt: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 10, backgroundColor: colors.pine50 },
   ruleReceiptText: { flex: 1, color: colors.pine700, fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, fontWeight: '500' },
-  ruleOffer: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 10, backgroundColor: colors.pine50 },
-  ruleOfferCopy: { minWidth: 0, flex: 1, gap: 2 },
-  ruleOfferTitle: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600' },
-  ruleOfferDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 11, lineHeight: 15 },
+  ruleGuideCopy: { gap: spacing.xs },
+  ruleGuideTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, fontWeight: '700' },
+  ruleGuideDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
+  ruleGuideActions: { gap: spacing.xs, paddingTop: spacing.sm },
   splitReceipt: { gap: spacing.sm, padding: spacing.lg, borderWidth: 1, borderColor: colors.pine200, borderRadius: 12, backgroundColor: colors.pine50 },
   splitReceiptTitle: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   splitReceiptRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.lg },
@@ -752,6 +902,11 @@ const styles = StyleSheet.create({
   splitReceiptAmount: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600', fontVariant: ['tabular-nums'] },
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 64 },
   drawerCopy: { ...typography.bodySm, color: colors.textSecondary },
+  coverageChoices: { overflow: 'hidden', borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
+  coveragePreview: { gap: spacing.sm, padding: spacing.lg, borderRadius: 12, backgroundColor: colors.fieldFill },
+  coverageResult: { gap: 2, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.cardBorder },
+  coverageResultLabel: { ...typography.bodyXs, color: colors.textSecondary },
+  coverageResultValue: { ...typography.body, fontFamily: fonts.semibold, color: colors.textPrimary },
   meaningSection: { gap: spacing.xs },
   pickerSection: { gap: 2 },
   secondarySectionLabel: { marginTop: spacing.xs, color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.7 },

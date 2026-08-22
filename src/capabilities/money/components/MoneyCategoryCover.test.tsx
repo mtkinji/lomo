@@ -75,6 +75,8 @@ describe('Money category covers', () => {
     expect(coverSource).toContain('onError={() => setImageFailed(true)}');
     expect(coverSource).toContain('Cover image unavailable');
     expect(coverSource).toContain('Photo by');
+    expect(coverSource).toContain('bottom: spacing.xs + attributionBottomInset');
+    expect(coverSource).toContain("height: '100%'");
     expect(drawerSource).toContain('<ArcBannerSheet');
     expect(drawerSource).toContain("sourceTabs={['unsplash']}");
     expect(drawerSource).toContain('title="Category cover"');

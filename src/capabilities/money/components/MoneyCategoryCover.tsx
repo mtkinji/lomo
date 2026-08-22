@@ -4,7 +4,13 @@ import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, fonts, spacing } from '../../../theme';
 import type { MoneyCategoryCover as MoneyCategoryCoverValue } from '../domain/moneyCategoryCover';
 
-export function MoneyCategoryCover({ cover }: { cover?: MoneyCategoryCoverValue | null }) {
+export function MoneyCategoryCover({
+  attributionBottomInset = 0,
+  cover,
+}: {
+  attributionBottomInset?: number;
+  cover?: MoneyCategoryCoverValue | null;
+}) {
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => setImageFailed(false), [cover?.imageUrl]);
@@ -35,7 +41,7 @@ export function MoneyCategoryCover({ cover }: { cover?: MoneyCategoryCoverValue 
       ) : null}
       <View pointerEvents="none" style={styles.scrim} />
       {cover && !imageFailed ? (
-        <View style={styles.attribution}>
+        <View style={[styles.attribution, { bottom: spacing.xs + attributionBottomInset }]}>
           <Text style={styles.attributionText}>Photo by </Text>
           <Pressable accessibilityRole="link" onPress={() => openLink(cover.photographerUrl)}>
             <Text style={styles.attributionLink}>{cover.photographerName}</Text>
@@ -52,7 +58,7 @@ export function MoneyCategoryCover({ cover }: { cover?: MoneyCategoryCoverValue 
 
 const styles = StyleSheet.create({
   cover: {
-    height: 168,
+    height: '100%',
     overflow: 'hidden',
     backgroundColor: colors.pine100,
   },
@@ -63,7 +69,6 @@ const styles = StyleSheet.create({
   attribution: {
     position: 'absolute',
     right: spacing.sm,
-    bottom: spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,

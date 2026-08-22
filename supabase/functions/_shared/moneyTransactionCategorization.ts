@@ -98,15 +98,22 @@ export function nextMoneyClassificationRetryIso(
 function providerMappingTag(candidate: DeterministicCategoryCandidate): string | null {
   if (candidate.providerConfidence !== 'HIGH' && candidate.providerConfidence !== 'VERY_HIGH') return null;
   const evidence = `${candidate.providerPrimary ?? ''} ${candidate.providerDetailed ?? ''}`.toUpperCase();
-  if (/(TELEPHONE|INTERNET|CABLE|ELECTRIC|GAS|UTILIT)/.test(evidence)) return 'utilities';
+  const detailedEvidence = `${candidate.providerDetailed ?? ''}`.toUpperCase();
+  if (/(BUSINESS_SERVICES|OFFICE_SUPPLIES|ACCOUNTING_AND_FINANCIAL_PLANNING|ADVERTISING_AND_MARKETING)/.test(evidence)) return 'work_business';
+  if (/(GAS_STATION|PARKING|PUBLIC_TRANSIT|TRANSPORT|AUTOMOTIVE)/.test(evidence)) return 'transportation';
+  if (/(TELEPHONE|INTERNET|CABLE|ELECTRIC|GAS|UTILIT)/.test(detailedEvidence)) return 'utilities';
   if (/(RENT|MORTGAGE|HOME_IMPROVEMENT)/.test(evidence)) return 'housing';
-  if (/(GROCER|FOOD_AND_DRINK|RESTAURANT)/.test(evidence)) return 'food_at_home';
-  if (/(TRANSPORT|AUTOMOTIVE|GAS_STATION|PARKING|PUBLIC_TRANSIT)/.test(evidence)) return 'transportation';
+  if (/GROCER/.test(evidence)) return 'food_at_home';
+  if (/(RESTAURANT|COFFEE|FAST_FOOD|FOOD_AND_DRINK)/.test(evidence)) return 'food_away';
   if (/(MEDICAL|HEALTH|PHARMAC)/.test(evidence)) return 'health';
-  if (/(CHILDCARE|EDUCATION)/.test(evidence)) return 'family';
+  if (/INSURANCE/.test(evidence)) return 'health';
+  if (/CHILDCARE/.test(evidence)) return 'childcare';
+  if (/EDUCATION/.test(evidence)) return 'family';
   if (/(GIFT|DONATION)/.test(evidence)) return 'gifts';
+  if (/TRAVEL/.test(evidence)) return 'travel';
+  if (/SUBSCRIPTION/.test(evidence)) return 'entertainment';
+  if (/(ENTERTAINMENT|RECREATION)/.test(evidence)) return 'entertainment';
   if (/(GENERAL_MERCHANDISE|PERSONAL_CARE|CLOTHING)/.test(evidence)) return 'shopping';
-  if (/(ENTERTAINMENT|RECREATION|TRAVEL)/.test(evidence)) return 'entertainment';
   if (/(LOAN|DEBT|BANK_FEES|INTEREST)/.test(evidence)) return 'debt';
   return null;
 }
