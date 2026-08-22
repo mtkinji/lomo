@@ -65,7 +65,7 @@ import {
   createMealPlanningRepository,
   type GuestMealFeedbackSummary,
 } from "../../meal-planning/data/mealPlanningRepository";
-import { MealPlanShareDrawer } from "../../meal-planning/components/MealPlanShareDrawer";
+import { createMealPlanAttentionRepository } from "../../meal-planning/data/mealPlanAttentionRepository";
 import {
   shareGuestMealPlan,
   type GuestMealPlanInvitation,
@@ -126,7 +126,6 @@ import {
   foodFirstCycleStepFromCheckpoint,
 } from "../../../features/household-food/onboarding/foodFirstCycleGuide";
 
-
 import {
   buildVisibleRecipeInventory,
   buildRecipeDiscoverySections,
@@ -162,6 +161,22 @@ export {
   RecipeLibraryView,
 };
 export type { MealPlanTrayItem };
+
+export function shouldShowPickMealGuide({
+  routeOnboarding,
+  foodGuideCheckpoint,
+  hasRecipes,
+}: {
+  routeOnboarding: string | undefined;
+  foodGuideCheckpoint: string | null;
+  hasRecipes: boolean;
+}): boolean {
+  if (!hasRecipes) return false;
+  if (foodGuideCheckpoint !== null) {
+    return foodFirstCycleStepFromCheckpoint(foodGuideCheckpoint) === "choose-recipe";
+  }
+  return routeOnboarding === "pick-meal";
+}
 
 type FilterKey = keyof RecipeInventoryFilters;
 type Props = NativeStackScreenProps<FoodStackParamList, "RecipeLibrary">;
@@ -207,7 +222,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const [mealChatThreadId, setMealChatThreadId] = useState<string | null>(null);
   const [sharedCart, setSharedCart] = useState<SharedMealCartProjection | null>(null);
   const [planBrowsing, setPlanBrowsing] = useState(false);
-  const [householdRequestVisible, setHouseholdRequestVisible] = useState(false);
+  const [mealPlanNeedsAttention, setMealPlanNeedsAttention] = useState(false);
   const [guestInvitation, setGuestInvitation] = useState<GuestMealPlanInvitation | null>(null);
   const [guestFeedbackSummary, setGuestFeedbackSummary] = useState<GuestMealFeedbackSummary | null>(null);
   const [activeGuestInviteIds, setActiveGuestInviteIds] = useState<string[]>([]);
@@ -240,6 +255,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   });
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const { capture } = useAnalytics();
+  const mealPlanAttentionRepository = useMemo(() => createMealPlanAttentionRepository(), []);
   const mealChatLaunchContext = useMemo<UnifiedChatLaunchContext>(
     () => ({
       capabilityId: "meal_planning",
@@ -324,12 +340,13 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       setPullRefreshing(false);
     });
   }, [refresh]);
-  const planHeaderCount = sharedCart?.activeCount ?? 0;
   const planPersonId = sharedCart?.viewer.personId ?? null;
   const foodGuideStep = foodFirstCycleStepFromCheckpoint(foodGuideCheckpoint);
-  const showPickMealGuide =
-    (route.params?.onboarding === "pick-meal" || foodGuideStep === 'choose-recipe') &&
-    filtered.length > 0;
+  const showPickMealGuide = shouldShowPickMealGuide({
+    routeOnboarding: route.params?.onboarding,
+    foodGuideCheckpoint,
+    hasRecipes: filtered.length > 0,
+  });
   const dismissPickMealGuide = useCallback(() => {
     navigation.setParams({ onboarding: undefined });
     if (userId) dispatchCapabilityOnboarding(userId, {
@@ -367,6 +384,30 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     void groceryEducation.markReadyPlanSeen(planPersonId).catch(() => undefined);
     navigation.setParams({ openPlan: undefined });
   }, [navigation, planPersonId, route.params?.openPlan]);
+  useFocusEffect(useCallback(() => {
+    if (!userId) {
+      setMealPlanNeedsAttention(false);
+      return undefined;
+    }
+    let cancelled = false;
+    void mealPlanAttentionRepository.getAttentionStatus()
+      .then((status) => {
+        if (!cancelled) setMealPlanNeedsAttention(status.needsAttention);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [mealPlanAttentionRepository, userId]));
+  useEffect(() => {
+    if (!planBrowsing || !sharedCart?.planId) return;
+    const targetPlanId = route.params?.planId?.trim();
+    if (targetPlanId && targetPlanId !== sharedCart.planId) return;
+    void mealPlanAttentionRepository.markPlanViewed(sharedCart.planId)
+      .then(() => {
+        setMealPlanNeedsAttention(false);
+        if (targetPlanId) navigation.setParams({ planId: undefined });
+      })
+      .catch(() => undefined);
+  }, [mealPlanAttentionRepository, navigation, planBrowsing, route.params?.planId, sharedCart?.planId]);
   const mealPlanTrayItems = useMemo<MealPlanTrayItem[]>(() => {
     if (!sharedCart) return [];
     return sharedCart.candidates.map((candidate) => {
@@ -536,9 +577,53 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
         options,
       );
       await reloadSharedCart();
+      const movedMeal = sharedCart.candidates.find((candidate) => candidate.id === candidateIds[0]);
+      if (candidateIds.length === 1 && movedMeal) {
+        useToastStore.getState().showToast({
+          message: `${movedMeal.title} moved to Planned`,
+          actionLabel: "Undo",
+          actionOnPress: () => {
+            void createMealPlanningRepository()
+              .returnSharedCandidateToPlan(sharedCart.planId!, receipt.version, movedMeal.id)
+              .then(() => reloadSharedCart())
+              .catch(() => useToastStore.getState().showToast({ message: "Couldn’t undo that change", variant: "warning" }));
+          },
+        });
+      }
       return receipt;
     } catch (caught) {
-      Alert.alert("Recipes not sent", caught instanceof Error ? caught.message : "Try again in a moment.");
+      Alert.alert("Meal not planned", caught instanceof Error ? caught.message : "Try again in a moment.");
+    } finally {
+      setPlanMutationBusy(false);
+    }
+    return null;
+  }, [planMutationBusy, reloadSharedCart, sharedCart]);
+  const returnCandidateToPlan = useCallback(async (candidateId: string) => {
+    if (!sharedCart?.planId || !sharedCart.version || planMutationBusy) return null;
+    const movedMeal = sharedCart.candidates.find((candidate) => candidate.id === candidateId);
+    setPlanMutationBusy(true);
+    try {
+      const receipt = await createMealPlanningRepository().returnSharedCandidateToPlan(
+        sharedCart.planId,
+        sharedCart.version,
+        candidateId,
+      );
+      await reloadSharedCart();
+      if (movedMeal) {
+        useToastStore.getState().showToast({
+          message: `${movedMeal.title} returned to Ideas`,
+          actionLabel: "Undo",
+          actionOnPress: () => {
+            void createMealPlanningRepository()
+              .sendSharedCandidates(sharedCart.planId!, receipt.version, [candidateId])
+              .then(() => reloadSharedCart())
+              .catch(() => useToastStore.getState().showToast({ message: "Couldn’t undo that change", variant: "warning" }));
+          },
+        });
+      }
+      return receipt;
+    } catch (caught) {
+      Alert.alert("Meal not returned to Ideas", caught instanceof Error ? caught.message : "Try again in a moment.");
     } finally {
       setPlanMutationBusy(false);
     }
@@ -570,10 +655,6 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           setGuestShareSheetVisible(true);
           await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
           await shareUrlWithPreview(params);
-        },
-        onAskHousehold: () => {
-          setMealChatVisible(false);
-          setHouseholdRequestVisible(true);
         },
         onShareSheetDismissStart: () => {
           setGuestShareSheetVisible(false);
@@ -670,7 +751,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           rightElement={
             <MealPlanHeaderAction
               ref={planHeaderRef}
-              count={planHeaderCount}
+              needsAttention={mealPlanNeedsAttention}
               onPress={() => setPlanBrowsing(true)}
             />
           }
@@ -776,20 +857,22 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           shareSheetVisible={guestShareSheetVisible}
           hasActiveGuestLink={activeGuestInviteIds.length > 0}
           onTurnOffGuestLink={activeGuestInviteIds.length ? () => { void turnOffGuestLinks(); } : undefined}
-          onSendToGroceries={(candidateIds, options) => {
-            void sendToGroceries(candidateIds, options).then((receipt) => {
+          onSendToGroceries={(candidateIds, options) => (
+            sendToGroceries(candidateIds, options).then((receipt) => {
               if (!receipt) return;
-              setPlanBrowsing(false);
               if (foodGuideStep === 'send-to-groceries' && userId) {
                 dispatchCapabilityOnboarding(userId, {
                   type: 'checkpoint',
                   checkpoint: FOOD_FIRST_CYCLE_CHECKPOINTS['review-groceries'],
                   now: Date.now(),
                 });
+                setPlanBrowsing(false);
+                navigation.navigate('GroceryList', { listId: receipt.groceryListId });
               }
-              navigation.navigate('GroceryList', { listId: receipt.groceryListId });
-            });
-          }}
+              return receipt;
+            })
+          )}
+          onReturnToPlan={returnCandidateToPlan}
           onMarkMade={(candidateId) => { void markCandidateMade(candidateId); }}
           onOpenGroceries={() => {
             if (!sharedCart?.groceryListId) return;
@@ -804,19 +887,8 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           onAsk={() => setMealChatVisible(true)}
         />
       )}
-      {sharedCart?.planId && sharedCart.version != null ? (
-        <MealPlanShareDrawer
-          visible={householdRequestVisible}
-          planId={sharedCart.planId}
-          planVersion={sharedCart.version}
-          onClose={() => {
-            setHouseholdRequestVisible(false);
-          }}
-          onShared={() => { void reloadSharedCart().catch(() => undefined); }}
-        />
-      ) : null}
       <Coachmark
-        visible={planEducationLoaded && hasReadyRecipe && !hasSeenReadyPlan && !planBrowsing && !householdRequestVisible && pendingRemoval === null}
+        visible={planEducationLoaded && hasReadyRecipe && !hasSeenReadyPlan && !planBrowsing && pendingRemoval === null}
         targetRef={planHeaderRef}
         title={<Text style={{ fontWeight: "700" }}>Your recipes are ready</Text>}
         body={<Text tone="secondary">Find what you planned here when you’re ready to cook.</Text>}

@@ -19,6 +19,19 @@ export function getPlanLifecycleSignature<T extends Pick<PlanOrderCandidate, 'id
     .join('|');
 }
 
+export function getPlanOrderSignature<T extends PlanOrderCandidate>(candidates: readonly T[]): string {
+  return candidates
+    .map((candidate) => [
+      candidate.id,
+      candidate.lifecycle,
+      candidate.voteCount,
+      candidate.downvoteCount ?? 0,
+      candidate.createdAt,
+    ].join(':'))
+    .sort()
+    .join('|');
+}
+
 export function sortPlanCandidates<T extends PlanOrderCandidate>(candidates: readonly T[]): T[] {
   return [...candidates].sort((left, right) =>
     lifecycleRank[left.lifecycle] - lifecycleRank[right.lifecycle]
@@ -29,10 +42,15 @@ export function sortPlanCandidates<T extends PlanOrderCandidate>(candidates: rea
 }
 
 export function reconcilePlanCandidateOrder<T extends PlanOrderCandidate>(
-  _currentIds: readonly string[],
+  currentIds: readonly string[],
   candidates: readonly T[],
-  _reason: 'open' | 'lifecycle' | 'reaction',
+  reason: 'open' | 'lifecycle' | 'reaction',
 ): string[] {
+  const candidateIds = new Set(candidates.map((candidate) => candidate.id));
+  const hasCompleteCurrentOrder = currentIds.length === candidates.length
+    && new Set(currentIds).size === currentIds.length
+    && currentIds.every((id) => candidateIds.has(id));
+  if (reason === 'lifecycle' && hasCompleteCurrentOrder) return [...currentIds];
   return sortPlanCandidates(candidates).map((candidate) => candidate.id);
 }
 

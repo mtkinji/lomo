@@ -393,6 +393,9 @@ verify_jwt = true
 [functions.secrets-expiry-monitor]
 verify_jwt = false
 
+[functions.meal-plan-attention-process]
+verify_jwt = false
+
 [functions.household-avatars]
 verify_jwt = true
 

@@ -11,18 +11,22 @@ serves:
   - jtbd-capture-and-find-meaning
 briefs:
   - home-today-orientation
-status: shipped
-last_reviewed: 2026-05-09
+status: sunset
+last_reviewed: 2026-08-22
 ---
 
-# home
+# home (sunset)
 
-Helps Sarah re-enter Kwilt through a calm today-facing surface that points back to who she is becoming.
+The unregistered Today screen was removed on 2026-08-22. Kwilt has no standalone
+Home or Today surface in current navigation.
 
-## Surfaces in this folder
+## Current surfaces
 
-- `TodayScreen.tsx` - daily entry point and home canvas.
+- None.
 
 ## Notes
 
-Home should orient the user, not become a dashboard. It inherits the app shell/canvas split: navigation remains shell, Today is the canvas for current relevance.
+This manifest remains as a sunset marker so the historical feature brief stays
+traceable and the retired `home` concept is not mistaken for a missing feature
+folder. Current orientation happens inside Kwilt's registered capability
+surfaces.

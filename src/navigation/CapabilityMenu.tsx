@@ -36,6 +36,7 @@ type CapabilityMenuProps = {
   exploreEnabled?: boolean;
   choresEnabled?: boolean;
   choresAttentionCount?: number;
+  mealPlanNeedsAttention?: boolean;
   unvisitedCapabilityIds?: readonly CapabilityMenuDestinationId[];
   hiddenCapabilityIds?: readonly CapabilityMenuDestinationId[];
 };
@@ -67,6 +68,7 @@ export function CapabilityMenu({
   exploreEnabled = false,
   choresEnabled = false,
   choresAttentionCount = 0,
+  mealPlanNeedsAttention = false,
   unvisitedCapabilityIds = [],
   hiddenCapabilityIds = [],
 }: CapabilityMenuProps) {
@@ -92,11 +94,13 @@ export function CapabilityMenu({
     const selected = activeCapabilityId === capability.id;
     const label = capability.label;
     const attentionCount = capability.id === 'chores' ? choresAttentionCount : 0;
+    const showsMealPlanAttention = capability.id === 'recipes' && mealPlanNeedsAttention;
     const unvisited = unvisitedCapabilityIds.includes(capability.id);
     const accessibilityLabel = [
       label,
       unvisited ? 'not yet visited' : null,
       attentionCount > 0 ? `${attentionCount} ready for review` : null,
+      showsMealPlanAttention ? 'new meal ideas' : null,
     ].filter(Boolean).join(', ');
 
     return (
@@ -133,6 +137,12 @@ export function CapabilityMenu({
           >
             {attentionCount}
           </Badge>
+        ) : null}
+        {showsMealPlanAttention ? (
+          <View
+            testID="capability.menu.recipes.attention"
+            style={styles.mealPlanAttention}
+          />
         ) : null}
       </Pressable>
     );
@@ -448,6 +458,12 @@ const styles = StyleSheet.create({
   },
   attentionBadgeText: {
     color: colors.actionAttentionForeground,
+  },
+  mealPlanAttention: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.actionAttention,
   },
   capabilityLabelSelected: {
     fontFamily: fonts.medium,

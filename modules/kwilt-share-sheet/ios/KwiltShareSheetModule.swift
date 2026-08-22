@@ -10,7 +10,7 @@ public final class KwiltShareSheetModule: Module {
     Name("KwiltShareSheet")
     Events("onDismissStart")
 
-    AsyncFunction("present") { (rawURL: String, subject: String?, askHouseholdTitle: String, promise: Promise) in
+    AsyncFunction("present") { (rawURL: String, subject: String?, askHouseholdTitle: String?, promise: Promise) in
       guard let url = URL(string: rawURL) else {
         promise.reject(InvalidShareURLException(rawURL))
         return
@@ -20,10 +20,12 @@ public final class KwiltShareSheetModule: Module {
         return
       }
 
-      let askHousehold = AskHouseholdActivity(title: askHouseholdTitle)
+      let applicationActivities: [UIActivity]? = askHouseholdTitle.flatMap { title in
+        title.isEmpty ? nil : [AskHouseholdActivity(title: title)]
+      }
       let controller = UIActivityViewController(
         activityItems: [url],
-        applicationActivities: [askHousehold]
+        applicationActivities: applicationActivities
       )
       let controllerId = ObjectIdentifier(controller)
       let dismissalObserver = ShareSheetDismissalObserver { [weak self] in

@@ -258,6 +258,21 @@ describe('CapabilityMenu', () => {
     expect(menu.getByLabelText('Goals, not yet visited')).toBeTruthy();
   });
 
+  it('shows recipient-owned Meal Plan attention on Recipes without turning it into a count', () => {
+    const menu = render(
+      <CapabilityMenu
+        activeCapabilityId="todos"
+        displayName="Andy"
+        chats={chats}
+        mealPlanNeedsAttention
+        {...handlers}
+      />,
+    );
+
+    expect(menu.getByTestId('capability.menu.recipes.attention')).toBeTruthy();
+    expect(menu.getByLabelText('Recipes, new meal ideas')).toBeTruthy();
+  });
+
   it('moves discovery to a collapsed group header until its destinations are revealed', () => {
     const menu = render(
       <CapabilityMenu

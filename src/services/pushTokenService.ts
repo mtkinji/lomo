@@ -11,11 +11,16 @@ import Constants from 'expo-constants';
 import { getSupabaseClient } from './backend/supabaseClient';
 import { getAccessToken } from './backend/auth';
 import { useAppStore } from '../store/useAppStore';
+import {
+  createMealPlanAttentionRepository,
+  resolveMealPlanPushEnabled,
+} from '../capabilities/meal-planning/data/mealPlanAttentionRepository';
 
 let registrationInFlight = false;
 let lastRegisteredToken: string | null = null;
 let pushTokenSyncStarted = false;
 let stopAuthSub: (() => void) | null = null;
+let stopMealPlanPreferenceSub: (() => void) | null = null;
 
 /**
  * Get the Expo push token for this device.
@@ -146,16 +151,30 @@ export function startPushTokenSync(): void {
         void unregisterPushToken().catch(() => undefined);
       }
     },
-    { fireImmediately: true } as any,
+    { fireImmediately: true },
+  );
+  stopMealPlanPreferenceSub = useAppStore.subscribe(
+    (state) => {
+      const userId = state.authIdentity?.userId?.trim() ?? '';
+      const enabled = resolveMealPlanPushEnabled(state.notificationPreferences);
+      return `${userId}:${enabled ? 'on' : 'off'}`;
+    },
+    () => {
+      const state = useAppStore.getState();
+      if (!state.authIdentity?.userId?.trim()) return;
+      const enabled = resolveMealPlanPushEnabled(state.notificationPreferences);
+      void createMealPlanAttentionRepository().setPushEnabled(enabled).catch(() => undefined);
+    },
+    { fireImmediately: true },
   );
 }
 
 export function stopPushTokenSync(): void {
   stopAuthSub?.();
   stopAuthSub = null;
+  stopMealPlanPreferenceSub?.();
+  stopMealPlanPreferenceSub = null;
   pushTokenSyncStarted = false;
 }
-
-
 
 

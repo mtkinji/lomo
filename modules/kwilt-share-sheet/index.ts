@@ -10,7 +10,7 @@ type KwiltShareSheetEvents = {
 };
 
 declare class KwiltShareSheetNativeModule extends NativeModule<KwiltShareSheetEvents> {
-  present(url: string, subject: string | null, askHouseholdTitle: string): Promise<KwiltShareSheetResult>;
+  present(url: string, subject: string | null, askHouseholdTitle: string | null): Promise<KwiltShareSheetResult>;
 }
 
 export default requireOptionalNativeModule<KwiltShareSheetNativeModule>('KwiltShareSheet');

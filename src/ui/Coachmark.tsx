@@ -461,7 +461,7 @@ export function Coachmark({
 
   return (
     <Portal name="coachmark">
-      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+      <View testID="coachmark-overlay" style={styles.overlay} pointerEvents="box-none">
         {/* Visual-only scrim (doesn't block taps). */}
         {spotlight === 'hole' && spotlightRect ? (
           <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
@@ -624,6 +624,13 @@ export function Coachmark({
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    // Coachmarks may teach controls hosted inside an inline BottomDrawer, whose
+    // overlay level is 2000. Keep the teaching layer above the surface it targets.
+    zIndex: 3000,
+    elevation: 3000,
+  },
   bubble: {
     position: 'absolute',
     backgroundColor: colors.canvas,
@@ -705,4 +712,3 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-

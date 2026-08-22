@@ -42,6 +42,7 @@ import { BudgetSettingsScreen } from '../capabilities/money/screens/MoneyLivingP
 import { AiChatScreen } from '../features/ai/AiChatScreen';
 import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
 import { SharedHomeScreen } from '../features/shared-home/SharedHomeScreen';
+import { createMealPlanAttentionRepository } from '../capabilities/meal-planning/data/mealPlanAttentionRepository';
 import type { UnifiedChatLaunchContext, UnifiedChatRouteParams } from '../features/unifiedChat/launchContext';
 import { deriveCapabilityAgentContext, resolveCapabilityAgentReturn } from '../features/ai/capabilityAgentContext';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
@@ -374,7 +375,7 @@ export type SettingsStackParamList = {
       }
     | undefined;
   SettingsScreenTimeRuleBuilder: PersonalScreenTimeRuleBuilderParams;
-  SettingsHousehold: { inviteCode?: string } | undefined;
+  SettingsHousehold: { inviteCode?: string; entrySurface?: 'meal-plan' } | undefined;
   SettingsHouseholdMember: { membershipId: string };
   SettingsFamilyScreenTime: {
     childMembershipId: string;
@@ -1248,6 +1249,8 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);
   const [chatsLoading, setChatsLoading] = useState(false);
   const [chatsError, setChatsError] = useState<string | null>(null);
+  const [mealPlanNeedsAttention, setMealPlanNeedsAttention] = useState(false);
+  const mealPlanAttentionRepository = useMemo(() => createMealPlanAttentionRepository(), []);
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const activeCapabilityId = deriveActiveCapabilityDestinationId(navigationState);
   const discovery = useCapabilityDiscoveryStore((state) => state.discovery);
@@ -1282,6 +1285,21 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   useEffect(() => {
     if (menuOpen) void refreshChatThreads();
   }, [menuOpen, refreshChatThreads]);
+
+  useEffect(() => {
+    if (!authIdentity?.userId) {
+      setMealPlanNeedsAttention(false);
+      return;
+    }
+    if (!menuOpen) return;
+    let cancelled = false;
+    void mealPlanAttentionRepository.getAttentionStatus()
+      .then((status) => {
+        if (!cancelled) setMealPlanNeedsAttention(status.needsAttention);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [authIdentity?.userId, mealPlanAttentionRepository, menuOpen]);
 
   const openChatThread = useCallback((threadId: string) => {
     rootNavigationRef.navigate('UnifiedChat', { threadId });
@@ -1449,6 +1467,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         exploreEnabled={exploreEnabled}
         choresEnabled={choresEnabled}
         choresAttentionCount={choresAttentionCount}
+        mealPlanNeedsAttention={mealPlanNeedsAttention}
         unvisitedCapabilityIds={unvisitedCapabilityIds}
       />
     </View>

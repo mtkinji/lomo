@@ -30,10 +30,8 @@ describe('canonical legal URLs', () => {
   });
 
   it('does not send routine app state to unexplained public utility endpoints', () => {
-    const today = readFileSync(resolve(process.cwd(), 'src/features/home/TodayScreen.tsx'), 'utf8');
     const ai = readFileSync(resolve(process.cwd(), 'src/services/ai.ts'), 'utf8');
 
-    expect(today).not.toContain('jsonplaceholder.typicode.com');
     expect(ai).not.toContain('picsum.photos/seed');
   });
 });

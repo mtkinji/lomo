@@ -20,7 +20,7 @@ This map keeps the internal feature-brief layer and the public docs layer aligne
 | `chapters` | Chapters list/detail, align flow, digest settings | none | Needs a shipped feature brief for retrospective sensemaking | Chapters |
 | `friends` | Friends and private accountability | `social-dynamics-evolution`, `social-goals-auth` | Covered for v1 docs; can roll into Goals or Account privacy | Goals, sharing, privacy |
 | `goals` | Goals list, creation, sharing, join flow, check-ins | `arc-goal-lifecycle-and-limits`, `growth-evangelism-shared-goals`, `social-goals-auth`, `social-dynamics-evolution` | Add keyboard/input safety provenance for input-heavy goal surfaces | Goals |
-| `home` | Today/home canvas | none | Needs a shipped feature brief for daily orientation | Getting started, Today |
+| `home` | Retired; no current user-facing surface | `home-today-orientation` (retired) | None | None |
 | `more` | Secondary navigation and overflow | none | Low priority; shell-adjacent, not a public-doc article | None for v1 |
 | `onboarding` | First-run identity flow, launch/config states, interstitials | `ai-proxy-and-quotas`, `growth-evangelism-shared-goals` | Covered enough for v1 docs through Arcs/getting started | Getting started |
 | `paywall` | Upgrade drawer and interstitial | `ai-proxy-and-quotas`, `monetization-paywall-revenuecat` | Covered for v1 docs | Account, billing, AI help |
@@ -32,10 +32,9 @@ This map keeps the internal feature-brief layer and the public docs layer aligne
 Write or link these before expanding public docs:
 
 1. Create `chapters-retrospective-sensemaking.md`.
-2. Create `home-today-orientation.md`.
-3. Create `global-search-findability.md`.
-4. Link `notifications-v1-5` into `account` and `plan` manifests.
-5. Link `keyboard-input-safety` into `activities`, `ai`, and `goals` manifests.
+2. Create `global-search-findability.md`.
+3. Link `notifications-v1-5` into `account` and `plan` manifests.
+4. Link `keyboard-input-safety` into `activities`, `ai`, and `goals` manifests.
 
 ## First-Pass Public Docs
 

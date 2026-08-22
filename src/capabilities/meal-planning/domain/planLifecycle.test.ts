@@ -1,4 +1,4 @@
-import { getPlanLifecycleSignature, groupPlanCandidates, reconcilePlanCandidateOrder, sortPlanCandidates } from './planLifecycle';
+import { getPlanLifecycleSignature, getPlanOrderSignature, groupPlanCandidates, reconcilePlanCandidateOrder, sortPlanCandidates } from './planLifecycle';
 
 const candidate = (id: string, lifecycle: 'idea' | 'sent' | 'ready', voteCount: number, createdAt: string, downvoteCount = 0) => ({ id, lifecycle, voteCount, downvoteCount, createdAt });
 
@@ -23,9 +23,21 @@ describe('household Plan lifecycle ordering', () => {
     expect(reconcilePlanCandidateOrder(current, candidates, 'reaction')).toEqual([
       'ready-one', 'sent-new', 'sent-one', 'idea-popular', 'idea-new', 'idea-downvoted',
     ]);
-    expect(reconcilePlanCandidateOrder(current, candidates, 'lifecycle')).toEqual([
-      'ready-one', 'sent-new', 'sent-one', 'idea-popular', 'idea-new', 'idea-downvoted',
-    ]);
+  });
+
+  it('preserves the exact drop order when the lifecycle receipt arrives', () => {
+    const dropped = ['ready-one', 'sent-one', 'sent-new', 'idea-popular', 'idea-new', 'idea-downvoted'];
+    expect(reconcilePlanCandidateOrder(dropped, candidates, 'lifecycle')).toEqual(dropped);
+  });
+
+  it('distinguishes a real support change from an identical cart reload', () => {
+    const cloned = candidates.map((item) => ({ ...item }));
+    const changedSupport = candidates.map((item) => (
+      item.id === 'sent-one' ? { ...item, voteCount: item.voteCount + 1 } : item
+    ));
+
+    expect(getPlanOrderSignature(cloned)).toBe(getPlanOrderSignature(candidates));
+    expect(getPlanOrderSignature(changedSupport)).not.toBe(getPlanOrderSignature(candidates));
   });
 
   it('does not mistake a server vote re-sort for a lifecycle transition', () => {

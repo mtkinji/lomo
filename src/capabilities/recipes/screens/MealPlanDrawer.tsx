@@ -3,17 +3,19 @@ import { Keyboard, Pressable, View } from "react-native";
 import Reanimated, {
   Easing,
   FadeIn,
-  LinearTransition,
   ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 
-import { colors } from "../../../theme";
+import { colors, spacing } from "../../../theme";
 import { HapticsService } from "../../../services/HapticsService";
+import { FloatingDockActionButton } from "../../../features/activities/FloatingDockActionButton";
 import { BottomDrawer, BottomDrawerScrollView } from "../../../ui/BottomDrawer";
 import { Button, IconButton } from "../../../ui/Button";
+import { DraggableList } from "../../../ui/DraggableList";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +30,10 @@ import { AlertDialog } from "../../../ui/AlertDialog";
 import { Coachmark } from "../../../ui/Coachmark";
 import { useAccessibilityPreferences } from "../../../ui/hooks/useAccessibilityPreferences";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
+import {
+  RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+  RESTING_COMPOSER_HEIGHT_PX,
+} from "../../../ui/layout/restingComposerMetrics";
 import { ButtonLabel, Heading, Text } from "../../../ui/Typography";
 import {
   PLAN_HARD_PASS_REACTION,
@@ -37,7 +43,12 @@ import {
   type PlanReaction,
   type PlanReactionCounts,
 } from "../../meal-planning/domain/sharedMealCart";
-import { getPlanLifecycleSignature, reconcilePlanCandidateOrder, type PlanLifecycle } from "../../meal-planning/domain/planLifecycle";
+import {
+  getMealPlanDropSection,
+  hasCompleteMealPlanOrder,
+  type MealPlanDropSection,
+} from "../../meal-planning/domain/mealPlanDrag";
+import { getPlanLifecycleSignature, getPlanOrderSignature, reconcilePlanCandidateOrder, type PlanLifecycle } from "../../meal-planning/domain/planLifecycle";
 import { RecipeArtwork } from "../components/RecipeArtwork";
 import { styles } from "./RecipeLibraryScreen.styles";
 
@@ -53,10 +64,6 @@ const HARD_PASS_REASON_OPTIONS = [
   "Texture",
 ] as const;
 type HardPassReasonOption = typeof HARD_PASS_REASON_OPTIONS[number] | "Other";
-const PLAN_ROW_REORDER_TRANSITION = LinearTransition.duration(260)
-  .easing(Easing.out(Easing.cubic))
-  .reduceMotion(ReduceMotion.System);
-
 type PlanPerson = { personId: string; displayName: string; avatarUrl: string | null };
 type PlanSupporter = PlanPerson & { reaction: PlanReaction; reason?: string | null };
 
@@ -171,6 +178,66 @@ function PlanReactionBar({
   );
 }
 
+type MealMoveDirection = "addToGroceries" | "returnToPlan";
+
+type MealPlanListEntry =
+  | { kind: "meal"; id: string; item: MealPlanTrayItem }
+  | { kind: "plannedHeading"; id: "planned-heading" }
+  | { kind: "plannedEmpty"; id: "planned-empty" };
+
+type MealPlanActiveDrag = {
+  source: MealPlanDropSection;
+  originalDisplayIds: string[];
+};
+
+function MealPlanDropSurface({
+  children,
+  destinationSection,
+  section,
+  style,
+}: {
+  children: React.ReactNode;
+  destinationSection: SharedValue<number>;
+  section: MealPlanDropSection;
+  style?: object;
+}) {
+  const sectionIndex = section === "ideas" ? 0 : 1;
+  const animatedStyle = useAnimatedStyle(() => ({
+    backgroundColor: destinationSection.value === sectionIndex ? colors.fieldFill : colors.canvas,
+  }));
+  return <Reanimated.View style={[style, animatedStyle]}>{children}</Reanimated.View>;
+}
+
+function MealMoveHandle({
+  item,
+  direction,
+  renderDragHandle,
+  onMove,
+}: {
+  item: MealPlanTrayItem;
+  direction: MealMoveDirection;
+  renderDragHandle(handle: React.ReactElement): React.ReactElement;
+  onMove(): void;
+}) {
+  const actionLabel = direction === "addToGroceries" ? "Move to Planned" : "Return to Meal ideas";
+  return renderDragHandle(
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Move ${item.title}`}
+      accessibilityHint={`Drag to ${actionLabel.toLowerCase()}. Double tap to move now.`}
+      accessibilityActions={[{ name: direction, label: actionLabel }]}
+      hitSlop={6}
+      onPress={onMove}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === direction) onMove();
+      }}
+      style={({ pressed }) => [styles.planMoveHandle, pressed && styles.pressed]}
+    >
+      <Icon name="menu" size={19} color={colors.textSecondary} />
+    </Pressable>
+  );
+}
+
 export function MealPlanDrawer({
   visible,
   items,
@@ -185,6 +252,7 @@ export function MealPlanDrawer({
   hasActiveGuestLink,
   onTurnOffGuestLink,
   onSendToGroceries,
+  onReturnToPlan,
   onMarkMade,
   onOpenGroceries,
   reactingCandidateIds,
@@ -203,15 +271,14 @@ export function MealPlanDrawer({
   shareSheetVisible?: boolean;
   hasActiveGuestLink?: boolean;
   onTurnOffGuestLink?(): void;
-  onSendToGroceries?(candidateIds: string[], options?: { acknowledgeHardPasses?: boolean }): void;
+  onSendToGroceries?(candidateIds: string[], options?: { acknowledgeHardPasses?: boolean }): unknown;
+  onReturnToPlan?(candidateId: string): unknown;
   onMarkMade?(candidateId: string): void;
   onOpenGroceries?(): void;
   reactingCandidateIds?: ReadonlySet<string>;
   guideStep?: 'share-plan' | 'send-to-groceries' | null;
   onGuideAdvance?(event: 'sharing-opened' | 'sharing-skipped'): void;
 }) {
-  const [selecting, setSelecting] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [displayIds, setDisplayIds] = useState<string[]>([]);
   const [reactionPickerItem, setReactionPickerItem] = useState<MealPlanTrayItem | null>(null);
   const [reactionGuideVisible, setReactionGuideVisible] = useState(false);
@@ -220,12 +287,20 @@ export function MealPlanDrawer({
   const [hardPassReason, setHardPassReason] = useState("");
   const [pendingHardPassSendIds, setPendingHardPassSendIds] = useState<string[] | null>(null);
   const [guideSendStarted, setGuideSendStarted] = useState(false);
+  const [optimisticLifecycle, setOptimisticLifecycle] = useState<Record<string, PlanLifecycle>>({});
+  const [dragListRevision, setDragListRevision] = useState(0);
   const { reduceMotionEnabled } = useAccessibilityPreferences();
+  const actionDockClearance = RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX
+    + RESTING_COMPOSER_HEIGHT_PX
+    + spacing.xs;
   const wasVisibleRef = useRef(false);
   const lifecycleSignatureRef = useRef("");
+  const orderSignatureRef = useRef("");
   const reactionSelectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareTargetRef = useRef<View>(null);
   const groceryTargetRef = useRef<View>(null);
+  const dragStateRef = useRef<MealPlanActiveDrag | null>(null);
+  const dragDestinationSection = useSharedValue(-1);
   const planActionVisibility = useSharedValue(shareSheetVisible ? 0 : 1);
   const planActionAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{
@@ -248,8 +323,7 @@ export function MealPlanDrawer({
     if (!visible) {
       wasVisibleRef.current = false;
       lifecycleSignatureRef.current = "";
-      setSelecting(false);
-      setSelectedIds(new Set());
+      orderSignatureRef.current = "";
       setReactionPickerItem(null);
       setReactionGuideVisible(false);
       setStagedReaction(null);
@@ -257,50 +331,85 @@ export function MealPlanDrawer({
       setHardPassReason("");
       setPendingHardPassSendIds(null);
       setGuideSendStarted(false);
+      setOptimisticLifecycle({});
+      dragStateRef.current = null;
+      dragDestinationSection.value = -1;
       return;
     }
     const lifecycleSignature = getPlanLifecycleSignature(items);
-    const reason = !wasVisibleRef.current ? "open" : lifecycleSignatureRef.current !== lifecycleSignature ? "lifecycle" : "reaction";
-    setDisplayIds((current) => reconcilePlanCandidateOrder(current, items, reason));
+    const orderSignature = getPlanOrderSignature(items);
+    const reason = !wasVisibleRef.current
+      ? "open"
+      : lifecycleSignatureRef.current !== lifecycleSignature
+        ? "lifecycle"
+        : orderSignatureRef.current !== orderSignature
+          ? "reaction"
+          : null;
+    if (reason) setDisplayIds((current) => reconcilePlanCandidateOrder(current, items, reason));
     lifecycleSignatureRef.current = lifecycleSignature;
+    orderSignatureRef.current = orderSignature;
     wasVisibleRef.current = true;
-  }, [items, visible]);
+  }, [dragDestinationSection, items, visible]);
+
+  useEffect(() => {
+    setOptimisticLifecycle((current) => {
+      const pending = Object.entries(current);
+      if (!pending.length) return current;
+      const next = { ...current };
+      let changed = false;
+      for (const [candidateId, lifecycle] of pending) {
+        if (items.some((item) => item.candidateId === candidateId && item.lifecycle === lifecycle)) {
+          delete next[candidateId];
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [items]);
 
   const displayItems = useMemo(() => {
     const byId = new Map(items.map((item) => [item.id, item]));
-    return displayIds.flatMap((id) => byId.get(id) ?? []);
-  }, [displayIds, items]);
-  const groups = (["ready", "sent", "idea"] as const).flatMap((lifecycle) => {
-    const groupItems = displayItems.filter((item) => item.lifecycle === lifecycle);
-    return groupItems.length ? [{ lifecycle, items: groupItems }] : [];
-  });
-  const ideas = items.filter((item) => item.lifecycle === "idea");
-  const groupLabel: Record<PlanLifecycle, string> = { ready: "Ready to cook", sent: "Sent to groceries", idea: "Ideas" };
-  const toggleSelection = (candidateId: string) => setSelectedIds((current) => {
-    const next = new Set(current);
-    if (next.has(candidateId)) next.delete(candidateId); else next.add(candidateId);
-    return next;
-  });
-  const finishSelection = (candidateIds: string[], acknowledgeHardPasses = false) => {
+    const hasCompleteLocalOrder = hasCompleteMealPlanOrder(displayIds, items);
+    const effectiveIds = hasCompleteLocalOrder
+      ? displayIds
+      : reconcilePlanCandidateOrder([], items, "open");
+    return effectiveIds.flatMap((id) => {
+      const item = byId.get(id);
+      if (!item) return [];
+      const lifecycle = optimisticLifecycle[item.candidateId];
+      return [{ ...item, ...(lifecycle ? { lifecycle } : null) }];
+    });
+  }, [displayIds, items, optimisticLifecycle]);
+  const ideas = displayItems.filter((item) => item.lifecycle === "idea");
+  const groceries = displayItems.filter((item) => item.lifecycle !== "idea");
+  const dragEntries = useMemo<MealPlanListEntry[]>(() => {
+    if (!displayItems.length) return [];
+    return [
+      ...ideas.map((item) => ({ kind: "meal" as const, id: item.id, item })),
+      { kind: "plannedHeading" as const, id: "planned-heading" as const },
+      ...groceries.map((item) => ({ kind: "meal" as const, id: item.id, item })),
+      ...(groceries.length ? [] : [{ kind: "plannedEmpty" as const, id: "planned-empty" as const }]),
+    ];
+  }, [displayItems, groceries, ideas]);
+  const finishSend = (candidateIds: string[], acknowledgeHardPasses = false) => {
     if (acknowledgeHardPasses) {
-      onSendToGroceries?.(candidateIds, { acknowledgeHardPasses: true });
-    } else {
-      onSendToGroceries?.(candidateIds);
+      const result = onSendToGroceries?.(candidateIds, { acknowledgeHardPasses: true });
+      setPendingHardPassSendIds(null);
+      return result;
     }
-    setSelecting(false);
-    setSelectedIds(new Set());
+    const result = onSendToGroceries?.(candidateIds);
     setPendingHardPassSendIds(null);
+    return result;
   };
-  const requestSelectionSend = () => {
-    const candidateIds = [...selectedIds];
+  const requestSend = (candidateIds: string[]) => {
     const needsReview = candidateIds.some((candidateId) =>
       items.some((item) => item.candidateId === candidateId && item.requiresHardPassReview),
     );
     if (needsReview) {
       setPendingHardPassSendIds(candidateIds);
-      return;
+      return null;
     }
-    finishSelection(candidateIds);
+    return finishSend(candidateIds);
   };
   const pendingHardPassItems = pendingHardPassSendIds
     ? items.filter((item) => pendingHardPassSendIds.includes(item.candidateId) && item.requiresHardPassReview)
@@ -366,24 +475,83 @@ export function MealPlanDrawer({
     setHardPassReasonOption(null);
     setHardPassReason("");
   };
-  const planAction = selecting ? (
-    <View style={styles.planSelectionActions}>
-      <Button variant="ghost" onPress={() => { setSelecting(false); setSelectedIds(new Set()); }}>Cancel</Button>
-      <Button
-        variant="primary"
-        style={styles.planSelectionConfirm}
-        disabled={selectedIds.size === 0}
-        accessibilityLabel={`Send ${selectedIds.size} ${selectedIds.size === 1 ? "recipe" : "recipes"} to Groceries`}
-        onPress={requestSelectionSend}
-      >
-        {`Send${selectedIds.size ? ` ${selectedIds.size}` : ""} to Groceries`}
-      </Button>
-    </View>
-  ) : canManage && ideas.length && onSendToGroceries ? (
-    <View ref={groceryTargetRef} collapsable={false}>
-      <Button variant="primary" fullWidth onPress={() => setSelecting(true)}>Send to Groceries</Button>
-    </View>
-  ) : null;
+  const handleDragBegin = (from: number) => {
+    const entry = dragEntries[from];
+    if (!entry || entry.kind !== "meal") return;
+    const source: MealPlanDropSection = entry.item.lifecycle === "idea" ? "ideas" : "planned";
+    dragStateRef.current = {
+      source,
+      originalDisplayIds: displayItems.map((item) => item.id),
+    };
+    dragDestinationSection.value = -1;
+  };
+  const handleDragPositionChange = (from: number, to: number) => {
+    const current = dragStateRef.current;
+    if (!current) return;
+    const destination = getMealPlanDropSection(dragEntries, from, to);
+    dragDestinationSection.value = destination === current.source ? -1 : destination === "ideas" ? 0 : 1;
+    void HapticsService.trigger("canvas.drag.position");
+  };
+  const clearDragFeedback = () => {
+    dragStateRef.current = null;
+    dragDestinationSection.value = -1;
+  };
+  const clearOptimisticMove = (candidateId: string, originalDisplayIds: string[]) => {
+    setOptimisticLifecycle((current) => {
+      if (!(candidateId in current)) return current;
+      const next = { ...current };
+      delete next[candidateId];
+      return next;
+    });
+    setDisplayIds(originalDisplayIds);
+    setDragListRevision((current) => current + 1);
+  };
+  const observeMoveResult = (candidateId: string, result: unknown, originalDisplayIds: string[]) => {
+    if (!result || typeof (result as Promise<unknown>).then !== "function") return;
+    void (result as Promise<unknown>).then((receipt) => {
+      if (receipt == null || receipt === false) {
+        clearOptimisticMove(candidateId, originalDisplayIds);
+        void HapticsService.trigger("outcome.error");
+      }
+    }).catch(() => {
+      clearOptimisticMove(candidateId, originalDisplayIds);
+      void HapticsService.trigger("outcome.error");
+    });
+  };
+  const handleOrderChange = (
+    orderedIds: string[],
+    { fromIndex: from, toIndex: to }: { fromIndex: number; toIndex: number },
+  ) => {
+    const entriesById = new Map(dragEntries.map((candidate) => [candidate.id, candidate]));
+    const data = orderedIds.flatMap((id) => entriesById.get(id) ?? []);
+    const entry = dragEntries[from];
+    const destination = getMealPlanDropSection(dragEntries, from, to);
+    const originalDisplayIds = dragStateRef.current?.originalDisplayIds
+      ?? displayItems.map((item) => item.id);
+    dragStateRef.current = null;
+    dragDestinationSection.value = -1;
+    if (!entry || entry.kind !== "meal") return;
+    const source: MealPlanDropSection = entry.item.lifecycle === "idea" ? "ideas" : "planned";
+    if (source === destination) {
+      setDisplayIds(data.flatMap((candidate) => candidate.kind === "meal" ? [candidate.item.id] : []));
+      void HapticsService.trigger("canvas.primary.confirm");
+      return;
+    }
+    if (destination === "planned" && entry.item.requiresHardPassReview) {
+      requestSend([entry.item.candidateId]);
+      setDragListRevision((current) => current + 1);
+      return;
+    }
+    const nextLifecycle: PlanLifecycle = destination === "planned" ? "sent" : "idea";
+    setDisplayIds(data.flatMap((candidate) => candidate.kind === "meal" ? [candidate.item.id] : []));
+    setOptimisticLifecycle((current) => ({ ...current, [entry.item.candidateId]: nextLifecycle }));
+    void HapticsService.trigger(destination === "planned" ? "canvas.toggle.on" : "canvas.toggle.off");
+    if (destination === "planned") {
+      observeMoveResult(entry.item.candidateId, requestSend([entry.item.candidateId]), originalDisplayIds);
+    } else {
+      observeMoveResult(entry.item.candidateId, onReturnToPlan?.(entry.item.candidateId), originalDisplayIds);
+    }
+  };
 
   return (
     <>
@@ -394,20 +562,8 @@ export function MealPlanDrawer({
       snapIndex={0}
       presentation="inline"
       keyboardAvoidanceEnabled={false}
-      enableContentPanningGesture
+      enableContentPanningGesture={false}
       contentExtendsIntoBottomSafeArea
-      bottomAccessory={planAction ? (
-        <Reanimated.View
-          testID="plan-grocery-action-transition"
-          accessibilityElementsHidden={shareSheetVisible}
-          importantForAccessibility={shareSheetVisible ? "no-hide-descendants" : "auto"}
-          pointerEvents={shareSheetVisible ? "none" : "auto"}
-          style={planActionAnimatedStyle}
-        >
-          {planAction}
-        </Reanimated.View>
-      ) : null}
-      bottomAccessoryShowTopBorder
       sheetStyle={styles.planDrawerSheet}
       handleContainerStyle={styles.planDrawerHandleRegion}
     >
@@ -437,11 +593,11 @@ export function MealPlanDrawer({
               <View
                 accessible
                 accessibilityRole="header"
-                accessibilityLabel={`Plan, ${items.length} ${items.length === 1 ? "recipe" : "recipes"}`}
+                accessibilityLabel={`Ideas, ${items.length} ${items.length === 1 ? "recipe" : "recipes"}`}
                 style={styles.planDrawerTitleIdentity}
               >
                 <Icon testID="plan-drawer-header-icon" name="meal" size={24} color={colors.textPrimary} />
-                <Heading variant="lg">Plan</Heading>
+                <Heading variant="lg">Ideas</Heading>
               </View>
               {hasActiveGuestLink && onTurnOffGuestLink ? (
                 <DropdownMenu>
@@ -463,89 +619,32 @@ export function MealPlanDrawer({
             </View>
           )}
         />
-        <BottomDrawerScrollView contentContainerStyle={styles.planDrawerContent}>
-          {items.length ? groups.map((group) => (
-            <View key={group.lifecycle} style={styles.planLifecycleGroup}>
-              {group.lifecycle !== "idea" ? (
-                <View style={styles.planLifecycleHeading}>
-                  <Text variant="label" tone="secondary">{groupLabel[group.lifecycle]}</Text>
-                  {group.lifecycle === "sent" && onOpenGroceries ? <Button size="xs" variant="ghost" onPress={onOpenGroceries}>View groceries</Button> : null}
-                </View>
-              ) : null}
-              <View style={styles.planDrawerList}>
-                {group.items.map((item) => {
-                  const selectable = selecting && item.lifecycle === "idea";
-                  const hasAdditionalRowAction = Boolean(item.canMarkMade && onMarkMade);
-                  return (
-                    <Reanimated.View
-                      key={item.id}
-                      layout={PLAN_ROW_REORDER_TRANSITION}
-                      style={styles.planDrawerItem}
-                    >
-                      <View testID={`plan-row-${item.candidateId}`} style={styles.planDrawerMainRow}>
-                        {selectable ? (
-                          <Pressable
-                            accessibilityRole="checkbox"
-                            accessibilityLabel={`Send ${item.title} to Groceries`}
-                            accessibilityState={{ checked: selectedIds.has(item.candidateId) }}
-                            onPress={() => toggleSelection(item.candidateId)}
-                            style={[styles.planDrawerSelection, selectedIds.has(item.candidateId) && styles.planDrawerSelectionActive]}
-                          >
-                            {selectedIds.has(item.candidateId) ? <Icon name="check" size={14} color={colors.canvas} /> : null}
-                          </Pressable>
-                        ) : null}
-                        <View style={styles.planDrawerArtworkFrame}>
-                          <RecipeArtwork storageRef={item.storageRef} accessibilityLabel={item.title} style={styles.planDrawerArtwork} />
-                        </View>
-                        <View testID={`plan-copy-${item.candidateId}`} style={styles.planDrawerMealCopy}>
-                          <Text testID={`plan-title-${item.candidateId}`} style={styles.planDrawerTitle}>{item.title}</Text>
-                          <View testID={`plan-reaction-row-${item.candidateId}`} style={styles.planDrawerReactionRow}>
-                            <PlanReactionBar
-                              item={item}
-                              onReact={onReact}
-                              onAdd={openReactionPicker}
-                              reacting={Boolean(reactingCandidateIds?.has(item.candidateId))}
-                            />
-                            {item.lifecycle === "sent" && item.missingItemCount !== null && item.missingItemCount > 0 ? <Text tone="secondary" style={styles.planMissingItems}>Missing {item.missingItemCount} {item.missingItemCount === 1 ? "item" : "items"}</Text> : null}
-                            {item.canMarkMade && onMarkMade ? <Button size="xs" variant="ghost" onPress={() => onMarkMade(item.candidateId)}>Made</Button> : null}
-                          </View>
-                        </View>
-                        {canManage && item.canRemove && !hasAdditionalRowAction ? (
-                          <IconButton
-                            accessibilityLabel={`Remove ${item.title} from Plan`}
-                            variant="ghost"
-                            style={styles.planDrawerMore}
-                            onPress={() => onRemove(item)}
-                          >
-                            <Icon name="trash" size={18} color={colors.textSecondary} />
-                          </IconButton>
-                        ) : canManage && item.canRemove ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <IconButton accessibilityLabel={`More actions for ${item.title}`} variant="ghost" style={styles.planDrawerMore}><Icon name="more" size={18} color={colors.textSecondary} /></IconButton>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent side="bottom" align="end">
-                              {item.canMarkMade && onMarkMade ? <DropdownMenuItem label="Made" icon="checkCircle" onPress={() => onMarkMade(item.candidateId)} /> : null}
-                              {item.canMarkMade && onMarkMade ? <DropdownMenuSeparator /> : null}
-                              <DropdownMenuItem label="Remove from Plan" icon="trash" variant="destructive" onPress={() => onRemove(item)} />
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        ) : null}
-                      </View>
-                    </Reanimated.View>
-                  );
-                })}
-              </View>
-            </View>
-          )) : (
+        <DraggableList
+          key={`meal-plan-drag-list-${dragListRevision}`}
+          activationMode="handle"
+          contentContainerStyle={[
+            styles.planDrawerContent,
+            onOpenGroceries ? { paddingBottom: actionDockClearance } : null,
+          ]}
+          items={dragEntries}
+          onDragStart={handleDragBegin}
+          onDragPositionChange={handleDragPositionChange}
+          onDragEnd={(from, to) => {
+            dragDestinationSection.value = -1;
+            if (from === to) dragStateRef.current = null;
+          }}
+          onDragCancel={clearDragFeedback}
+          onOrderChange={handleOrderChange}
+          reportDraggingOnJS={false}
+          ListEmptyComponent={(
             <EmptyState
               variant="screen"
               illustration={HOUSEHOLD_FOOD_EMPTY_ILLUSTRATION}
-              title="Add recipes to your Plan"
+              title="Add a meal idea"
               style={styles.planDrawerEmpty}
             />
           )}
-          {guestSuggestions?.length ? (
+          ListFooterComponent={guestSuggestions?.length ? (
             <View style={styles.planGuestSuggestions}>
               <Text variant="label" tone="secondary">Guest suggestions</Text>
               {guestSuggestions.map((response) => (
@@ -555,8 +654,125 @@ export function MealPlanDrawer({
               ))}
             </View>
           ) : null}
-        </BottomDrawerScrollView>
+          renderItem={(entry, _isDragging, _index, renderDragHandle) => {
+            if (entry.kind === "plannedHeading") {
+              return (
+                <MealPlanDropSurface
+                  destinationSection={dragDestinationSection}
+                  section="planned"
+                  style={styles.planPlannedSectionHeading}
+                >
+                  <View ref={groceryTargetRef} collapsable={false} testID="plan-planned-drop-zone">
+                    <Heading variant="sm">Planned</Heading>
+                  </View>
+                </MealPlanDropSurface>
+              );
+            }
+            if (entry.kind === "plannedEmpty") {
+              return (
+                <MealPlanDropSurface
+                  destinationSection={dragDestinationSection}
+                  section="planned"
+                  style={styles.planPlannedEmpty}
+                >
+                  <Text tone="secondary">Drag a meal here when you’re ready to plan it.</Text>
+                </MealPlanDropSurface>
+              );
+            }
+
+            const { item } = entry;
+            const section: MealPlanDropSection = item.lifecycle === "idea" ? "ideas" : "planned";
+            const direction: MealMoveDirection = section === "ideas" ? "addToGroceries" : "returnToPlan";
+            const canMove = canManage && (section === "ideas" ? Boolean(onSendToGroceries) : Boolean(onReturnToPlan));
+            const moveNow = section === "ideas"
+              ? () => requestSend([item.candidateId])
+              : () => onReturnToPlan?.(item.candidateId);
+            return (
+              <MealPlanDropSurface
+                destinationSection={dragDestinationSection}
+                section={section}
+                style={styles.planDragMealCell}
+              >
+                <View
+                  testID={section === "ideas" ? `plan-row-${item.candidateId}` : `plan-grocery-row-${item.candidateId}`}
+                  style={styles.planDrawerMainRow}
+                >
+                  {canMove ? (
+                    <MealMoveHandle
+                      key={`${item.id}-${direction}`}
+                      item={item}
+                      direction={direction}
+                      renderDragHandle={renderDragHandle}
+                      onMove={moveNow}
+                    />
+                  ) : null}
+                  <View style={section === "ideas" ? styles.planDrawerArtworkFrame : styles.planPlannedMealArtworkFrame}>
+                    <RecipeArtwork
+                      storageRef={item.storageRef}
+                      accessibilityLabel={item.title}
+                      style={section === "ideas" ? styles.planDrawerArtwork : styles.planPlannedMealArtwork}
+                    />
+                  </View>
+                  <View testID={`plan-copy-${item.candidateId}`} style={styles.planDrawerMealCopy}>
+                    <Text testID={`plan-title-${item.candidateId}`} style={styles.planDrawerTitle}>{item.title}</Text>
+                    <View testID={`plan-reaction-row-${item.candidateId}`} style={styles.planDrawerReactionRow}>
+                      <PlanReactionBar
+                        item={item}
+                        onReact={onReact}
+                        onAdd={openReactionPicker}
+                        reacting={Boolean(reactingCandidateIds?.has(item.candidateId))}
+                      />
+                    </View>
+                  </View>
+                  {canManage && item.canRemove && section === "ideas" ? (
+                    <IconButton
+                      accessibilityLabel={`Remove ${item.title} from Meal ideas`}
+                      variant="ghost"
+                      style={styles.planDrawerMore}
+                      onPress={() => onRemove(item)}
+                    >
+                      <Icon testID={`plan-remove-minus-${item.candidateId}`} name="minus" size={19} color={colors.textSecondary} />
+                    </IconButton>
+                  ) : canManage && item.canRemove ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <IconButton accessibilityLabel={`More actions for ${item.title}`} variant="ghost"><Icon name="more" size={18} color={colors.textSecondary} /></IconButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="top" align="end">
+                        {item.canMarkMade && onMarkMade ? <DropdownMenuItem label="Made" icon="checkCircle" onPress={() => onMarkMade(item.candidateId)} /> : null}
+                        {item.canMarkMade && onMarkMade ? <DropdownMenuSeparator /> : null}
+                        {onReturnToPlan ? <DropdownMenuItem label="Return to Meal ideas" icon="undo" onPress={() => onReturnToPlan(item.candidateId)} /> : null}
+                        {onReturnToPlan ? <DropdownMenuSeparator /> : null}
+                        <DropdownMenuItem label="Remove from Meal ideas" icon="minus" onPress={() => onRemove(item)} />
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null}
+                </View>
+              </MealPlanDropSurface>
+            );
+          }}
+        />
       </View>
+      {onOpenGroceries ? (
+        <Reanimated.View
+          testID="plan-grocery-action-transition"
+          accessibilityElementsHidden={shareSheetVisible}
+          importantForAccessibility={shareSheetVisible ? "no-hide-descendants" : "auto"}
+          pointerEvents={shareSheetVisible ? "none" : "box-none"}
+          style={[styles.planViewGroceriesDockHost, planActionAnimatedStyle]}
+        >
+          <FloatingDockActionButton
+            testID="plan-view-groceries"
+            accessibilityLabel="View groceries"
+            accessibilityHint="Opens the grocery list compiled from planned meals"
+            icon="cart"
+            isProminent
+            onPress={onOpenGroceries}
+            size={RESTING_COMPOSER_HEIGHT_PX}
+            style={styles.planViewGroceriesDock}
+          />
+        </Reanimated.View>
+      ) : null}
       </BottomDrawer>
       {guideStep === 'share-plan' ? <Coachmark
         visible={visible && guideStep === 'share-plan' && Boolean(onSharePlan) && !shareSheetVisible}
@@ -581,19 +797,18 @@ export function MealPlanDrawer({
         onDismiss={() => onGuideAdvance?.('sharing-skipped')}
       /> : null}
       {guideStep === 'send-to-groceries' ? <Coachmark
-        visible={visible && guideStep === 'send-to-groceries' && !selecting && !guideSendStarted}
+        visible={visible && guideStep === 'send-to-groceries' && !guideSendStarted}
         targetRef={groceryTargetRef}
         title={<Text style={{ fontWeight: '700' }}>Make one grocery list</Text>}
-        body={<Text tone="secondary">Choose the meals you want to shop for. Their ingredients stay connected to each recipe.</Text>}
+        body={<Text tone="secondary">Drag a meal into Planned when you’re ready to make it.</Text>}
         actions={[
-          { id: 'select', label: 'Select meals', variant: 'accent' },
+          { id: 'got-it', label: 'Got it', variant: 'accent' },
         ]}
         spotlight="hole"
         spotlightRadius="auto"
         placement="above"
         onAction={() => {
           setGuideSendStarted(true);
-          setSelecting(true);
         }}
         onDismiss={() => setGuideSendStarted(true)}
       /> : null}
@@ -809,7 +1024,7 @@ export function MealPlanDrawer({
         onClose={() => setPendingHardPassSendIds(null)}
         onCancel={() => setPendingHardPassSendIds(null)}
         onAction={() => {
-          if (pendingHardPassSendIds) finishSelection(pendingHardPassSendIds, true);
+          if (pendingHardPassSendIds) finishSend(pendingHardPassSendIds, true);
         }}
       />
     </>

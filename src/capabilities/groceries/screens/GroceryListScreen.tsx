@@ -256,7 +256,6 @@ export function GroceryListScreen({ navigation, route }: Props) {
   const [alreadyHaveEducationLoaded, setAlreadyHaveEducationLoaded] = useState(false);
   const [alreadyHaveEducationSeen, setAlreadyHaveEducationSeen] = useState(true);
   const [cartFlowStarted, setCartFlowStarted] = useState(true);
-  const [sourcePlanMealCount, setSourcePlanMealCount] = useState(0);
   const [equipmentActionId, setEquipmentActionId] = useState<string | null>(null);
   const requestedListId = route.params?.listId;
   const onlineShoppingCountryEligible = isOnlineShoppingCountryEligible(
@@ -370,7 +369,6 @@ export function GroceryListScreen({ navigation, route }: Props) {
     let cancelled = false;
     if (!list?.sourceMealPlanId) {
       setSourcePlan(null);
-      setSourcePlanMealCount(0);
       return () => {
         cancelled = true;
       };
@@ -385,27 +383,16 @@ export function GroceryListScreen({ navigation, route }: Props) {
             (list.sourceMealPlanVersion === null || plan.version === list.sourceMealPlanVersion),
         );
         setSourcePlan(sourcePlan ?? null);
-        if (list.sourceKind === 'household_plan') {
-          const candidateIds = new Set(
-            list.items.flatMap((item) =>
-              (item.sources ?? []).flatMap((source) => source.planCandidateId ? [source.planCandidateId] : []),
-            ),
-          );
-          setSourcePlanMealCount(candidateIds.size);
-        } else {
-          setSourcePlanMealCount(sourcePlan?.entries.length ?? 0);
-        }
       })
       .catch(() => {
         if (!cancelled) {
           setSourcePlan(null);
-          setSourcePlanMealCount(0);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [list?.items, list?.sourceKind, list?.sourceMealPlanId, list?.sourceMealPlanVersion]);
+  }, [list?.sourceMealPlanId, list?.sourceMealPlanVersion]);
 
   const recipeInventory = useMemo(
     () => buildRecipeLibraryInventory(personalRecipes),
@@ -709,7 +696,7 @@ export function GroceryListScreen({ navigation, route }: Props) {
         }
         rightElement={
           <MealPlanHeaderAction
-            count={sourcePlanMealCount}
+            needsAttention={false}
             onPress={() => navigation.navigate('RecipeLibrary', { openPlan: true })}
           />
         }

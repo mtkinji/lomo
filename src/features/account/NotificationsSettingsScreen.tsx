@@ -14,6 +14,7 @@ import { Button } from '../../ui/Button';
 import { Text, VStack } from '../../ui/primitives';
 import { NotificationService } from '../../services/NotificationService';
 import { LocationPermissionService } from '../../services/LocationPermissionService';
+import { createMealPlanAttentionRepository } from '../../capabilities/meal-planning/data/mealPlanAttentionRepository';
 import {
   DEFAULT_DAILY_FOCUS_TIME,
   DEFAULT_DAILY_SHOW_UP_TIME,
@@ -49,6 +50,7 @@ export function NotificationsSettingsScreen() {
   const navigation = useNavigation<NotificationsSettingsNavigationProp>();
   const preferences = useAppStore((state) => state.notificationPreferences);
   const setPreferences = useAppStore((state) => state.setNotificationPreferences);
+  const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
   const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
   const [timePickerTarget, setTimePickerTarget] = useState<TimePickerTarget | null>(null);
@@ -138,6 +140,7 @@ export function NotificationsSettingsScreen() {
   const dailyFocusEnabled = remindersEnabled && preferences.allowDailyFocus;
   const goalNudgesEnabled = remindersEnabled && preferences.allowGoalNudges;
   const streakAndReactivationEnabled = remindersEnabled && preferences.allowStreakAndReactivation;
+  const householdMealPlanningEnabled = remindersEnabled && preferences.allowHouseholdMealPlanPush !== false;
   const locationPromptsEnabled = Boolean(locationOfferPreferences.enabled);
   const planKickoffEnabled = preferences.allowPlanKickoff !== false;
 
@@ -161,12 +164,23 @@ export function NotificationsSettingsScreen() {
         if (nextState !== 'active') return;
         syncPermissionLabels();
       });
+      if (userId) {
+        void createMealPlanAttentionRepository().getPushEnabled()
+          .then((enabled) => {
+            setPreferences((current) => ({
+              ...current,
+              allowHouseholdMealPlanPush: enabled,
+            }));
+          })
+          .catch(() => undefined);
+      }
       return () => sub.remove();
-    }, [syncPermissionLabels]),
+    }, [setPreferences, syncPermissionLabels, userId]),
   );
 
   const handleToggleGlobal = async () => {
-    if (!preferences.notificationsEnabled) {
+    const turningOn = !preferences.notificationsEnabled;
+    if (turningOn) {
       const granted = await NotificationService.ensurePermissionWithRationale('activity');
       if (!granted) {
         return;
@@ -176,9 +190,19 @@ export function NotificationsSettingsScreen() {
       ...preferences,
       notificationsEnabled: !preferences.notificationsEnabled,
       // When turning everything off, also implicitly turn off categories.
-      allowActivityReminders: !preferences.notificationsEnabled ? true : false,
+      allowActivityReminders: turningOn ? true : false,
+      allowHouseholdMealPlanPush: turningOn
+        ? preferences.allowHouseholdMealPlanPush !== false
+        : false,
     };
     await NotificationService.applySettings(next);
+    if (!userId) return;
+    try {
+      await createMealPlanAttentionRepository().setPushEnabled(next.allowHouseholdMealPlanPush);
+    } catch {
+      await NotificationService.applySettings(preferences);
+      Alert.alert('Preference not saved', 'Check your connection and try again.');
+    }
   };
 
   const handleToggleLocationOffers = async () => {
@@ -294,6 +318,27 @@ export function NotificationsSettingsScreen() {
       allowStreakAndReactivation: !preferences.allowStreakAndReactivation,
     };
     await NotificationService.applySettings(next);
+  };
+
+  const handleToggleHouseholdMealPlanning = async () => {
+    const nextEnabled = !householdMealPlanningEnabled;
+    if (nextEnabled && !preferences.notificationsEnabled) {
+      const granted = await NotificationService.ensurePermissionWithRationale('activity');
+      if (!granted) return;
+    }
+    const next = {
+      ...preferences,
+      notificationsEnabled: nextEnabled ? true : preferences.notificationsEnabled,
+      allowHouseholdMealPlanPush: nextEnabled,
+    };
+    await NotificationService.applySettings(next);
+    if (!userId) return;
+    try {
+      await createMealPlanAttentionRepository().setPushEnabled(nextEnabled);
+    } catch {
+      await NotificationService.applySettings(preferences);
+      Alert.alert('Preference not saved', 'Check your connection and try again.');
+    }
   };
 
   const handleTogglePlanKickoff = () => {
@@ -503,6 +548,31 @@ export function NotificationsSettingsScreen() {
                     void handleToggleActivityReminders();
                   }}
                   trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                  thumbColor={colors.canvas}
+                />
+              </View>
+
+              <View style={styles.row}>
+                <Pressable
+                  style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
+                  accessibilityRole="switch"
+                  accessibilityLabel="Household meal planning"
+                  accessibilityState={{ checked: householdMealPlanningEnabled }}
+                  onPress={handleToggleHouseholdMealPlanning}
+                >
+                  <VStack>
+                    <Text style={styles.rowTitle}>Household meal planning</Text>
+                    <Text style={styles.rowSubtitle}>
+                      {householdMealPlanningEnabled ? 'When there are new meal ideas to weigh in on' : 'Off'}
+                    </Text>
+                  </VStack>
+                </Pressable>
+                <Switch
+                  accessible={false}
+                  importantForAccessibility="no"
+                  value={householdMealPlanningEnabled}
+                  onValueChange={() => { void handleToggleHouseholdMealPlanning(); }}
+                  trackColor={{ false: colors.shellAlt, true: colors.textPrimary }}
                   thumbColor={colors.canvas}
                 />
               </View>

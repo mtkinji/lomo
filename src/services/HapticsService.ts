@@ -20,6 +20,8 @@ export type HapticsEvent =
   | 'shell.nav.close'
   // Canvas (object work)
   | 'canvas.selection'
+  | 'canvas.drag.pickup'
+  | 'canvas.drag.position'
   | 'canvas.toggle.on'
   | 'canvas.toggle.off'
   | 'canvas.recording.start'
@@ -85,6 +87,8 @@ const throttleMsByEvent: Partial<Record<HapticsEvent, number>> = {
   'shell.nav.close': 120,
   // selection can happen quickly (lists, chips, etc.)
   'canvas.selection': 80,
+  'canvas.drag.pickup': 0,
+  'canvas.drag.position': 55,
   'canvas.step.complete': 60,
   'canvas.step.undo': 60,
   // outcomes should not be swallowed
@@ -100,6 +104,8 @@ const suppressedWhenReduceMotion = new Set<HapticsEvent>([
   'shell.nav.open',
   'shell.nav.close',
   'canvas.selection',
+  'canvas.drag.pickup',
+  'canvas.drag.position',
   'canvas.toggle.on',
   'canvas.toggle.off',
   'canvas.step.complete',
@@ -171,9 +177,13 @@ async function fire(event: HapticsEvent): Promise<void> {
 
     // Canvas: subtle selection; medium for confirmation; heavy for destructive confirm
     case 'canvas.selection':
+    case 'canvas.drag.position':
     case 'canvas.toggle.on':
     case 'canvas.toggle.off':
       await h.selectionAsync();
+      return;
+    case 'canvas.drag.pickup':
+      await h.impactAsync(h.ImpactFeedbackStyle.Light);
       return;
     case 'canvas.recording.start':
       await h.impactAsync(h.ImpactFeedbackStyle.Light);
@@ -281,4 +291,3 @@ export const HapticsService = {
     }
   },
 };
-

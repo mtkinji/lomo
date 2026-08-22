@@ -8,7 +8,6 @@ describe('shareGuestMealPlan', () => {
       expiresAt: '2026-08-20T00:00:00.000Z',
     });
     const shareUrl = jest.fn().mockResolvedValue(undefined);
-    const onAskHousehold = jest.fn();
     const onShareSheetDismissStart = jest.fn();
 
     const invitation = await shareGuestMealPlan({
@@ -17,7 +16,6 @@ describe('shareGuestMealPlan', () => {
       currentInvitation: null,
       createInvite,
       shareUrl,
-      onAskHousehold,
       onShareSheetDismissStart,
     });
 
@@ -27,7 +25,6 @@ describe('shareGuestMealPlan', () => {
       message: 'Choose the meals you’d eat or suggest one that’s missing.',
       subject: 'Help choose our next meals',
       androidDialogTitle: 'Share meal plan',
-      onAskHousehold,
       onShareSheetDismissStart,
     });
     expect(invitation.inviteId).toBe('invite-1');

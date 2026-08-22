@@ -18,10 +18,8 @@ export async function shareGuestMealPlan(input: {
     message: string;
     subject: string;
     androidDialogTitle: string;
-    onAskHousehold?(): void;
     onShareSheetDismissStart?(): void;
   }): Promise<void>;
-  onAskHousehold?(): void;
   onShareSheetDismissStart?(): void;
 }): Promise<GuestMealPlanInvitation> {
   const invitation = input.currentInvitation ?? await input.createInvite({
@@ -34,7 +32,6 @@ export async function shareGuestMealPlan(input: {
     message: 'Choose the meals you’d eat or suggest one that’s missing.',
     subject: 'Help choose our next meals',
     androidDialogTitle: 'Share meal plan',
-    onAskHousehold: input.onAskHousehold,
     onShareSheetDismissStart: input.onShareSheetDismissStart,
   });
   return invitation;

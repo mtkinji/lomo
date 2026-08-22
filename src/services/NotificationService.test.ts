@@ -783,6 +783,19 @@ describe('NotificationService focus-session cleanup', () => {
       deliveryId: 'delivery-1',
       source: 'push',
     });
+    (navigateWhenReady as jest.Mock).mockClear();
+
+    listener({
+      actionIdentifier: 'expo.modules.notifications.actions.DEFAULT',
+      notification: { request: {
+        identifier: 'meal-plan-attention-1',
+        content: { data: { type: 'mealPlanAttention', planId: 'plan-1' } },
+      } },
+    });
+    expect(navigateWhenReady).toHaveBeenCalledWith('Food', {
+      screen: 'RecipeLibrary',
+      params: { openPlan: true, planId: 'plan-1' },
+    });
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();

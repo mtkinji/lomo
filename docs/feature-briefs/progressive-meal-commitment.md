@@ -9,7 +9,7 @@ job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [shared-meal-cart, household-food-loop]
 owner: andrew
-last_updated: 2026-08-08
+last_updated: 2026-08-22
 ---
 
 # Progressive meal commitment
@@ -61,35 +61,56 @@ committed version without silently treating open cart ideas as decisions.
 
 ## Design
 
-One continuously editable shared cart feeds one active committed **Next meals**
-batch. During settlement, every selected meal begins as **Flexible**. Maya may
-leave it that way, assign one specific date and meal period, or make it part of
-a bounded coverage commitment over explicit dates.
+One continuously editable set of Meal ideas feeds one active Grocery list. The
+drawer leads with an unnamed, reaction-sorted set of ideas, followed by a flat
+**Planned** section in the same scrolling list. Each organizer-movable row has a
+persistent leading grab handle. A single **View groceries** action is docked
+above the bottom safe area; there is no nested Grocery tray, row-level Add
+button, selection mode, inventory status, or permanent Send button.
 
-The settlement flow stays inside the full Plan drawer:
+Dragging a meal into **Planned** atomically changes `idea` to `sent` and
+recompiles the current Grocery list. Planned rows remain visible without item
+counts or readiness metadata; those belong to Groceries. Dragging a committed
+meal back into Meal ideas atomically restores
+`idea`, removes only its unpurchased Grocery contribution, preserves purchased
+history and shared contributions, and leaves the meal and its reactions in Plan.
+Both directions have screen-reader actions, overflow alternatives, failure
+recovery, and a short Undo receipt.
 
-1. **Choose next meals** reveals explicit selection; reactions never preselect.
-2. **Continue** reveals optional placement with the prompt “Place any meals
-   whose timing matters.”
-3. Each meal offers **Flexible**, **One day**, or **Several days**. One day
-   records a date and Breakfast, Lunch, Dinner, or Snack. Several days records
-   explicit dates, a meal period, and a short coverage label.
-4. **Use these meals** commits one immutable plan version. Selected meals leave
-   the cart and unselected candidates, contributors, and reactions carry into a
-   new draft cart.
+During later settlement, every Grocery-committed meal begins as **Flexible**.
+Maya may leave it that way, assign one specific date and meal period, or make it
+part of a bounded coverage commitment over explicit dates.
 
 Next meals is sparse and decision-led: chronological dated occasions first,
 then bounded coverage, then Flexible. It never renders empty calendar cells.
 Groceries compiles only from the committed version. A later revision makes any
 reviewed Grocery list stale and requires a reviewable update.
 
-The durable top-right affordance remains **Plan** across the lifecycle, using
-the familiar meal icon and a counter for all meal items recoverable inside it.
-Opening it leads with a plainly spaced list of committed Recipes, including
-timing, diners, and servings when known, plus the Grocery action warranted by
-the current plan/list versions. Any new shared ideas follow as a separate
-section. This gives the settled plan useful presence without forcing flexible
-meals onto dates or inventing another plan state.
+The durable top-right affordance is **Ideas**, using the familiar meal icon.
+It shows a small red dot only when this recipient has unseen household Plan
+activity; it is never a meal count. Opening it leads with the
+reaction-sorted Meal ideas list and then Planned as a peer section. The grocery
+cart icon appears only with the **View groceries** dock action. This gives the
+settled plan useful presence without forcing flexible meals onto dates,
+duplicating Grocery inventory, or inventing another plan state.
+
+Household attention is inferred instead of manually addressed. Every eligible
+member of a Household-attached Plan can already add meals and react at any
+time. A new meal idea starts or extends one 30-minute quiet-period window.
+After the burst settles, Kwilt marks the live Plan as unseen for each eligible
+member who did not contribute, react during the window, or return after the
+latest idea. That state appears as the same small red dot on **Recipes** in the
+capability menu and **Ideas** inside Recipes. A normal push notification deep
+links directly to this same live Plan; there is no inbox item, member picker,
+choice round, or separate results destination. Push is a recipient-controlled
+`Household meal planning` category. Turning it off removes the interruption but
+does not suppress the in-app dot. Opening the live Plan clears the recipient's
+unseen state. Reactions, Grocery compilation, lifecycle changes, and ordinary
+row edits do not initiate attention in the learning release.
+
+The top-right **Share** action remains exclusively for an expiring, revocable
+guest link. A guest does not become a Household member and automatic Household
+attention never sends the guest link.
 
 Coverage dates are materialized within the current commitment; they are not a
 timeless recurrence rule. In the first release, each recipe dish's existing
@@ -110,3 +131,19 @@ ideas from the committed plan and compile the correct Grocery version.
   deferred until the settlement and Grocery handoff are proven.
 - The recipe-stack widget is pinned as the next exploration after this step; it
   must consume committed Next meals rather than create a second plan authority.
+
+## Spec refinement
+
+- The grab handle owns the native pan gesture so row reactions and vertical
+  scrolling remain independently operable.
+- The first implementation supports one meal per drag. Bulk commitment stays
+  out until observed use proves it necessary.
+- The existing `ready` projection remains derived from acquired Grocery items;
+  it is not rendered as inventory metadata in Meal ideas.
+- Completion requires focused lifecycle/repository/component tests plus the real
+  iPhone Simulator path. Source tests do not establish backend deployment,
+  signed-device haptics, VoiceOver acceptance, TestFlight, or production proof.
+- Automatic attention additionally requires the migration, scheduled Edge
+  Function, recipient-owned unseen state, Expo push receipt, direct deep link,
+  and two-account signed-device behavior to be proven separately. Source tests
+  do not establish any of those live stages.

@@ -285,6 +285,11 @@ export function createMealPlanningRepository(client: SupabaseClient = getSupabas
       if (error) throw new Error(error.message);
       return (data as { receipt: { planId: string; version: number; groceryListId: string; revision: number } }).receipt;
     },
+    async returnSharedCandidateToPlan(planId: string, expectedVersion: number, candidateId: string) {
+      const { data, error } = await client.functions.invoke('grocery-compile', { body: { planAction: 'return', planId, expectedVersion, candidateIds: [candidateId] } });
+      if (error) throw new Error(error.message);
+      return (data as { receipt: { planId: string; version: number; groceryListId: string; revision: number } }).receipt;
+    },
     keepGroceriesAndRemoveSharedCandidate(candidateId: string, expectedVersion: number) {
       return rpc(client, 'remove_kwilt_sent_plan_candidate_keep_groceries', { p_candidate_id: candidateId, p_expected_version: expectedVersion });
     },

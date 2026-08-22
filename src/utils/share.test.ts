@@ -84,4 +84,20 @@ describe('shareUrlWithPreview', () => {
     await sharing;
     expect(remove).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps the rich-preview dismissal hook without showing Ask Household', async () => {
+    mockPresent.mockResolvedValue({ action: 'shared', activityType: 'com.apple.UIKit.activity.Message' });
+
+    await shareUrlWithPreview({
+      url: 'https://go.kwilt.app/meal-plan/guest-token',
+      subject: 'Help choose our next meals',
+      onShareSheetDismissStart: jest.fn(),
+    });
+
+    expect(mockPresent).toHaveBeenCalledWith(
+      'https://go.kwilt.app/meal-plan/guest-token',
+      'Help choose our next meals',
+      null,
+    );
+  });
 });

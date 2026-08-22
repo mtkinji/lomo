@@ -73,7 +73,7 @@ serve(async(req)=>{
       return json(200,{receipt});
     }
 
-    const planAction=body?.planAction==='send'||body?.planAction==='remove'?body.planAction:null;
+    const planAction=body?.planAction==='send'||body?.planAction==='remove'||body?.planAction==='return'?body.planAction:null;
     if(planAction){
       const planId=typeof body?.planId==='string'?body.planId:''; const expectedVersion=Number(body?.expectedVersion);
       const acknowledgeHardPasses=body?.acknowledgeHardPasses===true;
@@ -90,7 +90,7 @@ serve(async(req)=>{
         const blocked=resolveHardPassReview({selectedCandidateIds:candidateIds,candidates:(candidateRows??[]).map((candidate)=>({id:candidate.id,hardPassOverriddenAt:candidate.hard_pass_overridden_at??null})),hardPasses:(hardPassRows??[]).map((reaction)=>({candidateId:reaction.candidate_id,createdAt:reaction.created_at}))});
         if(blocked.length)throw new Error('hard_pass_review_required');
       }
-      const selected=new Set(candidateIds); const candidates=(candidateRows??[]).map((candidate)=>({
+      const selected=new Set(candidateIds); const candidates=(candidateRows??[]).filter((candidate)=>planAction!=='return'||!selected.has(candidate.id)).map((candidate)=>({
         id:candidate.id,
         lifecycleState:(selected.has(candidate.id)?(planAction==='send'?'sent':'removed'):candidate.lifecycle_state) as 'sent'|'removed',
         removedGroceryBehavior:selected.has(candidate.id)&&planAction==='remove'?null:(candidate.removed_grocery_behavior??null) as 'kept'|null,
@@ -101,10 +101,13 @@ serve(async(req)=>{
       const {data:recipeRows,error:recipeError}=versionIds.length?await admin.from('kwilt_recipe_versions').select('id,ingredients:kwilt_recipe_ingredients(id,original_text,optional),recipe:kwilt_recipes!inner(lifecycle)').in('id',versionIds):{data:[],error:null}; if(recipeError)throw recipeError;
       const ingredientsByVersionId:Record<string,Array<{id:string;original_text:string;optional:boolean}>>={}; for(const row of recipeRows??[]){const recipeRelation=Array.isArray(row.recipe)?row.recipe[0]:row.recipe;if(recipeRelation?.lifecycle==='deleted')throw new Error('missing_recipe_version');ingredientsByVersionId[row.id]=(row.ingredients??[]) as Array<{id:string;original_text:string;optional:boolean}>;}
       const compiled=compileHouseholdPlanGroceryAuthority({plan,expectedVersion,actorPersonId:binding.person_id,actorRole:membership?.role??null,candidates,ingredientsByVersionId}); const payloadHash=await hash(compiled.items);
-      const persistenceRpc=plan.household_id
-        ? 'sync_kwilt_household_plan_groceries_with_hard_pass_review'
-        : 'sync_kwilt_personal_plan_groceries';
-      const {data:receipt,error}=await admin.rpc(persistenceRpc,{p_actor_person_id:binding.person_id,p_plan_id:planId,p_expected_version:expectedVersion,p_action:planAction,p_candidate_ids:candidateIds,p_payload_hash:payloadHash,p_compiled_items:compiled.items,p_acknowledge_hard_passes:acknowledgeHardPasses}); if(error)throw error;
+      const persistenceRpc=planAction==='return'
+        ? plan.household_id?'return_kwilt_household_plan_candidate_to_ideas':'return_kwilt_personal_plan_candidate_to_ideas'
+        : plan.household_id?'sync_kwilt_household_plan_groceries_with_hard_pass_review':'sync_kwilt_personal_plan_groceries';
+      const persistenceArgs=planAction==='return'
+        ? {p_actor_person_id:binding.person_id,p_plan_id:planId,p_expected_version:expectedVersion,p_candidate_ids:candidateIds,p_payload_hash:payloadHash,p_compiled_items:compiled.items}
+        : {p_actor_person_id:binding.person_id,p_plan_id:planId,p_expected_version:expectedVersion,p_action:planAction,p_candidate_ids:candidateIds,p_payload_hash:payloadHash,p_compiled_items:compiled.items,p_acknowledge_hard_passes:acknowledgeHardPasses};
+      const {data:receipt,error}=await admin.rpc(persistenceRpc,persistenceArgs); if(error)throw error;
       return json(200,{receipt});
     }
 

@@ -80,7 +80,26 @@ describe('NotificationsSettingsScreen', () => {
 
     expect(getByRole('switch', { name: 'Notifications from Kwilt' })).toBeTruthy();
     expect(getByRole('switch', { name: 'To-do reminders' })).toBeTruthy();
-    expect(getAllByRole('switch')).toHaveLength(8);
+    expect(getByRole('switch', { name: 'Household meal planning' })).toBeTruthy();
+    expect(getAllByRole('switch')).toHaveLength(9);
+  });
+
+  it('lets the recipient disable inferred Household meal planning push', async () => {
+    useAppStore.getState().setNotificationPreferences({
+      ...useAppStore.getState().notificationPreferences,
+      notificationsEnabled: true,
+      osPermissionStatus: 'authorized',
+      allowHouseholdMealPlanPush: true,
+    });
+    const { getByRole } = renderWithProviders(<NotificationsSettingsScreen />);
+
+    fireEvent.press(getByRole('switch', { name: 'Household meal planning' }));
+
+    await waitFor(() => {
+      expect(NotificationService.applySettings).toHaveBeenCalledWith(expect.objectContaining({
+        allowHouseholdMealPlanPush: false,
+      }));
+    });
   });
 
   it.each([
