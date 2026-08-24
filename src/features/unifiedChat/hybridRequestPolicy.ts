@@ -35,6 +35,8 @@ const PLAN_SCHEDULING_PARAMETER_PATTERN =
   /(?:\b\d+(?:\.\d+)?\s*(?:hours?|hrs?|minutes?|mins?)\b|\b(?:morning|afternoon|evening|noon|midday|after|before)\b|\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b)/i;
 const REFERENTIAL_ACTION_CORRECTION_PATTERN =
   /(?:\bclose,?\s+but\b|\btry\s+(?:that|it)\s+again\b|\binstead\s+of\b|\b(?:move|put)\b[^.!?]{0,80}\b(?:front|beginning|end)\b)/i;
+const REFERENTIAL_ACTION_REQUEST_PATTERN =
+  /\b(?:add|create|save|make|update|change|delete|remove|schedule|move)\s+(?:one|it|that|this|those|them)\b/i;
 
 function conversationFollowUpPolicy({
   prompt,
@@ -83,13 +85,16 @@ function conversationFollowUpPolicy({
   const correctsPreviousAction =
     previousPolicy?.requestClass === 'capability_action' &&
     REFERENTIAL_ACTION_CORRECTION_PATTERN.test(prompt);
+  const requestsReferentialAction =
+    deterministicPolicy.requestClass === 'general' &&
+    REFERENTIAL_ACTION_REQUEST_PATTERN.test(prompt);
   const suppliesPlanSchedulingParameters =
     capabilities.includes('plan') && PLAN_SCHEDULING_PARAMETER_PATTERN.test(prompt);
   if (
     (deterministicPolicy.requestClass !== 'general' && !correctsPreviousAction) ||
     !previousPolicy?.usePrivateContext ||
     capabilities.length === 0 ||
-    (!correctsPreviousAction && !suppliesPlanSchedulingParameters && (
+    (!correctsPreviousAction && !requestsReferentialAction && !suppliesPlanSchedulingParameters && (
       !previousAssistantMessage || !CLARIFICATION_PROMPT_PATTERN.test(previousAssistantMessage)
     ))
   ) return null;
@@ -101,7 +106,7 @@ function conversationFollowUpPolicy({
     (capabilities.includes('plan') && PLAN_PLACEMENT_CLARIFICATION_PATTERN.test(previousAssistantMessage ?? ''));
   return {
     requestClass:
-      previousPolicy.requestClass === 'capability_action' || completesPromisedMutation
+      previousPolicy.requestClass === 'capability_action' || requestsReferentialAction || completesPromisedMutation
         ? 'capability_action'
         : 'general_with_kwilt_context',
     participatingCapabilities: capabilities,

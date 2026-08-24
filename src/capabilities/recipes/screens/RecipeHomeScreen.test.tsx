@@ -6,12 +6,23 @@ import {
 import {
   hideCatalogMeal,
   RecipeHeaderActions,
+  RecipeHomeScreen,
   RecipeHomeView,
 } from "./RecipeHomeScreen";
 import { deriveRecipeNextActions } from "../domain/recipeNextAction";
+import { STARTER_RECIPE_PROJECTIONS } from "../data/starterRecipeCatalog";
 
 jest.mock("../../../features/unifiedChat/UnifiedChatDrawer", () => ({
   UnifiedChatDrawer: () => null,
+}));
+
+jest.mock("@react-navigation/native", () => ({
+  ...jest.requireActual("@react-navigation/native"),
+  useFocusEffect: jest.fn(),
+}));
+
+jest.mock("../../../services/analytics/useAnalytics", () => ({
+  useAnalytics: () => ({ capture: jest.fn() }),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -25,6 +36,48 @@ const defaultRecipeHomeDockProps = {
 };
 
 describe("Recipe Home", () => {
+  it("returns a directly opened recipe detail to Recipes without escaping the Food stack", () => {
+    const navigation = {
+      getState: jest.fn(() => ({ index: 0 })),
+      goBack: jest.fn(),
+      replace: jest.fn(),
+    };
+    const screen = render(
+      <RecipeHomeScreen
+        navigation={navigation as never}
+        route={{
+          key: "recipe-home",
+          name: "RecipeHome",
+          params: { recipeId: STARTER_RECIPE_PROJECTIONS[0].recipe.id },
+        }}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText("Back to Recipes"));
+
+    expect(navigation.replace).toHaveBeenCalledWith("RecipeLibrary");
+    expect(navigation.goBack).not.toHaveBeenCalled();
+  });
+
+  it("keeps the previous Food screen as the back destination when recipe detail was pushed", () => {
+    const navigation = {
+      getState: jest.fn(() => ({ index: 1 })),
+      goBack: jest.fn(),
+      replace: jest.fn(),
+    };
+    const screen = render(
+      <RecipeHomeScreen
+        navigation={navigation as never}
+        route={{ key: "recipe-home", name: "RecipeHome", params: { recipeId: "missing-recipe" } }}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText("Go back from Recipe"));
+
+    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+    expect(navigation.replace).not.toHaveBeenCalled();
+  });
+
   it("hides a catalog meal, returns to Meals, and makes Undo restore server state", async () => {
     const setHidden = jest.fn().mockResolvedValue(undefined);
     const onHidden = jest.fn();

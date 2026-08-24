@@ -18,11 +18,11 @@ import {
 import { getCuisineFamilyForCuisine } from "../domain/cuisineFamilies";
 
 describe("starter Recipe catalog", () => {
-  it("ships exactly 500 unique, contract-valid independently authored recipes", () => {
-    expect(STARTER_RECIPE_PROJECTIONS).toHaveLength(500);
+  it("ships exactly 600 unique, contract-valid independently authored recipes", () => {
+    expect(STARTER_RECIPE_PROJECTIONS).toHaveLength(600);
     expect(
       new Set(STARTER_RECIPE_PROJECTIONS.map(({ recipe }) => recipe.id)).size,
-    ).toBe(500);
+    ).toBe(600);
     for (const projection of STARTER_RECIPE_PROJECTIONS) {
       expect(() => parseRecipeProjection(projection)).not.toThrow();
       expect(
@@ -90,7 +90,7 @@ describe("starter Recipe catalog", () => {
     };
     const inventory = buildRecipeLibraryInventory([personal, duplicate]);
 
-    expect(inventory).toHaveLength(501);
+    expect(inventory).toHaveLength(601);
     expect(inventory[0]).toBe(personal);
     expect(inventory[1]).toBe(duplicate);
     expect(
@@ -98,7 +98,7 @@ describe("starter Recipe catalog", () => {
     ).toHaveLength(1);
   });
 
-  it("does not count a database-backed canonical catalog projection as a personal recipe", () => {
+  it("uses database-backed canonical catalog projections instead of the bundled fallback", () => {
     const personal = {
       recipe: recipeContractFixture(),
       currentVersion: recipeVersionContractFixture(),
@@ -120,19 +120,36 @@ describe("starter Recipe catalog", () => {
         id: "94000000-0000-0000-0000-000000000001",
         recipeId: "93000000-0000-0000-0000-000000000001",
       },
+      catalog: {
+        publicationId: "92000000-0000-0000-0000-000000000001",
+        rosterId: "DI999",
+        publicSlug: "hosted-weeknight-dinner-di999",
+        editorialMetadata: {
+          category: "Dinner",
+          cuisine: "Korean-inspired",
+          tier: "household-anchor",
+          inactiveMinutes: 5,
+        },
+        publishedAt: "2026-08-24T12:00:00.000Z",
+        contentHash: "sha256:hosted-di999",
+      },
     };
 
-    expect(buildRecipeLibraryInventory([])).toHaveLength(500);
-    expect(buildRecipeLibraryInventory([personal])).toHaveLength(501);
     const inventory = buildRecipeLibraryInventory([personal, importedCatalog]);
 
-    expect(inventory).toHaveLength(501);
+    expect(inventory).toHaveLength(2);
     expect(inventory[0]).toBe(personal);
     expect(
       inventory.some(
         ({ recipe }) => recipe.id === importedCatalog.recipe.id,
       ),
-    ).toBe(false);
+    ).toBe(true);
+    expect(getStarterRecipeMetadata(importedCatalog.recipe.id)).toMatchObject({
+      category: "Dinner",
+      cuisine: "Korean-inspired",
+      inactiveMinutes: 5,
+      featured: true,
+    });
   });
 
   it("keeps a private adaptation descended from a canonical catalog recipe", () => {
@@ -160,7 +177,7 @@ describe("starter Recipe catalog", () => {
 
     const inventory = buildRecipeLibraryInventory([personalEdition]);
 
-    expect(inventory).toHaveLength(501);
+    expect(inventory).toHaveLength(601);
     expect(inventory[0]).toBe(personalEdition);
   });
 

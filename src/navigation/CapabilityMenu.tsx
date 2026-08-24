@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.actionAttention,
   },
   capabilityLabelSelected: {
-    fontFamily: fonts.medium,
+    fontFamily: fonts.bold,
     color: colors.gray800,
   },
   rowPressed: {

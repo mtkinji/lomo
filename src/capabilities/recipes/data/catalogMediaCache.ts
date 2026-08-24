@@ -1,26 +1,26 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { parseHostedCatalogMediaRows, type HostedCatalogMedia } from './catalogMediaOverlay';
+import { parseRecipeProjection, type RecipeProjection } from './recipeCache';
 
 type Storage = Pick<typeof AsyncStorage, 'getItem' | 'setItem' | 'removeItem'>;
 
 export function catalogMediaCacheKey(userId: string): string {
-  return `kwilt.recipe-catalog-media.v1.${userId}`;
+  return `kwilt.recipe-catalog.v2.${userId}`;
 }
 
-function parseEnvelope(raw: string): HostedCatalogMedia[] {
-  const value = JSON.parse(raw) as { overlays?: unknown };
-  if (!Array.isArray(value.overlays)) throw new Error('Invalid catalog media cache');
-  return parseHostedCatalogMediaRows(value.overlays.map((overlay) => {
-    if (!overlay || typeof overlay !== 'object') return null;
-    const item = overlay as HostedCatalogMedia;
-    return { projection: { catalog: { rosterId: item.rosterId }, recipe: { mediaAssets: [item.media] } } };
-  }));
+function parseEnvelope(raw: string): RecipeProjection[] {
+  const value = JSON.parse(raw) as { recipes?: unknown };
+  if (!Array.isArray(value.recipes)) throw new Error('Invalid hosted Recipe catalog cache');
+  return value.recipes.map((item) => {
+    const projection = parseRecipeProjection(item);
+    if (!projection.catalog) throw new Error('Invalid hosted Recipe catalog cache');
+    return projection;
+  });
 }
 
 export function createCatalogMediaCache(storage: Storage) {
   return {
-    async read(userId: string): Promise<HostedCatalogMedia[]> {
+    async read(userId: string): Promise<RecipeProjection[]> {
       try {
         const raw = await storage.getItem(catalogMediaCacheKey(userId));
         return raw ? parseEnvelope(raw) : [];
@@ -29,10 +29,10 @@ export function createCatalogMediaCache(storage: Storage) {
         return [];
       }
     },
-    async write(userId: string, overlays: readonly HostedCatalogMedia[]): Promise<void> {
-      if (!overlays.length) return;
-      const validated = parseEnvelope(JSON.stringify({ overlays }));
-      await storage.setItem(catalogMediaCacheKey(userId), JSON.stringify({ overlays: validated }));
+    async write(userId: string, recipes: readonly RecipeProjection[]): Promise<void> {
+      if (!recipes.length) return;
+      const validated = parseEnvelope(JSON.stringify({ recipes }));
+      await storage.setItem(catalogMediaCacheKey(userId), JSON.stringify({ recipes: validated }));
     },
   };
 }

@@ -1,9 +1,11 @@
-# 500-Recipe Meal Selection and Expansion Roster
+# 600-Recipe Meal Selection and Expansion Roster
 
-The active completion target is exactly 500 recipes: BR001–BR090, LU001–LU085,
-DI001–DI230, SO001–SO015, SA001–SA010, AP001–AP010, SI001–SI010, BA001–BA020,
-and DE001–DE030. The remaining rows are retained only as a future expansion
-backlog and are not part of the current integration gate.
+The active source target is exactly 600 recipes: BR001–BR090, LU001–LU085,
+DI001–DI330, SO001–SO015, SA001–SA010, AP001–AP010, SI001–SI010, BA001–BA020,
+and DE001–DE030. `DI231–DI330` were reselected as the meal-kit-shaped expansion;
+their implemented titles and bodies in `starterRecipeMealKitExpansion.ts`
+supersede the older candidate labels retained below. Those rows remain discovery
+history, not publication authority. All other remaining rows are future backlog.
 
 Status: proposed for alignment; no recipe body is authorized by inclusion here.
 

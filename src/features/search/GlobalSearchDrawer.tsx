@@ -54,7 +54,7 @@ const SCOPE_CHIPS: ScopeChipDef[] = [
   { scope: "goals", label: "Goals", icon: "goals" },
   { scope: "arcs", label: "Arcs", icon: "arcs" },
   { scope: "chapters", label: "Chapters", icon: "chapters" },
-  { scope: "recipes", label: "Meals", icon: "chapters" },
+  { scope: "recipes", label: "Meals", icon: "cookingPot" },
 ];
 
 const PER_KIND_LIMIT_IN_ALL = 5;
@@ -916,7 +916,7 @@ function describeRow(
         minutes > 0 ? `${minutes} min` : null,
       ].filter(Boolean);
       return {
-        icon: "chapters",
+        icon: "cookingPot",
         title: row.recipe.currentVersion.title || "Untitled recipe",
         meta: parts.join(" · "),
       };

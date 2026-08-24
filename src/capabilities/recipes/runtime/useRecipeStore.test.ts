@@ -3,6 +3,24 @@ import { recipeContractFixture, recipeVersionContractFixture } from '../domain/r
 
 describe('Recipe store', () => {
   const projection = { recipe: recipeContractFixture(), currentVersion: recipeVersionContractFixture() };
+  const catalogProjection = {
+    recipe: {
+      ...recipeContractFixture(),
+      id: 'catalog-recipe',
+      currentVersionId: 'catalog-version',
+      provenance: {
+        ...recipeContractFixture().provenance,
+        method: 'catalog' as const,
+        rightsBasis: 'kwilt_authored' as const,
+      },
+      lineage: [],
+    },
+    currentVersion: {
+      ...recipeVersionContractFixture(),
+      id: 'catalog-version',
+      recipeId: 'catalog-recipe',
+    },
+  };
   const queue = () => ({ read: jest.fn().mockResolvedValue([]), enqueue: jest.fn().mockResolvedValue([]), acknowledge: jest.fn(), clear: jest.fn() });
 
   it('clears in-memory data synchronously on account switch, then shows cache while refreshing', async () => {
@@ -19,6 +37,46 @@ describe('Recipe store', () => {
     finishRefresh?.([projection]);
     await switching;
     expect(store.getState().status).toBe('ready');
+  });
+
+  it('merges the complete hosted catalog into the recipe inventory on refresh', async () => {
+    const repository = { list: jest.fn().mockResolvedValue([projection]) };
+    const cache = { read: jest.fn().mockResolvedValue([]), write: jest.fn(), clear: jest.fn() };
+    const hostedCatalog = {
+      repository: { list: jest.fn().mockResolvedValue([catalogProjection]) },
+      cache: { read: jest.fn().mockResolvedValue([]), write: jest.fn() },
+    };
+    const store = createRecipeStore(
+      repository as never,
+      cache as never,
+      queue() as never,
+      hostedCatalog as never,
+    );
+
+    await store.getState().setIdentity('user-a');
+
+    expect(store.getState().recipes).toEqual([projection, catalogProjection]);
+    expect(cache.write).toHaveBeenCalledWith('user-a', [projection, catalogProjection]);
+  });
+
+  it('keeps the last-known-good hosted catalog when a refresh is empty', async () => {
+    const repository = { list: jest.fn().mockResolvedValue([projection]) };
+    const cache = { read: jest.fn().mockResolvedValue([catalogProjection]), write: jest.fn(), clear: jest.fn() };
+    const hostedCatalog = {
+      repository: { list: jest.fn().mockResolvedValue([]) },
+      cache: { read: jest.fn().mockResolvedValue([catalogProjection]), write: jest.fn() },
+    };
+    const store = createRecipeStore(
+      repository as never,
+      cache as never,
+      queue() as never,
+      hostedCatalog as never,
+    );
+
+    await store.getState().setIdentity('user-a');
+
+    expect(store.getState().recipes).toEqual([projection, catalogProjection]);
+    expect(hostedCatalog.cache.write).not.toHaveBeenCalled();
   });
 
   it('keeps an optimistic version available and queues it when save is offline', async () => {

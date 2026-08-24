@@ -35,7 +35,7 @@ describe('capability registry', () => {
 
   it('keeps Meal Planning contextual while exposing Recipes and Groceries as user-facing destinations', () => {
     expect(CAPABILITY_REGISTRY.filter(({ id }) => ['recipes', 'meal-planning', 'groceries'].includes(id))).toEqual([
-      expect.objectContaining({ id: 'recipes', label: 'Recipes', availability: 'active' }),
+      expect.objectContaining({ id: 'recipes', label: 'Recipes', icon: 'cookingPot', availability: 'active' }),
       expect.objectContaining({ id: 'meal-planning', label: 'Meal Plan', availability: 'active' }),
       expect.objectContaining({ id: 'groceries', label: 'Groceries', availability: 'active' }),
     ]);

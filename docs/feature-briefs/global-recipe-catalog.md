@@ -9,14 +9,14 @@ job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-move-the-few-things-that-matter, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-food-loop, brief-food-ai-operating-layer, brief-personal-meal-favorites]
 owner: andrew
-last_updated: 2026-08-12
+last_updated: 2026-08-24
 ---
 
 # Global Recipe Catalog
 
 ## Context
 
-Kwilt has 500 authored OOTB meals in the mobile bundle and 500 corresponding published catalog records in production Supabase. Before the catalog-ownership repair, those canonical records were owned by the same person as one genuine private Recipe, so the personal projection returned 501 rows and the app concatenated them with the bundled fallback for a visible total of 1,001. The ownership repair separates canonical publication records from person-owned inventory without deleting the records used by the public catalog and recipe-image pipeline. The bundle remains a last-known-good fallback during the hosted-catalog transition; hosted and bundled catalogs must never be concatenated.
+Kwilt has 600 authored OOTB meals in source: the original 500 plus 100 original, meal-kit-shaped dinners (`DI231–DI330`). Production Supabase has 600 corresponding published catalog records and one reviewed, recipe-specific hero image for each record. Before the catalog-ownership repair, those canonical records were owned by the same person as one genuine private Recipe, so the personal projection returned 501 rows and the app concatenated them with the bundled fallback for a visible total of 1,001. The ownership repair separates canonical publication records from person-owned inventory without deleting the records used by the public catalog and recipe-image pipeline. The bundle remains a last-known-good fallback during the hosted-catalog transition; hosted and bundled catalogs must never be concatenated.
 
 ## Target audience
 
@@ -71,7 +71,7 @@ Each authored roster entry receives:
 - selected approved public media;
 - editorial state and timestamps.
 
-An idempotent importer reads the existing authored TypeScript catalog, validates all 500 records, and upserts by `roster_id` through an admin-only operation. Importing unchanged content is a no-op. Changed content creates a new immutable version and a reviewable publication replacement rather than mutating the existing version.
+An idempotent importer reads the existing authored TypeScript catalog, validates all 600 records, and upserts by `roster_id` through an admin-only operation. Importing unchanged content is a no-op. Changed content creates a new immutable version and a reviewable publication replacement rather than mutating the existing version.
 
 ### Client catalog projection
 
@@ -153,11 +153,11 @@ Release first as production-hidden for Andrew/internal adult profiles using prod
 
 ## Success signal
 
-A fresh account can browse all 500 database-backed canonical Recipes; two accounts can independently heart, rate, and evolve personal editions of the same publication; an approved image replacement appears after refresh without a native build; a canonical version update preserves Meal Plan snapshots, personal editions, and historical evidence; and a staged unsafe Cooking note can be reported, moderated, and audited end to end.
+A fresh account can browse all 600 database-backed canonical Recipes after the expansion publication gate; two accounts can independently heart, rate, and evolve personal editions of the same publication; an approved image replacement appears after refresh without a native build; a canonical version update preserves Meal Plan snapshots, personal editions, and historical evidence; and a staged unsafe Cooking note can be reported, moderated, and audited end to end.
 
 ## Acceptance criteria
 
-- Database count and importer receipt prove exactly 500 active canonical roster records and publications.
+- Database count and importer receipt prove exactly 600 active canonical roster records and publications before the expansion is called published.
 - Mobile never replaces a valid catalog cache with empty/partial/invalid refresh data.
 - Every current catalog id maps deterministically to one UUID publication and exact version.
 - Hearts, ratings, comments, and personal editions pass ownership/RLS negative matrices across two users plus anonymous/child cases.
@@ -193,8 +193,8 @@ Kwilt connector tools were unavailable in this task. Intended durable Goal: **Sh
 
 Intended Activities:
 
-- Migrate 500 OOTB meals to immutable catalog publications with verified client continuity.
-- Publish the first 25 recipe-book-quality catalog images through the reviewed generation pipeline.
+- Maintain all 600 OOTB meals as immutable catalog publications with verified client continuity; `DI231–DI330` completed their distinct enrichment and publication gate on 2026-08-24.
+- Maintain one reviewed, recipe-book-quality catalog hero image for all 600 publications, with replaceable version-scoped provenance.
 - Add private hearts/ratings/forks and gated moderated Cooking notes.
 - Prove two-account RLS, offline catalog fallback, canonical republish, and image replacement without a native build.
 

@@ -46,6 +46,39 @@ export function verifyWebpEnvelope(bytes: Uint8Array): boolean {
   return decoder.decode(bytes.slice(0, 4)) === "RIFF" && decoder.decode(bytes.slice(8, 12)) === "WEBP";
 }
 
+export function parseRecipeImageIngest(value: unknown): {
+  jobId: string;
+  bytes: Uint8Array;
+  altText: string;
+  generator: 'codex-built-in-imagegen';
+} {
+  const input = record(value);
+  if (!input) throw new Error('invalid_request');
+  const jobId = typeof input.jobId === 'string' ? input.jobId.trim().toLowerCase() : '';
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(jobId)) {
+    throw new Error('invalid_job_id');
+  }
+  if (input.generator !== 'codex-built-in-imagegen') throw new Error('invalid_generator');
+  const encoded = typeof input.imageBase64 === 'string' ? input.imageBase64 : '';
+  if (!encoded || encoded.length > 16_800_000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) {
+    throw new Error('invalid_image_output');
+  }
+  let binary = '';
+  try {
+    binary = atob(encoded);
+  } catch {
+    throw new Error('invalid_image_output');
+  }
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  if (!verifyWebpEnvelope(bytes)) throw new Error('invalid_webp_output');
+  return {
+    jobId,
+    bytes,
+    altText: text(input.altText, 'alt_text', 20, 500),
+    generator: 'codex-built-in-imagegen',
+  };
+}
+
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }

@@ -1,0 +1,1006 @@
+{
+  "schemaVersion": 1,
+  "promptVersion": "kwilt-recipe-hero-v2",
+  "recipes": [
+    {
+      "rosterId": "DI231",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di231/kwilt-recipe-hero-v2/efe83cebb9ad5526-06f2408669782cc4/candidate-0.webp",
+      "altText": "Single bowl of gochujang chicken rice: sticky red glazed chicken pieces topped with toasted sesame seeds over a bed of white rice, with charred broccoli florets on one side and thinly sliced cucumber on the other, photographed in natural light from a three-quarter overhead angle.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI232",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di232/kwilt-recipe-hero-v2/54b7b9c1e7bc088a-31253855ecf6fd43/candidate-0.webp",
+      "altText": "Bowl of sesame ginger beef bowl: brown rice base topped with seasoned ground beef, green beans, shredded red cabbage and sliced scallions on a wooden table.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI233",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di233/kwilt-recipe-hero-v2/b74eff6256a2ec81-4f4dc1be8a1800a0/candidate-0.webp",
+      "altText": "Plate with miso-glazed skin-on salmon fillet on a bed of fluffy rice, roasted baby bok choy halves and sliced roasted carrots, finished with toasted sesame seeds and a spooned miso sauce.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI234",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di234/kwilt-recipe-hero-v2/e7b3a71313f54b14-0b4beae2bf901b74/candidate-0.webp",
+      "altText": "Bowl of scallion jasmine rice topped with glossy seared pork slices, charred sugar snap peas and shaved carrot ribbons, finished with thinly sliced scallions and a ponzu-like glaze.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI235",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di235/kwilt-recipe-hero-v2/828b395566c658b0-775e38c1bff4500b/candidate-0.webp",
+      "altText": "Single butter lettuce cup filled with seasoned ground turkey, sliced red bell pepper, and fresh basil leaves on a plate with jasmine rice alongside; small bowls of soy sauce, lime juice, brown sugar, and extra basil sit nearby on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI236",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di236/kwilt-recipe-hero-v2/eace0ae042d1892b-d41e966251230418/candidate-0.webp",
+      "altText": "Bowl of coconut curry shrimp noodles with large shrimp, flat rice noodles, red bell pepper strips, wilted spinach and cilantro in a glossy orange coconut curry sauce on a wooden table.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI237",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di237/kwilt-recipe-hero-v2/45222db1a1e2fc8e-98439a0e742c744a/candidate-0.webp",
+      "altText": "Single bowl of lemongrass chicken vermicelli: rice vermicelli noodles topped with sliced lemongrass-seasoned chicken, matchstick cucumbers and carrots, and fresh mint and cilantro, arranged in a modern ceramic bowl on a light surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI238",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di238/kwilt-recipe-hero-v2/3f1b946f2815df0c-e67114b954e88d71/candidate-1.webp",
+      "altText": "Shallow bowl of tamarind beef and broccoli noodles: wide rice noodles tossed in a glossy brown sauce with seared beef strips, broccoli florets, thin red pepper strips and fresh cilantro on top, photographed in natural light.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 1,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI239",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di239/kwilt-recipe-hero-v2/e58e6cdb1a53a4da-1842ca903f11d6fd/candidate-0.webp",
+      "altText": "Bowl of coconut jasmine rice, caramelized sweet‑soy glazed tofu cubes, sautéed lacinato kale with thin red bell pepper strips, and chopped peanuts sprinkled on top.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI240",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di240/kwilt-recipe-hero-v2/74de96a8bd26a919-e27b0033fd6bc4fb/candidate-0.webp",
+      "altText": "Three-quarter view of a single peanut chicken satay bowl: sliced turmeric chicken with peanut sauce over rice, sautéed green beans, thin cucumber slices, and a small bunch of cilantro in a ceramic bowl on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI241",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di241/kwilt-recipe-hero-v2/39872d63342310a0-bdd3b411b6400003/candidate-0.webp",
+      "altText": "Plate of harissa-coated chicken pieces on a bed of whole-wheat couscous with zucchini half-moons, red onion wedges, chopped apricots and dollops of yogurt, photographed in natural light.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI242",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di242/kwilt-recipe-hero-v2/29d4dacfb4450242-734807ae7036df93/candidate-0.webp",
+      "altText": "Large oval platter with four herby chermoula-topped cod fillets on a bed of whole-wheat couscous, surrounded by roasted cherry tomatoes, zucchini half-moons and toasted sliced almonds, finished with chopped herbs and a drizzle of oil.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI243",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di243/kwilt-recipe-hero-v2/ae17b0e79c5c4042-4d037db54b16a754/candidate-0.webp",
+      "altText": "Bowl of za’atar-seasoned roasted chicken thighs on a bed of pearled farro with roasted cauliflower florets and red onion wedges, drizzled with yogurt sauce and garnished with fresh parsley.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI244",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di244/kwilt-recipe-hero-v2/a396ac84d46c938b-d7386f03d1629771/candidate-0.webp",
+      "altText": "Single bowl with a bed of cooked bulgur-like grains, a central portion of sumac-spiced ground beef drizzled with tahini and scattered mint leaves, and roasted carrot batons with wilted spinach on the side.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI245",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di245/kwilt-recipe-hero-v2/7c2175dda30ad719-4b9a080e15c9737a/candidate-0.webp",
+      "altText": "Roasted salmon fillet topped with chopped Kalamata olive relish, served with roasted halved baby potatoes, blistered cherry tomatoes and green beans, finished with chopped parsley on a plate.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI246",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di246/kwilt-recipe-hero-v2/1066919f49b37d80-8827b49c6ec2d846/candidate-0.webp",
+      "altText": "Shallow ceramic bowl of Greek turkey meatballs on whole-wheat orzo with cherry tomatoes and wilted spinach, a dollop of tzatziki, crumbled feta, and a drizzle of olive oil on a wooden table.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI247",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di247/kwilt-recipe-hero-v2/d026959d7730232d-994f5789524401bc/candidate-0.webp",
+      "altText": "Plate of roasted chickpeas with zucchini half-moons and red bell pepper strips, topped with crumbled feta; warm whole-wheat pitas stacked beside the plate and a small bowl of herb-lemon olive oil dressing on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI248",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di248/kwilt-recipe-hero-v2/e56113f81046bca8-7817dfbb1c198145/candidate-0.webp",
+      "altText": "Shallow modern plate holding golden-browned chicken cutlets with cannellini beans, blistered cherry tomatoes, wilted spinach, grated Parmesan and rosemary in a glossy light sauce.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI249",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di249/kwilt-recipe-hero-v2/747717cce8298f3c-243ef85ef90f2f81/candidate-0.webp",
+      "altText": "Bowl of pearled farro topped with browned basil turkey meatballs, blistered cherry tomatoes, green beans, dollops of pesto and a sprinkle of grated Parmesan, photographed in warm natural light.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI250",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di250/kwilt-recipe-hero-v2/939f3b5921fc3723-83096fd28b9d0df4/candidate-0.webp",
+      "altText": "Bowl of creamy tomato tortellini with spinach and sliced cremini mushrooms in a glossy tomato-cream sauce, topped with torn basil; sliced whole-grain bread on a plate and a small bowl of basil in the background.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI251",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di251/kwilt-recipe-hero-v2/81ee78f80caf7960-a79facf89154a86e/candidate-0.webp",
+      "altText": "Shallow speckled plate with a single serving of smoky paprika chicken and peppers: browned chicken pieces and red and yellow bell pepper strips, cherry tomatoes and sliced green olives in a glossy paprika sauce, served on a bed of short-grain brown rice on a warm surface in natural light.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI252",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di252/kwilt-recipe-hero-v2/9533ece565528b36-940f01da4caa4044/candidate-0.webp",
+      "altText": "Three-quarter view of a bowl with romesco-coated shrimp on whole-wheat couscous, roasted zucchini half-moons, green beans, roasted red peppers, chopped toasted almonds and parsley.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI253",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di253/kwilt-recipe-hero-v2/c0e58b97549c57aa-5dfa49a58b4c1728/candidate-0.webp",
+      "altText": "White bowl of Provençal chicken with lentils: herbed chicken pieces, French green lentils, diced tomatoes, carrot half-moons and Niçoise olives in a tomato-broth, served on a neutral surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI254",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di254/kwilt-recipe-hero-v2/9243cf8f4bdd9402-69531fd55bb1e611/candidate-0.webp",
+      "altText": "Plate of Dijon pork medallions with halved baby potatoes, thinly sliced green cabbage and apple slices tossed in a glossy mustard sauce, garnished with fresh parsley.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI255",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di255/kwilt-recipe-hero-v2/067ba77b6029c2ef-0018fe0e058e375c/candidate-0.webp",
+      "altText": "A large shallow bowl with roasted maple-mustard glazed chicken thighs nestled on a bed of caramelized Brussels sprouts, sweet potato wedges and red onion wedges, sprinkled with chopped toasted pecans and a glossy grainy mustard glaze.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI256",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di256/kwilt-recipe-hero-v2/cc582d74c1396116-0dc8d7ac58b0856a/candidate-0.webp",
+      "altText": "Plate with sliced hot-honey glazed chicken breast, roasted halved baby potatoes, and creamy shredded cabbage-and-carrot ranch slaw, garnished with sliced scallions and chili flakes.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI257",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di257/kwilt-recipe-hero-v2/00d8be20ef8206d2-5822d8bd0b230e3d/candidate-0.webp",
+      "altText": "White plate of roasted sweet potato halves stuffed with BBQ-seasoned ground beef and melted cheddar, garnished with sliced scallions and surrounded by roasted broccoli florets and red onion on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI258",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di258/kwilt-recipe-hero-v2/1b1bb88831bd1db1-6271a7988a996dac/candidate-0.webp",
+      "altText": "Single bowl of buffalo chickpea quinoa: quinoa base with roasted chickpeas in buffalo sauce, sautéed celery slices, shaved carrot ribbons, a dollop of Greek yogurt and crumbled blue cheese on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI259",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di259/kwilt-recipe-hero-v2/e4b4cd6eb13842b9-52c61eb7efaf8943/candidate-0.webp",
+      "altText": "Four Cajun-spiced salmon fillets on a bed of brown rice, corn kernels and diced red bell pepper, finished with chopped parsley and a glossy sauce.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI260",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di260/kwilt-recipe-hero-v2/7b42914df6a0a2da-07af212a62400ff0/candidate-0.webp",
+      "altText": "Bowl of brown rice topped with Creole-style ground turkey mixed with diced green bell pepper, celery, tomato chunks and sliced scallions on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI261",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di261/kwilt-recipe-hero-v2/4ecf71cba5e93cfa-f985c8ab2e3a9ead/candidate-0.webp",
+      "altText": "Cookbook-style bowl of chipotle-glazed sliced chicken over brown rice with charred corn and black beans, a dollop of white yogurt sauce topped with red chipotle, crumbled cotija, and lime wedges.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI262",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di262/kwilt-recipe-hero-v2/61e70662f862966e-8f742bc3d9e69a71/candidate-0.webp",
+      "altText": "Shallow off-white bowl with sliced pork medallions topped in green salsa and cilantro, sautéed poblano strips, a mound of brown rice, and a serving of pinto beans on a wooden surface",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI263",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di263/kwilt-recipe-hero-v2/983c17fae39822f4-9f3bcc84dc306c78/candidate-0.webp",
+      "altText": "Single bowl of crispy black bean tostada bowl with black beans, crispy tortilla strips, shredded green and purple cabbage, grilled corn, a dollop of yogurt sprinkled with cumin, and diced avocado, on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI264",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di264/kwilt-recipe-hero-v2/717bfe98a351052f-ee711aad2baee22e/candidate-0.webp",
+      "altText": "Plate with charred mojo chicken glazed with citrus-herb sauce, a mound of brown rice mixed with black beans, and sliced charred red and yellow bell peppers, garnished with cilantro on a neutral surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI265",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di265/kwilt-recipe-hero-v2/c24971fe368138d4-7a31f8917fc2cc78/candidate-0.webp",
+      "altText": "Single bowl of quinoa topped with spiced ground turkey, pineapple chunks, black beans and sliced scallions, with lime wedges on the side.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI266",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di266/kwilt-recipe-hero-v2/053061deb120a9d2-6e537d71bf8eca9c/candidate-1.webp",
+      "altText": "Plate with four coconut-crusted tilapia fillets drizzled with sauce, a heap of shredded cabbage mixed with diced mango, roasted plantain slices, lime wedges and scattered cilantro on a light round plate over a wooden surface",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 1,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI267",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di267/kwilt-recipe-hero-v2/e15f6c2e74784240-a8c5e7cb2c90f0b8/candidate-0.webp",
+      "altText": "Sliced seared steak with green chimichurri and toasted pumpkin seeds on a bed of pearled farro, accompanied by roasted delicata squash rings and blistered cherry tomatoes on a ceramic plate.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI268",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di268/kwilt-recipe-hero-v2/1436f80c6e63e79f-62e570d56fc793a7/candidate-0.webp",
+      "altText": "A single serving of Aji amarillo chicken: three golden, sauced chicken cutlets on a bed of quinoa, surrounded by crisp green beans and halved cherry tomatoes, finished with cilantro leaves and a lime wedge on a shallow white plate.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI269",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di269/kwilt-recipe-hero-v2/9750df47cef017ba-f4ad1570d2f2be8d/candidate-0.webp",
+      "altText": "Single bowl of Brazilian-style beef and collard bowl: sliced grilled beef topped with a garlicky sauce, brown rice, black beans, sautéed thinly sliced collards, and three orange wedges, photographed in natural light on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI270",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di270/kwilt-recipe-hero-v2/49d664f8bae901d6-bf0047b24555e3c2/candidate-0.webp",
+      "altText": "Single bowl of cilantro-lime tofu with brown rice, crisp cubed tofu, roasted corn and sliced red peppers, diced avocado, and a green cilantro-lime sauce drizzled on top.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI271",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di271/kwilt-recipe-hero-v2/43becc41a8aa7448-bc4e412096654a23/candidate-0.webp",
+      "altText": "Shallow bowl with sliced tandoori-spiced chicken thighs draped with a herbed yogurt sauce, sitting on a bed of brown lentils, served with roasted cauliflower florets and diced cucumber, finished with cilantro leaves.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI272",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di272/kwilt-recipe-hero-v2/99446c3b48882664-57ff3c887a79a4c6/candidate-0.webp",
+      "altText": "Bowl of coconut-tomato chickpea curry with chickpeas, diced tomatoes, and spinach in a creamy sauce, topped with fresh cilantro and a lime wedge, served alongside brown basmati rice on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI273",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di273/kwilt-recipe-hero-v2/6381f3fc2f0df5d4-34673c42d4229c95/candidate-0.webp",
+      "altText": "Bowl of brown basmati rice topped with ginger turkey keema with peas and diced tomatoes, a central dollop of yogurt and sprinkled cilantro on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI274",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di274/kwilt-recipe-hero-v2/8b52932921cf7456-4c8707803742aec6/candidate-0.webp",
+      "altText": "Four turmeric-coated salmon fillets on a bed of brown basmati rice with spinach and halved cherry tomatoes, finished with a dollop of lemon-yogurt sauce and scattered cilantro on a shallow ceramic plate.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI275",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di275/kwilt-recipe-hero-v2/c204c93f837dab8b-95a846d81ef59ee2/candidate-2.webp",
+      "altText": "Berbere-spiced chicken with chickpeas, carrots, greens, rice, lemon, and parsley.",
+      "width": 1536,
+      "height": 1024,
+      "model": "codex-built-in-imagegen",
+      "candidateIndex": 2,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI276",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di276/kwilt-recipe-hero-v2/5ebcc9b4da0eded9-37821eb1c8e1ac08/candidate-0.webp",
+      "altText": "Bowl of peanut sweet potato lentil stew: orange sweet potato cubes, softened red lentils and diced tomatoes in a creamy reddish-orange sauce with wilted spinach and cilantro leaves on top, shot from a three-quarter overhead view on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI277",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di277/kwilt-recipe-hero-v2/b79e2b40bb9d664b-df2192b643273407/candidate-0.webp",
+      "altText": "Single bowl of Suya-spiced sliced beef over tomato rice with sautéed red and yellow bell peppers, shredded cabbage, drizzled peanut sauce with crushed peanuts, scattered sliced scallions, and a lime wedge.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI278",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di278/kwilt-recipe-hero-v2/fc40e58ab05c8324-538c3035582d6df7/candidate-1.webp",
+      "altText": "Shallow white bowl of whole-wheat couscous topped with spiced ground turkey, diced zucchini, chickpeas and chopped dried apricots, on a neutral surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 1,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI279",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di279/kwilt-recipe-hero-v2/aefa47a6d2c988b0-62a5a29190b29ee3/candidate-1.webp",
+      "altText": "A single serving bowl with a dukkah-crusted salmon fillet resting on a bed of brown lentils, roasted carrot batons and charred red onion wedges to the side, drizzles of yogurt sauce and scattered chopped parsley; a small bowl of parsley sits at top left and a small dish of yogurt with olive oil is at bottom right.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 1,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI280",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di280/kwilt-recipe-hero-v2/3fc061f46b640f99-f67df8ef48674b94/candidate-0.webp",
+      "altText": "White platter with charred peri‑peri glazed chicken thighs on a warm cannellini bean salad with roasted cherry tomatoes, red and yellow bell pepper strips and chopped parsley.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI281",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di281/kwilt-recipe-hero-v2/d1df8de79992d5d0-d69164f76494decf/candidate-0.webp",
+      "altText": "Plate of honey-garlic glazed pork slices and sesame cabbage with carrot matchsticks served over brown rice, finished with toasted sesame seeds.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI282",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di282/kwilt-recipe-hero-v2/6f607b8fc4e09157-cafcc4ecd8ba43d9/candidate-0.webp",
+      "altText": "Shallow ceramic bowl of black pepper beef with green beans and red bell pepper served on brown rice, topped with sliced scallions and coarse black pepper.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI283",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di283/kwilt-recipe-hero-v2/50e82218d35426b7-a9269b09b9c15c96/candidate-0.webp",
+      "altText": "Bowl of brown rice topped with crisp orange-glazed tofu cubes, roasted broccoli florets and sliced red bell pepper, finished with toasted sesame seeds.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI284",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di284/kwilt-recipe-hero-v2/bb628f14e7aff628-44792511cce3257b/candidate-0.webp",
+      "altText": "Single bowl of Sichuan-style turkey lettuce bowl: brown rice base topped with cooked ground turkey, browned chopped mushrooms, shaved carrot ribbons and butter lettuce leaves, drizzled with a dark sauce and toasted pepper specks, on a wooden table.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI285",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di285/kwilt-recipe-hero-v2/22d1b1465078b4ae-673d6041aaf2ffe0/candidate-0.webp",
+      "altText": "Bowl of brown rice topped with glazed teriyaki chicken pieces, caramelized pineapple chunks, roasted broccoli florets and sliced scallions in natural light.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI286",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di286/kwilt-recipe-hero-v2/544e5a263b6cb763-abcdce4d5bd6dd78/candidate-0.webp",
+      "altText": "Single bowl of Wasabi pea salmon rice: brown rice, a seared salmon fillet topped with a white yogurt-wasabi sauce and crushed wasabi peas, diced cucumber and shredded red cabbage, on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI287",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di287/kwilt-recipe-hero-v2/ae5d68551688208e-28b891cc4d634f20/candidate-0.webp",
+      "altText": "Three-quarter view of a single bowl of kimchi turkey fried rice — glossy brown rice mixed with crumbled turkey, bright green peas, and chunks of kimchi, finished with thinly sliced scallions in a speckled shallow bowl on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI288",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di288/kwilt-recipe-hero-v2/e4f8ab10881a48d9-9adafb654e51983a/candidate-0.webp",
+      "altText": "Bowl of spicy sesame mushroom noodles: whole-wheat noodles tossed with crumbled tofu, sliced browned mushrooms, wilted spinach and cabbage in a glossy red sesame–gochujang sauce, sprinkled with toasted sesame seeds, on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI289",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di289/kwilt-recipe-hero-v2/85948287ba61d2c0-4d3779a83e281af2/candidate-0.webp",
+      "altText": "Bowl of brown rice topped with shredded red cabbage, carrot matchsticks and glossy sliced pork, finished with thinly sliced scallions.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI290",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di290/kwilt-recipe-hero-v2/ee51b458bc5d9744-0057a53f7d52d117/candidate-0.webp",
+      "altText": "Bowl of ginger-scallion shrimp and brown rice: glossy sautéed shrimp on a bed of brown rice with baby bok choy, diagonal carrot slices, thinly sliced scallions and grated ginger, served in a shallow bowl on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI291",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di291/kwilt-recipe-hero-v2/d10e28dc8ccb8826-cc738eca4b6c30ab/candidate-0.webp",
+      "altText": "Sliced breaded katsu-style chicken breast drizzled with brown sauce and sprinkled with toasted sesame seeds, served with roasted sweet potato wedges and a sesame slaw of shredded cabbage and grated carrots on a light ceramic plate over a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI292",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di292/kwilt-recipe-hero-v2/f6f85bc40c79842f-fbbd041fa1138261/candidate-0.webp",
+      "altText": "Bowl with three caramelized tofu slices glazed in a sticky Korean-style sauce, fluffy brown rice, roasted broccoli florets, and a shredded cabbage and grated-pear slaw finished with sliced scallions.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI293",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di293/kwilt-recipe-hero-v2/bc45b676cbbc5296-b7df66e0ea9a0e6b/candidate-0.webp",
+      "altText": "Single bowl of pho-spiced beef noodle bowl with rice noodles, thin-sliced beef, baby bok choy, bean sprouts and mixed basil and cilantro on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI294",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di294/kwilt-recipe-hero-v2/3bac8028237af4e5-4f00cd12d16b11c6/candidate-0.webp",
+      "altText": "Speckled white bowl of Vietnamese-style caramel tofu: glossy cubed tofu, green beans and sliced red bell pepper piled over brown rice, finished with cilantro, on a wooden table.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI295",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di295/kwilt-recipe-hero-v2/9627b478bbe6ff32-c3d27b858c84c74b/candidate-1.webp",
+      "altText": "Bowl of lemongrass pork with coconut rice: sliced grilled pork arranged over jasmine rice, carrot ribbons and thin cucumber slices on the sides, minced herb-garlic topping on the pork and fresh mint leaves scattered on top.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 1,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI296",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di296/kwilt-recipe-hero-v2/3820dcf52679972d-d1f3697c6d8f36d6/candidate-0.webp",
+      "altText": "Bowl of Thai peanut tofu noodle salad with browned tofu cubes on top of rice noodles, shredded red cabbage, cucumber matchsticks, glossy peanut sauce, and cilantro leaves.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI297",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di297/kwilt-recipe-hero-v2/2866c00796d879aa-08b4686eaccb8609/candidate-0.webp",
+      "altText": "Bowl of brown rice topped with glossy red-curry ground turkey, 2-inch green beans, sliced red bell pepper, and fresh basil leaves.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI298",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di298/kwilt-recipe-hero-v2/03e0f087d0746060-dd02083b7a4543e1/candidate-0.webp",
+      "altText": "Bowl of Filipino-style adobo chicken over brown rice with sautéed lacinato kale, sliced carrots, and scallions, the chicken glazed and glossy.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI299",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di299/kwilt-recipe-hero-v2/085b4f0567343e61-e288925f09d269bc/candidate-0.webp",
+      "altText": "A large shallow bowl of calamansi turkey pancit: glossy rice noodles tossed with crumbled turkey, shredded cabbage, and carrot matchsticks, finished with thinly sliced scallions. Small dishes at the side hold halved calamansi, soy sauce, and grated ginger on a warm wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI300",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di300/kwilt-recipe-hero-v2/f39a99ea900e9ef9-9cae3c44aec3158c/candidate-0.webp",
+      "altText": "Bowl with four cooked cod fillets in a creamy coconut-ginger broth with chopped baby bok choy and cherry tomatoes, served alongside brown rice and topped with cilantro on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI301",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di301/kwilt-recipe-hero-v2/a929058ce6b1f632-62ec06b5301083c5/candidate-0.webp",
+      "altText": "Bowl of turmeric quinoa topped with sliced shawarma-spiced chicken, roasted cauliflower florets and red onion wedges, drizzled tahini sauce and sprinkled parsley on a neutral surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI302",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di302/kwilt-recipe-hero-v2/7ae9a852e6014640-583326f32f39078e/candidate-1.webp",
+      "altText": "A single bowl of falafel-spiced chickpea bowl: browned spiced chickpeas topped with tahini and chopped parsley, beside a portion of cooked grains, halved cherry tomatoes, and diced cucumber on a neutral surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 1,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI303",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di303/kwilt-recipe-hero-v2/6ff706f5310ae0d9-8a95a1bdf37cf3a3/candidate-1.webp",
+      "altText": "Three-quarter view of a shallow white bowl with a bed of tomato-colored bulgur topped with spiced ground beef, diced red and yellow peppers, wilted spinach, a central dollop of yogurt, and fresh mint leaves scattered on top.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 1,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI304",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di304/kwilt-recipe-hero-v2/b854ed4da6827993-555efb95c99b5f72/candidate-0.webp",
+      "altText": "Bowl of pearled farro topped with three sliced pomegranate-glazed chicken cutlets, trimmed green beans, bias-cut carrot slices and chopped toasted walnuts, plated in natural light.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI305",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di305/kwilt-recipe-hero-v2/e9094a8ee33dc5c6-ec62a9acab635ed8/candidate-0.webp",
+      "altText": "Large plate with four saffron-glazed salmon fillets topped with yogurt and saffron threads, served on a bed of herb-flecked brown basmati rice with roasted asparagus and charred red onion wedges, garnished with dill and parsley.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI306",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di306/kwilt-recipe-hero-v2/703814b4141d6e73-065862c7b8b719b7/candidate-1.webp",
+      "altText": "A shallow platter of halloumi with harissa lentils: eight golden-seared halloumi slabs arranged over a glossy bed of brown lentils, scattered zucchini half-moons, cherry tomatoes, and fresh mint leaves.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 1,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI307",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di307/kwilt-recipe-hero-v2/d2ae9c1c4782db43-78502d3e78eb2926/candidate-0.webp",
+      "altText": "Bowl of lemon-oregano shrimp on whole-wheat orzo with cherry tomatoes, wilted spinach and crumbled feta, finished with a glossy herb sauce.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI308",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di308/kwilt-recipe-hero-v2/87bb038afd1468e1-f2e40a3ddc4bbd7f/candidate-0.webp",
+      "altText": "White shallow bowl with a single serving of balsamic-glazed sliced chicken breast on a ring of creamy polenta, surrounded by sautéed sliced cremini mushrooms and wilted spinach, finished with a glossy brown sauce and shredded Parmesan on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI309",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di309/kwilt-recipe-hero-v2/ee0f82dc48443253-0c906e5d73a6e518/candidate-0.webp",
+      "altText": "Shallow white bowl of sage turkey with apple farro: pearled farro mixed with browned ground turkey, diced red-skinned apple cubes, chopped dark kale and a sprinkle of grated Parmesan, glossy finish, on a neutral cloth and wooden table.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI310",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di310/kwilt-recipe-hero-v2/eb3924c627f3813d-fe528e28ef51fd3f/candidate-0.webp",
+      "altText": "Plate of roasted Caprese chicken cutlets on a bed of cannellini beans with blistered cherry tomatoes, green beans, spooned pesto, and torn fresh mozzarella.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI311",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di311/kwilt-recipe-hero-v2/e4e3497f7acf3666-9abfce9b98a31862/candidate-0.webp",
+      "altText": "Platter with four roasted mustard‑herb salmon fillets on a bed of halved baby potatoes and green beans, garnished with thin radish slices, whole‑grain mustard sauce and fresh dill.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI312",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di312/kwilt-recipe-hero-v2/3bcaea892cdffbfe-79b7bb32b295b323/candidate-0.webp",
+      "altText": "A single bowl of dill chicken with beet barley: sliced browned chicken breast over a bed of barley, beet wedges and baby kale, topped with a dollop of dill-flecked yogurt and toasted sunflower seeds.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI313",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di313/kwilt-recipe-hero-v2/e0a7dfbf6e92624a-def7efa4da2bb41c/candidate-0.webp",
+      "altText": "Shallow ceramic bowl of paprika pork with cabbage noodles: seared pork medallions tossed with whole‑wheat egg noodles, thinly sliced green cabbage and red bell pepper strips in a glossy sauce, finished with chopped parsley, on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI314",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di314/kwilt-recipe-hero-v2/d36664a9a56a3245-7411f7351084ec38/candidate-0.webp",
+      "altText": "Bowl of mushroom stroganoff: whole‑wheat egg noodles tossed with browned sliced mushrooms, translucent onion slices, wilted spinach and a glossy creamy sauce, finished with sprigs of fresh dill on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI315",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di315/kwilt-recipe-hero-v2/f0cad026ae83673b-2c08c90a479efa8d/candidate-0.webp",
+      "altText": "Shallow white bowl of cider-glazed roasted chicken thighs with halved baby potatoes, carrot and parsnip batons, spooned sauce and scattered fresh thyme and chopped parsley on a wooden surface",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI316",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di316/kwilt-recipe-hero-v2/3082af0c97e7759c-52bcb386f3ab08c3/candidate-0.webp",
+      "altText": "Three-quarter view of a cast-iron skillet cottage pie with a golden-browned cheddar and mashed potato topping; a wedge removed reveals ground turkey, green peas and diced carrots in a saucy filling.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI317",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di317/kwilt-recipe-hero-v2/3e2d8bca365163cc-c994d925e8ae1ce1/candidate-0.webp",
+      "altText": "Bowl of pearled farro topped with two Aleppo-spiced roasted chicken thighs, roasted red grapes, halved Brussels sprouts, dollops of yogurt and chopped toasted walnuts.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI318",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di318/kwilt-recipe-hero-v2/1328572a31ac0649-e045c938ffc27f55/candidate-0.webp",
+      "altText": "Shallow bowl of roasted garlic cod and white beans: four roasted cod fillets on a bed of cannellini beans, roasted cherry tomatoes and baby kale, finished with chopped parsley and a glossy garlic-lemon sauce, on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI319",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di319/kwilt-recipe-hero-v2/e30e8acf9d333e25-0f76ad9895653a2f/candidate-0.webp",
+      "altText": "Bowl of sun-dried tomato chicken quinoa: sliced chicken breast over a quinoa base with zucchini half-moons, baby spinach, sun-dried tomato pieces and crumbled feta, plated in a shallow white bowl on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI320",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di320/kwilt-recipe-hero-v2/00663661ae4544b9-ae3d9d11892f6927/candidate-0.webp",
+      "altText": "Skillet of basil white bean and zucchini skillet with farro, cannellini beans, zucchini half-moons, cherry tomatoes, and fresh basil leaves, served in a light-colored pan on a cloth.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI321",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di321/kwilt-recipe-hero-v2/1af317284693db59-9b809416f948eb09/candidate-0.webp",
+      "altText": "Single Green Goddess chicken grain bowl: sliced herby grilled chicken over tri-color quinoa with browned broccoli florets, diced cucumber, creamy green herb dressing and toasted sunflower seeds in a neutral shallow bowl.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI322",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di322/kwilt-recipe-hero-v2/a00deefba6e9f525-e2e6965ac92fec81/candidate-0.webp",
+      "altText": "Single bowl with brown rice, an everything-seasoned salmon fillet, diced cucumber, halved cherry tomatoes, diced avocado, and a spoonful of Greek yogurt drizzled with olive oil on a neutral surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI323",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di323/kwilt-recipe-hero-v2/8414988dbeed2c17-4757bd23abd1524d/candidate-1.webp",
+      "altText": "Bowl of Southwest turkey quinoa skillet: quinoa and spiced ground turkey mixed with black beans, corn and red peppers in a glossy salsa, topped with diced avocado, served in a shallow ceramic bowl on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 1,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI324",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di324/kwilt-recipe-hero-v2/5d41dda1a40b4582-a086e4f42fd0b5f6/candidate-0.webp",
+      "altText": "Single plate of sliced smoky glazed chicken thigh atop a bed of quinoa with roasted broccoli florets, blistered cherry tomatoes and shredded cheddar on a light ceramic plate",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI325",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di325/kwilt-recipe-hero-v2/6433abc8fa50d2fe-e656725c0f759663/candidate-0.webp",
+      "altText": "Bowl of lemon pepper shrimp and pearled farro with asparagus pieces, green peas and crumbled feta, shrimp topped with coarsely ground black pepper and a glossy sauce.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI326",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di326/kwilt-recipe-hero-v2/36c44098fd37bd2c-f3904984a4f4bb3d/candidate-0.webp",
+      "altText": "Bowl of roasted red pepper turkey penne: whole-wheat penne tossed with crumbled turkey, roasted red pepper strips, wilted spinach and a glossy red-pepper cream sauce, finished with grated Parmesan, on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI327",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di327/kwilt-recipe-hero-v2/95c9384c770674b9-3f27e48cc8783125/candidate-0.webp",
+      "altText": "Bowl of creamy pesto-coated whole-wheat rotini with chickpeas, broccoli florets, cherry tomatoes, and grated Parmesan on a wooden table",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI328",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di328/kwilt-recipe-hero-v2/29b3966ce1acfce3-f9fba9fe74059be2/candidate-0.webp",
+      "altText": "Single bowl of lemon-dill turkey meatball bowl: brown rice base topped with five browned turkey meatballs, diced cucumber, halved cherry tomatoes, a dollop of dill Greek yogurt, crumbled feta, and fresh dill, on a neutral surface with natural light.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI329",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di329/kwilt-recipe-hero-v2/35d0f9001cd73acd-466a6763e5275615/candidate-0.webp",
+      "altText": "Three-quarter overhead view of a single bowl of balsamic mushroom lentil bowl: pearled farro, brown lentils topped with a mustardy balsamic dressing, sautéed sliced cremini mushrooms, roasted carrot batons, wilted spinach and crumbled goat cheese, on a wooden surface.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    },
+    {
+      "rosterId": "DI330",
+      "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di330/kwilt-recipe-hero-v2/6a39fe8fc77c1904-ba938e1bc6a35f05/candidate-0.webp",
+      "altText": "Single bowl of Tahini sweet potato quinoa: quinoa base topped with cubed roasted sweet potatoes, crispy roasted chickpeas, fresh kale, drizzled tahini sauce and toasted pumpkin seeds.",
+      "width": 1536,
+      "height": 1024,
+      "model": "gpt-image-2-2026-04-21",
+      "candidateIndex": 0,
+      "publishedAt": "2026-08-24T13:45:00.000Z"
+    }
+  ]
+}

@@ -36,6 +36,9 @@ eas_cloud_logs/
 # generated App Store screenshot exports
 app-store-screenshots/
 
+# generated recipe-image review artifacts (published media is authoritative)
+/artifacts/recipe-catalog-media/
+
 # local credentials (never commit)
 credentials.json
 

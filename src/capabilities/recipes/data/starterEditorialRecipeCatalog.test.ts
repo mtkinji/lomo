@@ -3,7 +3,7 @@ import { STARTER_EDITORIAL_RECIPE_CATALOG } from "./starterEditorialRecipeCatalo
 
 describe("staging starter editorial recipe catalog", () => {
   it("contains the authored roster entries in exact continuous order", () => {
-    expect(STARTER_EDITORIAL_RECIPE_CATALOG).toHaveLength(500);
+    expect(STARTER_EDITORIAL_RECIPE_CATALOG).toHaveLength(600);
     expect(
       STARTER_EDITORIAL_RECIPE_CATALOG.map((recipe) => recipe.rosterId),
     ).toEqual([
@@ -16,7 +16,7 @@ describe("staging starter editorial recipe catalog", () => {
         (_, index) => `LU${String(index + 1).padStart(3, "0")}`,
       ),
       ...Array.from(
-        { length: 230 },
+        { length: 330 },
         (_, index) => `DI${String(index + 1).padStart(3, "0")}`,
       ),
       ...Array.from(
@@ -78,7 +78,7 @@ describe("staging starter editorial recipe catalog", () => {
     expect(countBy("category")).toEqual({
       "Breakfast & brunch": 90,
       "Lunch & handhelds": 85,
-      Dinner: 230,
+      Dinner: 330,
       "Soups & stews": 15,
       "Salads & bowls": 10,
       "Appetizers & snacks": 10,
@@ -87,27 +87,27 @@ describe("staging starter editorial recipe catalog", () => {
       Desserts: 30,
     });
     expect(countBy("tier")).toEqual({
-      "household-anchor": 228,
-      "cuisine-anchor": 231,
+      "household-anchor": 298,
+      "cuisine-anchor": 261,
       discovery: 41,
     });
   });
 
-  it("contains 500 distinct recipe bodies and complete appetite and story copy", () => {
+  it("contains 600 distinct recipe bodies and complete appetite and story copy", () => {
     expect(
       new Set(
         STARTER_EDITORIAL_RECIPE_CATALOG.map((recipe) =>
           recipe.ingredients.join("\n").toLocaleLowerCase(),
         ),
       ).size,
-    ).toBe(500);
+    ).toBe(600);
     expect(
       new Set(
         STARTER_EDITORIAL_RECIPE_CATALOG.map((recipe) =>
           recipe.instructions.join("\n").toLocaleLowerCase(),
         ),
       ).size,
-    ).toBe(500);
+    ).toBe(600);
     expect(
       STARTER_EDITORIAL_RECIPE_CATALOG.every(
         (recipe) =>
@@ -119,7 +119,7 @@ describe("staging starter editorial recipe catalog", () => {
     ).toBe(true);
   });
 
-  it("keeps discovery meals a small layer and records at least 1,500 sources", () => {
+  it("keeps discovery meals a small layer and records at least 1,800 sources", () => {
     const discoveryCount = STARTER_EDITORIAL_RECIPE_CATALOG.filter(
       (recipe) => recipe.tier === "discovery",
     ).length;
@@ -131,6 +131,6 @@ describe("staging starter editorial recipe catalog", () => {
     expect(
       discoveryCount / STARTER_EDITORIAL_RECIPE_CATALOG.length,
     ).toBeLessThan(0.1);
-    expect(sourceCount).toBeGreaterThanOrEqual(1_500);
+    expect(sourceCount).toBeGreaterThanOrEqual(1_800);
   });
 });

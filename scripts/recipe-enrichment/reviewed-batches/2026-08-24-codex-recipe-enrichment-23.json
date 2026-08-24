@@ -1,0 +1,5108 @@
+{
+  "schemaVersion": 2,
+  "source": "kwilt-codex-reviewed-recipe-enrichment",
+  "batchId": "recipe-enrichment-23",
+  "manifestHash": "sha256:ac43a457b478b6b90a3d5e110a53050651bbf38461432aa2d3471a49e158e0b1",
+  "recipes": [
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI281",
+      "sourceRecipeHash": "sha256:eb1619c1ae22bc26f9d82670392cdc9c958962939d660f11e1c73e14a1f8e20f",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds pork tenderloin, thinly sliced",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "pork tenderloin",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "4 cups thinly sliced green cabbage",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "thinly sliced green cabbage",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 carrots, cut into matchsticks",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "cut into matchsticks",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons low-sodium soy sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon honey",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "honey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 cloves garlic, grated",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "clove",
+          "ingredientConcept": "garlic",
+          "preparation": "grated",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "2 teaspoons toasted sesame seeds",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "toasted sesame seeds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "honey-garlic-pork-with-sesame-cabbage-di281",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Chinese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Honey garlic pork with sesame cabbage is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Chinese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di281/kwilt-recipe-hero-v2/d1df8de79992d5d0-d69164f76494decf/candidate-0.webp",
+        "altText": "Plate of honey-garlic glazed pork slices and sesame cabbage with carrot matchsticks served over brown rice, finished with toasted sesame seeds.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI282",
+      "sourceRecipeHash": "sha256:7dc0f0c59973298e1ac6a5bed6884650c0b10c0f1522cf4b113cdf6a33dc61d3",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds flank steak, thinly sliced across the grain",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "flank steak",
+          "preparation": "thinly sliced across the grain",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "10 ounces green beans, cut into 2-inch pieces",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "green beans",
+          "preparation": "cut into 2-inch pieces",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 red bell pepper, thinly sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "red bell pepper",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons low-sodium soy sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon rice vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "rice vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 teaspoon coarsely ground black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "coarsely ground black pepper",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "4 scallions, thinly sliced",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "black-pepper-beef-with-green-beans-di282",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Chinese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Black pepper beef with green beans is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Chinese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di282/kwilt-recipe-hero-v2/6f607b8fc4e09157-cafcc4ecd8ba43d9/candidate-0.webp",
+        "altText": "Shallow ceramic bowl of black pepper beef with green beans and red bell pepper served on brown rice, topped with sliced scallions and coarse black pepper.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI283",
+      "sourceRecipeHash": "sha256:01c640e08fb1a6834a45dce60935aebff95d2b599fe36ac97f0acde1b28ba2e9",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 packages (14 ounces each) extra-firm tofu, pressed and cubed",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(14 ounces each) extra-firm tofu",
+          "preparation": "pressed and cubed",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "12 ounces broccoli florets",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "broccoli florets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 red bell pepper, sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "red bell pepper",
+          "preparation": "sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/3 cup orange juice",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "orange juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons low-sodium soy sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon rice vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "rice vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "2 teaspoons toasted sesame seeds",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "toasted sesame seeds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "orange-tofu-with-roasted-broccoli-di283",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Chinese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Orange tofu with roasted broccoli is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Chinese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di283/kwilt-recipe-hero-v2/50e82218d35426b7-a9269b09b9c15c96/candidate-0.webp",
+        "altText": "Bowl of brown rice topped with crisp orange-glazed tofu cubes, roasted broccoli florets and sliced red bell pepper, finished with toasted sesame seeds.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI284",
+      "sourceRecipeHash": "sha256:f898f014e885b60b3d049bbc3b92bf4dadbc4adf7eb02c4dd0718109a44fbe37",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds ground turkey",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "ground turkey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "8 ounces cremini mushrooms, chopped",
+          "quantityMin": 8,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "cremini mushrooms",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 heads butter lettuce, leaves separated",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "heads butter lettuce",
+          "preparation": "leaves separated",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons low-sodium soy sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon rice vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "rice vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 teaspoon Sichuan peppercorns, toasted and ground",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "sichuan peppercorns",
+          "preparation": "toasted and ground",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "3 carrots, shaved into ribbons",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "shaved into ribbons",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "sichuan-style-turkey-lettuce-bowls-di284",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Chinese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Sichuan-style turkey lettuce bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Chinese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di284/kwilt-recipe-hero-v2/bb628f14e7aff628-44792511cce3257b/candidate-0.webp",
+        "altText": "Single bowl of Sichuan-style turkey lettuce bowl: brown rice base topped with cooked ground turkey, browned chopped mushrooms, shaved carrot ribbons and butter lettuce leaves, drizzled with a dark sauce and toasted pepper specks, on a wooden table.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI285",
+      "sourceRecipeHash": "sha256:ed9904c4d36267844697abefa28d946d9772b85c23a0cc60b908d4bdd937feb7",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds boneless skinless chicken thighs",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "boneless skinless chicken thighs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "12 ounces broccoli florets",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "broccoli florets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 cups pineapple chunks",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "pineapple chunks",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "3 tablespoons low-sodium soy sauce",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon honey",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "honey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon rice vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "rice vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "4 scallions, thinly sliced",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "teriyaki-chicken-with-pineapple-broccoli-di285",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Japanese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Teriyaki chicken with pineapple broccoli is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Japanese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Japanese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di285/kwilt-recipe-hero-v2/22d1b1465078b4ae-673d6041aaf2ffe0/candidate-0.webp",
+        "altText": "Bowl of brown rice topped with glazed teriyaki chicken pieces, caramelized pineapple chunks, roasted broccoli florets and sliced scallions in natural light.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI286",
+      "sourceRecipeHash": "sha256:0e961629e0893f963695eeaa6f2d3efc6449321cc355940fb16f27b53203cb85",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "4 salmon fillets, 5 ounces each",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "salmon fillets",
+          "preparation": "5 ounces each",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 English cucumber, diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "english cucumber",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 cups shredded red cabbage",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "shredded red cabbage",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 teaspoons prepared wasabi",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "prepared wasabi",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon rice vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "rice vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup crushed wasabi peas",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "crushed wasabi peas",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "wasabi-pea-salmon-rice-bowls-di286",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Japanese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Wasabi pea salmon rice bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Japanese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Japanese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di286/kwilt-recipe-hero-v2/544e5a263b6cb763-abcdce4d5bd6dd78/candidate-0.webp",
+        "altText": "Single bowl of Wasabi pea salmon rice: brown rice, a seared salmon fillet topped with a white yogurt-wasabi sauce and crushed wasabi peas, diced cucumber and shredded red cabbage, on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI287",
+      "sourceRecipeHash": "sha256:d9815d162e7aa05912a3d1e3634f6faa34078904de1ad60f2ca23d43cbe7c63d",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds ground turkey",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "ground turkey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "4 cups cooked and chilled brown rice",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "cooked and chilled brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 1/2 cups chopped kimchi",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "chopped kimchi",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 cups frozen peas",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "frozen peas",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons low-sodium soy sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon gochujang",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "gochujang",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 teaspoons toasted sesame oil",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "toasted sesame oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "4 scallions, thinly sliced",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "kimchi-turkey-fried-rice-di287",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Korean-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Kimchi turkey fried rice is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Korean-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Korean-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di287/kwilt-recipe-hero-v2/ae5d68551688208e-28b891cc4d634f20/candidate-0.webp",
+        "altText": "Three-quarter view of a single bowl of kimchi turkey fried rice — glossy brown rice mixed with crumbled turkey, bright green peas, and chunks of kimchi, finished with thinly sliced scallions in a speckled shallow bowl on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI288",
+      "sourceRecipeHash": "sha256:b0b942caa7c381881ac5bb81bbff5424639590fea9aa290b1ada45c01ec79025",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "16 ounces extra-firm tofu, pressed and crumbled",
+          "quantityMin": 16,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "extra-firm tofu",
+          "preparation": "pressed and crumbled",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "10 ounces whole-wheat noodles",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "whole-wheat noodles",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "12 ounces mixed mushrooms, sliced",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "mixed mushrooms",
+          "preparation": "sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "5 ounces baby spinach",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "baby spinach",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons gochujang",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "gochujang",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons low-sodium soy sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 teaspoons toasted sesame oil",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "toasted sesame oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "2 teaspoons toasted sesame seeds",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "toasted sesame seeds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "spicy-sesame-mushroom-noodles-di288",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-pot",
+          "label": "Large pot"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large pot",
+          "needId": "large-pot",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Korean-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Spicy sesame mushroom noodles is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Korean-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Korean-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di288/kwilt-recipe-hero-v2/e4f8ab10881a48d9-9adafb654e51983a/candidate-0.webp",
+        "altText": "Bowl of spicy sesame mushroom noodles: whole-wheat noodles tossed with crumbled tofu, sliced browned mushrooms, wilted spinach and cabbage in a glossy red sesame–gochujang sauce, sprinkled with toasted sesame seeds, on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI289",
+      "sourceRecipeHash": "sha256:1d9c2df4443f71777b0b3cdf157a978a8d537f7d260f7acb926b83221d9a2e17",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds boneless pork chops, thinly sliced",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "boneless pork chops",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "4 cups shredded red cabbage",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "shredded red cabbage",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 carrots, cut into matchsticks",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "cut into matchsticks",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons plum sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "plum sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon rice vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "rice vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 teaspoon Chinese five-spice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "chinese five-spice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "4 scallions, thinly sliced",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "five-spice-pork-with-plum-cabbage-di289",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Chinese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Five-spice pork with plum cabbage is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Chinese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di289/kwilt-recipe-hero-v2/85948287ba61d2c0-4d3779a83e281af2/candidate-0.webp",
+        "altText": "Bowl of brown rice topped with shredded red cabbage, carrot matchsticks and glossy sliced pork, finished with thinly sliced scallions.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI290",
+      "sourceRecipeHash": "sha256:a2b1be4ace2a2231c96d2133fa7888c22ab27f716bb4f84f2e46199e0fdca80c",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds peeled and deveined large shrimp",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "peeled and deveined large shrimp",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "4 baby bok choy, chopped",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "baby bok choy",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 carrots, cut on the bias",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "cut on the bias",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 tablespoon grated fresh ginger",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "grated fresh ginger",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "4 scallions, thinly sliced",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 tablespoons low-sodium soy sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 tablespoon toasted sesame oil",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "toasted sesame oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "ginger-scallion-shrimp-and-rice-di290",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Chinese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Ginger scallion shrimp and rice is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Chinese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di290/kwilt-recipe-hero-v2/ee51b458bc5d9744-0057a53f7d52d117/candidate-0.webp",
+        "altText": "Bowl of ginger-scallion shrimp and brown rice: glossy sautéed shrimp on a bed of brown rice with baby bok choy, diagonal carrot slices, thinly sliced scallions and grated ginger, served in a shallow bowl on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI291",
+      "sourceRecipeHash": "sha256:55827fb7afe180a38477537552e8f6e9937de9ea6aa0ed8faa9431cd373e4071",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds chicken breast cutlets",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "chicken breast cutlets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 pounds sweet potatoes, cut into wedges",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "sweet potatoes",
+          "preparation": "cut into wedges",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "4 cups shredded cabbage",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "shredded cabbage",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 carrots, grated",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "grated",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 cup whole-wheat panko",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "whole-wheat panko",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons low-sodium soy sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon rice vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "rice vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "2 teaspoons toasted sesame seeds",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "toasted sesame seeds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "katsu-style-chicken-with-sesame-slaw-di291",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Japanese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Katsu-style chicken with sesame slaw is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Japanese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Japanese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di291/kwilt-recipe-hero-v2/d10e28dc8ccb8826-cc738eca4b6c30ab/candidate-0.webp",
+        "altText": "Sliced breaded katsu-style chicken breast drizzled with brown sauce and sprinkled with toasted sesame seeds, served with roasted sweet potato wedges and a sesame slaw of shredded cabbage and grated carrots on a light ceramic plate over a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI292",
+      "sourceRecipeHash": "sha256:5304d7a2e6198c6adada3f05c8f315bdd2eaa6a44d9656de5222856edab49036",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 packages (14 ounces each) extra-firm tofu, pressed and sliced",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(14 ounces each) extra-firm tofu",
+          "preparation": "pressed and sliced",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "12 ounces broccoli florets",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "broccoli florets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 cups shredded cabbage",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "shredded cabbage",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 ripe pear, grated",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "ripe pear",
+          "preparation": "grated",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons low-sodium soy sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon gochujang",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "gochujang",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "4 scallions, thinly sliced",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "korean-barbecue-tofu-with-pear-slaw-di292",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Korean-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Korean barbecue tofu with pear slaw is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Korean-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Korean-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di292/kwilt-recipe-hero-v2/f6f85bc40c79842f-fbbd041fa1138261/candidate-0.webp",
+        "altText": "Bowl with three caramelized tofu slices glazed in a sticky Korean-style sauce, fluffy brown rice, roasted broccoli florets, and a shredded cabbage and grated-pear slaw finished with sliced scallions.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI293",
+      "sourceRecipeHash": "sha256:4f839eb25b391f027b3ff82385b9d491e1c2151adb89bd0d2c12c50073ebfa8c",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds sirloin steak, thinly sliced",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "sirloin steak",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "10 ounces rice noodles",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "rice noodles",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "4 baby bok choy, chopped",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "baby bok choy",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "8 ounces bean sprouts",
+          "quantityMin": 8,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "bean sprouts",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "4 cups low-sodium beef broth",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium beef broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 teaspoon Chinese five-spice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "chinese five-spice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon fish sauce",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "fish sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 cup mixed basil and cilantro leaves",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "mixed basil and cilantro leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "pho-spiced-beef-noodle-bowls-di293",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-pot",
+          "label": "Large pot"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large pot",
+          "needId": "large-pot",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Vietnamese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Pho-spiced beef noodle bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Vietnamese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Vietnamese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di293/kwilt-recipe-hero-v2/bc45b676cbbc5296-b7df66e0ea9a0e6b/candidate-0.webp",
+        "altText": "Single bowl of pho-spiced beef noodle bowl with rice noodles, thin-sliced beef, baby bok choy, bean sprouts and mixed basil and cilantro on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI294",
+      "sourceRecipeHash": "sha256:bee5ff2ba78d0da5aa85821df1276a66832aff2792b67aaea3ea0175808fe967",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 packages (14 ounces each) extra-firm tofu, pressed and cubed",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(14 ounces each) extra-firm tofu",
+          "preparation": "pressed and cubed",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "10 ounces green beans, cut into 2-inch pieces",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "green beans",
+          "preparation": "cut into 2-inch pieces",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 red bell pepper, sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "red bell pepper",
+          "preparation": "sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons brown sugar",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "brown sugar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons low-sodium soy sauce",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon lime juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lime juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh cilantro leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh cilantro leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "vietnamese-style-caramel-tofu-di294",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Vietnamese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Vietnamese-style caramel tofu is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Vietnamese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Vietnamese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di294/kwilt-recipe-hero-v2/3bac8028237af4e5-4f00cd12d16b11c6/candidate-0.webp",
+        "altText": "Speckled white bowl of Vietnamese-style caramel tofu: glossy cubed tofu, green beans and sliced red bell pepper piled over brown rice, finished with cilantro, on a wooden table.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI295",
+      "sourceRecipeHash": "sha256:cfc33288459fcca0be1233684a1509585a0a99062b616006ac28d358de30aeae",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds pork tenderloin, thinly sliced",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "pork tenderloin",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups jasmine rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "jasmine rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 English cucumber, thinly sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "english cucumber",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 carrots, shaved into ribbons",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "shaved into ribbons",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons minced lemongrass",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "minced lemongrass",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon fish sauce",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "fish sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon lime juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lime juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 cup fresh mint leaves",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh mint leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "lemongrass-pork-with-coconut-rice-di295",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Vietnamese-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Lemongrass pork with coconut rice is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Vietnamese-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Vietnamese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di295/kwilt-recipe-hero-v2/9627b478bbe6ff32-c3d27b858c84c74b/candidate-1.webp",
+        "altText": "Bowl of lemongrass pork with coconut rice: sliced grilled pork arranged over jasmine rice, carrot ribbons and thin cucumber slices on the sides, minced herb-garlic topping on the pork and fresh mint leaves scattered on top.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI296",
+      "sourceRecipeHash": "sha256:3b37f60dce04a72c9ae8038926eb00c87c524aa3cbbc3ed0a2e2765c27f16415",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 packages (14 ounces each) extra-firm tofu, pressed and cubed",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(14 ounces each) extra-firm tofu",
+          "preparation": "pressed and cubed",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "10 ounces rice noodles",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "rice noodles",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "3 cups shredded red cabbage",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "shredded red cabbage",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 English cucumber, cut into matchsticks",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "english cucumber",
+          "preparation": "cut into matchsticks",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/3 cup natural peanut butter",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "natural peanut butter",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons lime juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lime juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon low-sodium soy sauce",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh cilantro leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh cilantro leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "thai-peanut-tofu-noodle-salad-di296",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-pot",
+          "label": "Large pot"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large pot",
+          "needId": "large-pot",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Thai-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Thai peanut tofu noodle salad is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Thai-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Thai-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di296/kwilt-recipe-hero-v2/3820dcf52679972d-d1f3697c6d8f36d6/candidate-0.webp",
+        "altText": "Bowl of Thai peanut tofu noodle salad with browned tofu cubes on top of rice noodles, shredded red cabbage, cucumber matchsticks, glossy peanut sauce, and cilantro leaves.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI297",
+      "sourceRecipeHash": "sha256:4c79af3c297b48233efc3c52492ca1237b4e64fd320365de026db74388b56357",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds ground turkey",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "ground turkey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "10 ounces green beans, cut into 2-inch pieces",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "green beans",
+          "preparation": "cut into 2-inch pieces",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 red bell pepper, sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "red bell pepper",
+          "preparation": "sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 can (13.5 ounces) light coconut milk",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "light coconut milk",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons red curry paste",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "red curry paste",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon lime juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lime juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh basil leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh basil leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "red-curry-turkey-and-green-bean-bowls-di297",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Thai-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Red curry turkey and green bean bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Thai-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Thai-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di297/kwilt-recipe-hero-v2/2866c00796d879aa-08b4686eaccb8609/candidate-0.webp",
+        "altText": "Bowl of brown rice topped with glossy red-curry ground turkey, 2-inch green beans, sliced red bell pepper, and fresh basil leaves.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI298",
+      "sourceRecipeHash": "sha256:11762963f4b80f53961e7b7ba295d4e59b9300c99f23f1737c34e2b9ab46986f",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds boneless skinless chicken thighs",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "boneless skinless chicken thighs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 bunch lacinato kale, chopped",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "bunch",
+          "ingredientConcept": "lacinato kale",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 carrots, cut on the bias",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "cut on the bias",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/4 cup cane vinegar",
+          "quantityMin": 0.25,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "cane vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "3 tablespoons low-sodium soy sauce",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "3 cloves garlic, grated",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "clove",
+          "ingredientConcept": "garlic",
+          "preparation": "grated",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "4 scallions, thinly sliced",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "filipino-style-adobo-chicken-bowls-di298",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Filipino-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Filipino-style adobo chicken bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Filipino-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Filipino-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di298/kwilt-recipe-hero-v2/03e0f087d0746060-dd02083b7a4543e1/candidate-0.webp",
+        "altText": "Bowl of Filipino-style adobo chicken over brown rice with sautéed lacinato kale, sliced carrots, and scallions, the chicken glazed and glossy.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI299",
+      "sourceRecipeHash": "sha256:32d519415f268ee6190f7664bdc010733549d6549bb5bdb744e91dad50c30744",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds ground turkey",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "ground turkey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "10 ounces rice noodles",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "rice noodles",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "4 cups shredded cabbage",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "shredded cabbage",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 carrots, cut into matchsticks",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "cut into matchsticks",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "3 tablespoons low-sodium soy sauce",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "low-sodium soy sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons calamansi or lime juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "calamansi or lime juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon grated fresh ginger",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "grated fresh ginger",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "4 scallions, thinly sliced",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "scallions",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "calamansi-turkey-pancit-di299",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-pot",
+          "label": "Large pot"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large pot",
+          "needId": "large-pot",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Filipino-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Calamansi turkey pancit is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Filipino-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Filipino-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di299/kwilt-recipe-hero-v2/085b4f0567343e61-e288925f09d269bc/candidate-0.webp",
+        "altText": "A large shallow bowl of calamansi turkey pancit: glossy rice noodles tossed with crumbled turkey, shredded cabbage, and carrot matchsticks, finished with thinly sliced scallions. Small dishes at the side hold halved calamansi, soy sauce, and grated ginger on a warm wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI300",
+      "sourceRecipeHash": "sha256:c5f43ca39c6df21f2846d889bac2cfab9b6048850bfa2d0c0dbcfe1e1a03ff32",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "4 cod fillets, 5 ounces each",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "cod fillets",
+          "preparation": "5 ounces each",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "4 baby bok choy, chopped",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "baby bok choy",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 pint cherry tomatoes",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 can (13.5 ounces) light coconut milk",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "light coconut milk",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon grated fresh ginger",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "grated fresh ginger",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 tablespoons lime juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lime juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh cilantro leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh cilantro leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "coconut-ginger-fish-with-bok-choy-di300",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "dutch-oven",
+          "label": "Dutch oven or deep skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "Dutch oven",
+          "needId": "dutch-oven",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Southeast Asian-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Coconut ginger fish with bok choy is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Southeast Asian-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Southeast Asian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di300/kwilt-recipe-hero-v2/f39a99ea900e9ef9-9cae3c44aec3158c/candidate-0.webp",
+        "altText": "Bowl with four cooked cod fillets in a creamy coconut-ginger broth with chopped baby bok choy and cherry tomatoes, served alongside brown rice and topped with cilantro on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI301",
+      "sourceRecipeHash": "sha256:10db4ad3fa47be8d143668671422d4c155e7c28ae6a2dfc31f313a3f682c0b7c",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds boneless skinless chicken thighs",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "boneless skinless chicken thighs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups quinoa",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "quinoa",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 small head cauliflower, cut into florets",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "small head cauliflower",
+          "preparation": "cut into florets",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 red onion, cut into wedges",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "red onion",
+          "preparation": "cut into wedges",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 teaspoons shawarma seasoning",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "shawarma seasoning",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/3 cup tahini",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "tahini",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh parsley leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh parsley leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "shawarma-chicken-with-turmeric-quinoa-di301",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Levantine-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Shawarma chicken with turmeric quinoa is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Levantine-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Levantine-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di301/kwilt-recipe-hero-v2/a929058ce6b1f632-62ec06b5301083c5/candidate-0.webp",
+        "altText": "Bowl of turmeric quinoa topped with sliced shawarma-spiced chicken, roasted cauliflower florets and red onion wedges, drizzled tahini sauce and sprinkled parsley on a neutral surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI302",
+      "sourceRecipeHash": "sha256:7f9425becec762419c723cf5cdc38cc5cb62241a87bf5cc4070018d9e7df6ee3",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cans (15 ounces each) chickpeas, drained and dried",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(15 ounces each) chickpeas",
+          "preparation": "drained and dried",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups quick-cooking bulgur",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "quick-cooking bulgur",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 English cucumber, diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "english cucumber",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 pint cherry tomatoes, halved",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": "halved",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/3 cup tahini",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "tahini",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 teaspoon ground cumin",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "ground cumin",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh parsley leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh parsley leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "falafel-spiced-chickpea-bowls-di302",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Levantine-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Falafel-spiced chickpea bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Levantine-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Levantine-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di302/kwilt-recipe-hero-v2/7ae9a852e6014640-583326f32f39078e/candidate-1.webp",
+        "altText": "A single bowl of falafel-spiced chickpea bowl: browned spiced chickpeas topped with tahini and chopped parsley, beside a portion of cooked grains, halved cherry tomatoes, and diced cucumber on a neutral surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI303",
+      "sourceRecipeHash": "sha256:0a14ebeeb5b1955a8545ad4d1ea6f1f625ed8e2921d11083b1669d9319d090a4",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds lean ground beef",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "lean ground beef",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups quick-cooking bulgur",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "quick-cooking bulgur",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "2 bell peppers, diced",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "bell peppers",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "5 ounces baby spinach",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "baby spinach",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 can (14.5 ounces) diced tomatoes",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "diced tomatoes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 5,
+          "originalText": "1 teaspoon ground cumin",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "ground cumin",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh mint leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh mint leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "turkish-style-beef-with-tomato-bulgur-di303",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Turkish-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Turkish-style beef with tomato bulgur is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Turkish-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Turkish-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di303/kwilt-recipe-hero-v2/6ff706f5310ae0d9-8a95a1bdf37cf3a3/candidate-1.webp",
+        "altText": "Three-quarter view of a shallow white bowl with a bed of tomato-colored bulgur topped with spiced ground beef, diced red and yellow peppers, wilted spinach, a central dollop of yogurt, and fresh mint leaves scattered on top.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI304",
+      "sourceRecipeHash": "sha256:adc4164d7e2d9769aac9080f4ea8418f80d105cda900a987f642384a2c01278b",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds chicken breast cutlets",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "chicken breast cutlets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups pearled farro",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "pearled farro",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "10 ounces green beans, trimmed",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "green beans",
+          "preparation": "trimmed",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 carrots, cut on the bias",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "cut on the bias",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons pomegranate molasses",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "pomegranate molasses",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup low-sodium chicken broth",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium chicken broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/3 cup toasted walnuts, chopped",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "toasted walnuts",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "pomegranate-chicken-with-walnut-farro-di304",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Persian-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Pomegranate chicken with walnut farro is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Persian-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Persian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di304/kwilt-recipe-hero-v2/b854ed4da6827993-555efb95c99b5f72/candidate-0.webp",
+        "altText": "Bowl of pearled farro topped with three sliced pomegranate-glazed chicken cutlets, trimmed green beans, bias-cut carrot slices and chopped toasted walnuts, plated in natural light.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI305",
+      "sourceRecipeHash": "sha256:c8a496e345bdbcfc9555acb8ed621f8e671c4bf6702e039a7fc372d4eeb50212",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "4 salmon fillets, 5 ounces each",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "salmon fillets",
+          "preparation": "5 ounces each",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown basmati rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown basmati rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 pound asparagus, trimmed",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "asparagus",
+          "preparation": "trimmed",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 red onion, cut into wedges",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "red onion",
+          "preparation": "cut into wedges",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 pinch saffron threads, bloomed in 2 tablespoons warm water",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pinch saffron threads",
+          "preparation": "bloomed in 2 tablespoons warm water",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 cup mixed dill and parsley leaves",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "mixed dill and parsley leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "saffron-salmon-with-herb-rice-di305",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Persian-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Saffron salmon with herb rice is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Persian-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Persian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di305/kwilt-recipe-hero-v2/e9094a8ee33dc5c6-ec62a9acab635ed8/candidate-0.webp",
+        "altText": "Large plate with four saffron-glazed salmon fillets topped with yogurt and saffron threads, served on a bed of herb-flecked brown basmati rice with roasted asparagus and charred red onion wedges, garnished with dill and parsley.",
+        "width": 1536,
+        "height": 1024
+      }
+    }
+  ]
+}

@@ -89,7 +89,7 @@ export type CompiledGroceryItem = {
 
 export type Aisle = 'produce'|'bakery'|'dairy_eggs'|'meat_seafood'|'pantry'|'frozen'|'beverages'|'household'|'other';
 
-const vulgar: Record<string, string> = { '⅛':'1/8','¼':'1/4','⅓':'1/3','⅜':'3/8','½':'1/2','⅝':'5/8','⅔':'2/3','¾':'3/4','⅞':'7/8' };
+const vulgar: Record<string, string> = { '⅛':'1/8','⅙':'1/6','¼':'1/4','⅓':'1/3','⅜':'3/8','½':'1/2','⅝':'5/8','⅔':'2/3','¾':'3/4','⅚':'5/6','⅞':'7/8' };
 const numberWords: Record<string, number> = { one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10 };
 
 function number(value: string): number | null {
@@ -100,7 +100,7 @@ function number(value: string): number | null {
 }
 
 function normalizeVulgar(text: string): string {
-  return text.replace(/(\d)([⅛¼⅓⅜½⅝⅔¾⅞])/g, (_,whole,fraction)=>`${whole} ${vulgar[fraction]}`).replace(/[⅛¼⅓⅜½⅝⅔¾⅞]/g,(fraction)=>vulgar[fraction]);
+  return text.replace(/(\d)([⅛⅙¼⅓⅜½⅝⅔¾⅚⅞])/g, (_,whole,fraction)=>`${whole} ${vulgar[fraction]}`).replace(/[⅛⅙¼⅓⅜½⅝⅔¾⅚⅞]/g,(fraction)=>vulgar[fraction]);
 }
 
 const quantityToken = '(?:one|two|three|four|five|six|seven|eight|nine|ten|\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:\\.\\d+)?)';

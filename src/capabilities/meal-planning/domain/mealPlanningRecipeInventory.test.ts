@@ -11,7 +11,7 @@ describe("Meal Planning recipe inventory", () => {
   it("includes the bundled catalog when the household has not saved a private recipe", () => {
     const inventory = buildMealPlanningRecipeInventory([]);
 
-    expect(inventory).toHaveLength(500);
+    expect(inventory).toHaveLength(600);
     expect(
       inventory.every(
         (projection) => projection.recipe.provenance.method === "catalog",
@@ -27,7 +27,7 @@ describe("Meal Planning recipe inventory", () => {
     const inventory = buildMealPlanningRecipeInventory([personal]);
 
     expect(inventory[0].recipe.id).toBe(personal.recipe.id);
-    expect(inventory).toHaveLength(501);
+    expect(inventory).toHaveLength(601);
   });
 
   it("moves the prepared candidates to the top in their ranked order", () => {

@@ -91,8 +91,9 @@ import { STARTER_RECIPE_BATCH_090 } from "./starterRecipeBatch090";
 import { STARTER_RECIPE_BATCH_091 } from "./starterRecipeBatch091";
 import { STARTER_RECIPE_BATCH_092 } from "./starterRecipeBatch092";
 import { STARTER_RECIPE_BATCH_093 } from "./starterRecipeBatch093";
+import { STARTER_RECIPE_MEAL_KIT_EXPANSION } from "./starterRecipeMealKitExpansion";
 
-/** Staging corpus only. Do not wire into the live catalog until all 500 selected entries pass validation. */
+/** Canonical bundled corpus. Hosted publication remains a separate reviewed release gate. */
 export const STARTER_EDITORIAL_RECIPE_CATALOG = [
   ...STARTER_RECIPE_BATCH_001,
   ...STARTER_RECIPE_BATCH_002,
@@ -168,6 +169,7 @@ export const STARTER_EDITORIAL_RECIPE_CATALOG = [
   ...STARTER_RECIPE_BATCH_072,
   ...STARTER_RECIPE_BATCH_073,
   ...STARTER_RECIPE_BATCH_074,
+  ...STARTER_RECIPE_MEAL_KIT_EXPANSION,
   ...STARTER_RECIPE_BATCH_075,
   ...STARTER_RECIPE_BATCH_076,
   ...STARTER_RECIPE_BATCH_077,

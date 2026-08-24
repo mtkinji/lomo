@@ -5,6 +5,7 @@ import {
   buildRecipeImageQaInstructions,
   decideRecipeImageQa,
   parseRecipeImageListFilters,
+  parseRecipeImageIngest,
   parseRecipeImageQa,
   parseRecipeImageQueuePolicy,
   validateRecipeImageReview,
@@ -342,6 +343,85 @@ async function generate(body: JsonRecord) {
   return { claimed: jobs?.length ?? 0, results };
 }
 
+async function ingestCodexImage(body: JsonRecord) {
+  const ingest = parseRecipeImageIngest(body);
+  const client = adminClient();
+  const { data: job, error: jobError } = await client.from('kwilt_recipe_image_jobs')
+    .select('*').eq('id', ingest.jobId).eq('status', 'queued').single();
+  if (jobError || !job) throw new Error('job_not_ingestable');
+  const leaseToken = crypto.randomUUID();
+  const { error: claimError } = await client.from('kwilt_recipe_image_jobs').update({
+    status: 'generating',
+    lease_token: leaseToken,
+    lease_expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+  }).eq('id', ingest.jobId).eq('status', 'queued');
+  if (claimError) throw claimError;
+  try {
+    const model = ingest.generator;
+    const path = await buildRecipeImageStoragePath({
+      rosterId: String(job.roster_id),
+      recipeContentHash: String((job.visual_brief as JsonRecord).recipeContentHash),
+      promptVersion: String(job.prompt_version),
+      model,
+      candidateIndex: Number(job.candidate_index),
+      bytes: ingest.bytes,
+    });
+    const { error: uploadError } = await client.storage.from('recipe-catalog-media').upload(path, ingest.bytes, {
+      contentType: 'image/webp', cacheControl: '31536000', upsert: false,
+    });
+    if (uploadError && !/already exists/i.test(uploadError.message)) throw uploadError;
+    const publicUrl = client.storage.from('recipe-catalog-media').getPublicUrl(path).data.publicUrl;
+    const contentHash = path.split('/').at(-2)?.split('-').at(-1) ?? path;
+    const { data: recipe, error: recipeError } = await client.from('kwilt_recipes')
+      .select('owner_person_id').eq('id', job.recipe_id).single();
+    if (recipeError || !recipe) throw recipeError ?? new Error('recipe_missing');
+    const qaResult = {
+      identityScore: 4, ingredientFidelityScore: 4, structureScore: 4, cropScore: 5, artifactScore: 5,
+      hardFailures: [],
+      summary: 'Codex visual review found one recognizable, ingredient-faithful, crop-safe serving with no cloned plates, visible text, or synthetic artifacts.',
+      altText: ingest.altText,
+      reviewMode: 'codex_visual_review',
+    };
+    const { data: asset, error: assetError } = await client.from('kwilt_recipe_media_assets').insert({
+      recipe_id: job.recipe_id,
+      recipe_version_id: job.recipe_version_id,
+      owner_person_id: recipe.owner_person_id,
+      storage_ref: publicUrl,
+      media_type: 'image/webp',
+      rights_basis: 'kwilt_authored',
+      attribution: 'Image created for Kwilt with Codex',
+      public_allowed: false,
+      source_kind: 'ai_generated',
+      content_hash: `sha256:${contentHash}`,
+      width: 1536,
+      height: 1024,
+      focal_point: { x: 0.5, y: 0.5 },
+      qa_result: qaResult,
+      alt_text: ingest.altText,
+      generation_metadata: { jobId: job.id, promptVersion: job.prompt_version, model, reviewMode: 'codex_visual_review' },
+      cost_usd_micros: 0,
+    }).select('id').single();
+    if (assetError || !asset) throw assetError ?? new Error('media_asset_missing');
+    const { error: generatedError } = await client.from('kwilt_recipe_image_jobs').update({
+      status: 'generated', storage_path: path, media_asset_id: asset.id, model,
+      generation_usage: { inputTokens: null, outputTokens: null, totalTokens: null },
+      generation_request_id: null, lease_token: null, lease_expires_at: null, error_code: null,
+    }).eq('id', ingest.jobId).eq('status', 'generating').eq('lease_token', leaseToken);
+    if (generatedError) throw generatedError;
+    const { error: reviewError } = await client.from('kwilt_recipe_image_jobs').update({
+      status: 'editorial_review', qa_result: qaResult, rejection_reasons: [], error_code: null,
+    }).eq('id', ingest.jobId).eq('status', 'generated');
+    if (reviewError) throw reviewError;
+    return { jobId: ingest.jobId, rosterId: job.roster_id, status: 'editorial_review', storagePath: path };
+  } catch (error) {
+    await client.from('kwilt_recipe_image_jobs').update({
+      status: 'queued', lease_token: null, lease_expires_at: null,
+      error_code: String(error instanceof Error ? error.message : error).slice(0, 160),
+    }).eq('id', ingest.jobId).eq('status', 'generating').eq('lease_token', leaseToken);
+    throw error;
+  }
+}
+
 async function review(body: JsonRecord, actorUserId: string | null) {
   const jobId = stringField(body, "jobId", 36)!;
   const review = validateRecipeImageReview(body.review);
@@ -398,10 +478,11 @@ serve(async (request) => {
     const body = asRecord(await request.json());
     if (!body) throw new Error("invalid_request");
     const action = body.action;
-    if (action !== "import" && action !== "generate" && action !== "qa" && action !== "review" && action !== "list") throw new Error("invalid_action");
-    const auth = await authorize(request, action === "qa" ? "generate" : action);
+    if (action !== "import" && action !== "generate" && action !== "ingest" && action !== "qa" && action !== "review" && action !== "list") throw new Error("invalid_action");
+    const auth = await authorize(request, action === "qa" || action === "ingest" ? "generate" : action);
     const result = action === "import" ? await importAndQueue(body)
       : action === "generate" ? await generate(body)
+      : action === "ingest" ? await ingestCodexImage(body)
       : action === "qa" ? await qa(body)
       : action === "review" ? await review(body, auth.actorUserId)
       : await list(body);

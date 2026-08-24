@@ -120,6 +120,28 @@ function hasCoherentExecutionPlan(judgment: AgentJudgment): boolean {
   return judgment.authorization === 'none' && selectedTools.every((tool) => tool.effect === 'read');
 }
 
+function alignJudgmentToResolvedPolicy(
+  judgment: AgentJudgment,
+  policy: UnifiedChatRequestPolicy,
+): AgentJudgment | null {
+  if (judgment.requestClass !== policy.requestClass) return null;
+  const judgmentCapabilities = [...new Set(judgment.participatingCapabilities)].sort();
+  const policyCapabilities = [...new Set(policy.participatingCapabilities)].sort();
+  if (judgmentCapabilities.length !== policyCapabilities.length ||
+      !judgmentCapabilities.every((capability, index) => capability === policyCapabilities[index])) {
+    return null;
+  }
+  if (judgment.usePrivateContext === policy.usePrivateContext) return judgment;
+  return {
+    ...judgment,
+    usePrivateContext: policy.usePrivateContext,
+    evidenceScope: policy.usePrivateContext
+      ? judgment.evidenceScope === 'none' ? 'focused' : judgment.evidenceScope
+      : 'none',
+    responseContract: policy.usePrivateContext ? 'evidence_linked' : 'direct',
+  };
+}
+
 export async function planUnifiedChatTurnPhase(
   input: PlanUnifiedChatTurnPhaseInput,
 ): Promise<PlannedUnifiedChatTurn> {
@@ -232,30 +254,36 @@ export async function planUnifiedChatTurnPhase(
       .find((message) => message.role === 'assistant')?.body,
     previousTurnContract: previousTurnContract?.contract,
   });
-  const judgmentSource = agentJudgment
+  // A typed conversation follow-up can correctly override a model judgment
+  // (for example, "add one" after discussing a missing Recipe). Do not let
+  // that stale read-only judgment filter the resolved action's write tools.
+  const effectiveAgentJudgment = agentJudgment
+    ? alignJudgmentToResolvedPolicy(agentJudgment, requestPolicy)
+    : null;
+  const judgmentSource = effectiveAgentJudgment
     ? 'model'
     : semanticRoute
       ? 'semantic_fallback'
       : 'deterministic_fallback';
-  const activityClarification = agentJudgment?.executionMode === 'clarify'
-    ? agentJudgment.clarificationQuestion
+  const activityClarification = effectiveAgentJudgment?.executionMode === 'clarify'
+    ? effectiveAgentJudgment.clarificationQuestion
     : requestPolicy.participatingCapabilities.includes('todos')
       ? recurringReminderClarification(input.prompt)
       : null;
   const turnContract = buildUnifiedChatTurnContract({
     prompt: input.prompt,
     requestPolicy,
-    agentJudgment,
+    agentJudgment: effectiveAgentJudgment,
     previous: previousTurnContract,
   });
 
   return {
     planningStrategy,
     requestPolicy,
-    agentJudgment,
+    agentJudgment: effectiveAgentJudgment,
     judgmentSource,
     requiresWebSearch: requestPolicy.requestClass === 'general' &&
-      (agentJudgment?.informationNeed ?? informationNeed) === 'current',
+      (effectiveAgentJudgment?.informationNeed ?? informationNeed) === 'current',
     planConversationReferent: requestPolicy.policyReason === 'conversation-follow-up:plan'
       ? resolvePlanPlacementReferent(input.aggregate)
       : null,

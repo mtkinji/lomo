@@ -1,0 +1,5108 @@
+{
+  "schemaVersion": 2,
+  "source": "kwilt-codex-reviewed-recipe-enrichment",
+  "batchId": "recipe-enrichment-24",
+  "manifestHash": "sha256:37ec3dc1a6b273e35f79731c19ae217336fbd8726acfe50e4da08c5e04f155e3",
+  "recipes": [
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI306",
+      "sourceRecipeHash": "sha256:6d2fa6b5e291e2741e97ea6a72a393add735a081e580cb2a3861cdda3b103a12",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "12 ounces halloumi, cut into 8 slabs",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "halloumi",
+          "preparation": "cut into 8 slabs",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "2 cans (15 ounces each) brown lentils, drained",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(15 ounces each) brown lentils",
+          "preparation": "drained",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "2 zucchini, cut into half-moons",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "zucchini",
+          "preparation": "cut into half-moons",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 pint cherry tomatoes",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 tablespoon harissa paste",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "harissa paste",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon extra-virgin olive oil",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "extra-virgin olive oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh mint leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh mint leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "halloumi-with-harissa-lentils-di306",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Mediterranean flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Halloumi with harissa lentils is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Mediterranean flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Mediterranean weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di306/kwilt-recipe-hero-v2/703814b4141d6e73-065862c7b8b719b7/candidate-1.webp",
+        "altText": "A shallow platter of halloumi with harissa lentils: eight golden-seared halloumi slabs arranged over a glossy bed of brown lentils, scattered zucchini half-moons, cherry tomatoes, and fresh mint leaves.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI307",
+      "sourceRecipeHash": "sha256:f608413e824b97b1ab85aebac84a2b13744323d22c610e346152577714296a4b",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds peeled and deveined large shrimp",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "peeled and deveined large shrimp",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "12 ounces whole-wheat orzo",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "whole-wheat orzo",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 pint cherry tomatoes",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "5 ounces baby spinach",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "baby spinach",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 teaspoon dried oregano",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "dried oregano",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1/2 cup low-sodium vegetable broth",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium vegetable broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup crumbled feta",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "crumbled feta",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "lemon-oregano-shrimp-with-feta-orzo-di307",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Greek-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Lemon oregano shrimp with feta orzo is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Greek-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Greek-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di307/kwilt-recipe-hero-v2/d2ae9c1c4782db43-78502d3e78eb2926/candidate-0.webp",
+        "altText": "Bowl of lemon-oregano shrimp on whole-wheat orzo with cherry tomatoes, wilted spinach and crumbled feta, finished with a glossy herb sauce.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI308",
+      "sourceRecipeHash": "sha256:73ca8ba9b45115d58ec3c7b762857dd917af29430314e8f607b7fe91f35cbd6e",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds chicken breast cutlets",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "chicken breast cutlets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups quick-cooking polenta",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "quick-cooking polenta",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "8 ounces cremini mushrooms, sliced",
+          "quantityMin": 8,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "cremini mushrooms",
+          "preparation": "sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "5 ounces baby spinach",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "baby spinach",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons balsamic vinegar",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "balsamic vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup low-sodium chicken broth",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium chicken broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 teaspoon Dijon mustard",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "dijon mustard",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/3 cup finely grated Parmesan",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "finely grated parmesan",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "balsamic-chicken-with-creamy-polenta-di308",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Italian-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Balsamic chicken with creamy polenta is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Italian-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Italian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di308/kwilt-recipe-hero-v2/87bb038afd1468e1-f2e40a3ddc4bbd7f/candidate-0.webp",
+        "altText": "White shallow bowl with a single serving of balsamic-glazed sliced chicken breast on a ring of creamy polenta, surrounded by sautéed sliced cremini mushrooms and wilted spinach, finished with a glossy brown sauce and shredded Parmesan on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI309",
+      "sourceRecipeHash": "sha256:f3742da05f30e126a52aaf0fca3a5cba146542045845cd98074e61bfeafe6bae",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds ground turkey",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "ground turkey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups pearled farro",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "pearled farro",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "2 crisp apples, diced",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "crisp apples",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 bunch lacinato kale, chopped",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "bunch",
+          "ingredientConcept": "lacinato kale",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 teaspoon rubbed sage",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "rubbed sage",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup low-sodium chicken broth",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium chicken broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon apple cider vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "apple cider vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/3 cup finely grated Parmesan",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "finely grated parmesan",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "sage-turkey-with-apple-farro-di309",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Italian-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Sage turkey with apple farro is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Italian-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Italian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di309/kwilt-recipe-hero-v2/ee0f82dc48443253-0c906e5d73a6e518/candidate-0.webp",
+        "altText": "Shallow white bowl of sage turkey with apple farro: pearled farro mixed with browned ground turkey, diced red-skinned apple cubes, chopped dark kale and a sprinkle of grated Parmesan, glossy finish, on a neutral cloth and wooden table.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI310",
+      "sourceRecipeHash": "sha256:fe74a44a8edcfee77145c39d25b3f1a5876057a8484a2d1b4e7a3d95ccb5bb06",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds chicken breast cutlets",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "chicken breast cutlets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "2 cans (15 ounces each) cannellini beans, drained",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(15 ounces each) cannellini beans",
+          "preparation": "drained",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "1 pint cherry tomatoes",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "10 ounces green beans, trimmed",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "green beans",
+          "preparation": "trimmed",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/3 cup basil pesto",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "basil pesto",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon balsamic vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "balsamic vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon water",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "water",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "6 ounces fresh mozzarella, torn",
+          "quantityMin": 6,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "fresh mozzarella",
+          "preparation": "torn",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "caprese-chicken-with-pesto-beans-di310",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Italian-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Caprese chicken with pesto beans is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Italian-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Italian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di310/kwilt-recipe-hero-v2/eb3924c627f3813d-fe528e28ef51fd3f/candidate-0.webp",
+        "altText": "Plate of roasted Caprese chicken cutlets on a bed of cannellini beans with blistered cherry tomatoes, green beans, spooned pesto, and torn fresh mozzarella.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI311",
+      "sourceRecipeHash": "sha256:2725eef98836d75908b9b8028fcdb7c7e9bee8cd830e85c2d9a5bf23cd91bee8",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "4 salmon fillets, 5 ounces each",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "salmon fillets",
+          "preparation": "5 ounces each",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 pounds baby potatoes, halved",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "baby potatoes",
+          "preparation": "halved",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "10 ounces green beans, trimmed",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "green beans",
+          "preparation": "trimmed",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "6 radishes, thinly sliced",
+          "quantityMin": 6,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "radishes",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons whole-grain mustard",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "whole-grain mustard",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon apple cider vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "apple cider vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon honey",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "honey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh dill",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh dill",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "mustard-herb-salmon-with-warm-potato-salad-di311",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Northern European-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Mustard herb salmon with warm potato salad is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Northern European-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Northern European-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di311/kwilt-recipe-hero-v2/e4e3497f7acf3666-9abfce9b98a31862/candidate-0.webp",
+        "altText": "Platter with four roasted mustard‑herb salmon fillets on a bed of halved baby potatoes and green beans, garnished with thin radish slices, whole‑grain mustard sauce and fresh dill.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI312",
+      "sourceRecipeHash": "sha256:eb4da60ef51e3381c1f9db03ad311389995f800772362f60825ca0633e8fafb0",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds chicken breast cutlets",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "chicken breast cutlets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups quick-cooking barley",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "quick-cooking barley",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 pound cooked beets, cut into wedges",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "cooked beets",
+          "preparation": "cut into wedges",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "5 ounces baby kale",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "baby kale",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1/2 cup fresh dill, chopped",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh dill",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/3 cup toasted sunflower seeds",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "toasted sunflower seeds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "dill-chicken-with-beet-barley-di312",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Nordic-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Dill chicken with beet barley is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Nordic-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Nordic-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di312/kwilt-recipe-hero-v2/3bcaea892cdffbfe-79b7bb32b295b323/candidate-0.webp",
+        "altText": "A single bowl of dill chicken with beet barley: sliced browned chicken breast over a bed of barley, beet wedges and baby kale, topped with a dollop of dill-flecked yogurt and toasted sunflower seeds.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI313",
+      "sourceRecipeHash": "sha256:c6f907bb8502509f1cd31dde3ab7264d98a968d973c6a5b4f46c872f9d13002d",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds pork tenderloin, thinly sliced",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "pork tenderloin",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "10 ounces whole-wheat egg noodles",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "whole-wheat egg noodles",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "4 cups thinly sliced green cabbage",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "thinly sliced green cabbage",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 red bell pepper, sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "red bell pepper",
+          "preparation": "sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 teaspoons sweet paprika",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "sweet paprika",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon apple cider vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "apple cider vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh parsley leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh parsley leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "paprika-pork-with-cabbage-noodles-di313",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-pot",
+          "label": "Large pot"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large pot",
+          "needId": "large-pot",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Central European-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Paprika pork with cabbage noodles is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Central European-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Central European-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di313/kwilt-recipe-hero-v2/e0a7dfbf6e92624a-def7efa4da2bb41c/candidate-0.webp",
+        "altText": "Shallow ceramic bowl of paprika pork with cabbage noodles: seared pork medallions tossed with whole‑wheat egg noodles, thinly sliced green cabbage and red bell pepper strips in a glossy sauce, finished with chopped parsley, on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI314",
+      "sourceRecipeHash": "sha256:005f8a1118bb7eb8a08e216afc6114bb40ae9964dc0e902475e744c350148104",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 pound mixed mushrooms, thickly sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "mixed mushrooms",
+          "preparation": "thickly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "10 ounces whole-wheat egg noodles",
+          "quantityMin": 10,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "whole-wheat egg noodles",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 yellow onion, thinly sliced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "yellow onion",
+          "preparation": "thinly sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "5 ounces baby spinach",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "baby spinach",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 cup low-sodium vegetable broth",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium vegetable broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon Dijon mustard",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "dijon mustard",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh dill",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh dill",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "mushroom-stroganoff-with-spinach-di314",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-pot",
+          "label": "Large pot"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large pot",
+          "needId": "large-pot",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Eastern European-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Mushroom stroganoff with spinach is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Eastern European-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Eastern European-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di314/kwilt-recipe-hero-v2/d36664a9a56a3245-7411f7351084ec38/candidate-0.webp",
+        "altText": "Bowl of mushroom stroganoff: whole‑wheat egg noodles tossed with browned sliced mushrooms, translucent onion slices, wilted spinach and a glossy creamy sauce, finished with sprigs of fresh dill on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI315",
+      "sourceRecipeHash": "sha256:4c45402e81d4cf4f7b33c29d51f432029d87fbbcd1d39a2e80ecc9fc4cb889f3",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds boneless skinless chicken thighs",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "boneless skinless chicken thighs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 pound baby potatoes, halved",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "baby potatoes",
+          "preparation": "halved",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "3 carrots, cut into batons",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "cut into batons",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 parsnips, cut into batons",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "parsnips",
+          "preparation": "cut into batons",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 cup apple cider",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "apple cider",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon Dijon mustard",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "dijon mustard",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 teaspoon fresh thyme leaves",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "fresh thyme leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh parsley leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh parsley leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "cider-chicken-with-roasted-root-vegetables-di315",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with British-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Cider chicken with roasted root vegetables is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses British-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original British-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di315/kwilt-recipe-hero-v2/f0cad026ae83673b-2c08c90a479efa8d/candidate-0.webp",
+        "altText": "Shallow white bowl of cider-glazed roasted chicken thighs with halved baby potatoes, carrot and parsnip batons, spooned sauce and scattered fresh thyme and chopped parsley on a wooden surface",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI316",
+      "sourceRecipeHash": "sha256:f4020fe7fdafee34e56e3e723a7a549d56520c019ee1a429db5830776e29c1ea",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds ground turkey",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "ground turkey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 pounds Yukon Gold potatoes, peeled and cubed",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "yukon gold potatoes",
+          "preparation": "peeled and cubed",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "2 cups frozen peas",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "frozen peas",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "3 carrots, diced",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "carrots",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 cup low-sodium chicken broth",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium chicken broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon Worcestershire sauce",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "worcestershire sauce",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 teaspoon fresh thyme leaves",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "fresh thyme leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 cup shredded sharp cheddar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "shredded sharp cheddar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "cheddar-turkey-cottage-pie-skillet-di316",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "oven-safe-skillet",
+          "label": "Large oven-safe skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "oven-safe skillet",
+          "needId": "oven-safe-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with British-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Cheddar turkey cottage pie skillet is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses British-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original British-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di316/kwilt-recipe-hero-v2/3082af0c97e7759c-52bcb386f3ab08c3/candidate-0.webp",
+        "altText": "Three-quarter view of a cast-iron skillet cottage pie with a golden-browned cheddar and mashed potato topping; a wedge removed reveals ground turkey, green peas and diced carrots in a saucy filling.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI317",
+      "sourceRecipeHash": "sha256:f36b9442d51b84aab2afb9ea9131c61ffb1094d08d9ca7ff7d642f6f9c49c8db",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds boneless skinless chicken thighs",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "boneless skinless chicken thighs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups pearled farro",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "pearled farro",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 pound Brussels sprouts, halved",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "brussels sprouts",
+          "preparation": "halved",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 cups seedless red grapes",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "seedless red grapes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 teaspoons Aleppo pepper",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "aleppo pepper",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/3 cup toasted walnuts, chopped",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "toasted walnuts",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "aleppo-chicken-with-roasted-grapes-di317",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Modern Mediterranean flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Aleppo chicken with roasted grapes is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Modern Mediterranean flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Modern Mediterranean weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di317/kwilt-recipe-hero-v2/3e2d8bca365163cc-c994d925e8ae1ce1/candidate-0.webp",
+        "altText": "Bowl of pearled farro topped with two Aleppo-spiced roasted chicken thighs, roasted red grapes, halved Brussels sprouts, dollops of yogurt and chopped toasted walnuts.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI318",
+      "sourceRecipeHash": "sha256:896da54a6e91398118de3edd8aa2b0155be22019de0b786e2a6ef5f16af00e7f",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "4 cod fillets, 5 ounces each",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "cod fillets",
+          "preparation": "5 ounces each",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "2 cans (15 ounces each) cannellini beans, drained",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(15 ounces each) cannellini beans",
+          "preparation": "drained",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 2,
+          "originalText": "1 pint cherry tomatoes",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "5 ounces baby kale",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "baby kale",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "3 cloves roasted garlic, mashed",
+          "quantityMin": 3,
+          "quantityMax": null,
+          "unit": "clove",
+          "ingredientConcept": "roasted garlic",
+          "preparation": "mashed",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1/2 cup low-sodium vegetable broth",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium vegetable broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup fresh parsley leaves",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh parsley leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "roasted-garlic-cod-with-white-beans-di318",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Mediterranean flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Roasted garlic cod with white beans is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Mediterranean flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Mediterranean weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di318/kwilt-recipe-hero-v2/1328572a31ac0649-e045c938ffc27f55/candidate-0.webp",
+        "altText": "Shallow bowl of roasted garlic cod and white beans: four roasted cod fillets on a bed of cannellini beans, roasted cherry tomatoes and baby kale, finished with chopped parsley and a glossy garlic-lemon sauce, on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI319",
+      "sourceRecipeHash": "sha256:e0b547a270832ef2d517248c662b28cb3ab5e4fe4b3534e985686cd4aca7aef3",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds chicken breast cutlets",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "chicken breast cutlets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups quinoa",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "quinoa",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "2 zucchini, cut into half-moons",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "zucchini",
+          "preparation": "cut into half-moons",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "5 ounces baby spinach",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "baby spinach",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/3 cup chopped sun-dried tomatoes",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "chopped sun-dried tomatoes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup low-sodium chicken broth",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium chicken broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup crumbled feta",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "crumbled feta",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "sun-dried-tomato-chicken-quinoa-di319",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Mediterranean flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Sun-dried tomato chicken quinoa is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Mediterranean flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Mediterranean weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di319/kwilt-recipe-hero-v2/e30e8acf9d333e25-0f76ad9895653a2f/candidate-0.webp",
+        "altText": "Bowl of sun-dried tomato chicken quinoa: sliced chicken breast over a quinoa base with zucchini half-moons, baby spinach, sun-dried tomato pieces and crumbled feta, plated in a shallow white bowl on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI320",
+      "sourceRecipeHash": "sha256:b11eb82ab398dbb2574164e60b00076f43cd560d21ba7a0c5ba26894c7fdde93",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cans (15 ounces each) cannellini beans, drained",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(15 ounces each) cannellini beans",
+          "preparation": "drained",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups pearled farro",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "pearled farro",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "2 zucchini, cut into half-moons",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "zucchini",
+          "preparation": "cut into half-moons",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 pint cherry tomatoes",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 cup low-sodium vegetable broth",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium vegetable broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 cloves garlic, grated",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "clove",
+          "ingredientConcept": "garlic",
+          "preparation": "grated",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon balsamic vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "balsamic vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 cup fresh basil leaves",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh basil leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "basil-white-bean-and-zucchini-skillet-di320",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Italian-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Basil white bean and zucchini skillet is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Italian-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Italian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di320/kwilt-recipe-hero-v2/00663661ae4544b9-ae3d9d11892f6927/candidate-0.webp",
+        "altText": "Skillet of basil white bean and zucchini skillet with farro, cannellini beans, zucchini half-moons, cherry tomatoes, and fresh basil leaves, served in a light-colored pan on a cloth.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI321",
+      "sourceRecipeHash": "sha256:05dbf2cb3833f631e496360108e32d5250b0d7015be664e5ab268afde172a081",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds chicken breast cutlets",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "chicken breast cutlets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups quinoa",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "quinoa",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "12 ounces broccoli florets",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "broccoli florets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 English cucumber, diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "english cucumber",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 cup mixed parsley and basil leaves",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "mixed parsley and basil leaves",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/3 cup toasted sunflower seeds",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "toasted sunflower seeds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "green-goddess-chicken-grain-bowls-di321",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Modern American flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Green goddess chicken grain bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Modern American flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Modern American weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di321/kwilt-recipe-hero-v2/1af317284693db59-9b809416f948eb09/candidate-0.webp",
+        "altText": "Single Green Goddess chicken grain bowl: sliced herby grilled chicken over tri-color quinoa with browned broccoli florets, diced cucumber, creamy green herb dressing and toasted sunflower seeds in a neutral shallow bowl.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI322",
+      "sourceRecipeHash": "sha256:01d41b34cbf04525057f21c7dd5e465a383dd789715f6eb9eb275c8b14fc66fb",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "4 salmon fillets, 5 ounces each",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "salmon fillets",
+          "preparation": "5 ounces each",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 English cucumber, diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "english cucumber",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 pint cherry tomatoes, halved",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": "halved",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons everything seasoning",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "everything seasoning",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "2 ripe avocados, diced",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "ripe avocados",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "everything-spiced-salmon-bowls-di322",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Modern American flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Everything-spiced salmon bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Modern American flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Modern American weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di322/kwilt-recipe-hero-v2/a00deefba6e9f525-e2e6965ac92fec81/candidate-0.webp",
+        "altText": "Single bowl with brown rice, an everything-seasoned salmon fillet, diced cucumber, halved cherry tomatoes, diced avocado, and a spoonful of Greek yogurt drizzled with olive oil on a neutral surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI323",
+      "sourceRecipeHash": "sha256:c63680965fdac21c3f240aac08e27169cd5821a3f3ef1d1cd3291dc091fff4dc",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds ground turkey",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "ground turkey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups quinoa",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "quinoa",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 can (15 ounces) black beans, drained",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "black beans",
+          "preparation": "drained",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 3,
+          "originalText": "2 cups corn kernels",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "corn kernels",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 cup salsa",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "salsa",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 teaspoon ground cumin",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "ground cumin",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon lime juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lime juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "2 ripe avocados, diced",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "ripe avocados",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "southwest-turkey-quinoa-skillet-di323",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Southwestern US-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Southwest turkey quinoa skillet is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Southwestern US-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Southwestern US-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di323/kwilt-recipe-hero-v2/8414988dbeed2c17-4757bd23abd1524d/candidate-1.webp",
+        "altText": "Bowl of Southwest turkey quinoa skillet: quinoa and spiced ground turkey mixed with black beans, corn and red peppers in a glossy salsa, topped with diced avocado, served in a shallow ceramic bowl on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI324",
+      "sourceRecipeHash": "sha256:15b48b3b7c33c0a6ad604c94831f45de4a49bb0eb3b819b2baec85f9ebe3026d",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/2 pounds boneless skinless chicken thighs",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "boneless skinless chicken thighs",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups quinoa",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "quinoa",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "12 ounces broccoli florets",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "broccoli florets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 pint cherry tomatoes",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1 teaspoon smoked paprika",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "smoked paprika",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon apple cider vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "apple cider vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon honey",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "honey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1 cup shredded sharp cheddar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "shredded sharp cheddar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "smoky-chicken-and-broccoli-quinoa-di324",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Modern American flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Smoky chicken and broccoli quinoa is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Modern American flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Modern American weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di324/kwilt-recipe-hero-v2/5d41dda1a40b4582-a086e4f42fd0b5f6/candidate-0.webp",
+        "altText": "Single plate of sliced smoky glazed chicken thigh atop a bed of quinoa with roasted broccoli florets, blistered cherry tomatoes and shredded cheddar on a light ceramic plate",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI325",
+      "sourceRecipeHash": "sha256:9c4091dde40322f0680a5b0e438f78a6a855d2d5f54ebc5b3c88c1f108a71e92",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds peeled and deveined large shrimp",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "peeled and deveined large shrimp",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups pearled farro",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "pearled farro",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 pound asparagus, cut into 2-inch pieces",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "asparagus",
+          "preparation": "cut into 2-inch pieces",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "2 cups frozen peas",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "frozen peas",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 teaspoon coarsely ground black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "coarsely ground black pepper",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1/2 cup low-sodium vegetable broth",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "low-sodium vegetable broth",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup crumbled feta",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "crumbled feta",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "lemon-pepper-shrimp-and-farro-di325",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Modern Mediterranean flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Lemon pepper shrimp and farro is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Modern Mediterranean flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Modern Mediterranean weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di325/kwilt-recipe-hero-v2/6433abc8fa50d2fe-e656725c0f759663/candidate-0.webp",
+        "altText": "Bowl of lemon pepper shrimp and pearled farro with asparagus pieces, green peas and crumbled feta, shrimp topped with coarsely ground black pepper and a glossy sauce.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI326",
+      "sourceRecipeHash": "sha256:6335a6f6e34d81c5dc4cd08cb92a951613bce7f89d6629a8fef241af16377d98",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds ground turkey",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "ground turkey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "12 ounces whole-wheat penne",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "whole-wheat penne",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 jar (12 ounces) roasted red peppers, drained",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "roasted red peppers",
+          "preparation": "drained",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 3,
+          "originalText": "5 ounces baby spinach",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "baby spinach",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 cloves garlic, grated",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "clove",
+          "ingredientConcept": "garlic",
+          "preparation": "grated",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon balsamic vinegar",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "balsamic vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/3 cup finely grated Parmesan",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "finely grated parmesan",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "roasted-red-pepper-turkey-pasta-di326",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-pot",
+          "label": "Large pot"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large pot",
+          "needId": "large-pot",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Italian-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Roasted red pepper turkey pasta is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Italian-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Italian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di326/kwilt-recipe-hero-v2/36c44098fd37bd2c-f3904984a4f4bb3d/candidate-0.webp",
+        "altText": "Bowl of roasted red pepper turkey penne: whole-wheat penne tossed with crumbled turkey, roasted red pepper strips, wilted spinach and a glossy red-pepper cream sauce, finished with grated Parmesan, on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI327",
+      "sourceRecipeHash": "sha256:142664b15573ea3bc7d8c79ce425c1b010a68298c194c7c508fbc02f46d4b266",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Moderate",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cans (15 ounces each) chickpeas, drained and dried",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(15 ounces each) chickpeas",
+          "preparation": "drained and dried",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "12 ounces whole-wheat rotini",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "whole-wheat rotini",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "12 ounces broccoli florets",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "broccoli florets",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 pint cherry tomatoes",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/3 cup basil pesto",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "basil pesto",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon lemon juice",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/3 cup finely grated Parmesan",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "finely grated parmesan",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "creamy-pesto-chickpea-pasta-di327",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-pot",
+          "label": "Large pot"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large pot",
+          "needId": "large-pot",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Italian-inspired flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Creamy pesto chickpea pasta is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Italian-inspired flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Italian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di327/kwilt-recipe-hero-v2/95c9384c770674b9-3f27e48cc8783125/candidate-0.webp",
+        "altText": "Bowl of creamy pesto-coated whole-wheat rotini with chickpeas, broccoli florets, cherry tomatoes, and grated Parmesan on a wooden table",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI328",
+      "sourceRecipeHash": "sha256:7f4e97f8d41d1233c0d18a466dd274603d12478e3f30d7408d12ef6f1c37de78",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "1 1/4 pounds ground turkey",
+          "quantityMin": 1.25,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "ground turkey",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups brown rice",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "brown rice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 English cucumber, diced",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "english cucumber",
+          "preparation": "diced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 pint cherry tomatoes, halved",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "pint cherry tomatoes",
+          "preparation": "halved",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/2 cup plain Greek yogurt",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "plain greek yogurt",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1/2 cup fresh dill, chopped",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "fresh dill",
+          "preparation": "chopped",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/2 cup crumbled feta",
+          "quantityMin": 0.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "crumbled feta",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "lemon-dill-turkey-meatball-bowls-di328",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Mediterranean flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Lemon dill turkey meatball bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Mediterranean flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Mediterranean weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di328/kwilt-recipe-hero-v2/29b3966ce1acfce3-f9fba9fe74059be2/candidate-0.webp",
+        "altText": "Single bowl of lemon-dill turkey meatball bowl: brown rice base topped with five browned turkey meatballs, diced cucumber, halved cherry tomatoes, a dollop of dill Greek yogurt, crumbled feta, and fresh dill, on a neutral surface with natural light.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI329",
+      "sourceRecipeHash": "sha256:cd1aa2d23c6a806c282f57bd9b26159e569bdd8c327c19b862c221e2669cedde",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cans (15 ounces each) brown lentils, drained",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(15 ounces each) brown lentils",
+          "preparation": "drained",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups pearled farro",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "pearled farro",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "12 ounces cremini mushrooms, sliced",
+          "quantityMin": 12,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "cremini mushrooms",
+          "preparation": "sliced",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "1 pound carrots, cut into batons",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "carrots",
+          "preparation": "cut into batons",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "2 tablespoons balsamic vinegar",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "balsamic vinegar",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "1 tablespoon Dijon mustard",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "dijon mustard",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon extra-virgin olive oil",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "extra-virgin olive oil",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "4 ounces goat cheese, crumbled",
+          "quantityMin": 4,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "goat cheese",
+          "preparation": "crumbled",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "balsamic-mushroom-lentil-bowls-di329",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "large-skillet",
+          "label": "Large skillet"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 1,
+          "phrase": "large skillet",
+          "needId": "large-skillet",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Modern Mediterranean flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Balsamic mushroom lentil bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Modern Mediterranean flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Modern Mediterranean weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di329/kwilt-recipe-hero-v2/35d0f9001cd73acd-466a6763e5275615/candidate-0.webp",
+        "altText": "Three-quarter overhead view of a single bowl of balsamic mushroom lentil bowl: pearled farro, brown lentils topped with a mustardy balsamic dressing, sautéed sliced cremini mushrooms, roasted carrot batons, wilted spinach and crumbled goat cheese, on a wooden surface.",
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "rosterId": "DI330",
+      "sourceRecipeHash": "sha256:ec0f2f6ca8d9d15dd89967e05b39103b1c5ea9672ededd8c52df08c9cbf320bf",
+      "review": {
+        "state": "reviewed",
+        "reviewedAt": "2026-08-24",
+        "reviewedBy": "Kwilt Kitchen · Codex",
+        "sections": {
+          "cookingTruth": "reviewed",
+          "structuredIngredients": "reviewed",
+          "originHistory": "reviewed",
+          "equipment": "reviewed",
+          "commerce": "reviewed",
+          "sitePublication": "published"
+        }
+      },
+      "costTier": "$",
+      "difficulty": "Easy",
+      "structuredIngredients": [
+        {
+          "position": 0,
+          "originalText": "2 cans (15 ounces each) chickpeas, drained and dried",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "count",
+          "ingredientConcept": "(15 ounces each) chickpeas",
+          "preparation": "drained and dried",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 1,
+          "originalText": "1 1/2 cups quinoa",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "quinoa",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 2,
+          "originalText": "1 1/2 pounds sweet potatoes, cut into cubes",
+          "quantityMin": 1.5,
+          "quantityMax": null,
+          "unit": "pound",
+          "ingredientConcept": "sweet potatoes",
+          "preparation": "cut into cubes",
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 3,
+          "originalText": "5 ounces baby kale",
+          "quantityMin": 5,
+          "quantityMax": null,
+          "unit": "ounce",
+          "ingredientConcept": "baby kale",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 4,
+          "originalText": "1/3 cup tahini",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "tahini",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 5,
+          "originalText": "2 tablespoons lemon juice",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "lemon juice",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 6,
+          "originalText": "1 tablespoon maple syrup",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "maple syrup",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 7,
+          "originalText": "1/3 cup toasted pumpkin seeds",
+          "quantityMin": 0.3333333333333333,
+          "quantityMax": null,
+          "unit": "cup",
+          "ingredientConcept": "toasted pumpkin seeds",
+          "preparation": null,
+          "optional": false,
+          "parseConfidence": 0.98
+        },
+        {
+          "position": 8,
+          "originalText": "2 tablespoons olive oil, divided",
+          "quantityMin": 2,
+          "quantityMax": null,
+          "unit": "tablespoon",
+          "ingredientConcept": "olive oil",
+          "preparation": "divided",
+          "optional": false,
+          "parseConfidence": 0.88
+        },
+        {
+          "position": 9,
+          "originalText": "1 teaspoon kosher salt, divided, plus black pepper",
+          "quantityMin": 1,
+          "quantityMax": null,
+          "unit": "teaspoon",
+          "ingredientConcept": "kosher salt",
+          "preparation": "divided, plus black pepper",
+          "optional": false,
+          "parseConfidence": 0.88
+        }
+      ],
+      "instructionQuantityPhrases": {},
+      "commerce": {
+        "decision": "no_purchase_needed",
+        "needId": null,
+        "reviewCategoryId": null,
+        "rationale": "The recipe uses ordinary household cookware; no specialized purchase is needed to follow its reviewed method.",
+        "noPurchaseAlternative": null
+      },
+      "publication": {
+        "slug": "tahini-sweet-potato-quinoa-bowls-di330",
+        "publishedAt": "2026-08-24T13:45:00.000Z"
+      },
+      "equipmentNeeds": [
+        {
+          "id": "rimmed-sheet-pan",
+          "label": "Large rimmed sheet pan"
+        }
+      ],
+      "equipmentAnnotations": [
+        {
+          "instructionIndex": 0,
+          "phrase": "large rimmed sheet pan",
+          "needId": "rimmed-sheet-pan",
+          "focus": "general"
+        }
+      ],
+      "origin": {
+        "label": "Kwilt Kitchen, United States",
+        "region": "Contemporary North American meal-kit cooking with Modern Mediterranean flavor cues",
+        "markers": [
+          {
+            "label": "Kwilt Kitchen, United States",
+            "latitude": 39.7392,
+            "longitude": -104.9903
+          }
+        ],
+        "map": {
+          "center": [
+            -104.9903,
+            39.7392
+          ],
+          "scale": 700,
+          "highlightedCountryIds": [
+            "840"
+          ]
+        }
+      },
+      "history": {
+        "paragraphs": [
+          "Tahini sweet potato quinoa bowls is an original Kwilt Kitchen weeknight composition, not a reproduction of a meal-kit provider recipe or a claim of traditional authenticity. It uses Modern Mediterranean flavor cues inside a practical main, vegetable, base, sauce, and finish structure.",
+          "Green Chef's menu categories and Blue Apron's public cookbook document the broad contemporary meal-kit pattern behind the user's request. This recipe applies that pattern through Kwilt-authored ingredients and method: Build an original Modern Mediterranean weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        ],
+        "sources": [
+          {
+            "title": "Weekly Menus and Plans",
+            "publisher": "Green Chef",
+            "url": "https://www.greenchef.com/about/menus-and-plans"
+          },
+          {
+            "title": "Blue Apron Recipes",
+            "publisher": "Blue Apron",
+            "url": "https://www.blueapron.com/cookbook"
+          }
+        ]
+      },
+      "heroImage": {
+        "state": "published",
+        "storageRef": "https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/recipe-catalog-media/catalog/di330/kwilt-recipe-hero-v2/6a39fe8fc77c1904-ba938e1bc6a35f05/candidate-0.webp",
+        "altText": "Single bowl of Tahini sweet potato quinoa: quinoa base topped with cubed roasted sweet potatoes, crispy roasted chickpeas, fresh kale, drizzled tahini sauce and toasted pumpkin seeds.",
+        "width": 1536,
+        "height": 1024
+      }
+    }
+  ]
+}

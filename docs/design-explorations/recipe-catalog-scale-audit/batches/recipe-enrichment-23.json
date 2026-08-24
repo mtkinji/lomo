@@ -1,0 +1,1992 @@
+{
+  "schemaVersion": 1,
+  "batchId": "recipe-enrichment-23",
+  "manifestHash": "sha256:ac43a457b478b6b90a3d5e110a53050651bbf38461432aa2d3471a49e158e0b1",
+  "state": "pending",
+  "requiredGates": [
+    "cooking_truth",
+    "structured_ingredients",
+    "origin_history",
+    "equipment",
+    "commerce",
+    "hero_image",
+    "site_publication"
+  ],
+  "recipes": [
+    {
+      "rosterId": "DI281",
+      "sourceRecipeHash": "sha256:eb1619c1ae22bc26f9d82670392cdc9c958962939d660f11e1c73e14a1f8e20f",
+      "title": "Honey garlic pork with sesame cabbage",
+      "cuisine": "Chinese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Honey garlic pork with sesame cabbage brings together glazed pork, sesame cabbage, crisp carrots, and brown rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Chinese-inspired",
+        "ingredients": [
+          "1 1/2 pounds pork tenderloin, thinly sliced",
+          "1 1/2 cups brown rice",
+          "4 cups thinly sliced green cabbage",
+          "3 carrots, cut into matchsticks",
+          "2 tablespoons low-sodium soy sauce",
+          "1 tablespoon honey",
+          "2 cloves garlic, grated",
+          "2 teaspoons toasted sesame seeds",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Combine 2 tablespoons low-sodium soy sauce, 1 tablespoon honey, 2 cloves garlic, grated into a smooth sauce.",
+          "Pat 1 1/2 pounds pork tenderloin, thinly sliced dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it reaches 145°F before resting; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 4 cups thinly sliced green cabbage and 3 carrots, cut into matchsticks. Cook until crisp-tender, 4 to 6 minutes. Return the main ingredient, add the sauce, and simmer 1 to 2 minutes until glossy.",
+          "Season with the remaining salt and pepper. Divide the prepared base among four plates, add Honey garlic pork with sesame cabbage. Finish with 2 teaspoons toasted sesame seeds."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Chinese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the pork reaches 145°F and the glaze clings to it rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI282",
+      "sourceRecipeHash": "sha256:7dc0f0c59973298e1ac6a5bed6884650c0b10c0f1522cf4b113cdf6a33dc61d3",
+      "title": "Black pepper beef with green beans",
+      "cuisine": "Chinese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Black pepper beef with green beans brings together peppery beef, crisp green beans, sweet peppers, and brown rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Chinese-inspired",
+        "ingredients": [
+          "1 1/4 pounds flank steak, thinly sliced across the grain",
+          "1 1/2 cups brown rice",
+          "10 ounces green beans, cut into 2-inch pieces",
+          "1 red bell pepper, thinly sliced",
+          "2 tablespoons low-sodium soy sauce",
+          "1 tablespoon rice vinegar",
+          "1 teaspoon coarsely ground black pepper",
+          "4 scallions, thinly sliced",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Combine 2 tablespoons low-sodium soy sauce, 1 tablespoon rice vinegar, 1 teaspoon coarsely ground black pepper into a smooth sauce.",
+          "Pat 1 1/4 pounds flank steak, thinly sliced across the grain dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it is browned outside and still tender; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 10 ounces green beans, cut into 2-inch pieces and 1 red bell pepper, thinly sliced. Cook until crisp-tender, 4 to 6 minutes. Return the main ingredient, add the sauce, and simmer 1 to 2 minutes until glossy.",
+          "Season with the remaining salt and pepper. Divide the prepared base among four plates, add Black pepper beef with green beans. Finish with 4 scallions, thinly sliced."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Chinese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the beef is browned outside and still tender rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI283",
+      "sourceRecipeHash": "sha256:01c640e08fb1a6834a45dce60935aebff95d2b599fe36ac97f0acde1b28ba2e9",
+      "title": "Orange tofu with roasted broccoli",
+      "cuisine": "Chinese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Orange tofu with roasted broccoli brings together crisp tofu, bright orange glaze, broccoli, peppers, and rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Chinese-inspired",
+        "ingredients": [
+          "2 packages (14 ounces each) extra-firm tofu, pressed and cubed",
+          "1 1/2 cups brown rice",
+          "12 ounces broccoli florets",
+          "1 red bell pepper, sliced",
+          "1/3 cup orange juice",
+          "2 tablespoons low-sodium soy sauce",
+          "1 tablespoon rice vinegar",
+          "2 teaspoons toasted sesame seeds",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Heat the oven to 425°F with a rack in the upper third. Coat a large rimmed sheet pan with 1 tablespoon olive oil.",
+          "Combine 1/3 cup orange juice, 2 tablespoons low-sodium soy sauce, 1 tablespoon rice vinegar into a smooth sauce. Pat 2 packages (14 ounces each) extra-firm tofu, pressed and cubed thoroughly dry, then season with half of 1 teaspoon kosher salt and black pepper. Toss 12 ounces broccoli florets and 1 red bell pepper, sliced with the remaining 1 tablespoon olive oil, the remaining salt, and pepper on the pan. Add the seasoned main ingredient without crowding.",
+          "Roast, turning the vegetables once, until the tofu is crisp and the broccoli is browned. Spoon a little sauce over the main ingredient after it leaves the oven; rest meat or fish for 3 minutes when applicable.",
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Divide the base among four plates, add the roasted main and vegetables, and spoon over the remaining sauce. Finish Orange tofu with roasted broccoli with 2 teaspoons toasted sesame seeds."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Chinese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the tofu is crisp and the broccoli is browned rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI284",
+      "sourceRecipeHash": "sha256:f898f014e885b60b3d049bbc3b92bf4dadbc4adf7eb02c4dd0718109a44fbe37",
+      "title": "Sichuan-style turkey lettuce bowls",
+      "cuisine": "Chinese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Sichuan-style turkey lettuce bowls brings together tingly turkey, mushrooms, crisp lettuce, carrots, and rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Chinese-inspired",
+        "ingredients": [
+          "1 1/4 pounds ground turkey",
+          "1 1/2 cups brown rice",
+          "8 ounces cremini mushrooms, chopped",
+          "2 heads butter lettuce, leaves separated",
+          "2 tablespoons low-sodium soy sauce",
+          "1 tablespoon rice vinegar",
+          "1 teaspoon Sichuan peppercorns, toasted and ground",
+          "3 carrots, shaved into ribbons",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Combine 2 tablespoons low-sodium soy sauce, 1 tablespoon rice vinegar, 1 teaspoon Sichuan peppercorns, toasted and ground into a smooth dressing or glaze.",
+          "Break 1 1/4 pounds ground turkey into rough pieces and season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high and cook the main ingredient until it reaches 165°F; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 8 ounces cremini mushrooms, chopped. Cook until browned or crisp-tender, 4 to 6 minutes, then season with the remaining salt and pepper.",
+          "Build four bowls with the prepared base, cooked vegetables, and main ingredient. Add 2 heads butter lettuce, leaves separated fresh at serving. Spoon over the sauce and finish Sichuan-style turkey lettuce bowls with 3 carrots, shaved into ribbons."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Chinese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the turkey reaches 165°F and the mushrooms are browned rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI285",
+      "sourceRecipeHash": "sha256:ed9904c4d36267844697abefa28d946d9772b85c23a0cc60b908d4bdd937feb7",
+      "title": "Teriyaki chicken with pineapple broccoli",
+      "cuisine": "Japanese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Teriyaki chicken with pineapple broccoli brings together glazed chicken, caramelized pineapple, broccoli, and brown rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Japanese-inspired",
+        "ingredients": [
+          "1 1/2 pounds boneless skinless chicken thighs",
+          "1 1/2 cups brown rice",
+          "12 ounces broccoli florets",
+          "2 cups pineapple chunks",
+          "3 tablespoons low-sodium soy sauce",
+          "1 tablespoon honey",
+          "1 tablespoon rice vinegar",
+          "4 scallions, thinly sliced",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Heat the oven to 425°F with a rack in the upper third. Coat a large rimmed sheet pan with 1 tablespoon olive oil.",
+          "Combine 3 tablespoons low-sodium soy sauce, 1 tablespoon honey, 1 tablespoon rice vinegar into a smooth sauce. Pat 1 1/2 pounds boneless skinless chicken thighs dry, then season with half of 1 teaspoon kosher salt and black pepper. Toss 12 ounces broccoli florets and 2 cups pineapple chunks with the remaining 1 tablespoon olive oil, the remaining salt, and pepper on the pan. Add the seasoned main ingredient without crowding.",
+          "Roast, turning the vegetables once, until the chicken reaches 165°F and the pineapple is caramelized. Spoon a little sauce over the main ingredient after it leaves the oven; rest meat or fish for 3 minutes when applicable.",
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Divide the base among four plates, add the roasted main and vegetables, and spoon over the remaining sauce. Finish Teriyaki chicken with pineapple broccoli with 4 scallions, thinly sliced."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Japanese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the chicken reaches 165°F and the pineapple is caramelized rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Japanese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI286",
+      "sourceRecipeHash": "sha256:0e961629e0893f963695eeaa6f2d3efc6449321cc355940fb16f27b53203cb85",
+      "title": "Wasabi pea salmon rice bowls",
+      "cuisine": "Japanese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Wasabi pea salmon rice bowls brings together flaky salmon, crunchy peas, cucumber, cabbage, and rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Japanese-inspired",
+        "ingredients": [
+          "4 salmon fillets, 5 ounces each",
+          "1 1/2 cups brown rice",
+          "1 English cucumber, diced",
+          "3 cups shredded red cabbage",
+          "1/2 cup plain Greek yogurt",
+          "2 teaspoons prepared wasabi",
+          "1 tablespoon rice vinegar",
+          "1/2 cup crushed wasabi peas",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Combine 1/2 cup plain Greek yogurt, 2 teaspoons prepared wasabi, 1 tablespoon rice vinegar into a smooth dressing or glaze.",
+          "Pat 4 salmon fillets, 5 ounces each dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high and cook the main ingredient until it reaches 145°F and is just opaque; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and . Cook until browned or crisp-tender, 4 to 6 minutes, then season with the remaining salt and pepper.",
+          "Build four bowls with the prepared base, cooked vegetables, and main ingredient. Add 1 English cucumber, diced and 3 cups shredded red cabbage fresh at serving. Spoon over the sauce and finish Wasabi pea salmon rice bowls with 1/2 cup crushed wasabi peas."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Japanese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the salmon flakes at the edges and reaches 145°F rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Japanese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI287",
+      "sourceRecipeHash": "sha256:d9815d162e7aa05912a3d1e3634f6faa34078904de1ad60f2ca23d43cbe7c63d",
+      "title": "Kimchi turkey fried rice",
+      "cuisine": "Korean-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Kimchi turkey fried rice brings together savory turkey, tangy kimchi, brown rice, peas, and scallions in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Korean-inspired",
+        "ingredients": [
+          "1 1/4 pounds ground turkey",
+          "4 cups cooked and chilled brown rice",
+          "1 1/2 cups chopped kimchi",
+          "2 cups frozen peas",
+          "2 tablespoons low-sodium soy sauce",
+          "1 tablespoon gochujang",
+          "2 teaspoons toasted sesame oil",
+          "4 scallions, thinly sliced",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Break up 4 cups cooked and chilled brown rice so the grains are separate and ready for the skillet. Combine 2 tablespoons low-sodium soy sauce, 1 tablespoon gochujang, 2 teaspoons toasted sesame oil into a smooth sauce.",
+          "Break 1 1/4 pounds ground turkey into rough pieces and season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it reaches 165°F; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 1 1/2 cups chopped kimchi and 2 cups frozen peas. Cook until crisp-tender, 4 to 6 minutes. Return the main ingredient, add the sauce, and simmer 1 to 2 minutes until glossy.",
+          "Season with the remaining salt and pepper. Divide the prepared base among four plates, add Kimchi turkey fried rice. Finish with 4 scallions, thinly sliced."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Korean-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the turkey reaches 165°F and the rice has crisp edges rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Korean-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI288",
+      "sourceRecipeHash": "sha256:b0b942caa7c381881ac5bb81bbff5424639590fea9aa290b1ada45c01ec79025",
+      "title": "Spicy sesame mushroom noodles",
+      "cuisine": "Korean-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Spicy sesame mushroom noodles brings together chewy noodles, browned mushrooms, spinach, cabbage, and sesame chile sauce in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Korean-inspired",
+        "ingredients": [
+          "16 ounces extra-firm tofu, pressed and crumbled",
+          "10 ounces whole-wheat noodles",
+          "12 ounces mixed mushrooms, sliced",
+          "5 ounces baby spinach",
+          "2 tablespoons gochujang",
+          "2 tablespoons low-sodium soy sauce",
+          "2 teaspoons toasted sesame oil",
+          "2 teaspoons toasted sesame seeds",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Bring a large pot of water to a boil. Cook 10 ounces whole-wheat noodles until just tender, reserve 1/2 cup cooking water, drain, and rinse only if the package directs.",
+          "Combine 2 tablespoons gochujang, 2 tablespoons low-sodium soy sauce, 2 teaspoons toasted sesame oil into a smooth sauce. Pat 16 ounces extra-firm tofu, pressed and crumbled thoroughly dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it is crisp and browned on at least two sides; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 12 ounces mixed mushrooms, sliced and 5 ounces baby spinach. Cook until crisp-tender, 4 to 6 minutes. Remove from the heat, then add the sauce, noodles, main ingredient, and enough reserved water to make the sauce glossy; toss for 1 minute.",
+          "Taste and adjust with the remaining salt and pepper. Divide Spicy sesame mushroom noodles among four bowls and finish with 2 teaspoons toasted sesame seeds."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Korean-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the tofu and mushrooms are browned and the noodles are glossy rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Korean-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI289",
+      "sourceRecipeHash": "sha256:1d9c2df4443f71777b0b3cdf157a978a8d537f7d260f7acb926b83221d9a2e17",
+      "title": "Five-spice pork with plum cabbage",
+      "cuisine": "Chinese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Five-spice pork with plum cabbage brings together aromatic pork, sweet-tart cabbage, carrots, and brown rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Chinese-inspired",
+        "ingredients": [
+          "1 1/2 pounds boneless pork chops, thinly sliced",
+          "1 1/2 cups brown rice",
+          "4 cups shredded red cabbage",
+          "3 carrots, cut into matchsticks",
+          "2 tablespoons plum sauce",
+          "1 tablespoon rice vinegar",
+          "1 teaspoon Chinese five-spice",
+          "4 scallions, thinly sliced",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Combine 2 tablespoons plum sauce, 1 tablespoon rice vinegar, 1 teaspoon Chinese five-spice into a smooth sauce.",
+          "Pat 1 1/2 pounds boneless pork chops, thinly sliced dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it reaches 145°F before resting; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 4 cups shredded red cabbage and 3 carrots, cut into matchsticks. Cook until crisp-tender, 4 to 6 minutes. Return the main ingredient, add the sauce, and simmer 1 to 2 minutes until glossy.",
+          "Season with the remaining salt and pepper. Divide the prepared base among four plates, add Five-spice pork with plum cabbage. Finish with 4 scallions, thinly sliced."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Chinese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the pork reaches 145°F and the cabbage is crisp-tender rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI290",
+      "sourceRecipeHash": "sha256:a2b1be4ace2a2231c96d2133fa7888c22ab27f716bb4f84f2e46199e0fdca80c",
+      "title": "Ginger scallion shrimp and rice",
+      "cuisine": "Chinese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Ginger scallion shrimp and rice brings together juicy shrimp, ginger-scallion sauce, bok choy, carrots, and rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Chinese-inspired",
+        "ingredients": [
+          "1 1/4 pounds peeled and deveined large shrimp",
+          "1 1/2 cups brown rice",
+          "4 baby bok choy, chopped",
+          "3 carrots, cut on the bias",
+          "1 tablespoon grated fresh ginger",
+          "4 scallions, thinly sliced",
+          "2 tablespoons low-sodium soy sauce",
+          "1 tablespoon toasted sesame oil",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Combine 1 tablespoon grated fresh ginger, 4 scallions, thinly sliced, 2 tablespoons low-sodium soy sauce into a smooth sauce.",
+          "Pat 1 1/4 pounds peeled and deveined large shrimp dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it reaches 145°F and is just opaque; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 4 baby bok choy, chopped and 3 carrots, cut on the bias. Cook until crisp-tender, 4 to 6 minutes. Return the main ingredient, add the sauce, and simmer 1 to 2 minutes until glossy.",
+          "Season with the remaining salt and pepper. Divide the prepared base among four plates, add Ginger scallion shrimp and rice. Finish with 1 tablespoon toasted sesame oil."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Chinese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the shrimp are opaque, curled, and reach 145°F rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Chinese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI291",
+      "sourceRecipeHash": "sha256:55827fb7afe180a38477537552e8f6e9937de9ea6aa0ed8faa9431cd373e4071",
+      "title": "Katsu-style chicken with sesame slaw",
+      "cuisine": "Japanese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Katsu-style chicken with sesame slaw brings together crisp chicken, sesame slaw, roasted sweet potatoes, and tangy sauce in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Japanese-inspired",
+        "ingredients": [
+          "1 1/2 pounds chicken breast cutlets",
+          "1 1/2 pounds sweet potatoes, cut into wedges",
+          "4 cups shredded cabbage",
+          "2 carrots, grated",
+          "1/2 cup whole-wheat panko",
+          "2 tablespoons low-sodium soy sauce",
+          "1 tablespoon rice vinegar",
+          "2 teaspoons toasted sesame seeds",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Heat the oven to 425°F with a rack in the upper third. Coat a large rimmed sheet pan with 1 tablespoon olive oil.",
+          "Combine 1/2 cup whole-wheat panko, 2 tablespoons low-sodium soy sauce, 1 tablespoon rice vinegar into a smooth sauce. Pat 1 1/2 pounds chicken breast cutlets dry, then season with half of 1 teaspoon kosher salt and black pepper. Toss 1 1/2 pounds sweet potatoes, cut into wedges with the remaining 1 tablespoon olive oil, the remaining salt, and pepper on the pan. Add the seasoned main ingredient without crowding.",
+          "Roast, turning the vegetables once, until the chicken reaches 165°F and the crumbs are crisp. Spoon a little sauce over the main ingredient after it leaves the oven; rest meat or fish for 3 minutes when applicable.",
+          "Keep the roasted base warm. Divide the base among four plates, add the roasted main and vegetables, and spoon over the remaining sauce. Add 4 cups shredded cabbage and 2 carrots, grated fresh at serving. Finish Katsu-style chicken with sesame slaw with 2 teaspoons toasted sesame seeds."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Japanese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the chicken reaches 165°F and the crumbs are crisp rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Japanese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI292",
+      "sourceRecipeHash": "sha256:5304d7a2e6198c6adada3f05c8f315bdd2eaa6a44d9656de5222856edab49036",
+      "title": "Korean barbecue tofu with pear slaw",
+      "cuisine": "Korean-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Korean barbecue tofu with pear slaw brings together caramelized tofu, juicy pear slaw, broccoli, and brown rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Korean-inspired",
+        "ingredients": [
+          "2 packages (14 ounces each) extra-firm tofu, pressed and sliced",
+          "1 1/2 cups brown rice",
+          "12 ounces broccoli florets",
+          "3 cups shredded cabbage",
+          "1 ripe pear, grated",
+          "2 tablespoons low-sodium soy sauce",
+          "1 tablespoon gochujang",
+          "4 scallions, thinly sliced",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Heat the oven to 425°F with a rack in the upper third. Coat a large rimmed sheet pan with 1 tablespoon olive oil.",
+          "Combine 1 ripe pear, grated, 2 tablespoons low-sodium soy sauce, 1 tablespoon gochujang into a smooth sauce. Pat 2 packages (14 ounces each) extra-firm tofu, pressed and sliced thoroughly dry, then season with half of 1 teaspoon kosher salt and black pepper. Toss 12 ounces broccoli florets with the remaining 1 tablespoon olive oil, the remaining salt, and pepper on the pan. Add the seasoned main ingredient without crowding.",
+          "Roast, turning the vegetables once, until the tofu is browned and the broccoli is crisp at the edges. Spoon a little sauce over the main ingredient after it leaves the oven; rest meat or fish for 3 minutes when applicable.",
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Divide the base among four plates, add the roasted main and vegetables, and spoon over the remaining sauce. Add 3 cups shredded cabbage fresh at serving. Finish Korean barbecue tofu with pear slaw with 4 scallions, thinly sliced."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Korean-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the tofu is browned and the broccoli is crisp at the edges rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Korean-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI293",
+      "sourceRecipeHash": "sha256:4f839eb25b391f027b3ff82385b9d491e1c2151adb89bd0d2c12c50073ebfa8c",
+      "title": "Pho-spiced beef noodle bowls",
+      "cuisine": "Vietnamese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Pho-spiced beef noodle bowls brings together aromatic beef, rice noodles, bok choy, herbs, and lime in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Vietnamese-inspired",
+        "ingredients": [
+          "1 1/4 pounds sirloin steak, thinly sliced",
+          "10 ounces rice noodles",
+          "4 baby bok choy, chopped",
+          "8 ounces bean sprouts",
+          "4 cups low-sodium beef broth",
+          "1 teaspoon Chinese five-spice",
+          "1 tablespoon fish sauce",
+          "1 cup mixed basil and cilantro leaves",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Bring a large pot of water to a boil. Cook 10 ounces rice noodles until just tender, reserve 1/2 cup cooking water, drain, and rinse only if the package directs.",
+          "Combine 4 cups low-sodium beef broth, 1 teaspoon Chinese five-spice, 1 tablespoon fish sauce into a smooth sauce. Pat 1 1/4 pounds sirloin steak, thinly sliced dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it is browned outside and still tender; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 4 baby bok choy, chopped. Cook until crisp-tender, 4 to 6 minutes. Remove from the heat, then add the sauce, noodles, main ingredient, and enough reserved water to make the sauce glossy; toss for 1 minute.",
+          "Taste and adjust with the remaining salt and pepper. Add 8 ounces bean sprouts fresh at serving. Divide Pho-spiced beef noodle bowls among four bowls and finish with 1 cup mixed basil and cilantro leaves."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Vietnamese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the beef is just cooked and remains tender rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Vietnamese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI294",
+      "sourceRecipeHash": "sha256:bee5ff2ba78d0da5aa85821df1276a66832aff2792b67aaea3ea0175808fe967",
+      "title": "Vietnamese-style caramel tofu",
+      "cuisine": "Vietnamese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Vietnamese-style caramel tofu brings together sticky tofu, green beans, peppers, brown rice, and fresh herbs in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Vietnamese-inspired",
+        "ingredients": [
+          "2 packages (14 ounces each) extra-firm tofu, pressed and cubed",
+          "1 1/2 cups brown rice",
+          "10 ounces green beans, cut into 2-inch pieces",
+          "1 red bell pepper, sliced",
+          "2 tablespoons brown sugar",
+          "2 tablespoons low-sodium soy sauce",
+          "1 tablespoon lime juice",
+          "1/2 cup fresh cilantro leaves",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Combine 2 tablespoons brown sugar, 2 tablespoons low-sodium soy sauce, 1 tablespoon lime juice into a smooth sauce.",
+          "Pat 2 packages (14 ounces each) extra-firm tofu, pressed and cubed thoroughly dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it is crisp and browned on at least two sides; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 10 ounces green beans, cut into 2-inch pieces and 1 red bell pepper, sliced. Cook until crisp-tender, 4 to 6 minutes. Return the main ingredient, add the sauce, and simmer 1 to 2 minutes until glossy.",
+          "Season with the remaining salt and pepper. Divide the prepared base among four plates, add Vietnamese-style caramel tofu. Finish with 1/2 cup fresh cilantro leaves."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Vietnamese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the tofu is crisp and the caramel sauce clings to it rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Vietnamese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI295",
+      "sourceRecipeHash": "sha256:cfc33288459fcca0be1233684a1509585a0a99062b616006ac28d358de30aeae",
+      "title": "Lemongrass pork with coconut rice",
+      "cuisine": "Vietnamese-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Lemongrass pork with coconut rice brings together citrusy pork, coconut rice, cucumber, carrots, and mint in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Vietnamese-inspired",
+        "ingredients": [
+          "1 1/2 pounds pork tenderloin, thinly sliced",
+          "1 1/2 cups jasmine rice",
+          "1 English cucumber, thinly sliced",
+          "3 carrots, shaved into ribbons",
+          "2 tablespoons minced lemongrass",
+          "1 tablespoon fish sauce",
+          "1 tablespoon lime juice",
+          "1 cup fresh mint leaves",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups jasmine rice according to package directions. Keep warm, fluffing or separating it before serving. Combine 2 tablespoons minced lemongrass, 1 tablespoon fish sauce, 1 tablespoon lime juice into a smooth dressing or glaze.",
+          "Pat 1 1/2 pounds pork tenderloin, thinly sliced dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high and cook the main ingredient until it reaches 145°F before resting; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and . Cook until browned or crisp-tender, 4 to 6 minutes, then season with the remaining salt and pepper.",
+          "Build four bowls with the prepared base, cooked vegetables, and main ingredient. Add 1 English cucumber, thinly sliced and 3 carrots, shaved into ribbons fresh at serving. Spoon over the sauce and finish Lemongrass pork with coconut rice with 1 cup fresh mint leaves."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Vietnamese-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the pork reaches 145°F and is browned at the edges rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Vietnamese-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI296",
+      "sourceRecipeHash": "sha256:3b37f60dce04a72c9ae8038926eb00c87c524aa3cbbc3ed0a2e2765c27f16415",
+      "title": "Thai peanut tofu noodle salad",
+      "cuisine": "Thai-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Thai peanut tofu noodle salad brings together crisp tofu, cool noodles, cabbage, cucumber, and creamy peanut lime in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Thai-inspired",
+        "ingredients": [
+          "2 packages (14 ounces each) extra-firm tofu, pressed and cubed",
+          "10 ounces rice noodles",
+          "3 cups shredded red cabbage",
+          "1 English cucumber, cut into matchsticks",
+          "1/3 cup natural peanut butter",
+          "2 tablespoons lime juice",
+          "1 tablespoon low-sodium soy sauce",
+          "1/2 cup fresh cilantro leaves",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Bring a large pot of water to a boil. Cook 10 ounces rice noodles until just tender, reserve 1/2 cup cooking water, drain, and rinse only if the package directs.",
+          "Combine 1/3 cup natural peanut butter, 2 tablespoons lime juice, 1 tablespoon low-sodium soy sauce into a smooth sauce. Pat 2 packages (14 ounces each) extra-firm tofu, pressed and cubed thoroughly dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it is crisp and browned on at least two sides; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 3 cups shredded red cabbage. Cook until crisp-tender, 4 to 6 minutes. Remove from the heat, then add the sauce, noodles, main ingredient, and enough reserved water to make the sauce glossy; toss for 1 minute.",
+          "Taste and adjust with the remaining salt and pepper. Add 1 English cucumber, cut into matchsticks fresh at serving. Divide Thai peanut tofu noodle salad among four bowls and finish with 1/2 cup fresh cilantro leaves."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Thai-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the tofu is crisp and the noodles are tender but not soft rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Thai-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI297",
+      "sourceRecipeHash": "sha256:4c79af3c297b48233efc3c52492ca1237b4e64fd320365de026db74388b56357",
+      "title": "Red curry turkey and green bean bowls",
+      "cuisine": "Thai-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Red curry turkey and green bean bowls brings together coconut curry turkey, crisp green beans, peppers, and rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Thai-inspired",
+        "ingredients": [
+          "1 1/4 pounds ground turkey",
+          "1 1/2 cups brown rice",
+          "10 ounces green beans, cut into 2-inch pieces",
+          "1 red bell pepper, sliced",
+          "1 can (13.5 ounces) light coconut milk",
+          "2 tablespoons red curry paste",
+          "1 tablespoon lime juice",
+          "1/2 cup fresh basil leaves",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Combine 1 can (13.5 ounces) light coconut milk, 2 tablespoons red curry paste, 1 tablespoon lime juice into a smooth sauce.",
+          "Break 1 1/4 pounds ground turkey into rough pieces and season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it reaches 165°F; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 10 ounces green beans, cut into 2-inch pieces and 1 red bell pepper, sliced. Cook until crisp-tender, 4 to 6 minutes. Return the main ingredient, add the sauce, and simmer 1 to 2 minutes until glossy.",
+          "Season with the remaining salt and pepper. Divide the prepared base among four plates, add Red curry turkey and green bean bowls. Finish with 1/2 cup fresh basil leaves."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Thai-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the turkey reaches 165°F and the sauce lightly coats the vegetables rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Thai-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI298",
+      "sourceRecipeHash": "sha256:11762963f4b80f53961e7b7ba295d4e59b9300c99f23f1737c34e2b9ab46986f",
+      "title": "Filipino-style adobo chicken bowls",
+      "cuisine": "Filipino-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Filipino-style adobo chicken bowls brings together tangy soy-vinegar chicken, garlicky greens, carrots, and brown rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Filipino-inspired",
+        "ingredients": [
+          "1 1/2 pounds boneless skinless chicken thighs",
+          "1 1/2 cups brown rice",
+          "1 bunch lacinato kale, chopped",
+          "3 carrots, cut on the bias",
+          "1/4 cup cane vinegar",
+          "3 tablespoons low-sodium soy sauce",
+          "3 cloves garlic, grated",
+          "4 scallions, thinly sliced",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Combine 1/4 cup cane vinegar, 3 tablespoons low-sodium soy sauce, 3 cloves garlic, grated into a smooth sauce.",
+          "Pat 1 1/2 pounds boneless skinless chicken thighs dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it reaches 165°F; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 1 bunch lacinato kale, chopped and 3 carrots, cut on the bias. Cook until crisp-tender, 4 to 6 minutes. Return the main ingredient, add the sauce, and simmer 1 to 2 minutes until glossy.",
+          "Season with the remaining salt and pepper. Divide the prepared base among four plates, add Filipino-style adobo chicken bowls. Finish with 4 scallions, thinly sliced."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Filipino-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the chicken reaches 165°F and the sauce is glossy rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Filipino-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI299",
+      "sourceRecipeHash": "sha256:32d519415f268ee6190f7664bdc010733549d6549bb5bdb744e91dad50c30744",
+      "title": "Calamansi turkey pancit",
+      "cuisine": "Filipino-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Calamansi turkey pancit brings together savory turkey, rice noodles, cabbage, carrots, and bright citrus in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Filipino-inspired",
+        "ingredients": [
+          "1 1/4 pounds ground turkey",
+          "10 ounces rice noodles",
+          "4 cups shredded cabbage",
+          "3 carrots, cut into matchsticks",
+          "3 tablespoons low-sodium soy sauce",
+          "2 tablespoons calamansi or lime juice",
+          "1 tablespoon grated fresh ginger",
+          "4 scallions, thinly sliced",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Bring a large pot of water to a boil. Cook 10 ounces rice noodles until just tender, reserve 1/2 cup cooking water, drain, and rinse only if the package directs.",
+          "Combine 3 tablespoons low-sodium soy sauce, 2 tablespoons calamansi or lime juice, 1 tablespoon grated fresh ginger into a smooth sauce. Break 1 1/4 pounds ground turkey into rough pieces and season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it reaches 165°F; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 4 cups shredded cabbage and 3 carrots, cut into matchsticks. Cook until crisp-tender, 4 to 6 minutes. Remove from the heat, then add the sauce, noodles, main ingredient, and enough reserved water to make the sauce glossy; toss for 1 minute.",
+          "Taste and adjust with the remaining salt and pepper. Divide Calamansi turkey pancit among four bowls and finish with 4 scallions, thinly sliced."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Filipino-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the turkey reaches 165°F and the noodles are tender rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Filipino-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI300",
+      "sourceRecipeHash": "sha256:c5f43ca39c6df21f2846d889bac2cfab9b6048850bfa2d0c0dbcfe1e1a03ff32",
+      "title": "Coconut ginger fish with bok choy",
+      "cuisine": "Southeast Asian-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Coconut ginger fish with bok choy brings together delicate fish, coconut ginger broth, bok choy, tomatoes, and rice in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Southeast Asian-inspired",
+        "ingredients": [
+          "4 cod fillets, 5 ounces each",
+          "1 1/2 cups brown rice",
+          "4 baby bok choy, chopped",
+          "1 pint cherry tomatoes",
+          "1 can (13.5 ounces) light coconut milk",
+          "1 tablespoon grated fresh ginger",
+          "2 tablespoons lime juice",
+          "1/2 cup fresh cilantro leaves",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups brown rice according to package directions. Keep warm, fluffing or separating it before serving. Meanwhile, heat 1 tablespoon olive oil in a Dutch oven or deep skillet over medium-high.",
+          "Combine 1 can (13.5 ounces) light coconut milk, 1 tablespoon grated fresh ginger, 2 tablespoons lime juice into a smooth sauce. Pat 4 cod fillets, 5 ounces each dry, then season with half of 1 teaspoon kosher salt and black pepper. Cook the main ingredient until browned or aromatic, 4 to 6 minutes. Add 4 baby bok choy, chopped and 1 pint cherry tomatoes and the remaining 1 tablespoon olive oil; cook 3 minutes.",
+          "Stir in the sauce and 1 cup water unless broth is already listed. Simmer gently, partially covered, until the cod flakes easily and reaches 145°F, stirring occasionally and thinning with water if needed.",
+          "Season with the remaining salt and pepper. Spoon Coconut ginger fish with bok choy over or alongside the prepared base. Finish with 1/2 cup fresh cilantro leaves."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Southeast Asian-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the cod flakes easily and reaches 145°F rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Southeast Asian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI301",
+      "sourceRecipeHash": "sha256:10db4ad3fa47be8d143668671422d4c155e7c28ae6a2dfc31f313a3f682c0b7c",
+      "title": "Shawarma chicken with turmeric quinoa",
+      "cuisine": "Levantine-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Shawarma chicken with turmeric quinoa brings together warm-spiced chicken, turmeric quinoa, roasted cauliflower, and tahini in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Levantine-inspired",
+        "ingredients": [
+          "1 1/2 pounds boneless skinless chicken thighs",
+          "1 1/2 cups quinoa",
+          "1 small head cauliflower, cut into florets",
+          "1 red onion, cut into wedges",
+          "2 teaspoons shawarma seasoning",
+          "1/3 cup tahini",
+          "2 tablespoons lemon juice",
+          "1/2 cup fresh parsley leaves",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Heat the oven to 425°F with a rack in the upper third. Coat a large rimmed sheet pan with 1 tablespoon olive oil.",
+          "Combine 2 teaspoons shawarma seasoning, 1/3 cup tahini, 2 tablespoons lemon juice into a smooth sauce. Pat 1 1/2 pounds boneless skinless chicken thighs dry, then season with half of 1 teaspoon kosher salt and black pepper. Toss 1 small head cauliflower, cut into florets and 1 red onion, cut into wedges with the remaining 1 tablespoon olive oil, the remaining salt, and pepper on the pan. Add the seasoned main ingredient without crowding.",
+          "Roast, turning the vegetables once, until the chicken reaches 165°F and the cauliflower is browned. Spoon a little sauce over the main ingredient after it leaves the oven; rest meat or fish for 3 minutes when applicable.",
+          "Cook 1 1/2 cups quinoa according to package directions. Keep warm, fluffing or separating it before serving. Divide the base among four plates, add the roasted main and vegetables, and spoon over the remaining sauce. Finish Shawarma chicken with turmeric quinoa with 1/2 cup fresh parsley leaves."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Levantine-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the chicken reaches 165°F and the cauliflower is browned rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Levantine-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI302",
+      "sourceRecipeHash": "sha256:7f9425becec762419c723cf5cdc38cc5cb62241a87bf5cc4070018d9e7df6ee3",
+      "title": "Falafel-spiced chickpea bowls",
+      "cuisine": "Levantine-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Falafel-spiced chickpea bowls brings together crisp spiced chickpeas, tomato cucumber salad, bulgur, and tahini in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Levantine-inspired",
+        "ingredients": [
+          "2 cans (15 ounces each) chickpeas, drained and dried",
+          "1 1/2 cups quick-cooking bulgur",
+          "1 English cucumber, diced",
+          "1 pint cherry tomatoes, halved",
+          "1/3 cup tahini",
+          "2 tablespoons lemon juice",
+          "1 teaspoon ground cumin",
+          "1/2 cup fresh parsley leaves",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups quick-cooking bulgur according to package directions. Keep warm, fluffing or separating it before serving. Combine 1/3 cup tahini, 2 tablespoons lemon juice, 1 teaspoon ground cumin into a smooth dressing or glaze.",
+          "Pat 2 cans (15 ounces each) chickpeas, drained and dried thoroughly dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high and cook the main ingredient until the chickpeas are crisp and hot; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 1 pint cherry tomatoes, halved. Cook until browned or crisp-tender, 4 to 6 minutes, then season with the remaining salt and pepper.",
+          "Build four bowls with the prepared base, cooked vegetables, and main ingredient. Add 1 English cucumber, diced fresh at serving. Spoon over the sauce and finish Falafel-spiced chickpea bowls with 1/2 cup fresh parsley leaves."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Levantine-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the chickpeas are crisp and the bulgur is fluffy rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Levantine-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI303",
+      "sourceRecipeHash": "sha256:0a14ebeeb5b1955a8545ad4d1ea6f1f625ed8e2921d11083b1669d9319d090a4",
+      "title": "Turkish-style beef with tomato bulgur",
+      "cuisine": "Turkish-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Turkish-style beef with tomato bulgur brings together spiced beef, tomato bulgur, peppers, spinach, and lemon yogurt in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Turkish-inspired",
+        "ingredients": [
+          "1 1/4 pounds lean ground beef",
+          "1 1/2 cups quick-cooking bulgur",
+          "2 bell peppers, diced",
+          "5 ounces baby spinach",
+          "1 can (14.5 ounces) diced tomatoes",
+          "1 teaspoon ground cumin",
+          "1/2 cup plain Greek yogurt",
+          "1/2 cup fresh mint leaves",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups quick-cooking bulgur according to package directions. Keep warm, fluffing or separating it before serving. Combine 1 can (14.5 ounces) diced tomatoes, 1 teaspoon ground cumin, 1/2 cup plain Greek yogurt into a smooth sauce.",
+          "Break 1 1/4 pounds lean ground beef into rough pieces and season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it is deeply browned with no pink remaining; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 2 bell peppers, diced and 5 ounces baby spinach. Cook until crisp-tender, 4 to 6 minutes. Return the main ingredient, remove the skillet from the heat, add the sauce, and toss until evenly coated.",
+          "Season with the remaining salt and pepper. Divide the prepared base among four plates, add Turkish-style beef with tomato bulgur. Finish with 1/2 cup fresh mint leaves."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Turkish-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the beef has no pink remaining and the bulgur is tender rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Turkish-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI304",
+      "sourceRecipeHash": "sha256:adc4164d7e2d9769aac9080f4ea8418f80d105cda900a987f642384a2c01278b",
+      "title": "Pomegranate chicken with walnut farro",
+      "cuisine": "Persian-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Pomegranate chicken with walnut farro brings together tangy chicken, walnut farro, green beans, carrots, and herbs in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Persian-inspired",
+        "ingredients": [
+          "1 1/2 pounds chicken breast cutlets",
+          "1 1/2 cups pearled farro",
+          "10 ounces green beans, trimmed",
+          "3 carrots, cut on the bias",
+          "2 tablespoons pomegranate molasses",
+          "1/2 cup low-sodium chicken broth",
+          "1 tablespoon lemon juice",
+          "1/3 cup toasted walnuts, chopped",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Cook 1 1/2 cups pearled farro according to package directions. Keep warm, fluffing or separating it before serving. Combine 2 tablespoons pomegranate molasses, 1/2 cup low-sodium chicken broth, 1 tablespoon lemon juice into a smooth sauce.",
+          "Pat 1 1/2 pounds chicken breast cutlets dry, then season with half of 1 teaspoon kosher salt and black pepper. Heat 1 tablespoon olive oil in a large skillet over medium-high. Cook the main ingredient until it reaches 165°F; transfer to a plate.",
+          "Add the remaining 1 tablespoon olive oil and 10 ounces green beans, trimmed and 3 carrots, cut on the bias. Cook until crisp-tender, 4 to 6 minutes. Return the main ingredient, add the sauce, and simmer 1 to 2 minutes until glossy.",
+          "Season with the remaining salt and pepper. Divide the prepared base among four plates, add Pomegranate chicken with walnut farro. Finish with 1/3 cup toasted walnuts, chopped."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Persian-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the chicken reaches 165°F and the glaze clings to it rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Persian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    },
+    {
+      "rosterId": "DI305",
+      "sourceRecipeHash": "sha256:c8a496e345bdbcfc9555acb8ed621f8e671c4bf6702e039a7fc372d4eeb50212",
+      "title": "Saffron salmon with herb rice",
+      "cuisine": "Persian-inspired",
+      "equipmentState": "pending",
+      "originHistoryState": "pending",
+      "historySourceCount": 0,
+      "heroImageState": "missing",
+      "researchTask": {
+        "description": "Saffron salmon with herb rice brings together saffron salmon, herb-flecked rice, roasted asparagus, and yogurt in a colorful, weeknight-ready dinner.",
+        "category": "Dinner",
+        "cuisine": "Persian-inspired",
+        "ingredients": [
+          "4 salmon fillets, 5 ounces each",
+          "1 1/2 cups brown basmati rice",
+          "1 pound asparagus, trimmed",
+          "1 red onion, cut into wedges",
+          "1 pinch saffron threads, bloomed in 2 tablespoons warm water",
+          "1/2 cup plain Greek yogurt",
+          "1 tablespoon lemon juice",
+          "1 cup mixed dill and parsley leaves",
+          "2 tablespoons olive oil, divided",
+          "1 teaspoon kosher salt, divided, plus black pepper"
+        ],
+        "instructions": [
+          "Heat the oven to 425°F with a rack in the upper third. Coat a large rimmed sheet pan with 1 tablespoon olive oil.",
+          "Combine 1 pinch saffron threads, bloomed in 2 tablespoons warm water, 1/2 cup plain Greek yogurt, 1 tablespoon lemon juice into a smooth sauce. Pat 4 salmon fillets, 5 ounces each dry, then season with half of 1 teaspoon kosher salt and black pepper. Toss 1 pound asparagus, trimmed and 1 red onion, cut into wedges with the remaining 1 tablespoon olive oil, the remaining salt, and pepper on the pan. Add the seasoned main ingredient without crowding.",
+          "Roast, turning the vegetables once, until the salmon flakes at the edges and reaches 145°F. Spoon a little sauce over the main ingredient after it leaves the oven; rest meat or fish for 3 minutes when applicable.",
+          "Cook 1 1/2 cups brown basmati rice according to package directions. Keep warm, fluffing or separating it before serving. Divide the base among four plates, add the roasted main and vegetables, and spoon over the remaining sauce. Finish Saffron salmon with herb rice with 1 cup mixed dill and parsley leaves."
+        ],
+        "notes": "This original Kwilt Kitchen dinner uses Persian-inspired flavor cues inside a meal-kit-style structure: one clear main, two visible vegetables, a practical base, and a high-contrast sauce or finish. It is inspiration, not a copy of a provider recipe or a claim of traditional authenticity.",
+        "sources": [
+          {
+            "publisher": "Green Chef",
+            "title": "Weekly Menus and Plans",
+            "url": "https://www.greenchef.com/about/menus-and-plans",
+            "signal": "The current menu architecture emphasizes quick and easy, high-protein, plant-based, Mediterranean, gluten-free, and produce-forward meals rather than one narrow cuisine."
+          },
+          {
+            "publisher": "Blue Apron",
+            "title": "Blue Apron Recipes",
+            "url": "https://www.blueapron.com/cookbook",
+            "signal": "The public cookbook describes chef-designed home meals across protein, vegetarian, and calorie-conscious choices, supporting a composed dinner with a clear main, vegetables, and a distinctive finish."
+          },
+          {
+            "publisher": "USDA MyPlate",
+            "title": "What Is MyPlate?",
+            "url": "https://www.myplate.gov/eat-healthy/what-is-myplate",
+            "signal": "The plate model supports making vegetables visible and substantial while keeping grains and protein legible, a useful guardrail for a balanced weeknight meal."
+          }
+        ],
+        "existingResearch": {
+          "nonNegotiableTechniques": [
+            "Keep the main ingredient, vegetables, base, and finish visually distinct.",
+            "Cook until the salmon flakes at the edges and reaches 145°F rather than relying only on the clock.",
+            "Reserve part of the sauce or garnish for the plated finish so the meal stays bright."
+          ],
+          "repeatedSuccessSignals": [
+            "The main ingredient is well browned without drying out",
+            "Vegetables remain colorful and substantial",
+            "The sauce tastes vivid but does not drown the plate",
+            "Four portions feel complete without excessive prep"
+          ],
+          "repeatedFailureRisks": [
+            "Crowding the pan steams the ingredients instead of browning them.",
+            "Adding all sauce too early dulls fresh acidic flavors.",
+            "Overcooking the base or main ingredient makes the composed plate feel heavy."
+          ],
+          "adaptationDecision": "Build an original Persian-inspired weeknight composition around the meal-kit virtues the user requested—clear choices, colorful produce, a distinctive sauce, and a 35-to-40-minute path—without reproducing Green Chef or Blue Apron recipe text."
+        },
+        "requestedOutput": {
+          "equipment": "Meaningful preparation tools only, each grounded in an exact instruction phrase; do not create product links.",
+          "origin": "Bounded place/region claims with valid coordinates and country identifiers.",
+          "history": "Two concise paragraphs with one or more directly supporting HTTPS sources; target two independent sources.",
+          "imagery": "A culturally plausible, ingredient-faithful hero brief and factual alt text; image approval remains a separate editorial gate."
+        }
+      }
+    }
+  ]
+}

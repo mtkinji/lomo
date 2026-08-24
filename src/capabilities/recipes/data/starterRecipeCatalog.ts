@@ -37,6 +37,8 @@ export const DEFAULT_RECIPE_INVENTORY_FILTERS: RecipeInventoryFilters = {
 };
 
 const metadataById = new Map<string, StarterRecipeMetadata>();
+const hostedMetadataById = new Map<string, StarterRecipeMetadata>();
+const hostedRosterIdByRecipeId = new Map<string, string>();
 const enrichmentByRecipeId = new Map<string, RecipeEditorialEnrichment>(
   RECIPE_EDITORIAL_ENRICHMENT_SEEDS.map((record) => [
     `kwilt-recipe-${record.rosterId.toLowerCase()}`,
@@ -85,15 +87,18 @@ export const STARTER_RECIPE_CUISINES: readonly string[] = Array.from(
 export function getStarterRecipeMetadata(
   recipeId: string,
 ): StarterRecipeMetadata | null {
-  return metadataById.get(recipeId) ?? null;
+  return hostedMetadataById.get(recipeId) ?? metadataById.get(recipeId) ?? null;
 }
 
 export function getStarterRecipeEnrichment(recipeId: string): RecipeEditorialEnrichment | null {
-  return enrichmentByRecipeId.get(recipeId) ?? null;
+  const rosterId = hostedRosterIdByRecipeId.get(recipeId);
+  return enrichmentByRecipeId.get(
+    rosterId ? `kwilt-recipe-${rosterId.toLowerCase()}` : recipeId,
+  ) ?? null;
 }
 
 export function isStarterRecipe(recipeId: string): boolean {
-  return metadataById.has(recipeId);
+  return hostedMetadataById.has(recipeId) || metadataById.has(recipeId);
 }
 
 export function isCanonicalCatalogProjection(
@@ -112,12 +117,41 @@ export function buildRecipeLibraryInventory(
   const privateRecipes = personalRecipes.filter(
     (projection) => !isCanonicalCatalogProjection(projection),
   );
+  const hostedCatalog = personalRecipes.filter(isCanonicalCatalogProjection);
+  hostedMetadataById.clear();
+  hostedRosterIdByRecipeId.clear();
+  for (const projection of hostedCatalog) {
+    const publication = projection.catalog;
+    if (!publication) continue;
+    const { category, cuisine, tier } = publication.editorialMetadata;
+    if (
+      !STARTER_RECIPE_CATEGORIES.includes(category as StarterRecipeMetadata['category']) ||
+      !['household-anchor', 'cuisine-anchor', 'discovery'].includes(tier)
+    ) continue;
+    const inactiveMinutes = publication.editorialMetadata.inactiveMinutes ?? 0;
+    hostedMetadataById.set(projection.recipe.id, {
+      category: category as StarterRecipeMetadata['category'],
+      cuisine,
+      artworkIndex: 0,
+      tier: tier as StarterRecipeMetadata['tier'],
+      inactiveMinutes,
+      totalMinutes:
+        (projection.currentVersion.prepMinutes ?? 0) +
+        (projection.currentVersion.cookMinutes ?? 0) +
+        inactiveMinutes,
+      featured: tier === 'household-anchor',
+    });
+    hostedRosterIdByRecipeId.set(projection.recipe.id, publication.rosterId);
+  }
+  const catalog = hostedCatalog.length
+    ? hostedCatalog
+    : STARTER_RECIPE_PROJECTIONS.map(applyHostedCatalogMedia);
   const personalIds = new Set(privateRecipes.map(({ recipe }) => recipe.id));
   return [
     ...privateRecipes,
-    ...STARTER_RECIPE_PROJECTIONS.filter(
+    ...catalog.filter(
       ({ recipe }) => !personalIds.has(recipe.id),
-    ).map(applyHostedCatalogMedia),
+    ),
   ];
 }
 

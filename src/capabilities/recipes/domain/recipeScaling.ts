@@ -1,11 +1,11 @@
 const vulgarFractions: Record<string, number> = {
-  '⅛': 1 / 8, '¼': 1 / 4, '⅓': 1 / 3, '⅜': 3 / 8,
-  '½': 1 / 2, '⅝': 5 / 8, '⅔': 2 / 3, '¾': 3 / 4, '⅞': 7 / 8,
+  '⅛': 1 / 8, '⅙': 1 / 6, '¼': 1 / 4, '⅓': 1 / 3, '⅜': 3 / 8,
+  '½': 1 / 2, '⅝': 5 / 8, '⅔': 2 / 3, '¾': 3 / 4, '⅚': 5 / 6, '⅞': 7 / 8,
 };
 
 const displayFractions = [
-  [0, ''], [1 / 8, '⅛'], [1 / 4, '¼'], [1 / 3, '⅓'], [3 / 8, '⅜'],
-  [1 / 2, '½'], [5 / 8, '⅝'], [2 / 3, '⅔'], [3 / 4, '¾'], [7 / 8, '⅞'], [1, ''],
+  [0, ''], [1 / 8, '⅛'], [1 / 6, '⅙'], [1 / 4, '¼'], [1 / 3, '⅓'], [3 / 8, '⅜'],
+  [1 / 2, '½'], [5 / 8, '⅝'], [2 / 3, '⅔'], [3 / 4, '¾'], [5 / 6, '⅚'], [7 / 8, '⅞'], [1, ''],
 ] as const;
 
 function bounded(value: number): number {
@@ -15,7 +15,7 @@ function bounded(value: number): number {
 export function parseKitchenQuantity(text: string): number | null {
   const normalized = text.trim();
   if (!normalized) return null;
-  const vulgar = normalized.match(/^(\d+)?\s*([⅛¼⅓⅜½⅝⅔¾⅞])/);
+  const vulgar = normalized.match(/^(\d+)?\s*([⅛⅙¼⅓⅜½⅝⅔¾⅚⅞])/);
   if (vulgar) return Number(vulgar[1] ?? 0) + vulgarFractions[vulgar[2]];
   const mixed = normalized.match(/^(\d+)\s+(\d+)\/(\d+)/);
   if (mixed && Number(mixed[3]) !== 0) return Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);

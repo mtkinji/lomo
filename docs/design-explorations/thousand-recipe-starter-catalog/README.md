@@ -1,11 +1,12 @@
-# 500-Recipe Starter Catalog
+# 600-Recipe Starter Catalog
 
-Status: 500 recipes authored and integrated after the final desk-review gate;
-original 1,000-meal roster retained as an expansion backlog
+Status: 600 recipes are authored, enrichment-reviewed, image-reviewed, and
+published through the canonical hosted catalog. The original 1,000-meal roster
+remains an expansion backlog.
 
 ## Sequence
 
-1. Select exactly 500 distinct meal and recipe concepts from the expansion
+1. Select a bounded set of distinct meal and recipe concepts from the expansion
    roster, covering every major food category.
 2. Review the roster with Andrew before recipe authoring.
 3. For each aligned item, compare at least three strong variations when
@@ -18,7 +19,7 @@ original 1,000-meal roster retained as an expansion backlog
    allergens, dietary tags, and step order.
 7. Publish in reviewable batches with immutable provenance and editorial state.
 
-## Active 500-recipe category allocation
+## Active 600-recipe category allocation
 
 Meal role is the primary category. Cuisine, dietary fit, protein, method,
 effort, equipment, season, freezer fit, and occasion are independent facets.
@@ -27,20 +28,33 @@ effort, equipment, season, freezer fit, and occasion are independent facets.
 | ------------------- | ------: | ----------- | ---------------------------------------------------------- |
 | Breakfast & brunch  |      90 | BR001–BR090 | Everyday starts, make-ahead options, and weekend favorites |
 | Lunch & handhelds   |      85 | LU001–LU085 | Packable lunches, sandwiches, wraps, and light meals       |
-| Dinner              |     230 | DI001–DI230 | Core household planning and broad cuisine coverage         |
+| Dinner              |     330 | DI001–DI330 | Core household planning, global breadth, and meal-kit pace |
 | Soups & stews       |      15 | SO001–SO015 | Budget, batch, cold-weather, and pantry value              |
 | Salads & bowls      |      10 | SA001–SA010 | Fast meals, produce use, grains, and warm-weather breadth  |
 | Appetizers & snacks |      10 | AP001–AP010 | Sharing, after-school food, parties, and small plates      |
 | Sides               |      10 | SI001–SI010 | Complete familiar meals and use vegetables well            |
 | Breads & baking     |      20 | BA001–BA020 | Everyday breads plus culturally important staples          |
 | Desserts            |      30 | DE001–DE030 | Familiar bakes, fruit desserts, custards, and celebrations |
-| **Total**           | **500** |             |                                                            |
+| **Total**           | **600** |             |                                                            |
+
+### Meal-kit expansion (`DI231–DI330`)
+
+The August 24 expansion adds 100 original Kwilt dinners weighted toward the
+current Green Chef and Blue Apron catalog shape: quick and easy, high-protein,
+plant-based, Mediterranean, produce-forward, colorful composed plates, and a
+distinctive sauce or finish. The recipe text does not copy either provider and
+does not imply a partnership, availability, or traditional authenticity.
+
+The implemented titles and bodies in
+`src/capabilities/recipes/data/starterRecipeMealKitExpansion.ts` supersede the
+older `DI231–DI330` candidate labels retained in `meal-roster.md`; that older
+roster remains discovery history, not publication authority.
 
 ## Original expansion-roster mix
 
 The following mix describes the retained 1,000-meal expansion backlog. It does
-not expand the active 500-recipe completion gate. The final selected tier mix
-will be audited directly from the authored 500 recipes before integration.
+not expand the active 600-recipe completion gate. The selected tier mix is
+audited directly from the authored catalog before integration.
 
 - **347 cross-cuisine household anchors:** highly recognizable, repeatedly
   useful recipes weighted by broad rating volume and recurring popularity.
@@ -80,7 +94,7 @@ to learn and use the dish's real name.
 
 ## Expansion cuisine portfolio
 
-This 1,000-meal portfolio remains a future expansion reference. The active 500
+This 1,000-meal portfolio remains a future expansion reference. The active 600
 selection preserves the broad cuisine work already authored, then prioritizes
 major-category coverage in its final 95 recipes.
 
@@ -164,6 +178,7 @@ The output is not “copy the winner.” It is a short editorial finding:
 
 - [`00-frame.md`](00-frame.md) — audience, job, system, and scope.
 - [`01-yes-and.md`](01-yes-and.md) — quality adjacencies kept inside the frame.
-- `meal-roster.md` — the 1,000-candidate expansion roster plus the exact active
-  500-recipe selection, grouped by meal role; created
-  at the alignment gate.
+- `meal-roster.md` — the original 1,000-candidate expansion roster and first
+  500-recipe selection, grouped by meal role; retained as alignment history.
+- `src/capabilities/recipes/data/starterRecipeMealKitExpansion.ts` — the
+  authoritative `DI231–DI330` meal-kit-shaped expansion roster and recipe bodies.

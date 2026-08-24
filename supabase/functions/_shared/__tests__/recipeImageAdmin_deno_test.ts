@@ -4,6 +4,7 @@ import {
   decideRecipeImageQa,
   parseRecipeImageQa,
   parseRecipeImageListFilters,
+  parseRecipeImageIngest,
   parseRecipeImageQueuePolicy,
   validateRecipeImageReview,
   verifyWebpEnvelope,
@@ -29,6 +30,27 @@ Deno.test("WebP envelope rejects mislabeled or empty output", () => {
   valid.set(new TextEncoder().encode("WEBP"), 8);
   assert(verifyWebpEnvelope(valid), "valid WebP envelope rejected");
   assert(!verifyWebpEnvelope(new TextEncoder().encode("not-an-image")), "invalid image accepted");
+});
+
+Deno.test("Codex image ingest accepts only bounded WebP input with truthful provenance", () => {
+  const bytes = new Uint8Array(16);
+  bytes.set(new TextEncoder().encode("RIFF"), 0);
+  bytes.set(new TextEncoder().encode("WEBP"), 8);
+  const parsed = parseRecipeImageIngest({
+    jobId: "d6bd13cb-b119-40ed-b9d7-08f2f5484e67",
+    imageBase64: btoa(String.fromCharCode(...bytes)),
+    altText: "A composed bowl of salmon, rice, cabbage, cucumber, and sauce.",
+    generator: "codex-built-in-imagegen",
+  });
+  assert(parsed.bytes.length === 16, "WebP bytes were not preserved");
+  assert(parsed.generator === "codex-built-in-imagegen", "generator provenance drifted");
+  let rejected = false;
+  try {
+    parseRecipeImageIngest({ ...parsed, imageBase64: btoa("not-an-image") });
+  } catch {
+    rejected = true;
+  }
+  assert(rejected, "non-WebP ingest was accepted");
 });
 
 Deno.test("queue policy preserves weekly release time and bounded paid attempts", () => {

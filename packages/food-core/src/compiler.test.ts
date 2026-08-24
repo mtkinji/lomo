@@ -1,6 +1,14 @@
 import { buildGroceryCompilation, parseIngredientLine, parseQuantity, stableContentHash, verifyIdempotentReplay } from './index';
 
 describe('food-core conservative compiler', () => {
+  it('parses sixths used by serving-scaled recipe displays', () => {
+    expect(parseIngredientLine('⅙ teaspoon black pepper')).toEqual(expect.objectContaining({
+      quantityMin: 1 / 6,
+      unit: 'teaspoon',
+      concept: 'black pepper',
+    }));
+  });
+
   test.each([
     ['1 1/2 cups flour', { quantityMin: 1.5, quantityMax: null }],
     ['1-2 onions', { quantityMin: 1, quantityMax: 2 }],

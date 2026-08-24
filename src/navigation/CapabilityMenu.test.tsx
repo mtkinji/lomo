@@ -1,7 +1,7 @@
 import { fireEvent, render, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { CapabilityMenu } from './CapabilityMenu';
-import { colors, radii } from '../theme';
+import { colors, fonts, radii } from '../theme';
 
 type MockSwipeableProps = {
   children: import('react').ReactNode;
@@ -203,6 +203,8 @@ describe('CapabilityMenu', () => {
       <CapabilityMenu activeCapabilityId="recipes" displayName="Andy" chats={chats} {...handlers} />,
     );
     expect(enabled.getByLabelText('Recipes').props.accessibilityState).toEqual({ selected: true });
+    expect(StyleSheet.flatten(enabled.getByText('Recipes').props.style))
+      .toMatchObject({ fontFamily: fonts.bold });
     expect(enabled.queryByLabelText('Meal Plan')).toBeNull();
     expect(enabled.getByLabelText('Groceries')).toBeTruthy();
     fireEvent.press(enabled.getByLabelText('Recipes'));

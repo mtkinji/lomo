@@ -39,7 +39,7 @@ describe("starter recipe presentation", () => {
         rosterIds.has(id),
       ),
     ).toBe(true);
-    expect(new Set(displayTitles).size).toBe(500);
+    expect(new Set(displayTitles).size).toBe(600);
     expect(
       displayTitles.every((title) => title.length > 0 && title.length <= 80),
     ).toBe(true);

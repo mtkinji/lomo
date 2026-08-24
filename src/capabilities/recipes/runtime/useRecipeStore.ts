@@ -4,7 +4,6 @@ import { createStore, type StateCreator } from 'zustand/vanilla';
 import { recipeCache, type RecipeCache, type RecipeProjection } from '../data/recipeCache';
 import { catalogMediaCache, type CatalogMediaCache } from '../data/catalogMediaCache';
 import { createCatalogMediaRepository, type CatalogMediaRepository } from '../data/catalogMediaRepository';
-import { replaceHostedCatalogMedia } from '../data/catalogMediaOverlay';
 import {
   applyPendingRecipeVersions,
   recipeOfflineQueue,
@@ -38,6 +37,25 @@ function shouldQueueRecipeSave(error: unknown): boolean {
 
 type HostedMediaDependencies = { repository: CatalogMediaRepository; cache: CatalogMediaCache };
 
+function mergeRecipeSources(
+  personal: readonly RecipeProjection[],
+  catalog: readonly RecipeProjection[],
+): RecipeProjection[] {
+  const personalIds = new Set(personal.map((projection) => projection.recipe.id));
+  return [
+    ...personal,
+    ...catalog.filter((projection) => !personalIds.has(projection.recipe.id)),
+  ];
+}
+
+function isHostedCatalogProjection(projection: RecipeProjection): boolean {
+  return (
+    projection.recipe.provenance.method === 'catalog' &&
+    projection.recipe.provenance.rightsBasis === 'kwilt_authored' &&
+    projection.recipe.lineage.length === 0
+  );
+}
+
 function initializer(
   repository: RecipeRepository,
   cache: RecipeCache,
@@ -52,7 +70,6 @@ function initializer(
     pendingCount: 0,
     pendingRecipeIds: [],
     async setIdentity(userId) {
-      replaceHostedCatalogMedia([], { allowEmpty: true });
       set({ userId, recipes: [], status: 'idle', error: null, pendingCount: 0, pendingRecipeIds: [] });
       if (!userId) return;
       const [cached, pending, hosted] = await Promise.all([
@@ -61,8 +78,7 @@ function initializer(
         hostedMedia?.cache.read(userId) ?? Promise.resolve([]),
       ]);
       if (get().userId !== userId) return;
-      replaceHostedCatalogMedia(hosted);
-      const available = applyPendingRecipeVersions(cached, pending);
+      const available = applyPendingRecipeVersions(mergeRecipeSources(cached, hosted), pending);
       set({
         recipes: available,
         status: available.length ? 'cached' : 'idle',
@@ -82,12 +98,17 @@ function initializer(
           repository.list(),
           hostedMedia?.repository.list().catch(() => []) ?? Promise.resolve([]),
         ]);
-        if (hostedResult.length) {
-          replaceHostedCatalogMedia(hostedResult);
-          await hostedMedia?.cache.write(userId, hostedResult);
-        }
+        if (hostedResult.length) await hostedMedia?.cache.write(userId, hostedResult);
         const pending = await queue.read(userId);
-        const recipes = applyPendingRecipeVersions(canonical, pending);
+        const repositoryCatalog = canonical.filter(isHostedCatalogProjection);
+        const personal = canonical.filter((projection) => !isHostedCatalogProjection(projection));
+        const lastKnownCatalog = get().recipes.filter(isHostedCatalogProjection);
+        const catalog = hostedResult.length
+          ? hostedResult
+          : repositoryCatalog.length
+            ? repositoryCatalog
+            : lastKnownCatalog;
+        const recipes = applyPendingRecipeVersions(mergeRecipeSources(personal, catalog), pending);
         if (get().userId !== userId) return;
         set({
           recipes,

@@ -231,6 +231,51 @@ describe('planUnifiedChatTurnPhase agent judgment', () => {
     expect(routeRequest).toHaveBeenCalledTimes(1);
   });
 
+  it('drops a stale read-only judgment when a Recipe follow-up resolves to an action', async () => {
+    const aggregate = {
+      ...emptyAggregate,
+      messages: [{
+        id: 'assistant-1', threadId: 'thread-1', role: 'assistant',
+        body: 'I did not find Hawaiian-style macaroni salad in your Recipe library.',
+        feedback: null, createdAt: '2026-08-01T12:01:00.000Z',
+        updatedAt: '2026-08-01T12:01:00.000Z', attachments: [],
+      }],
+      runs: [{
+        id: 'run-previous', threadId: 'thread-1', userMessageId: 'user-previous',
+        assistantMessageId: 'assistant-1', status: 'complete', errorCode: null,
+        errorMessage: null, createdAt: '2026-08-01T12:00:00.000Z',
+        updatedAt: '2026-08-01T12:01:00.000Z', completedAt: '2026-08-01T12:01:00.000Z',
+        requestClass: 'capability_question', participatingCapabilities: ['recipes'],
+        contextPolicy: { usePrivateContext: true, reason: 'test', clarification: null },
+        version: 1, stopRequestedAt: null, steerCount: 0,
+      }],
+    } as UnifiedChatThreadAggregate;
+    const readOnlyRecipeJudgment: AgentJudgment = {
+      ...dentistJudgment,
+      userJob: 'Explain whether Kwilt can add the missing Recipe',
+      desiredOutcome: 'Answer the Recipe capability question',
+      requestClass: 'capability_question',
+      participatingCapabilities: ['recipes'],
+      usePrivateContext: true,
+      authorization: 'none', evidenceScope: 'focused', responseContract: 'evidence_linked',
+      executionMode: 'single_tool', constraints: [],
+      steps: [{ sequence: 1, objective: 'Search Recipes', toolId: 'recipes.search', dependsOn: null }],
+    };
+
+    const result = await plan({
+      prompt: 'Could you possibly add one?',
+      aggregate,
+      requestJudgment: async () => readOnlyRecipeJudgment,
+    });
+
+    expect(result.requestPolicy).toMatchObject({
+      requestClass: 'capability_action', participatingCapabilities: ['recipes'],
+      policyReason: 'conversation-follow-up:recipes',
+    });
+    expect(result.agentJudgment).toBeNull();
+    expect(result.judgmentSource).toBe('deterministic_fallback');
+  });
+
   it('grounds a short correction in pending reviewed work', async () => {
     const aggregate = {
       ...emptyAggregate,

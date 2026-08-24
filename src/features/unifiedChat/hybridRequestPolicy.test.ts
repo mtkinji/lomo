@@ -161,6 +161,34 @@ describe('resolveHybridRequestPolicy', () => {
     });
   });
 
+  it('keeps a short referential add request with the Recipe capability from the prior turn', () => {
+    const prompt = 'Could you possibly add one?';
+    const deterministicPolicy = classifyUnifiedChatRequest({ prompt });
+
+    expect(resolveHybridRequestPolicy({
+      prompt,
+      deterministicPolicy,
+      semanticRoute: route({
+        requestClass: 'capability_question',
+        participatingCapabilities: ['recipes'],
+        usePrivateContext: true,
+        reason: 'The dialogue is about a missing Recipe.',
+      }),
+      previousPolicy: {
+        requestClass: 'capability_question',
+        participatingCapabilities: ['recipes'],
+        usePrivateContext: true,
+      },
+      previousAssistantMessage:
+        'I did not find Hawaiian-style macaroni salad in your Recipe library.',
+    })).toMatchObject({
+      requestClass: 'capability_action',
+      participatingCapabilities: ['recipes'],
+      usePrivateContext: true,
+      policyReason: 'conversation-follow-up:recipes',
+    });
+  });
+
   it('keeps a referential correction attached to the previous Money action', () => {
     const prompt = 'Close, but I want you to put the emoji at the beginning instead of the end.';
     const deterministicPolicy = classifyUnifiedChatRequest({ prompt });

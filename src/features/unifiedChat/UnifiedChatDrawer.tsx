@@ -57,6 +57,7 @@ export function UnifiedChatDrawer({
       snapIndex={snapIndex}
       onSnapIndexChange={handleSnapIndexChange}
       contentLayout="edgeToEdge"
+      enableContentPanningGesture={snapIndex === 0}
       keyboardAvoidanceEnabled={false}
       dismissable
       dismissOnBackdropPress

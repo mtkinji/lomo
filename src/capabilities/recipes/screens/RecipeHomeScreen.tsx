@@ -57,6 +57,7 @@ import {
   getStarterRecipeEnrichment,
   getStarterRecipeMetadata,
   buildRecipeLibraryInventory,
+  isCanonicalCatalogProjection,
   isStarterRecipe,
   STARTER_RECIPE_PROJECTIONS,
 } from "../data/starterRecipeCatalog";
@@ -459,7 +460,9 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     route.params.recipeId,
     STARTER_RECIPE_PROJECTIONS,
   );
-  const starterRecipe = isStarterRecipe(route.params.recipeId);
+  const starterRecipe = projection
+    ? isCanonicalCatalogProjection(projection)
+    : isStarterRecipe(route.params.recipeId);
   const deleteRecipe = useRecipeStore((state) => state.delete);
   const pendingRecipeIds = useRecipeStore((state) => state.pendingRecipeIds);
   const setRecipeHidden = useHiddenRecipeStore((state) => state.setHidden);
@@ -495,6 +498,13 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   const dispatchCapabilityOnboarding = useCapabilityOnboardingStore((state) => state.dispatch);
   const planActionRef = useRef<View>(null);
   const { capture } = useAnalytics();
+  const returnFromRecipeHome = () => {
+    if (navigation.getState().index > 0) {
+      navigation.goBack();
+      return;
+    }
+    navigation.replace("RecipeLibrary");
+  };
   const editorialPicks = useMemo(() => {
     if (!projection) return [];
     return resolveRecipeEditorialPicks({
@@ -619,7 +629,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   if (!projection)
     return (
       <AppShell>
-        <PageHeader title="Recipe" onPressBack={() => navigation.goBack()} />
+        <PageHeader title="Recipe" onPressBack={returnFromRecipeHome} />
         <View style={styles.missing}>
           <Text>This recipe is not available on this device.</Text>
         </View>
@@ -796,7 +806,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
           <HeaderActionPill
             accessibilityLabel="Back to Recipes"
             materialVariant="floatingWhite"
-            onPress={() => navigation.goBack()}
+            onPress={returnFromRecipeHome}
           >
             <Icon name="arrowLeft" size={20} color={colors.textPrimary} />
           </HeaderActionPill>

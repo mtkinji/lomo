@@ -14,8 +14,8 @@ test('builds one stable research task per canonical Recipe without overwriting r
   );
 
   assert.equal(manifest.schemaVersion, 2);
-  assert.equal(manifest.recipes.length, 500);
-  assert.equal(new Set(manifest.recipes.map((recipe) => recipe.rosterId)).size, 500);
+  assert.equal(manifest.recipes.length, 600);
+  assert.equal(new Set(manifest.recipes.map((recipe) => recipe.rosterId)).size, 600);
   assert.deepEqual(
     manifest.recipes.map((recipe) => recipe.rosterId),
     [...manifest.recipes.map((recipe) => recipe.rosterId)].sort(),
@@ -55,7 +55,7 @@ test('reports editorial and imagery proof separately', async () => {
   const catalog = await loadCanonicalCatalog();
   const coverage = buildCoverage(buildEnrichmentManifest(catalog, seedData.recipes));
 
-  assert.equal(coverage.totalRecipes, 500);
+  assert.equal(coverage.totalRecipes, 600);
   assert.equal(coverage.representedRecipes, coverage.totalRecipes);
   assert.equal(coverage.reviewedEquipment + coverage.pendingEquipment, coverage.totalRecipes);
   assert.equal(coverage.publishedHeroImages + coverage.pendingOrMissingHeroImages, coverage.totalRecipes);

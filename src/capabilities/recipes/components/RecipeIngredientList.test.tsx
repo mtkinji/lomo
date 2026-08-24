@@ -30,6 +30,22 @@ function starterLine(id: string, position: number, originalText: string): Recipe
 }
 
 describe('RecipeIngredientList', () => {
+  it('keeps a scaled sixth in cooking-fraction form', () => {
+    expect(ingredientDisplayParts({
+      ...starterIngredient,
+      originalText: '1/4 teaspoon black pepper',
+      quantityMin: 0.25,
+      unit: 'teaspoon',
+      ingredientConcept: 'black pepper',
+      parseConfidence: 0.98,
+    }, 6, 4)).toEqual({
+      amount: '⅙ teaspoon',
+      ingredient: 'black pepper',
+      qualifier: null,
+      display: '⅙ teaspoon black pepper',
+    });
+  });
+
   it('separates amount, ingredient, and preparation without changing the display text', () => {
     expect(ingredientDisplayParts(starterIngredient, 4, 6)).toEqual({
       amount: '3 cups',
