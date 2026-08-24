@@ -75,9 +75,15 @@ import { MoneyFreshnessStamp } from '../components/MoneyFreshnessStamp';
 import { formatBudgetOverviewMoney } from '../presentation/budgetOverviewMoney';
 import { ActionDock, useActionDockClearance } from '../../../ui/ActionDock';
 import { InventoryControlGroup } from '../../../ui/InventoryControlGroup';
+import { connectMoneyAccount } from '../runtime/connectMoneyAccount';
+import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
+import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
+const REFRESH_RECEIPT_MS = 5_000;
+type BudgetHeaderAccountState = 'connect' | 'connecting' | 'checking' | 'fresh' | 'error';
+
 export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
   const { snapshot: liveSnapshot, refresh, reconcileConnectedActivity, reorderCategories, savingCategoryOrder, userId } = useMoneyData();
   const { capture } = useAnalytics();
@@ -90,6 +96,10 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   const [unclearReviewOpen, setUnclearReviewOpen] = useState(false);
   const [categoryPresentation, setCategoryPresentation] = useState<MoneyCategoryPresentation>('list');
   const [categoryReorderOpen, setCategoryReorderOpen] = useState(false);
+  const [accountSourcesOpen, setAccountSourcesOpen] = useState(false);
+  const [accountConnectionPending, setAccountConnectionPending] = useState(false);
+  const [accountConnectionMessage, setAccountConnectionMessage] = useState<string | null>(null);
+  const [refreshReceipt, setRefreshReceipt] = useState<'idle' | 'checking' | 'fresh' | 'error'>('idle');
   const [appControlGuideVisible, setAppControlGuideVisible] = useState(
     route.params?.entryIntent === 'app-control-onboarding',
   );
@@ -106,6 +116,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
       : liveSnapshot
   ), [liveSnapshot, route.params?.devBudgetState]);
   const autoRefreshKeyRef = useRef<string | null>(null);
+  const refreshReceiptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const categoryGuideTargetRef = useRef<View | null>(null);
   const pagerRef = useRef<FlatList<MoneyPeriodView>>(null);
   const onboardingHandoffRef = useRef(onboardingHandoff);
@@ -130,8 +141,24 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
       await refresh();
       return;
     }
-    await reconcileConnectedActivity({ trigger: 'manual_sync', sync: true });
+    if (refreshReceiptTimerRef.current) clearTimeout(refreshReceiptTimerRef.current);
+    setRefreshReceipt('checking');
+    try {
+      await reconcileConnectedActivity({ trigger: 'manual_sync', sync: true });
+      setRefreshReceipt('fresh');
+      refreshReceiptTimerRef.current = setTimeout(() => {
+        refreshReceiptTimerRef.current = null;
+        setRefreshReceipt('idle');
+      }, REFRESH_RECEIPT_MS);
+    } catch (error) {
+      setRefreshReceipt('error');
+      throw error;
+    }
   }, [liveSnapshot?.accounts.length, reconcileConnectedActivity, refresh]);
+
+  useEffect(() => () => {
+    if (refreshReceiptTimerRef.current) clearTimeout(refreshReceiptTimerRef.current);
+  }, []);
 
   onboardingHandoffRef.current = onboardingHandoff;
   budgetGuideAcknowledgedRef.current = Boolean(onboardingHandoff?.budgetGuideAcknowledgedAt);
@@ -193,6 +220,25 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
     rootNavigationRef.navigate('Settings', { screen: 'SettingsBudget' });
   }, []);
 
+  const connectAccount = useCallback(async () => {
+    if (accountConnectionPending) return;
+    setAccountSourcesOpen(false);
+    setAccountConnectionPending(true);
+    setAccountConnectionMessage(null);
+    signalMoneyChoice();
+    const result = await connectMoneyAccount({ startLink: startMoneyPlaidLink, reconcileConnectedActivity });
+    setAccountConnectionPending(false);
+    if (result.status === 'cancelled') return;
+    if (result.status === 'connected') {
+      setAccountConnectionMessage(`${result.institutionName} connected. Budget updated.`);
+      signalMoneyMutationOutcome('succeeded');
+    } else {
+      setAccountConnectionMessage(result.message);
+      signalMoneyMutationOutcome('failed');
+    }
+    setAccountSourcesOpen(true);
+  }, [accountConnectionPending, reconcileConnectedActivity]);
+
   const summaryMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -200,9 +246,17 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
           <Icon name="more" size={22} color={colors.textPrimary} />
         </Pressable>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="bottom" sideOffset={6}>
+      <DropdownMenuContent align="start" side="bottom" sideOffset={6} style={styles.summaryMenuContent}>
         <SummaryMenuItem icon="plus" label="Add category" onPress={() => navigation.navigate('MoneyCategoryCreate')} />
         <SummaryMenuItem icon="receipt" label="Transactions" onPress={() => navigation.navigate('MoneyTransactions', {})} />
+        <SummaryMenuItem
+          icon="landmark"
+          label="Accounts & connections"
+          onPress={() => {
+            setAccountConnectionMessage(null);
+            setAccountSourcesOpen(true);
+          }}
+        />
         <SummaryMenuItem
           icon="settings"
           label="Settings"
@@ -276,9 +330,27 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   return (
     <>
     <MoneyScreenFrame
-      headerRightElement={liveSnapshot?.lastSyncedAt
-        ? <MoneyFreshnessStamp lastSyncedAt={liveSnapshot.lastSyncedAt} />
-        : undefined}
+      headerRightElement={snapshot && !isPristineMoney ? (
+        livingLimitAnswer?.state === 'stale' && refreshReceipt === 'idle' && liveSnapshot?.lastSyncedAt ? (
+          <MoneyFreshnessStamp
+            lastSyncedAt={liveSnapshot.lastSyncedAt}
+            onPress={() => {
+              setAccountConnectionMessage(null);
+              setAccountSourcesOpen(true);
+            }}
+          />
+        ) : (
+          <BudgetAccountHeaderAction
+            state={accountConnectionPending ? 'connecting' : refreshReceipt === 'idle' ? 'connect' : refreshReceipt}
+            onConnect={() => void connectAccount()}
+            onOpenStatus={() => {
+              setAccountConnectionMessage(null);
+              setAccountSourcesOpen(true);
+            }}
+            onRetry={() => void refreshBudget()}
+          />
+        )
+      ) : undefined}
       moreMenu={summaryMenu}
       onRefresh={refreshBudget}
       title="Budget"
@@ -403,6 +475,56 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
         }}
       />
     ) : null}
+    <BottomDrawer
+      visible={accountSourcesOpen}
+      onClose={() => setAccountSourcesOpen(false)}
+      snapPoints={accountConnectionMessage ? ['46%'] : ['38%']}
+      dynamicSizing={false}
+      enableContentPanningGesture
+    >
+      <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
+        <BottomDrawerHeader
+          title="Accounts & connections"
+          variant="withClose"
+          closeAccessibilityLabel="Close accounts and connections"
+          onClose={() => setAccountSourcesOpen(false)}
+        />
+        <View style={styles.accountSourcesSummary}>
+          <Text style={styles.accountSourcesCount}>
+            {snapshot?.accounts.length ?? 0} connected {(snapshot?.accounts.length ?? 0) === 1 ? 'account' : 'accounts'}
+          </Text>
+          <Text style={styles.accountSourcesFreshness}>
+            {formatMoneyFreshness(snapshot?.lastSyncedAt ?? null)}
+          </Text>
+        </View>
+        {accountConnectionMessage ? (
+          <Text accessibilityLiveRegion="polite" style={styles.accountConnectionMessage}>
+            {accountConnectionMessage}
+          </Text>
+        ) : null}
+        <View style={styles.drawerActions}>
+          <Button
+            fullWidth
+            loading={accountConnectionPending}
+            loadingLabel="Opening secure connection…"
+            onPress={() => void connectAccount()}
+          >
+            Connect another account
+          </Button>
+          <Button
+            accessibilityLabel="Manage accounts"
+            fullWidth
+            variant="secondary"
+            onPress={() => {
+              setAccountSourcesOpen(false);
+              navigation.navigate('MoneyAccounts');
+            }}
+          >
+            Manage accounts
+          </Button>
+        </View>
+      </BottomDrawerScrollView>
+    </BottomDrawer>
     <BottomDrawer
       visible={Boolean(livingLimitAnswer) && limitExplanationOpen}
       onClose={() => setLimitExplanationOpen(false)}
@@ -1234,6 +1356,78 @@ function formatStatementOutflow(cents: number): string {
   return cents > 0 ? `−${formatMoney(cents)}` : formatMoney(0);
 }
 
+function BudgetAccountHeaderAction({
+  onConnect,
+  onOpenStatus,
+  onRetry,
+  state,
+}: {
+  onConnect: () => void;
+  onOpenStatus: () => void;
+  onRetry: () => void;
+  state: BudgetHeaderAccountState;
+}) {
+  const presentation = {
+    connect: {
+      accessibilityLabel: 'Connect another account',
+      icon: 'landmark' as const,
+      label: 'Connect',
+      onPress: onConnect,
+      tone: colors.textPrimary,
+    },
+    connecting: {
+      accessibilityLabel: 'Opening secure account connection',
+      icon: 'refresh' as const,
+      label: 'Opening…',
+      onPress: undefined,
+      tone: colors.textSecondary,
+    },
+    checking: {
+      accessibilityLabel: 'Checking for new activity',
+      icon: 'refresh' as const,
+      label: 'Checking…',
+      onPress: undefined,
+      tone: colors.textSecondary,
+    },
+    fresh: {
+      accessibilityLabel: 'Bank data updated just now',
+      icon: 'check' as const,
+      label: 'Just now',
+      onPress: onOpenStatus,
+      tone: colors.textSecondary,
+    },
+    error: {
+      accessibilityLabel: 'Couldn’t refresh bank data. Try again',
+      icon: 'warning' as const,
+      label: 'Couldn’t refresh',
+      onPress: onRetry,
+      tone: colors.destructive,
+    },
+  }[state];
+  const disabled = !presentation.onPress;
+
+  return (
+    <Pressable
+      accessibilityLabel={presentation.accessibilityLabel}
+      accessibilityLiveRegion={state === 'connect' ? 'none' : 'polite'}
+      accessibilityRole="button"
+      accessibilityState={{ busy: state === 'checking' || state === 'connecting', disabled }}
+      disabled={disabled}
+      hitSlop={8}
+      onPress={presentation.onPress}
+      style={({ pressed }) => [
+        styles.headerAccountAction,
+        pressed ? styles.headerAccountActionPressed : null,
+      ]}
+    >
+      <Icon name={presentation.icon} size={14} color={presentation.tone} />
+      <Text numberOfLines={1} style={[styles.headerAccountActionLabel, { color: presentation.tone }]}>
+        {presentation.label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function MonthArrow({ direction, disabled, label, onPress }: {
   direction: 'left' | 'right';
   disabled: boolean;
@@ -1260,7 +1454,7 @@ function MonthArrow({ direction, disabled, label, onPress }: {
 }
 
 function SummaryMenuItem({ icon, label, onPress }: {
-  icon: 'plus' | 'receipt' | 'settings';
+  icon: 'plus' | 'receipt' | 'settings' | 'landmark';
   label: string;
   onPress: () => void;
 }) {
@@ -1271,6 +1465,10 @@ function SummaryMenuItem({ icon, label, onPress }: {
 
 const styles = StyleSheet.create({
   headerMoreButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  summaryMenuContent: { minWidth: 248 },
+  headerAccountAction: { minHeight: 36, maxWidth: 132, paddingHorizontal: spacing.sm, borderRadius: 999, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  headerAccountActionPressed: { backgroundColor: colors.fieldFillPressed },
+  headerAccountActionLabel: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, fontWeight: '500' },
   monthSwipeSurface: { gap: spacing.lg, overflow: 'hidden' },
   monthPager: { overflow: 'hidden' },
   monthHeader: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
@@ -1336,6 +1534,10 @@ const styles = StyleSheet.create({
   remainingLabel: { color: colors.textSecondary, fontSize: 13, lineHeight: 18 },
   updatedLabel: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'] },
+  accountSourcesSummary: { gap: 2 },
+  accountSourcesCount: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600' },
+  accountSourcesFreshness: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
+  accountConnectionMessage: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
   drawerFacts: { gap: spacing.lg },
   statementSection: { gap: spacing.xs },
   statementLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', letterSpacing: 0.7 },

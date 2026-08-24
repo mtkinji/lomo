@@ -1,5 +1,13 @@
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { buildPlaidPlatformFields, resolvePlaidLinkPlatform } from '../plaidLinkRequest.ts';
+import {
+  buildPlaidPlatformFields,
+  PLAID_CLIENT_NAME,
+  resolvePlaidLinkPlatform,
+} from '../plaidLinkRequest.ts';
+
+Deno.test('Plaid presents the current Kwilt product name', () => {
+  assertEquals(PLAID_CLIENT_NAME, 'Kwilt');
+});
 
 Deno.test('iOS Plaid link requests omit the Android package name', () => {
   assertEquals(

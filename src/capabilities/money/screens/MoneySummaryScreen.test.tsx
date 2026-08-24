@@ -43,6 +43,7 @@ const mockRefresh = jest.fn(async () => undefined);
 const mockRefreshStaleMoneySummary = jest.fn(async (_input: unknown) => undefined);
 const mockReorderCategories = jest.fn(async (_categoryIds: string[]) => undefined);
 const mockRootNavigate = jest.fn();
+const mockConnectMoneyAccount = jest.fn();
 let mockMoneyScreenFrameOnRefresh: (() => Promise<unknown>) | undefined;
 const mockBottomDrawerProps: Array<Record<string, unknown>> = [];
 
@@ -64,6 +65,12 @@ jest.mock('../runtime/moneySummaryAutoRefresh', () => ({
 }));
 jest.mock('../../../navigation/rootNavigationRef', () => ({
   rootNavigationRef: { navigate: (...args: unknown[]) => mockRootNavigate(...args) },
+}));
+jest.mock('../runtime/connectMoneyAccount', () => ({
+  connectMoneyAccount: (...args: unknown[]) => mockConnectMoneyAccount(...args),
+}));
+jest.mock('../native/moneyPlaidLink', () => ({
+  startMoneyPlaidLink: jest.fn(),
 }));
 jest.mock('../../../services/analytics/useFeatureFlag', () => ({ useFeatureFlag: () => false }));
 jest.mock('../components/MoneyCategoryMeterTile', () => ({
@@ -178,6 +185,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     mockRefreshStaleMoneySummary.mockClear();
     mockReorderCategories.mockClear();
     mockRootNavigate.mockClear();
+    mockConnectMoneyAccount.mockReset().mockResolvedValue({ status: 'connected', institutionName: 'Chase' });
   });
 
   it('checks connected institutions before rebuilding Budget on pull-to-refresh', async () => {
@@ -192,7 +200,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     };
     const screen = render(<MoneySummaryScreen navigation={{ navigate: jest.fn() } as never} route={{ key: 'summary-refresh', name: 'MoneySummary' } as never} />);
 
-    expect(screen.getByText('Just now')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Connect another account' })).toBeTruthy();
 
     await act(async () => {
       await mockMoneyScreenFrameOnRefresh?.();
@@ -200,6 +208,67 @@ describe('MoneySummaryScreen living limit answer', () => {
 
     expect(mockReconcileConnectedActivity).toHaveBeenCalledWith({ trigger: 'manual_sync', sync: true });
     expect(mockRefresh).not.toHaveBeenCalled();
+    expect(screen.getByText('Just now')).toBeTruthy();
+
+    act(() => {
+      jest.advanceTimersByTime(5_000);
+    });
+
+    expect(screen.getByRole('button', { name: 'Connect another account' })).toBeTruthy();
+  });
+
+  it('shows checking while connected-account refresh is still in flight', async () => {
+    let finishRefresh: (() => void) | undefined;
+    mockSnapshot = {
+      ...initialSnapshot,
+      accounts: [{
+        id: 'account-1', name: 'Credit card', institutionName: 'Bank', mask: '1234',
+        type: 'credit', subtype: 'credit card', status: 'healthy',
+        lastSyncedAt: initialSnapshot.lastSyncedAt, transactionCount: 1,
+        latestTransactionDate: '2026-07-24',
+      }],
+    };
+    mockReconcileConnectedActivity.mockImplementationOnce(() => new Promise((resolve) => {
+      finishRefresh = () => resolve(null);
+    }));
+    const screen = render(<MoneySummaryScreen navigation={{ navigate: jest.fn() } as never} route={{ key: 'summary-refresh-pending', name: 'MoneySummary' } as never} />);
+
+    let refreshRequest: Promise<unknown> | undefined;
+    act(() => {
+      refreshRequest = mockMoneyScreenFrameOnRefresh?.();
+    });
+
+    expect(screen.getByLabelText('Checking for new activity')).toBeTruthy();
+
+    await act(async () => {
+      finishRefresh?.();
+      await refreshRequest;
+    });
+  });
+
+  it('keeps a failed refresh action visible for retry', async () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      accounts: [{
+        id: 'account-1', name: 'Credit card', institutionName: 'Bank', mask: '1234',
+        type: 'credit', subtype: 'credit card', status: 'healthy',
+        lastSyncedAt: initialSnapshot.lastSyncedAt, transactionCount: 1,
+        latestTransactionDate: '2026-07-24',
+      }],
+    };
+    mockReconcileConnectedActivity.mockRejectedValueOnce(new Error('Provider unavailable'));
+    const screen = render(<MoneySummaryScreen navigation={{ navigate: jest.fn() } as never} route={{ key: 'summary-refresh-error', name: 'MoneySummary' } as never} />);
+
+    await act(async () => {
+      await expect(mockMoneyScreenFrameOnRefresh?.()).rejects.toThrow('Provider unavailable');
+    });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Couldn’t refresh bank data. Try again' }));
+
+    await act(async () => undefined);
+
+    expect(mockReconcileConnectedActivity).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Just now')).toBeTruthy();
   });
 
   it('reloads Kwilt data without asking Plaid when Budget has no connected accounts', async () => {
@@ -435,6 +504,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-empty', name: 'MoneySummary' } as never} />);
 
     expect(screen.getByText('Build your budget from real life')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Connect another account' })).toBeNull();
     fireEvent.press(screen.getByText('Connect accounts'));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyEntry', {
       requestedPlace: 'MoneySummary',
@@ -601,6 +671,37 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(mockRootNavigate).toHaveBeenCalledWith('Settings', { screen: 'SettingsBudget' });
   });
 
+  it('connects another account directly from the Budget header', async () => {
+    const navigation = { navigate: jest.fn() };
+    const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-connect', name: 'MoneySummary' } as never} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Connect another account' }));
+
+    await waitFor(() => expect(mockConnectMoneyAccount).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('Chase connected. Budget updated.')).toBeTruthy();
+  });
+
+  it('opens account provenance from Accounts & connections in the Budget menu', () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      accounts: [{
+        id: 'checking', name: 'Total Checking', institutionName: 'Chase', mask: '1842',
+        type: 'depository', subtype: 'checking', status: 'healthy',
+        transactionCount: 2, lastSyncedAt: initialSnapshot.lastSyncedAt,
+        latestTransactionDate: '2026-07-24',
+      }],
+    };
+    const navigation = { navigate: jest.fn() };
+    const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-sources', name: 'MoneySummary' } as never} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Budget options' }));
+    fireEvent.press(screen.getByRole('menuitem', { name: 'Accounts & connections' }));
+
+    expect(screen.getByText('1 connected account')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Manage accounts' }));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyAccounts');
+  });
+
   it('opens the exact transactions behind flexible spending', () => {
     const navigation = { navigate: jest.fn() };
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary', name: 'MoneySummary' } as never} />);
@@ -627,6 +728,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     const navigation = { navigate: jest.fn() };
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary', name: 'MoneySummary' } as never} />);
 
+    expect(screen.getByRole('button', { name: 'Open accounts and connection status' })).toBeTruthy();
     expect(mockRefreshStaleMoneySummary).toHaveBeenCalledWith({
       reconcileConnectedActivity: expect.any(Function),
     });

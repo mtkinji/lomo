@@ -36,6 +36,22 @@ describe('Money category inventory presentations', () => {
     expect(screen.queryByText('over')).toBeNull();
   });
 
+  it('uses warning color for a projected overage that still has money left', () => {
+    const screen = render(
+      <MoneyCategoryMeterTile
+        category={{
+          ...category,
+          percentUsed: 95,
+          forecast: { status: 'over', projectedOverageCents: 5_000 },
+        } as MoneyCategory}
+        onPress={jest.fn()}
+        periodElapsedPercent={75}
+      />,
+    );
+
+    expect(StyleSheet.flatten(screen.getByText('95').props.style).color).toBe(colors.warning);
+  });
+
   it('rounds dollars left without repeating category arithmetic in the list', () => {
     const screen = render(<MoneyCategoryListRow category={{ ...category, remainingCents: -520 }} onPress={jest.fn()} periodElapsedPercent={75} />);
     expect(screen.getByText('$5 over')).toBeTruthy();

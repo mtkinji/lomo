@@ -105,6 +105,24 @@ describe('buildMoneyGlanceableSnapshot', () => {
     expect(result.categories.find((category) => category.id === 'groceries')?.status).toBe('near_limit');
   });
 
+  it('keeps a projected overage in warning state until the category is actually over budget', () => {
+    const source = snapshot();
+    source.categories[0] = {
+      ...source.categories[0],
+      percentUsed: 95,
+      remainingCents: 2_000,
+      forecast: {
+        ...source.categories[0].forecast,
+        projectedOverageCents: 5_000,
+        status: 'over',
+      },
+    };
+
+    const result = buildMoneyGlanceableSnapshot(source, new Date(2026, 6, 24));
+
+    expect(result.categories.find((category) => category.id === 'groceries')?.status).toBe('near_limit');
+  });
+
   it('publishes exact display-safe flexible and category facts without transaction or account details', () => {
     const result = buildMoneyGlanceableSnapshot(snapshot(), new Date(2026, 6, 24));
 

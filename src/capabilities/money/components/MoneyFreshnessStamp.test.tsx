@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { colors, typography } from '../../../theme';
 import { MoneyFreshnessStamp } from './MoneyFreshnessStamp';
@@ -50,5 +50,18 @@ describe('MoneyFreshnessStamp', () => {
 
     expect(screen.getByText('1d ago')).toBeTruthy();
     expect(screen.getByLabelText('Bank data updated 1 day ago')).toBeTruthy();
+  });
+
+  it('can expose account provenance without making every freshness stamp interactive', () => {
+    const onPress = jest.fn();
+    const screen = render(
+      <MoneyFreshnessStamp
+        lastSyncedAt="2026-08-21T18:00:00.000Z"
+        onPress={onPress}
+      />,
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Open accounts and connection status' }));
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

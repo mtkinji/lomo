@@ -43,6 +43,35 @@ describe('prepared Money Plaid Link session', () => {
     await expect(resultPromise).resolves.toEqual({ status: 'cancelled' });
   });
 
+  it('treats the native SDK empty error object as a normal cancellation', async () => {
+    mockedCreateSession.mockResolvedValue({ open: jest.fn() } as never);
+    const session = await prepareMoneyPlaidLink();
+    const resultPromise = session.open();
+    const callbacks = mockedCreateSession.mock.calls[0][0];
+
+    callbacks.onExit({ error: {}, metadata: { status: '' } } as never);
+
+    await expect(resultPromise).resolves.toEqual({ status: 'cancelled' });
+  });
+
+  it('rejects an exit that contains a native Plaid error', async () => {
+    mockedCreateSession.mockResolvedValue({ open: jest.fn() } as never);
+    const session = await prepareMoneyPlaidLink();
+    const resultPromise = session.open();
+    const callbacks = mockedCreateSession.mock.calls[0][0];
+
+    callbacks.onExit({
+      error: {
+        errorCode: 'INSTITUTION_NOT_RESPONDING',
+        errorType: 'INSTITUTION_ERROR',
+        errorMessage: 'The institution is not responding.',
+      },
+      metadata: { status: '' },
+    } as never);
+
+    await expect(resultPromise).rejects.toThrow('The institution is not responding.');
+  });
+
   it('reports exchange as a return phase and resolves only after durable exchange evidence', async () => {
     mockedCreateSession.mockResolvedValue({ open: jest.fn() } as never);
     mockedExchangeToken.mockResolvedValue({

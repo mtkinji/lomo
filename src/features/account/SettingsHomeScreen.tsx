@@ -33,7 +33,8 @@ type SettingsRoute = Exclude<keyof SettingsStackParamList, 'SettingsPaywall'>;
 type SettingsEntry = {
   id: string;
   title: string;
-  route: SettingsRoute;
+  route?: SettingsRoute;
+  moneyRoute?: 'MoneyAccounts';
 };
 
 type SettingsSection = {
@@ -66,6 +67,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     title: 'Money',
     entries: [
       { id: 'budget', title: 'Budget', route: 'SettingsBudget' },
+      { id: 'accounts', title: 'Accounts', moneyRoute: 'MoneyAccounts' },
     ],
   },
   {
@@ -365,7 +367,18 @@ export function SettingsHomeScreen() {
             <SettingsGroup key={section.id} title={section.title}>
               {renderRows(section.entries.map((entry) => ({
                 ...entry,
-                onPress: () => (navigation.navigate as (route: SettingsRoute) => void)(entry.route),
+                onPress: () => {
+                  if (entry.moneyRoute) {
+                    rootNavigation?.navigate('Money', {
+                      screen: entry.moneyRoute,
+                      params: { origin: 'settings' },
+                    });
+                    return;
+                  }
+                  if (entry.route) {
+                    (navigation.navigate as (route: SettingsRoute) => void)(entry.route);
+                  }
+                },
               })))}
             </SettingsGroup>
           ))}

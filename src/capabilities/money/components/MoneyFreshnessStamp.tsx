@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, typography } from '../../../theme';
 import { Icon } from '../../../ui/Icon';
 import { formatMoneyFreshness } from '../data/moneySnapshot';
 
 const FRESHNESS_TICK_MS = 60_000;
 
-export function MoneyFreshnessStamp({ lastSyncedAt }: { lastSyncedAt: string }) {
+export function MoneyFreshnessStamp({
+  lastSyncedAt,
+  onPress,
+}: {
+  lastSyncedAt: string;
+  onPress?: () => void;
+}) {
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -21,7 +27,7 @@ export function MoneyFreshnessStamp({ lastSyncedAt }: { lastSyncedAt: string }) 
     : formattedLabel;
   const label = compactFreshnessLabel(accessibilityLabel);
 
-  return (
+  const content = (
     <View style={styles.container}>
       <Icon
         accessible={false}
@@ -40,6 +46,20 @@ export function MoneyFreshnessStamp({ lastSyncedAt }: { lastSyncedAt: string }) 
         {label}
       </Text>
     </View>
+  );
+
+  if (!onPress) return content;
+
+  return (
+    <Pressable
+      accessibilityLabel="Open accounts and connection status"
+      accessibilityRole="button"
+      hitSlop={8}
+      onPress={onPress}
+      style={({ pressed }) => pressed ? styles.pressed : undefined}
+    >
+      {content}
+    </Pressable>
   );
 }
 
@@ -64,4 +84,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     textAlign: 'right',
   },
+  pressed: { opacity: 0.62 },
 });

@@ -1,5 +1,7 @@
 export type PlaidLinkPlatform = 'ios' | 'android';
 
+export const PLAID_CLIENT_NAME = 'Kwilt';
+
 export function resolvePlaidLinkPlatform(
   requestedPlatform: unknown,
   userAgent: string | null,

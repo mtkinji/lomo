@@ -79,11 +79,12 @@ jest.mock('../../services/entitlements', () => {
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   const navigate = jest.fn();
-  const getParent = jest.fn(() => ({ navigate: jest.fn() }));
+  const rootNavigate = jest.fn();
+  const getParent = jest.fn(() => ({ navigate: rootNavigate }));
   return {
     ...actual,
     useNavigation: () => ({ navigate, getParent }),
-    __navMocks: { navigate, getParent },
+    __navMocks: { navigate, rootNavigate, getParent },
   };
 });
 
@@ -93,13 +94,14 @@ import { useAppStore } from '../../store/useAppStore';
 import { SettingsHomeScreen } from './SettingsHomeScreen';
 
 const navModule = require('@react-navigation/native') as {
-  __navMocks: { navigate: jest.Mock; getParent: jest.Mock };
+  __navMocks: { navigate: jest.Mock; rootNavigate: jest.Mock; getParent: jest.Mock };
 };
 
 describe('SettingsHomeScreen planning group', () => {
   beforeEach(() => {
     resetAllStores();
     navModule.__navMocks.navigate.mockReset();
+    navModule.__navMocks.rootNavigate.mockReset();
     mockResolveSelfAvatar.mockReset().mockResolvedValue({ avatarSource: 'initials', avatarUrl: null });
     mockUploadAvatar.mockReset();
     mockRemoveAvatar.mockReset();
@@ -233,6 +235,18 @@ describe('SettingsHomeScreen planning group', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     fireEvent.press(getByText('Budget'));
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsBudget');
+  });
+
+  it('opens capability-owned account management from the Money group', () => {
+    const { getByText, queryByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(getByText('Accounts')).toBeTruthy();
+    expect(queryByText('Accounts & connections')).toBeNull();
+    fireEvent.press(getByText('Accounts'));
+    expect(navModule.__navMocks.rootNavigate).toHaveBeenCalledWith('Money', {
+      screen: 'MoneyAccounts',
+      params: { origin: 'settings' },
+    });
   });
 
   it('keeps account deletion off the root Settings menu', () => {

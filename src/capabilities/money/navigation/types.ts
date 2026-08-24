@@ -25,7 +25,7 @@ export type MoneyStackParamList = {
     overageReview?: boolean;
     flexibleRoomCents?: number;
   } | undefined;
-  MoneyAccounts: undefined;
+  MoneyAccounts: { origin?: 'settings' } | undefined;
   MoneyCategoryDetail: { categoryId: string; monthOffset?: number };
   MoneyCategoryCreate: undefined;
   MoneySetup: { requestedPlace?: MoneyPlaceRouteName; demoScenario?: 'connected-household' } | undefined;

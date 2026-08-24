@@ -8,6 +8,17 @@ import type {
   MoneyPlaidLinkSession,
 } from './moneyPlaidLinkTypes';
 
+function hasPlaidLinkExitError(
+  error: LinkExit['error'],
+): error is NonNullable<LinkExit['error']> {
+  return Boolean(
+    error?.errorCode
+    || error?.errorType
+    || error?.errorMessage
+    || error?.displayMessage,
+  );
+}
+
 export async function prepareMoneyPlaidLink(): Promise<MoneyPlaidLinkSession> {
   const client = getSupabaseClient();
   const token = await createMoneyPlaidLinkToken(client, Platform.OS === 'android' ? 'android' : 'ios');
@@ -36,7 +47,7 @@ export async function prepareMoneyPlaidLink(): Promise<MoneyPlaidLinkSession> {
     onEvent: () => undefined,
     onExit: (exit: LinkExit) => {
       if (exchangeStarted) return;
-      if (exit.error) {
+      if (hasPlaidLinkExitError(exit.error)) {
         fail(new Error(exit.error.displayMessage ?? exit.error.errorMessage ?? 'Plaid Link closed with an error.'));
         return;
       }

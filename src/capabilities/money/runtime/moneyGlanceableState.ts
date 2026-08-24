@@ -12,8 +12,8 @@ function categoryStatus(
   category: MoneySnapshot['categories'][number],
   percentUsed: number,
 ): GlanceableMoney['categories'][number]['status'] {
-  if (percentUsed >= 100 || category.remainingCents < 0 || category.forecast.status === 'over') return 'over';
-  if (category.forecast.status === 'watch') return 'near_limit';
+  if (percentUsed >= 100 || category.remainingCents < 0) return 'over';
+  if (category.forecast.status === 'watch' || category.forecast.status === 'over') return 'near_limit';
   return 'on_track';
 }
 

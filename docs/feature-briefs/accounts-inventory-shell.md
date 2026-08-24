@@ -10,7 +10,7 @@ job_step: connect-spend-source
 serves: [jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life, jtbd-review-budget-reality-before-spending]
 related_briefs: [brief-plaid-transaction-backed-meter, brief-lane-gate-onboarding]
 owner: andrew
-last_updated: 2026-06-26
+last_updated: 2026-08-24
 source_repo: mtkinji/kwilt-budget
 source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 ---
@@ -21,26 +21,33 @@ source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 
 ## Product Decision
 
-Accounts is the standard object inventory for linked financial accounts in Kwilt Money. It owns connection setup, connection health, sync recency, and whether each account feeds budget lanes.
+Accounts is the standard object inventory for linked financial accounts in Kwilt Money. It owns connection setup, connection health, sync recency, and whether each account feeds budget lanes. Its durable management entry belongs in Settings, while Budget and other Money workflows may launch connection or recovery actions at the moment they are useful.
+
+The existing Accounts capability-menu item remains visible during this learning slice. Hiding it is a separate decision after the new entry motions have been exercised.
 
 ## Buildable Slice
 
-- Add `Accounts` to bottom navigation.
-- Add an Accounts tab route using the existing `KwiltPage` shell.
-- Reuse the existing Plaid Link hook for the add action.
-- Project fixture transactions into account inventory rows.
-- Include view chips for `All`, `Linked`, and `Needs lane`.
-- Include a sync action using the existing mock sync path.
+- Keep the current Accounts capability-menu destination available.
+- Add `Accounts & connections` under Settings → Money, routing to the capability-owned inventory with a clear return to Settings.
+- Give Budget one stateful header slot: connect another account at rest, report checking during pull-to-refresh, show a five-second `Just now` receipt after a successful connected-account sync, and preserve a tappable failure or stale status when attention is required.
+- Add `Accounts & connections` to Budget's overflow menu and open a compact provenance drawer with connected-account count, freshness, direct connection, and account management.
+- Reuse one connection orchestration path for Plaid handoff, Money reconciliation, safe errors, and cancellation.
+- Return successful Budget-launched connections to the account-provenance drawer with a concise receipt.
 
 ## Acceptance Criteria
 
-- Accounts appears in the main tab bar with an account-style icon.
+- The existing Accounts main-menu item remains available during evaluation.
+- Settings → Money exposes `Accounts & connections` and returns to Settings when opened there.
+- Budget's non-pristine resting header exposes one compact `Connect` action that invokes the shared connection flow directly; pristine Money relies on its stronger empty-state action instead.
+- Pull-to-refresh replaces the resting action with checking, success, or failure feedback. `Just now` appears only after connected-account reconciliation with provider sync completes and returns to `Connect` after five seconds.
+- Existing stale or degraded Money evidence may temporarily outrank the resting connection action.
+- Budget's overflow exposes `Accounts & connections` and opens the provenance drawer without requiring a trip through Settings or the inventory first.
 - The page uses the Kwilt object inventory shell: header, local controls, count metadata, and repeated object rows.
 - Account rows show label, connection health, last sync, linked budget lanes, transaction count, and recent activity.
-- Add account invokes the existing Plaid Link start path.
+- Every connection entry invokes the same native Plaid Link and post-link reconciliation path.
 - Sync updates the same provider sync state used elsewhere.
-- The route typechecks with the existing `npm run lint` command.
+- Focused interaction tests and the diff-aware completion gate pass.
 
 ## Spec Refinement
 
-Clear enough to build as a shell. The deferred product decisions are account removal, Plaid repair, persisted account records, lane-assignment editing, and whether Budget should fully remove its current bank connection card after Accounts proves useful.
+This is a reversible learning slice. Account removal, Plaid repair, persisted account records, and lane-assignment editing remain deferred. Removing Accounts from the main capability menu is also deferred until the moment-of-need, Budget, and Settings motions prove sufficiently discoverable in real use.

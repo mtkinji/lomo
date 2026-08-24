@@ -43,11 +43,12 @@ export function MoneyCategoryMeterTile({
   const [meterSize, setMeterSize] = useState(136);
   const percent = Math.round(category.percentUsed);
   const isOver = category.remainingCents < 0;
-  const isRisk = percent >= 100 || isOver || category.forecast.status === 'over';
-  const statusColor = isRisk
+  const isOverBudget = percent >= 100 || isOver;
+  const isWarning = !isOverBudget && (category.forecast.status === 'watch' || category.forecast.status === 'over');
+  const statusColor = isOverBudget
     ? colors.destructive
-    : category.forecast.status === 'watch'
-      ? colors.turmeric600
+    : isWarning
+      ? colors.warning
       : colors.pine400;
 
   const handleLayout = (event: LayoutChangeEvent) => {
@@ -76,7 +77,7 @@ export function MoneyCategoryMeterTile({
                 numberOfLines={1}
                 style={[
                   styles.value,
-                  isRisk ? styles.valueRisk : null,
+                  isOverBudget ? styles.valueRisk : isWarning ? styles.valueWarning : null,
                 ]}
               >
                 {percent}
@@ -371,6 +372,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1.5,
   },
   valueRisk: { color: colors.destructive },
+  valueWarning: { color: colors.warning },
   valueSuffix: {
     flexShrink: 0,
     color: colors.gray500,

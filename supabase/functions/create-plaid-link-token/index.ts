@@ -5,7 +5,11 @@ import {
   plaidBaseUrls,
 } from '../_shared/plaid.ts';
 import { getAuthenticatedUser, isAuthenticationError } from '../_shared/supabase.ts';
-import { buildPlaidPlatformFields, resolvePlaidLinkPlatform } from './plaidLinkRequest.ts';
+import {
+  buildPlaidPlatformFields,
+  PLAID_CLIENT_NAME,
+  resolvePlaidLinkPlatform,
+} from './plaidLinkRequest.ts';
 
 function getRequiredEnv(name: string) {
   const value = Deno.env.get(name);
@@ -58,7 +62,7 @@ Deno.serve(async (request) => {
     const plaidRequest = {
       client_id: clientId,
       secret,
-      client_name: Deno.env.get('PLAID_CLIENT_NAME') ?? 'Kwilt Money',
+      client_name: PLAID_CLIENT_NAME,
       products,
       country_codes: countryCodes,
       language: 'en',

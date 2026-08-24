@@ -6,7 +6,7 @@ function getMoneyWidgetSwift(targetName) {
 struct MoneyWidgetPalette {
   static let brand = KwiltPalette.pine
   static let onTrack = Color(red: 111/255, green: 165/255, blue: 146/255)
-  static let watch = Color(red: 169/255, green: 113/255, blue: 32/255)
+  static let watch = Color(red: 249/255, green: 115/255, blue: 22/255)
   static let over = Color(red: 220/255, green: 38/255, blue: 38/255)
   static let inactive = Color.secondary.opacity(0.16)
 
@@ -469,7 +469,9 @@ struct MoneyCategoryWidgetView: View {
 
   private var valueTone: Color {
     guard let category = entry.category else { return .primary }
-    return category.status == "over" ? MoneyWidgetPalette.over : .primary
+    if category.status == "over" { return MoneyWidgetPalette.over }
+    if category.status == "near_limit" { return MoneyWidgetPalette.watch }
+    return .primary
   }
 
   var body: some View {

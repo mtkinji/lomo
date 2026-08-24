@@ -19,11 +19,13 @@ import {
 import { useMoneyData } from '../data/MoneyDataContext';
 import { isMoneyPlaidError } from '../data/moneyPlaidErrors';
 import { formatMoneyFreshness, type MoneyAccount } from '../data/moneySnapshot';
-import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
+import { connectMoneyAccount } from '../runtime/connectMoneyAccount';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 import { EmptyState } from '../../../ui/EmptyState';
+import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
+import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
 
 type AccountFilter = 'all' | 'linked' | 'needs_review';
 type AccountSort = 'name' | 'transactions_high' | 'status';
@@ -40,7 +42,7 @@ const SORT_OPTIONS: Array<{ value: AccountSort; label: string }> = [
   { value: 'status', label: 'Needs lane first' },
 ];
 
-export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneyAccounts'>) {
+export function MoneyAccountsScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyAccounts'>) {
   const { snapshot, reconcileConnectedActivity } = useMoneyData();
   const [filter, setFilter] = useState<AccountFilter>('all');
   const [sort, setSort] = useState<AccountSort>('name');
@@ -60,24 +62,20 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
     setConnectionTone('neutral');
     setCanRetryConnection(false);
     setConnectionMessage('Opening a secure Plaid connection…');
-    try {
-      const result = await startMoneyPlaidLink();
-      if (result.status === 'cancelled') {
-        setConnectionMessage('Account connection closed without changes.');
-        return;
-      }
-      await reconcileConnectedActivity({ trigger: 'account_connected', sync: false });
+    const result = await connectMoneyAccount({ startLink: startMoneyPlaidLink, reconcileConnectedActivity });
+    if (result.status === 'cancelled') {
+      setConnectionMessage('Account connection closed without changes.');
+    } else if (result.status === 'connected') {
       setConnectionTone('success');
-      setConnectionMessage(`${result.exchange.institutionName} connected and synced.`);
+      setConnectionMessage(`${result.institutionName} connected and synced.`);
       signalMoneyMutationOutcome('succeeded');
-    } catch (error) {
+    } else {
       setConnectionTone('error');
       setCanRetryConnection(true);
-      setConnectionMessage(isMoneyPlaidError(error) ? error.message : 'Kwilt could not start the bank connection. Try again.');
+      setConnectionMessage(result.message);
       signalMoneyMutationOutcome('failed');
-    } finally {
-      setConnectionAction(null);
     }
+    setConnectionAction(null);
   };
 
   const syncAccounts = async () => {
@@ -103,7 +101,12 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
   };
 
   return (
-    <MoneyScreenFrame title="Accounts">
+    <MoneyScreenFrame
+      title="Accounts"
+      onPressBack={route.params?.origin === 'settings'
+        ? () => rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' })
+        : undefined}
+    >
       <MoneyInventoryListFrame
         controls={(
           <MoneyInventoryControlGroup>
