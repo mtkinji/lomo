@@ -31,7 +31,11 @@ export default {
   AP002: {
     cookingReview: approved('Steaming, immediate chilling, smooth yolk processing, cold holding, and the two-hour safety limit form a coherent and practical deviled-egg method.'),
     reviewedAt: '2026-08-20', publication: sitePublished, costTier: '$', difficulty: 'Easy',
-    ingredientReview: { ...accept(4, 6, 8), 8: patch({ optional: true, ingredientConcept: 'smoked or sweet paprika', preparation: 'for dusting', parseConfidence: 1 }) },
+    ingredientReview: {
+      ...accept(4, 6, 8),
+      6: patch({ parseConfidence: 1 }),
+      8: patch({ optional: true, ingredientConcept: 'smoked or sweet paprika', preparation: 'for dusting', parseConfidence: 1 }),
+    },
     commerce: reviewCategory('saucepan', 'medium-saucepan', 'A well-balanced medium saucepan supports steady steaming and remains useful across everyday cooking.', 'Use any medium saucepan that securely fits the steamer basket and lid.'),
     equipmentNeeds: [{ id: 'saucepan', label: 'Medium saucepan', reviewCategoryId: 'medium-saucepan' }, { id: 'steamer-basket', label: 'Steamer basket' }, { id: 'fine-sieve', label: 'Fine sieve', reviewCategoryId: 'fine-mesh-strainer' }],
     equipmentAnnotations: [{ instructionIndex: 0, phrase: 'saucepan', needId: 'saucepan', focus: 'general' }, { instructionIndex: 0, phrase: 'steamer basket', needId: 'steamer-basket', focus: 'substitute' }, { instructionIndex: 2, phrase: 'fine sieve', needId: 'fine-sieve', focus: 'substitute' }],

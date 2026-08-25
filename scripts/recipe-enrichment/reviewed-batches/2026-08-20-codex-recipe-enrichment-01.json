@@ -23,6 +23,7 @@
       },
       "costTier": "$$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -327,8 +328,7 @@
         "altText": "Crisp Buffalo wings coated in red cayenne-butter sauce with celery, carrots, and chunky blue-cheese dip.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -349,6 +349,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "verified",
       "structuredIngredients": [
         {
           "position": 0,
@@ -361,7 +362,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -375,7 +376,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -389,7 +390,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -403,7 +404,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -417,7 +418,7 @@
           "optional": false,
           "parseConfidence": 0.88,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -431,7 +432,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -443,9 +444,9 @@
           "ingredientConcept": "kosher salt",
           "preparation": "plus more to taste",
           "optional": false,
-          "parseConfidence": 0.78,
+          "parseConfidence": 1,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -459,7 +460,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -473,7 +474,8 @@
           "optional": true,
           "parseConfidence": 1,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "fixed",
+            "reason": "as_needed"
           }
         },
         {
@@ -487,7 +489,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         }
       ],
@@ -584,8 +586,7 @@
         "altText": "Deviled egg halves filled with smooth mustardy yolks and lightly finished with paprika and chopped chives.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -606,6 +607,7 @@
       },
       "costTier": "$$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -872,8 +874,7 @@
         "altText": "Hot spinach-artichoke dip with visible vegetables beneath a browned mozzarella and Parmesan top, served with sturdy dippers.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -894,6 +895,7 @@
       },
       "costTier": "$$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -1132,8 +1134,7 @@
         "altText": "Baked jalapeño halves filled with scallion-cheddar cream cheese and topped with crisp golden panko, with lime wedges.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -1154,6 +1155,7 @@
       },
       "costTier": "$$$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -1407,8 +1409,7 @@
         "altText": "Four lightly broiled Maryland-style lump crab cakes with visible pieces of crab, lemon wedges, and tartar sauce.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -1429,6 +1430,7 @@
       },
       "costTier": "$$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -1615,8 +1617,7 @@
         "altText": "Golden crescent-dough pigs in a blanket sprinkled with sesame and everything seasoning, with a creamy mustard dip.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -1637,6 +1638,7 @@
       },
       "costTier": "$$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -1931,8 +1933,7 @@
         "altText": "A rimmed pan of crisp loaded nachos with browned beef, black beans, melted cheese, pickled jalapeños, tomato, scallions, and sour cream.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -1953,6 +1954,7 @@
       },
       "costTier": "$$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -2187,8 +2189,7 @@
         "altText": "Creamy chile con queso with green chiles, jalapeño, tomato, and onion, served warm with sturdy tortilla chips.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -2209,6 +2210,7 @@
       },
       "costTier": "$$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -2391,8 +2393,7 @@
         "altText": "Chunky classic guacamole with visible avocado pieces, white onion, jalapeño, cilantro, and lime, served with tortilla chips.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -2413,6 +2414,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -2609,8 +2611,7 @@
         "altText": "Coarsely textured roasted tomato salsa with visible charred tomato, jalapeño, onion, garlic, cilantro, and pan juices.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -2631,6 +2632,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "verified",
       "structuredIngredients": [
         {
           "position": 0,
@@ -2828,8 +2830,7 @@
         "altText": "A tall soft sandwich loaf with a rounded golden crown and even pale crumb, partly sliced on a cooling rack.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "verified"
+      }
     },
     {
       "schemaVersion": 2,
@@ -2850,6 +2851,7 @@
       },
       "costTier": "$",
       "difficulty": "Advanced",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -3016,8 +3018,7 @@
         "altText": "A deeply browned round sourdough boule with a crackled scored crust and irregular cream-colored open crumb visible in the cut loaf and thick slice.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -3038,6 +3039,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -3234,8 +3236,7 @@
         "altText": "Eight tall square buttermilk biscuits with deep golden tops and distinct flaky layers arranged on a sheet pan.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -3256,6 +3257,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -3456,8 +3458,7 @@
         "altText": "Golden cast-iron cornbread cut into wedges with a dark crisp edge and moist yellow crumb, served warm in the skillet.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -3478,6 +3479,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -3678,8 +3680,7 @@
         "altText": "Fifteen glossy golden dinner rolls baked in a 3-by-5 grid, with two pulled apart to show a tender feathery crumb.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -3700,6 +3701,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -3938,8 +3940,7 @@
         "altText": "A moist golden-brown banana bread loaf with a central crack and tender crumb, partly sliced beside ripe bananas and toasted walnuts.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -3960,6 +3961,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -4226,8 +4228,7 @@
         "altText": "A cinnamon-topped zucchini bread loaf with a moist speckled crumb and green zucchini flecks, partly sliced beside grated zucchini.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -4248,6 +4249,7 @@
       },
       "costTier": "$",
       "difficulty": "Advanced",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -4450,8 +4452,7 @@
         "altText": "Seven hand-rolled New York-style bagels with glossy blistered golden crusts cooling on a wire rack.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -4472,6 +4473,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -4696,8 +4698,7 @@
         "altText": "Three mahogany-brown soft pretzels with classic crossed arms, coarse salt, scoring, and a light butter sheen on a sheet pan.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -4718,6 +4719,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -4933,8 +4935,7 @@
         "altText": "A deep-brown Anadama sandwich loaf with a golden cornmeal-and-molasses crumb, partly sliced beside a small dish of cornmeal.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -4955,6 +4956,7 @@
       },
       "costTier": "$$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -5155,8 +5157,7 @@
         "altText": "Blue corn skillet bread cut into wedges, with a slate-purple crumb and deeply browned crisp edge in a cast-iron pan.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -5177,6 +5178,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -5359,8 +5361,7 @@
         "altText": "Golden rosemary focaccia with deep olive-oil dimples, crisp edges, flaky salt, and scattered rosemary in a metal pan.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -5381,6 +5382,7 @@
       },
       "costTier": "$",
       "difficulty": "Advanced",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -5559,8 +5561,7 @@
         "altText": "Two rustic ciabatta loaves with flour-dusted golden crusts and an irregular open crumb visible in the cut loaf and slices.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -5581,6 +5582,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -5739,8 +5741,7 @@
         "altText": "A deeply browned round Italian household loaf with crisp scoring and an irregular cream-colored crumb visible in a cut face and slice.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -5761,6 +5762,7 @@
       },
       "costTier": "$$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -5947,8 +5949,7 @@
         "altText": "A golden oval sesame-semolina loaf with a long central score and pale open crumb visible in two slices.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     }
   ]
 }

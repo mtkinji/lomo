@@ -1,4 +1,5 @@
 const verifiedFixedRules = {
+  AP002: { 8: 'as_needed' },
   BA001: { 7: 'as_needed' },
   BR016: { 12: 'reviewed_other' },
   BR031: { 5: 'vessel' },
