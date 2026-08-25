@@ -25,6 +25,7 @@ function validRecord() {
     },
     costTier: '$$',
     difficulty: 'Moderate',
+    scalingState: 'verified',
     structuredIngredients: [
       {
         position: 0,
@@ -36,6 +37,7 @@ function validRecord() {
         preparation: null,
         optional: false,
         parseConfidence: 0.99,
+        scaleRule: { kind: 'multiply' as const },
       },
     ],
     instructionQuantityPhrases: { 0: ['2 eggs'] },
@@ -96,6 +98,8 @@ describe('Recipe editorial enrichment contract', () => {
     legacy.schemaVersion = 1 as 2;
     delete (legacy as any).costTier;
     delete (legacy as any).difficulty;
+    delete (legacy as any).scalingState;
+    legacy.structuredIngredients.forEach((line) => delete (line as any).scaleRule);
     delete (legacy as any).structuredIngredients;
     delete (legacy as any).instructionQuantityPhrases;
     delete (legacy as any).commerce;
@@ -107,6 +111,7 @@ describe('Recipe editorial enrichment contract', () => {
       schemaVersion: 2,
       costTier: null,
       difficulty: null,
+      scalingState: 'review_required',
       structuredIngredients: [],
       instructionQuantityPhrases: {},
       review: {

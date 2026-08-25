@@ -1,3 +1,10 @@
+import {
+  parseRecipeIngredientScaleRule,
+  parseRecipeScalingState,
+  type RecipeIngredientScaleRule,
+  type RecipeScalingState,
+} from '../domain/recipeContracts';
+
 export type RecipeEquipmentNeed = {
   id: string;
   label: string;
@@ -47,6 +54,7 @@ export type RecipeStructuredIngredient = {
   preparation: string | null;
   optional: boolean;
   parseConfidence: number;
+  scaleRule: RecipeIngredientScaleRule;
 };
 
 export type RecipeEditorialEnrichment = {
@@ -68,6 +76,7 @@ export type RecipeEditorialEnrichment = {
   };
   costTier: RecipeEditorialCostTier | null;
   difficulty: RecipeEditorialDifficulty | null;
+  scalingState: RecipeScalingState;
   structuredIngredients: RecipeStructuredIngredient[];
   instructionQuantityPhrases: Record<number, string[]>;
   commerce: {
@@ -142,7 +151,10 @@ function parseStructuredIngredients(
   const parsed = value.map((entry, index) => {
     const path = `structuredIngredients[${index}]`;
     const row = record(entry, path);
-    exactKeys(row, ['position', 'originalText', 'quantityMin', 'quantityMax', 'unit', 'ingredientConcept', 'preparation', 'optional', 'parseConfidence'], path);
+    exactKeys(row, [
+      'position', 'originalText', 'quantityMin', 'quantityMax', 'unit', 'ingredientConcept',
+      'preparation', 'optional', 'parseConfidence', ...(row.scaleRule === undefined ? [] : ['scaleRule']),
+    ], path);
     const position = integer(row.position, `${path}.position`, 0, 79);
     if (position !== index) throw new Error(`${path}.position must match its array position.`);
     const originalText = text(row.originalText, `${path}.originalText`, 1_000);
@@ -165,6 +177,7 @@ function parseStructuredIngredients(
       preparation: nullableText(row.preparation, `${path}.preparation`, 500),
       optional: row.optional,
       parseConfidence: finite(row.parseConfidence, `${path}.parseConfidence`, 0, 1),
+      scaleRule: parseRecipeIngredientScaleRule(row.scaleRule),
     };
   });
   if (reviewed && parsed.length !== canonicalIngredients.length) {
@@ -354,7 +367,12 @@ export function parseRecipeEditorialEnrichment(
   if (!legacy && !current) throw new Error('schemaVersion is invalid.');
   exactKeys(row, legacy
     ? ['schemaVersion', 'rosterId', 'sourceRecipeHash', 'review', 'equipmentNeeds', 'equipmentAnnotations', 'origin', 'history', 'heroImage']
-    : ['schemaVersion', 'rosterId', 'sourceRecipeHash', 'review', 'costTier', 'difficulty', 'structuredIngredients', 'instructionQuantityPhrases', 'commerce', 'publication', 'equipmentNeeds', 'equipmentAnnotations', 'origin', 'history', 'heroImage'],
+    : [
+        'schemaVersion', 'rosterId', 'sourceRecipeHash', 'review', 'costTier', 'difficulty',
+        ...(row.scalingState === undefined ? [] : ['scalingState']),
+        'structuredIngredients', 'instructionQuantityPhrases', 'commerce', 'publication',
+        'equipmentNeeds', 'equipmentAnnotations', 'origin', 'history', 'heroImage',
+      ],
   'recipeEditorialEnrichment');
   const rosterId = text(row.rosterId, 'rosterId', 5);
   if (!/^(BR|LU|DI|SO|SA|AP|SI|BA|DE)\d{3}$/.test(rosterId)) throw new Error('rosterId is invalid.');
@@ -436,6 +454,7 @@ export function parseRecipeEditorialEnrichment(
     },
     costTier: costTier as RecipeEditorialCostTier | null,
     difficulty: difficulty as RecipeEditorialDifficulty | null,
+    scalingState: parseRecipeScalingState(legacy ? undefined : row.scalingState),
     structuredIngredients,
     instructionQuantityPhrases,
     commerce,

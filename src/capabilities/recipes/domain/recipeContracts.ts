@@ -75,6 +75,37 @@ export type Recipe = {
   updatedAt: string;
 };
 
+export type RecipeScalingState = 'verified' | 'unavailable' | 'review_required';
+
+export type RecipeIngredientScaleRule =
+  | { kind: 'multiply' }
+  | { kind: 'fixed'; reason: 'as_needed' | 'garnish' | 'to_taste' | 'vessel' | 'reviewed_other' }
+  | { kind: 'review_required' };
+
+export function parseRecipeScalingState(value: unknown): RecipeScalingState {
+  if (value === undefined) return 'review_required';
+  if (value === 'verified' || value === 'unavailable' || value === 'review_required') return value;
+  throw new RecipeContractError('recipe.field.invalid', 'Recipe scaling state is invalid.', 'recipeVersion.scalingState');
+}
+
+export function parseRecipeIngredientScaleRule(value: unknown): RecipeIngredientScaleRule {
+  if (value === undefined) return { kind: 'review_required' };
+  const object = asRecord(value, 'recipeIngredient.scaleRule');
+  if (object.kind === 'multiply' || object.kind === 'review_required') {
+    assertExactKeys(object, ['kind'], 'recipeIngredient.scaleRule');
+    return { kind: object.kind };
+  }
+  if (object.kind === 'fixed') {
+    assertExactKeys(object, ['kind', 'reason'], 'recipeIngredient.scaleRule');
+    const reasons = ['as_needed', 'garnish', 'to_taste', 'vessel', 'reviewed_other'] as const;
+    if (!reasons.includes(object.reason as typeof reasons[number])) {
+      throw new RecipeContractError('recipe.field.invalid', 'Fixed scaling reason is invalid.', 'recipeIngredient.scaleRule.reason');
+    }
+    return { kind: 'fixed', reason: object.reason as typeof reasons[number] };
+  }
+  throw new RecipeContractError('recipe.field.invalid', 'Ingredient scaling rule is invalid.', 'recipeIngredient.scaleRule.kind');
+}
+
 export type RecipeIngredientLine = {
   id: string;
   recipeVersionId: string;
@@ -88,6 +119,7 @@ export type RecipeIngredientLine = {
   preparation: string | null;
   optional: boolean;
   parseConfidence: number | null;
+  scaleRule: RecipeIngredientScaleRule;
 };
 
 export type RecipeInstructionCue = {
@@ -115,6 +147,7 @@ export type RecipeVersion = {
   description: string | null;
   yieldQuantity: number | null;
   yieldUnit: string | null;
+  scalingState: RecipeScalingState;
   prepMinutes: number | null;
   cookMinutes: number | null;
   notes: string | null;
@@ -359,7 +392,7 @@ export function parseRecipe(value: unknown): Recipe {
 function parseIngredient(value: unknown, index: number): RecipeIngredientLine {
   const path = `recipeVersion.ingredients[${index}]`;
   const object = asRecord(value, path);
-  assertExactKeys(object, ['id', 'recipeVersionId', 'position', 'groupLabel', 'originalText', 'quantityMin', 'quantityMax', 'unit', 'ingredientConcept', 'preparation', 'optional', 'parseConfidence'], path);
+  assertExactKeys(object, ['id', 'recipeVersionId', 'position', 'groupLabel', 'originalText', 'quantityMin', 'quantityMax', 'unit', 'ingredientConcept', 'preparation', 'optional', 'parseConfidence', 'scaleRule'], path);
   if (object.parseConfidence !== null && (typeof object.parseConfidence !== 'number' || object.parseConfidence < 0 || object.parseConfidence > 1)) {
     throw new RecipeContractError('recipe.ingredient.confidence_invalid', 'Ingredient confidence must be between zero and one.', `${path}.parseConfidence`);
   }
@@ -377,6 +410,7 @@ function parseIngredient(value: unknown, index: number): RecipeIngredientLine {
     preparation: nullableString(object.preparation, `${path}.preparation`, 320),
     optional: object.optional === true,
     parseConfidence: confidence,
+    scaleRule: parseRecipeIngredientScaleRule(object.scaleRule),
   };
 }
 
@@ -418,7 +452,7 @@ function parseInstruction(value: unknown, index: number): RecipeInstructionStep 
 
 export function parseRecipeVersion(value: unknown): RecipeVersion {
   const object = asRecord(value, 'recipeVersion');
-  assertExactKeys(object, ['id', 'recipeId', 'version', 'title', 'description', 'yieldQuantity', 'yieldUnit', 'prepMinutes', 'cookMinutes', 'notes', 'ingredients', 'instructions', 'equipmentRequirements', 'createdByPersonId', 'createdAt', 'contentHash'], 'recipeVersion');
+  assertExactKeys(object, ['id', 'recipeId', 'version', 'title', 'description', 'yieldQuantity', 'yieldUnit', 'scalingState', 'prepMinutes', 'cookMinutes', 'notes', 'ingredients', 'instructions', 'equipmentRequirements', 'createdByPersonId', 'createdAt', 'contentHash'], 'recipeVersion');
   if (typeof object.title !== 'string' || object.title.trim().length === 0 || object.title.length > 160) {
     throw new RecipeContractError('recipe.title.invalid', 'Recipe title must be between 1 and 160 characters.', 'recipeVersion.title');
   }
@@ -448,6 +482,7 @@ export function parseRecipeVersion(value: unknown): RecipeVersion {
     description: nullableString(object.description, 'recipeVersion.description', 4_000),
     yieldQuantity: nullableNumber(object.yieldQuantity, 'recipeVersion.yieldQuantity', { min: 0 }),
     yieldUnit: nullableString(object.yieldUnit, 'recipeVersion.yieldUnit', 80),
+    scalingState: parseRecipeScalingState(object.scalingState),
     prepMinutes: nullableNumber(object.prepMinutes, 'recipeVersion.prepMinutes', { min: 0, max: 100_000, integer: true }),
     cookMinutes: nullableNumber(object.cookMinutes, 'recipeVersion.cookMinutes', { min: 0, max: 100_000, integer: true }),
     notes: nullableString(object.notes, 'recipeVersion.notes', 20_000),

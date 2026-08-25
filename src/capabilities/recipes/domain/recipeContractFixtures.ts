@@ -50,6 +50,7 @@ const baseVersion: RecipeVersion = {
   description: null,
   yieldQuantity: 8,
   yieldUnit: 'servings',
+  scalingState: 'review_required',
   prepMinutes: 20,
   cookMinutes: 35,
   notes: 'Best served the next day.',
@@ -59,16 +60,19 @@ const baseVersion: RecipeVersion = {
       originalText: '1 1/2 cups flour, sifted', quantityMin: 1.5, quantityMax: null,
       unit: 'cup', ingredientConcept: 'flour', preparation: 'sifted', optional: false,
       parseConfidence: 0.98,
+      scaleRule: { kind: 'review_required' },
     },
     {
       id: 'ingredient-2', recipeVersionId: 'rv-family-cake-1', position: 1, groupLabel: 'Cake',
       originalText: '2 eggs', quantityMin: 2, quantityMax: null, unit: null,
       ingredientConcept: 'egg', preparation: null, optional: false, parseConfidence: 0.99,
+      scaleRule: { kind: 'review_required' },
     },
     {
       id: 'ingredient-3', recipeVersionId: 'rv-family-cake-1', position: 2, groupLabel: 'Glaze',
       originalText: 'Powdered sugar to taste', quantityMin: null, quantityMax: null, unit: null,
       ingredientConcept: 'powdered sugar', preparation: null, optional: true, parseConfidence: 0.85,
+      scaleRule: { kind: 'review_required' },
     },
   ],
   instructions: [

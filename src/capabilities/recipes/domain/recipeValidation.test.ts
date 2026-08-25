@@ -55,7 +55,26 @@ describe('private Recipe persistence contract', () => {
       },
       credits: [],
       lineage: [],
-    })).toMatchObject({ title: 'Tomato toast', ingredients: [{ originalText: '2 ripe tomatoes' }] });
+    })).toMatchObject({
+      title: 'Tomato toast',
+      scalingState: 'review_required',
+      ingredients: [{ originalText: '2 ripe tomatoes', scaleRule: { kind: 'review_required' } }],
+    });
+  });
+
+  it('preserves explicit reviewed recipe scaling evidence', () => {
+    expect(parseReviewedRecipeData({
+      title: 'Toast',
+      scalingState: 'verified',
+      ingredients: [{
+        id: 'ingredient-1', groupLabel: null, originalText: '2 slices bread', quantityMin: 2,
+        quantityMax: null, unit: 'slice', ingredientConcept: 'bread', preparation: null,
+        optional: false, parseConfidence: 1, scaleRule: { kind: 'multiply' },
+      }],
+    })).toMatchObject({
+      scalingState: 'verified',
+      ingredients: [{ scaleRule: { kind: 'multiply' } }],
+    });
   });
 
   it('accepts reviewed equipment evidence and rejects ungrounded evidence', () => {

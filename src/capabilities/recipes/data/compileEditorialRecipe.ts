@@ -9,7 +9,7 @@ const CATALOG_CREATED_AT = "2026-08-06T12:00:00.000Z";
 
 export function compileEditorialRecipeProjection(
   editorial: EditorialRecipe,
-  enrichment?: Pick<RecipeEditorialEnrichment, 'review' | 'structuredIngredients'> | null,
+  enrichment?: Pick<RecipeEditorialEnrichment, 'review' | 'structuredIngredients' | 'scalingState'> | null,
 ): RecipeProjection {
   const rosterKey = editorial.rosterId.toLowerCase();
   const recipeId = `kwilt-recipe-${rosterKey}`;
@@ -73,6 +73,7 @@ export function compileEditorialRecipeProjection(
       description: editorial.description,
       yieldQuantity: editorial.yieldQuantity,
       yieldUnit: editorial.yieldUnit,
+      scalingState: enrichment?.scalingState ?? 'review_required',
       prepMinutes: editorial.prepMinutes,
       cookMinutes: editorial.cookMinutes,
       notes: editorial.notes,
@@ -91,6 +92,7 @@ export function compileEditorialRecipeProjection(
           preparation: structured?.preparation ?? null,
           optional: structured?.optional ?? false,
           parseConfidence: structured?.parseConfidence ?? 1,
+          scaleRule: structured?.scaleRule ?? { kind: 'review_required' },
         };
       }),
       instructions: editorial.instructions.map((text, position) => ({

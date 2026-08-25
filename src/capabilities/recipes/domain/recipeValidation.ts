@@ -4,7 +4,11 @@ import {
   assertExactKeys,
   nullableString,
   requiredString,
+  parseRecipeIngredientScaleRule,
+  parseRecipeScalingState,
+  type RecipeIngredientScaleRule,
   type RecipeRightsBasis,
+  type RecipeScalingState,
 } from './recipeContracts';
 import { parseRecipeEquipmentRequirements, type SpecializedRecipeEquipment } from './recipeEquipment';
 
@@ -19,6 +23,7 @@ export type ReviewedRecipeIngredient = {
   preparation: string | null;
   optional: boolean;
   parseConfidence: number | null;
+  scaleRule: RecipeIngredientScaleRule;
 };
 
 export type ReviewedRecipeInstruction = {
@@ -50,6 +55,7 @@ export type ReviewedRecipeData = {
   description: string | null;
   yieldQuantity: number | null;
   yieldUnit: string | null;
+  scalingState: RecipeScalingState;
   prepMinutes: number | null;
   cookMinutes: number | null;
   notes: string | null;
@@ -91,7 +97,7 @@ export function parseReviewedRecipeData(value: unknown): ReviewedRecipeData {
   assertExactKeys(object, [
     'title', 'description', 'yieldQuantity', 'yieldUnit', 'prepMinutes', 'cookMinutes',
     'notes', 'ingredients', 'instructions', 'provenance', 'credits', 'lineage',
-    'equipmentRequirements',
+    'equipmentRequirements', 'scalingState',
   ], 'reviewedRecipe');
 
   const ingredients = optionalArray(object.ingredients, 'reviewedRecipe.ingredients', 200).map((entry, index) => {
@@ -100,6 +106,7 @@ export function parseReviewedRecipeData(value: unknown): ReviewedRecipeData {
     assertExactKeys(line, [
       'id', 'groupLabel', 'originalText', 'quantityMin', 'quantityMax', 'unit',
       'ingredientConcept', 'preparation', 'optional', 'parseConfidence',
+      'scaleRule',
     ], path);
     const confidence = nullableFiniteNumber(line.parseConfidence, `${path}.parseConfidence`);
     if (confidence !== null && confidence > 1) {
@@ -116,6 +123,7 @@ export function parseReviewedRecipeData(value: unknown): ReviewedRecipeData {
       preparation: nullableString(line.preparation, `${path}.preparation`, 320),
       optional: line.optional === true,
       parseConfidence: confidence,
+      scaleRule: parseRecipeIngredientScaleRule(line.scaleRule),
     };
   });
 
@@ -168,6 +176,7 @@ export function parseReviewedRecipeData(value: unknown): ReviewedRecipeData {
     description: nullableString(object.description ?? null, 'reviewedRecipe.description', 4_000),
     yieldQuantity: nullableFiniteNumber(object.yieldQuantity ?? null, 'reviewedRecipe.yieldQuantity'),
     yieldUnit: nullableString(object.yieldUnit ?? null, 'reviewedRecipe.yieldUnit', 80),
+    scalingState: parseRecipeScalingState(object.scalingState),
     prepMinutes: nullableFiniteNumber(object.prepMinutes ?? null, 'reviewedRecipe.prepMinutes', { integer: true, max: 100_000 }),
     cookMinutes: nullableFiniteNumber(object.cookMinutes ?? null, 'reviewedRecipe.cookMinutes', { integer: true, max: 100_000 }),
     notes: nullableString(object.notes ?? null, 'reviewedRecipe.notes', 20_000),

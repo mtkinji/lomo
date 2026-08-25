@@ -1,6 +1,7 @@
 import {
   RecipeContractError,
   parseRecipe,
+  parseRecipeIngredientScaleRule,
   parseRecipeVersion,
   type Recipe,
   type RecipeVersion,
@@ -11,6 +12,24 @@ import {
   independentCopyFixture,
 } from './recipeContractFixtures';
 describe('Recipe contracts', () => {
+  test('parses reviewed ingredient scaling rules and defaults missing proof to review', () => {
+    expect(parseRecipeIngredientScaleRule({ kind: 'multiply' })).toEqual({ kind: 'multiply' });
+    expect(parseRecipeIngredientScaleRule({ kind: 'fixed', reason: 'vessel' }))
+      .toEqual({ kind: 'fixed', reason: 'vessel' });
+    expect(parseRecipeIngredientScaleRule(undefined)).toEqual({ kind: 'review_required' });
+    expect(() => parseRecipeIngredientScaleRule({ kind: 'fixed', reason: 'guess' })).toThrow();
+  });
+
+  test('normalizes a legacy recipe version to fail closed scaling', () => {
+    const legacy = structuredClone(familyRecipeFixture.version) as any;
+    delete legacy.scalingState;
+    legacy.ingredients.forEach((line: any) => delete line.scaleRule);
+    const version = parseRecipeVersion(legacy);
+
+    expect(version.scalingState).toBe('review_required');
+    expect(version.ingredients.every((line) => line.scaleRule.kind === 'review_required')).toBe(true);
+  });
+
   test('keeps stable Recipe identity separate from immutable version content', () => {
     const recipe = parseRecipe(familyRecipeFixture.recipe);
     const version = parseRecipeVersion(familyRecipeFixture.version);
