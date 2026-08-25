@@ -7,103 +7,22 @@ import { Icon } from "../../../ui/Icon";
 import { Heading, Text } from "../../../ui/Typography";
 import type { RecipeIngredientLine } from "../domain/recipeContracts";
 import {
-  formatKitchenQuantity,
-  scaleRecipeQuantity,
+  scaledIngredientDisplay,
+  type RecipeScaleMultiplier,
 } from "../domain/recipeScaling";
 
-function unitForDisplay(
-  unit: string | null,
-  quantity: number,
-  quantityMax: number | null,
-): string {
-  if (!unit || unit === "count") return "";
-  const plural = (quantityMax ?? quantity) > 1;
-  if (!plural || unit.endsWith("s")) return unit;
-  if (unit.endsWith("ch")) return `${unit}es`;
-  return `${unit}s`;
-}
-
-function preserveAuthoredCase(
-  originalText: string,
-  parsedText: string | null,
-): string | null {
-  if (!parsedText) return parsedText;
-  const start = originalText
-    .toLocaleLowerCase()
-    .indexOf(parsedText.toLocaleLowerCase());
-  return start >= 0
-    ? originalText.slice(start, start + parsedText.length)
-    : parsedText;
-}
-
-function preserveAuthoredParentheticals(
-  originalText: string,
-  concept: string | null,
-): string | null {
-  if (!concept) return concept;
-  const conceptStart = originalText
-    .toLocaleLowerCase()
-    .indexOf(concept.toLocaleLowerCase());
-  if (conceptStart < 0) return concept;
-  const parentheticals = originalText
-    .slice(0, conceptStart)
-    .match(/\([^)]*\)/g);
-  return parentheticals?.length
-    ? `${parentheticals.join(" ")} ${concept}`
-    : concept;
-}
-
-export function scaledIngredientDisplay(
-  line: RecipeIngredientLine,
-  fromYield: number | null,
-  toYield: number,
-): string {
-  if (!fromYield) return line.originalText;
-  const parsed = line.ingredientConcept
-    ? null
-    : parseIngredientLine(line.originalText);
-  if (parsed && fromYield === toYield) return line.originalText;
-  const quantityMin = line.quantityMin ?? parsed?.quantityMin ?? null;
-  const quantityMax = line.quantityMax ?? parsed?.quantityMax ?? null;
-  const authoredConcept =
-    line.ingredientConcept?.trim() ||
-    preserveAuthoredCase(line.originalText, parsed?.concept.trim() ?? null);
-  const concept = preserveAuthoredParentheticals(
-    line.originalText,
-    authoredConcept,
-  );
-  const quantityIsReliable = line.ingredientConcept
-    ? (line.parseConfidence ?? 0) >= 0.8
-    : parsed?.quantityMin !== null;
-  if (quantityMin === null || !concept || !quantityIsReliable)
-    return line.originalText;
-  const scaled = scaleRecipeQuantity({
-    quantity: quantityMin,
-    quantityMax,
-    fromYield,
-    toYield,
-  });
-  if (scaled.quantity === null) return line.originalText;
-  const unit = line.unit ?? parsed?.unit ?? null;
-  const displayUnit = unitForDisplay(unit, scaled.quantity, scaled.quantityMax);
-  const amount = `${formatKitchenQuantity(scaled.quantity)}${scaled.quantityMax === null ? "" : `–${formatKitchenQuantity(scaled.quantityMax)}`}${displayUnit ? ` ${displayUnit}` : ""}`;
-  const preparation =
-    line.preparation ??
-    preserveAuthoredCase(line.originalText, parsed?.preparation ?? null);
-  return `${amount} ${concept}${preparation ? `, ${preparation}` : ""}${line.optional ? " (optional)" : ""}`;
-}
+export { scaledIngredientDisplay } from "../domain/recipeScaling";
 
 export function ingredientDisplayParts(
   line: RecipeIngredientLine,
-  fromYield: number | null,
-  toYield: number,
+  multiplier: RecipeScaleMultiplier,
 ): {
   amount: string | null;
   ingredient: string;
   qualifier: string | null;
   display: string;
 } {
-  const display = scaledIngredientDisplay(line, fromYield, toYield);
+  const display = scaledIngredientDisplay(line, multiplier);
   return ingredientDisplayPartsFromText(display);
 }
 
@@ -255,25 +174,28 @@ export function RecipeIngredientChecklist({
 
 export function RecipeIngredientList({
   lines,
-  fromYield,
-  toYield,
+  multiplier,
   checked,
   onToggle,
 }: {
   lines: RecipeIngredientLine[];
-  fromYield: number | null;
-  toYield: number;
+  multiplier: RecipeScaleMultiplier;
   checked: Set<string>;
   onToggle(id: string): void;
 }) {
+  const scalingBlocked = multiplier > 1 && lines.some((line) => line.scaleRule.kind === 'review_required');
+  const effectiveMultiplier: RecipeScaleMultiplier = scalingBlocked ? 1 : multiplier;
   return (
     <View style={styles.section}>
       <Heading variant="md">Ingredients</Heading>
+      {scalingBlocked ? (
+        <Text tone="secondary">Recipe scaling is unavailable for these ingredients.</Text>
+      ) : null}
       {lines.length ? (
         <RecipeIngredientChecklist
           items={lines.map((line) => ({
             id: line.id,
-            display: scaledIngredientDisplay(line, fromYield, toYield),
+            display: scaledIngredientDisplay(line, effectiveMultiplier),
             groupLabel: line.groupLabel,
           }))}
           checked={checked}

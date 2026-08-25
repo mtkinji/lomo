@@ -12,9 +12,11 @@ describe('Recipe Cook cue builder', () => {
       { ...recipe.instructions[1], text: 'Dust with powdered sugar.' },
     ];
     recipe.ingredients[2].parseConfidence = 0.4;
-    const cues = buildRecipeCookCues(recipe, { servings: 4 });
+    recipe.scalingState = 'verified';
+    recipe.ingredients = recipe.ingredients.map((line) => ({ ...line, scaleRule: { kind: 'multiply' } }));
+    const cues = buildRecipeCookCues(recipe, { multiplier: 1 });
     expect(cues[0]).toMatchObject({ instructionId: 'step-1', timerSuggestions: [{ durationSeconds: 1200, label: 'Bake' }] });
-    expect(cues[0].ingredientReferences[0]).toMatchObject({ ingredientLineId: 'ingredient-1', displayAmount: '¾ cup' });
+    expect(cues[0].ingredientReferences[0]).toMatchObject({ ingredientLineId: 'ingredient-1', displayAmount: '1 1/2 cups' });
     expect(cues[1].ingredientReferences[0]).toMatchObject({ ingredientLineId: 'ingredient-3', displayAmount: null });
   });
 
@@ -23,7 +25,9 @@ describe('Recipe Cook cue builder', () => {
       STARTER_RECIPE_BATCH_001[0],
     ).currentVersion;
 
-    const cues = buildRecipeCookCues(recipe, { servings: 6 });
+    recipe.scalingState = 'verified';
+    recipe.ingredients = recipe.ingredients.map((line) => ({ ...line, scaleRule: { kind: 'multiply' } }));
+    const cues = buildRecipeCookCues(recipe, { multiplier: 2 });
     const dryMixingCue = cues[1];
     const wetMixingCue = cues[2];
 
@@ -45,24 +49,24 @@ describe('Recipe Cook cue builder', () => {
     });
     expect(dryMixingCue.ingredientReferences).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ concept: 'all-purpose flour', displayAmount: '3 cups' }),
-        expect.objectContaining({ concept: 'granulated sugar', displayAmount: '3 tablespoons' }),
-        expect.objectContaining({ concept: 'baking powder', displayAmount: '1 ½ teaspoons' }),
-        expect.objectContaining({ concept: 'baking soda', displayAmount: '1 ½ teaspoons' }),
-        expect.objectContaining({ concept: 'Diamond Crystal kosher salt', displayAmount: '1 ½ teaspoons' }),
+        expect.objectContaining({ concept: 'all-purpose flour', displayAmount: '4 cups (480 g)' }),
+        expect.objectContaining({ concept: 'granulated sugar', displayAmount: '4 tablespoons' }),
+        expect.objectContaining({ concept: 'baking powder', displayAmount: '2 teaspoons' }),
+        expect.objectContaining({ concept: 'baking soda', displayAmount: '2 teaspoons' }),
+        expect.objectContaining({ concept: 'Diamond Crystal kosher salt', displayAmount: '2 teaspoons' }),
       ]),
     );
     expect(wetMixingCue.ingredientReferences).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ concept: 'well-shaken buttermilk', displayAmount: '3 cups' }),
-        expect.objectContaining({ concept: 'large eggs', displayAmount: '3' }),
-        expect.objectContaining({ concept: 'unsalted butter', displayAmount: '6 tablespoons' }),
+        expect.objectContaining({ concept: 'well-shaken buttermilk', displayAmount: '4 cups' }),
+        expect.objectContaining({ concept: 'large eggs', displayAmount: '4' }),
+        expect.objectContaining({ concept: 'unsalted butter', displayAmount: '8 tablespoons' }),
       ]),
     );
     expect(dryMixingCue.accessibilityLabel).toContain(
       'Phase 2 of 5. Action 1 of 2.',
     );
-    expect(dryMixingCue.accessibilityLabel).toContain('For this action. 3 cups all-purpose flour.');
+    expect(dryMixingCue.accessibilityLabel).toContain('For this action. 4 cups (480 g) all-purpose flour.');
   });
 
   it('does not confuse a specifically named ingredient with a later ingredient that shares its last word', () => {
@@ -71,7 +75,7 @@ describe('Recipe Cook cue builder', () => {
     )!;
     const firstPhaseCues = buildRecipeCookCues(
       compileEditorialRecipeProjection(paneerWrap).currentVersion,
-      { servings: paneerWrap.yieldQuantity },
+      { multiplier: 1 },
     ).filter((cue) => cue.phasePosition === 0);
     const concepts = firstPhaseCues.flatMap((cue) =>
       cue.ingredientReferences.map((item) => item.concept),
@@ -97,7 +101,7 @@ describe('Recipe Cook cue builder', () => {
       text: 'Heat a griddle or wide skillet over medium heat; it is ready when a drop of water skitters before evaporating.',
     }];
 
-    expect(buildRecipeCookCues(recipe, { servings: 4 })[0]).toMatchObject({
+    expect(buildRecipeCookCues(recipe, { multiplier: 1 })[0]).toMatchObject({
       actionText: 'Heat a griddle or wide skillet over medium heat.',
       supportingCue: {
         kind: 'ready_when',
@@ -113,7 +117,7 @@ describe('Recipe Cook cue builder', () => {
       text: 'Whisk the eggs; add the flour in three batches.',
     }];
 
-    expect(buildRecipeCookCues(recipe, { servings: 4 })[0]).toMatchObject({
+    expect(buildRecipeCookCues(recipe, { multiplier: 1 })[0]).toMatchObject({
       actionText: 'Whisk the eggs; add the flour in three batches.',
       supportingCue: null,
     });
@@ -130,7 +134,7 @@ describe('Recipe Cook cue builder', () => {
       { ...recipe.instructions[1], mediaAssetIds: [] },
     ];
 
-    const cues = buildRecipeCookCues(recipe, { servings: 4, mediaAssets: [media] });
+    const cues = buildRecipeCookCues(recipe, { multiplier: 1, mediaAssets: [media] });
 
     expect(cues[0].media).toEqual({
       assetId: media.id,
@@ -146,17 +150,17 @@ describe('Recipe Cook cue builder', () => {
     const media = recipeContractFixture().mediaAssets[0];
     recipe.instructions = [{ ...recipe.instructions[0], mediaAssetIds: [media.id] }];
 
-    expect(buildRecipeCookCues(recipe, { servings: 4 }).at(0)?.media).toBeNull();
+    expect(buildRecipeCookCues(recipe, { multiplier: 1 }).at(0)?.media).toBeNull();
     expect(buildRecipeCookCues(recipe, {
-      servings: 4,
+      multiplier: 1,
       mediaAssets: [{ ...media, lifecycle: 'deleted' }],
     }).at(0)?.media).toBeNull();
     expect(buildRecipeCookCues(recipe, {
-      servings: 4,
+      multiplier: 1,
       mediaAssets: [{ ...media, mediaType: 'application/pdf' }],
     }).at(0)?.media).toBeNull();
     expect(buildRecipeCookCues(recipe, {
-      servings: 4,
+      multiplier: 1,
       mediaAssets: [{ ...media, storageRef: 'recipe-media/person/step.jpg' }],
     }).at(0)?.media).toBeNull();
   });

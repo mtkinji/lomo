@@ -1,3 +1,7 @@
+import { parseIngredientLine } from '@kwilt/food-core';
+
+import type { RecipeIngredientLine } from './recipeContracts';
+
 const vulgarFractions: Record<string, number> = {
   '⅛': 1 / 8, '⅙': 1 / 6, '¼': 1 / 4, '⅓': 1 / 3, '⅜': 3 / 8,
   '½': 1 / 2, '⅝': 5 / 8, '⅔': 2 / 3, '¾': 3 / 4, '⅚': 5 / 6, '⅞': 7 / 8,
@@ -57,6 +61,81 @@ export function formatScaledRecipeYield(input: {
   }
   const quantity = bounded(input.yieldQuantity * input.multiplier);
   return `${formatKitchenQuantity(quantity)} ${pluralizeYieldUnit(input.yieldUnit.trim(), quantity)}`;
+}
+
+function unitForDisplay(unit: string | null, quantity: number, quantityMax: number | null): string {
+  if (!unit || unit === 'count') return '';
+  const plural = (quantityMax ?? quantity) > 1;
+  if (!plural || unit.endsWith('s')) return unit;
+  if (unit.endsWith('ch')) return `${unit}es`;
+  return `${unit}s`;
+}
+
+function preserveAuthoredCase(originalText: string, parsedText: string | null): string | null {
+  if (!parsedText) return parsedText;
+  const start = originalText.toLocaleLowerCase().indexOf(parsedText.toLocaleLowerCase());
+  return start >= 0 ? originalText.slice(start, start + parsedText.length) : parsedText;
+}
+
+function preserveAuthoredParentheticals(originalText: string, concept: string | null): string | null {
+  if (!concept) return concept;
+  const conceptStart = originalText.toLocaleLowerCase().indexOf(concept.toLocaleLowerCase());
+  if (conceptStart < 0) return concept;
+  const parentheticals = originalText.slice(0, conceptStart).match(/\([^)]*\)/g);
+  return parentheticals?.length ? `${parentheticals.join(' ')} ${concept}` : concept;
+}
+
+function scaleParentheticalMassEquivalent(text: string, multiplier: RecipeScaleMultiplier): string {
+  return text.replace(
+    /\((\d+(?:\.\d+)?|\d+\s+\d+\/\d+|\d+\/\d+|[⅛⅙¼⅓⅜½⅝⅔¾⅚⅞])\s*(grams?|g|kilograms?|kg|ounces?|oz|pounds?|lbs?|lb)\)/gi,
+    (match, rawQuantity: string, unit: string) => {
+      const quantity = parseKitchenQuantity(rawQuantity);
+      if (quantity === null) return match;
+      const scaled = bounded(quantity * multiplier);
+      const displayUnit = /^(?:g|kg|oz|lb|lbs)$/i.test(unit)
+        ? unit
+        : unitForDisplay(unit.replace(/s$/i, ''), scaled, null);
+      return `(${formatKitchenQuantity(scaled)} ${displayUnit})`;
+    },
+  );
+}
+
+export function scaledIngredientDisplay(
+  line: RecipeIngredientLine,
+  multiplier: RecipeScaleMultiplier,
+): string {
+  if (multiplier === 1 || line.scaleRule.kind !== 'multiply') return line.originalText;
+  const parsed = line.ingredientConcept ? null : parseIngredientLine(line.originalText);
+  const quantityMin = line.quantityMin ?? parsed?.quantityMin ?? null;
+  const quantityMax = line.quantityMax ?? parsed?.quantityMax ?? null;
+  const authoredConcept = line.ingredientConcept?.trim()
+    || preserveAuthoredCase(line.originalText, parsed?.concept.trim() ?? null);
+  let concept = preserveAuthoredParentheticals(line.originalText, authoredConcept);
+  const quantityIsReliable = line.ingredientConcept
+    ? (line.parseConfidence ?? 0) >= 0.8
+    : parsed?.quantityMin !== null;
+  if (quantityMin === null || !concept || !quantityIsReliable) return line.originalText;
+  const scaled = multiplyRecipeQuantity({ quantity: quantityMin, quantityMax, multiplier });
+  if (scaled.quantity === null) return line.originalText;
+  const unit = line.unit ?? parsed?.unit ?? null;
+  if (unit !== 'count') concept = scaleParentheticalMassEquivalent(concept, multiplier);
+  const displayUnit = unitForDisplay(unit, scaled.quantity, scaled.quantityMax);
+  const amount = `${formatKitchenQuantity(scaled.quantity)}${scaled.quantityMax === null ? '' : `–${formatKitchenQuantity(scaled.quantityMax)}`}${displayUnit ? ` ${displayUnit}` : ''}`;
+  const preparation = line.preparation
+    ?? preserveAuthoredCase(line.originalText, parsed?.preparation ?? null);
+  return `${amount} ${concept}${preparation ? `, ${preparation}` : ''}${line.optional ? ' (optional)' : ''}`;
+}
+
+export function scaledIngredientAmount(
+  line: RecipeIngredientLine,
+  multiplier: RecipeScaleMultiplier,
+): string | null {
+  const display = scaledIngredientDisplay(line, multiplier);
+  const parsed = parseIngredientLine(display);
+  const concept = parsed.concept.trim();
+  if (!concept) return null;
+  const conceptStart = display.toLocaleLowerCase().indexOf(concept.toLocaleLowerCase());
+  return conceptStart > 0 ? display.slice(0, conceptStart).trim() || null : null;
 }
 
 export function parseKitchenQuantity(text: string): number | null {

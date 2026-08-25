@@ -1,8 +1,9 @@
 import { parseIngredientLine } from '@kwilt/food-core';
 
 import type { RecipeMediaAsset, RecipeVersion } from './recipeContracts';
+import { assessRecipeScaleability } from './recipeScaleAssessment';
 import { buildRecipeInstructionPhases } from './recipeInstructionPhases';
-import { formatKitchenQuantity, scaleRecipeQuantity } from './recipeScaling';
+import { scaledIngredientAmount, type RecipeScaleMultiplier } from './recipeScaling';
 import type { CookCue } from './recipeCookContracts';
 
 const leadingQuantity = /^(?:(?:one|two|three|four|five|six|seven|eight|nine|ten)|\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?|[⅛¼⅓⅜½⅝⅔¾⅞])\s*/i;
@@ -66,15 +67,6 @@ function ingredientMention(concept: string, instruction: string): { specificity:
   return null;
 }
 
-function unitForDisplay(unit: string | null, quantity: number, quantityMax: number | null): string {
-  if (!unit || unit === 'count') return '';
-  const plural = (quantityMax ?? quantity) > 1;
-  if (!plural) return unit;
-  if (unit.endsWith('s')) return unit;
-  if (unit.endsWith('ch')) return `${unit}es`;
-  return `${unit}s`;
-}
-
 function sentence(text: string): string {
   const trimmed = text.trim();
   if (!trimmed) return trimmed;
@@ -111,8 +103,10 @@ function timers(text: string): CookCue['timerSuggestions'] {
   return result;
 }
 
-export function buildRecipeCookCues(recipe: RecipeVersion, input: { servings: number; mediaAssets?: readonly RecipeMediaAsset[] }): CookCue[] {
+export function buildRecipeCookCues(recipe: RecipeVersion, input: { multiplier: RecipeScaleMultiplier; mediaAssets?: readonly RecipeMediaAsset[] }): CookCue[] {
   const phases = buildRecipeInstructionPhases(recipe.instructions);
+  const scaling = assessRecipeScaleability(recipe.ingredients, recipe.scalingState);
+  const multiplier: RecipeScaleMultiplier = scaling.available ? input.multiplier : 1;
   const result: CookCue[] = [];
   for (const phase of phases) {
     const step = recipe.instructions.find((candidate) => candidate.id === phase.id)!;
@@ -127,19 +121,10 @@ export function buildRecipeCookCues(recipe: RecipeVersion, input: { servings: nu
       const mention = concept ? ingredientMention(concept, cueText) : null;
       if (!concept || !mention) return [];
       let displayAmount: string | null = null;
-      const quantityMin = line.quantityMin ?? parsed?.quantityMin ?? null;
-      const quantityMax = line.quantityMax ?? parsed?.quantityMax ?? null;
-      const unit = line.unit ?? parsed?.unit ?? null;
       const quantityIsReliable = line.ingredientConcept
         ? (line.parseConfidence ?? 0) >= 0.8
         : parsed?.quantityMin !== null;
-      if (recipe.yieldQuantity && quantityMin !== null && quantityIsReliable) {
-        const scaled = scaleRecipeQuantity({ quantity: quantityMin, quantityMax, fromYield: recipe.yieldQuantity, toYield: input.servings });
-        if (scaled.quantity !== null) {
-          const displayUnit = unitForDisplay(unit, scaled.quantity, scaled.quantityMax);
-          displayAmount = `${formatKitchenQuantity(scaled.quantity)}${scaled.quantityMax === null ? '' : `–${formatKitchenQuantity(scaled.quantityMax)}`}${displayUnit ? ` ${displayUnit}` : ''}`;
-        }
-      }
+      if (quantityIsReliable) displayAmount = scaledIngredientAmount(line, multiplier);
       return [{
         reference: { ingredientLineId: line.id, concept, displayAmount },
         head: normalizedTokens(concept.split(/\s+for\s+/i)[0]).at(-1) ?? '',

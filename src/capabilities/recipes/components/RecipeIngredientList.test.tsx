@@ -23,6 +23,7 @@ const starterIngredient: RecipeIngredientLine = {
   preparation: null,
   optional: false,
   parseConfidence: 1,
+  scaleRule: { kind: 'multiply' },
 };
 
 function starterLine(id: string, position: number, originalText: string): RecipeIngredientLine {
@@ -38,25 +39,24 @@ describe('RecipeIngredientList', () => {
       unit: 'teaspoon',
       ingredientConcept: 'black pepper',
       parseConfidence: 0.98,
-    }, 6, 4)).toEqual({
-      amount: '⅙ teaspoon',
+    }, 2)).toEqual({
+      amount: '½ teaspoon',
       ingredient: 'black pepper',
       qualifier: null,
-      display: '⅙ teaspoon black pepper',
+      display: '½ teaspoon black pepper',
     });
   });
 
   it('separates amount, ingredient, and preparation without changing the display text', () => {
-    expect(ingredientDisplayParts(starterIngredient, 4, 6)).toEqual({
-      amount: '3 cups',
-      ingredient: '(240 g) all-purpose flour',
+    expect(ingredientDisplayParts(starterIngredient, 2)).toEqual({
+      amount: '4 cups',
+      ingredient: '(480 g) all-purpose flour',
       qualifier: null,
-      display: '3 cups (240 g) all-purpose flour',
+      display: '4 cups (480 g) all-purpose flour',
     });
     expect(ingredientDisplayParts(
       starterLine('ingredient-butter', 1, '6 tablespoons unsalted butter, melted and cooled'),
-      6,
-      6,
+      1,
     )).toEqual({
       amount: '6 tablespoons',
       ingredient: 'unsalted butter',
@@ -65,8 +65,7 @@ describe('RecipeIngredientList', () => {
     });
     expect(ingredientDisplayParts(
       starterLine('ingredient-syrup', 2, 'Warm maple syrup, for serving'),
-      4,
-      6,
+      2,
     )).toEqual({
       amount: null,
       ingredient: 'Warm maple syrup',
@@ -80,8 +79,7 @@ describe('RecipeIngredientList', () => {
     const screen = render(
       <RecipeIngredientList
         lines={[starterIngredient]}
-        fromYield={4}
-        toYield={4}
+        multiplier={1}
         checked={new Set()}
         onToggle={onToggle}
       />,
@@ -95,8 +93,7 @@ describe('RecipeIngredientList', () => {
     screen.rerender(
       <RecipeIngredientList
         lines={[starterIngredient]}
-        fromYield={4}
-        toYield={4}
+        multiplier={1}
         checked={new Set(['ingredient-flour'])}
         onToggle={onToggle}
       />,
@@ -115,28 +112,35 @@ describe('RecipeIngredientList', () => {
     });
   });
 
-  it('rescales a starter-style ingredient when the serving count changes', () => {
+  it('scales every reviewed bread quantity from one batch and keeps bowl oil fixed', () => {
     const lines = [
-      starterIngredient,
-      starterLine('ingredient-salt', 1, '1 teaspoon Diamond Crystal kosher salt'),
-      starterLine('ingredient-eggs', 2, '2 large eggs'),
-      starterLine('ingredient-syrup', 3, 'Warm maple syrup, for serving'),
+      { ...starterIngredient, originalText: '3 1/2 cups (420 grams) all-purpose flour', quantityMin: 3.5, unit: 'cup', ingredientConcept: 'all-purpose flour', parseConfidence: 1 },
+      { ...starterLine('ingredient-yeast', 1, '2 1/4 teaspoons instant yeast'), quantityMin: 2.25, unit: 'teaspoon', ingredientConcept: 'instant yeast', parseConfidence: 1 },
+      { ...starterLine('ingredient-milk', 2, '1 cup whole milk'), quantityMin: 1, unit: 'cup', ingredientConcept: 'whole milk', parseConfidence: 1 },
+      { ...starterLine('ingredient-oil', 3, 'Neutral oil, for the bowl and pan'), scaleRule: { kind: 'fixed' as const, reason: 'as_needed' as const } },
     ];
     const screen = render(
-      <RecipeIngredientList lines={lines} fromYield={4} toYield={4} checked={new Set()} onToggle={jest.fn()} />,
+      <RecipeIngredientList lines={lines} multiplier={2} checked={new Set()} onToggle={jest.fn()} />,
+    );
+
+    expect(screen.getByText('7 cups (840 grams) all-purpose flour')).toBeTruthy();
+    expect(screen.getByText('4 ½ teaspoons instant yeast')).toBeTruthy();
+    expect(screen.getByText('2 cups whole milk')).toBeTruthy();
+    expect(screen.getByText('Neutral oil, for the bowl and pan')).toBeTruthy();
+  });
+
+  it('fails the whole ingredient list closed when any line still requires review', () => {
+    const lines = [
+      starterIngredient,
+      { ...starterLine('ingredient-salt', 1, '1 teaspoon salt'), scaleRule: { kind: 'review_required' as const } },
+    ];
+    const screen = render(
+      <RecipeIngredientList lines={lines} multiplier={2} checked={new Set()} onToggle={jest.fn()} />,
     );
 
     expect(screen.getByText('2 cups (240 g) all-purpose flour')).toBeTruthy();
-
-    screen.rerender(
-      <RecipeIngredientList lines={lines} fromYield={4} toYield={6} checked={new Set()} onToggle={jest.fn()} />,
-    );
-
-    expect(screen.getByText('3 cups (240 g) all-purpose flour')).toBeTruthy();
-    expect(screen.getByText('1 ½ teaspoons Diamond Crystal kosher salt')).toBeTruthy();
-    expect(screen.getByText('3 large eggs')).toBeTruthy();
-    expect(screen.getByText('Warm maple syrup, for serving')).toBeTruthy();
-    expect(screen.queryByText('2 cups (240 g) all-purpose flour')).toBeNull();
+    expect(screen.getByText('1 teaspoon salt')).toBeTruthy();
+    expect(screen.getByText('Recipe scaling is unavailable for these ingredients.')).toBeTruthy();
   });
 
   it('can target the first still-needed checklist row for education', () => {
