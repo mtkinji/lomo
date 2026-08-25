@@ -31,6 +31,7 @@ const enrichment: RecipeEditorialEnrichment = {
   },
   costTier: '$$',
   difficulty: 'Moderate',
+  scalingState: 'review_required',
   structuredIngredients: [],
   instructionQuantityPhrases: {},
   commerce: {
