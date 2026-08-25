@@ -530,13 +530,13 @@ Set `KWILT_EAS_BUILD_ID` to the build ID emitted by Step 2, then run:
 
 ```bash
 KWILT_IPA_AUDIT_ROOT=$(mktemp -d /tmp/kwilt-ipa-size.XXXXXX)
-(cd "$KWILT_IPA_AUDIT_ROOT" && npx eas-cli@22.0.0 build:download \
-  --build-id "$KWILT_EAS_BUILD_ID" \
-  --non-interactive)
-KWILT_IPA_PATH=$(find "$KWILT_IPA_AUDIT_ROOT" -maxdepth 1 -type f -name '*.ipa' -print -quit)
-test -n "$KWILT_IPA_PATH"
-stat -f '%z %N' "$KWILT_IPA_PATH"
-unzip -q "$KWILT_IPA_PATH" -d "$KWILT_IPA_AUDIT_ROOT/unpacked"
+KWILT_IPA_URL=$(npx eas-cli@22.0.0 build:view "$KWILT_EAS_BUILD_ID" --json | node -e \
+  "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => { const build=JSON.parse(input); const url=build.artifacts?.applicationArchiveUrl ?? build.artifacts?.buildUrl; if (!url) process.exit(1); process.stdout.write(url); });")
+curl --fail --location --silent --show-error \
+  "$KWILT_IPA_URL" \
+  --output "$KWILT_IPA_AUDIT_ROOT/Kwilt.ipa"
+stat -f '%z %N' "$KWILT_IPA_AUDIT_ROOT/Kwilt.ipa"
+unzip -q "$KWILT_IPA_AUDIT_ROOT/Kwilt.ipa" -d "$KWILT_IPA_AUDIT_ROOT/unpacked"
 du -sk "$KWILT_IPA_AUDIT_ROOT/unpacked/Payload"/*.app
 ```
 
