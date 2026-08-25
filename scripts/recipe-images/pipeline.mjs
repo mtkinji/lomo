@@ -106,6 +106,12 @@ export function buildSources(recipes, enrichmentByRosterId = reviewedEnrichmentB
       tier: recipe.tier,
       publicSlug: `${slugify(recipe.title)}-${rosterId.toLowerCase()}`,
       contentHash: canonicalRecipeHash(recipe),
+      scalingState: enrichment?.scalingState ?? 'review_required',
+      structuredIngredients: enrichment?.structuredIngredients ?? recipe.ingredients.map((originalText, position) => ({
+        position,
+        originalText,
+        scaleRule: { kind: 'review_required' },
+      })),
       origin: enrichment ? { label: enrichment.origin.label, region: enrichment.origin.region } : null,
       imageDirection: imageDirectionByRosterId.get(rosterId) ?? enrichment?.heroImage?.altText ?? null,
     };

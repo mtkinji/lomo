@@ -100,10 +100,26 @@ function recipeSource(value: unknown) {
   const ingredients = Array.isArray(input.ingredients)
     ? input.ingredients.map((line) => typeof line === "string" ? line.trim() : "").filter(Boolean).slice(0, 200)
     : [];
+  const scalingState = ['verified', 'unavailable', 'review_required'].includes(String(input.scalingState))
+    ? String(input.scalingState)
+    : 'review_required';
+  const structuredIngredients = Array.isArray(input.structuredIngredients)
+    ? input.structuredIngredients.map((value, position) => {
+      const line = asRecord(value);
+      const scaleRule = asRecord(line?.scaleRule);
+      const validRule = scaleRule?.kind === 'multiply'
+        || scaleRule?.kind === 'review_required'
+        || (scaleRule?.kind === 'fixed' && ['as_needed', 'garnish', 'to_taste', 'vessel', 'reviewed_other'].includes(String(scaleRule.reason)));
+      if (!line || line.position !== position || line.originalText !== ingredients[position] || !validRule) {
+        throw new Error('invalid_structured_ingredient');
+      }
+      return { position, originalText: line.originalText, scaleRule };
+    })
+    : [];
   const instructions = Array.isArray(input.instructions)
     ? input.instructions.map((line) => typeof line === "string" ? line.trim() : "").filter(Boolean).slice(0, 200)
     : [];
-  if (ingredients.length < 5 || instructions.length < 4) throw new Error("incomplete_recipe_source");
+  if (ingredients.length < 5 || instructions.length < 4 || structuredIngredients.length !== ingredients.length) throw new Error("incomplete_recipe_source");
   return {
     rosterId,
     publicSlug: stringField(input, "publicSlug", 160)!,
@@ -120,6 +136,8 @@ function recipeSource(value: unknown) {
     cookMinutes: Number.isInteger(input.cookMinutes) ? input.cookMinutes : null,
     notes: stringField(input, "notes", 20_000, false),
     ingredients,
+    scalingState,
+    structuredIngredients,
     instructions,
   };
 }

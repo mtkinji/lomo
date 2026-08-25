@@ -7,6 +7,21 @@ export type CatalogMediaRepository = { list(): Promise<RecipeProjection[]> };
 
 const CATALOG_PAGE_SIZE = 500;
 
+function assertHostedScalingContract(value: unknown): void {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid hosted Recipe scaling contract');
+  const currentVersion = (value as Record<string, unknown>).currentVersion;
+  if (!currentVersion || typeof currentVersion !== 'object' || Array.isArray(currentVersion)) throw new Error('Invalid hosted Recipe scaling contract');
+  const version = currentVersion as Record<string, unknown>;
+  if (!['verified', 'unavailable', 'review_required'].includes(String(version.scalingState)) || !Array.isArray(version.ingredients)) {
+    throw new Error('Invalid hosted Recipe scaling contract');
+  }
+  for (const value of version.ingredients) {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || !Object.prototype.hasOwnProperty.call(value, 'scaleRule')) {
+      throw new Error('Ingredient scaling rule is missing from hosted Recipe');
+    }
+  }
+}
+
 function normalizeCatalogIdentity(projection: RecipeProjection): RecipeProjection {
   const rosterId = projection.catalog?.rosterId;
   if (!rosterId) throw new Error('Invalid hosted Recipe catalog projection');
@@ -66,7 +81,9 @@ export function createCatalogMediaRepository(client: SupabaseClient = getSupabas
           if (!row || typeof row !== 'object' || Array.isArray(row)) {
             throw new Error('Invalid hosted Recipe catalog row');
           }
-          const projection = parseRecipeProjection((row as Record<string, unknown>).projection);
+          const rawProjection = (row as Record<string, unknown>).projection;
+          assertHostedScalingContract(rawProjection);
+          const projection = parseRecipeProjection(rawProjection);
           if (
             !projection.catalog ||
             projection.recipe.provenance.method !== 'catalog' ||

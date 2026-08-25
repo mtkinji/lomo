@@ -46,6 +46,8 @@ describe('catalog media repository', () => {
     expect(catalog[0].catalog?.rosterId).toBe('AA000');
     expect(catalog[0].recipe.id).toBe('kwilt-recipe-aa000');
     expect(catalog[0].currentVersion.id).toBe('kwilt-recipe-aa000-v1');
+    expect(catalog[0].currentVersion.scalingState).toBe('review_required');
+    expect(catalog[0].currentVersion.ingredients[0].scaleRule).toEqual({ kind: 'review_required' });
     expect(catalog[599].catalog?.rosterId).toBe('AB099');
 
     expect(rpc).toHaveBeenNthCalledWith(1, 'list_kwilt_recipe_catalog_v2', {
@@ -56,6 +58,14 @@ describe('catalog media repository', () => {
       p_after_roster_id: 'AA499',
       p_limit: 500,
     });
+  });
+
+  it('rejects a hosted ingredient whose scaling rule is missing', async () => {
+    const malformed = row('DI997');
+    delete (malformed.projection.currentVersion.ingredients[0] as Partial<typeof malformed.projection.currentVersion.ingredients[0]>).scaleRule;
+    const repository = createCatalogMediaRepository({ rpc: jest.fn().mockResolvedValue({ data: [malformed], error: null }) } as never);
+
+    await expect(repository.list()).rejects.toThrow('Ingredient scaling rule');
   });
 
   it('rejects the entire refresh when hosted editorial metadata is unsupported', async () => {
