@@ -20,7 +20,8 @@ function completeRecord() {
       sections: { cookingTruth: 'reviewed', structuredIngredients: 'reviewed', originHistory: 'reviewed', equipment: 'reviewed', commerce: 'reviewed', sitePublication: 'published' },
     },
     costTier: '$', difficulty: 'Easy',
-    structuredIngredients: [{ position: 0, originalText: '2 eggs', quantityMin: 2, quantityMax: 2, unit: null, ingredientConcept: 'egg', preparation: null, optional: false, parseConfidence: 1 }],
+    scalingState: 'verified',
+    structuredIngredients: [{ position: 0, originalText: '2 eggs', quantityMin: 2, quantityMax: 2, unit: null, ingredientConcept: 'egg', preparation: null, optional: false, parseConfidence: 1, scaleRule: { kind: 'multiply' } }],
     instructionQuantityPhrases: { 0: ['2 eggs'] },
     commerce: { decision: 'no_purchase_needed', needId: null, reviewCategoryId: null, rationale: 'Ordinary cookware is sufficient.', noPurchaseAlternative: null },
     publication: { slug: 'test-breakfast-br001', publishedAt: '2026-08-20T12:00:00Z' },
@@ -37,6 +38,8 @@ test('exports only fully reviewed and published Recipes through one Site project
   assert.equal(output.blocked.length, 0);
   assert.equal(output.recipes[0].editorial.commerce.decision, 'no_purchase_needed');
   assert.equal(output.recipes[0].structuredIngredients[0].ingredientConcept, 'egg');
+  assert.equal(output.recipes[0].scalingState, 'verified');
+  assert.deepEqual(output.recipes[0].structuredIngredients[0].scaleRule, { kind: 'multiply' });
 });
 
 test('keeps incomplete Recipes out of the public payload and names every missing gate', () => {

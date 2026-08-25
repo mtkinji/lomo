@@ -57,6 +57,7 @@ export function buildSiteExport(catalog, records, sourceCommit) {
       totalMinutes: recipe.prepMinutes + recipe.cookMinutes + recipe.inactiveMinutes,
       yieldQuantity: recipe.yieldQuantity,
       yieldUnit: recipe.yieldUnit,
+      scalingState: record.scalingState,
       ingredients: recipe.ingredients,
       structuredIngredients: record.structuredIngredients,
       instructions: recipe.instructions,
