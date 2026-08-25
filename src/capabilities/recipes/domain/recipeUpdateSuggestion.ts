@@ -4,7 +4,7 @@ import type { RecipeUpdateDraft } from './recipeUpdateDraft';
 export type RecipeUpdateOperation =
   | { kind: 'set_title'; value: string }
   | { kind: 'set_description'; value: string }
-  | { kind: 'set_servings'; value: number }
+  | { kind: 'set_yield'; quantity: number; unit: string }
   | { kind: 'replace_ingredient'; lineId: string; value: string }
   | { kind: 'add_ingredient'; afterLineId: string | null; value: string }
   | { kind: 'remove_ingredient'; lineId: string }
@@ -53,12 +53,23 @@ function parseOperation(value: unknown): RecipeUpdateOperation {
     exactKeys(operation, ['kind', 'value']);
     return { kind, value: bounded(operation.value, kind === 'set_title' ? 160 : 4_000, 'recipe_update.value_invalid') };
   }
+  if (kind === 'set_yield') {
+    exactKeys(operation, ['kind', 'quantity', 'unit']);
+    if (typeof operation.quantity !== 'number' || !Number.isFinite(operation.quantity) || operation.quantity <= 0 || operation.quantity > 10_000) {
+      throw new RecipeUpdateSuggestionError('recipe_update.value_invalid', 'Yield quantity must be a positive bounded number.');
+    }
+    return {
+      kind,
+      quantity: operation.quantity,
+      unit: bounded(operation.unit, 80, 'recipe_update.value_invalid'),
+    };
+  }
   if (kind === 'set_servings') {
     exactKeys(operation, ['kind', 'value']);
     if (typeof operation.value !== 'number' || !Number.isFinite(operation.value) || operation.value <= 0 || operation.value > 10_000) {
       throw new RecipeUpdateSuggestionError('recipe_update.value_invalid', 'Servings must be a positive bounded number.');
     }
-    return { kind, value: operation.value };
+    return { kind: 'set_yield', quantity: operation.value, unit: 'servings' };
   }
   if (kind === 'replace_ingredient') {
     exactKeys(operation, ['kind', 'lineId', 'value']);
@@ -150,7 +161,7 @@ export function applyRecipeUpdateSuggestion(
     switch (operation.kind) {
       case 'set_title': draft = { ...draft, title: operation.value }; break;
       case 'set_description': draft = { ...draft, description: operation.value }; break;
-      case 'set_servings': draft = { ...draft, servings: String(operation.value) }; break;
+      case 'set_yield': draft = { ...draft, yieldQuantity: String(operation.quantity), yieldUnit: operation.unit }; break;
       case 'set_notes': draft = { ...draft, notes: operation.value }; break;
       case 'replace_ingredient': draft = { ...draft, ingredients: draft.ingredients.map((line) => line.id === operation.lineId ? { ...line, originalText: operation.value } : line) }; break;
       case 'remove_ingredient': draft = { ...draft, ingredients: draft.ingredients.filter((line) => line.id !== operation.lineId) }; break;
@@ -166,7 +177,7 @@ export function applyRecipeUpdateSuggestion(
 const operationSchemas = [
   ['set_title', { value: { type: 'string', minLength: 1, maxLength: 160 } }, ['value']],
   ['set_description', { value: { type: 'string', minLength: 1, maxLength: 4_000 } }, ['value']],
-  ['set_servings', { value: { type: 'number', exclusiveMinimum: 0, maximum: 10_000 } }, ['value']],
+  ['set_yield', { quantity: { type: 'number', exclusiveMinimum: 0, maximum: 10_000 }, unit: { type: 'string', minLength: 1, maxLength: 80 } }, ['quantity', 'unit']],
   ['replace_ingredient', { lineId: { type: 'string' }, value: { type: 'string', minLength: 1, maxLength: 1_000 } }, ['lineId', 'value']],
   ['add_ingredient', { afterLineId: { type: ['string', 'null'] }, value: { type: 'string', minLength: 1, maxLength: 1_000 } }, ['afterLineId', 'value']],
   ['remove_ingredient', { lineId: { type: 'string' } }, ['lineId']],

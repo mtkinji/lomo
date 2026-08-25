@@ -35,17 +35,27 @@ export function reviewedDataFromEditorDraft(
   provenance: { method: 'manual' | 'url' | 'photo' | 'scan' | 'text' | 'voice'; sourceUrl?: string | null } = { method: 'manual' },
   extractedEquipmentRequirements?: unknown,
 ) {
+  const yieldQuantityText = draft.yieldQuantity.trim();
+  const yieldUnit = draft.yieldUnit.trim();
+  if (Boolean(yieldQuantityText) !== Boolean(yieldUnit)) {
+    throw new Error('Recipe yield requires both a quantity and a unit.');
+  }
+  const yieldQuantity = yieldQuantityText ? Number(yieldQuantityText) : null;
+  if (yieldQuantity !== null && (!Number.isFinite(yieldQuantity) || yieldQuantity <= 0)) {
+    throw new Error('Recipe yield quantity must be greater than zero.');
+  }
   const instructionTexts = draft.instructions.filter((step) => step.text.trim()).map((step) => step.text.trim());
   const equipmentRequirements = extractedEquipmentRequirements === undefined
     ? deriveSpecializedRecipeEquipment(instructionTexts)
     : sanitizeRecipeEquipmentRequirements(extractedEquipmentRequirements, instructionTexts);
   return {
     title: draft.title.trim(), description: draft.description.trim() || null,
-    yieldQuantity: draft.servings.trim() ? Number(draft.servings) : null, yieldUnit: draft.servings.trim() ? 'servings' : null,
+    yieldQuantity, yieldUnit: yieldUnit || null, scalingState: 'review_required' as const,
     prepMinutes: null, cookMinutes: null, notes: draft.notes.trim() || null,
     ingredients: draft.ingredients.filter((line) => line.originalText.trim()).map((line) => ({
       id: line.id, groupLabel: null, originalText: line.originalText.trim(), quantityMin: null, quantityMax: null,
       unit: null, ingredientConcept: null, preparation: null, optional: false, parseConfidence: null,
+      scaleRule: { kind: 'review_required' as const },
     })),
     instructions: draft.instructions.filter((step) => step.text.trim()).map((step) => ({ id: step.id, sectionLabel: null, text: step.text.trim() })),
     equipmentRequirements,
@@ -62,7 +72,7 @@ function operationLabel(operation: RecipeUpdateOperation): string {
   switch (operation.kind) {
     case 'set_title': return `Title → ${operation.value}`;
     case 'set_description': return `Description → ${operation.value}`;
-    case 'set_servings': return `Servings → ${operation.value}`;
+    case 'set_yield': return `Makes → ${operation.quantity} ${operation.unit}`;
     case 'replace_ingredient': return `Ingredient → ${operation.value}`;
     case 'add_ingredient': return `Add ingredient · ${operation.value}`;
     case 'remove_ingredient': return 'Remove one ingredient';
@@ -90,6 +100,10 @@ export function RecipeEditView({ initial, currentVersion, aiSuggest, saving, err
   const [suggestion, setSuggestion] = useState<RecipeUpdateSuggestion | null>(null);
   const [suggestionUnavailable, setSuggestionUnavailable] = useState(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
+  const hasYieldQuantity = Boolean(draft.yieldQuantity.trim());
+  const hasYieldUnit = Boolean(draft.yieldUnit.trim());
+  const parsedYieldQuantity = Number(draft.yieldQuantity);
+  const yieldValid = hasYieldQuantity === hasYieldUnit && (!hasYieldQuantity || (Number.isFinite(parsedYieldQuantity) && parsedYieldQuantity > 0));
   const patch = (values: Partial<RecipeEditorDraft>) => setDraft((current) => ({ ...current, ...values }));
   const requestSuggestion = async () => {
     if (!aiSuggest || !instruction.trim() || suggesting) return;
@@ -102,7 +116,7 @@ export function RecipeEditView({ initial, currentVersion, aiSuggest, saving, err
   const saveLabel = currentVersion ? `Save Version ${currentVersion.version + 1}` : 'Save';
   return (
     <AppShell>
-      <PageHeader title={title} onPressBack={() => onBack(dirty)} rightElement={<Button size="sm" variant="primary" disabled={saving || !canSave || !draft.title.trim()} onPress={() => { void onSave(draft); }}>{saving ? 'Saving…' : saveLabel}</Button>} />
+      <PageHeader title={title} onPressBack={() => onBack(dirty)} rightElement={<Button size="sm" variant="primary" disabled={saving || !canSave || !draft.title.trim() || !yieldValid} onPress={() => { void onSave(draft); }}>{saving ? 'Saving…' : saveLabel}</Button>} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>
           {error ? <Text tone="destructive">{error}</Text> : null}
@@ -118,7 +132,7 @@ export function RecipeEditView({ initial, currentVersion, aiSuggest, saving, err
                 multiline
                 value={instruction}
                 onChangeText={setInstruction}
-                placeholder="Double the sauce, use less cream, and make it serve six…"
+                placeholder="Double the sauce, use less cream, and make 12 muffins…"
                 placeholderTextColor={colors.textSecondary}
                 style={[styles.input, styles.aiInput]}
               />
@@ -144,7 +158,10 @@ export function RecipeEditView({ initial, currentVersion, aiSuggest, saving, err
           ) : null}
           <Field label="Title" value={draft.title} onChangeText={(title) => patch({ title })} placeholder="Grandma's chocolate cake" autoFocus={!initial.title} />
           <Field label="About this recipe" value={draft.description} onChangeText={(description) => patch({ description })} placeholder="Why you love it (optional)" multiline />
-          <Field label="Servings" value={draft.servings} onChangeText={(servings) => patch({ servings })} placeholder="4" keyboardType="decimal-pad" />
+          <View style={styles.yieldFields}>
+            <Field label="Makes" value={draft.yieldQuantity} onChangeText={(yieldQuantity) => patch({ yieldQuantity })} placeholder="1" keyboardType="decimal-pad" style={styles.yieldQuantity} />
+            <Field label="Yield unit" value={draft.yieldUnit} onChangeText={(yieldUnit) => patch({ yieldUnit })} placeholder="loaf, halves, servings…" style={styles.yieldUnit} />
+          </View>
 
           <Section title="Ingredients" action="Add ingredient" onAction={() => patch({ ingredients: [...draft.ingredients, { id: nextId('ingredient'), originalText: '' }] })}>
             {draft.ingredients.map((line) => (
@@ -205,7 +222,8 @@ type Props = NativeStackScreenProps<FoodStackParamList, 'RecipeEdit'>;
 function draftFromProjection(projection?: RecipeProjection): RecipeEditorDraft {
   const version = projection?.currentVersion;
   return {
-    title: version?.title ?? '', description: version?.description ?? '', servings: version?.yieldQuantity?.toString() ?? '',
+    title: version?.title ?? '', description: version?.description ?? '',
+    yieldQuantity: version?.yieldQuantity?.toString() ?? '', yieldUnit: version?.yieldUnit ?? '',
     ingredients: version?.ingredients.map((line) => ({ id: line.id, originalText: line.originalText })) ?? [],
     instructions: version?.instructions.map((step) => ({ id: step.id, text: step.text })) ?? [],
     sourceTitle: projection?.recipe.provenance.sourceTitle ?? '', sourceAuthor: projection?.recipe.provenance.sourceAuthor ?? '', notes: version?.notes ?? '',
@@ -242,6 +260,7 @@ export function RecipeEditScreen({ navigation, route }: Props) {
       currentVersion: {
         id: versionId, recipeId: resolvedRecipeId, version: expectedVersion + 1, title: reviewedData.title,
         description: reviewedData.description, yieldQuantity: reviewedData.yieldQuantity, yieldUnit: reviewedData.yieldUnit,
+        scalingState: reviewedData.scalingState,
         prepMinutes: null, cookMinutes: null, notes: reviewedData.notes,
         ingredients: reviewedData.ingredients.map((line, position) => ({ ...line, recipeVersionId: versionId, position })),
         instructions: reviewedData.instructions.map((step, position) => ({ ...step, recipeVersionId: versionId, position })),
@@ -279,4 +298,7 @@ const styles = StyleSheet.create({
   aiInput: { minHeight: 88 },
   suggestion: { gap: spacing.xs, paddingTop: spacing.xs },
   suggestionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingTop: spacing.xs },
+  yieldFields: { flexDirection: 'row', gap: spacing.sm },
+  yieldQuantity: { width: 96 },
+  yieldUnit: { flex: 1 },
 });

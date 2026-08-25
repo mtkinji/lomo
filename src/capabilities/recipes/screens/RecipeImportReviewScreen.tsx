@@ -23,14 +23,15 @@ import { getRecipeImportEntryPresentation, type RecipeImportIntent } from './rec
 
 type Props = NativeStackScreenProps<FoodStackParamList, 'RecipeImportReview'>;
 
-function draftToEditor(draft: RecipeImportProjection): RecipeEditorDraft {
+export function draftToEditor(draft: RecipeImportProjection): RecipeEditorDraft {
   const data = draft.extractedData;
   const ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
   const instructions = Array.isArray(data.instructions) ? data.instructions : [];
   return {
     title: typeof data.title === 'string' ? data.title : '',
     description: typeof data.description === 'string' ? data.description : '',
-    servings: typeof data.yieldQuantity === 'number' ? String(data.yieldQuantity) : '',
+    yieldQuantity: typeof data.yieldQuantity === 'number' ? String(data.yieldQuantity) : '',
+    yieldUnit: typeof data.yieldUnit === 'string' ? data.yieldUnit : '',
     ingredients: ingredients.flatMap((item, index) => item && typeof item === 'object' && typeof (item as any).originalText === 'string' ? [{ id: typeof (item as any).id === 'string' ? (item as any).id : `ingredient-${index}`, originalText: (item as any).originalText }] : []),
     instructions: instructions.flatMap((item, index) => item && typeof item === 'object' && typeof (item as any).text === 'string' ? [{ id: typeof (item as any).id === 'string' ? (item as any).id : `step-${index}`, text: (item as any).text }] : []),
     sourceTitle: typeof data.sourceTitle === 'string' ? data.sourceTitle : '',

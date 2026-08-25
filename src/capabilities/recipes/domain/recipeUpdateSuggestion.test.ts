@@ -9,7 +9,8 @@ import type { RecipeUpdateDraft } from './recipeUpdateDraft';
 const draft = (): RecipeUpdateDraft => ({
   title: "Grandma Ruth's Cake",
   description: '',
-  servings: '8',
+  yieldQuantity: '8',
+  yieldUnit: 'servings',
   ingredients: [
     { id: 'ingredient-1', originalText: '1 1/2 cups flour, sifted' },
     { id: 'ingredient-2', originalText: '2 eggs' },
@@ -40,19 +41,29 @@ describe('recipe update suggestions', () => {
     const suggestion = parseRecipeUpdateSuggestion({
       summary: 'Serve twelve with twice the eggs.',
       operations: [
-        { kind: 'set_servings', value: 12 },
+        { kind: 'set_yield', quantity: 12, unit: 'servings' },
         { kind: 'replace_ingredient', lineId: 'ingredient-2', value: '4 eggs' },
         { kind: 'add_instruction', afterStepId: 'step-1', value: 'Rotate the pan halfway through.' },
       ],
     }, draft());
     const applied = applyRecipeUpdateSuggestion(draft(), suggestion, () => 'new-step');
-    expect(applied.servings).toBe('12');
+    expect(applied.yieldQuantity).toBe('12');
+    expect(applied.yieldUnit).toBe('servings');
     expect(applied.ingredients[1].originalText).toBe('4 eggs');
     expect(applied.instructions.map((step) => step.text)).toEqual([
       'Bake until the center springs back.',
       'Rotate the pan halfway through.',
       'Cool completely before glazing.',
     ]);
+  });
+
+  it('normalizes cached legacy serving suggestions at the parser boundary', () => {
+    const suggestion = parseRecipeUpdateSuggestion({
+      summary: 'Make twelve servings.',
+      operations: [{ kind: 'set_servings', value: 12 }],
+    }, draft());
+
+    expect(suggestion.operations).toEqual([{ kind: 'set_yield', quantity: 12, unit: 'servings' }]);
   });
 
   it('rejects unknown targets, duplicate targets, empty output, and oversized suggestions', () => {

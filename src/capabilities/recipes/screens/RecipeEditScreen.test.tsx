@@ -6,7 +6,7 @@ import { recipeVersionContractFixture } from '../domain/recipeContractFixtures';
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'stable-id' }));
 
 const empty: RecipeEditorDraft = {
-  title: '', description: '', servings: '', ingredients: [], instructions: [],
+  title: '', description: '', yieldQuantity: '', yieldUnit: '', ingredients: [], instructions: [],
   sourceTitle: '', sourceAuthor: '', notes: '',
 };
 
@@ -17,6 +17,15 @@ const renderEditor = (element: React.ReactElement) => render(
 );
 
 describe('Recipe editor', () => {
+  it('preserves an authored physical yield instead of rewriting it as servings', () => {
+    expect(reviewedDataFromEditorDraft({
+      ...empty,
+      title: 'Sandwich bread',
+      yieldQuantity: '1',
+      yieldUnit: 'loaf',
+    })).toMatchObject({ yieldQuantity: 1, yieldUnit: 'loaf' });
+  });
+
   it('carries only still-grounded model equipment into the reviewed save payload', () => {
     const draft: RecipeEditorDraft = {
       ...empty,
@@ -58,7 +67,7 @@ describe('Recipe editor', () => {
   });
 
   it('lets AI prepare changes in the same manually editable draft without saving them', async () => {
-    const initial: RecipeEditorDraft = { ...empty, title: 'Cake', servings: '8', ingredients: [{ id: 'ingredient-2', originalText: '2 eggs' }] };
+    const initial: RecipeEditorDraft = { ...empty, title: 'Cake', yieldQuantity: '8', yieldUnit: 'servings', ingredients: [{ id: 'ingredient-2', originalText: '2 eggs' }] };
     const onSave = jest.fn();
     const aiSuggest = jest.fn().mockResolvedValue({
       summary: 'Use four eggs.',

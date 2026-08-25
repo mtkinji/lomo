@@ -3,7 +3,7 @@ import type { RecipeUpdateDraft } from '../domain/recipeUpdateDraft';
 import { createRecipeUpdateSuggestionRepository } from './recipeUpdateSuggestionRepository';
 
 const draft: RecipeUpdateDraft = {
-  title: 'Cake', description: '', servings: '8', sourceTitle: '', sourceAuthor: '', notes: '',
+  title: 'Cake', description: '', yieldQuantity: '8', yieldUnit: 'servings', sourceTitle: '', sourceAuthor: '', notes: '',
   ingredients: [{ id: 'ingredient-2', originalText: '2 eggs' }],
   instructions: [{ id: 'step-1', text: 'Bake it.' }],
 };
