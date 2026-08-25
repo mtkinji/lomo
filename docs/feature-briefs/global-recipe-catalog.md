@@ -147,6 +147,14 @@ Automated QA checks dimensions, crop safety, semantic match, forbidden text/logo
 
 Heart is learned directly from cards. Rating is available on Recipe Home and contextually invited after Cook Complete. Cooking notes are discovered after reading/cooking a Recipe rather than promoted before useful experience. Recipe updating appears in Recipe actions and after a reviewed Cook learning. No onboarding carousel or attention campaign is added.
 
+### Authored yield and recipe size
+
+Every immutable RecipeVersion owns one authored yield: a positive quantity plus its physical output unit. Recipe Home opens at `1×` and says what that batch makes. Household diner count, Meal Plan portions, and nutrition serving size are separate concepts and never overwrite authored yield.
+
+Recipe scaling uses reviewed whole-batch multipliers (`1×`, `2×`, `3×`). A Recipe may expose multipliers above `1×` only when every ingredient and repeated instruction quantity has an explicit reviewed scaling rule. Unknown or unsafe rules fail closed to the authored `1×` recipe; Kwilt never partially scales a recipe.
+
+Meal Plan snapshots store diner context and recipe multiplier separately. Grocery and Cook Mode quantities derive from the stored multiplier, never from `planned portions ÷ authored yield`.
+
 ### Release and reversibility
 
 Release first as production-hidden for Andrew/internal adult profiles using production-shaped Supabase and an OTA/development bundle. Widen to production-small only after the 25-image learning contact sheet, catalog continuity, private-state separation, comments moderation, abuse/rate-limit tests, and two-account signed-device matrix pass. Comments have an independent server/client gate and can remain disabled while catalog, hearts, ratings, and private versions ship.
