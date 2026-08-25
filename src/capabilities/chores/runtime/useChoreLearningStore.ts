@@ -24,8 +24,11 @@ import {
 } from '../domain/choreLearning';
 import {
   addChoreDraftToLearningRecord,
+  deleteChoreSeriesFromLearningRecord,
+  restoreDeletedChoreSeriesToLearningRecord,
   updateChoreSeriesInLearningRecord,
   type ChoreDraft,
+  type ChoreSeriesDeleteSnapshot,
 } from '../domain/choreCreation';
 
 type ChoreLearningState = {
@@ -52,6 +55,8 @@ type ChoreLearningState = {
   leaveEarlierCompletionMissed: (activityOccurrenceId: string, reviewedAtIso: string) => void;
   addChore: (draft: ChoreDraft, createdAtIso: string, idSeed: string) => void;
   updateChore: (activitySeriesId: string, draft: ChoreDraft) => void;
+  deleteChore: (activitySeriesId: string) => void;
+  restoreChore: (snapshot: ChoreSeriesDeleteSnapshot) => void;
   reconcileRecurrence: (nowIso: string) => void;
   reset: () => void;
 };
@@ -198,6 +203,20 @@ export const useChoreLearningStore = create<ChoreLearningState>()(
           draft,
           state.record.activeMemberId,
           activitySeriesId,
+        ),
+      })),
+      deleteChore: (activitySeriesId) => set((state) => ({
+        record: deleteChoreSeriesFromLearningRecord(
+          state.record,
+          state.record.activeMemberId,
+          activitySeriesId,
+        ),
+      })),
+      restoreChore: (snapshot) => set((state) => ({
+        record: restoreDeletedChoreSeriesToLearningRecord(
+          state.record,
+          state.record.activeMemberId,
+          snapshot,
         ),
       })),
       reconcileRecurrence: (nowIso) => set((state) => ({

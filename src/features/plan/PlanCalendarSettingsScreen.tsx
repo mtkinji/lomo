@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, BackHandler, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, BackHandler, Linking, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';

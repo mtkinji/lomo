@@ -42,3 +42,17 @@ export function findBottomDockGeometryOverrides(relativeFile, text) {
 
   return findings;
 }
+
+export function findRawInteractiveControlImports(relativeFile, text) {
+  const reactNativeImports = text.match(/import\s+\{[^}]*\}\s+from\s+['"]react-native['"]/g) ?? [];
+  const rawControls = new Set();
+  for (const statement of reactNativeImports) {
+    if (/\bPressable\b/.test(statement)) rawControls.add('Pressable');
+    if (/\bTouchableOpacity\b/.test(statement)) rawControls.add('TouchableOpacity');
+  }
+  if (!rawControls.size) return [];
+  const controls = [...rawControls].join(' and ');
+  return [
+    `${relativeFile}: import app-owned ${controls} from src/ui/HapticPressable so enabled controls acknowledge taps`,
+  ];
+}

@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, View } from 'react-native';
+import { Keyboard, StyleSheet, View } from 'react-native';
 import {
   ARC_CREATION_SURVEY_COPY,
   ARC_CREATION_SURVEY_STEP_ORDER,

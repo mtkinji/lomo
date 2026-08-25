@@ -1,16 +1,8 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import * as React from 'react';
-import {
-  Animated,
-  Image,
-  Pressable,
-  StyleSheet,
-  View,
-  type ImageSourcePropType,
-  type AccessibilityState,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Animated, Image, StyleSheet, View, type ImageSourcePropType, type AccessibilityState, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { HapticsEvent } from '../../services/HapticsService';
 import { BlurView } from 'expo-blur';
 import { blurs, floatingControl } from '../../theme/overlays';
 import { colors, spacing } from '../../theme';
@@ -244,6 +236,8 @@ export type HeaderActionPillProps = {
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   accessibilityState?: AccessibilityState;
+  /** Semantic press feedback; defaults to the shared quiet button acknowledgement. */
+  haptic?: HapticsEvent | false;
 };
 
 export function HeaderActionPill({
@@ -259,6 +253,7 @@ export function HeaderActionPill({
   style,
   disabled,
   accessibilityState,
+  haptic,
 }: HeaderActionPillProps) {
   const resolvedOpacity = materialOpacity ?? new Animated.Value(1);
   const materialToken =
@@ -285,6 +280,7 @@ export function HeaderActionPill({
       accessibilityState={{ ...accessibilityState, ...(disabled ? { disabled: true } : {}) }}
       hitSlop={hitSlop}
       disabled={disabled}
+      haptic={haptic}
     >
       {material ? (
         <Animated.View

@@ -1,13 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
-import {
-  AccessibilityInfo,
-  Animated,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { AccessibilityInfo, Animated, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -292,7 +285,8 @@ export function ExploreMapScreen() {
     return savedPlaces.filter((place) => place.name.toLocaleLowerCase().includes(query));
   }, [savedPlaces, searchQuery]);
   const resolvingSession = sessions.find((session) => session.recapStatus === 'resolving') ?? null;
-  const needsOnboarding = !preferences.onboardingCompleted;
+  const hasCompletedHistory = sessions.some((session) => Boolean(session.endedAt && session.points.length));
+  const needsOnboarding = !preferences.onboardingCompleted && !hasCompletedHistory;
   const hasFirstClearing = points.length > 0;
   const showWelcome = needsOnboarding && !hasFirstClearing;
   const awaitingOnboardingChoice = needsOnboarding && hasFirstClearing;
@@ -305,6 +299,12 @@ export function ExploreMapScreen() {
     !recap &&
     !resolvingSession;
   const controlsProgress = useRef(new Animated.Value(needsOnboarding ? 0 : 1)).current;
+
+  useEffect(() => {
+    if (!preferences.onboardingCompleted && hasCompletedHistory) {
+      updatePreferences({ onboardingCompleted: true });
+    }
+  }, [hasCompletedHistory, preferences.onboardingCompleted, updatePreferences]);
 
   useEffect(() => {
     let mounted = true;
@@ -1051,7 +1051,7 @@ export function ExploreMapScreen() {
             <View style={styles.recapHero}>
               <Text style={styles.recapEyebrow}>Explore Recap</Text>
               <Text style={styles.recapTitle}>Path saved to your map.</Text>
-              <Text style={styles.recapDetail}>{formatRecapDuration(recap.startedAt, recap.endedAt)}</Text>
+              <Text style={styles.recapDetail}>{formatRecapDuration(recap.durationMinutes)}</Text>
             </View>
             <Text style={styles.recapStatus}>
               {recap.resolving
@@ -1117,8 +1117,7 @@ export function ExploreMapScreen() {
   );
 }
 
-function formatRecapDuration(startedAt: string, endedAt: string): string {
-  const minutes = Math.max(1, Math.round((Date.parse(endedAt) - Date.parse(startedAt)) / 60_000));
+function formatRecapDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;

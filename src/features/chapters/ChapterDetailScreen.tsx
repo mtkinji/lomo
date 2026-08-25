@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { Image, Pressable, Share, ScrollView, StyleSheet, View, TextInput } from 'react-native';
+import { Image, Share, ScrollView, StyleSheet, View, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

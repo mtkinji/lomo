@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
 import type { RefObject } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { interpolate, runOnJS, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { HStack, Text } from '../../ui/primitives';

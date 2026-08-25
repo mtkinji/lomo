@@ -1,9 +1,11 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { ReactNode } from 'react';
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -16,7 +18,7 @@ import type {
   ViewProps,
   ViewStyle,
 } from 'react-native';
-import { FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   clamp,
@@ -31,7 +33,8 @@ import Animated, {
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Portal } from '@rn-primitives/portal';
-import { bottomDockGeometry, colors, scrims, spacing, type ScrimToken } from '../theme';
+import { bottomDockGeometry, cardElevation, colors, scrims, spacing, type ScrimToken } from '../theme';
+import { BUTTON_SIZE_TOKENS } from './buttonTokens';
 import {
   getAccessibleAnimationDuration,
   useAccessibilityPreferences,
@@ -41,8 +44,13 @@ import {
   resolveDrawerActionBottomInset,
   resolveDrawerActionInlinePadding,
   resolveDrawerFloatingActionBottomInset,
+  resolveDrawerFloatingActionContentInset,
   resolveDrawerFloatingActionInlinePadding,
 } from './layout/bottomDockGeometry';
+import {
+  BottomDrawerSemanticFooter,
+  type BottomDrawerFooterConfig,
+} from './layout/BottomDrawerSemanticFooter';
 
 export type BottomDrawerSnapPoint = number | `${number}%`;
 
@@ -79,6 +87,11 @@ export function shouldAnimateBottomDrawerOnHide(
   animateOnHide: boolean,
 ): boolean {
   return presentation === 'inline' || animateOnHide;
+}
+
+export function isBottomDrawerHandleTouchY(y: number): boolean {
+  'worklet';
+  return y >= 0 && y <= bottomDrawerChromeTokens.standard.handleTouchTargetHeight;
 }
 
 export function shouldBottomDrawerLiftAboveKeyboard(args: {
@@ -187,6 +200,10 @@ type BottomDrawerProps = {
 
   /** Optional fixed bottom region that owns the drawer's bottom safe-area inset. */
   bottomAccessory?: ReactNode;
+  /** Semantic completion actions for a bounded drawer task. */
+  footer?: BottomDrawerFooterConfig;
+  /** Persistent contextual actions for an ongoing drawer workspace. */
+  actionDock?: ReactNode;
   /** Use the tighter optical placement of the phone Action Dock for a floating pill action. */
   bottomAccessoryPlacement?: 'drawer' | 'phoneFloating';
   /** Draw a quiet divider between scroll content and the fixed action region. */
@@ -226,7 +243,11 @@ type BottomDrawerProps = {
 type BottomDrawerContextValue = {
   scrollY: SharedValue<number>;
   expansionProgress: SharedValue<number>;
-  setScrollableGesture: (gesture: ReturnType<typeof Gesture.Native> | null) => void;
+  setScrollableGesture: (
+    gesture: ReturnType<typeof Gesture.Native> | null,
+    contentUnderlapsHandle?: boolean,
+  ) => void;
+  scrollContentTopInset: number;
   parentActionInsets: { inline: number; bottom: number };
 };
 
@@ -242,6 +263,14 @@ function useBottomDrawerContext() {
 
 export function useBottomDrawerParentActionInsets() {
   return useBottomDrawerContext().parentActionInsets;
+}
+
+export function useBottomDrawerActionDockClearance() {
+  const insets = useSafeAreaInsets();
+  return resolveDrawerFloatingActionContentInset(
+    insets.bottom,
+    BUTTON_SIZE_TOKENS.md.height,
+  );
 }
 
 export function getBottomDrawerExpansionOpacity({
@@ -301,6 +330,9 @@ export function BottomDrawerExpansionFade({
 
 const DEFAULT_SNAP_POINTS: BottomDrawerSnapPoint[] = ['85%'];
 const standardChrome = bottomDrawerChromeTokens.standard;
+const standardHandleLayoutHeight = standardChrome.handleRegionPaddingTop
+  + standardChrome.handleHeight
+  + standardChrome.handleRegionPaddingBottom;
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
 function parseSnapPoint(args: {
@@ -360,6 +392,8 @@ export function BottomDrawer({
   handleContainerStyle,
   handleStyle,
   bottomAccessory,
+  footer,
+  actionDock,
   bottomAccessoryPlacement = 'drawer',
   bottomAccessoryShowTopBorder = false,
   contentExtendsIntoBottomSafeArea = false,
@@ -427,6 +461,10 @@ export function BottomDrawer({
   const [mounted, setMounted] = useState<boolean>(visible);
   const [scrollableGesture, setScrollableGestureState] =
     useState<ReturnType<typeof Gesture.Native> | null>(null);
+  const [scrollContentUnderlapsHandle, setScrollContentUnderlapsHandle] = useState(false);
+  const scrollContentTopInset = handleContainerStyle || handleStyle
+    ? 0
+    : standardHandleLayoutHeight;
 
   const scrollY = useSharedValue(0);
   // Height drives snap points. The drawer itself is bottom-anchored; we avoid
@@ -505,9 +543,13 @@ export function BottomDrawer({
     return visible ? 'auto' : 'none';
   }, [dynamicMeasurementPending, hideBackdrop, presentation, visible]);
 
-  const setScrollableGesture = (gesture: ReturnType<typeof Gesture.Native> | null) => {
+  const setScrollableGesture = useCallback((
+    gesture: ReturnType<typeof Gesture.Native> | null,
+    contentUnderlapsHandle = false,
+  ) => {
     setScrollableGestureState(gesture);
-  };
+    setScrollContentUnderlapsHandle(Boolean(gesture) && contentUnderlapsHandle);
+  }, []);
 
   const openToIndex = useMemo(() => {
     const maxIndex = Math.max(snapHeights.length - 1, 0);
@@ -627,9 +669,26 @@ export function BottomDrawer({
   const panStartY = useSharedValue(0);
   const panStartHeight = useSharedValue(0);
   const makePanGesture = useMemo(() => {
-    return (opts: { ignoreScrollLock: boolean }) => {
-      const { ignoreScrollLock } = opts;
-      const base = (Platform.OS === 'web' ? Gesture.Pan().runOnJS(true) : Gesture.Pan())
+    return (opts: {
+      ignoreScrollLock: boolean;
+      coordinateWithScrollableGesture?: boolean;
+      excludeTopEdge?: boolean;
+    }) => {
+      const {
+        ignoreScrollLock,
+        coordinateWithScrollableGesture = true,
+        excludeTopEdge = false,
+      } = opts;
+      const base = Platform.OS === 'web' ? Gesture.Pan().runOnJS(true) : Gesture.Pan();
+      if (excludeTopEdge) {
+        base.onTouchesDown((event, stateManager) => {
+          const touchY = event.allTouches[0]?.y;
+          if (typeof touchY === 'number' && isBottomDrawerHandleTouchY(touchY)) {
+            stateManager.fail();
+          }
+        });
+      }
+      base
       .onBegin(() => {
         panStartY.value = translateY.value;
         panStartHeight.value = sheetHeight.value;
@@ -699,7 +758,7 @@ export function BottomDrawer({
       });
 
       // If a nested scroll gesture is registered, run simultaneously to reduce conflicts.
-      if (scrollableGesture) {
+      if (scrollableGesture && coordinateWithScrollableGesture) {
         return base.simultaneousWithExternalGesture(scrollableGesture);
       }
       return base;
@@ -723,11 +782,6 @@ export function BottomDrawer({
     panStartHeight,
     translateY,
   ]);
-
-  const handlePanGesture = useMemo(() => {
-    // Always allow dragging from the handle, even when content is scrolled.
-    return makePanGesture({ ignoreScrollLock: true });
-  }, [makePanGesture]);
 
   const webHandleResponderProps = useMemo<Partial<Pick<
     ViewProps,
@@ -775,29 +829,52 @@ export function BottomDrawer({
     };
   }, [closedOffset, dismissDragThresholdRatio, dismissable, minSnapHeight, requestCloseAnimated]);
 
-  const contentPanGesture = useMemo(() => {
-    return enableContentPanningGesture
-      ? makePanGesture({ ignoreScrollLock: false })
-      : Gesture.Pan().enabled(false);
-  }, [enableContentPanningGesture, makePanGesture]);
+  const surfacePanGesture = useMemo(
+    () => makePanGesture({ ignoreScrollLock: false, excludeTopEdge: true }),
+    [makePanGesture],
+  );
+
+  const topEdgePanGesture = useMemo(() => {
+    return makePanGesture({
+      ignoreScrollLock: true,
+      coordinateWithScrollableGesture: false,
+    });
+  }, [makePanGesture]);
 
   if (!mounted) return null;
 
-  const renderedChildren = bottomAccessory ? (
+  const inFlowBottomRegion = footer
+    ? <BottomDrawerSemanticFooter {...footer} />
+    : actionDock
+      ? null
+      : bottomAccessory;
+  const inFlowBottomRegionKind = footer ? 'footer' : 'accessory';
+  const hasInFlowBottomRegion = Boolean(inFlowBottomRegion);
+  const hasBottomRegion = Boolean(inFlowBottomRegion || actionDock);
+  const resolvedShowTopBorder = footer?.showTopBorder ?? bottomAccessoryShowTopBorder;
+
+  const inFlowRenderedChildren = hasInFlowBottomRegion ? (
     <View style={dynamicSizing ? undefined : styles.accessoryLayout}>
       <View style={dynamicSizing ? undefined : styles.accessoryContent}>{children}</View>
       <View
-        testID="bottom-drawer.bottom-accessory"
+        testID={inFlowBottomRegionKind === 'footer'
+          ? 'bottom-drawer.footer'
+          : 'bottom-drawer.bottom-accessory'}
         style={[
           styles.bottomAccessory,
           {
-            paddingHorizontal: bottomAccessoryPlacement === 'phoneFloating'
-              ? resolveDrawerFloatingActionInlinePadding(
-                  contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
-                )
-              : resolveDrawerActionInlinePadding(
-                  contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
-                ),
+            marginHorizontal: inFlowBottomRegionKind === 'footer' && contentLayout !== 'edgeToEdge'
+              ? -spacing.lg
+              : 0,
+            paddingHorizontal: inFlowBottomRegionKind === 'footer'
+              ? resolveDrawerActionInlinePadding(0)
+              : bottomAccessoryPlacement === 'phoneFloating'
+                ? resolveDrawerFloatingActionInlinePadding(
+                    contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
+                  )
+                : resolveDrawerActionInlinePadding(
+                    contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
+                  ),
             paddingTop: bottomAccessoryPlacement === 'phoneFloating'
               ? bottomDockGeometry.drawerFloatingAction.contentGap
               : bottomDockGeometry.drawerAction.contentGap,
@@ -805,20 +882,44 @@ export function BottomDrawer({
               ? resolveDrawerFloatingActionBottomInset(insets.bottom)
               : resolveDrawerActionBottomInset(insets.bottom),
           },
-          bottomAccessoryShowTopBorder ? styles.bottomAccessoryBorder : null,
+          inFlowBottomRegionKind === 'footer' ? styles.semanticFooterSurface : null,
+          resolvedShowTopBorder ? styles.bottomAccessoryBorder : null,
         ]}
       >
-        {bottomAccessory}
+        {inFlowBottomRegion}
       </View>
     </View>
   ) : children;
+
+  const renderedChildren = actionDock ? (
+    <View style={dynamicSizing ? styles.actionDockLayout : styles.actionDockFillLayout}>
+      <View style={dynamicSizing ? undefined : styles.actionDockContent}>
+        {inFlowRenderedChildren}
+      </View>
+      <View
+        pointerEvents="box-none"
+        testID="bottom-drawer.action-dock"
+        style={[
+          styles.actionDockHost,
+          {
+            bottom: resolveDrawerFloatingActionBottomInset(insets.bottom),
+            paddingHorizontal: resolveDrawerFloatingActionInlinePadding(
+              contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
+            ),
+          },
+        ]}
+      >
+        {actionDock}
+      </View>
+    </View>
+  ) : inFlowRenderedChildren;
 
   const sheetChildren = dynamicSizing ? (
     <View
       testID="bottom-drawer.dynamic-measurement"
       onLayout={(event) => {
         const { y, height } = event.nativeEvent.layout;
-        const safeAreaHeight = bottomAccessory || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom;
+        const safeAreaHeight = hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom;
         const next = clamp(y + height + safeAreaHeight, 0, maxAllowedHeight);
         setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
       }}
@@ -838,6 +939,83 @@ export function BottomDrawer({
     </KeyboardAvoidingView>
   ) : sheetChildren;
 
+  const drawerSurface = (
+    <Animated.View
+      testID="bottom-drawer.surface"
+      pointerEvents={dynamicMeasurementPending ? 'none' : 'auto'}
+      accessibilityViewIsModal={!dynamicMeasurementPending && accessibilityModal}
+      importantForAccessibility="yes"
+      onAccessibilityEscape={!dynamicMeasurementPending && dismissable ? requestCloseAnimated : undefined}
+      style={[
+        styles.sheet,
+        {
+          paddingBottom: hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
+          maxHeight: availableHeight,
+        },
+        sheetAnimatedStyle,
+        dynamicMeasurementPending ? styles.measurementPending : null,
+        webSheetStaticStyle,
+        contentLayout === 'edgeToEdge' ? styles.edgeToEdgeSheet : null,
+        sheetStyle,
+      ]}
+    >
+      {(!scrollContentUnderlapsHandle || scrollContentTopInset === 0) && (
+        <View
+          testID="bottom-drawer.handle-layout-spacer"
+          pointerEvents="none"
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.handleGrabRegion,
+            handleContainerStyle,
+          ]}
+        >
+          <View
+            style={[
+              styles.handle,
+              handleStyle,
+              styles.invisibleHandleSpacer,
+            ]}
+          />
+        </View>
+      )}
+      {keyboardManagedSheetChildren}
+      <GestureDetector gesture={topEdgePanGesture}>
+        <View
+          {...webHandleResponderProps}
+          testID="bottom-drawer.handle-touch-target"
+          pointerEvents="box-only"
+          accessible={false}
+          importantForAccessibility="no"
+          style={styles.handleTouchTarget}
+        >
+          <View
+            testID="bottom-drawer.handle-region"
+            pointerEvents="none"
+            style={[
+              styles.handleGrabRegion,
+              handleContainerStyle,
+            ]}
+          >
+            <View
+              testID="bottom-drawer.handle"
+              style={[
+                styles.handle,
+                handleStyle,
+              ]}
+            />
+          </View>
+        </View>
+      </GestureDetector>
+    </Animated.View>
+  );
+
+  const gestureManagedDrawerSurface = enableContentPanningGesture ? (
+    <GestureDetector gesture={surfacePanGesture}>
+      {drawerSurface}
+    </GestureDetector>
+  ) : drawerSurface;
+
   // Keyboard behavior guidance:
   // - `docs/keyboard-input-safety-implementation.md`
   const body = (
@@ -846,9 +1024,10 @@ export function BottomDrawer({
         scrollY,
         expansionProgress,
         setScrollableGesture,
+        scrollContentTopInset,
         parentActionInsets: {
           inline: contentLayout === 'edgeToEdge' ? 0 : spacing.lg,
-          bottom: bottomAccessory || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
+          bottom: hasBottomRegion || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
         },
       }}
     >
@@ -884,50 +1063,7 @@ export function BottomDrawer({
               />
             )}
           </Animated.View>
-          <GestureDetector gesture={contentPanGesture}>
-            <Animated.View
-              testID="bottom-drawer.surface"
-              pointerEvents={dynamicMeasurementPending ? 'none' : 'auto'}
-              accessibilityViewIsModal={!dynamicMeasurementPending && accessibilityModal}
-              importantForAccessibility="yes"
-              onAccessibilityEscape={!dynamicMeasurementPending && dismissable ? requestCloseAnimated : undefined}
-              style={[
-                styles.sheet,
-                {
-                  paddingBottom: bottomAccessory || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
-                  // Max height is the safe-area-aware available height.
-                  maxHeight: availableHeight,
-                },
-                sheetAnimatedStyle,
-                dynamicMeasurementPending ? styles.measurementPending : null,
-                webSheetStaticStyle,
-                contentLayout === 'edgeToEdge' ? styles.edgeToEdgeSheet : null,
-                sheetStyle,
-              ]}
-            >
-              <GestureDetector gesture={handlePanGesture}>
-                <View
-                  {...webHandleResponderProps}
-                  testID="bottom-drawer.handle-region"
-                  accessible={false}
-                  importantForAccessibility="no"
-                  style={[
-                    styles.handleGrabRegion,
-                    handleContainerStyle,
-                  ]}
-                >
-                  <View
-                    testID="bottom-drawer.handle"
-                    style={[
-                      styles.handle,
-                      handleStyle,
-                    ]}
-                  />
-                </View>
-              </GestureDetector>
-              {keyboardManagedSheetChildren}
-            </Animated.View>
-          </GestureDetector>
+          {gestureManagedDrawerSurface}
         </KeyboardAvoidingView>
       ) : (
         <View
@@ -955,49 +1091,7 @@ export function BottomDrawer({
               />
             )}
           </Animated.View>
-          <GestureDetector gesture={contentPanGesture}>
-            <Animated.View
-              testID="bottom-drawer.surface"
-              pointerEvents={dynamicMeasurementPending ? 'none' : 'auto'}
-              accessibilityViewIsModal={!dynamicMeasurementPending && accessibilityModal}
-              importantForAccessibility="yes"
-              onAccessibilityEscape={!dynamicMeasurementPending && dismissable ? requestCloseAnimated : undefined}
-              style={[
-                styles.sheet,
-                {
-                  paddingBottom: bottomAccessory || contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
-                  maxHeight: availableHeight,
-                },
-                sheetAnimatedStyle,
-                dynamicMeasurementPending ? styles.measurementPending : null,
-                webSheetStaticStyle,
-                contentLayout === 'edgeToEdge' ? styles.edgeToEdgeSheet : null,
-                sheetStyle,
-              ]}
-            >
-              <GestureDetector gesture={handlePanGesture}>
-                <View
-                  {...webHandleResponderProps}
-                  testID="bottom-drawer.handle-region"
-                  accessible={false}
-                  importantForAccessibility="no"
-                  style={[
-                    styles.handleGrabRegion,
-                    handleContainerStyle,
-                  ]}
-                >
-                  <View
-                    testID="bottom-drawer.handle"
-                    style={[
-                      styles.handle,
-                      handleStyle,
-                    ]}
-                  />
-                </View>
-              </GestureDetector>
-              {keyboardManagedSheetChildren}
-            </Animated.View>
-          </GestureDetector>
+          {gestureManagedDrawerSurface}
         </View>
       )}
     </BottomDrawerContext.Provider>
@@ -1023,13 +1117,24 @@ export function BottomDrawer({
 }
 
 export function BottomDrawerScrollView(props: ScrollViewProps) {
-  const { scrollY, setScrollableGesture } = useBottomDrawerContext();
+  const { scrollY, scrollContentTopInset, setScrollableGesture } = useBottomDrawerContext();
 
   const nativeGesture = useMemo(() => Gesture.Native(), []);
-  useEffect(() => {
-    setScrollableGesture(nativeGesture);
+  useLayoutEffect(() => {
+    setScrollableGesture(nativeGesture, true);
     return () => setScrollableGesture(null);
   }, [nativeGesture, setScrollableGesture]);
+
+  const contentContainerStyle = useMemo(() => {
+    const flattened = StyleSheet.flatten(props.contentContainerStyle);
+    const existingPaddingTop = typeof flattened?.paddingTop === 'number'
+      ? flattened.paddingTop
+      : 0;
+    return [
+      props.contentContainerStyle,
+      { paddingTop: existingPaddingTop + scrollContentTopInset },
+    ];
+  }, [props.contentContainerStyle, scrollContentTopInset]);
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -1039,19 +1144,35 @@ export function BottomDrawerScrollView(props: ScrollViewProps) {
 
   return (
     <GestureDetector gesture={nativeGesture}>
-      <Animated.ScrollView {...props} onScroll={onScroll} scrollEventThrottle={16} />
+      <Animated.ScrollView
+        {...props}
+        contentContainerStyle={contentContainerStyle}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      />
     </GestureDetector>
   );
 }
 
 export function BottomDrawerFlatList<ItemT>(props: FlatListProps<ItemT>) {
-  const { scrollY, setScrollableGesture } = useBottomDrawerContext();
+  const { scrollY, scrollContentTopInset, setScrollableGesture } = useBottomDrawerContext();
 
   const nativeGesture = useMemo(() => Gesture.Native(), []);
-  useEffect(() => {
-    setScrollableGesture(nativeGesture);
+  useLayoutEffect(() => {
+    setScrollableGesture(nativeGesture, true);
     return () => setScrollableGesture(null);
   }, [nativeGesture, setScrollableGesture]);
+
+  const contentContainerStyle = useMemo(() => {
+    const flattened = StyleSheet.flatten(props.contentContainerStyle);
+    const existingPaddingTop = typeof flattened?.paddingTop === 'number'
+      ? flattened.paddingTop
+      : 0;
+    return [
+      props.contentContainerStyle,
+      { paddingTop: existingPaddingTop + scrollContentTopInset },
+    ];
+  }, [props.contentContainerStyle, scrollContentTopInset]);
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -1061,7 +1182,12 @@ export function BottomDrawerFlatList<ItemT>(props: FlatListProps<ItemT>) {
 
   return (
     <GestureDetector gesture={nativeGesture}>
-      <AnimatedFlatList {...(props as unknown as FlatListProps<unknown>)} onScroll={onScroll} scrollEventThrottle={16} />
+      <AnimatedFlatList
+        {...(props as unknown as FlatListProps<unknown>)}
+        contentContainerStyle={contentContainerStyle}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      />
     </GestureDetector>
   );
 }
@@ -1129,8 +1255,21 @@ const styles = StyleSheet.create({
     paddingTop: standardChrome.handleRegionPaddingTop,
     paddingBottom: standardChrome.handleRegionPaddingBottom,
   },
+  handleTouchTarget: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: standardChrome.handleTouchTargetHeight,
+    zIndex: 2,
+  },
+  invisibleHandleSpacer: {
+    opacity: 0,
+  },
   handle: {
     backgroundColor: colors.border,
+    position: 'relative',
+    top: standardChrome.handleVisualOffsetY,
     width: standardChrome.handleWidth,
     height: standardChrome.handleHeight,
     borderRadius: standardChrome.handleRadius,
@@ -1154,6 +1293,29 @@ const styles = StyleSheet.create({
   },
   bottomAccessory: {
     flexShrink: 0,
+  },
+  semanticFooterSurface: {
+    zIndex: 1,
+    backgroundColor: colors.canvas,
+    ...cardElevation.drawerFooter,
+  },
+  actionDockLayout: {
+    position: 'relative',
+  },
+  actionDockFillLayout: {
+    position: 'relative',
+    flex: 1,
+    minHeight: 0,
+  },
+  actionDockContent: {
+    flex: 1,
+    minHeight: 0,
+  },
+  actionDockHost: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 60,
   },
   bottomAccessoryBorder: {
     borderTopWidth: StyleSheet.hairlineWidth,

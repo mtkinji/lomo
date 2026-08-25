@@ -60,6 +60,7 @@ describe('Exploration Recap', () => {
     expect(pendingExploreRecap(state)).toEqual(expect.objectContaining({
       sessionIds: ['s1', 's2'],
       pointCount: 2,
+      durationMinutes: 45,
       startedAt: first.startedAt,
       endedAt: second.endedAt,
     }));

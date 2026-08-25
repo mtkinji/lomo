@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { colors, typography, spacing } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { proposeSchedule, ProposedEvent } from '../../services/scheduling/schedulingEngine';

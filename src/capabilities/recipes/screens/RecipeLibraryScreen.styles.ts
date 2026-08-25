@@ -180,7 +180,7 @@ export const styles = StyleSheet.create({
   shelfCard: { flex: 0, width: 164, marginBottom: 0 },
   cardArtworkFrame: { position: "relative" },
   cardArtwork: { width: "100%", aspectRatio: 1.15, borderRadius: 18 },
-  planCardToggle: {
+  planCardToggleTarget: {
     position: "absolute",
     top: spacing.sm,
     right: spacing.sm,
@@ -426,6 +426,11 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
+  },
+  planIdeasIntroduction: {
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
   },
   planDragSectionActive: {
     backgroundColor: colors.fieldFill,

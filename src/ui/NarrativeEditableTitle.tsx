@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import * as React from 'react';
-import { Keyboard, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle, Platform } from 'react-native';
+import { Keyboard, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle, Platform } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 
 export type NarrativeEditableTitleRef = {

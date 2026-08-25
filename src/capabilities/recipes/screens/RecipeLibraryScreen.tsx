@@ -1,3 +1,4 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import {
   useCallback,
   useDeferredValue,
@@ -8,14 +9,7 @@ import {
 } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
-import {
-  Alert,
-  FlatList,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Alert, FlatList, ScrollView, StyleSheet, View } from "react-native";
 import * as Crypto from "expo-crypto";
 
 import { colors, radii, spacing, typography } from "../../../theme";
@@ -348,9 +342,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       setPullRefreshing(false);
     });
   }, [refresh]);
-  const ideaCount = sharedCart?.candidates.filter(
-    (candidate) => candidate.lifecycle === "idea",
-  ).length ?? 0;
+  const mealPlanCount = sharedCart?.activeCount ?? 0;
   const planPersonId = sharedCart?.viewer.personId ?? null;
   const foodGuideStep = foodFirstCycleStepFromCheckpoint(foodGuideCheckpoint);
   const showPickMealGuide = shouldShowPickMealGuide({
@@ -598,6 +590,19 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           reloadCart: reloadSharedCart,
         });
         setSharedCart(result.cart);
+        if (result.selected) {
+          showToast({
+            message: "Added to Ideas in your meal plan",
+            durationMs: 2400,
+          });
+          if (foodGuideStep === 'choose-recipe' && userId) {
+            dispatchCapabilityOnboarding(userId, {
+              type: 'checkpoint',
+              checkpoint: FOOD_FIRST_CYCLE_CHECKPOINTS['share-plan'],
+              now: Date.now(),
+            });
+          }
+        }
         if (result.cart.candidates.length === 0) setPlanBrowsing(false);
       } catch (caught) {
         setSharedCart(sharedCart);
@@ -609,7 +614,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
         setPlanMutationBusy(false);
       }
     },
-    [defaultServings, mealPreferences?.householdId, planMutationBusy, reloadSharedCart, sharedCart],
+    [defaultServings, dispatchCapabilityOnboarding, foodGuideStep, mealPreferences?.householdId, planMutationBusy, reloadSharedCart, sharedCart, showToast, userId],
   );
   const removeCandidate = useCallback(async (item: MealPlanTrayItem, keepGroceries = false) => {
     if (!sharedCart?.planId || !sharedCart.version || planMutationBusy) return;
@@ -843,7 +848,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           rightElement={
             <MealPlanHeaderAction
               ref={planHeaderRef}
-              count={ideaCount}
+              count={mealPlanCount}
               needsAttention={mealPlanNeedsAttention}
               onPress={() => setPlanBrowsing(true)}
             />
@@ -903,8 +908,8 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       <Coachmark
         visible={showPickMealGuide}
         targetRef={onboardingRecipeRef}
-        title={<Text style={{ fontWeight: "700" }}>Pick one that sounds good</Text>}
-        body={<Text tone="secondary">Open any recipe to see the ingredients and steps. You can add your own recipes here, too.</Text>}
+        title={<Text style={{ fontWeight: "700" }}>Add to your meal plan</Text>}
+        body={<Text tone="secondary">Tap + on any recipe. It’ll start in Ideas; move it to Planned when you’re ready.</Text>}
         actions={[{ id: "dismiss", label: "I’ll look around", variant: "ghost" }]}
         spotlight="hole"
         spotlightRadius={18}

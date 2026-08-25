@@ -1,16 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import {
-  FlatList,
-  Image,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { FlatList, Image, type NativeScrollEvent, type NativeSyntheticEvent, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { HapticsService } from '../../../services/HapticsService';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';

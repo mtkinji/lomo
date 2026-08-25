@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
+import { Alert, Share, StyleSheet, View } from 'react-native';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';

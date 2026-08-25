@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import type { ChatMode } from './workflowRegistry';
 import type { CoachChatTurn, CoachChatOptions, GeneratedArc } from '../../services/ai';
 import {

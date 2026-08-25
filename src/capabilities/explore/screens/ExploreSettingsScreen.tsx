@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NavigationProp } from '@react-navigation/native';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import type { RootDrawerParamList, SettingsStackParamList } from '../../../navigation/RootNavigator';
 import { colors, fonts, spacing } from '../../../theme';
 import { Icon } from '../../../ui/Icon';

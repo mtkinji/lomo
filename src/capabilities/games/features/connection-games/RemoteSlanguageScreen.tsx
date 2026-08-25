@@ -1,7 +1,8 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from '@/src/capabilities/games/navigation/gamesRouter';
 import { ArrowLeft, Check, Crown, Sparkles } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   buildSlanguageTranslation,

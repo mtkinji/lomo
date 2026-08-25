@@ -1,15 +1,9 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Crypto from "expo-crypto";
-import {
-  Alert,
-  Animated,
-  Pressable,
-  Share,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Alert, Animated, Share, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";

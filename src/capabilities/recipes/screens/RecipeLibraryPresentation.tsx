@@ -1,10 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { RefObject } from "react";
 import { useMemo } from "react";
-import {
-  FlatList,
-  Pressable,
-  View,
-} from "react-native";
+import { FlatList, View } from "react-native";
 
 import { colors } from "../../../theme";
 import { Button, IconButton } from "../../../ui/Button";

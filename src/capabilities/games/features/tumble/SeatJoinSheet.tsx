@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Modal, Share, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Check, Share2, X } from 'lucide-react-native';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';

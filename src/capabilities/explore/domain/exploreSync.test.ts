@@ -63,6 +63,16 @@ describe('Explore durable record reconciliation', () => {
       .toEqual(['session']);
   });
 
+  it('does not let an equal-age remote resolving receipt reopen a locally dismissed recap', () => {
+    const remoteResolving = asRemote(encodeExploreRecords(completedData(), USER_ID));
+    const local = completedData();
+    local.sessions = local.sessions.map((session) => ({ ...session, recapStatus: 'seen' as const }));
+
+    const merged = mergeExploreRecords(local, remoteResolving);
+
+    expect(merged.sessions[0]?.recapStatus).toBe('seen');
+  });
+
   it('lets a reset and Place tombstone defeat older remote history', () => {
     const original = completedData();
     const remote = asRemote(encodeExploreRecords(original, USER_ID));

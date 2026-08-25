@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useState } from 'react';
 import { Play, Plus, Smartphone, X } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { BankingRule } from '@/src/capabilities/games/domain/bank';
 import type { GamePlayerProfile } from '@/src/capabilities/games/players/gamePlayerProfile';
 import { normalizePlayerIdentity, type FailureSoundId, type PlayerIdentity, type SuccessSoundId } from '@/src/capabilities/games/players/playerIdentity';

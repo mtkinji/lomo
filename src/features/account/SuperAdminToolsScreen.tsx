@@ -1,17 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  Alert,
-  Modal,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  View,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
-  type StyleProp,
-  type TextStyle,
-} from 'react-native';
+import { Alert, Modal, Platform, SafeAreaView, StyleSheet, View, type NativeSyntheticEvent, type NativeScrollEvent, type StyleProp, type TextStyle } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';

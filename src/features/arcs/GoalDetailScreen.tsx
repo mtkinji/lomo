@@ -1,22 +1,6 @@
+import { TouchableOpacity, Pressable } from '@/src/ui/HapticPressable';
 import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
-import {
-  Animated,
-  LayoutAnimation,
-  StyleSheet,
-  View,
-  Platform,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  Alert,
-  Keyboard,
-  Pressable,
-  Linking,
-  UIManager,
-  findNodeHandle,
-  useWindowDimensions,
-} from 'react-native';
+import { Animated, LayoutAnimation, StyleSheet, View, Platform, TextInput, ScrollView, Image, Alert, Keyboard, Linking, UIManager, findNodeHandle, useWindowDimensions } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '../../ui/layout/AppShell';
 import {

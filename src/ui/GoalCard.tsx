@@ -1,4 +1,5 @@
-import { StyleSheet, ViewStyle, StyleProp, TouchableOpacity, View } from 'react-native';
+import { TouchableOpacity } from '@/src/ui/HapticPressable';
+import { StyleSheet, ViewStyle, StyleProp, View } from 'react-native';
 import { VStack, Heading, Text, HStack } from './primitives';
 import { Icon } from './Icon';
 import { cardSurfaceStyle, colors, spacing, typography } from '../theme';

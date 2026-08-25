@@ -77,6 +77,7 @@ let isEnabled = true;
 let reduceMotionEnabled: boolean | null = null;
 let reduceMotionSubscriptionAttached = false;
 let hasWarnedMissingHapticsModule = false;
+let triggerSequence = 0;
 
 // Keep haptics subtle by default; prevent "machine gun" feel.
 const DEFAULT_THROTTLE_MS = 80;
@@ -254,6 +255,11 @@ export const HapticsService = {
     return isEnabled;
   },
 
+  /** Lets shared press primitives avoid layering a generic pulse over semantic feedback. */
+  getTriggerSequence() {
+    return triggerSequence;
+  },
+
   /**
    * Debug-only introspection helper.
    * Useful for diagnosing "haptics feel missing" reports on device.
@@ -272,6 +278,7 @@ export const HapticsService = {
    * If `expo-haptics` is not installed (or haptics are unavailable), this is a no-op.
    */
   async trigger(event: HapticsEvent, options?: TriggerOptions): Promise<void> {
+    triggerSequence += 1;
     const force = Boolean(options?.force);
     const reduceMotionPolicy: ReduceMotionPolicy = options?.reduceMotionPolicy ?? 'respect';
 

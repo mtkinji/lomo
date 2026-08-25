@@ -1,12 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  PanResponder,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { PanResponder, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
 import { PortalHost } from '../../ui/Portal';
 import MapView, { Circle, type Region } from 'react-native-maps';

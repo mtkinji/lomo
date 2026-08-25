@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, InteractionManager, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, InteractionManager, LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';

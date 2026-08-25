@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { ReactNode } from 'react';
 import { ArrowLeft, RotateCcw, Volume2, VolumeX } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from '@/src/capabilities/games/navigation/gamesRouter';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';

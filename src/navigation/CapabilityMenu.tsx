@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableProps,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -49,7 +50,6 @@ type CapabilityMenuProps = {
   onOpenChat: () => void;
   sharedHomeEnabled?: boolean;
   exploreEnabled?: boolean;
-  choresEnabled?: boolean;
   choresAttentionCount?: number;
   mealPlanNeedsAttention?: boolean;
   unvisitedCapabilityIds?: readonly CapabilityMenuDestinationId[];
@@ -89,7 +89,6 @@ export function CapabilityMenu({
   onOpenChat,
   sharedHomeEnabled = false,
   exploreEnabled = false,
-  choresEnabled = false,
   choresAttentionCount = 0,
   mealPlanNeedsAttention = false,
   unvisitedCapabilityIds = [],
@@ -116,7 +115,6 @@ export function CapabilityMenu({
     if (!capability || capability.availability !== 'active') return false;
     if (hiddenCapabilityIds.includes(capability.id)) return false;
     if (capability.id === 'explore' && !exploreEnabled) return false;
-    if (capability.id === 'chores' && !choresEnabled) return false;
     return true;
   };
 

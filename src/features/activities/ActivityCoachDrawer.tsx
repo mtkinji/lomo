@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { View, Pressable } from 'react-native';
+import { View } from 'react-native';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAnalytics } from '../../services/analytics/useAnalytics';

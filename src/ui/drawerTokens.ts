@@ -12,6 +12,8 @@ export const bottomDrawerChromeTokens = {
     surfacePaddingTop: 0,
     handleRegionPaddingTop: spacing.sm,
     handleRegionPaddingBottom: spacing.xs,
+    handleVisualOffsetY: spacing.xs,
+    handleTouchTargetHeight: 44,
     handleWidth: 64,
     handleHeight: 5,
     handleRadius: radii.pill,

@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable } from '@/src/ui/HapticPressable';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { colors, radii, spacing } from '../../../theme';
 import { Icon } from '../../../ui/Icon';

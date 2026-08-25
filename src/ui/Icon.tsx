@@ -368,7 +368,8 @@ export function Icon({ name, size = 20, color = '#F9FAFB', ...rest }: IconProps)
   }
 
   if (entry.library === 'kwilt') {
-    return <KwiltIcon name={entry.name} size={numericSize} color={iconColor} />;
+    const opticalSize = entry.name === 'token' ? numericSize + 2 : numericSize;
+    return <KwiltIcon name={entry.name} size={opticalSize} color={iconColor} />;
   }
 
   const Component = entry.icon;

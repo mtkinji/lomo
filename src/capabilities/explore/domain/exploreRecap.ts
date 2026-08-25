@@ -5,6 +5,7 @@ export type ExploreRecap = {
   sessionIds: string[];
   startedAt: string;
   endedAt: string;
+  durationMinutes: number;
   pointCount: number;
   places: Place[];
   resolving: boolean;
@@ -21,6 +22,7 @@ export function buildExploreRecap(
     sessionIds: [session.id],
     startedAt: session.startedAt,
     endedAt: session.endedAt,
+    durationMinutes: sessionDurationMinutes(session),
     pointCount: session.points.length,
     resolving: session.recapStatus === 'resolving',
     places: session.discoveredPlaceIds
@@ -44,10 +46,18 @@ export function pendingExploreRecap(state: Pick<ExploreData, 'sessions' | 'place
     sessionIds: sessions.map((session) => session.id),
     startedAt: sessions[0].startedAt,
     endedAt: sessions.at(-1)!.endedAt!,
+    durationMinutes: sessions.reduce((sum, session) => sum + sessionDurationMinutes(session), 0),
     pointCount: sessions.reduce((sum, session) => sum + session.points.length, 0),
     places,
     resolving: sessions.some((session) => session.recapStatus === 'resolving'),
   };
+}
+
+function sessionDurationMinutes(session: Pick<ExploreSession, 'startedAt' | 'endedAt'>): number {
+  const elapsedMinutes = Math.round(
+    (Date.parse(session.endedAt ?? session.startedAt) - Date.parse(session.startedAt)) / 60_000,
+  );
+  return Number.isFinite(elapsedMinutes) ? Math.max(1, elapsedMinutes) : 1;
 }
 
 export function exploreRecapNotification(params: {

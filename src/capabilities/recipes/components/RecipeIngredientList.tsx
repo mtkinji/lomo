@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { parseIngredientLine } from "@kwilt/food-core";
 import type { RefObject } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { colors, fonts, spacing } from "../../../theme";
 import { Icon } from "../../../ui/Icon";

@@ -1,15 +1,8 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { RefObject } from "react";
-import {
-  FlatList,
-  Image,
-  Pressable,
-  ScrollView,
-  View,
-  type ImageSourcePropType,
-} from "react-native";
+import { FlatList, Image, ScrollView, View, type ImageSourcePropType } from "react-native";
 
 import { colors } from "../../../theme";
-import { HapticsService } from "../../../services/HapticsService";
 import { Badge } from "../../../ui/Badge";
 import { HeaderActionPill } from "../../../ui/layout/ObjectPageHeader";
 import { Icon, type IconName } from "../../../ui/Icon";
@@ -231,8 +224,6 @@ export function RecipeCard({
   const open = () => onOpen(projection.recipe.id);
   return (
     <View
-      ref={targetRef}
-      collapsable={targetRef ? false : undefined}
       testID={`recipe-card-${instance}-${projection.recipe.id}`}
       style={[styles.card, shelf && styles.shelfCard]}
     >
@@ -248,6 +239,7 @@ export function RecipeCard({
           projection={projection}
           selected={isInPlan}
           onPress={onAddToPlan}
+          targetRef={targetRef}
         />
       </View>
       <Pressable
@@ -386,32 +378,39 @@ function MealPlanCardToggle({
   projection,
   selected,
   onPress,
+  targetRef,
 }: {
   projection: RecipeProjection;
   selected: boolean;
   onPress(projection: RecipeProjection): void;
+  targetRef?: RefObject<View | null>;
 }) {
   const verb = selected ? "Remove" : "Add";
   return (
-    <HeaderActionPill
-      accessibilityLabel={`${verb} ${projection.currentVersion.title} ${selected ? "from" : "to"} Meal Plan`}
-      accessibilityState={{ selected }}
-      hitSlop={8}
-      onPress={() => {
-        void HapticsService.trigger(selected ? "canvas.toggle.off" : "canvas.toggle.on");
-        onPress(projection);
-      }}
-      materialVariant="floatingWhite"
-      material={!selected}
-      size={36}
-      style={[styles.planCardToggle, selected && styles.planCardToggleSelected]}
+    <View
+      ref={targetRef}
+      collapsable={targetRef ? false : undefined}
+      testID={`recipe-plan-toggle-target-${projection.recipe.id}`}
+      style={styles.planCardToggleTarget}
     >
-      <Icon
-        name={selected ? "check" : "plus"}
-        size={17}
-        color={selected ? colors.primaryForeground : colors.textPrimary}
-      />
-    </HeaderActionPill>
+      <HeaderActionPill
+        accessibilityLabel={`${verb} ${projection.currentVersion.title} ${selected ? "from" : "to"} Meal Plan`}
+        accessibilityState={{ selected }}
+        haptic={selected ? "canvas.toggle.off" : "canvas.toggle.on"}
+        hitSlop={8}
+        onPress={() => onPress(projection)}
+        materialVariant="floatingWhite"
+        material={!selected}
+        size={36}
+        style={selected && styles.planCardToggleSelected}
+      >
+        <Icon
+          name={selected ? "check" : "plus"}
+          size={17}
+          color={selected ? colors.primaryForeground : colors.textPrimary}
+        />
+      </HeaderActionPill>
+    </View>
   );
 }
 

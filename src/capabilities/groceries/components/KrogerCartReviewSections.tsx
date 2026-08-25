@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { colors, spacing, typography } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Heading, Text } from '../../../ui/Typography';

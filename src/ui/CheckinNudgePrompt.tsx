@@ -1,3 +1,4 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 /**
  * Check-in nudge prompt.
  *
@@ -9,7 +10,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, View, Pressable, Animated } from 'react-native';
+import { StyleSheet, View, Animated } from 'react-native';
 import { Text, HStack } from './primitives';
 import { colors, spacing, typography, fonts, cardSurfaceStyle } from '../theme';
 import { submitCheckin, CHECKIN_PRESETS, type CheckinPreset } from '../services/checkins';

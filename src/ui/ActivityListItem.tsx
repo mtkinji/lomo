@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableProps,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';

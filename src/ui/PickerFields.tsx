@@ -1,22 +1,12 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import * as React from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  type StyleProp,
-  StyleSheet,
-  TextInput,
-  useWindowDimensions,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, type StyleProp, StyleSheet, TextInput, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../theme';
 import { BottomDrawer, BottomDrawerScrollView } from './BottomDrawer';
 import { Icon, type IconName } from './Icon';
 import { Input } from './Input';
+import { BottomDrawerHeader } from './layout/BottomDrawerHeader';
 import { HStack, VStack } from './Stack';
 import { Text } from './Typography';
 
@@ -85,7 +75,7 @@ type RelationPickerProps = SinglePickerProps & {
 
 const OPTION_ROW_HEIGHT = 56;
 const SHEET_HANDLE_HEIGHT = 24;
-const SHEET_TITLE_HEIGHT = 48;
+const SHEET_TITLE_HEIGHT = 60;
 const SHEET_VERTICAL_PADDING = spacing.sm + spacing.md;
 const MIN_SHEET_HEIGHT = 180;
 const MAX_FIXED_SHEET_HEIGHT_RATIO = 0.68;
@@ -283,11 +273,13 @@ function FixedOptionsSheet({
         showsVerticalScrollIndicator={false}
       >
         {title ? (
-          <View style={styles.fixedSheetHeader}>
-            <Text style={styles.fixedSheetTitle} numberOfLines={1}>
-              {title}
-            </Text>
-          </View>
+          <BottomDrawerHeader
+            title={title}
+            variant="withClose"
+            onClose={() => onOpenChange(false)}
+            closeAccessibilityLabel={`Close ${title.toLocaleLowerCase()} picker`}
+            containerStyle={styles.fixedSheetHeader}
+          />
         ) : null}
         {options.map((option) => (
           <PickerOptionRow
@@ -586,14 +578,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   fixedSheetHeader: {
-    height: SHEET_TITLE_HEIGHT,
+    minHeight: SHEET_TITLE_HEIGHT,
     paddingHorizontal: spacing.md,
-    justifyContent: 'center',
-  },
-  fixedSheetTitle: {
-    ...typography.body,
-    fontWeight: '700',
-    color: colors.textPrimary,
   },
   optionRow: {
     minHeight: OPTION_ROW_HEIGHT,

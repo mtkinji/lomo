@@ -1,13 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  Animated,
-  Pressable,
-  StyleSheet,
-  View,
-  type AccessibilityState,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Animated, StyleSheet, View, type AccessibilityState, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, spacing, typography, fonts } from '../theme';
 import { Text } from './Typography';
 import { useAccessibilityPreferences } from './hooks/useAccessibilityPreferences';

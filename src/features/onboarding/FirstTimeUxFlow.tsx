@@ -1,18 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  AppState,
-  Animated,
-  BackHandler,
-  Easing,
-  Image,
-  Linking,
-  Modal,
-  Pressable,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { AppState, Animated, BackHandler, Easing, Image, Linking, Modal, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Icon } from '../../ui/Icon';

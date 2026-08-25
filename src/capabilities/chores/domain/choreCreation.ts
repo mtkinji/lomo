@@ -27,6 +27,15 @@ export type ChoreDraft = {
 
 export type ChoreDraftField = keyof ChoreDraft;
 
+export type ChoreSeriesDeleteSnapshot = {
+  series: ChoreSeries;
+  seriesIndex: number;
+  occurrences: Array<{
+    occurrence: ChoreLearningRecord['occurrences'][number];
+    originalIndex: number;
+  }>;
+};
+
 function includesExactName(source: string, name: string): boolean {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`(?:^|[^\\p{L}])${escaped}(?:$|[^\\p{L}])`, 'iu').test(source);
@@ -206,4 +215,70 @@ export function updateChoreSeriesInLearningRecord(
     assignedMemberId: assignedMember?.id ?? null,
   };
   return { ...record, series };
+}
+
+export function buildChoreSeriesDeleteSnapshot(
+  record: ChoreLearningRecord,
+  activitySeriesId: string,
+): ChoreSeriesDeleteSnapshot | null {
+  const seriesIndex = record.series.findIndex(
+    (series) => series.activitySeriesId === activitySeriesId,
+  );
+  if (seriesIndex < 0) return null;
+
+  return {
+    series: record.series[seriesIndex],
+    seriesIndex,
+    occurrences: record.occurrences.flatMap((occurrence, originalIndex) => (
+      occurrence.activitySeriesId === activitySeriesId
+        ? [{ occurrence, originalIndex }]
+        : []
+    )),
+  };
+}
+
+export function deleteChoreSeriesFromLearningRecord(
+  record: ChoreLearningRecord,
+  caregiverId: string,
+  activitySeriesId: string,
+): ChoreLearningRecord {
+  const isCaregiver = record.members.some(
+    (member) => member.id === caregiverId && member.role === 'caregiver',
+  );
+  if (!isCaregiver || !record.series.some(
+    (series) => series.activitySeriesId === activitySeriesId,
+  )) return record;
+
+  return {
+    ...record,
+    series: record.series.filter((series) => series.activitySeriesId !== activitySeriesId),
+    occurrences: record.occurrences.filter(
+      (occurrence) => occurrence.activitySeriesId !== activitySeriesId,
+    ),
+  };
+}
+
+export function restoreDeletedChoreSeriesToLearningRecord(
+  record: ChoreLearningRecord,
+  caregiverId: string,
+  snapshot: ChoreSeriesDeleteSnapshot,
+): ChoreLearningRecord {
+  const isCaregiver = record.members.some(
+    (member) => member.id === caregiverId && member.role === 'caregiver',
+  );
+  if (!isCaregiver || record.series.some(
+    (series) => series.activitySeriesId === snapshot.series.activitySeriesId,
+  )) return record;
+
+  const series = [...record.series];
+  series.splice(Math.min(snapshot.seriesIndex, series.length), 0, snapshot.series);
+  const occurrences = [...record.occurrences];
+  snapshot.occurrences.forEach(({ occurrence, originalIndex }) => {
+    if (occurrences.some(
+      (candidate) => candidate.activityOccurrenceId === occurrence.activityOccurrenceId,
+    )) return;
+    occurrences.splice(Math.min(originalIndex, occurrences.length), 0, occurrence);
+  });
+
+  return { ...record, series, occurrences };
 }

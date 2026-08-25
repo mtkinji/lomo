@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { Pencil, Plus, Trophy } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 import { normalizePlayerIdentity, playerColor, playerColorText } from './playerIdentity';
 import type { SavedPlayer } from './savedPlayers';

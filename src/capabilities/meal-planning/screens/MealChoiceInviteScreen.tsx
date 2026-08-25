@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useState } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Alert, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from "react-native";
+import { Alert, Linking, Platform, ScrollView, Share, StyleSheet, View } from "react-native";
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
 import {
   buildHouseholdPlanInviteMessage,

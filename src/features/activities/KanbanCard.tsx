@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { VStack, HStack, Text } from '../../ui/primitives';
 import { Icon, type IconName } from '../../ui/Icon';
 import { GoalPill } from '../../ui/GoalPill';

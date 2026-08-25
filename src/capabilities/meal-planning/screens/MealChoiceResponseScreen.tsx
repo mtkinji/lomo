@@ -1,14 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useState } from "react";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import {
-  Alert,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, Image, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import type { FoodStackParamList } from "../../../features/household-food/FoodNavigator";
 import { colors, spacing, typography } from "../../../theme";
 import { Button } from "../../../ui/Button";

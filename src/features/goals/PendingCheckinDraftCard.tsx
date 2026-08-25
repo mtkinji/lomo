@@ -1,3 +1,4 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 /**
  * Pending check-in draft card.
  *
@@ -12,7 +13,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';

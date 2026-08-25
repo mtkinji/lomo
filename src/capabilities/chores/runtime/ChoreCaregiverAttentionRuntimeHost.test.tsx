@@ -1,7 +1,6 @@
 import { act } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
 import { renderWithProviders } from '../../../test/renderWithProviders';
-import { useKwiltLabsStore } from '../../../labs/useKwiltLabsStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { approveChoreOccurrence, createChoreLearningRecord } from '../domain/choreLearning';
 import { useChoreLearningStore } from './useChoreLearningStore';
@@ -23,7 +22,6 @@ async function flushEffects(): Promise<void> {
 describe('ChoreCaregiverAttentionRuntimeHost', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    useKwiltLabsStore.setState({ enabledCapabilities: ['chores'] });
     useAppStore.setState((state) => ({
       notificationPreferences: {
         ...state.notificationPreferences,
@@ -85,12 +83,10 @@ describe('ChoreCaregiverAttentionRuntimeHost', () => {
   });
 
   it.each([
-    ['Chores is disabled', { enabledCapabilities: [], userId: 'caregiver-user', notificationsEnabled: true, osPermissionStatus: 'authorized' }],
-    ['the user is signed out', { enabledCapabilities: ['chores'], userId: null, notificationsEnabled: true, osPermissionStatus: 'authorized' }],
-    ['app notifications are disabled', { enabledCapabilities: ['chores'], userId: 'caregiver-user', notificationsEnabled: false, osPermissionStatus: 'authorized' }],
-    ['OS notification permission is unavailable', { enabledCapabilities: ['chores'], userId: 'caregiver-user', notificationsEnabled: true, osPermissionStatus: 'denied' }],
+    ['the user is signed out', { userId: null, notificationsEnabled: true, osPermissionStatus: 'authorized' }],
+    ['app notifications are disabled', { userId: 'caregiver-user', notificationsEnabled: false, osPermissionStatus: 'authorized' }],
+    ['OS notification permission is unavailable', { userId: 'caregiver-user', notificationsEnabled: true, osPermissionStatus: 'denied' }],
   ])('clears the app badge when %s', async (_label, setup) => {
-    useKwiltLabsStore.setState({ enabledCapabilities: setup.enabledCapabilities as ('chores')[] });
     useAppStore.setState((state) => ({
       notificationPreferences: {
         ...state.notificationPreferences,

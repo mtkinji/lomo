@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/src/ui/HapticPressable';
+import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { fonts } from '../../../theme';
 import { withHapticPress } from '../../../ui/haptics/withHapticPress';

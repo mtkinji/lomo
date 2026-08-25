@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { ScrollView, useWindowDimensions, View } from 'react-native';
 import { SOUND_SCAPES, type SoundscapeId } from '../../services/soundscapeCatalog';
 import { colors, spacing } from '../../theme';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';

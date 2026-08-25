@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, Pressable, View } from "react-native";
+import { Keyboard, View } from "react-native";
 import Reanimated, {
   Easing,
   FadeIn,
@@ -12,7 +13,11 @@ import Reanimated, {
 
 import { colors } from "../../../theme";
 import { HapticsService } from "../../../services/HapticsService";
-import { BottomDrawer, BottomDrawerScrollView } from "../../../ui/BottomDrawer";
+import {
+  BottomDrawer,
+  BottomDrawerScrollView,
+  useBottomDrawerActionDockClearance,
+} from "../../../ui/BottomDrawer";
 import { Button, IconButton } from "../../../ui/Button";
 import { DraggableList } from "../../../ui/DraggableList";
 import {
@@ -27,6 +32,7 @@ import { EmptyState } from "../../../ui/EmptyState";
 import { Input } from "../../../ui/Input";
 import { AlertDialog } from "../../../ui/AlertDialog";
 import { Coachmark } from "../../../ui/Coachmark";
+import { DrawerDestinationAction } from "../../../ui/DrawerDestinationAction";
 import { useAccessibilityPreferences } from "../../../ui/hooks/useAccessibilityPreferences";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
 import { ButtonLabel, Heading, Text } from "../../../ui/Typography";
@@ -315,6 +321,7 @@ export function MealPlanDrawer({
   gettingIdeas?: boolean;
   getIdeasDisabled?: boolean;
 }) {
+  const actionDockClearance = useBottomDrawerActionDockClearance();
   const [displayIds, setDisplayIds] = useState<string[]>([]);
   const [reactionPickerItem, setReactionPickerItem] = useState<MealPlanTrayItem | null>(null);
   const [reactionGuideVisible, setReactionGuideVisible] = useState(false);
@@ -427,7 +434,7 @@ export function MealPlanDrawer({
       ...(groceries.length ? [] : [{ kind: "plannedEmpty" as const, id: "planned-empty" as const }]),
     ];
   }, [displayItems, groceries, ideas, onGetIdeas]);
-  const getIdeasLabel = hasRequestedKwiltIdeas ? "Get more ideas" : "Get ideas from Kwilt";
+  const getIdeasLabel = hasRequestedKwiltIdeas ? "Suggest more meals" : "Suggest meals";
   const requestKwiltIdeas = async () => {
     if (!onGetIdeas || gettingIdeas) return;
     try {
@@ -610,9 +617,10 @@ export function MealPlanDrawer({
       keyboardAvoidanceEnabled={false}
       enableContentPanningGesture={false}
       contentExtendsIntoBottomSafeArea
+      contentLayout="edgeToEdge"
       sheetStyle={styles.planDrawerSheet}
       handleContainerStyle={styles.planDrawerHandleRegion}
-      bottomAccessory={onOpenGroceries ? (
+      actionDock={onOpenGroceries ? (
         <Reanimated.View
           testID="plan-grocery-action-transition"
           accessibilityElementsHidden={shareSheetVisible}
@@ -620,23 +628,16 @@ export function MealPlanDrawer({
           pointerEvents={shareSheetVisible ? "none" : "auto"}
           style={planActionAnimatedStyle}
         >
-          <Button
+          <DrawerDestinationAction
             testID="plan-view-groceries"
             accessibilityLabel="View groceries"
             accessibilityHint="Opens the grocery list compiled from planned meals"
-            fullWidth
-            size="lg"
+            label="View groceries"
+            leadingIcon="cart"
             onPress={onOpenGroceries}
-          >
-            <View style={styles.planViewGroceriesContent}>
-              <Icon name="cart" size={19} color={colors.primaryForeground} />
-              <ButtonLabel tone="inverse">View groceries</ButtonLabel>
-            </View>
-          </Button>
+          />
         </Reanimated.View>
       ) : undefined}
-      bottomAccessoryPlacement="drawer"
-      bottomAccessoryShowTopBorder={false}
     >
       <View style={styles.planDrawerViewport}>
         <BottomDrawerHeader
@@ -664,11 +665,11 @@ export function MealPlanDrawer({
               <View
                 accessible
                 accessibilityRole="header"
-                accessibilityLabel={`Ideas, ${items.length} ${items.length === 1 ? "recipe" : "recipes"}`}
+                accessibilityLabel={`Meal plan, ${items.length} ${items.length === 1 ? "meal" : "meals"}`}
                 style={styles.planDrawerTitleIdentity}
               >
                 <Icon testID="plan-drawer-header-icon" name="meal" size={24} color={colors.textPrimary} />
-                <Heading variant="lg">Ideas</Heading>
+                <Heading variant="lg">Meal plan</Heading>
               </View>
               {hasActiveGuestLink && onTurnOffGuestLink ? (
                 <DropdownMenu>
@@ -690,10 +691,15 @@ export function MealPlanDrawer({
             </View>
           )}
         />
+        <View style={styles.planIdeasIntroduction}>
+          <Heading variant="sm">Ideas</Heading>
+          <Text tone="secondary">Meals you’re considering. Add any recipe with +, or ask Kwilt.</Text>
+        </View>
         <DraggableList
           key={`meal-plan-drag-list-${dragListRevision}`}
           activationMode="handle"
           contentContainerStyle={styles.planDrawerContent}
+          extraBottomPadding={onOpenGroceries ? actionDockClearance : 0}
           items={dragEntries}
           onDragStart={handleDragBegin}
           onDragPositionChange={handleDragPositionChange}

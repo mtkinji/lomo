@@ -1,11 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  StyleSheet,
-  View,
-  Pressable,
-} from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Portal } from '@rn-primitives/portal';

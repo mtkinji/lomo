@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { colors, fonts, spacing, typography } from '../theme';
 import { Icon } from './Icon';
 import { KwiltSwitch, type KwiltSwitchProps } from './KwiltSwitch';

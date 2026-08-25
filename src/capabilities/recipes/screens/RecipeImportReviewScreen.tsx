@@ -1,8 +1,9 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useState } from 'react';
 import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import type { FoodStackParamList } from '../../../features/household-food/FoodNavigator';
 import { colors, spacing, typography } from '../../../theme';

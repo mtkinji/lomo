@@ -8,7 +8,11 @@ import { projectChoreRewards } from '../domain/choreLearning';
 import { useAppStore } from '../../../store/useAppStore';
 import { useToastStore } from '../../../store/useToastStore';
 import { colors, typography } from '../../../theme';
-import { RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX } from '../../../ui/layout/restingComposerMetrics';
+import {
+  RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+  RESTING_COMPOSER_HEIGHT_PX,
+  RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+} from '../../../ui/layout/restingComposerMetrics';
 
 const mockOpenMenu = jest.fn();
 const mockRequestCameraPermissionsAsync = jest.fn();
@@ -26,6 +30,15 @@ type NativeTestTreeNode = {
   findAll: (predicate: (node: NativeTestTreeNode) => boolean) => NativeTestTreeNode[];
 };
 
+type MockSwipeableProps = {
+  children: ReactNode;
+  renderRightActions?: (
+    progress: null,
+    translation: null,
+    instance: { close: () => void },
+  ) => ReactNode;
+};
+
 function renderDefaultChoresScreen() {
   return render(<ChoresScreen now={testNow} />);
 }
@@ -34,6 +47,21 @@ jest.mock('../../../services/ai', () => ({
   ...jest.requireActual('../../../services/ai'),
   enrichActivityWithAI: (...args: unknown[]) => mockEnrichActivityWithAI(...args),
 }));
+
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const swipeable = { close: jest.fn() };
+  return {
+    __esModule: true,
+    default: ({ children, renderRightActions }: MockSwipeableProps) => React.createElement(
+      View,
+      null,
+      children,
+      renderRightActions?.(null, null, swipeable),
+    ),
+  };
+});
 
 jest.mock('../../../features/unifiedChat/UnifiedChatDrawer', () => {
   const React = require('react');
@@ -73,17 +101,69 @@ jest.mock('react-native-safe-area-context', () => ({
 
 jest.mock('../../../ui/BottomDrawer', () => {
   const React = require('react');
-  const { View } = require('react-native');
+  const { Pressable, Text, View } = require('react-native');
   return {
-    BottomDrawer: ({ visible, children, bottomAccessory }: {
+    BottomDrawer: ({ visible, children, bottomAccessory, actionDock, footer }: {
       visible: boolean;
       children: ReactNode;
       bottomAccessory?: ReactNode;
-    }) => visible ? React.createElement(View, null, children, bottomAccessory) : null,
+      actionDock?: ReactNode;
+      footer?: {
+        primaryAction: { label: string; accessibilityLabel?: string; onPress: () => void; disabled?: boolean };
+        secondaryAction?: { label: string; accessibilityLabel?: string; onPress: () => void; disabled?: boolean };
+      };
+    }) => visible ? React.createElement(
+      View,
+      null,
+      children,
+      bottomAccessory,
+      actionDock,
+      footer?.secondaryAction ? React.createElement(
+        Pressable,
+        {
+          accessibilityLabel: footer.secondaryAction.accessibilityLabel ?? footer.secondaryAction.label,
+          disabled: footer.secondaryAction.disabled,
+          onPress: footer.secondaryAction.onPress,
+        },
+        React.createElement(Text, null, footer.secondaryAction.label),
+      ) : null,
+      footer ? React.createElement(
+        Pressable,
+        {
+          accessibilityLabel: footer.primaryAction.accessibilityLabel ?? footer.primaryAction.label,
+          disabled: footer.primaryAction.disabled,
+          onPress: footer.primaryAction.onPress,
+        },
+        React.createElement(Text, null, footer.primaryAction.label),
+      ) : null,
+    ) : null,
     BottomDrawerScrollView: ({ children, ...props }: { children: ReactNode }) => (
       React.createElement(View, props, children)
     ),
     useBottomDrawerParentActionInsets: () => ({ inline: 0, bottom: 0 }),
+  };
+});
+
+jest.mock('../../../ui/AlertDialog', () => {
+  const React = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  return {
+    AlertDialog: ({ visible, title, description, cancelLabel, actionLabel, onCancel, onAction }: {
+      visible: boolean;
+      title: ReactNode;
+      description?: ReactNode;
+      cancelLabel: string;
+      actionLabel: string;
+      onCancel?: () => void;
+      onAction: () => void;
+    }) => visible ? React.createElement(
+      View,
+      { testID: 'alert-dialog.surface' },
+      React.createElement(Text, { accessibilityRole: 'header' }, title),
+      description ? React.createElement(Text, null, description) : null,
+      React.createElement(Pressable, { accessibilityLabel: cancelLabel, onPress: onCancel }),
+      React.createElement(Pressable, { accessibilityLabel: actionLabel, onPress: onAction }),
+    ) : null,
   };
 });
 
@@ -355,6 +435,66 @@ describe('ChoresScreen', () => {
     fireEvent.press(screen.getByLabelText('Save chore'));
     expect(screen.getByText('Bring in and sort the mail')).toBeTruthy();
     expect(screen.queryByText('Bring in the mail')).toBeNull();
+  });
+
+  it('lets a caregiver delete a chore from its swipe action and undo the deletion', () => {
+    const screen = renderDefaultChoresScreen();
+    fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
+
+    fireEvent.press(screen.getByLabelText('Delete Bring in the mail'));
+
+    expect(screen.queryByText('Bring in the mail')).toBeNull();
+    expect(useChoreLearningStore.getState().record.series.some(
+      (series) => series.activitySeriesId === 'activity-series-bring-in-mail',
+    )).toBe(false);
+    expect(useChoreLearningStore.getState().record.occurrences.some(
+      (occurrence) => occurrence.activitySeriesId === 'activity-series-bring-in-mail',
+    )).toBe(false);
+    expect(useToastStore.getState()).toMatchObject({
+      message: 'Chore deleted',
+      actionLabel: 'Undo',
+    });
+
+    act(() => useToastStore.getState().actionOnPress?.());
+
+    expect(screen.getByText('Bring in the mail')).toBeTruthy();
+    expect(useChoreLearningStore.getState().record.series.some(
+      (series) => series.activitySeriesId === 'activity-series-bring-in-mail',
+    )).toBe(true);
+  });
+
+  it('offers a discoverable confirmed delete action inside the caregiver chore editor', () => {
+    const screen = renderDefaultChoresScreen();
+    fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
+    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
+    fireEvent.press(screen.getByLabelText(/Edit Bring in the mail/));
+
+    fireEvent.press(screen.getByLabelText('Delete chore'));
+
+    const confirmation = within(screen.getByTestId('alert-dialog.surface'));
+    expect(confirmation.getByRole('header', { name: 'Delete chore?' })).toBeTruthy();
+    expect(confirmation.getByText(
+      'This removes Bring in the mail and all of its occurrences from the household.',
+    )).toBeTruthy();
+    expect(useChoreLearningStore.getState().record.series.some(
+      (series) => series.activitySeriesId === 'activity-series-bring-in-mail',
+    )).toBe(true);
+
+    fireEvent.press(confirmation.getByLabelText('Delete chore'));
+
+    expect(screen.queryByTestId('chores.editor.drawer')).toBeNull();
+    expect(screen.queryByText('Bring in the mail')).toBeNull();
+    expect(useToastStore.getState()).toMatchObject({
+      message: 'Chore deleted',
+      actionLabel: 'Undo',
+    });
+  });
+
+  it('does not expose chore deletion while viewing as a child', () => {
+    const screen = renderDefaultChoresScreen();
+
+    expect(screen.queryByLabelText('Delete Feed Scout and refill the water bowl')).toBeNull();
   });
 
   it('opens the chore detail drawer from the row with one explicit completion action', () => {
@@ -658,7 +798,7 @@ describe('ChoresScreen', () => {
     expect(screen.getAllByLabelText('Earns 2 tokens').length).toBeGreaterThan(0);
     expect(screen.queryByText(/earned/i)).toBeNull();
 
-    fireEvent.press(screen.getByLabelText('Open rewards wallet'));
+    fireEvent.press(screen.getByLabelText('My Rewards'));
     const rewards = within(screen.getByTestId('chores.rewards.drawer'));
     expect(rewards.getByText('Tokens')).toBeTruthy();
     expect(rewards.getByText('8')).toBeTruthy();
@@ -676,7 +816,7 @@ describe('ChoresScreen', () => {
     });
     const screen = renderDefaultChoresScreen();
 
-    fireEvent.press(screen.getByLabelText('Open rewards wallet'));
+    fireEvent.press(screen.getByLabelText('My Rewards'));
     fireEvent.press(screen.getByLabelText('Redeem tokens'));
     fireEvent.press(screen.getByLabelText('Redeem 4 tokens for $2.00'));
 
@@ -831,6 +971,7 @@ describe('ChoresScreen', () => {
 
     expect(screen.getByTestId('chores.editor.drawer')).toBeTruthy();
     expect(screen.getByLabelText('Adding details')).toBeTruthy();
+    expect(screen.queryByLabelText('Delete chore')).toBeNull();
     expect(screen.getByLabelText('Chore').props.value).toBe('Sweep the porch every week');
     expect(useChoreLearningStore.getState().record.occurrences).toHaveLength(startingCount);
 
@@ -866,6 +1007,31 @@ describe('ChoresScreen', () => {
 
     expect(screen.getByTestId('chores.chat.drawer')).toBeTruthy();
     expect(screen.queryByTestId('chores.review.action')).toBeNull();
+  });
+
+  it('presents child rewards as a labeled left-side dock action', () => {
+    act(() => {
+      useChoreLearningStore.getState().selectMember('member-andrew');
+      useChoreLearningStore.getState().setTokensEnabled(true);
+      useChoreLearningStore.getState().selectMember('member-charlie');
+    });
+    const screen = renderDefaultChoresScreen();
+
+    expect(screen.getByRole('button', { name: 'My Rewards' })).toBeTruthy();
+    expect(screen.getByText('My Rewards')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByTestId('chores.rewards.dock').props.style))
+      .toMatchObject({
+        left: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+        bottom: RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
+      });
+    expect(StyleSheet.flatten(screen.getByTestId('chores.rewards.action').props.style))
+      .toMatchObject({ height: RESTING_COMPOSER_HEIGHT_PX });
+    expect(StyleSheet.flatten(screen.getByTestId('chores.rewards.action.surface').props.style))
+      .toMatchObject({ height: RESTING_COMPOSER_HEIGHT_PX });
+
+    fireEvent.press(screen.getByRole('button', { name: 'My Rewards' }));
+
+    expect(screen.getByTestId('chores.rewards.drawer')).toBeTruthy();
   });
 
   it('uses chore language for the shared Quick Add AI actions', () => {

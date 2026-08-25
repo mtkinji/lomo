@@ -1,13 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
-import {
-  Alert,
-  View,
-  StyleSheet,
-  Platform,
-  Text,
-  Pressable,
-  Linking,
-} from 'react-native';
+import { Alert, View, StyleSheet, Platform, Text, Linking } from 'react-native';
 import { KwiltLoader } from '../ui/KwiltLoader';
 import { useAnalytics } from '../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../services/analytics/events';
@@ -1041,17 +1034,6 @@ function GamesCapabilityHost() {
 }
 
 function ChoresCapabilityHost() {
-  const enabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('chores'));
-  if (!enabled) {
-    return (
-      <KwiltLabsSettingsSurface
-        onBack={() => {
-          if (rootNavigationRef.canGoBack()) rootNavigationRef.goBack();
-          else rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' });
-        }}
-      />
-    );
-  }
   return (
     <CapabilityShellProvider>
       <ChoresScreen />
@@ -1251,7 +1233,6 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
     if (!menuOpen) setMenuTransactionsAvailability(liveTransactionsAvailability);
   }, [liveTransactionsAvailability, menuOpen]);
   const exploreEnabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('explore'));
-  const choresEnabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('chores'));
   const choreRecord = useChoreLearningStore((state) => state.record);
   const choresAttentionCount = useMemo(
     () => projectChoreReviewQueue(choreRecord, choreRecord.activeMemberId).length,
@@ -1502,7 +1483,6 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           coverMenu();
         }}
         exploreEnabled={exploreEnabled}
-        choresEnabled={choresEnabled}
         choresAttentionCount={choresAttentionCount}
         mealPlanNeedsAttention={mealPlanNeedsAttention}
         unvisitedCapabilityIds={unvisitedCapabilityIds}

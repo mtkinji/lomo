@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, spacing } from '../../../theme';
 import type { MoneyCategoryCover as MoneyCategoryCoverValue } from '../domain/moneyCategoryCover';
 

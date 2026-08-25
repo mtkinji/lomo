@@ -1,15 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useMemo, useState, type ReactNode } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-  type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { ScrollView, StyleSheet, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle } from 'react-native';
 
 import { colors, spacing } from '../../../theme';
 import { Text } from '../../../ui/Typography';

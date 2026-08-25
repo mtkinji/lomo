@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { openBrowserAsync } from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

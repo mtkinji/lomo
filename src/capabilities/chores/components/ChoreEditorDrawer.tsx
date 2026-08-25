@@ -1,12 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { colors, spacing } from '../../../theme';
+import { Pressable } from '../../../ui/HapticPressable';
+import { colors, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
-import { Button } from '../../../ui/Button';
-import { FormField } from '../../../ui/FormField';
 import { Input } from '../../../ui/Input';
 import { KwiltLoader } from '../../../ui/KwiltLoader';
-import { BottomDrawerFooter } from '../../../ui/layout/BottomDrawerFooter';
+import { KwiltSwitch } from '../../../ui/KwiltSwitch';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import {
   PickerFieldTrigger,
@@ -33,18 +32,9 @@ type Props = {
   mode: 'create' | 'edit';
   onChange: <Field extends ChoreDraftField>(field: Field, value: ChoreDraft[Field]) => void;
   onAdd: () => void;
+  onDelete?: () => void;
   onClose: () => void;
 };
-
-const REVIEW_OPTIONS: PickerFieldOption[] = [
-  { value: 'trusted', label: 'Not required' },
-  { value: 'caregiver_review', label: 'Caregiver approval' },
-];
-
-const PHOTO_OPTIONS: PickerFieldOption[] = [
-  { value: 'optional', label: 'Optional' },
-  { value: 'required', label: 'Required' },
-];
 
 const MISSED_OPTIONS: PickerFieldOption[] = [
   { value: 'scheduled', label: 'Start fresh next time' },
@@ -57,11 +47,45 @@ const TOKEN_OPTIONS: PickerFieldOption[] = [
   { value: '3', label: '3 tokens' },
 ];
 
-function PickerBlock({ label, children }: { label: string; children: ReactNode }) {
+function CompactFieldRow({
+  children,
+  label,
+}: {
+  children: ReactNode;
+  label: string;
+}) {
   return (
-    <FormField label={label}>
-      {() => children}
-    </FormField>
+    <View style={styles.compactFieldRow}>
+      <Text style={styles.compactFieldLabel}>{label}</Text>
+      <View style={styles.compactFieldControl}>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+function CompactToggleRow({
+  enabled,
+  label,
+  onPress,
+}: {
+  enabled: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: enabled }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.compactToggleRow, pressed ? styles.pressed : null]}
+    >
+      <Text style={styles.compactToggleLabel}>{label}</Text>
+      <View pointerEvents="none">
+        <KwiltSwitch accessible={false} value={enabled} onPress={onPress} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -74,6 +98,7 @@ export function ChoreEditorDrawer({
   mode,
   onChange,
   onAdd,
+  onDelete,
   onClose,
 }: Props) {
   const isEditing = mode === 'edit';
@@ -165,18 +190,20 @@ export function ChoreEditorDrawer({
       snapPoints={['100%']}
       initialSnapIndex={0}
       keyboardBehavior="resize"
-      bottomAccessory={(
-        <BottomDrawerFooter showTopBorder>
-          <Button
-            fullWidth
-            accessibilityLabel={isEditing ? 'Save chore' : 'Add chore'}
-            disabled={!draft.title.trim()}
-            onPress={onAdd}
-          >
-            {isEditing ? 'Save chore' : 'Add chore'}
-          </Button>
-        </BottomDrawerFooter>
-      )}
+      footer={{
+        secondaryAction: isEditing && onDelete ? {
+          label: 'Delete',
+          accessibilityLabel: 'Delete chore',
+          haptic: false,
+          onPress: onDelete,
+          tone: 'destructive',
+        } : undefined,
+        primaryAction: {
+          label: isEditing ? 'Save chore' : 'Add chore',
+          disabled: !draft.title.trim(),
+          onPress: onAdd,
+        },
+      }}
     >
       <BottomDrawerScrollView
         testID="chores.editor.drawer"
@@ -212,7 +239,7 @@ export function ChoreEditorDrawer({
           autoFocus={!isEditing}
         />
 
-        <PickerBlock label="For">
+        <CompactFieldRow label="For">
           <SmallSetPickerField
             title="For"
             value={draft.assignedMemberId ?? 'household'}
@@ -220,14 +247,15 @@ export function ChoreEditorDrawer({
             placeholder="Household"
             accessibilityLabel="Who is this chore for?"
             allowDeselect={false}
+            size="compact"
             onValueChange={(value) => onChange(
               'assignedMemberId',
               value === 'household' ? null : value,
             )}
           />
-        </PickerBlock>
+        </CompactFieldRow>
 
-        <PickerBlock label="Repeats">
+        <CompactFieldRow label="Repeats">
           <PickerFieldTrigger
             value="repeat"
             options={[{ value: 'repeat', label: repeatLabel === 'Off' ? 'One time' : repeatLabel }]}
@@ -235,12 +263,13 @@ export function ChoreEditorDrawer({
             accessibilityLabel={`Edit repeat schedule, ${repeatLabel === 'Off' ? 'one time' : repeatLabel}`}
             leadingIcon="refresh"
             allowDeselect={false}
+            size="compact"
             onPress={() => setRepeatPresetVisible(true)}
           />
-        </PickerBlock>
+        </CompactFieldRow>
 
         {draft.repeatRule ? (
-          <PickerBlock label="If missed">
+          <CompactFieldRow label="If missed">
             <SmallSetPickerField
               title="If missed"
               value={draft.repeatBasis}
@@ -248,12 +277,13 @@ export function ChoreEditorDrawer({
               placeholder="Start fresh next time"
               accessibilityLabel="What happens if this chore is missed?"
               allowDeselect={false}
+              size="compact"
               onValueChange={(value) => onChange(
                 'repeatBasis',
                 value as ChoreDraft['repeatBasis'],
               )}
             />
-          </PickerBlock>
+          </CompactFieldRow>
         ) : null}
 
         <Input
@@ -269,32 +299,26 @@ export function ChoreEditorDrawer({
           accentLabelOnFocus={false}
         />
 
-        <PickerBlock label="Photo">
-          <SmallSetPickerField
-            title="Photo"
-            value={draft.photoPolicy}
-            options={PHOTO_OPTIONS}
-            placeholder="Optional"
-            accessibilityLabel="Photo requirement"
-            allowDeselect={false}
-            onValueChange={(value) => onChange('photoPolicy', value as ChoreDraft['photoPolicy'])}
-          />
-        </PickerBlock>
+        <CompactToggleRow
+          label="Require a photo"
+          enabled={draft.photoPolicy === 'required'}
+          onPress={() => onChange(
+            'photoPolicy',
+            draft.photoPolicy === 'required' ? 'optional' : 'required',
+          )}
+        />
 
-        <PickerBlock label="Approval">
-          <SmallSetPickerField
-            title="Approval"
-            value={draft.reviewPolicy}
-            options={REVIEW_OPTIONS}
-            placeholder="Not required"
-            accessibilityLabel="Approval requirement"
-            allowDeselect={false}
-            onValueChange={(value) => onChange('reviewPolicy', value as ChoreDraft['reviewPolicy'])}
-          />
-        </PickerBlock>
+        <CompactToggleRow
+          label="Require approval"
+          enabled={draft.reviewPolicy === 'caregiver_review'}
+          onPress={() => onChange(
+            'reviewPolicy',
+            draft.reviewPolicy === 'caregiver_review' ? 'trusted' : 'caregiver_review',
+          )}
+        />
 
         {tokensEnabled ? (
-          <PickerBlock label="Reward">
+          <CompactFieldRow label="Reward">
             <SmallSetPickerField
               title="Reward"
               value={String(draft.tokenValue)}
@@ -302,9 +326,10 @@ export function ChoreEditorDrawer({
               placeholder="1 token"
               accessibilityLabel="Token reward"
               allowDeselect={false}
+              size="compact"
               onValueChange={(value) => onChange('tokenValue', Number(value) as ChoreDraft['tokenValue'])}
             />
-          </PickerBlock>
+          </CompactFieldRow>
         ) : null}
 
       </BottomDrawerScrollView>
@@ -332,5 +357,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: 12,
     backgroundColor: colors.gray100,
+  },
+  compactFieldRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  compactFieldLabel: {
+    ...typography.bodySm,
+    width: 104,
+    flexShrink: 0,
+    color: colors.textSecondary,
+  },
+  compactFieldControl: {
+    flex: 1,
+    minWidth: 0,
+  },
+  compactToggleRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  compactToggleLabel: {
+    ...typography.bodySm,
+    flex: 1,
+    minWidth: 0,
+    color: colors.textSecondary,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

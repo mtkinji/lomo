@@ -1,13 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  Pressable,
-  StyleSheet,
-  View,
-  Keyboard,
-  TextInput,
-} from 'react-native';
+import { Animated, Easing, StyleSheet, View, Keyboard, TextInput } from 'react-native';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Heading, Text, SurveyCard } from '../../ui/primitives';

@@ -23,12 +23,22 @@ function latestIso(...values: Array<string | null | undefined>): string | null {
 }
 
 function sessionUpdatedAt(session: ExploreSession): string {
-  return latestIso(
+  const latest = latestIso(
     session.endedAt,
     session.recapNotificationSentAt,
     session.points.at(-1)?.recordedAt,
     session.startedAt,
   ) ?? session.startedAt;
+  const recapRevision = {
+    none: 0,
+    resolving: 1,
+    ready: 2,
+    seen: 3,
+  }[session.recapStatus];
+  const timestamp = Date.parse(latest);
+  return Number.isFinite(timestamp)
+    ? new Date(timestamp + recapRevision).toISOString()
+    : latest;
 }
 
 function relationshipUpdatedAt(

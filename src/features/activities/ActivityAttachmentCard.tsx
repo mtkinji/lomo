@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import type { ActivityAttachment } from '../../domain/types';
 import { getAttachmentDownloadUrl } from '../../services/attachments/activityAttachments';
 import { colors, fonts, spacing, typography } from '../../theme';

@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CircleHelp, Grid3X3, RotateCcw, Share2, Volume2, VolumeX, X } from 'lucide-react-native';
-import { Modal, Pressable, ScrollView, Share, StyleSheet, Text as NativeText, View, type TextProps } from 'react-native';
+import { Modal, ScrollView, Share, StyleSheet, Text as NativeText, View, type TextProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   createStitchFiveGame,

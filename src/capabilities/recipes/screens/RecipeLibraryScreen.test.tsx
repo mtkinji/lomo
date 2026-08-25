@@ -1,6 +1,6 @@
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { createRef, type ReactNode } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 type TestTreeNode = { props: { style?: StyleProp<ViewStyle>; [key: string]: unknown } };
 
@@ -8,6 +8,7 @@ type MockBottomDrawerProps = {
   visible: boolean;
   children?: ReactNode;
   bottomAccessory?: ReactNode;
+  actionDock?: ReactNode;
   bottomAccessoryPlacement?: 'drawer' | 'phoneFloating';
   bottomAccessoryShowTopBorder?: boolean;
   snapIndex?: number;
@@ -31,8 +32,9 @@ jest.mock('../../../features/unifiedChat/UnifiedChatDrawer', () => ({
 jest.mock('../../../services/HapticsService', () => ({
   HapticsService: { trigger: jest.fn(async () => undefined) },
 }));
+let mockReduceMotionEnabled = false;
 jest.mock('../../../ui/hooks/useAccessibilityPreferences', () => ({
-  useAccessibilityPreferences: () => ({ reduceMotionEnabled: false, screenReaderEnabled: false }),
+  useAccessibilityPreferences: () => ({ reduceMotionEnabled: mockReduceMotionEnabled, screenReaderEnabled: false }),
 }));
 jest.mock('../../../ui/ActionDock', () => {
   const { Pressable, View } = require('react-native');
@@ -73,7 +75,7 @@ jest.mock('../../../ui/BottomDrawer', () => {
   return {
     BottomDrawer: (props: MockBottomDrawerProps) => {
       mockBottomDrawerProps.push(props);
-      const { visible, children, bottomAccessory, snapIndex, snapPoints } = props;
+      const { visible, children, bottomAccessory, actionDock, snapIndex, snapPoints } = props;
       return visible
         ? (
           <View
@@ -82,11 +84,13 @@ jest.mock('../../../ui/BottomDrawer', () => {
           >
             {children}
             {bottomAccessory}
+            {actionDock}
           </View>
         )
         : null;
     },
     BottomDrawerScrollView: ScrollView,
+    useBottomDrawerActionDockClearance: () => 88,
   };
 });
 import { colors, fonts, radii, spacing, typography } from '../../../theme';
@@ -145,6 +149,7 @@ describe('Recipe library', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockBottomDrawerProps.length = 0;
+    mockReduceMotionEnabled = false;
   });
 
   it('returns to discovery when the final quick filter is cleared', () => {
@@ -185,7 +190,11 @@ describe('Recipe library', () => {
     );
 
     expect(targetRef.current).toBeTruthy();
-    expect(screen.getAllByTestId(/^recipe-card-recommended-/)[0]).toHaveProp('collapsable', false);
+    expect(
+      screen
+        .getAllByTestId(/^recipe-plan-toggle-target-/)
+        .some((target) => target.props.collapsable === false),
+    ).toBe(true);
   });
 
   it('uses the borderless Goals card grammar for ordinary and recommended recipes', () => {
@@ -765,7 +774,8 @@ describe('Recipe library', () => {
     );
 
     expect(drawer.getByText('Ideas')).toBeTruthy();
-    expect(drawer.getByLabelText('Ideas, 6 recipes')).toBeTruthy();
+    expect(drawer.getByText('Meals you’re considering. Add any recipe with +, or ask Kwilt.')).toBeTruthy();
+    expect(drawer.getByLabelText('Meal plan, 6 meals')).toBeTruthy();
     expect(drawer.queryByTestId('meal-plan-drawer-count')).toBeNull();
     expect(drawer.queryByTestId('meal-plan-drawer-thumbnail')).toBeNull();
     expect(drawer.queryByLabelText('Search meals')).toBeNull();
@@ -795,7 +805,7 @@ describe('Recipe library', () => {
       />,
     );
 
-    expect(StyleSheet.flatten(drawer.getByText('Ideas').props.style)).toMatchObject({
+    expect(StyleSheet.flatten(drawer.getByText('Meal plan').props.style)).toMatchObject({
       fontFamily: typography.titleLg.fontFamily,
       fontSize: typography.titleLg.fontSize,
     });
@@ -860,7 +870,7 @@ describe('Recipe library', () => {
     const planDrawer = mockBottomDrawerProps.find((props) => (
       props.visible && props.snapPoints?.[0] === '100%'
     ));
-    expect(planDrawer?.bottomAccessory).toBeTruthy();
+    expect(planDrawer?.actionDock).toBeTruthy();
     const transition = drawer.getByTestId(
       'plan-grocery-action-transition',
       { includeHiddenElements: true },
@@ -966,7 +976,7 @@ describe('Recipe library', () => {
     );
 
     expect(drawer.getByText('Add a meal idea')).toBeTruthy();
-    fireEvent.press(drawer.getByRole('button', { name: 'Get ideas from Kwilt' }));
+    fireEvent.press(drawer.getByRole('button', { name: 'Suggest meals' }));
     expect(onGetIdeas).toHaveBeenCalledTimes(1);
     expect(drawer.queryByText('Nothing in Plan yet')).toBeNull();
     expect(drawer.queryByText('Add any recipe you might want to make.')).toBeNull();
@@ -998,7 +1008,7 @@ describe('Recipe library', () => {
       'planned-empty',
     ]);
     expect(StyleSheet.flatten(
-      drawer.getByRole('button', { name: 'Get ideas from Kwilt' }).props.style,
+      drawer.getByRole('button', { name: 'Suggest meals' }).props.style,
     )).toMatchObject({
       width: '100%',
       minHeight: 48,
@@ -1008,10 +1018,10 @@ describe('Recipe library', () => {
       alignItems: 'flex-start',
     });
     await act(async () => {
-      fireEvent.press(drawer.getByRole('button', { name: 'Get ideas from Kwilt' }));
+      fireEvent.press(drawer.getByRole('button', { name: 'Suggest meals' }));
     });
     expect(onGetIdeas).toHaveBeenCalledTimes(1);
-    expect(drawer.getByRole('button', { name: 'Get more ideas' })).toBeTruthy();
+    expect(drawer.getByRole('button', { name: 'Suggest more meals' })).toBeTruthy();
   });
 
   it('uses standard drawer dismissal without a redundant close button', () => {
@@ -1034,7 +1044,7 @@ describe('Recipe library', () => {
     expect(planDrawerProps?.dismissable).not.toBe(false);
     expect(planDrawerProps?.dismissOnBackdropPress).not.toBe(false);
     expect(drawer.queryByRole('button', { name: 'Close Plan' })).toBeNull();
-    expect(StyleSheet.flatten(drawer.getByLabelText('Ideas, 0 recipes').props.style).flex).toBeUndefined();
+    expect(StyleSheet.flatten(drawer.getByLabelText('Meal plan, 0 meals').props.style).flex).toBeUndefined();
     expect(drawer.queryByTestId('meal-plan-drawer-count')).toBeNull();
   });
 
@@ -1076,14 +1086,19 @@ describe('Recipe library', () => {
     const groceryAction = drawer.getByRole('button', { name: 'View groceries' });
     expect(StyleSheet.flatten(groceryAction.props.style)).toMatchObject({
       width: '100%',
-      minHeight: 52,
+      minHeight: 44,
       backgroundColor: colors.primary,
     });
     expect(drawer.getByText('View groceries')).toBeTruthy();
     const planDrawerProps = mockBottomDrawerProps.find((props) => props.visible);
-    expect(planDrawerProps?.bottomAccessory).toBeTruthy();
-    expect(planDrawerProps?.bottomAccessoryPlacement).toBe('drawer');
-    expect(planDrawerProps?.bottomAccessoryShowTopBorder).toBe(false);
+    expect(planDrawerProps?.actionDock).toBeTruthy();
+    expect(planDrawerProps?.contentLayout).toBe('edgeToEdge');
+    expect(planDrawerProps?.bottomAccessory).toBeUndefined();
+    expect(drawer.queryByTestId('plan-view-groceries.trailing-icon')).toBeNull();
+    const planList = drawer.UNSAFE_root.findAll((node: TestTreeNode) => (
+      node.props.activationMode === 'handle' && Array.isArray(node.props.items)
+    ))[0];
+    expect(planList.props.extraBottomPadding).toBe(88);
     fireEvent(drawer.getByRole('button', { name: 'Move Tacos' }), 'accessibilityAction', {
       nativeEvent: { actionName: 'addToGroceries' },
     });
@@ -1563,13 +1578,12 @@ describe('Recipe library', () => {
 
   });
 
-  it('shows the durable idea count independently of unseen attention', () => {
+  it('presents the durable count as one Meal plan and preserves its quiet badge treatment', () => {
     const onPress = jest.fn();
     const screen = render(<MealPlanHeaderAction count={5} needsAttention={false} onPress={onPress} />);
 
-    expect(screen.getByText('Ideas')).toBeTruthy();
-    expect(screen.queryByText('Plan')).toBeNull();
-    expect(screen.queryByText('Meal Plan')).toBeNull();
+    expect(screen.getByText('Meal plan')).toBeTruthy();
+    expect(screen.queryByText('Ideas')).toBeNull();
     expect(screen.getByText('5')).toBeTruthy();
     const actionStyle = StyleSheet.flatten(screen.getByTestId('meal-plan-header-action').props.style);
     const countStyle = StyleSheet.flatten(screen.getByTestId('meal-plan-header-count', { includeHiddenElements: true }).props.style);
@@ -1583,8 +1597,34 @@ describe('Recipe library', () => {
       backgroundColor: colors.actionAttention,
     });
     expect(countStyle).not.toHaveProperty('position');
-    fireEvent.press(screen.getByLabelText('Ideas, 5 ideas'));
+    fireEvent.press(screen.getByLabelText('Meal plan, 5 meals'));
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('coordinates the Meal plan badge pulse with an animated number change and stays still for Reduce Motion', () => {
+    const start = jest.fn();
+    const sequence = jest.spyOn(Animated, 'sequence').mockReturnValue({ start } as unknown as Animated.CompositeAnimation);
+    const parallel = jest.spyOn(Animated, 'parallel').mockReturnValue({ start } as unknown as Animated.CompositeAnimation);
+    const screen = render(<MealPlanHeaderAction count={1} needsAttention={false} onPress={jest.fn()} />);
+
+    screen.rerender(<MealPlanHeaderAction count={2} needsAttention={false} onPress={jest.fn()} />);
+    expect(sequence).toHaveBeenCalledTimes(1);
+    expect(parallel).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('meal-plan-header-count-outgoing')).toHaveTextContent('1');
+    expect(screen.getByTestId('meal-plan-header-count-current')).toHaveTextContent('2');
+
+    sequence.mockClear();
+    parallel.mockClear();
+    mockReduceMotionEnabled = true;
+    screen.rerender(<MealPlanHeaderAction count={3} needsAttention={false} onPress={jest.fn()} />);
+    expect(sequence).not.toHaveBeenCalled();
+    expect(parallel).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('meal-plan-header-count-outgoing')).toBeNull();
+    expect(screen.getByTestId('meal-plan-header-count-current')).toHaveTextContent('3');
+
+    sequence.mockRestore();
+    parallel.mockRestore();
   });
 
   it('keeps planned meals visible without exposing Groceries inventory state and can return them to ideas', () => {

@@ -1,7 +1,8 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useRef, useState } from 'react';
 import { router, type Href } from '@/src/capabilities/games/navigation/gamesRouter';
 import { Radio, UsersRound } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   claimRemoteBankTableInvite,
   previewOpenGameTableInvite,

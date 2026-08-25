@@ -1,14 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  Linking,
-  Platform,
-  Pressable,
-  Share,
-  Image,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Alert, Linking, Platform, Share, Image, StyleSheet, View } from 'react-native';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import { BottomDrawer } from '../../ui/BottomDrawer';

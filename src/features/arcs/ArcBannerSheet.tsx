@@ -1,15 +1,6 @@
+import { TouchableOpacity } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Image,
-  Keyboard,
-  StyleProp,
-  StyleSheet,
-  Text,
-  View,
-  ViewStyle,
-  TouchableOpacity,
-} from 'react-native';
+import { Alert, Image, Keyboard, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';

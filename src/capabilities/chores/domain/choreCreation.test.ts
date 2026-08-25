@@ -3,8 +3,11 @@ import { completeChoreOccurrence, createChoreLearningRecord } from './choreLearn
 import {
   addChoreDraftToLearningRecord,
   applyChoreDraftEnrichment,
+  buildChoreSeriesDeleteSnapshot,
   createChoreDraft,
   createChoreDraftFromSeries,
+  deleteChoreSeriesFromLearningRecord,
+  restoreDeletedChoreSeriesToLearningRecord,
   updateChoreSeriesInLearningRecord,
 } from './choreCreation';
 
@@ -198,5 +201,40 @@ describe('caregiver chore creation', () => {
       photoPolicy: 'required',
       scheduledDate: '2026-08-19',
     });
+  });
+
+  it('lets a caregiver delete and restore a chore series with all of its occurrences', () => {
+    const seriesId = 'activity-series-feed-scout';
+    const occurrenceIds = record.occurrences
+      .filter((occurrence) => occurrence.activitySeriesId === seriesId)
+      .map((occurrence) => occurrence.activityOccurrenceId);
+    const snapshot = buildChoreSeriesDeleteSnapshot(record, seriesId);
+
+    expect(snapshot).not.toBeNull();
+    const deleted = deleteChoreSeriesFromLearningRecord(record, 'member-andrew', seriesId);
+
+    expect(deleted.series.some((series) => series.activitySeriesId === seriesId)).toBe(false);
+    expect(deleted.occurrences.some((occurrence) => occurrence.activitySeriesId === seriesId)).toBe(false);
+    expect(deleted.rewardEvents).toEqual(record.rewardEvents);
+
+    const restored = restoreDeletedChoreSeriesToLearningRecord(
+      deleted,
+      'member-andrew',
+      snapshot!,
+    );
+    expect(restored.series).toEqual(record.series);
+    expect(restored.occurrences).toEqual(record.occurrences);
+    expect(restored.occurrences.filter((occurrence) => occurrence.activitySeriesId === seriesId)
+      .map((occurrence) => occurrence.activityOccurrenceId)).toEqual(occurrenceIds);
+  });
+
+  it('does not let a child delete or restore a chore series', () => {
+    const seriesId = 'activity-series-feed-scout';
+    const snapshot = buildChoreSeriesDeleteSnapshot(record, seriesId)!;
+    const deleted = deleteChoreSeriesFromLearningRecord(record, 'member-andrew', seriesId);
+
+    expect(deleteChoreSeriesFromLearningRecord(record, 'member-charlie', seriesId)).toBe(record);
+    expect(restoreDeletedChoreSeriesToLearningRecord(deleted, 'member-charlie', snapshot))
+      .toBe(deleted);
   });
 });

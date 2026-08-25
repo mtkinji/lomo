@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import * as React from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { spacing, typography, colors } from '../theme';
 import type { BottomDrawerSnapPoint } from './BottomDrawer';
 import type { ComboboxOption, ComboboxRecommendedOption } from './Combobox';

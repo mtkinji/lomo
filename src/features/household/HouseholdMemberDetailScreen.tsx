@@ -1,8 +1,9 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { File as ExpoFile } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, StyleSheet, View } from 'react-native';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';

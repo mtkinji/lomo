@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GestureResponderEvent } from 'react-native';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { Activity } from '../../domain/types';
 import { formatTimeRange } from '../../services/plan/planDates';

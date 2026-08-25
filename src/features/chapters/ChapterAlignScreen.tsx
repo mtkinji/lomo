@@ -1,3 +1,4 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 // Phase 6 of docs/chapters-plan.md — Chapter Next Steps "Align" surface.
 //
 // Lightweight confirmation screen for applying an Align suggestion: the
@@ -25,7 +26,7 @@
 // always free for all tiers.
 
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';

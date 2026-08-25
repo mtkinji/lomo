@@ -1,16 +1,8 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Animated,
-  Image,
-  PanResponder,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-  type GestureResponderEvent,
-} from 'react-native';
+import { Animated, Image, PanResponder, ScrollView, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { openPaywallInterstitial } from '../../../services/paywall';

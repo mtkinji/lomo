@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Platform, StyleSheet, View } from 'react-native';
 import { Text } from '../primitives';
 import { colors, spacing, typography } from '../../theme';
 import { StaticMapImage } from './StaticMapImage';

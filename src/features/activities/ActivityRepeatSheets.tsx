@@ -1,4 +1,5 @@
-import { Platform, Pressable, View } from 'react-native';
+import { Pressable } from '@/src/ui/HapticPressable';
+import { Platform, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { colors } from '../../theme';
 import { HapticsService } from '../../services/HapticsService';

@@ -32,7 +32,11 @@ describe('ChoreEditorDrawer', () => {
 
     expect(editorDrawer?.props.snapPoints).toEqual(['100%']);
     expect(editorDrawer?.props.keyboardBehavior).toBe('resize');
-    expect(editorDrawer?.props.bottomAccessory).toBeTruthy();
+    expect(editorDrawer?.props.footer).toMatchObject({
+      primaryAction: {
+        label: 'Add chore',
+      },
+    });
     expect(screen.getByText('New chore')).toBeTruthy();
     expect(screen.getByLabelText('Adding details')).toBeTruthy();
     expect(screen.getByLabelText('Chore').props.editable).not.toBe(false);
@@ -64,7 +68,7 @@ describe('ChoreEditorDrawer', () => {
     expect(screen.queryByText('New chore')).toBeNull();
   });
 
-  it('uses one shared label treatment for text inputs and picker fields', () => {
+  it('keeps single-line controls in compact rows while the finish line stays stacked', () => {
     const screen = renderWithProviders(
       <ChoreEditorDrawer
         visible
@@ -78,17 +82,28 @@ describe('ChoreEditorDrawer', () => {
         onClose={jest.fn()}
       />,
     );
-    const inputLabelStyle = StyleSheet.flatten(screen.getByText('Chore').props.style);
+    const compactLabelStyle = StyleSheet.flatten(screen.getByText('For').props.style);
 
-    for (const label of ['For', 'Repeats', 'What done looks like', 'Photo', 'Approval', 'Reward']) {
+    for (const label of ['Repeats', 'Reward']) {
       const labelStyle = StyleSheet.flatten(screen.getByText(label).props.style);
       expect(labelStyle).toMatchObject({
-        fontFamily: inputLabelStyle.fontFamily,
-        fontSize: inputLabelStyle.fontSize,
-        lineHeight: inputLabelStyle.lineHeight,
-        color: inputLabelStyle.color,
+        fontFamily: compactLabelStyle.fontFamily,
+        fontSize: compactLabelStyle.fontSize,
+        lineHeight: compactLabelStyle.lineHeight,
+        color: compactLabelStyle.color,
       });
-      expect(labelStyle.fontWeight).toBe(inputLabelStyle.fontWeight);
+      expect(labelStyle.fontWeight).toBe(compactLabelStyle.fontWeight);
+    }
+
+    expect(screen.getByText('What done looks like')).toBeTruthy();
+    for (const label of ['Require a photo', 'Require approval']) {
+      const labelStyle = StyleSheet.flatten(screen.getByText(label).props.style);
+      expect(labelStyle).toMatchObject({
+        fontFamily: compactLabelStyle.fontFamily,
+        fontSize: compactLabelStyle.fontSize,
+        lineHeight: compactLabelStyle.lineHeight,
+        color: compactLabelStyle.color,
+      });
     }
   });
 
@@ -108,10 +123,17 @@ describe('ChoreEditorDrawer', () => {
       />,
     );
 
-    expect(screen.getByDisplayValue('Optional')).toBeTruthy();
-    expect(screen.getByDisplayValue('Not required')).toBeTruthy();
-    expect(screen.getByLabelText('Photo requirement')).toBeTruthy();
-    expect(screen.getByLabelText('Approval requirement')).toBeTruthy();
+    const photoSwitch = screen.getByLabelText('Require a photo');
+    const approvalSwitch = screen.getByLabelText('Require approval');
+
+    expect(photoSwitch.props.accessibilityState).toMatchObject({ checked: false });
+    expect(approvalSwitch.props.accessibilityState).toMatchObject({ checked: false });
+
+    fireEvent.press(photoSwitch);
+    fireEvent.press(approvalSwitch);
+
+    expect(onChange).toHaveBeenCalledWith('photoPolicy', 'required');
+    expect(onChange).toHaveBeenCalledWith('reviewPolicy', 'caregiver_review');
   });
 
   it('keeps editable field labels neutral while focused', () => {

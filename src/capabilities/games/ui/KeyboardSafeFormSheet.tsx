@@ -1,14 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { ReactNode } from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 import { GameButton } from './GameButton';

@@ -1,17 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { RefObject } from 'react';
 import React from 'react';
-import {
-  Animated,
-  Keyboard,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type ViewProps,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Animated, Keyboard, Platform, StyleSheet, Text, View, type ViewProps, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { bottomDockGeometry, colors, floatingControl, spacing, typography, fonts } from '../theme';

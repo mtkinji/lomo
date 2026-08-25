@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useState } from 'react';
 import { Check, X } from 'lucide-react-native';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { BankGame } from '@/src/capabilities/games/domain/bank';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 import { GameButton } from '@/src/capabilities/games/ui/GameButton';

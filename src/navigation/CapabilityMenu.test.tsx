@@ -120,7 +120,7 @@ describe('CapabilityMenu', () => {
 
   it('offers Unpin in the Kwilt menu for a primary destination', () => {
     const menu = render(
-      <CapabilityMenu activeCapabilityId="chores" choresEnabled chats={chats} {...handlers} />,
+      <CapabilityMenu activeCapabilityId="chores" chats={chats} {...handlers} />,
     );
 
     fireEvent(menu.getByLabelText('Chores'), 'longPress');
@@ -153,7 +153,6 @@ describe('CapabilityMenu', () => {
     const menu = render(
       <CapabilityMenu
         activeCapabilityId="todos"
-        choresEnabled
         chats={chats}
         pinOverrides={{ chores: false, games: true }}
         {...handlers}
@@ -237,7 +236,6 @@ describe('CapabilityMenu', () => {
     const menu = render(
       <CapabilityMenu
         activeCapabilityId="todos"
-        choresEnabled
         displayName="Andy"
         chats={chats}
         {...handlers}
@@ -283,7 +281,6 @@ describe('CapabilityMenu', () => {
           chats={chats}
           {...handlers}
           exploreEnabled
-          choresEnabled
           onReselectCapability={onReselectCapability}
         />,
       );
@@ -306,7 +303,6 @@ describe('CapabilityMenu', () => {
           chats={chats}
           {...handlers}
           exploreEnabled
-          choresEnabled
           onReselectCapability={onReselectCapability}
         />,
       );
@@ -407,25 +403,20 @@ describe('CapabilityMenu', () => {
     expect(handlers.onSelectCapability).not.toHaveBeenCalled();
   });
 
-  it('shows Chores as a direct capability only after explicit Labs activation', () => {
+  it('shows Chores as a default-pinned direct capability and supports reselect', () => {
     const onReselectCapability = jest.fn();
-    const hidden = render(
-      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
-    );
-    expect(hidden.queryByLabelText('Chores')).toBeNull();
-
-    const enabled = render(
+    const menu = render(
       <CapabilityMenu
         activeCapabilityId="chores"
-        choresEnabled
         displayName="Andy"
         chats={chats}
         {...handlers}
         onReselectCapability={onReselectCapability}
       />,
     );
-    expect(enabled.getByLabelText('Chores').props.accessibilityState).toEqual({ selected: true });
-    fireEvent.press(enabled.getByLabelText('Chores'));
+    expect(within(menu.getByTestId('capability.menu.primary')).getByLabelText('Chores')).toBeTruthy();
+    expect(menu.getByLabelText('Chores').props.accessibilityState).toEqual({ selected: true });
+    fireEvent.press(menu.getByLabelText('Chores'));
     expect(onReselectCapability).toHaveBeenCalledWith('chores');
     expect(handlers.onSelectCapability).not.toHaveBeenCalled();
   });
@@ -434,7 +425,6 @@ describe('CapabilityMenu', () => {
     const menu = render(
       <CapabilityMenu
         activeCapabilityId={null}
-        choresEnabled
         choresAttentionCount={2}
         displayName="Andy"
         chats={chats}
@@ -539,7 +529,6 @@ describe('CapabilityMenu', () => {
         displayName="Andy"
         chats={chats}
         unvisitedCapabilityIds={['goals', 'plan', 'chores']}
-        choresEnabled
         {...handlers}
       />,
     );

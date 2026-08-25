@@ -1,18 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import {
-  StyleSheet,
-  View,
-  StyleProp,
-  ViewStyle,
-  Pressable,
-  Platform,
-  TextInput,
-  Image,
-  InteractionManager,
-  Alert,
-  Linking,
-  Switch,
-} from 'react-native';
+import { StyleSheet, View, StyleProp, ViewStyle, Platform, TextInput, Image, InteractionManager, Alert, Linking, Switch } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

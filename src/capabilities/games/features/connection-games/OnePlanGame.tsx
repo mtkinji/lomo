@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Circle, CircleHelp, X } from 'lucide-react-native';
-import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import * as Speech from 'expo-speech';
 import { useGameFeedback } from '@/src/capabilities/games/audio/useGameFeedback';
 import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';

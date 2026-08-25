@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import * as React from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { ActivityArea, ActivityDifficulty, ActivityRepeatRule, ActivityType } from '../../domain/types';
 import { getActiveActivityAreas } from '../../domain/activityAreas';
 import { colors, spacing, typography } from '../../theme';

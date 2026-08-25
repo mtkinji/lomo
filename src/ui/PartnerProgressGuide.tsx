@@ -1,3 +1,4 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 /**
  * Partner progress guide - celebrates when a partner makes progress on a shared goal.
  *
@@ -8,7 +9,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { StyleSheet, View, Pressable } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Portal } from '@rn-primitives/portal';
 import { BottomGuide } from './BottomGuide';
 import { Text, Heading, HStack, VStack } from './primitives';

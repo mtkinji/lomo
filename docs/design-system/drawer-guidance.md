@@ -17,8 +17,13 @@ Standard task, choice, action, detail, and progressive drawers share one
 canonical top frame:
 
 - The sheet itself has no top padding before the handle region.
-- The grab handle sits `spacing.sm` below the sheet edge and
-  `spacing.xs` above the header or body.
+- The grab handle is optically lowered to 12 points below the sheet edge while
+  its 17-point layout slot preserves the established header and body position.
+- A full-width, 44-point top-edge pan target is independent of that visual slot,
+  so touch geometry can grow without pushing drawer content down.
+- Standard drawer scroll views carry the 17-point allowance inside their content
+  inset, allowing scrolled rows to continue behind the fixed handle and clip only
+  at the drawer's rounded top edge.
 - The standard handle is 64 by 5 points with the pill radius token.
 - `BottomDrawerHeader` uses `typography.titleSm` for the drawer title.
 - One layer owns each horizontal gutter; callers must not stack sheet padding
@@ -41,6 +46,30 @@ Apps should keep local:
 - Domain-specific rows such as transaction category options, rule suggestions, goal/activity pickers, and forecast explanations.
 - Domain-specific copy tone and ordering.
 - Whole workflow composition when the drawer is tied to a product object.
+
+## Bottom Affordances
+
+Use the drawer's named semantic regions rather than treating every fixed bottom
+control as generic accessory content:
+
+- `footer` completes a bounded task. It owns one trailing horizontal action
+  group with an optional neutral or destructive secondary immediately before
+  the primary. Actions keep intrinsic widths instead of stretching into equal
+  columns. `BottomDrawer` owns its safe area, keyboard relationship, divider
+  policy, and scroll clearance. The attached footer always uses the quiet,
+  upward-cast `drawerFooter` elevation; it separates the fixed action surface
+  from scrolling content without making the footer appear to float. The footer
+  surface spans the drawer edge to edge; only its action content is inset.
+- `actionDock` keeps the likely next action available while the drawer remains
+  an ongoing workspace. It floats over the drawer content instead of creating a
+  structural footer band. A single destination uses the 44pt
+  `DrawerDestinationAction`, with a centered leading icon and label. Scrollable
+  content uses the canonical drawer-dock clearance so its final item remains
+  reachable behind the overlay.
+- A composer is continuous input and retains its own keyboard and state anatomy.
+
+`bottomAccessory` remains a low-level compatibility seam. New task footers and
+drawer docks should not build their own padding or safe-area geometry through it.
 
 ## Explicit Exceptions
 
@@ -68,7 +97,7 @@ header to `titleMd` or `titleLg`.
 | --- | --- | --- | --- |
 | Choice picker | User chooses one value from a short/medium list. | Grabber, compact title, optional search, selectable rows, selected check. | Money category picker plus Goals picker behavior. |
 | Action sheet | User chooses one command from a small set. | Grabber, title/subtitle, command rows, destructive styling if needed. | Goals drawers. |
-| Task drawer | User configures filters, sorting, creation, or edits multiple fields. | Header with close/action, scroll body, optional footer CTA. | Goals `BottomDrawer`. |
+| Task drawer | User configures filters, sorting, creation, or edits multiple fields. | Header with close/action, scroll body, optional semantic footer. | Goals `BottomDrawer`. |
 | Detail/review drawer | User reviews structured evidence before confirming. | Header, evidence sections, primary CTA, optional secondary action. | Hybrid. |
 | Interstitial drawer | User hits a paywall, permission prompt, or guided moment. | Brand-aware header/body, CTA stack, close behavior by policy. | Keep local until repeated. |
 

@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable } from '@/src/ui/HapticPressable';
+import { StyleSheet, View } from 'react-native';
 import { colors, spacing } from '../../../theme';
 import { Text } from '../../../ui/Typography';
 import type { FoodBudgetProjection } from '../../money/domain/foodBudgetProjection';

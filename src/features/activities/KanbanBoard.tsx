@@ -1,13 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
 import type { RefObject } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-  Platform,
-  UIManager,
-} from 'react-native';
+import { StyleSheet, View, useWindowDimensions, Platform, UIManager } from 'react-native';
 import Animated, {
   Easing,
   interpolate,

@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
-import { useKwiltLabsStore } from '../../../labs/useKwiltLabsStore';
 import { useAppStore } from '../../../store/useAppStore';
 import { projectChoreReviewQueue } from '../domain/choreLearning';
 import { useChoreLearningStore } from './useChoreLearningStore';
@@ -22,7 +21,6 @@ export async function syncChoreCaregiverAppBadge(count: number): Promise<void> {
 export function ChoreCaregiverAttentionRuntimeHost({
   userId,
 }: ChoreCaregiverAttentionRuntimeHostProps) {
-  const choresEnabled = useKwiltLabsStore((state) => state.enabledCapabilities.includes('chores'));
   const notificationsEnabled = useAppStore(
     (state) => state.notificationPreferences.notificationsEnabled,
   );
@@ -32,8 +30,7 @@ export function ChoreCaregiverAttentionRuntimeHost({
   const record = useChoreLearningStore((state) => state.record);
 
   const canShowBadge = Boolean(
-    choresEnabled
-    && userId
+    userId
     && notificationsEnabled
     && osPermissionStatus === 'authorized',
   );

@@ -1,8 +1,9 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useState } from 'react';
 import { router, useLocalSearchParams } from '@/src/capabilities/games/navigation/gamesRouter';
 import { Ionicons } from '@expo/vector-icons';
 import { Dices, X } from 'lucide-react-native';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GameBackdrop } from '@/src/capabilities/games/ui/GameBackdrop';
 import { GameButton } from '@/src/capabilities/games/ui/GameButton';

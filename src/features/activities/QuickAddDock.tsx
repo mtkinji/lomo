@@ -1,7 +1,8 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import * as React from 'react';
 import { useMemo } from 'react';
 import type { RefObject } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
 import { fonts } from '../../theme/typography';
 import { Icon } from '../../ui/Icon';

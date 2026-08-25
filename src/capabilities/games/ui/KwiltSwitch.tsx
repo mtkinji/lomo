@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Easing, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 
 export type KwiltSwitchProps = {

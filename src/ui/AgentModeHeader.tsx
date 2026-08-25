@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { BrandLockup } from './BrandLockup';
 import { HStack, Text } from './primitives';
 import { colors, spacing, typography } from '../theme';

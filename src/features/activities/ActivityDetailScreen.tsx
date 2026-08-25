@@ -1,21 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-  Alert,
-  InteractionManager,
-  LayoutAnimation,
-  View,
-  Text,
-  Pressable,
-  TextInput,
-  Platform,
-  Keyboard,
-  Share,
-  Linking,
-  useWindowDimensions,
-  findNodeHandle,
-  UIManager,
-} from 'react-native';
+import { Alert, InteractionManager, LayoutAnimation, View, Text, TextInput, Platform, Keyboard, Share, Linking, useWindowDimensions, findNodeHandle, UIManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';

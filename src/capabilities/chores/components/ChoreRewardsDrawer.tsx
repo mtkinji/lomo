@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { colors, radii, spacing } from '../../../theme';
 import { useToastStore } from '../../../store/useToastStore';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';

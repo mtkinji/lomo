@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from "react";
-import { FlatList, Pressable, StyleSheet, Switch, View } from "react-native";
+import { FlatList, StyleSheet, Switch, View } from "react-native";
 import { BottomDrawer } from "../../ui/BottomDrawer";
 import { BottomDrawerHeader } from "../../ui/layout/BottomDrawerHeader";
 import { EmptyState, HStack, Input, Text, VStack } from "../../ui/primitives";

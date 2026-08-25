@@ -1,13 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useState, type ReactNode, type Ref } from 'react';
-import {
-  type LayoutChangeEvent,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { type LayoutChangeEvent, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, spacing } from '../../../theme';
 import { Icon } from '../../../ui/Icon';
 import { formatMoney, type MoneyCategory } from '../data/moneySnapshot';

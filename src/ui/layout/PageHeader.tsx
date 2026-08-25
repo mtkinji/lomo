@@ -1,13 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { ReactNode } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  StyleProp,
-  ViewStyle,
-  useWindowDimensions,
-} from 'react-native';
+import { StyleSheet, Text, View, StyleProp, ViewStyle, useWindowDimensions } from 'react-native';
 import { Icon, IconName } from '../Icon';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { IconButton } from '../Button';

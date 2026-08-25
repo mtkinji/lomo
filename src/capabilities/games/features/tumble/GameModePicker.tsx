@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/src/ui/HapticPressable';
+import { StyleSheet, Text, View } from 'react-native';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 import { gameModeLabel, gameModes, type GameMode } from './gameModes';
 

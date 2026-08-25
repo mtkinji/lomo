@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text, Heading, VStack, HStack } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import { colors, spacing, typography, fonts } from '../../theme';

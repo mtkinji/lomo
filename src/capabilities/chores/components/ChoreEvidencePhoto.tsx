@@ -1,12 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useState } from 'react';
-import {
-  Image,
-  Modal,
-  Pressable,
-  StyleSheet,
-  View,
-  type ImageSourcePropType,
-} from 'react-native';
+import { Image, Modal, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

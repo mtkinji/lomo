@@ -1,4 +1,5 @@
-import { Alert, InteractionManager, ScrollView, Share, StyleSheet, View, Pressable, TextInput, Switch } from 'react-native';
+import { Pressable } from '@/src/ui/HapticPressable';
+import { Alert, InteractionManager, ScrollView, Share, StyleSheet, View, TextInput, Switch } from 'react-native';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

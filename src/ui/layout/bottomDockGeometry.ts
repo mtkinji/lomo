@@ -46,6 +46,17 @@ export function resolveDrawerFloatingActionBottomInset(safeAreaBottom: number): 
   );
 }
 
+export function resolveDrawerFloatingActionContentInset(
+  safeAreaBottom: number,
+  actionHeight: number,
+): number {
+  return (
+    resolveDrawerFloatingActionBottomInset(safeAreaBottom)
+    + actionHeight
+    + bottomDockGeometry.drawerFloatingAction.contentGap
+  );
+}
+
 export function resolveDrawerActionBottomPadding(
   parentBottomInset: number,
   safeAreaBottom: number,

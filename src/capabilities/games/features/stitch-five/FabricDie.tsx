@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text as NativeText, View, type TextProps } from 'react-native';
+import { AccessibilityInfo, Animated, StyleSheet, Text as NativeText, View, type TextProps } from 'react-native';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 
 const faces: Record<number, number[]> = {

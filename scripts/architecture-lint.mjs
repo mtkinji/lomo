@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import {
   findBottomDockGeometryOverrides,
   findBrandGreenUsageIncrease,
+  findRawInteractiveControlImports,
 } from './architecture-lint-lib.mjs';
 
 const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
@@ -71,6 +72,10 @@ const directRnPrimitiveImport = /from\s+['"]@rn-primitives\//;
 const rawTextImport = /import\s+\{[^}]*\bText\b[^}]*\}\s+from\s+['"]react-native['"]/;
 const rawTextAliasImport = /import\s+\{[^}]*\bText\s+as\s+\w+[^}]*\}\s+from\s+['"]react-native['"]/;
 const rawTextWarningsByFeature = new Map();
+const rawInteractiveControlAllowlist = new Set([
+  'src/ui/Button.tsx',
+  'src/ui/HapticPressable.tsx',
+]);
 
 function resolveBrandGreenBaselineRef() {
   const preferred = process.env.ARCHITECTURE_LINT_BASE ?? 'origin/main';
@@ -111,6 +116,12 @@ for (const file of sourceFiles) {
   const text = fs.readFileSync(file, 'utf8');
   const relativeFile = rel(file);
   errors.push(...findBottomDockGeometryOverrides(relativeFile, text));
+  if (
+    isProductUiImplementation(relativeFile)
+    && !rawInteractiveControlAllowlist.has(relativeFile)
+  ) {
+    errors.push(...findRawInteractiveControlImports(relativeFile, text));
+  }
   if (directReusableImport.test(text)) {
     pushImportFinding(errors, file, 'feature/app code must import through src/ui adapters, not components/ui directly');
   }

@@ -1,4 +1,5 @@
-import { Pressable, View } from 'react-native';
+import { Pressable } from '@/src/ui/HapticPressable';
+import { View } from 'react-native';
 import { colors, spacing } from '../../theme';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';

@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { colors, spacing, typography, fonts, cardElevation } from '../theme';
 import { Icon, type IconName } from './Icon';
 import { HStack, Text } from './primitives';

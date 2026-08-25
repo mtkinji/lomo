@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, typography } from '../../../theme';
 import { Icon } from '../../../ui/Icon';
 import { formatMoneyFreshness } from '../data/moneySnapshot';

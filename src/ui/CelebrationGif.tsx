@@ -1,14 +1,6 @@
+import { TouchableOpacity } from '@/src/ui/HapticPressable';
 import { useEffect, useState } from 'react';
-import {
-  Image,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  type ImageSourcePropType,
-  type ImageResizeMode,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Image, StyleSheet, View, type ImageSourcePropType, type ImageResizeMode, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Text } from './Typography';
 import { Icon } from './Icon';

@@ -1,10 +1,13 @@
 import { fireEvent } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { renderWithProviders } from '../test/renderWithProviders';
 import {
   BottomDrawer,
+  BottomDrawerScrollView,
   getBottomDrawerExpansionOpacity,
   isBottomDrawerAccessibilityModal,
+  isBottomDrawerHandleTouchY,
   shouldAnimateBottomDrawerOnHide,
   shouldBottomDrawerResizeContents,
   shouldDismissKeyboardOnSnapChange,
@@ -43,7 +46,7 @@ describe('BottomDrawer accessibility contract', () => {
     expect(shouldAnimateBottomDrawerOnHide('inline', false)).toBe(true);
   });
 
-  it('uses the high-handle standard anatomy by default', () => {
+  it('separates the lowered handle from the preserved content offset', () => {
     const { getByTestId } = renderWithProviders(
       <BottomDrawer visible onClose={jest.fn()}>
         <Text>Standard drawer</Text>
@@ -58,9 +61,81 @@ describe('BottomDrawer accessibility contract', () => {
       paddingBottom: 4,
     });
     expect(StyleSheet.flatten(getByTestId('bottom-drawer.handle').props.style)).toMatchObject({
+      position: 'relative',
+      top: 4,
       width: 64,
       height: 5,
     });
+  });
+
+  it('accepts drawer pans from the full 44-point top-edge touch target', () => {
+    expect(isBottomDrawerHandleTouchY(0)).toBe(true);
+    expect(isBottomDrawerHandleTouchY(17)).toBe(true);
+    expect(isBottomDrawerHandleTouchY(44)).toBe(true);
+    expect(isBottomDrawerHandleTouchY(44.01)).toBe(false);
+    expect(isBottomDrawerHandleTouchY(-0.01)).toBe(false);
+  });
+
+  it('uses one absolute pan owner for the handle and expanded top-edge target', () => {
+    const { getByTestId, UNSAFE_getAllByType } = renderWithProviders(
+      <BottomDrawer visible onClose={jest.fn()}>
+        <Text>Standard drawer</Text>
+      </BottomDrawer>,
+    );
+
+    expect(UNSAFE_getAllByType(GestureDetector)).toHaveLength(1);
+    const touchTarget = getByTestId('bottom-drawer.handle-touch-target');
+    expect(StyleSheet.flatten(touchTarget.props.style)).toMatchObject({
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 44,
+      zIndex: 2,
+    });
+    expect(touchTarget.props.pointerEvents).toBe('box-only');
+  });
+
+  it('keeps the absolute top-edge target outside the drawer scroll gesture', () => {
+    const { getByTestId, UNSAFE_getAllByType } = renderWithProviders(
+      <BottomDrawer visible enableContentPanningGesture onClose={jest.fn()}>
+        <BottomDrawerScrollView>
+          <Text>Scrollable drawer</Text>
+        </BottomDrawerScrollView>
+      </BottomDrawer>,
+    );
+
+    const detectors = UNSAFE_getAllByType(GestureDetector);
+    expect(detectors).toHaveLength(3);
+    const topEdgeDetector = detectors.find(
+      (detector) => detector.props.children.props.testID === 'bottom-drawer.handle-touch-target',
+    );
+    expect(topEdgeDetector).toBeDefined();
+    expect(topEdgeDetector?.props.gesture.toGestureArray()[0]?.config.simultaneousWith ?? [])
+      .toHaveLength(0);
+    const surfaceDetector = detectors.find(
+      (detector) => detector.props.children.props.testID === 'bottom-drawer.surface',
+    );
+    expect(surfaceDetector).toBeDefined();
+    expect(getByTestId('bottom-drawer.handle-touch-target')).toBeTruthy();
+  });
+
+  it('moves the handle allowance into scroll content so rows can reach the sheet edge', () => {
+    const { getByTestId, queryByTestId } = renderWithProviders(
+      <BottomDrawer visible onClose={jest.fn()}>
+        <BottomDrawerScrollView
+          testID="drawer-scroll"
+          contentContainerStyle={{ paddingTop: 6 }}
+        >
+          <Text>Scrollable drawer</Text>
+        </BottomDrawerScrollView>
+      </BottomDrawer>,
+    );
+
+    expect(queryByTestId('bottom-drawer.handle-layout-spacer', { includeHiddenElements: true }))
+      .toBeNull();
+    expect(StyleSheet.flatten(getByTestId('drawer-scroll').props.contentContainerStyle))
+      .toMatchObject({ paddingTop: 23 });
   });
 
   it('keeps the standard handle and rounded frame for edge-to-edge content', () => {
@@ -130,6 +205,75 @@ describe('BottomDrawer accessibility contract', () => {
     expect(getByText('Conversation')).toBeTruthy();
     expect(getByText('Composer')).toBeTruthy();
     expect(StyleSheet.flatten(getByTestId('bottom-drawer.bottom-accessory').props.style).paddingBottom).toBeGreaterThan(0);
+  });
+
+  it('owns a semantic horizontal footer with the primary action on the right', () => {
+    const onDelete = jest.fn();
+    const onSave = jest.fn();
+    const { getByTestId, getByText } = renderWithProviders(
+      <BottomDrawer
+        visible
+        onClose={jest.fn()}
+        footer={{
+          secondaryAction: {
+            label: 'Delete',
+            onPress: onDelete,
+            tone: 'destructive',
+          },
+          primaryAction: {
+            label: 'Save chore',
+            onPress: onSave,
+          },
+        }}
+      >
+        <Text>Chore form</Text>
+      </BottomDrawer>,
+    );
+
+    const rowChildren = getByTestId('bottom-drawer.semantic-footer.actions').children;
+    expect(rowChildren).toHaveLength(2);
+    expect(getByText('Delete')).toBeTruthy();
+    expect(getByText('Save chore')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('bottom-drawer.semantic-footer.actions').props.style)).toMatchObject({
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+    });
+    expect(StyleSheet.flatten(getByTestId('bottom-drawer.footer').props.style)).toMatchObject({
+      marginHorizontal: -16,
+      paddingHorizontal: 24,
+      shadowColor: '#0F172A',
+      shadowOpacity: 0.06,
+      shadowOffset: { width: 0, height: -4 },
+      shadowRadius: 12,
+      elevation: 2,
+    });
+
+    fireEvent.press(getByText('Delete'));
+    fireEvent.press(getByText('Save chore'));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('floats a drawer action dock over content with equal corner nesting', () => {
+    const { getByTestId } = renderWithProviders(
+      <BottomDrawer
+        visible
+        onClose={jest.fn()}
+        contentLayout="edgeToEdge"
+        actionDock={<Text>View groceries</Text>}
+      >
+        <Text>Meal plan</Text>
+      </BottomDrawer>,
+    );
+
+    const dockStyle = StyleSheet.flatten(getByTestId('bottom-drawer.action-dock').props.style);
+    expect(dockStyle).toMatchObject({
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 32,
+      paddingHorizontal: 32,
+    });
   });
 
   it('can keep the sheet fixed while resizing its content above the keyboard', () => {

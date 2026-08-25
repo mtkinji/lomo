@@ -1,15 +1,8 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import {
-  Alert,
-  Animated,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  type TextInput,
-  View,
-} from 'react-native';
+import { Alert, Animated, ScrollView, StyleSheet, type TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { getLocales } from 'expo-localization';
 

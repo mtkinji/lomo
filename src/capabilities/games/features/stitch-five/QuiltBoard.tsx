@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text as NativeText, View, type TextProps } from 'react-native';
+import { Pressable } from '@/src/ui/HapticPressable';
+import { StyleSheet, Text as NativeText, View, type TextProps } from 'react-native';
 import { stitchFiveScorecard, stitchFiveTotals, type StitchFiveCategoryId, type StitchFivePlayer, type StitchFiveScores, type StitchFiveTone } from '@/src/capabilities/games/domain/stitch-five';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 

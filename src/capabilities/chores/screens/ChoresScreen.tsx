@@ -1,11 +1,13 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View, type TextInput } from 'react-native';
+import { Alert, StyleSheet, View, type TextInput } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
 import { useCapabilityMenuOpen } from '../../../navigation/CapabilityMenuStateContext';
 import { useAppStore } from '../../../store/useAppStore';
 import { colors, radii, spacing } from '../../../theme';
 import { ActivityListItem } from '../../../ui/ActivityListItem';
+import { AlertDialog } from '../../../ui/AlertDialog';
 import { Button, IconButton } from '../../../ui/Button';
 import {
   DropdownMenu,
@@ -48,6 +50,7 @@ import { persistImageUri } from '../../../utils/persistImageUri';
 import { useToastStore } from '../../../store/useToastStore';
 import { QuickAddDock } from '../../../features/activities/QuickAddDock';
 import { FloatingDockActionButton } from '../../../features/activities/FloatingDockActionButton';
+import { FloatingDockLabeledActionButton } from '../../../features/activities/FloatingDockLabeledActionButton';
 import {
   DEFAULT_QUICK_ADD_AI_ACTIONS,
   type QuickAddAiAction,
@@ -55,6 +58,7 @@ import {
 import { enrichActivityWithAI } from '../../../services/ai';
 import {
   applyChoreDraftEnrichment,
+  buildChoreSeriesDeleteSnapshot,
   createChoreDraft,
   createChoreDraftFromSeries,
   type ChoreDraft,
@@ -69,6 +73,7 @@ import { UnifiedChatDrawer } from '../../../features/unifiedChat/UnifiedChatDraw
 import type { UnifiedChatLaunchContext } from '../../../features/unifiedChat/launchContext';
 import { formatActivityRepeatLabel } from '../../../features/activities/activityRepeatLabels';
 import { localDateKey } from '../../../domain/activityRecurrence';
+import { HapticsService } from '../../../services/HapticsService';
 
 type ChoresScreenProps = { now?: () => Date };
 
@@ -275,12 +280,13 @@ function caregiverRepeatLabel(series: ChoreSeries): string {
   return label === 'Off' ? 'One time' : label;
 }
 
-function CaregiverRow({ series, members, tokensEnabled, showAssignee = true, onOpen }: {
+function CaregiverRow({ series, members, tokensEnabled, showAssignee = true, onOpen, onDelete }: {
   series: ChoreSeries;
   members: ChoreMember[];
   tokensEnabled: boolean;
   showAssignee?: boolean;
   onOpen: () => void;
+  onDelete: () => void;
 }) {
   const assignedMember = series.assignedMemberId
     ? members.find((member) => member.id === series.assignedMemberId) ?? null
@@ -308,6 +314,7 @@ function CaregiverRow({ series, members, tokensEnabled, showAssignee = true, onO
         showPriorityControl={false}
         showCheckbox={false}
         onPress={onOpen}
+        onDelete={onDelete}
         rowAccessibilityLabel={`Edit ${series.title}. ${accessibilityMetadata}`}
       />
     </View>
@@ -449,6 +456,8 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const setEvidencePhoto = useChoreLearningStore((state) => state.setEvidencePhoto);
   const addChore = useChoreLearningStore((state) => state.addChore);
   const updateChore = useChoreLearningStore((state) => state.updateChore);
+  const deleteChore = useChoreLearningStore((state) => state.deleteChore);
+  const restoreChore = useChoreLearningStore((state) => state.restoreChore);
   const reconcileRecurrence = useChoreLearningStore((state) => state.reconcileRecurrence);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -462,6 +471,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   );
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingSeriesId, setEditingSeriesId] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [choreDraft, setChoreDraft] = useState<ChoreDraft | null>(null);
   const [enrichingDraft, setEnrichingDraft] = useState(false);
   const [dockReservedHeight, setDockReservedHeight] = useState(0);
@@ -483,6 +493,9 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const projection = projectChoreInventory(record, record.activeMemberId, projectionNow);
   const reviewQueue = useMemo(() => projectChoreReviewQueue(record, record.activeMemberId), [record]);
   const selectedOccurrence = record.occurrences.find((item) => item.activityOccurrenceId === selectedOccurrenceId) ?? null;
+  const editingSeries = editingSeriesId
+    ? record.series.find((series) => series.activitySeriesId === editingSeriesId) ?? null
+    : null;
   const correctionCandidates = selectedOccurrence
     ? projectChoreCorrectionCandidates(
       record,
@@ -544,6 +557,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
     enrichmentRunRef.current += 1;
     setEnrichingDraft(false);
     setEditorOpen(false);
+    setDeleteConfirmOpen(false);
     setEditingSeriesId(null);
     setChoreDraft(null);
     touchedDraftFieldsRef.current.clear();
@@ -614,6 +628,23 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
       variant: 'light',
       actionLabel: 'Undo',
       actionOnPress: () => take(id),
+      bottomOffset: RESTING_COMPOSER_HEIGHT_PX + spacing.md,
+    });
+  };
+  const deleteChoreSeries = (series: ChoreSeries) => {
+    const snapshot = buildChoreSeriesDeleteSnapshot(record, series.activitySeriesId);
+    if (!snapshot) return;
+    void HapticsService.trigger('canvas.destructive.confirm');
+    deleteChore(series.activitySeriesId);
+    useToastStore.getState().showToast({
+      message: 'Chore deleted',
+      variant: 'light',
+      durationMs: 5000,
+      actionLabel: 'Undo',
+      actionOnPress: () => {
+        restoreChore(snapshot);
+        void HapticsService.trigger('canvas.step.undo');
+      },
       bottomOffset: RESTING_COMPOSER_HEIGHT_PX + spacing.md,
     });
   };
@@ -741,6 +772,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                             tokensEnabled={record.tokensEnabled}
                             showAssignee={false}
                             onOpen={() => openChoreEditor(series)}
+                            onDelete={() => deleteChoreSeries(series)}
                           />
                         ))}
                       </View>
@@ -756,6 +788,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                       members={record.members}
                       tokensEnabled={record.tokensEnabled}
                       onOpen={() => openChoreEditor(series)}
+                      onDelete={() => deleteChoreSeries(series)}
                     />
                   ))}
                 </View>
@@ -784,15 +817,16 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         && !rewardsOpen
         && !correctionOpen
         && selectedOccurrence == null ? (
-          <View style={styles.childDockAction}>
-            <FloatingDockActionButton
+          <View testID="chores.rewards.dock" style={styles.childDockAction}>
+            <FloatingDockLabeledActionButton
               testID="chores.rewards.action"
-              accessibilityLabel="Open rewards wallet"
+              accessibilityLabel="My Rewards"
               accessibilityHint="Shows your tokens and redemptions"
+              height={RESTING_COMPOSER_HEIGHT_PX}
               icon="token"
               isProminent
+              label="My Rewards"
               onPress={() => setRewardsOpen(true)}
-              size={RESTING_COMPOSER_HEIGHT_PX}
             />
           </View>
         ) : null}
@@ -946,7 +980,25 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         mode={editingSeriesId ? 'edit' : 'create'}
         onChange={changeChoreDraft}
         onAdd={commitChoreDraft}
+        onDelete={editingSeries ? () => setDeleteConfirmOpen(true) : undefined}
         onClose={closeChoreEditor}
+      />
+      <AlertDialog
+        visible={deleteConfirmOpen && editingSeries !== null}
+        title="Delete chore?"
+        description={editingSeries
+          ? `This removes ${editingSeries.title} and all of its occurrences from the household.`
+          : undefined}
+        cancelLabel="Keep chore"
+        actionLabel="Delete chore"
+        onClose={() => setDeleteConfirmOpen(false)}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onAction={() => {
+          if (!editingSeries) return;
+          const series = editingSeries;
+          closeChoreEditor();
+          deleteChoreSeries(series);
+        }}
       />
       <ChoreReviewDrawer
         visible={reviewOpen}
@@ -1015,7 +1067,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 51,
     elevation: 51,
-    right: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+    left: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
     bottom: RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
   },
   reviewBadge: {

@@ -1,18 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { forwardRef, memo, useState, ReactNode } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  StyleProp,
-  ViewStyle,
-  TextStyle,
-  Pressable,
-  TextInput,
-  NativeSyntheticEvent,
-  TextInputContentSizeChangeEventData,
-  TextInputProps,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle, TextInput, NativeSyntheticEvent, TextInputContentSizeChangeEventData, TextInputProps, Platform } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon, IconName } from './Icon';
 import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';

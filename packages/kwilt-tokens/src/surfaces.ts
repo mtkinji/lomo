@@ -38,6 +38,18 @@ export const cardElevation = {
     elevation: 2,
   },
   /**
+   * Quiet, upward-cast separation for an attached drawer footer. Unlike a
+   * floating composer, the footer remains part of the drawer surface and only
+   * needs enough lift to clarify where scrolling content ends.
+   */
+  drawerFooter: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: -4 },
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  /**
    * Stronger elevation for hero cards or key focus panels (e.g., FTUE
    * research questions, reveal cards).
    */
@@ -118,4 +130,3 @@ export const opportunityElevation = {
     elevation: 5,
   },
 } as const;
-

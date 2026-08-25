@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, AppState, ScrollView, StyleSheet, View, Pressable, Platform, Switch } from 'react-native';
+import { Alert, AppState, ScrollView, StyleSheet, View, Platform, Switch } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';

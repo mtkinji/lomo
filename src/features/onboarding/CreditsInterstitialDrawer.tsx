@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useCreditsInterstitialStore } from '../../store/useCreditsInterstitialStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAppStore } from '../../store/useAppStore';

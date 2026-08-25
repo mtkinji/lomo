@@ -59,6 +59,29 @@ describe('PickerFields', () => {
     expect(screen.queryByPlaceholderText(/search/i)).toBeNull();
   });
 
+  it('uses standard drawer header hierarchy and an explicit close action', () => {
+    renderWithProviders(
+      <EnumPickerField
+        value="active"
+        onValueChange={jest.fn()}
+        options={[
+          { value: 'active', label: 'Active' },
+          { value: 'later', label: 'Later' },
+        ]}
+        title="Status"
+        placeholder="Select status..."
+        accessibilityLabel="Change status"
+        allowDeselect={false}
+      />,
+    );
+
+    fireEvent.press(screen.getByLabelText('Change status'));
+
+    expect(screen.getByTestId('bottom-drawer.header')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Close status picker'));
+    expect(screen.queryByTestId('fixed-options-sheet')).toBeNull();
+  });
+
   it('supports custom triggers for row-style fixed fields', () => {
     renderWithProviders(
       <EnumPickerField

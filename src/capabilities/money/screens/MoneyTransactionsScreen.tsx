@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { Icon, type IconName } from '../../../ui/Icon';
 import {

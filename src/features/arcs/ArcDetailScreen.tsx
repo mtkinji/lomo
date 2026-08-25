@@ -1,20 +1,6 @@
+import { TouchableOpacity } from '@/src/ui/HapticPressable';
 import { CommonActions, RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
-import {
-  Animated,
-  StyleSheet,
-  View,
-  TextInput,
-  Platform,
-  ScrollView,
-  Alert,
-  Linking,
-  TouchableOpacity,
-  Image,
-  Share,
-  StyleProp,
-  ViewStyle,
-  Text,
-} from 'react-native';
+import { Animated, StyleSheet, View, TextInput, Platform, ScrollView, Alert, Linking, Image, Share, StyleProp, ViewStyle, Text } from 'react-native';
 import {
   ObjectPageHeader,
   HeaderActionPill,

@@ -1,13 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  type LayoutRectangle,
-} from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, View, type LayoutRectangle } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon } from './Icon';
 import { RichEditor, actions } from 'react-native-pell-rich-editor';

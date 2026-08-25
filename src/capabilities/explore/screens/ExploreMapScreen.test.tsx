@@ -67,6 +67,10 @@ jest.mock('../runtime/useExploreRecorder', () => ({
   useExploreRecorder: () => mockRecorder,
 }));
 
+jest.mock('../runtime/useExploreRecapResolver', () => ({
+  useExploreRecapResolver: () => undefined,
+}));
+
 jest.mock('../runtime/explorePathReconstruction', () => ({
   reconstructExploreRecordedPath: jest.fn(async () => []),
 }));
@@ -272,6 +276,32 @@ describe('ExploreMapScreen', () => {
     fireEvent.press(screen.getByText('Not now'));
     expect(useExploreStore.getState().preferences.firstPlaceGuideDismissed).toBe(true);
     expect(screen.queryByText('Start with this Place')).toBeNull();
+  });
+
+  it('treats restored completed history as past onboarding so its recap cannot trap navigation', () => {
+    act(() => {
+      const store = useExploreStore.getState();
+      store.updatePreferences({ onboardingCompleted: false });
+      store.startSession('2026-08-24T12:00:00.000Z', 'restored-session');
+      store.appendSample({
+        latitude: 40.55,
+        longitude: -105.12,
+        altitudeM: 1500,
+        horizontalAccuracyM: 8,
+        altitudeAccuracyM: 6,
+        recordedAt: '2026-08-24T12:00:00.000Z',
+      }, 'restored-point');
+      store.stopSession('2026-08-24T12:20:00.000Z', 'background-stillness');
+      store.resolveSessionPlaces('restored-session', [], 'local-user');
+    });
+
+    const screen = render(<ExploreMapScreen />);
+
+    expect(screen.queryByText('How should Explore remember your travels?')).toBeNull();
+    expect(screen.getByLabelText('Open navigation menu')).toBeTruthy();
+    expect(screen.getByText('Path saved to your map.')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('explore.recap.done'));
+    expect(useExploreStore.getState().sessions[0]?.recapStatus).toBe('seen');
   });
 
   it('renders the private empty state and starts only from an explicit action', () => {

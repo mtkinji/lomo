@@ -3,10 +3,11 @@ import React from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 import { colors, spacing } from '../../theme';
-import { Heading, Text, HStack, VStack } from '../primitives';
 import { IconButton } from '../Button';
 import { bottomDrawerChromeTokens } from '../drawerTokens';
 import { Icon } from '../Icon';
+import { HStack, VStack } from '../Stack';
+import { Heading, Text } from '../Typography';
 
 type BottomDrawerHeaderVariant = 'default' | 'withClose' | 'navbar' | 'minimal' | 'immersive';
 

@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { KwiltLoader } from '../../../ui/KwiltLoader';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, fonts, spacing, typography } from '../../../theme';

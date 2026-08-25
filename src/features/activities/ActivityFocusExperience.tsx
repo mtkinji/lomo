@@ -1,6 +1,7 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Animated, Easing, Platform, ScrollView, View } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
 import { PortalHost } from '../../ui/Portal';
 import { colors, spacing } from '../../theme';

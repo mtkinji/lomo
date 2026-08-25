@@ -1,3 +1,4 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 /**
  * Goal feed section for shared goals.
  *
@@ -5,7 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, Pressable, ScrollView, TextInput } from 'react-native';
+import { StyleSheet, View, ScrollView, TextInput } from 'react-native';
 import { Text, HStack, VStack } from '../../ui/primitives';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { colors, spacing, typography, fonts, cardSurfaceStyle } from '../../theme';

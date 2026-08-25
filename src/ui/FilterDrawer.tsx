@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useState, useMemo } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { BottomDrawer } from './BottomDrawer';
 import { Card } from './Card';
 import { VStack, HStack } from './Stack';

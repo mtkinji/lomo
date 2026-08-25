@@ -4,6 +4,7 @@ import {
   resolveDrawerActionBottomPadding,
   resolveDrawerActionInlinePadding,
   resolveDrawerFloatingActionBottomInset,
+  resolveDrawerFloatingActionContentInset,
   resolveDrawerFloatingActionInlinePadding,
   resolvePhoneFloatingBottomInset,
   resolvePhoneFloatingActionContentInset,
@@ -39,6 +40,7 @@ describe('bottom dock geometry', () => {
     expect(resolveDrawerFloatingActionInlinePadding(0)).toBe(32);
     expect(resolveDrawerFloatingActionBottomInset(34)).toBe(32);
     expect(resolveDrawerFloatingActionBottomInset(0)).toBe(32);
+    expect(resolveDrawerFloatingActionContentInset(34, 44)).toBe(88);
     expect(resolveDrawerActionBottomPadding(34, 34)).toBe(0);
     expect(resolveDrawerActionBottomPadding(0, 34)).toBe(34);
     expect(resolveDrawerActionBottomPadding(0, 0)).toBe(20);

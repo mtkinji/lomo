@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { Platform, Pressable, UIManager, View } from 'react-native';
+import { Platform, UIManager, View } from 'react-native';
 import { VStack, HStack, Text } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import { ActivityListItem } from '../../ui/ActivityListItem';

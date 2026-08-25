@@ -1,3 +1,4 @@
+import { Pressable, TouchableOpacity } from '@/src/ui/HapticPressable';
 import {
   forwardRef,
   Fragment,
@@ -9,26 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  Alert,
-  Animated,
-  Dimensions,
-  Easing,
-  Image,
-  Keyboard,
-  InteractionManager,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Vibration,
-  findNodeHandle,
-  TextInput,
-  TouchableOpacity,
-  UIManager,
-  View,
-} from 'react-native';
+import { Alert, Animated, Dimensions, Easing, Image, Keyboard, InteractionManager, Modal, Platform, ScrollView, StyleSheet, Vibration, findNodeHandle, TextInput, UIManager, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';

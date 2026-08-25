@@ -15,7 +15,7 @@ last_reviewed: 2026-08-17
 
 # labs
 
-Keeps emerging Kwilt capabilities explicit, independently reversible, and inactive until a person chooses to try them.
+Keeps Explore explicit, reversible, and inactive until a person chooses to try it.
 
 ## Surfaces in this folder
 
@@ -24,4 +24,4 @@ Keeps emerging Kwilt capabilities explicit, independently reversible, and inacti
 
 ## Notes
 
-Labs controls capability activation only. Each capability continues to own its data, permissions, preferences, and deletion behavior.
+Labs controls Explore activation only. Explore continues to own its data, permissions, preferences, and deletion behavior. Chores graduated from Labs into the regular capability menu on 2026-08-25.

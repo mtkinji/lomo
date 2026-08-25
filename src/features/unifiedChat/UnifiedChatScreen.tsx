@@ -1,18 +1,8 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation, useRoute, type NavigationProp, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
-import {
-  Alert,
-  AppState,
-  FlatList,
-  Keyboard,
-  Linking,
-  Modal,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Alert, AppState, FlatList, Keyboard, Linking, Modal, SafeAreaView, StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';

@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 import { GameButton } from '@/src/capabilities/games/ui/GameButton';

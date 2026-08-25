@@ -1,11 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  Share,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Alert, Share, StyleSheet, View } from 'react-native';
 import {
   acceptFriendRequest,
   blockFriendship,

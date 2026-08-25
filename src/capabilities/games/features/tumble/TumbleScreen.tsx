@@ -1,7 +1,8 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams, type Href } from '@/src/capabilities/games/navigation/gamesRouter';
 import { ArrowLeft, CircleHelp, Landmark, Minus, Plus, RotateCcw, Sparkles, Volume2, VolumeX, X } from 'lucide-react-native';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';

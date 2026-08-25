@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { usePatternAudio } from '@/src/capabilities/games/audio/usePatternAudio';
 import { usePatternGroove } from '@/src/capabilities/games/audio/usePatternGroove';
 import type { PatternBeatId } from '@/src/capabilities/games/domain/passPattern';

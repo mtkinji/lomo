@@ -1,7 +1,8 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useEffect, useMemo, useState } from 'react';
 import { router } from '@/src/capabilities/games/navigation/gamesRouter';
 import { Radio, Share2, UserRound, X } from 'lucide-react-native';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Share, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { advertiseNearbyTable, stopAdvertisingNearbyTable } from '@/src/capabilities/games/nearby/nearbyTables';

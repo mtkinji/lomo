@@ -5,6 +5,7 @@ import {
   countUnmarkedBrandGreenUsages,
   findBottomDockGeometryOverrides,
   findBrandGreenUsageIncrease,
+  findRawInteractiveControlImports,
 } from './architecture-lint-lib.mjs';
 
 test('counts product green tokens but ignores neutral color roles', () => {
@@ -60,6 +61,25 @@ test('allows dock internals and semantic placement without raw geometry override
     findBottomDockGeometryOverrides(
       'src/features/example/ExampleScreen.tsx',
       '<ActionDock placement="phoneFloating" />',
+    ),
+    [],
+  );
+});
+
+test('rejects raw React Native press controls outside the app-owned haptic boundary', () => {
+  assert.deepEqual(
+    findRawInteractiveControlImports(
+      'src/features/example/ExampleScreen.tsx',
+      `import { Pressable, StyleSheet, TouchableOpacity } from 'react-native';`,
+    ),
+    [
+      'src/features/example/ExampleScreen.tsx: import app-owned Pressable and TouchableOpacity from src/ui/HapticPressable so enabled controls acknowledge taps',
+    ],
+  );
+  assert.deepEqual(
+    findRawInteractiveControlImports(
+      'src/features/example/ExampleScreen.tsx',
+      `import { Pressable } from '@/src/ui/HapticPressable';`,
     ),
     [],
   );

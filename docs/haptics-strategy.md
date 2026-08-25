@@ -3,11 +3,11 @@
 ### Goals
 
 - **Feel consistent**: haptics should build a learnable “language” across the product.
-- **Protect calm**: never create a buzzing/annoying app; default subtle + rate-limited.
+- **Protect calm**: every enabled app-owned button acknowledges a tap, using a subtle, rate-limited default unless the action has a stronger semantic event.
 - **Respect accessibility**: when **Reduce Motion** is enabled, suppress decorative haptics.
 - **Preserve UX layers**:
   - **App shell** (primary nav / global chrome): minimal, mostly selection haptics.
-  - **App canvas** (object work): haptics only for meaningful commitment/outcomes.
+  - **App canvas** (object work): buttons acknowledge taps; meaningful commitments and outcomes use their stronger semantic event instead of a second generic pulse.
 
 ### One rule: no direct haptics in UI
 
@@ -33,13 +33,13 @@ Constraints:
 
 #### App canvas (content work)
 
-- **`canvas.selection`**: selecting an item in a list or picker *when selection changes*.
+- **`canvas.selection`**: the quiet default acknowledgement for an enabled app-owned button, and for item selection when no stronger semantic event applies.
 - **`canvas.toggle.on` / `canvas.toggle.off`**: toggles that change state (not disabled).
 - **`canvas.primary.confirm`**: confirm/submit actions that commit work (save, schedule, create).
 - **`canvas.destructive.confirm`**: destructive confirmation (delete, discard).
 
 Constraints:
-- Only fire after the state actually changes (not on press-down).
+- Generic button acknowledgement fires with the accepted press. Stateful and outcome haptics should still follow the real change whenever the interaction can fail.
 - Prefer visual feedback first; haptics are secondary.
 
 #### Outcomes (learnable language)
@@ -59,14 +59,14 @@ Constraints:
 ### Example callsites (guidelines)
 
 - **Tab switch**: call `HapticsService.trigger('shell.nav.selection')` on actual destination change.
-- **Bottom sheet item selection**: `canvas.selection` only when selection changes, not when re-tapping the same row.
+- **Bottom sheet item selection**: the button receives the shared quiet acknowledgement; do not layer another selection pulse on top.
 - **Save button**:
   - immediately after a successful save: `outcome.success`
   - on validation failure after submit: `outcome.error`
 
 ### Anti-patterns (don’t)
 
-- Don’t fire haptics for every tap (“button press haptics everywhere”).
+- Don’t add a second generic pulse when a button already owns a semantic haptic.
 - Don’t fire haptics in loops / animations / scroll handlers.
 - Don’t fire on “disabled” interactions.
 - Don’t use heavy haptics for navigation.
@@ -94,4 +94,3 @@ Use this as the “source of truth” for what gets haptics and how strong it sh
 | App shell: drawer/menu closed | Shell | `shell.nav.close` | Pair with open; fire only when an open menu actually closes. |
 | App shell: primary destination change | Shell | `shell.nav.selection` | Only when destination actually changes. |
 | Chat composer engaged/disengaged | Canvas | `canvas.toggle.on/off` | One subtle selection at each real boundary; suppress the disengage pulse when opening navigation already provides shell feedback. |
-

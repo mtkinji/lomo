@@ -1,5 +1,6 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Icon } from './Icon';
 import { useKeyboardAwareScroll } from './KeyboardAwareScrollView';

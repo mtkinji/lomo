@@ -1,5 +1,5 @@
+import { Pressable } from '@/src/ui/HapticPressable';
 import React from 'react';
-import { Pressable } from 'react-native';
 import { HStack, Text } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import { DropdownMenuItem } from '../../ui/DropdownMenu';
