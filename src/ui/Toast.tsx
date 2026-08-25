@@ -162,7 +162,7 @@ export function Toast(props: {
   const canShowAction = typeof actionLabel === 'string' && actionLabel.trim().length > 0 && typeof onPressAction === 'function';
 
   return (
-    <View pointerEvents="box-none" style={[styles.container, { bottom: bottomOffset }]}>
+    <View testID="toast-container" pointerEvents="box-none" style={[styles.container, { bottom: bottomOffset }]}>
       <Animated.View
         style={[
           styles.surface,
@@ -231,8 +231,8 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     alignItems: 'center',
     // Ensure toast wins over inline drawers/sheets (e.g. Plan recommendations sheet).
-    zIndex: 1200,
-    elevation: 1200,
+    zIndex: 4000,
+    elevation: 4000,
   },
   surface: {
     maxWidth: 520,
@@ -282,4 +282,3 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
 });
-

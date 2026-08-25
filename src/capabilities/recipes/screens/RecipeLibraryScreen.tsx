@@ -78,8 +78,10 @@ import {
 } from "../../meal-planning/domain/sharedMealCart";
 import { HiddenMealsDrawer } from "../components/HiddenMealsDrawer";
 import {
+  addRecipeRecommendationsToSharedMealCart,
   sharedMealCartContainsRecipeVersion,
   toggleRecipeInSharedMealCart,
+  withdrawMealCandidatesFromSharedMealCart,
 } from "../domain/mealPlanSelection";
 import { excludeHiddenRecipes } from "../domain/hiddenRecipes";
 import {
@@ -90,6 +92,8 @@ import {
   resolveSuggestedMealServings,
 } from "../domain/mealPreferences";
 import {
+  buildMealPlanIdeaRecommendations,
+  buildRecipeRecommendationPlanningContext,
   buildRecipeRecommendations,
   type RecipeRecommendation,
   type RecipeRecommendationReason,
@@ -182,6 +186,9 @@ type FilterKey = keyof RecipeInventoryFilters;
 type Props = NativeStackScreenProps<FoodStackParamList, "RecipeLibrary">;
 
 export function RecipeLibraryScreen({ navigation, route }: Props) {
+  const [recommendationPlanningContext] = useState(() =>
+    buildRecipeRecommendationPlanningContext(),
+  );
   const { openMenu } = useCapabilityShell();
   const personalRecipes = useRecipeStore((state) => state.recipes);
   const refresh = useRecipeStore((state) => state.refresh);
@@ -229,6 +236,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
   const [guestShareBusy, setGuestShareBusy] = useState(false);
   const [guestShareSheetVisible, setGuestShareSheetVisible] = useState(false);
   const [planMutationBusy, setPlanMutationBusy] = useState(false);
+  const [gettingKwiltIdeas, setGettingKwiltIdeas] = useState(false);
   const [reactingCandidateIds, setReactingCandidateIds] = useState<Set<string>>(new Set());
   const reactingCandidateIdsRef = useRef<Set<string>>(new Set());
   const [pendingRemoval, setPendingRemoval] = useState<MealPlanTrayItem | null>(null);
@@ -340,6 +348,9 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       setPullRefreshing(false);
     });
   }, [refresh]);
+  const ideaCount = sharedCart?.candidates.filter(
+    (candidate) => candidate.lifecycle === "idea",
+  ).length ?? 0;
   const planPersonId = sharedCart?.viewer.personId ?? null;
   const foodGuideStep = foodFirstCycleStepFromCheckpoint(foodGuideCheckpoint);
   const showPickMealGuide = shouldShowPickMealGuide({
@@ -443,6 +454,27 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
       };
     });
   }, [sharedCart]);
+  const mealPlanIdeaRecommendations = useMemo(
+    () => buildMealPlanIdeaRecommendations({
+      recipes: visibleInventory,
+      favoriteRecipeIds: new Set(favoriteRecipeIds),
+      existingRecipeVersionIds: new Set(
+        sharedCart?.candidates.flatMap((candidate) =>
+          typeof candidate.recipeSnapshot?.recipeVersionId === "string"
+            ? [candidate.recipeSnapshot.recipeVersionId]
+            : [],
+        ) ?? [],
+      ),
+      limit: 3,
+      planningContext: recommendationPlanningContext,
+    }),
+    [
+      favoriteRecipeIds,
+      recommendationPlanningContext,
+      sharedCart?.candidates,
+      visibleInventory,
+    ],
+  );
   const reloadSharedCart = useCallback(async () => {
     const mealRepository = createMealPlanningRepository();
     const next = await mealRepository.getMealCart(mealPreferences?.householdId ?? null);
@@ -450,6 +482,62 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     if (!next) throw new Error('The Plan is not available yet.');
     return next;
   }, [mealPreferences?.householdId]);
+  const getIdeasFromKwilt = useCallback(async (): Promise<boolean> => {
+    if (gettingKwiltIdeas || planMutationBusy || !mealPlanIdeaRecommendations.length) return false;
+    setGettingKwiltIdeas(true);
+    setPlanMutationBusy(true);
+    try {
+      const repository = createMealPlanningRepository();
+      const { candidateIds } = await addRecipeRecommendationsToSharedMealCart({
+        householdId: mealPreferences?.householdId ?? null,
+        projections: mealPlanIdeaRecommendations.map(({ projection }) => projection),
+        plannedPortions: defaultServings,
+        createCandidateId: Crypto.randomUUID,
+        repository,
+        reloadCart: reloadSharedCart,
+      });
+      const addedCount = candidateIds.length;
+      capture(AnalyticsEvent.MealCandidatesPrepared, {
+        candidate_count: addedCount,
+        method: "ideas_drawer_recommended",
+      });
+      showToast({
+        message: `Added ${addedCount} ${addedCount === 1 ? "idea" : "ideas"}`,
+        durationMs: 6000,
+        actionLabel: "Undo",
+        actionOnPress: () => {
+          void withdrawMealCandidatesFromSharedMealCart({
+            householdId: mealPreferences?.householdId ?? null,
+            candidateIds,
+            repository: createMealPlanningRepository(),
+            reloadCart: reloadSharedCart,
+          }).catch(() => {
+            showToast({ message: "Couldn’t undo that change", variant: "warning" });
+          });
+        },
+      });
+      return true;
+    } catch (caught) {
+      await reloadSharedCart().catch(() => undefined);
+      Alert.alert(
+        "Ideas not added",
+        caught instanceof Error ? caught.message : "Try again in a moment.",
+      );
+      return false;
+    } finally {
+      setGettingKwiltIdeas(false);
+      setPlanMutationBusy(false);
+    }
+  }, [
+    capture,
+    defaultServings,
+    gettingKwiltIdeas,
+    mealPlanIdeaRecommendations,
+    mealPreferences?.householdId,
+    planMutationBusy,
+    reloadSharedCart,
+    showToast,
+  ]);
   const refreshGuestFeedback = useCallback(async () => {
     const planId = sharedCart?.planId;
     if (!planId) {
@@ -698,7 +786,10 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
     }
   }, [activeGuestInviteIds, guestShareBusy, showToast]);
   const openMealSearch = useCallback(
-    () => useAppStore.getState().openGlobalSearch({ initialScope: "recipes" }),
+    () => useAppStore.getState().openGlobalSearch({
+      initialScope: "recipes",
+      showScopeSelector: false,
+    }),
     [],
   );
   const clearFilter = (key: FilterKey) => {
@@ -752,6 +843,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           rightElement={
             <MealPlanHeaderAction
               ref={planHeaderRef}
+              count={ideaCount}
               needsAttention={mealPlanNeedsAttention}
               onPress={() => setPlanBrowsing(true)}
             />
@@ -805,6 +897,7 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           favoriteRecipeIds.includes(projection.recipe.id)
         }
         totalCount={visibleInventory.length}
+        recommendationPlanningContext={recommendationPlanningContext}
         onboardingTargetRef={onboardingRecipeRef}
       />
       <Coachmark
@@ -875,6 +968,11 @@ export function RecipeLibraryScreen({ navigation, route }: Props) {
           )}
           onReturnToPlan={returnCandidateToPlan}
           onMarkMade={(candidateId) => { void markCandidateMade(candidateId); }}
+          onGetIdeas={userId && mealPlanIdeaRecommendations.length > 0 && (
+            sharedCart?.viewer.canAdd ?? mealPreferences?.householdId == null
+          ) ? getIdeasFromKwilt : undefined}
+          gettingIdeas={gettingKwiltIdeas}
+          getIdeasDisabled={planMutationBusy && !gettingKwiltIdeas}
           onOpenGroceries={() => {
             if (!sharedCart?.groceryListId) return;
             setPlanBrowsing(false);

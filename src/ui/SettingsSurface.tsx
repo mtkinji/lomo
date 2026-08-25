@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   groupLabel: {
     paddingHorizontal: spacing.md,
     color: colors.textSecondary,
-    fontFamily: fonts.extrabold,
+    fontFamily: fonts.medium,
     fontSize: 12,
     lineHeight: 16,
     letterSpacing: 0,

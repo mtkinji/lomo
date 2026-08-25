@@ -8,7 +8,11 @@ struct MoneyWidgetPalette {
   static let onTrack = Color(red: 111/255, green: 165/255, blue: 146/255)
   static let watch = Color(red: 217/255, green: 119/255, blue: 6/255)
   static let over = Color(red: 220/255, green: 38/255, blue: 38/255)
-  static let inactive = Color.secondary.opacity(0.16)
+  // The category tile has a fixed white clock face, so its ink must not adapt
+  // to the Home Screen color scheme (where .primary/.secondary can turn white).
+  static let categoryPrimary = Color(red: 28/255, green: 26/255, blue: 25/255)
+  static let categorySecondary = Color(red: 87/255, green: 83/255, blue: 78/255)
+  static let inactive = MoneyWidgetPalette.categoryPrimary.opacity(0.16)
 
   static func category(_ status: String) -> Color {
     if status == "over" { return over }
@@ -468,13 +472,13 @@ struct MoneyCategoryWidgetView: View {
   }
 
   private var valueTone: Color {
-    guard let category = entry.category else { return .primary }
+    guard let category = entry.category else { return MoneyWidgetPalette.categoryPrimary }
     if category.status == "over" { return MoneyWidgetPalette.over }
-    return .primary
+    return MoneyWidgetPalette.categoryPrimary
   }
 
   private var attentionTone: Color {
-    guard let category = entry.category else { return .primary }
+    guard let category = entry.category else { return MoneyWidgetPalette.categoryPrimary }
     return category.status == "over" ? MoneyWidgetPalette.over : MoneyWidgetPalette.watch
   }
 
@@ -508,7 +512,7 @@ struct MoneyCategoryWidgetView: View {
                 }
                 Text(category.name)
                   .font(KwiltWidgetTypography.label)
-                  .foregroundStyle(.secondary)
+                  .foregroundStyle(MoneyWidgetPalette.categorySecondary)
                   .lineLimit(2)
                   .multilineTextAlignment(.center)
                 Spacer(minLength: 0)
@@ -543,7 +547,7 @@ struct MoneyCategoryWidgetView: View {
               }
               Text(meaning)
                 .font(KwiltWidgetTypography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(MoneyWidgetPalette.categorySecondary)
                 .lineLimit(1)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -557,15 +561,15 @@ struct MoneyCategoryWidgetView: View {
           VStack(alignment: .center, spacing: 4) {
             Text("Budget Category")
               .font(KwiltWidgetTypography.label)
-              .foregroundStyle(.secondary)
+              .foregroundStyle(MoneyWidgetPalette.categorySecondary)
             Spacer()
             Text(entry.hasMoneySnapshot ? "Choose a category" : "Open Kwilt to view Money")
               .font(KwiltWidgetTypography.emphasis)
-              .foregroundStyle(.primary)
+              .foregroundStyle(MoneyWidgetPalette.categoryPrimary)
               .lineLimit(2)
             Text(entry.hasMoneySnapshot ? "Edit this widget" : "")
               .font(KwiltWidgetTypography.body)
-              .foregroundStyle(.secondary)
+              .foregroundStyle(MoneyWidgetPalette.categorySecondary)
             Spacer()
           }
           .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -10,9 +10,8 @@ import Reanimated, {
   type SharedValue,
 } from "react-native-reanimated";
 
-import { colors, spacing } from "../../../theme";
+import { colors } from "../../../theme";
 import { HapticsService } from "../../../services/HapticsService";
-import { FloatingDockActionButton } from "../../../features/activities/FloatingDockActionButton";
 import { BottomDrawer, BottomDrawerScrollView } from "../../../ui/BottomDrawer";
 import { Button, IconButton } from "../../../ui/Button";
 import { DraggableList } from "../../../ui/DraggableList";
@@ -30,10 +29,6 @@ import { AlertDialog } from "../../../ui/AlertDialog";
 import { Coachmark } from "../../../ui/Coachmark";
 import { useAccessibilityPreferences } from "../../../ui/hooks/useAccessibilityPreferences";
 import { BottomDrawerHeader } from "../../../ui/layout/BottomDrawerHeader";
-import {
-  RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
-  RESTING_COMPOSER_HEIGHT_PX,
-} from "../../../ui/layout/restingComposerMetrics";
 import { ButtonLabel, Heading, Text } from "../../../ui/Typography";
 import {
   PLAN_HARD_PASS_REACTION,
@@ -182,6 +177,7 @@ type MealMoveDirection = "addToGroceries" | "returnToPlan";
 
 type MealPlanListEntry =
   | { kind: "meal"; id: string; item: MealPlanTrayItem }
+  | { kind: "getIdeas"; id: "get-ideas-from-kwilt" }
   | { kind: "plannedHeading"; id: "planned-heading" }
   | { kind: "plannedEmpty"; id: "planned-empty" };
 
@@ -189,6 +185,40 @@ type MealPlanActiveDrag = {
   source: MealPlanDropSection;
   originalDisplayIds: string[];
 };
+
+function KwiltIdeasAction({
+  label,
+  loading,
+  disabled,
+  onPress,
+  empty = false,
+}: {
+  label: string;
+  loading: boolean;
+  disabled?: boolean;
+  onPress(): void;
+  empty?: boolean;
+}) {
+  return (
+    <Button
+      accessibilityLabel={label}
+      accessibilityHint="Adds up to three recommended meals to Ideas"
+      variant="ghost"
+      size="sm"
+      fullWidth={!empty}
+      loading={loading}
+      disabled={disabled}
+      loadingLabel="Getting ideas…"
+      onPress={onPress}
+      style={empty ? undefined : styles.planGetIdeasOffer}
+    >
+      <View style={styles.planGetIdeasContent}>
+        <Icon name="sparkles" size={16} color={colors.textSecondary} />
+        <ButtonLabel>{label}</ButtonLabel>
+      </View>
+    </Button>
+  );
+}
 
 function MealPlanDropSurface({
   children,
@@ -258,6 +288,9 @@ export function MealPlanDrawer({
   reactingCandidateIds,
   guideStep,
   onGuideAdvance,
+  onGetIdeas,
+  gettingIdeas = false,
+  getIdeasDisabled = false,
 }: {
   visible: boolean;
   items: MealPlanTrayItem[];
@@ -278,6 +311,9 @@ export function MealPlanDrawer({
   reactingCandidateIds?: ReadonlySet<string>;
   guideStep?: 'share-plan' | 'send-to-groceries' | null;
   onGuideAdvance?(event: 'sharing-opened' | 'sharing-skipped'): void;
+  onGetIdeas?(): Promise<boolean> | boolean;
+  gettingIdeas?: boolean;
+  getIdeasDisabled?: boolean;
 }) {
   const [displayIds, setDisplayIds] = useState<string[]>([]);
   const [reactionPickerItem, setReactionPickerItem] = useState<MealPlanTrayItem | null>(null);
@@ -289,10 +325,8 @@ export function MealPlanDrawer({
   const [guideSendStarted, setGuideSendStarted] = useState(false);
   const [optimisticLifecycle, setOptimisticLifecycle] = useState<Record<string, PlanLifecycle>>({});
   const [dragListRevision, setDragListRevision] = useState(0);
+  const [hasRequestedKwiltIdeas, setHasRequestedKwiltIdeas] = useState(false);
   const { reduceMotionEnabled } = useAccessibilityPreferences();
-  const actionDockClearance = RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX
-    + RESTING_COMPOSER_HEIGHT_PX
-    + spacing.xs;
   const wasVisibleRef = useRef(false);
   const lifecycleSignatureRef = useRef("");
   const orderSignatureRef = useRef("");
@@ -332,6 +366,7 @@ export function MealPlanDrawer({
       setPendingHardPassSendIds(null);
       setGuideSendStarted(false);
       setOptimisticLifecycle({});
+      setHasRequestedKwiltIdeas(false);
       dragStateRef.current = null;
       dragDestinationSection.value = -1;
       return;
@@ -386,11 +421,22 @@ export function MealPlanDrawer({
     if (!displayItems.length) return [];
     return [
       ...ideas.map((item) => ({ kind: "meal" as const, id: item.id, item })),
+      ...(onGetIdeas ? [{ kind: "getIdeas" as const, id: "get-ideas-from-kwilt" as const }] : []),
       { kind: "plannedHeading" as const, id: "planned-heading" as const },
       ...groceries.map((item) => ({ kind: "meal" as const, id: item.id, item })),
       ...(groceries.length ? [] : [{ kind: "plannedEmpty" as const, id: "planned-empty" as const }]),
     ];
-  }, [displayItems, groceries, ideas]);
+  }, [displayItems, groceries, ideas, onGetIdeas]);
+  const getIdeasLabel = hasRequestedKwiltIdeas ? "Get more ideas" : "Get ideas from Kwilt";
+  const requestKwiltIdeas = async () => {
+    if (!onGetIdeas || gettingIdeas) return;
+    try {
+      const added = await onGetIdeas();
+      if (added) setHasRequestedKwiltIdeas(true);
+    } catch {
+      // The screen owns user-facing failure feedback.
+    }
+  };
   const finishSend = (candidateIds: string[], acknowledgeHardPasses = false) => {
     if (acknowledgeHardPasses) {
       const result = onSendToGroceries?.(candidateIds, { acknowledgeHardPasses: true });
@@ -566,6 +612,31 @@ export function MealPlanDrawer({
       contentExtendsIntoBottomSafeArea
       sheetStyle={styles.planDrawerSheet}
       handleContainerStyle={styles.planDrawerHandleRegion}
+      bottomAccessory={onOpenGroceries ? (
+        <Reanimated.View
+          testID="plan-grocery-action-transition"
+          accessibilityElementsHidden={shareSheetVisible}
+          importantForAccessibility={shareSheetVisible ? "no-hide-descendants" : "auto"}
+          pointerEvents={shareSheetVisible ? "none" : "auto"}
+          style={planActionAnimatedStyle}
+        >
+          <Button
+            testID="plan-view-groceries"
+            accessibilityLabel="View groceries"
+            accessibilityHint="Opens the grocery list compiled from planned meals"
+            fullWidth
+            size="lg"
+            onPress={onOpenGroceries}
+          >
+            <View style={styles.planViewGroceriesContent}>
+              <Icon name="cart" size={19} color={colors.primaryForeground} />
+              <ButtonLabel tone="inverse">View groceries</ButtonLabel>
+            </View>
+          </Button>
+        </Reanimated.View>
+      ) : undefined}
+      bottomAccessoryPlacement="drawer"
+      bottomAccessoryShowTopBorder={false}
     >
       <View style={styles.planDrawerViewport}>
         <BottomDrawerHeader
@@ -622,10 +693,7 @@ export function MealPlanDrawer({
         <DraggableList
           key={`meal-plan-drag-list-${dragListRevision}`}
           activationMode="handle"
-          contentContainerStyle={[
-            styles.planDrawerContent,
-            onOpenGroceries ? { paddingBottom: actionDockClearance } : null,
-          ]}
+          contentContainerStyle={styles.planDrawerContent}
           items={dragEntries}
           onDragStart={handleDragBegin}
           onDragPositionChange={handleDragPositionChange}
@@ -641,6 +709,15 @@ export function MealPlanDrawer({
               variant="screen"
               illustration={HOUSEHOLD_FOOD_EMPTY_ILLUSTRATION}
               title="Add a meal idea"
+              actions={onGetIdeas ? (
+                <KwiltIdeasAction
+                  label={getIdeasLabel}
+                  loading={gettingIdeas}
+                  disabled={getIdeasDisabled}
+                  onPress={() => { void requestKwiltIdeas(); }}
+                  empty
+                />
+              ) : undefined}
               style={styles.planDrawerEmpty}
             />
           )}
@@ -655,6 +732,18 @@ export function MealPlanDrawer({
             </View>
           ) : null}
           renderItem={(entry, _isDragging, _index, renderDragHandle) => {
+            if (entry.kind === "getIdeas") {
+              return (
+                <View style={styles.planGetIdeasRow}>
+                  <KwiltIdeasAction
+                    label={getIdeasLabel}
+                    loading={gettingIdeas}
+                    disabled={getIdeasDisabled}
+                    onPress={() => { void requestKwiltIdeas(); }}
+                  />
+                </View>
+              );
+            }
             if (entry.kind === "plannedHeading") {
               return (
                 <MealPlanDropSurface
@@ -753,26 +842,6 @@ export function MealPlanDrawer({
           }}
         />
       </View>
-      {onOpenGroceries ? (
-        <Reanimated.View
-          testID="plan-grocery-action-transition"
-          accessibilityElementsHidden={shareSheetVisible}
-          importantForAccessibility={shareSheetVisible ? "no-hide-descendants" : "auto"}
-          pointerEvents={shareSheetVisible ? "none" : "box-none"}
-          style={[styles.planViewGroceriesDockHost, planActionAnimatedStyle]}
-        >
-          <FloatingDockActionButton
-            testID="plan-view-groceries"
-            accessibilityLabel="View groceries"
-            accessibilityHint="Opens the grocery list compiled from planned meals"
-            icon="cart"
-            isProminent
-            onPress={onOpenGroceries}
-            size={RESTING_COMPOSER_HEIGHT_PX}
-            style={styles.planViewGroceriesDock}
-          />
-        </Reanimated.View>
-      ) : null}
       </BottomDrawer>
       {guideStep === 'share-plan' ? <Coachmark
         visible={visible && guideStep === 'share-plan' && Boolean(onSharePlan) && !shareSheetVisible}

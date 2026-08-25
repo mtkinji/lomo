@@ -25,10 +25,10 @@ export function deriveRecipeReadiness(
   enrichment: RecipeEditorialEnrichment | null = null,
 ): RecipeReadinessItem[] {
   const text = version.instructions.map((step) => step.text).join(' ');
-  const items: RecipeReadinessItem[] = [{ id: 'recipe-size', label: `Recipe size ${recipeScaleMultiplier}×`, inferred: false }];
+  const items: RecipeReadinessItem[] = [];
   if (version.yieldQuantity && version.yieldUnit) items.push({
     id: 'yield',
-    label: `Makes ${formatScaledRecipeYield({ yieldQuantity: version.yieldQuantity, yieldUnit: version.yieldUnit, multiplier: recipeScaleMultiplier })}`,
+    label: `Makes ${formatScaledRecipeYield({ yieldQuantity: version.yieldQuantity, yieldUnit: version.yieldUnit, multiplier: recipeScaleMultiplier })}${recipeScaleMultiplier > 1 ? ` (${recipeScaleMultiplier}×)` : ''}`,
     inferred: false,
   });
   const preheat = /preheat[^.]*\.?/i.exec(text)?.[0]; if (preheat) items.push({ id: 'preheat', label: preheat, inferred: false });

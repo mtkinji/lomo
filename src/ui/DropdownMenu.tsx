@@ -39,6 +39,15 @@ function resolvePressableChildren(children: PressableChildren): React.ReactNode 
   return children;
 }
 
+function resolvePressableStyle(
+  style: StyleProp<ViewStyle> | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>),
+): StyleProp<ViewStyle> {
+  if (typeof style === 'function') {
+    return style({ pressed: false } as PressableStateCallbackType);
+  }
+  return style;
+}
+
 function DropdownMenuSubTrigger({
   style,
   children,
@@ -75,14 +84,19 @@ function DropdownMenuSubTrigger({
 
 function DropdownMenuSubContent({
   style,
+  children,
   ...props
 }: DropdownMenuPrimitive.SubContentProps) {
   return (
     <NativeOnlyAnimatedView entering={motion.menu.entering} exiting={motion.menu.exiting}>
       <DropdownMenuPrimitive.SubContent
-        style={[styles.content, style] as any}
+        style={styles.contentFrame}
         {...props}
-      />
+      >
+        <View style={[styles.contentSurface, resolvePressableStyle(style)]}>
+          {resolvePressableChildren(children as PressableChildren)}
+        </View>
+      </DropdownMenuPrimitive.SubContent>
     </NativeOnlyAnimatedView>
   );
 }
@@ -94,6 +108,7 @@ function DropdownMenuContent({
   side = 'bottom',
   align = 'end',
   sideOffset = 6,
+  children,
   ...props
 }: DropdownMenuPrimitive.ContentProps & {
   overlayStyle?: StyleProp<ViewStyle>;
@@ -105,7 +120,7 @@ function DropdownMenuContent({
   const resolvedMaxWidthPx = Math.min(
     ABSOLUTE_MAX_MENU_WIDTH_PX,
     // Keep the menu off the screen edges (and never below our minWidth).
-    Math.max(styles.content.minWidth ?? 0, windowWidth - MENU_SIDE_GUTTER_PX * 2),
+    Math.max(styles.contentSurface.minWidth ?? 0, windowWidth - MENU_SIDE_GUTTER_PX * 2),
   );
 
   const resolvedOverlayStyle = StyleSheet.flatten([StyleSheet.absoluteFillObject, overlayStyle]) as any;
@@ -122,12 +137,16 @@ function DropdownMenuContent({
             <DropdownMenuPrimitive.Content
               // Default cap so menus can expand for longer labels, but never become awkwardly wide.
               // Note: picker triggers can override maxWidth through `style`.
-              style={[styles.content, { maxWidth: resolvedMaxWidthPx }, style] as any}
+              style={[styles.contentFrame, { maxWidth: resolvedMaxWidthPx }] as any}
               side={side}
               align={align}
               sideOffset={sideOffset}
               {...props}
-            />
+            >
+              <View style={[styles.contentSurface, resolvePressableStyle(style)]}>
+                {resolvePressableChildren(children as PressableChildren)}
+              </View>
+            </DropdownMenuPrimitive.Content>
           </NativeOnlyAnimatedView>
         </DropdownMenuPrimitive.Overlay>
       </FullWindowOverlay>
@@ -260,7 +279,13 @@ function DropdownMenuShortcut({ style, ...props }: TextProps) {
 }
 
 const styles = StyleSheet.create({
-  content: {
+  contentFrame: {
+    backgroundColor: colors.canvas,
+    borderRadius: 14,
+    minWidth: 200,
+    ...cardElevation.overlay,
+  },
+  contentSurface: {
     backgroundColor: colors.canvas,
     borderColor: colors.border,
     borderWidth: 1,
@@ -269,7 +294,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     minWidth: 200,
     overflow: 'hidden',
-    ...cardElevation.overlay,
   },
   item: {
     minHeight: 44,

@@ -330,14 +330,16 @@ describe("Recipe Home", () => {
     expect(screen.queryByText("Total")).toBeNull();
     expect(screen.queryByText("Prep")).toBeNull();
     expect(screen.queryByText("Cook")).toBeNull();
-    expect(screen.getByText("Recipe size")).toBeTruthy();
-    expect(screen.getByText("Makes 8 servings")).toBeTruthy();
+    expect(screen.getByText("Makes")).toBeTruthy();
+    expect(screen.getByText("8 servings")).toBeTruthy();
+    expect(screen.queryByText("Recipe size")).toBeNull();
+    expect(screen.queryByText("1×")).toBeNull();
     expect(screen.queryByText("Servings")).toBeNull();
     expect(screen.getByText("Private to you")).toBeTruthy();
     expect(screen.getByText(/Grandma Ruth's card/)).toBeTruthy();
   });
 
-  it("adjusts recipe size from the integrated summary control", () => {
+  it("exposes reviewed scaling from the integrated yield control", () => {
     const onMultiplierChange = jest.fn();
     const version = recipeVersionContractFixture();
     version.scalingState = 'verified';
@@ -356,11 +358,10 @@ describe("Recipe Home", () => {
       />,
     );
 
-    fireEvent.press(screen.getByLabelText("Decrease recipe size"));
-    fireEvent.press(screen.getByLabelText("Increase recipe size"));
-
-    expect(onMultiplierChange).toHaveBeenNthCalledWith(1, 1);
-    expect(onMultiplierChange).toHaveBeenNthCalledWith(2, 3);
+    expect(screen.getByLabelText("Scale recipe, currently 2 times")).toBeTruthy();
+    expect(screen.getByText("16 servings")).toBeTruthy();
+    expect(screen.queryByText("Recipe size")).toBeNull();
+    expect(onMultiplierChange).not.toHaveBeenCalled();
   });
 
   it("presents Kwilt editorial context as a meal story while preserving personal notes", () => {
@@ -383,6 +384,9 @@ describe("Recipe Home", () => {
       ...recipeContractFixture(),
       provenance: {
         ...recipeContractFixture().provenance,
+        method: "catalog" as const,
+        sourceTitle: null,
+        sourceAuthor: null,
         rightsBasis: "kwilt_authored" as const,
       },
     };
@@ -400,6 +404,8 @@ describe("Recipe Home", () => {
     );
     expect(editorial.getByText("About this meal")).toBeTruthy();
     expect(editorial.queryByText("Notes")).toBeNull();
+    expect(editorial.getByText("Kwilt recipe · Version 1")).toBeTruthy();
+    expect(editorial.queryByText("Added by you · Version 1")).toBeNull();
   });
 
   it("surfaces relevant private learning with its Cook-record source", () => {

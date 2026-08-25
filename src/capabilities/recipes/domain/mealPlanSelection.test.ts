@@ -1,6 +1,12 @@
 import type { SharedMealCartProjection } from '../../meal-planning/domain/sharedMealCart';
+import type { MealPlanCandidateDraft } from '../../meal-planning/data/mealPlanningRepository';
 import { recipeContractFixture, recipeVersionContractFixture } from './recipeContractFixtures';
-import { sharedMealCartContainsRecipeVersion, toggleRecipeInSharedMealCart } from './mealPlanSelection';
+import {
+  addRecipeRecommendationsToSharedMealCart,
+  sharedMealCartContainsRecipeVersion,
+  toggleRecipeInSharedMealCart,
+  withdrawMealCandidatesFromSharedMealCart,
+} from './mealPlanSelection';
 
 const projection = { recipe: recipeContractFixture(), currentVersion: recipeVersionContractFixture() };
 
@@ -66,5 +72,60 @@ describe('shared Meal Cart recipe selection', () => {
       repository, reloadCart: jest.fn(),
     })).rejects.toThrow('Open Plan');
     expect(repository.withdrawMealCandidate).not.toHaveBeenCalled();
+  });
+
+  it('adds recommendation results sequentially and returns their candidate ids for Undo', async () => {
+    const secondProjection = {
+      recipe: { ...projection.recipe, id: 'recipe-2' },
+      currentVersion: { ...projection.currentVersion, id: 'version-2', recipeId: 'recipe-2', title: 'Second recipe' },
+    };
+    const repository = {
+      addMealCandidate: jest.fn(async (_householdId: string | null, _draft: MealPlanCandidateDraft) => undefined),
+      withdrawMealCandidate: jest.fn(),
+    };
+    const reloadCart = jest.fn().mockResolvedValue(cart());
+    const createCandidateId = jest.fn()
+      .mockReturnValueOnce('recommended-1')
+      .mockReturnValueOnce('recommended-2');
+
+    const result = await addRecipeRecommendationsToSharedMealCart({
+      householdId: 'household-1',
+      projections: [projection, secondProjection],
+      plannedPortions: 5,
+      createCandidateId,
+      repository,
+      reloadCart,
+    });
+
+    expect(repository.addMealCandidate.mock.calls.map(([, draft]) => ({
+      id: draft.id,
+      recipeVersionId: draft.recipeSnapshot?.recipeVersionId,
+      plannedPortions: draft.recipeSnapshot?.plannedPortions,
+    }))).toEqual([
+      { id: 'recommended-1', recipeVersionId: projection.currentVersion.id, plannedPortions: 5 },
+      { id: 'recommended-2', recipeVersionId: 'version-2', plannedPortions: 5 },
+    ]);
+    expect(reloadCart).toHaveBeenCalledTimes(1);
+    expect(result.candidateIds).toEqual(['recommended-1', 'recommended-2']);
+  });
+
+  it('withdraws an added recommendation batch sequentially before reloading the Plan', async () => {
+    const repository = {
+      withdrawMealCandidate: jest.fn(async () => undefined),
+    };
+    const reloadCart = jest.fn().mockResolvedValue(cart());
+
+    await withdrawMealCandidatesFromSharedMealCart({
+      householdId: null,
+      candidateIds: ['recommended-1', 'recommended-2'],
+      repository,
+      reloadCart,
+    });
+
+    expect(repository.withdrawMealCandidate.mock.calls).toEqual([
+      [null, 'recommended-1'],
+      [null, 'recommended-2'],
+    ]);
+    expect(reloadCart).toHaveBeenCalledTimes(1);
   });
 });

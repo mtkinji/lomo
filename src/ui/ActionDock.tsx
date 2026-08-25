@@ -16,8 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { bottomDockGeometry, colors, floatingControl, spacing, typography, fonts } from '../theme';
 import {
-  resolvePhoneFloatingActionContentInset,
-  resolvePhoneFloatingBottomInset,
+  resolveRestingFloatingControlContentInset,
 } from './layout/bottomDockGeometry';
 import { HStack, VStack } from './primitives';
 import { Icon, type IconName } from './Icon';
@@ -599,8 +598,8 @@ export function ActionDock({
       style={[
         styles.host,
         {
-          paddingHorizontal: bottomDockGeometry.phoneFloating.inlineGap,
-          bottom: resolvePhoneFloatingBottomInset(insets.bottom),
+          paddingHorizontal: bottomDockGeometry.restingFloatingControl.inlineGap,
+          bottom: bottomDockGeometry.restingFloatingControl.bottomGap,
           transform: [{ translateY }],
         },
         style,
@@ -776,8 +775,7 @@ export function ActionDock({
 }
 
 export function useActionDockClearance(): number {
-  const insets = useSafeAreaInsets();
-  return resolvePhoneFloatingActionContentInset(insets.bottom, ACTION_DOCK_RIGHT_ITEM_SIZE_PX);
+  return resolveRestingFloatingControlContentInset(ACTION_DOCK_RIGHT_ITEM_SIZE_PX);
 }
 
 const styles = StyleSheet.create({

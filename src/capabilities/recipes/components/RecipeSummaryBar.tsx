@@ -1,8 +1,13 @@
 import type { ComponentProps } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { colors, spacing } from '../../../theme';
-import { Button } from '../../../ui/Button';
+import { colors, fonts, radii, spacing } from '../../../theme';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../../ui/DropdownMenu';
 import { Icon } from '../../../ui/Icon';
 import { Heading, Text } from '../../../ui/Typography';
 import {
@@ -65,9 +70,7 @@ export function RecipeSummaryBar({
   const scaledYield = yieldQuantity !== null && yieldUnit?.trim()
     ? formatScaledRecipeYield({ yieldQuantity, yieldUnit, multiplier })
     : null;
-  const multiplierIndex = RECIPE_SCALE_MULTIPLIERS.indexOf(multiplier);
-  const previousMultiplier = RECIPE_SCALE_MULTIPLIERS[multiplierIndex - 1];
-  const nextMultiplier = RECIPE_SCALE_MULTIPLIERS[multiplierIndex + 1];
+  const multiplierAccessibilityValue = `${multiplier} ${multiplier === 1 ? 'time' : 'times'}`;
 
   return (
     <View accessibilityLabel="What this recipe takes" style={styles.section}>
@@ -87,50 +90,67 @@ export function RecipeSummaryBar({
           </View>
         ) : null}
         {yieldQuantity !== null ? (
-          <View style={items.length ? styles.servingsSeparated : undefined}>
+          <View style={items.length ? styles.yieldSection : undefined}>
             {items.length ? <View style={styles.divider} /> : null}
-            <View style={styles.row}>
-              <View style={styles.icon}>
-              <Icon name="layers" size={20} color={colors.textSecondary} />
-              </View>
-              <Text style={styles.label}>Recipe size</Text>
-              <View style={styles.servingsControl}>
-                {scalingAvailable ? <View style={styles.servingsButtons}>
-                  <Button
-                    accessibilityLabel="Decrease recipe size"
-                    accessibilityState={{ disabled: previousMultiplier === undefined }}
-                    disabled={previousMultiplier === undefined}
-                    hitSlop={8}
-                    size="icon"
-                    iconButtonSize={28}
-                    variant="outline"
-                    onPress={() => previousMultiplier && onMultiplierChange(previousMultiplier)}
-                  >
-                    −
-                  </Button>
-                  <Button
-                    accessibilityLabel="Increase recipe size"
-                    accessibilityState={{ disabled: nextMultiplier === undefined }}
-                    disabled={nextMultiplier === undefined}
-                    hitSlop={8}
-                    size="icon"
-                    iconButtonSize={28}
-                    variant="outline"
-                    onPress={() => nextMultiplier && onMultiplierChange(nextMultiplier)}
-                  >
-                    +
-                  </Button>
-                </View> : null}
+            <View style={styles.yieldRows}>
+              {scalingAvailable ? (
+                <View style={styles.row}>
+                  <View style={styles.icon}>
+                    <Icon name="recipeScale" size={20} color={colors.textSecondary} />
+                  </View>
+                  <Text accessible={false} style={styles.label}>Scale</Text>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      {...({ asChild: true } as const)}
+                      accessibilityLabel={`Scale recipe, currently ${multiplierAccessibilityValue}`}
+                    >
+                      <Pressable
+                        accessibilityHint="Choose one, two, or three times the recipe"
+                        accessibilityLabel={`Scale recipe, currently ${multiplierAccessibilityValue}`}
+                        accessibilityRole="button"
+                        hitSlop={6}
+                        testID="recipe-scale-trigger"
+                        style={({ pressed }) => [
+                          styles.scaleTrigger,
+                          pressed ? styles.scaleTriggerPressed : null,
+                        ]}
+                      >
+                        <Text style={styles.scaleTriggerText}>{`${multiplier}X`}</Text>
+                        <Icon
+                          color={colors.textSecondary}
+                          name="chevronDown"
+                          size={14}
+                          testID="recipe-scale-chevron"
+                        />
+                      </Pressable>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="bottom" align="end">
+                      {RECIPE_SCALE_MULTIPLIERS.map((option) => (
+                        <DropdownMenuItem
+                          key={option}
+                          label={`${option}X · Makes ${formatScaledRecipeYield({ yieldQuantity, yieldUnit: yieldUnit ?? '', multiplier: option })}`}
+                          selected={option === multiplier}
+                          onPress={() => onMultiplierChange(option)}
+                        />
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </View>
+              ) : null}
+              <View style={styles.row}>
+                <View style={styles.icon}>
+                  <Icon name="recipeYield" size={20} color={colors.textSecondary} />
+                </View>
+                <Text style={styles.label}>Makes</Text>
                 <Text
-                  accessibilityLabel={`${multiplier} times${scaledYield ? `. Makes ${scaledYield}` : ''}`}
+                  accessibilityLabel={`Makes ${scaledYield}`}
                   accessibilityLiveRegion="polite"
-                  style={styles.servingsCount}
+                  style={styles.yieldValue}
                 >
-                  {multiplier}×
+                  {scaledYield}
                 </Text>
               </View>
             </View>
-            {scaledYield ? <Text tone="secondary" style={styles.yieldCopy}>Makes {scaledYield}</Text> : null}
           </View>
         ) : null}
       </View>
@@ -165,29 +185,39 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'right',
   },
-  servingsSeparated: {
+  yieldSection: {
     gap: spacing.md,
+  },
+  yieldRows: {
+    gap: spacing.lg,
+  },
+  scaleTrigger: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: radii.pill,
+    backgroundColor: colors.shellAlt,
+    paddingHorizontal: spacing.sm,
+  },
+  scaleTriggerPressed: {
+    opacity: 0.7,
+  },
+  scaleTriggerText: {
+    color: colors.textSecondary,
+    fontFamily: fonts.medium,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
   },
-  servingsControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  servingsButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  servingsCount: {
-    minWidth: 24,
+  yieldValue: {
+    flexShrink: 1,
     color: colors.textSecondary,
     textAlign: 'right',
-  },
-  yieldCopy: {
-    marginLeft: 44,
   },
 });

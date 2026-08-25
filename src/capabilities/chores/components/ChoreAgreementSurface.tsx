@@ -18,7 +18,7 @@ export function ChoreTokenValue({ value, context }: {
   const visibleLabel = `${value} token${value === 1 ? '' : 's'}`;
   return (
     <View accessible accessibilityLabel={accessibilityLabel} style={styles.tokenValue}>
-      <Icon name="circleDollarSign" size={16} color={colors.textSecondary} />
+      <Icon name="token" size={16} color={colors.textSecondary} />
       <Text tone="secondary">{visibleLabel}</Text>
     </View>
   );

@@ -433,32 +433,33 @@ export function RecipeInventoryDock({
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Add a recipe"
-        onPress={onAdd}
+        accessibilityLabel="Find recipes"
+        accessibilityHint="Opens Search scoped to Recipes"
+        onPress={onSearch}
         style={({ pressed }) => [
-          styles.addDockButton,
+          styles.primaryDockButton,
           pressed && styles.pressed,
         ]}
       >
         <FloatingControlSurface
           borderRadius={RESTING_COMPOSER_HEIGHT_PX / 2}
           isProminent
-          style={styles.addDockSurface}
-          surfaceStyle={styles.addDockSurfaceContent}
+          style={styles.primaryDockSurface}
+          surfaceStyle={styles.primaryDockSurfaceContent}
         >
-          <View style={styles.addDockContent}>
-            <Icon name="plus" size={19} color={colors.textPrimary} />
-            <Text tone="secondary">Add a recipe</Text>
+          <View style={styles.primaryDockContent}>
+            <Icon name="search" size={19} color={colors.textPrimary} />
+            <Text tone="secondary">Find recipes</Text>
           </View>
         </FloatingControlSurface>
       </Pressable>
       <FloatingDockActionButton
-        testID="recipe-inventory-search"
-        accessibilityLabel="Search meals"
-        accessibilityHint="Opens Search scoped to Recipes"
-        icon="search"
+        testID="recipe-inventory-add"
+        accessibilityLabel="Add a recipe"
+        accessibilityHint="Opens options to add a recipe"
+        icon="plus"
         isProminent
-        onPress={onSearch}
+        onPress={onAdd}
         size={INVENTORY_DOCK_BUTTON_SIZE_PX}
       />
       <FloatingDockActionButton

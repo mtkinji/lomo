@@ -180,7 +180,9 @@ describe('ChoresScreen', () => {
     const screen = renderDefaultChoresScreen();
 
     expect(screen.getByText('Chores')).toBeTruthy();
-    expect(screen.getByLabelText('Switch household member, Charlie')).toBeTruthy();
+    const memberSwitcher = screen.getByLabelText('Switch household member, Charlie');
+    expect(memberSwitcher).toBeTruthy();
+    expect(within(memberSwitcher).getAllByTestId('chores.member.switch-icon').length).toBeGreaterThan(0);
     expect(screen.queryByText('1 of 3 chores')).toBeNull();
     expect(screen.getByText('My chores')).toBeTruthy();
     expect(screen.getByText('Choose a chore')).toBeTruthy();
@@ -230,7 +232,7 @@ describe('ChoresScreen', () => {
       });
   });
 
-  it('shows the signed-in caregiver avatar when viewing chores as that caregiver', () => {
+  it('keeps the signed-in caregiver avatar in the member menu', () => {
     useAppStore.setState({
       authIdentity: {
         userId: 'andrew-user',
@@ -241,7 +243,6 @@ describe('ChoresScreen', () => {
     const screen = renderDefaultChoresScreen();
 
     fireEvent.press(screen.getByLabelText('Switch household member, Charlie'));
-    fireEvent.press(within(screen.getByTestId('chores.member.menu')).getByLabelText('Switch to Andrew'));
 
     expect(screen.UNSAFE_getAllByType(Image).some((avatar) => (
       avatar.props.source?.uri === 'https://example.test/andrew.jpg'

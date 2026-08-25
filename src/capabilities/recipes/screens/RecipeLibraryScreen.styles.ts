@@ -89,8 +89,14 @@ export const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 12,
   },
-  quickFilterRail: { marginTop: -spacing.xs },
-  quickFilterRow: { gap: spacing.xs, paddingRight: spacing.md },
+  quickFilterRail: {
+    marginTop: -spacing.xs,
+    marginHorizontal: -recipeCanvasHorizontalInset,
+  },
+  quickFilterRow: {
+    gap: spacing.xs,
+    paddingHorizontal: recipeCanvasHorizontalInset,
+  },
   quickFilter: {
     height: 34,
     flexDirection: "row",
@@ -307,13 +313,13 @@ export const styles = StyleSheet.create({
     zIndex: 60,
     elevation: 60,
   },
-  addDockButton: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
-  addDockSurface: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
-  addDockSurfaceContent: {
+  primaryDockButton: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
+  primaryDockSurface: { flex: 1, height: RESTING_COMPOSER_HEIGHT_PX },
+  primaryDockSurfaceContent: {
     height: RESTING_COMPOSER_HEIGHT_PX,
     justifyContent: "center",
   },
-  addDockContent: {
+  primaryDockContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
@@ -402,6 +408,24 @@ export const styles = StyleSheet.create({
   },
   planDragMealCellActive: {
     backgroundColor: colors.canvas,
+  },
+  planGetIdeasRow: {
+    minHeight: 48,
+    justifyContent: "center",
+    marginBottom: spacing.xs,
+  },
+  planGetIdeasOffer: {
+    minHeight: 48,
+    alignItems: "flex-start",
+    borderRadius: radii.card,
+    borderWidth: 0,
+    borderColor: "transparent",
+    backgroundColor: colors.shellAlt,
+  },
+  planGetIdeasContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
   },
   planDragSectionActive: {
     backgroundColor: colors.fieldFill,
@@ -501,15 +525,11 @@ export const styles = StyleSheet.create({
   planDrawerPlacementIntro: { gap: spacing.xs, paddingBottom: spacing.xs },
   planDrawerMainRow: { minHeight: 56, flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, paddingTop: 3 },
   planDrawerReactionRow: { minHeight: 32, minWidth: 0, flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  planViewGroceriesDockHost: { ...StyleSheet.absoluteFillObject },
-  planViewGroceriesDock: {
-    position: "absolute",
-    right: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
-    bottom: RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
-    width: RESTING_COMPOSER_HEIGHT_PX,
-    height: RESTING_COMPOSER_HEIGHT_PX,
-    zIndex: 60,
-    elevation: 60,
+  planViewGroceriesContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
   },
   planPlannedSectionHeading: {
     minHeight: 52,

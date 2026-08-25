@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Circle, Defs, G, LinearGradient, Mask, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, G, Mask, Path, Rect } from 'react-native-svg';
 import type { KwiltIconProps } from './types';
 
 export const KwiltIcons = {
@@ -55,45 +55,29 @@ function FocusIcon(props: KwiltIconProps) {
 
 /**
  * token
- * - Metallic face, inset ring, and highlight: a tangible gold coin
- * - Embossed center mark: Kwilt's three quilt pieces
- * Intrinsic colors keep reward meaning intact inside otherwise muted metadata.
+ * - Full-face token: recognizable without perspective or sidewall detail
+ * - Outlined three-piece Kwilt mark: the same weight and language as Lucide
+ * Monochrome by design so token meaning remains clear in every icon context.
  */
-function TokenIcon({ size = 24 }: KwiltIconProps) {
+function TokenIcon(props: KwiltIconProps) {
+  const size = props.size ?? 24;
+  const color = props.color ?? '#000';
+
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Defs>
-        <LinearGradient
-          id="kwilt-token-gold"
-          x1={5}
-          y1={4}
-          x2={19}
-          y2={20}
-          gradientUnits="userSpaceOnUse"
-        >
-          <Stop offset={0} stopColor="#FFF7C7" />
-          <Stop offset={0.24} stopColor="#FFDC67" />
-          <Stop offset={0.58} stopColor="#ECAF27" />
-          <Stop offset={1} stopColor="#A96005" />
-        </LinearGradient>
-      </Defs>
-      <Circle
-        cx={12}
-        cy={12}
-        r={10}
-        fill="url(#kwilt-token-gold)"
-        stroke="#C78412"
-        strokeWidth={0.7}
-      />
-      <Circle cx={12} cy={12} r={8.15} stroke="#FFE89A" strokeWidth={0.7} opacity={0.9} />
-      <Path
-        d="M6.5 8.7C7.2 6.8 8.8 5.7 10.5 5.35"
-        stroke="#FFFDF0"
-        strokeWidth={1.15}
-        strokeLinecap="round"
-        opacity={0.9}
-      />
-      <G transform="translate(7 7) scale(0.0390625)" fill="#704000">
+    <Svg
+      width={size}
+      height={size}
+      viewBox="2 2 20 20"
+      fill="none"
+      stroke={color}
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <Circle cx={12} cy={12} r={8.8} />
+
+      {/* Canonical Kwilt mark from assets/logo.svg; only uniformly scaled and centered. */}
+      <G fill={color} stroke="none" transform="translate(7.95 8.2) scale(0.03)">
         <Path transform="translate(1 -2)" d="M49 9C70 9 87 26 87 47V187C87 217 70 241 47 247C26 252 10 244 10 228V48C10 26 27 9 49 9Z" />
         <Path transform="translate(-2 -3)" d="M166 9C143 10 126 28 126 51V121C126 136 135 143 147 137C172 124 197 108 218 89C236 72 246 49 246 25C246 16 239 10 230 9C209 7 187 7 166 9Z" />
         <Path transform="translate(9 0)" d="M218 140C234 139 246 149 246 164V215C246 233 232 247 214 247H113C104 247 100 238 104 229C127 178 168 144 218 140Z" />

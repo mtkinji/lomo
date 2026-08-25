@@ -23,6 +23,7 @@
       },
       "costTier": "$",
       "difficulty": "Advanced",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -202,8 +203,7 @@
         "altText": "Three slender deeply golden baguettes with crisp scored crusts, one cut to show a chewy irregular crumb.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -224,6 +224,7 @@
       },
       "costTier": "$",
       "difficulty": "Advanced",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -406,8 +407,7 @@
         "altText": "A round mahogany country loaf with a bold score and moist open crumb, partly sliced on a wooden board.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -428,6 +428,7 @@
       },
       "costTier": "$$",
       "difficulty": "Advanced",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -625,8 +626,7 @@
         "altText": "Twelve deeply golden butter croissants with crisp layered shells, one cut open to reveal an airy honeycomb crumb.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -647,6 +647,7 @@
       },
       "costTier": "$$",
       "difficulty": "Advanced",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -858,8 +859,7 @@
         "altText": "A glossy six-lobed brioche loaf with a deep golden crust and feather-soft yellow crumb pulled open.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -880,6 +880,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -1090,8 +1091,7 @@
         "altText": "Two golden leaf-shaped fougasse flatbreads with open cuts, rosemary, thyme, olive oil, and crisp edges.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -1112,6 +1112,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -1336,8 +1337,7 @@
         "altText": "A short stack of fluffy buttermilk pancakes with evenly browned surfaces, a little butter, and warm maple syrup.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -1358,6 +1358,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -1586,8 +1587,7 @@
         "altText": "Golden blueberry pancakes with whole berries distributed through the tender centers and a few fresh blueberries alongside.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -1608,6 +1608,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -1824,8 +1825,7 @@
         "altText": "Deep-pocketed golden Belgian-style waffles with crisp square edges and an airy yeasted interior.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -1846,6 +1846,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -2076,8 +2077,7 @@
         "altText": "Thick custardy challah French toast with deep golden crisp surfaces, berries, and a restrained drizzle of maple syrup.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -2098,6 +2098,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -2336,8 +2337,7 @@
         "altText": "Two tall flaky buttermilk biscuits split and topped with pourable black-pepper sausage gravy.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -2358,6 +2358,7 @@
       },
       "costTier": "$$",
       "difficulty": "Advanced",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -2722,8 +2723,7 @@
         "altText": "Crisp fried chicken thigh pieces on cornmeal waffles with a light drizzle of hot honey.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -2744,6 +2744,7 @@
       },
       "costTier": "$$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -3024,8 +3025,7 @@
         "altText": "Creamy stone-ground grits topped with seared shrimp, bacon, scallions, and a light lemon pan sauce.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -3046,6 +3046,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -3274,8 +3275,7 @@
         "altText": "Crisp corned beef and potato hash with browned cubes, onion, parsley, and four soft-yolk eggs cooked in wells.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -3296,6 +3296,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -3524,8 +3525,7 @@
         "altText": "A folded Denver omelet with browned ham, red and green pepper, onion, cheddar, and a softly set center.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -3546,6 +3546,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "verified",
       "structuredIngredients": [
         {
           "position": 0,
@@ -3558,7 +3559,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3572,7 +3573,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3586,7 +3587,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3600,7 +3601,7 @@
           "optional": false,
           "parseConfidence": 0.88,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3614,7 +3615,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3628,7 +3629,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3642,7 +3643,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3656,7 +3657,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3670,7 +3671,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3684,7 +3685,7 @@
           "optional": false,
           "parseConfidence": 0.88,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3698,7 +3699,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3712,7 +3713,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         },
         {
@@ -3726,7 +3727,7 @@
           "optional": false,
           "parseConfidence": 0.98,
           "scaleRule": {
-            "kind": "review_required"
+            "kind": "multiply"
           }
         }
       ],
@@ -3812,8 +3813,7 @@
         "altText": "Six tightly rolled breakfast burritos filled with browned potato, sausage, soft egg, cheese, salsa, avocado, and scallion.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -3834,6 +3834,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -4086,8 +4087,7 @@
         "altText": "Huevos rancheros with fried eggs on crisp-edged corn tortillas, refried beans, red salsa, queso fresco, cilantro, and lime.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -4108,6 +4108,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -4374,8 +4375,7 @@
         "altText": "Crisp-tender red chilaquiles with guajillo-tomato salsa, fried eggs, crema, queso fresco, white onion, and cilantro.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -4396,6 +4396,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -4648,8 +4649,7 @@
         "altText": "Soft flour breakfast tacos filled with crisp cumin potatoes, glossy scrambled eggs, cheddar, avocado, salsa, and cilantro.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -4670,6 +4670,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -4912,8 +4913,7 @@
         "altText": "Austin-style migas with soft eggs, poblano, tomato, Monterey Jack, cilantro, and crisp tortilla strips on top.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -4934,6 +4934,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -5162,8 +5163,7 @@
         "altText": "Four split bolillo molletes spread with beans and browned melted cheese, topped with drained pico de gallo.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -5184,6 +5184,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "verified",
       "structuredIngredients": [
         {
           "position": 0,
@@ -5444,8 +5445,7 @@
         "altText": "Shakshuka with six eggs in red pepper and tomato sauce, finished with herbs and crumbled feta.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "verified"
+      }
     },
     {
       "schemaVersion": 2,
@@ -5466,6 +5466,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -5666,8 +5667,7 @@
         "altText": "Soft Turkish menemen with glossy egg curds, tomatoes, blistered green peppers, parsley, and red pepper in a skillet.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -5688,6 +5688,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -5898,8 +5899,7 @@
         "altText": "Turkish çılbır with two soft poached eggs on garlicky yogurt, streaked with red Aleppo-pepper butter and dill.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -5920,6 +5920,7 @@
       },
       "costTier": "$",
       "difficulty": "Easy",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -6158,8 +6159,7 @@
         "altText": "Egyptian ful medames with partly mashed fava beans, olive oil, lemon, cumin, tomato, parsley, scallions, and pita.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     },
     {
       "schemaVersion": 2,
@@ -6180,6 +6180,7 @@
       },
       "costTier": "$",
       "difficulty": "Moderate",
+      "scalingState": "unavailable",
       "structuredIngredients": [
         {
           "position": 0,
@@ -6408,8 +6409,7 @@
         "altText": "Four warm za’atar manakish flatbreads with puffed spotted rims and olive-oil herb topping, served with labneh and vegetables.",
         "width": 1536,
         "height": 1024
-      },
-      "scalingState": "unavailable"
+      }
     }
   ]
 }

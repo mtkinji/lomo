@@ -1,3 +1,4 @@
+-- Publish reviewed ingredient scaling rules through the hosted Recipe catalog.
 alter table public.kwilt_recipe_versions
   add column scaling_state text not null default 'review_required'
   check (scaling_state in ('verified', 'unavailable', 'review_required'));
@@ -10,7 +11,7 @@ alter table public.kwilt_recipe_ingredients
     or (
       scale_rule->>'kind' = 'fixed'
       and scale_rule->>'reason' in ('as_needed','garnish','to_taste','vessel','reviewed_other')
-      and jsonb_object_length(scale_rule) = 2
+      and scale_rule = jsonb_build_object('kind', 'fixed', 'reason', scale_rule->>'reason')
     )
   );
 

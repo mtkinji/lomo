@@ -9,6 +9,7 @@ type MockBottomDrawerProps = {
   children?: ReactNode;
   bottomAccessory?: ReactNode;
   bottomAccessoryPlacement?: 'drawer' | 'phoneFloating';
+  bottomAccessoryShowTopBorder?: boolean;
   snapIndex?: number;
   snapPoints?: Array<number | string>;
   dismissable?: boolean;
@@ -26,6 +27,9 @@ const mockBottomDrawerProps: MockBottomDrawerProps[] = [];
 
 jest.mock('../../../features/unifiedChat/UnifiedChatDrawer', () => ({
   UnifiedChatDrawer: () => null,
+}));
+jest.mock('../../../services/HapticsService', () => ({
+  HapticsService: { trigger: jest.fn(async () => undefined) },
 }));
 jest.mock('../../../ui/hooks/useAccessibilityPreferences', () => ({
   useAccessibilityPreferences: () => ({ reduceMotionEnabled: false, screenReaderEnabled: false }),
@@ -86,6 +90,7 @@ jest.mock('../../../ui/BottomDrawer', () => {
   };
 });
 import { colors, fonts, radii, spacing, typography } from '../../../theme';
+import { HapticsService } from '../../../services/HapticsService';
 import { BUTTON_SIZE_TOKENS } from '../../../ui/buttonTokens';
 import { recipeContractFixture, recipeVersionContractFixture } from '../domain/recipeContractFixtures';
 import { buildRecipeLibraryInventory, DEFAULT_RECIPE_INVENTORY_FILTERS } from '../data/starterRecipeCatalog';
@@ -96,6 +101,7 @@ import {
   RESTING_COMPOSER_HORIZONTAL_INSET_PX,
 } from '../../../ui/layout/restingComposerMetrics';
 import { FOOD_FIRST_CYCLE_CHECKPOINTS } from '../../../features/household-food/onboarding/foodFirstCycleGuide';
+import { INVENTORY_DOCK_BUTTON_SIZE_PX } from '../../../features/activities/InventoryDockAffordances';
 import {
   MealPlanHeaderAction,
   MealPlanDrawer,
@@ -132,6 +138,7 @@ const viewProps = {
   isInPlan: () => false,
   isFavorite: () => false,
   totalCount: 100,
+  recommendationPlanningContext: { localHour: 9 },
 };
 
 describe('Recipe library', () => {
@@ -211,6 +218,36 @@ describe('Recipe library', () => {
     expect(onSeeAll).toHaveBeenCalledWith({ ...DEFAULT_RECIPE_INVENTORY_FILTERS, cuisine: 'Mexican' });
   });
 
+  it('keeps Your recipes after the image-rich discovery shelves', () => {
+    const personalRecipe = {
+      recipe: recipeContractFixture(),
+      currentVersion: recipeVersionContractFixture(),
+    };
+    const recipes = buildRecipeLibraryInventory([personalRecipe]);
+    const shelfIds = buildRecipeShelves(recipes).map((shelf) => shelf.id);
+
+    expect(shelfIds.at(-1)).toBe('yours');
+    expect(shelfIds.indexOf('yours')).toBeGreaterThan(shelfIds.indexOf('dessert'));
+  });
+
+  it('switches from discovery shelves to a two-column See all result without reusing list geometry', () => {
+    const recipes = buildRecipeLibraryInventory([]);
+    const screen = render(<RecipeLibraryView {...viewProps} recipes={recipes} />);
+    const filters = { ...DEFAULT_RECIPE_INVENTORY_FILTERS, source: 'yours' as const };
+
+    expect(() => {
+      screen.rerender(
+        <RecipeLibraryView
+          {...viewProps}
+          browseMode="results"
+          filters={filters}
+          recipes={recipes.slice(0, 4)}
+        />,
+      );
+    }).not.toThrow();
+    expect(screen.getByTestId('recipe-results-grid')).toBeTruthy();
+  });
+
   it('virtualizes discovery sections and recipe rails instead of mounting the full library at launch', () => {
     const recipes = buildRecipeLibraryInventory([]);
     const screen = render(<RecipeLibraryView {...viewProps} recipes={recipes} />);
@@ -264,12 +301,18 @@ describe('Recipe library', () => {
     expect(screen.getByTestId('recipe-shelf-recommended')).toBeTruthy();
   });
 
-  it('lets cuisine and recipe rails scroll through the full screen width', () => {
+  it('lets filter, cuisine, and recipe rails scroll through the full screen width', () => {
     const recipes = buildRecipeLibraryInventory([]);
     const screen = render(
       <RecipeLibraryView {...viewProps} recipes={recipes} isFavorite={() => true} />,
     );
 
+    expect(StyleSheet.flatten(screen.getByTestId('recipe-filter-rail').props.style)).toMatchObject({
+      marginHorizontal: -20,
+    });
+    expect(StyleSheet.flatten(screen.getByTestId('recipe-filter-rail').props.contentContainerStyle)).toMatchObject({
+      paddingHorizontal: 20,
+    });
     expect(StyleSheet.flatten(screen.getByTestId('cuisine-family-scroll').props.style)).toMatchObject({
       marginHorizontal: -20,
     });
@@ -610,14 +653,20 @@ describe('Recipe library', () => {
     }
   });
 
-  it('keeps capture, Search, and AI as separate bottom dock actions', () => {
+  it('makes Search the labeled primary action and keeps Add as a circular plus', () => {
     const onAdd = jest.fn();
     const onSearch = jest.fn();
     const onAsk = jest.fn();
     const screen = render(<RecipeInventoryDock onAdd={onAdd} onSearch={onSearch} onAsk={onAsk} />);
 
+    expect(screen.getByText('Find recipes')).toBeTruthy();
+    expect(screen.queryByText('Add a recipe')).toBeNull();
+    expect(StyleSheet.flatten(screen.getByTestId('recipe-inventory-add').props.style)).toMatchObject({
+      width: INVENTORY_DOCK_BUTTON_SIZE_PX,
+      height: INVENTORY_DOCK_BUTTON_SIZE_PX,
+    });
     fireEvent.press(screen.getByLabelText('Add a recipe'));
-    fireEvent.press(screen.getByLabelText('Search meals'));
+    fireEvent.press(screen.getByLabelText('Find recipes'));
     fireEvent.press(screen.getByLabelText('Ask Kwilt about meals'));
     expect(onAdd).toHaveBeenCalled();
     expect(onSearch).toHaveBeenCalled();
@@ -665,9 +714,11 @@ describe('Recipe library', () => {
     const selectedStyle = StyleSheet.flatten(selectedToggle.props.style);
     expect(selectedStyle).toMatchObject({ width: 36, height: 36, backgroundColor: colors.sumi900 });
     fireEvent.press(selectedToggle);
+    expect(HapticsService.trigger).toHaveBeenCalledWith('canvas.toggle.off');
     expect(onAddToPlan).toHaveBeenCalledWith(featured);
     const ordinary = recipes.find((projection) => projection.currentVersion.id !== featured.currentVersion.id)!;
     fireEvent.press(screen.getAllByLabelText(`Add ${ordinary.currentVersion.title} to Meal Plan`)[0]);
+    expect(HapticsService.trigger).toHaveBeenLastCalledWith('canvas.toggle.on');
     expect(onAddToPlan).toHaveBeenCalledWith(ordinary);
   });
 
@@ -809,7 +860,7 @@ describe('Recipe library', () => {
     const planDrawer = mockBottomDrawerProps.find((props) => (
       props.visible && props.snapPoints?.[0] === '100%'
     ));
-    expect(planDrawer?.bottomAccessory).toBeUndefined();
+    expect(planDrawer?.bottomAccessory).toBeTruthy();
     const transition = drawer.getByTestId(
       'plan-grocery-action-transition',
       { includeHiddenElements: true },
@@ -902,6 +953,7 @@ describe('Recipe library', () => {
   });
 
   it('reuses the household food illustration to invite an empty first idea', () => {
+    const onGetIdeas = jest.fn();
     const drawer = render(
       <MealPlanDrawer
         visible
@@ -909,12 +961,57 @@ describe('Recipe library', () => {
         canManage
         onClose={jest.fn()}
         onRemove={jest.fn()}
+        onGetIdeas={onGetIdeas}
       />,
     );
 
     expect(drawer.getByText('Add a meal idea')).toBeTruthy();
+    fireEvent.press(drawer.getByRole('button', { name: 'Get ideas from Kwilt' }));
+    expect(onGetIdeas).toHaveBeenCalledTimes(1);
     expect(drawer.queryByText('Nothing in Plan yet')).toBeNull();
     expect(drawer.queryByText('Add any recipe you might want to make.')).toBeNull();
+  });
+
+  it('places the Kwilt ideas action between Ideas and Planned and changes its label after success', async () => {
+    const onGetIdeas = jest.fn().mockResolvedValue(true);
+    const idea = {
+      id: 'meal-1', candidateId: 'candidate-1', title: 'Tacos', storageRef: null,
+      lifecycle: 'idea' as const, createdAt: '2026-08-11T12:00:00.000Z', sentAt: null,
+      voteCount: 0, reactionCounts: { thumbs_up: 0, heart: 0, yum: 0, excited: 0, fire: 0, downvote: 0 }, missingItemCount: null,
+      contributor: { personId: 'person-2', displayName: 'Sam', avatarUrl: null },
+      supporters: [], viewerReaction: null, canReact: false, canRemove: true, canMarkMade: false,
+    };
+    const drawer = render(
+      <MealPlanDrawer
+        visible items={[idea]} canManage onClose={jest.fn()} onRemove={jest.fn()}
+        onGetIdeas={onGetIdeas}
+      />,
+    );
+    const draggableList = drawer.UNSAFE_root.findAll((node: TestTreeNode) => (
+      Array.isArray(node.props.items) && typeof node.props.onOrderChange === 'function'
+    ))[0];
+
+    expect(draggableList.props.items.map((entry: { id: string }) => entry.id)).toEqual([
+      'meal-1',
+      'get-ideas-from-kwilt',
+      'planned-heading',
+      'planned-empty',
+    ]);
+    expect(StyleSheet.flatten(
+      drawer.getByRole('button', { name: 'Get ideas from Kwilt' }).props.style,
+    )).toMatchObject({
+      width: '100%',
+      minHeight: 48,
+      backgroundColor: colors.shellAlt,
+      borderWidth: 0,
+      borderRadius: radii.card,
+      alignItems: 'flex-start',
+    });
+    await act(async () => {
+      fireEvent.press(drawer.getByRole('button', { name: 'Get ideas from Kwilt' }));
+    });
+    expect(onGetIdeas).toHaveBeenCalledTimes(1);
+    expect(drawer.getByRole('button', { name: 'Get more ideas' })).toBeTruthy();
   });
 
   it('uses standard drawer dismissal without a redundant close button', () => {
@@ -978,16 +1075,15 @@ describe('Recipe library', () => {
     expect(drawer.queryByText('Drop in Planned')).toBeNull();
     const groceryAction = drawer.getByRole('button', { name: 'View groceries' });
     expect(StyleSheet.flatten(groceryAction.props.style)).toMatchObject({
-      position: 'absolute',
-      right: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
-      bottom: RESTING_COMPOSER_COMPACT_BOTTOM_OFFSET_PX,
-      width: RESTING_COMPOSER_HEIGHT_PX,
-      height: RESTING_COMPOSER_HEIGHT_PX,
+      width: '100%',
+      minHeight: 52,
+      backgroundColor: colors.primary,
     });
-    expect(drawer.queryByText('View groceries')).toBeNull();
+    expect(drawer.getByText('View groceries')).toBeTruthy();
     const planDrawerProps = mockBottomDrawerProps.find((props) => props.visible);
-    expect(planDrawerProps?.bottomAccessory).toBeUndefined();
-    expect(planDrawerProps?.bottomAccessoryPlacement).toBeUndefined();
+    expect(planDrawerProps?.bottomAccessory).toBeTruthy();
+    expect(planDrawerProps?.bottomAccessoryPlacement).toBe('drawer');
+    expect(planDrawerProps?.bottomAccessoryShowTopBorder).toBe(false);
     fireEvent(drawer.getByRole('button', { name: 'Move Tacos' }), 'accessibilityAction', {
       nativeEvent: { actionName: 'addToGroceries' },
     });
@@ -1467,27 +1563,27 @@ describe('Recipe library', () => {
 
   });
 
-  it('calls the durable Recipes header entry Ideas and shows only unseen attention', () => {
+  it('shows the durable idea count independently of unseen attention', () => {
     const onPress = jest.fn();
-    const screen = render(<MealPlanHeaderAction needsAttention onPress={onPress} />);
+    const screen = render(<MealPlanHeaderAction count={5} needsAttention={false} onPress={onPress} />);
 
     expect(screen.getByText('Ideas')).toBeTruthy();
     expect(screen.queryByText('Plan')).toBeNull();
     expect(screen.queryByText('Meal Plan')).toBeNull();
-    expect(screen.queryByText('5')).toBeNull();
+    expect(screen.getByText('5')).toBeTruthy();
     const actionStyle = StyleSheet.flatten(screen.getByTestId('meal-plan-header-action').props.style);
-    const attentionStyle = StyleSheet.flatten(screen.getByTestId('meal-plan-header-attention', { includeHiddenElements: true }).props.style);
+    const countStyle = StyleSheet.flatten(screen.getByTestId('meal-plan-header-count', { includeHiddenElements: true }).props.style);
     expect(actionStyle).toMatchObject({ minHeight: 36, backgroundColor: colors.fieldFill });
     expect(actionStyle).not.toHaveProperty('borderColor');
-    expect(attentionStyle).toMatchObject({
-      width: 8,
-      height: 8,
-      borderRadius: 4,
+    expect(countStyle).toMatchObject({
+      minWidth: 18,
+      height: 18,
+      borderRadius: 999,
       alignSelf: 'center',
       backgroundColor: colors.actionAttention,
     });
-    expect(attentionStyle).not.toHaveProperty('position');
-    fireEvent.press(screen.getByLabelText('Ideas, new meal ideas'));
+    expect(countStyle).not.toHaveProperty('position');
+    fireEvent.press(screen.getByLabelText('Ideas, 5 ideas'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 

@@ -94,7 +94,7 @@ export const CAPABILITY_REGISTRY = [
     rootRoute: { root: 'Food', screen: 'GroceryList' }, deepLinks: [], agent: currentKwiltAgentContract, lifecycle: {},
   },
   {
-    id: 'chores', label: 'Chores', group: null, icon: 'home', availability: 'active',
+    id: 'chores', label: 'Chores', group: null, icon: 'chores', availability: 'active',
     rootRoute: { root: 'Chores' }, deepLinks: ['kwilt://chores'], agent: currentKwiltAgentContract, lifecycle: {},
   },
 ] as const satisfies readonly CapabilityDefinition[];
@@ -124,7 +124,7 @@ export const CAPABILITY_MENU_REGISTRY = [
     ownerId: 'money',
     label: 'Budgets',
     group: 'money',
-    icon: 'gauge',
+    icon: 'wallet',
     availability: 'active',
     rootRoute: { root: 'Money', screen: 'MoneySummary' },
   },
@@ -134,7 +134,7 @@ export const CAPABILITY_MENU_REGISTRY = [
     label: 'Transactions',
     group: 'money',
     icon: 'receipt',
-    availability: 'active',
+    availability: 'hidden',
     rootRoute: { root: 'Money', screen: 'MoneyTransactions' },
   },
 ] as const satisfies readonly CapabilityMenuDestinationDefinition[];

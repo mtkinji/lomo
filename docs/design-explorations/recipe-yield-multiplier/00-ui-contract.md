@@ -4,17 +4,17 @@ Job: When Maya chooses a recipe, she needs to know what one authored batch makes
 
 Authority chain: accepted Global Recipe Catalog brief -> explicit yield-and-multiplier decision -> existing Recipe facts hierarchy and local controls -> platform accessibility conventions.
 
-Three-second read: `Makes <authored yield>` and current recipe size.
+Three-second read: `Makes <current yield>`.
 
-Primary action: choose `1×`, `2×`, or `3×` when reviewed scaling is available.
+Primary action: choose `1×`, `2×`, or `3×` from a secondary `Scale <N>×` action when reviewed scaling is available.
 
 Primary information: authored yield and resulting scaled yield.
 
 Secondary information: cookware and timing may need adjustment after scaling.
 
-Reveal later: show the scaling caution only after changing the original recipe size.
+Reveal later: show the scaling caution only after changing the authored `1×` recipe.
 
-Scan order: recipe facts -> Recipe size -> resulting yield -> Ingredients.
+Scan order: recipe facts -> resulting yield -> optional Scale action -> Ingredients.
 
 Must not add: diner inference, nutrition serving size, fractional multipliers, automatic time scaling, automatic cookware sufficiency, persistence, or mutation of the canonical RecipeVersion.
 
@@ -34,9 +34,9 @@ Proof path: BA001 in the installed mobile app; Classic deviled eggs and Sicilian
 
 ## Surface presentation
 
-Mobile presentation: `Recipe size` row with the multiplier control and supporting text `Makes <scaled yield>`.
+Mobile presentation: one `Makes <scaled yield>` fact row. When scaling is available, show a compact outlined `Scale <N>×` menu as the secondary action in that row.
 
-Public-site presentation: one compact native select reading `1× · Makes <scaled yield>`.
+Public-site presentation: `Makes <scaled yield>` followed by a compact native select reading `Scale <N>×` when scaling is available.
 
 Unavailable state: show `Makes <authored yield>` without an enabled multiplier control. Do not expose a half-working scaler.
 

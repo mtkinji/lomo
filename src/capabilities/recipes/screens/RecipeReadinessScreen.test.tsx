@@ -3,12 +3,12 @@ import { RECIPE_EDITORIAL_ENRICHMENT_BY_ROSTER_ID } from '../data/recipeEditoria
 import { deriveRecipeReadiness, shouldShowFoodCookGuide } from './RecipeReadinessScreen';
 
 describe('Recipe readiness', () => {
-  it('locks recipe size and labels inferred equipment', () => {
+  it('summarizes the selected yield and labels inferred equipment', () => {
     const version = recipeVersionContractFixture();
     version.instructions = [{ ...version.instructions[0], text: 'Preheat the oven to 350°F. Bake for 20 minutes.' }];
     const items = deriveRecipeReadiness(version, 2);
-    expect(items).toContainEqual({ id: 'recipe-size', label: 'Recipe size 2×', inferred: false });
-    expect(items).toContainEqual({ id: 'yield', label: 'Makes 16 servings', inferred: false });
+    expect(items).toContainEqual({ id: 'yield', label: 'Makes 16 servings (2×)', inferred: false });
+    expect(items).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'recipe-size' })]));
     expect(items).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'equipment', inferred: true, label: expect.stringContaining('oven') })]));
   });
 

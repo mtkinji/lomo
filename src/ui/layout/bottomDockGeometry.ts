@@ -19,6 +19,14 @@ export function resolvePhoneFloatingActionContentInset(
   );
 }
 
+export function resolveRestingFloatingControlContentInset(actionHeight: number): number {
+  return (
+    bottomDockGeometry.restingFloatingControl.bottomGap
+    + actionHeight
+    + bottomDockGeometry.restingFloatingControl.contentGap
+  );
+}
+
 export function resolveDrawerActionBottomInset(safeAreaBottom: number): number {
   return Math.max(bottomDockGeometry.drawerAction.minimumBottomGap, safeAreaBottom);
 }

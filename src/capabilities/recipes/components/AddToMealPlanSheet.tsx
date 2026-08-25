@@ -80,11 +80,18 @@ export function AddToMealPlanSheet({ visible, recipe, defaultPlannedPortions, re
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'This recipe could not be added.'); }
     finally { setBusy(false); }
   };
+  const scaledYield = recipe.currentVersion.yieldQuantity && recipe.currentVersion.yieldUnit
+    ? formatScaledRecipeYield({
+      yieldQuantity: recipe.currentVersion.yieldQuantity,
+      yieldUnit: recipe.currentVersion.yieldUnit,
+      multiplier: recipeScaleMultiplier,
+    })
+    : null;
   return <BottomDrawer visible={visible} onClose={onClose} snapPoints={['72%']}><View style={styles.content}>
     <Heading variant="md">Add to Meal Plan</Heading>
     <Text tone="secondary">{active?.state === 'draft' ? 'Add this exact recipe version to your current draft.' : active ? 'Your current plan is already underway. Start a fresh draft without changing it.' : 'Choose how far ahead you want to collect meals.'}</Text>
     <View style={styles.servings}><Text variant="label">Cooking for</Text><Button size="sm" variant="outline" disabled={plannedPortions <= 1} onPress={() => setPlannedPortions((value) => Math.max(1, value - 1))}>−</Button><Text>{plannedPortions}</Text><Button size="sm" variant="outline" onPress={() => setPlannedPortions((value) => value + 1)}>+</Button></View>
-    <Text tone="secondary">Recipe size {recipeScaleMultiplier}×{recipe.currentVersion.yieldQuantity && recipe.currentVersion.yieldUnit ? ` · Makes ${formatScaledRecipeYield({ yieldQuantity: recipe.currentVersion.yieldQuantity, yieldUnit: recipe.currentVersion.yieldUnit, multiplier: recipeScaleMultiplier })}` : ''}</Text>
+    {scaledYield ? <Text tone="secondary">Makes {scaledYield}{recipeScaleMultiplier > 1 ? ` (${recipeScaleMultiplier}×)` : ''}</Text> : null}
     <MealFitCallout
       fit={fit}
       personLabelsById={personLabelsById}

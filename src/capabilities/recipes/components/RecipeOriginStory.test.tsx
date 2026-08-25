@@ -1,5 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { render } from '@testing-library/react-native';
 
 import type { RecipeEditorialEnrichment } from '../data/recipeEditorialEnrichment';
 import { RecipeOriginStory, recipeOriginMapRegion } from './RecipeOriginStory';
@@ -53,8 +52,16 @@ const enrichment: RecipeEditorialEnrichment = {
   history: {
     paragraphs: ['This dish grew through Japanese home cooking.', 'Its familiar form reflects a specific era and technique.'],
     sources: [
-      { title: 'A culinary history', publisher: 'Japan Ministry of Agriculture', url: 'https://example.test/history' },
-      { title: 'Regional foodways', publisher: 'National Diet Library', url: 'https://example.test/foodways' },
+      {
+        title: 'A culinary history',
+        publisher: 'Japan Ministry of Agriculture',
+        url: 'https://example.test/history',
+      },
+      {
+        title: 'Regional foodways',
+        publisher: 'National Diet Library',
+        url: 'https://example.test/foodways',
+      },
     ],
   },
   heroImage: { state: 'missing', storageRef: null, altText: null, width: null, height: null },
@@ -72,8 +79,7 @@ describe('Recipe origin story', () => {
     expect(recipeOriginMapRegion(enrichment.origin).latitudeDelta).toBeLessThanOrEqual(24);
   });
 
-  it('renders an actual non-interactive map, history, and source links', () => {
-    jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+  it("renders an actual non-interactive map and history without exposing editorial research references", () => {
     const screen = render(<RecipeOriginStory enrichment={enrichment} />);
 
     expect(screen.getByText('Where this meal comes from')).toBeTruthy();
@@ -88,7 +94,24 @@ describe('Recipe origin story', () => {
       rotateEnabled: false,
       pitchEnabled: false,
     }));
-    fireEvent.press(screen.getByLabelText('Open source: A culinary history'));
-    expect(Linking.openURL).toHaveBeenCalledWith('https://example.test/history');
+    expect(screen.queryByText('A culinary history')).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByText(/researched and reviewed by kwilt/i)).toBeNull();
+    expect(screen.queryByLabelText("How Kwilt reviews its recipes")).toBeNull();
+  });
+
+  it('shows one location label when the origin label and region match', () => {
+    const repeatedLocation = {
+      ...enrichment,
+      origin: {
+        ...enrichment.origin,
+        label: 'Southwestern United States',
+        region: 'Southwestern United States',
+      },
+    };
+
+    const screen = render(<RecipeOriginStory enrichment={repeatedLocation} />);
+
+    expect(screen.getAllByText('Southwestern United States')).toHaveLength(1);
   });
 });

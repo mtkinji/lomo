@@ -7,9 +7,11 @@ const mockReconcileConnectedActivity = jest.fn(async () => null);
 let mockMoneyScreenFrameOnRefresh: (() => Promise<unknown>) | undefined;
 const mockSnapshot = {
   accounts: [{ id: 'chase-savings', name: 'Chase Savings' }],
-  categories: [],
+  categories: [] as Array<Record<string, unknown>>,
   transactions: [] as Array<Record<string, unknown>>,
   lastSyncedAt: null as string | null,
+  periodLabel: 'August 2026',
+  livingLimitAnswer: { facts: { periodId: '2026-08', flexibleRoomCents: -54_047 } },
 };
 
 jest.mock('../data/MoneyDataContext', () => ({
@@ -53,6 +55,7 @@ jest.mock('./MoneyScreenFrame', () => {
 describe('MoneyTransactionsScreen navigation hierarchy', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSnapshot.categories = [];
     mockSnapshot.transactions = [];
     mockSnapshot.lastSyncedAt = null;
     mockMoneyScreenFrameOnRefresh = undefined;
@@ -60,8 +63,10 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
 
   it('replaces global navigation with back navigation for an account inventory', () => {
     const navigation = {
+      canGoBack: jest.fn(() => true),
       goBack: jest.fn(),
       navigate: jest.fn(),
+      replace: jest.fn(),
       setParams: jest.fn(),
     };
     const route = {
@@ -79,10 +84,12 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
     expect(navigation.goBack).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps global navigation on the top-level transactions inventory', () => {
+  it('returns the full transactions inventory to Budget through local history', () => {
     const navigation = {
+      canGoBack: jest.fn(() => true),
       goBack: jest.fn(),
       navigate: jest.fn(),
+      replace: jest.fn(),
       setParams: jest.fn(),
     };
     const route = {
@@ -95,10 +102,29 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
       <MoneyTransactionsScreen navigation={navigation as never} route={route as never} />,
     );
 
-    expect(getByLabelText('Open navigation menu')).toBeTruthy();
-    expect(queryByLabelText(/Go back from/)).toBeNull();
+    expect(queryByLabelText('Open navigation menu')).toBeNull();
+    fireEvent.press(getByLabelText('Go back from Transactions'));
+    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+    expect(navigation.replace).not.toHaveBeenCalled();
     fireEvent.press(getByText('Connect an account'));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyAccounts');
+  });
+
+  it('falls back to Budget when Transactions was opened directly', () => {
+    const navigation = {
+      canGoBack: jest.fn(() => false),
+      goBack: jest.fn(),
+      navigate: jest.fn(),
+      replace: jest.fn(),
+      setParams: jest.fn(),
+    };
+    const route = { key: 'direct-transactions', name: 'MoneyTransactions' as const, params: undefined };
+
+    const screen = render(<MoneyTransactionsScreen navigation={navigation as never} route={route as never} />);
+
+    fireEvent.press(screen.getByLabelText('Go back from Transactions'));
+    expect(navigation.goBack).not.toHaveBeenCalled();
+    expect(navigation.replace).toHaveBeenCalledWith('MoneySummary');
   });
 
   it('shares the compact bank freshness stamp and pull sync contract with Budget', async () => {
@@ -158,6 +184,29 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
 
     expect(screen.getByText('Flexible spending')).toBeTruthy();
     expect(screen.getByLabelText('Go back from Flexible spending')).toBeTruthy();
+  });
+
+  it('shows an overage category once instead of repeating it under every transaction', () => {
+    mockSnapshot.categories = [{
+      id: 'miscellaneous', sourceId: 'miscellaneous-source', name: 'Miscellaneous',
+      planRole: 'flexible', plannedCents: 10_000, spentCents: 64_047,
+    }];
+    mockSnapshot.transactions = [
+      { ...transaction('venmo-one', 'Venmo'), date: '2026-08-12', amountCents: 47_000, categoryId: 'miscellaneous', categoryName: 'Miscellaneous', reviewState: 'assigned' },
+      { ...transaction('venmo-two', 'Venmo'), date: '2026-08-13', amountCents: 17_047, categoryId: 'miscellaneous', categoryName: 'Miscellaneous', reviewState: 'assigned' },
+    ];
+    const navigation = { canGoBack: jest.fn(() => true), goBack: jest.fn(), navigate: jest.fn(), replace: jest.fn(), setParams: jest.fn() };
+    const route = {
+      key: 'review-overages',
+      name: 'MoneyTransactions' as const,
+      params: { inventoryTitle: 'Review overages', overageReview: true, flexibleRoomCents: -54_047 },
+    };
+
+    const screen = render(<MoneyTransactionsScreen navigation={navigation as never} route={route as never} />);
+
+    expect(screen.getAllByText('Miscellaneous')).toHaveLength(1);
+    expect(screen.getByLabelText('Open Venmo transaction, Miscellaneous, -$470')).toBeTruthy();
+    expect(screen.getByLabelText('Open Venmo transaction, Miscellaneous, -$170.47')).toBeTruthy();
   });
 
   it('shows category truth for pending purchases instead of settlement status', () => {
