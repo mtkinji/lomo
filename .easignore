@@ -1,13 +1,14 @@
 # EAS upload ignore rules.
 #
-# IMPORTANT: we intentionally DO NOT ignore `*.p12` or `*.mobileprovision` here
-# because `production-widgets` uses `credentialsSource: "local"` and needs those
-# files available during the remote build.
+# This file takes precedence over .gitignore. Keep repository-local files,
+# generated evidence, build outputs, and credential material represented here.
 
-# Git history (not needed by EAS Build; saves ~128 MB on upload).
-.git/
+# Git history (not needed by EAS Build).
+# EAS CLI checks the literal `.git` path when deleting its shallow clone.
+.git
 
-# Local parallel checkouts (never part of an app build).
+# Local editor and parallel-checkout state (never part of an app build).
+.cursor/
 .worktrees/
 
 # dependencies
@@ -34,6 +35,13 @@ yarn-error.*
 
 # local EAS logs / artifacts
 eas_logs_local/
+eas_cloud_logs/
+modules/*/android/build/
+
+# generated review, prototype, and store-presentation artifacts
+/artifacts/
+/prototypes/
+app-store-screenshots/
 
 # macOS
 .DS_Store
@@ -49,6 +57,15 @@ src/features/*/FEATURE.md
 # local env files
 .env
 .env*.local
+
+# credential material; store-build profiles use EAS remote credentials
+credentials.json
+*.jks
+*.key
+*.mobileprovision
+*.p12
+*.p8
+*.pem
 
 # typescript
 *.tsbuildinfo

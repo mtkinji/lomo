@@ -23,6 +23,7 @@
     "verify:changed": "node scripts/verify-changed.mjs",
     "code:health": "node scripts/code-health.mjs",
     "test:code-health": "node --test scripts/code-health-lib.test.mjs",
+    "test:eas-upload-policy": "node --test scripts/eas-upload-policy.test.mjs",
     "architecture:lint": "node --test scripts/architecture-lint-lib.test.mjs && node scripts/architecture-lint.mjs",
     "audio:audit": "node scripts/audio/audit-assets.mjs",
     "audio:audit:loops": "node scripts/audio/audit-loop-seams.mjs",
