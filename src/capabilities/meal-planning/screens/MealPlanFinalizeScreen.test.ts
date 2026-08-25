@@ -33,6 +33,18 @@ describe('Meal Plan finalization occasions', () => {
     ]);
   });
 
+  it('uses planned portions without treating the recipe multiplier as diners', () => {
+    const [occasion] = buildDefaultMealOccasions({
+      ...plan,
+      candidates: [{
+        ...plan.candidates[0],
+        recipeSnapshot: { recipeScaleMultiplier: 3, plannedPortions: 2, selectedServings: 9 },
+      }],
+    }, ['adult', 'child'], 7, () => 'id');
+
+    expect(occasion.dishes[0]).toMatchObject({ servings: 2, dinerPersonIds: ['adult', 'child'] });
+  });
+
   it('keeps the household count independent from the named diners', () => {
     const [occasion] = buildDefaultMealOccasions(
       { ...plan, candidates: [plan.candidates[1]] },

@@ -81,7 +81,8 @@ export function MealPlanEditorScreen({ navigation, route }: Props) {
       ? current.filter((item) => item.recipeSnapshot?.recipeId !== recipeId)
       : [...current, buildMealPlanRecipeCandidate(recipe, {
         candidateId: Crypto.randomUUID(),
-        servings: defaultServings,
+        recipeScaleMultiplier: 1,
+        plannedPortions: defaultServings,
       })]);
   };
   const addNote = () => { const title = note.trim(); if (!title) return; setSelected((current) => [...current, { id: Crypto.randomUUID(), kind: 'meal_note', title, recipeSnapshot: null }]); setNote(''); };
@@ -109,7 +110,8 @@ export function MealPlanEditorScreen({ navigation, route }: Props) {
     if (!recipe) return null;
     return buildMealPlanRecipeCandidate(recipe, {
       candidateId: Crypto.randomUUID(),
-      servings: defaultServings,
+      recipeScaleMultiplier: 1,
+      plannedPortions: defaultServings,
     });
   };
   const prepareStartingPoint = () => {

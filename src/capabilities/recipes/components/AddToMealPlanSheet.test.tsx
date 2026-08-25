@@ -39,12 +39,15 @@ describe('Add to Meal Plan household fit', () => {
   });
 
   it('keeps the normal drawer reductive until recorded evidence conflicts', async () => {
-    const screen = render(<AddToMealPlanSheet visible recipe={projection} defaultServings={4} onClose={jest.fn()} onAdded={jest.fn()} />);
+    const screen = render(<AddToMealPlanSheet visible recipe={projection} defaultPlannedPortions={4} recipeScaleMultiplier={2} onClose={jest.fn()} onAdded={jest.fn()} />);
     await waitFor(() => expect(screen.getByText("Peanuts conflict with Avery's food needs.")).toBeTruthy());
+    expect(screen.getByText('Cooking for')).toBeTruthy();
+    expect(screen.getByText(/Recipe size 2× · Makes/)).toBeTruthy();
 
     fireEvent.press(screen.getByText('Make for everyone else'));
     expect(screen.getByText('Avery still needs a meal.')).toBeTruthy();
     expect(screen.getByText('Add for 1')).toBeTruthy();
+    expect(screen.getByText(/Recipe size 2× · Makes/)).toBeTruthy();
     fireEvent.press(screen.getByText('Not eating this time'));
     expect(screen.queryByText(/safe|allergy-safe|compatible/i)).toBeNull();
   });
@@ -57,19 +60,20 @@ describe('Add to Meal Plan household fit', () => {
         ingredients: projection.currentVersion.ingredients.map((line, index) => index === 0 ? { ...line, ingredientConcept: null } : line),
       },
     };
-    const screen = render(<AddToMealPlanSheet visible recipe={incomplete} defaultServings={4} onClose={jest.fn()} onAdded={jest.fn()} />);
+    const screen = render(<AddToMealPlanSheet visible recipe={incomplete} defaultPlannedPortions={4} recipeScaleMultiplier={1} onClose={jest.fn()} onAdded={jest.fn()} />);
     await waitFor(() => expect(screen.getByText('Not checked against food needs.')).toBeTruthy());
   });
 
   it('uses the numeric household default even when only some diners have profiles', async () => {
-    const screen = render(<AddToMealPlanSheet visible recipe={projection} defaultServings={6} onClose={jest.fn()} onAdded={jest.fn()} />);
+    const screen = render(<AddToMealPlanSheet visible recipe={projection} defaultPlannedPortions={6} recipeScaleMultiplier={1} onClose={jest.fn()} onAdded={jest.fn()} />);
     await waitFor(() => expect(screen.getByText('6')).toBeTruthy());
   });
 
   it('subtracts only the excluded named diner from an unnamed household quantity', async () => {
-    const screen = render(<AddToMealPlanSheet visible recipe={projection} defaultServings={7} onClose={jest.fn()} onAdded={jest.fn()} />);
+    const screen = render(<AddToMealPlanSheet visible recipe={projection} defaultPlannedPortions={7} recipeScaleMultiplier={3} onClose={jest.fn()} onAdded={jest.fn()} />);
     await waitFor(() => expect(screen.getByText("Peanuts conflict with Avery's food needs.")).toBeTruthy());
     fireEvent.press(screen.getByText('Make for everyone else'));
     expect(screen.getByText('6')).toBeTruthy();
+    expect(screen.getByText(/Recipe size 3× · Makes/)).toBeTruthy();
   });
 });

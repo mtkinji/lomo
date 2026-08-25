@@ -2,6 +2,7 @@ import type { MealPlanCandidateDraft } from '../../meal-planning/data/mealPlanni
 import type { SharedMealCartProjection } from '../../meal-planning/domain/sharedMealCart';
 import type { RecipeProjection } from '../data/recipeCache';
 import { buildMealPlanRecipeCandidate } from './mealPlanRecipeCandidate';
+import type { RecipeScaleMultiplier } from './recipeScaling';
 
 type SharedCartSelectionRepository = {
   addMealCandidate(householdId: string | null, candidate: MealPlanCandidateDraft): Promise<unknown> | unknown;
@@ -20,7 +21,8 @@ export async function toggleRecipeInSharedMealCart({
   cart,
   householdId,
   projection,
-  servings,
+  recipeScaleMultiplier,
+  plannedPortions,
   candidateId,
   repository,
   reloadCart,
@@ -28,7 +30,8 @@ export async function toggleRecipeInSharedMealCart({
   cart: SharedMealCartProjection | null;
   householdId: string | null;
   projection: RecipeProjection;
-  servings: number;
+  recipeScaleMultiplier: RecipeScaleMultiplier;
+  plannedPortions: number;
   candidateId: string;
   repository: SharedCartSelectionRepository;
   reloadCart(): Promise<SharedMealCartProjection>;
@@ -43,7 +46,7 @@ export async function toggleRecipeInSharedMealCart({
   }
   await repository.addMealCandidate(
     householdId,
-    buildMealPlanRecipeCandidate(projection, { candidateId, servings }),
+    buildMealPlanRecipeCandidate(projection, { candidateId, recipeScaleMultiplier, plannedPortions }),
   );
   return { cart: await reloadCart(), selected: true };
 }

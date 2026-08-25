@@ -16,13 +16,14 @@ import { buildMealPlanRecipeCandidate } from '../domain/mealPlanRecipeCandidate'
 import { useHouseholdMealPreferencesStore } from '../../../features/household-food/runtime/useHouseholdMealPreferencesStore';
 import { deriveMealFit } from '../../../features/household-food/domain/householdMealFit';
 import { MealFitCallout } from '../../meal-planning/components/MealFitCallout';
+import { formatScaledRecipeYield, type RecipeScaleMultiplier } from '../domain/recipeScaling';
 
-export function AddToMealPlanSheet({ visible, recipe, defaultServings, onClose, onAdded }: {
-  visible: boolean; recipe: RecipeProjection; defaultServings: number; onClose(): void; onAdded(message: string, context: { planId: string; candidateId: string }): void;
+export function AddToMealPlanSheet({ visible, recipe, defaultPlannedPortions, recipeScaleMultiplier, onClose, onAdded }: {
+  visible: boolean; recipe: RecipeProjection; defaultPlannedPortions: number; recipeScaleMultiplier: RecipeScaleMultiplier; onClose(): void; onAdded(message: string, context: { planId: string; candidateId: string }): void;
 }) {
   const [plans, setPlans] = useState<MealPlanProjection[]>([]);
   const [horizon, setHorizon] = useState<MealPlanHorizon>({ kind: 'meal_count', count: 4 });
-  const [servings, setServings] = useState(defaultServings);
+  const [plannedPortions, setPlannedPortions] = useState(defaultPlannedPortions);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recovery,setRecovery]=useState<'start_new_plan'|'add_to_draft_copy'>('start_new_plan');
@@ -36,9 +37,9 @@ export function AddToMealPlanSheet({ visible, recipe, defaultServings, onClose, 
     setDinerPersonIds(usualDiners);
     setExcludedDinerPersonIds([]);
     setExcludedDinerResolution(null);
-    setServings(defaultServings);
+    setPlannedPortions(defaultPlannedPortions);
     void createMealPlanningRepository().list().then(setPlans).catch(() => setPlans([]));
-  }, [defaultServings, preferences?.usualDinerPersonIds, visible]);
+  }, [defaultPlannedPortions, preferences?.usualDinerPersonIds, visible]);
   const fit = useMemo(() => {
     const ingredients = recipe.currentVersion.ingredients;
     const ingredientConcepts = ingredients.flatMap((line) => line.ingredientConcept && (line.parseConfidence ?? 0) >= 0.8 ? [line.ingredientConcept] : []);
@@ -55,11 +56,12 @@ export function AddToMealPlanSheet({ visible, recipe, defaultServings, onClose, 
   const active = useMemo(() => plans.find((plan) => plan.state !== 'archived') ?? null, [plans]);
   const candidate: MealPlanCandidateDraft = useMemo(() => buildMealPlanRecipeCandidate(recipe, {
     candidateId: Crypto.randomUUID(),
-    servings,
+    recipeScaleMultiplier,
+    plannedPortions,
     dinerPersonIds,
     excludedDinerPersonIds,
     excludedDinerResolution,
-  }), [dinerPersonIds, excludedDinerPersonIds, excludedDinerResolution, recipe, servings]);
+  }), [dinerPersonIds, excludedDinerPersonIds, excludedDinerResolution, plannedPortions, recipe, recipeScaleMultiplier]);
   const add = async () => {
     setBusy(true); setError(null);
     try {
@@ -81,7 +83,8 @@ export function AddToMealPlanSheet({ visible, recipe, defaultServings, onClose, 
   return <BottomDrawer visible={visible} onClose={onClose} snapPoints={['72%']}><View style={styles.content}>
     <Heading variant="md">Add to Meal Plan</Heading>
     <Text tone="secondary">{active?.state === 'draft' ? 'Add this exact recipe version to your current draft.' : active ? 'Your current plan is already underway. Start a fresh draft without changing it.' : 'Choose how far ahead you want to collect meals.'}</Text>
-    <View style={styles.servings}><Text variant="label">Servings</Text><Button size="sm" variant="outline" disabled={servings <= 1} onPress={() => setServings((value) => Math.max(1, value - 1))}>−</Button><Text>{servings}</Text><Button size="sm" variant="outline" onPress={() => setServings((value) => value + 1)}>+</Button></View>
+    <View style={styles.servings}><Text variant="label">Cooking for</Text><Button size="sm" variant="outline" disabled={plannedPortions <= 1} onPress={() => setPlannedPortions((value) => Math.max(1, value - 1))}>−</Button><Text>{plannedPortions}</Text><Button size="sm" variant="outline" onPress={() => setPlannedPortions((value) => value + 1)}>+</Button></View>
+    <Text tone="secondary">Recipe size {recipeScaleMultiplier}×{recipe.currentVersion.yieldQuantity && recipe.currentVersion.yieldUnit ? ` · Makes ${formatScaledRecipeYield({ yieldQuantity: recipe.currentVersion.yieldQuantity, yieldUnit: recipe.currentVersion.yieldUnit, multiplier: recipeScaleMultiplier })}` : ''}</Text>
     <MealFitCallout
       fit={fit}
       personLabelsById={personLabelsById}
@@ -93,7 +96,7 @@ export function AddToMealPlanSheet({ visible, recipe, defaultServings, onClose, 
         setDinerPersonIds(remaining);
         setExcludedDinerPersonIds(affected);
         setExcludedDinerResolution(null);
-        setServings((value) => Math.max(1, value - affected.length));
+        setPlannedPortions((value) => Math.max(1, value - affected.length));
       }}
       onChooseAnother={onClose}
       onReviewIngredients={onClose}

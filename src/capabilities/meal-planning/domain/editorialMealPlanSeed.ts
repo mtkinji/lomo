@@ -26,7 +26,8 @@ export function buildEditorialMealPlanCandidates(input: {
     seenVersionIds.add(projection.currentVersion.id);
     const candidate = buildMealPlanRecipeCandidate(projection, {
       candidateId: input.createId(),
-      servings: input.servings,
+      recipeScaleMultiplier: 1,
+      plannedPortions: input.servings,
     });
     return [{
       ...candidate,

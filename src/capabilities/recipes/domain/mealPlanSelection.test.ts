@@ -32,10 +32,13 @@ describe('shared Meal Cart recipe selection', () => {
     const next = cart();
     const repository = { addMealCandidate: jest.fn(), withdrawMealCandidate: jest.fn() };
     const result = await toggleRecipeInSharedMealCart({
-      cart: null, householdId: 'household-1', projection, servings: 4, candidateId: 'candidate-1',
+      cart: null, householdId: 'household-1', projection, recipeScaleMultiplier: 2, plannedPortions: 4, candidateId: 'candidate-1',
       repository, reloadCart: jest.fn().mockResolvedValue(next),
     });
     expect(repository.addMealCandidate).toHaveBeenCalledWith('household-1', expect.objectContaining({ id: 'candidate-1', title: projection.currentVersion.title }));
+    expect(repository.addMealCandidate).toHaveBeenCalledWith('household-1', expect.objectContaining({
+      recipeSnapshot: expect.objectContaining({ recipeScaleMultiplier: 2, plannedPortions: 4, selectedServings: 4 }),
+    }));
     expect(repository.withdrawMealCandidate).not.toHaveBeenCalled();
     expect(result).toEqual({ cart: next, selected: true });
   });
@@ -45,7 +48,7 @@ describe('shared Meal Cart recipe selection', () => {
     const next = cart();
     const repository = { addMealCandidate: jest.fn(), withdrawMealCandidate: jest.fn() };
     const result = await toggleRecipeInSharedMealCart({
-      cart: cart([selectedCandidate]), householdId: 'household-1', projection, servings: 4, candidateId: 'unused',
+      cart: cart([selectedCandidate]), householdId: 'household-1', projection, recipeScaleMultiplier: 1, plannedPortions: 4, candidateId: 'unused',
       repository, reloadCart: jest.fn().mockResolvedValue(next),
     });
     expect(repository.withdrawMealCandidate).toHaveBeenCalledWith('household-1', 'candidate-1');
@@ -59,7 +62,7 @@ describe('shared Meal Cart recipe selection', () => {
 
     expect(sharedMealCartContainsRecipeVersion(cart([sent]), projection)).toBe(true);
     await expect(toggleRecipeInSharedMealCart({
-      cart: cart([sent]), householdId: 'household-1', projection, servings: 4, candidateId: 'unused',
+      cart: cart([sent]), householdId: 'household-1', projection, recipeScaleMultiplier: 1, plannedPortions: 4, candidateId: 'unused',
       repository, reloadCart: jest.fn(),
     })).rejects.toThrow('Open Plan');
     expect(repository.withdrawMealCandidate).not.toHaveBeenCalled();

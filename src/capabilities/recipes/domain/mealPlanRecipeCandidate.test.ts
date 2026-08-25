@@ -10,10 +10,11 @@ const projection = {
 };
 
 describe('meal plan recipe candidates', () => {
-  it('captures the exact recipe version and selected servings', () => {
+  it('captures the exact recipe version, recipe size, and planned portions independently', () => {
     const candidate = buildMealPlanRecipeCandidate(projection, {
       candidateId: 'candidate-1',
-      servings: 6,
+      recipeScaleMultiplier: 2,
+      plannedPortions: 6,
     });
 
     expect(candidate).toMatchObject({
@@ -30,6 +31,8 @@ describe('meal plan recipe candidates', () => {
           originalText: line.originalText,
           optional: line.optional,
         })),
+        recipeScaleMultiplier: 2,
+        plannedPortions: 6,
         selectedServings: 6,
       },
     });
@@ -38,7 +41,8 @@ describe('meal plan recipe candidates', () => {
   it('matches the selected state by recipe version rather than title', () => {
     const candidate = buildMealPlanRecipeCandidate(projection, {
       candidateId: 'candidate-1',
-      servings: 4,
+      recipeScaleMultiplier: 1,
+      plannedPortions: 4,
     });
 
     expect(mealPlanContainsRecipeVersion([candidate], projection)).toBe(true);
@@ -50,13 +54,16 @@ describe('meal plan recipe candidates', () => {
   it('records diner assignment and unresolved alternatives without person labels', () => {
     const candidate = buildMealPlanRecipeCandidate(projection, {
       candidateId: 'candidate-1',
-      servings: 2,
+      recipeScaleMultiplier: 3,
+      plannedPortions: 2,
       dinerPersonIds: ['adult-a', 'adult-b'],
       excludedDinerPersonIds: ['child'],
       excludedDinerResolution: 'needs_alternative',
     });
 
     expect(candidate.recipeSnapshot).toMatchObject({
+      recipeScaleMultiplier: 3,
+      plannedPortions: 2,
       dinerPersonIds: ['adult-a', 'adult-b'],
       excludedDinerPersonIds: ['child'],
       excludedDinerResolution: 'needs_alternative',
@@ -76,7 +83,8 @@ describe('meal plan recipe candidates', () => {
       },
     }, {
       candidateId: 'candidate-equipment',
-      servings: 4,
+      recipeScaleMultiplier: 1,
+      plannedPortions: 4,
     });
 
     expect(candidate.recipeSnapshot.equipmentSuggestions).toEqual([
@@ -111,7 +119,7 @@ describe('meal plan recipe candidates', () => {
           text: 'Cut the zucchini with a spiralizer, then blend the sauce with an immersion blender.',
         }],
       },
-    }, { candidateId: 'candidate-model-equipment', servings: 4 });
+    }, { candidateId: 'candidate-model-equipment', recipeScaleMultiplier: 1, plannedPortions: 4 });
 
     expect(candidate.recipeSnapshot.equipmentSuggestions).toEqual([
       expect.objectContaining({ id: 'spiralizer', confidence: 0.94 }),

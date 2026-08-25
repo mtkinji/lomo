@@ -79,7 +79,13 @@ export function buildDefaultMealOccasions(
         candidateId: candidate.id,
         title: candidate.title,
         dinerPersonIds,
-        servings: resolveSuggestedMealServings({ selectedServings: typeof snapshot.selectedServings === 'number' ? snapshot.selectedServings : null, usualDinerCount, usualDinerPersonIds: dinerPersonIds }),
+        servings: resolveSuggestedMealServings({
+          selectedServings: typeof snapshot.plannedPortions === 'number'
+            ? snapshot.plannedPortions
+            : typeof snapshot.selectedServings === 'number' ? snapshot.selectedServings : null,
+          usualDinerCount,
+          usualDinerPersonIds: dinerPersonIds,
+        }),
       }],
     };
   });

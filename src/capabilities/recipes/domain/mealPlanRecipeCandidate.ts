@@ -1,12 +1,14 @@
 import type { MealPlanCandidateDraft } from '../../meal-planning/data/mealPlanningRepository';
 import type { RecipeProjection } from '../data/recipeCache';
 import { deriveSpecializedRecipeEquipment } from './recipeEquipment';
+import type { RecipeScaleMultiplier } from './recipeScaling';
 
 export function buildMealPlanRecipeCandidate(
   projection: RecipeProjection,
   options: {
     candidateId: string;
-    servings: number;
+    recipeScaleMultiplier: RecipeScaleMultiplier;
+    plannedPortions: number;
     dinerPersonIds?: string[];
     excludedDinerPersonIds?: string[];
     excludedDinerResolution?: 'needs_alternative' | 'not_eating' | null;
@@ -36,7 +38,9 @@ export function buildMealPlanRecipeCandidate(
       title: projection.currentVersion.title,
       yieldQuantity: projection.currentVersion.yieldQuantity,
       yieldUnit: projection.currentVersion.yieldUnit,
-      selectedServings: options.servings,
+      recipeScaleMultiplier: options.recipeScaleMultiplier,
+      plannedPortions: options.plannedPortions,
+      selectedServings: options.plannedPortions,
       dinerPersonIds: [...new Set(options.dinerPersonIds ?? [])],
       excludedDinerPersonIds: [...new Set(options.excludedDinerPersonIds ?? [])],
       excludedDinerResolution: options.excludedDinerResolution ?? null,
