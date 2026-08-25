@@ -429,20 +429,21 @@ npx eas-cli@22.0.0 build:inspect \
 
 Expected: archive inspection completes locally without starting or submitting a cloud build.
 
-- [ ] **Step 2: Verify every forbidden large root is absent**
+- [ ] **Step 2: Verify every forbidden large root contains no uploaded files**
 
 Run:
 
 ```bash
 for archive_entry in artifacts prototypes app-store-screenshots ios node_modules .git .cursor; do
-  test ! -e "$KWILT_EAS_AUDIT_AFTER/archive/$archive_entry" || {
-    printf 'UNEXPECTED_ARCHIVE_PATH %s\n' "$archive_entry" >&2
+  uploaded_file=$(find "$KWILT_EAS_AUDIT_AFTER/archive/$archive_entry" -type f -print -quit 2>/dev/null)
+  test -z "$uploaded_file" || {
+    printf 'UNEXPECTED_ARCHIVE_FILE %s\n' "$uploaded_file" >&2
     exit 1
   }
 done
 ```
 
-Expected: command exits zero with no `UNEXPECTED_ARCHIVE_PATH` output.
+Expected: command exits zero with no `UNEXPECTED_ARCHIVE_FILE` output. EAS inspection may preserve empty directory shells; those are harmless and occupy zero KiB.
 
 - [ ] **Step 3: Compare before and after measurements**
 
@@ -557,7 +558,7 @@ Expected: this plan closes once EAS upload composition is proven. App thinning, 
 
 - `.easignore` no longer contains the obsolete local-credentials rationale.
 - The EAS upload policy rejects missing generated-artifact and credential exclusions.
-- `artifacts/`, `prototypes/`, `app-store-screenshots/`, `ios/`, `node_modules/`, `.git/`, and `.cursor/` are absent from the inspected EAS archive.
+- `artifacts/`, `prototypes/`, `app-store-screenshots/`, `ios/`, `node_modules/`, `.git/`, and `.cursor/` contain no files in the inspected EAS archive; empty zero-KiB directory shells are acceptable.
 - The locally inspected archive is materially smaller; the diagnosed directories should remove approximately 800 MB when present in the baseline.
 - App config introspection succeeds from the intended `testflight-widgets` configuration.
 - `npm run verify:changed -- --run` passes once at task completion.
