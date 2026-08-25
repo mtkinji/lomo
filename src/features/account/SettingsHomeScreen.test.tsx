@@ -243,10 +243,8 @@ describe('SettingsHomeScreen planning group', () => {
     expect(getByText('Accounts')).toBeTruthy();
     expect(queryByText('Accounts & connections')).toBeNull();
     fireEvent.press(getByText('Accounts'));
-    expect(navModule.__navMocks.rootNavigate).toHaveBeenCalledWith('Money', {
-      screen: 'MoneyAccounts',
-      params: { origin: 'settings' },
-    });
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsMoneyAccounts');
+    expect(navModule.__navMocks.rootNavigate).not.toHaveBeenCalled();
   });
 
   it('keeps account deletion off the root Settings menu', () => {

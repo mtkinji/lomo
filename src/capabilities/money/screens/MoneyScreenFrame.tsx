@@ -10,22 +10,34 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { KwiltLoader } from '../../../ui/KwiltLoader';
 import { KwiltRefreshFrame, useKwiltRefresh } from '../../../ui/KwiltRefresh';
 import { HapticsService } from '../../../services/HapticsService';
-export function MoneyScreenFrame({
-  children,
-  headerRightElement,
-  moreMenu,
-  onRefresh,
-  onPressBack,
-  title,
-}: {
+type MoneyScreenFrameProps = {
   children: ReactNode;
   headerRightElement?: ReactNode;
   moreMenu?: ReactNode;
   onRefresh?: () => Promise<unknown>;
   onPressBack?: () => void;
   title: string;
-}) {
+};
+
+export function MoneyScreenFrame(props: MoneyScreenFrameProps) {
+  if (props.onPressBack) return <MoneyScreenFrameContent {...props} />;
+  return <MoneyCapabilityScreenFrame {...props} />;
+}
+
+function MoneyCapabilityScreenFrame(props: MoneyScreenFrameProps) {
   const { openMenu } = useCapabilityShell();
+  return <MoneyScreenFrameContent {...props} onPressMenu={openMenu} />;
+}
+
+function MoneyScreenFrameContent({
+  children,
+  headerRightElement,
+  moreMenu,
+  onRefresh,
+  onPressBack,
+  onPressMenu,
+  title,
+}: MoneyScreenFrameProps & { onPressMenu?: () => void }) {
   const { error, refresh, snapshot, status } = useMoneyData();
   const refreshMoney = onRefresh ?? refresh;
   const handlePullRefresh = useCallback(() => {
@@ -41,7 +53,7 @@ export function MoneyScreenFrame({
         rightElement={headerRightElement}
         moreMenu={moreMenu}
         onPressBack={onPressBack}
-        onPressMenu={onPressBack ? undefined : openMenu}
+        onPressMenu={onPressMenu}
       />
       <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
         {status === 'loading' && !snapshot ? (

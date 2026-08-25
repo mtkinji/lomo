@@ -124,7 +124,10 @@ function parseDay(value: string): Date | null {
 
 function getCountedSpendDeltaCents(transaction: MoneyTransaction): number {
   if (transaction.direction === 'outflow' && transaction.moneyMeaning !== 'not_counted' && transaction.moneyMeaning !== 'transfer') {
-    return transaction.amountCents;
+    return Math.max(
+      0,
+      transaction.amountCents - Math.min(transaction.amountCents, transaction.savedResourceCents ?? 0),
+    );
   }
   return transaction.direction === 'inflow' && transaction.moneyMeaning === 'category_credit'
     ? -transaction.amountCents

@@ -36,7 +36,7 @@ describe('Money category inventory presentations', () => {
     expect(screen.queryByText('over')).toBeNull();
   });
 
-  it('uses warning color for a projected overage that still has money left', () => {
+  it('uses an amber indicator while keeping the dominant value neutral for a projected overage', () => {
     const screen = render(
       <MoneyCategoryMeterTile
         category={{
@@ -49,7 +49,8 @@ describe('Money category inventory presentations', () => {
       />,
     );
 
-    expect(StyleSheet.flatten(screen.getByText('95').props.style).color).toBe(colors.warning);
+    expect(StyleSheet.flatten(screen.getByText('95').props.style).color).toBe(colors.gray900);
+    expect(screen.getByTestId('money-category-meter-projected-indicator', { includeHiddenElements: true })).toBeTruthy();
   });
 
   it('rounds dollars left without repeating category arithmetic in the list', () => {
@@ -64,6 +65,7 @@ describe('Money category inventory presentations', () => {
     expect(getCategoryListStatus({ ...category, remainingCents: -116 })).toEqual({ label: null, tone: 'danger' });
     expect(StyleSheet.flatten(screen.getByText('$1 over').props.style).color).toBe(colors.destructive);
     expect(screen.getByTestId('money-category-pace-used', { includeHiddenElements: true })).toHaveStyle({ backgroundColor: colors.destructive });
+    expect(screen.getByTestId('money-category-over-indicator', { includeHiddenElements: true })).toBeTruthy();
   });
 
   it('uses a compact warning indicator instead of persistent projection copy', () => {
@@ -71,6 +73,7 @@ describe('Money category inventory presentations', () => {
 
     expect(screen.queryByText('Projected to go over')).toBeNull();
     expect(screen.getByTestId('money-category-projected-warning', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByTestId('money-category-pace-used', { includeHiddenElements: true })).toHaveStyle({ backgroundColor: colors.caution });
     expect(screen.getByLabelText('Open Shopping category, $24 left, Projected to go over')).toBeTruthy();
   });
 

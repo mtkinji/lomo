@@ -1,6 +1,7 @@
 import { CommonActions, DrawerRouter } from '@react-navigation/native';
 import {
   createCapabilityNavigateAction,
+  createCapabilityMenuNavigationHandlers,
   ROOT_DRAWER_BACK_BEHAVIOR,
   resolveCapabilityNavigation,
 } from './capabilityNavigation';
@@ -30,7 +31,6 @@ describe('resolveCapabilityNavigation', () => {
     ['money', { name: 'Money', params: { screen: 'MoneyEntry', params: { requestedPlace: 'MoneySummary', source: 'capability-menu', mode: 'automatic' } } }],
     ['money-summary', { name: 'Money', params: { screen: 'MoneyEntry', params: { requestedPlace: 'MoneySummary', source: 'capability-menu', mode: 'automatic' } } }],
     ['money-transactions', { name: 'Money', params: { screen: 'MoneyEntry', params: { requestedPlace: 'MoneyTransactions', source: 'capability-menu', mode: 'automatic' } } }],
-    ['money-accounts', { name: 'Money', params: { screen: 'MoneyEntry', params: { requestedPlace: 'MoneyAccounts', source: 'capability-menu', mode: 'automatic' } } }],
     ['explore', { name: 'Explore', params: { screen: 'ExploreMap' } }],
     ['games', { name: 'Games', params: { screen: 'GamesShelf' } }],
     ['chores', { name: 'Chores' }],
@@ -54,6 +54,53 @@ describe('createCapabilityNavigateAction', () => {
       expect.stringContaining("Passing an object as the argument to 'navigate' is deprecated"),
     );
     warn.mockRestore();
+  });
+});
+
+describe('createCapabilityMenuNavigationHandlers', () => {
+  it('dispatches and covers exactly once when selecting another destination', () => {
+    const dispatch = jest.fn();
+    const coverMenu = jest.fn();
+    const captureSelection = jest.fn();
+    const handlers = createCapabilityMenuNavigationHandlers({
+      dispatch,
+      coverMenu,
+      captureSelection,
+    });
+
+    handlers.onSelectCapability('money-summary');
+
+    expect(captureSelection).toHaveBeenCalledTimes(1);
+    expect(captureSelection).toHaveBeenCalledWith('money-summary');
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenCalledWith(
+      CommonActions.navigate('Money', {
+        screen: 'MoneyEntry',
+        params: {
+          requestedPlace: 'MoneySummary',
+          source: 'capability-menu',
+          mode: 'automatic',
+        },
+      }),
+    );
+    expect(coverMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('only covers when reselecting the active destination', () => {
+    const dispatch = jest.fn();
+    const coverMenu = jest.fn();
+    const captureSelection = jest.fn();
+    const handlers = createCapabilityMenuNavigationHandlers({
+      dispatch,
+      coverMenu,
+      captureSelection,
+    });
+
+    handlers.onReselectCapability('money-summary');
+
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(captureSelection).not.toHaveBeenCalled();
+    expect(coverMenu).toHaveBeenCalledTimes(1);
   });
 });
 

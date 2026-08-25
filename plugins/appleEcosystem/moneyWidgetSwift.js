@@ -6,7 +6,7 @@ function getMoneyWidgetSwift(targetName) {
 struct MoneyWidgetPalette {
   static let brand = KwiltPalette.pine
   static let onTrack = Color(red: 111/255, green: 165/255, blue: 146/255)
-  static let watch = Color(red: 249/255, green: 115/255, blue: 22/255)
+  static let watch = Color(red: 217/255, green: 119/255, blue: 6/255)
   static let over = Color(red: 220/255, green: 38/255, blue: 38/255)
   static let inactive = Color.secondary.opacity(0.16)
 
@@ -470,8 +470,17 @@ struct MoneyCategoryWidgetView: View {
   private var valueTone: Color {
     guard let category = entry.category else { return .primary }
     if category.status == "over" { return MoneyWidgetPalette.over }
-    if category.status == "near_limit" { return MoneyWidgetPalette.watch }
     return .primary
+  }
+
+  private var attentionTone: Color {
+    guard let category = entry.category else { return .primary }
+    return category.status == "over" ? MoneyWidgetPalette.over : MoneyWidgetPalette.watch
+  }
+
+  private var showsAttentionIndicator: Bool {
+    guard let category = entry.category else { return false }
+    return category.status == "over" || category.status == "near_limit"
   }
 
   var body: some View {
@@ -489,8 +498,14 @@ struct MoneyCategoryWidgetView: View {
           VStack(spacing: 0) {
             Spacer(minLength: 0)
             VStack(alignment: .center, spacing: 4) {
-              HStack(spacing: 0) {
+              HStack(spacing: 4) {
                 Spacer(minLength: 0)
+                if showsAttentionIndicator {
+                  Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(attentionTone)
+                    .accessibilityHidden(true)
+                }
                 Text(category.name)
                   .font(KwiltWidgetTypography.label)
                   .foregroundStyle(.secondary)

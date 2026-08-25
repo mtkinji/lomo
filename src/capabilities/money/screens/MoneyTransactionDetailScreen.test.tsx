@@ -94,6 +94,20 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(source).not.toContain('style={({ pressed }) => [styles.ruleOffer, pressed ? styles.pressed : null]}');
   });
 
+  it('opens the merchant-rule guide before the category save returns and keeps review disabled until confirmation', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
+    const selectCategory = source.slice(source.indexOf('const selectCategory = async'), source.indexOf('const selectMeaning = async'));
+
+    expect(selectCategory.indexOf("if (outcome === 'offer_rule')")).toBeLessThan(selectCategory.indexOf('const changed = await runReview'));
+    expect(selectCategory.indexOf('setPendingRuleCategory(category)')).toBeLessThan(selectCategory.indexOf('const changed = await runReview'));
+    expect(selectCategory).toContain('if (!changed) {');
+    expect(selectCategory).toContain('setPendingRuleCategory(null)');
+    expect(selectCategory).toContain('setCategoryPickerOpen(true)');
+    expect(source).toContain('onClose={saving ? undefined : () => void dismissRuleOffer()}');
+    expect(source).toContain('<Button fullWidth loading={saving} loadingLabel="Saving category…" onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>');
+    expect(source).toContain('<Button fullWidth disabled={saving} variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>');
+  });
+
   it('makes transaction counts-as treatment compact and removes the standalone plan-treatment field', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
 

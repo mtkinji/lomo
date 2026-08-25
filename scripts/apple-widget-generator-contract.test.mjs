@@ -104,7 +104,7 @@ test('Money widgets keep the category clock tile centered and give Flexible Mone
     categoryView,
     /Text\(meaning\)[\s\S]*?frame\(maxWidth: \.infinity, alignment: \.center\)[\s\S]*?\}[\s\S]*?Spacer\(minLength: 0\)/,
   );
-  assert.match(categoryView, /HStack\(spacing: 0\)[\s\S]*?Text\(category\.name\)[\s\S]*?Spacer\(minLength: 0\)/);
+  assert.match(categoryView, /HStack\(spacing: 4\)[\s\S]*?if showsAttentionIndicator[\s\S]*?Image\(systemName: "exclamationmark\.triangle"\)[\s\S]*?Text\(category\.name\)[\s\S]*?Spacer\(minLength: 0\)/);
   assert.match(categoryView, /HStack\(alignment: \.top, spacing: 1\)/);
   assert.match(categoryView, /KwiltWidgetTypography\.currencySymbol/);
   assert.match(categoryView, /KwiltWidgetTypography\.categoryValue/);
@@ -119,7 +119,8 @@ test('Money widgets keep the category clock tile centered and give Flexible Mone
   assert.doesNotMatch(percentValueBranch, /padding\(\.top/);
   assert.match(categoryView, /\.tracking\(-0\.7\)/);
   assert.match(categoryView, /if category\.status == "over" \{ return MoneyWidgetPalette\.over \}/);
-  assert.match(categoryView, /if category\.status == "near_limit" \{ return MoneyWidgetPalette\.watch \}/);
+  assert.doesNotMatch(categoryView, /if category\.status == "near_limit" \{ return MoneyWidgetPalette\.watch \}/);
+  assert.match(categoryView, /return category\.status == "over" \|\| category\.status == "near_limit"/);
   assert.doesNotMatch(categoryView, /moneyFreshnessLabel|Updated/);
 });
 
@@ -134,7 +135,7 @@ test('Money widgets use the same semantic colors as the in-app budget surfaces',
   );
 
   assert.match(palette, /onTrack = Color\(red: 111\/255, green: 165\/255, blue: 146\/255\)/);
-  assert.match(palette, /watch = Color\(red: 249\/255, green: 115\/255, blue: 22\/255\)/);
+  assert.match(palette, /watch = Color\(red: 217\/255, green: 119\/255, blue: 6\/255\)/);
   assert.match(palette, /over = Color\(red: 220\/255, green: 38\/255, blue: 38\/255\)/);
   assert.match(flexibleAnswerCard, /if state == "over" \|\| state == "plan_over" \{ return MoneyWidgetPalette\.over \}[\s\S]*?return \.primary/);
 });

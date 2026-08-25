@@ -1,4 +1,4 @@
-import { act, fireEvent } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
 
 import { renderWithProviders } from '../../../test/renderWithProviders';
@@ -56,6 +56,34 @@ describe('MoneySetupExperience entry resolution', () => {
 
     expect(screen.getByTestId('money-loading-preview')).toBeTruthy();
     expect(screen.queryByRole('header', { name: 'Know where you stand before you spend' })).toBeNull();
+    expect(navigation.replace).not.toHaveBeenCalled();
+  });
+
+  it('hands an automatic Budgets entry to the destination without a second stack transition', async () => {
+    mockUseMoneyData.mockReturnValue({
+      error: 'Money state unavailable',
+      reconcileConnectedActivity: jest.fn(),
+      refresh: jest.fn(async () => undefined),
+      snapshot: null,
+      status: 'error',
+    });
+    const navigation = { replace: jest.fn(), reset: jest.fn() };
+
+    renderWithProviders(
+      <MoneySetupExperience
+        mode="automatic"
+        navigation={navigation as never}
+        requestedPlace="MoneySummary"
+        source="capability-menu"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(navigation.reset).toHaveBeenCalledWith({
+        index: 0,
+        routes: [{ name: 'MoneySummary' }],
+      });
+    });
     expect(navigation.replace).not.toHaveBeenCalled();
   });
 });

@@ -39,6 +39,7 @@ import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSetting
 import { MoneyPrivacySettingsScreen } from '../capabilities/money/screens/MoneyPrivacySettingsScreen';
 import { MoneyHouseholdSettingsScreen } from '../capabilities/money/screens/MoneyHouseholdSettingsScreen';
 import { BudgetSettingsScreen } from '../capabilities/money/screens/MoneyLivingPlanScreen';
+import { SettingsMoneyAccountsScreen } from '../capabilities/money/screens/MoneyAccountsScreen';
 import { AiChatScreen } from '../features/ai/AiChatScreen';
 import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
 import { SharedHomeScreen } from '../features/shared-home/SharedHomeScreen';
@@ -131,9 +132,8 @@ import {
   deriveActiveCapabilityDestinationId,
 } from './CapabilityShellContext';
 import {
-  createCapabilityNavigateAction,
+  createCapabilityMenuNavigationHandlers,
   ROOT_DRAWER_BACK_BEHAVIOR,
-  resolveCapabilityNavigation,
 } from './capabilityNavigation';
 import { markRootNavigationReady } from '../services/performance/startupTelemetry';
 import {
@@ -387,6 +387,7 @@ export type SettingsStackParamList = {
   SettingsMoneyPrivacy: undefined;
   SettingsMoneyHousehold: undefined;
   SettingsBudget: undefined;
+  SettingsMoneyAccounts: undefined;
   SettingsWeeklyChapters: undefined;
   SettingsPhoneAgent: undefined;
   SettingsConnectedTools: undefined;
@@ -1131,6 +1132,7 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen name="SettingsMoneyPrivacy" component={MoneyPrivacySettingsScreen} />
       <SettingsStack.Screen name="SettingsMoneyHousehold" component={MoneyHouseholdSettingsScreen} />
       <SettingsStack.Screen name="SettingsBudget" component={BudgetSettingsScreen} />
+      <SettingsStack.Screen name="SettingsMoneyAccounts" component={SettingsMoneyAccountsScreen} />
       <SettingsStack.Screen
         name="SettingsWeeklyChapters"
         component={ChapterDigestSettingsScreen}
@@ -1390,6 +1392,18 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
     );
   }, [chatRepository, chatThreads, navigateAfterChatRemoval]);
 
+  const capabilityMenuNavigationHandlers = createCapabilityMenuNavigationHandlers({
+    dispatch: (action) => rootNavigationRef.dispatch(action),
+    coverMenu,
+    captureSelection: (id) => {
+      capture(AnalyticsEvent.CapabilitySelected, {
+        capability_id: id.startsWith('money-') ? 'money' : id,
+        destination_id: id,
+        source_surface: 'menu',
+      });
+    },
+  });
+
   return (
     <View
       style={[
@@ -1406,16 +1420,8 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         displayName={displayName}
         avatarUrl={userProfile?.avatarUrl || authIdentity?.avatarUrl}
         hiddenCapabilityIds={menuTransactionsAvailability === 'pristine' ? ['money-transactions'] : []}
-        onSelectCapability={(id) => {
-          const capability = resolveCapabilityNavigation(id);
-          capture(AnalyticsEvent.CapabilitySelected, {
-            capability_id: id.startsWith('money-') ? 'money' : id,
-            destination_id: id,
-            source_surface: 'menu',
-          });
-          rootNavigationRef.dispatch(createCapabilityNavigateAction(capability));
-          coverMenu();
-        }}
+        onSelectCapability={capabilityMenuNavigationHandlers.onSelectCapability}
+        onReselectCapability={capabilityMenuNavigationHandlers.onReselectCapability}
         onSelectChat={openChatThread}
         onArchiveChat={(threadId) => void archiveChatThread(threadId)}
         onDeleteChat={deleteChatThread}

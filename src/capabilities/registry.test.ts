@@ -117,7 +117,7 @@ describe('capability registry', () => {
       .toEqual(['explore', 'games']);
   });
 
-  it('exposes each established Money place directly in the global capability menu', () => {
+  it('keeps account administration out of the global capability menu', () => {
     expect(
       CAPABILITY_MENU_REGISTRY.filter(({ group }) => group === 'money').map(
         ({ id, label, ownerId, rootRoute }) => ({ id, label, ownerId, rootRoute }),
@@ -134,12 +134,6 @@ describe('capability registry', () => {
         label: 'Transactions',
         ownerId: 'money',
         rootRoute: { root: 'Money', screen: 'MoneyTransactions' },
-      },
-      {
-        id: 'money-accounts',
-        label: 'Accounts',
-        ownerId: 'money',
-        rootRoute: { root: 'Money', screen: 'MoneyAccounts' },
       },
     ]);
 

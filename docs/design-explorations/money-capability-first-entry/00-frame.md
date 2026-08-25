@@ -77,8 +77,8 @@ Constraint posture: `Bend the system`
 
 ### Current system facts
 
-- The capability menu models `money-summary`, `money-transactions`, and `money-accounts` as three
-  destinations with `ownerId: money`.
+- The capability menu models `money-summary` and `money-transactions` as destinations with
+  `ownerId: money`; Accounts is reached contextually and from Settings.
 - Navigation currently dispatches the selected destination directly.
 - Money has one persisted onboarding record per signed-in user and one `MoneySetupScreen`.
 - `MoneySetupScreen` can truthfully skip itself when the user already has completed setup, an
@@ -91,10 +91,10 @@ Constraint posture: `Bend the system`
 
 ### Constraints to preserve
 
-- One Money capability owns all three destinations.
-- Budgets remains a visible promise and Accounts remains a visible setup/recovery place before
-  Money has data. Transactions does not need main-navigation prominence until real account or
-  transaction evidence exists.
+- One Money capability owns Budgets, Transactions, and the contextual Accounts destination.
+- Budgets remains a visible promise and Accounts remains a setup/recovery place before Money has
+  data without occupying a global menu row. Transactions does not need main-navigation prominence
+  until real account or transaction evidence exists.
 - Returning users with existing Money value do not replay beginner setup.
 - Money owns Plaid connection, living-plan creation, financial truth, recovery, and first value.
 - Route arrival and account connection are not treated as successful Money activation.

@@ -206,6 +206,8 @@ export const colors = {
   sumi: '#1C1A19', // alias for sumi900 (legacy token)
 
   warning: '#F97316',
+  // Conventional amber-600 for caution states that should remain clearly below destructive red.
+  caution: '#D97706',
   success: '#65A30D',
   infoSurface: '#F4F1FF',
   schedulePink: '#FBE7F1',

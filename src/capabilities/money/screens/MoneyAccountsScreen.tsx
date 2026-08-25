@@ -1,6 +1,9 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { SettingsStackParamList } from '../../../navigation/RootNavigator';
+import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
+import { useAppStore } from '../../../store/useAppStore';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { Icon, type IconName } from '../../../ui/Icon';
 import {
@@ -16,15 +19,15 @@ import {
   MoneyInventoryControlSurface,
   MoneyInventoryListFrame,
 } from '../components/MoneyInventoryListFrame';
-import { useMoneyData } from '../data/MoneyDataContext';
+import { MoneyDataProvider, useMoneyData } from '../data/MoneyDataContext';
 import { isMoneyPlaidError } from '../data/moneyPlaidErrors';
 import { formatMoneyFreshness, type MoneyAccount } from '../data/moneySnapshot';
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 import { connectMoneyAccount } from '../runtime/connectMoneyAccount';
+import { MoneyPrivacyGate } from '../runtime/MoneyPrivacyGate';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 import { EmptyState } from '../../../ui/EmptyState';
-import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
 import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
 
 type AccountFilter = 'all' | 'linked' | 'needs_review';
@@ -42,7 +45,38 @@ const SORT_OPTIONS: Array<{ value: AccountSort; label: string }> = [
   { value: 'status', label: 'Needs lane first' },
 ];
 
-export function MoneyAccountsScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyAccounts'>) {
+export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneyAccounts'>) {
+  return (
+    <MoneyAccountsSurface
+      onOpenTransactions={(accountId) => navigation.navigate('MoneyTransactions', { accountId })}
+    />
+  );
+}
+
+export function SettingsMoneyAccountsScreen({ navigation }: NativeStackScreenProps<SettingsStackParamList, 'SettingsMoneyAccounts'>) {
+  const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
+  return (
+    <MoneyPrivacyGate>
+      <MoneyDataProvider key={userId ?? 'signed-out'} userId={userId}>
+        <MoneyAccountsSurface
+          onPressBack={() => navigation.goBack()}
+          onOpenTransactions={(accountId) => rootNavigationRef.navigate('Money', {
+            screen: 'MoneyTransactions',
+            params: { accountId },
+          })}
+        />
+      </MoneyDataProvider>
+    </MoneyPrivacyGate>
+  );
+}
+
+export function MoneyAccountsSurface({
+  onOpenTransactions,
+  onPressBack,
+}: {
+  onOpenTransactions: (accountId: string) => void;
+  onPressBack?: () => void;
+}) {
   const { snapshot, reconcileConnectedActivity } = useMoneyData();
   const [filter, setFilter] = useState<AccountFilter>('all');
   const [sort, setSort] = useState<AccountSort>('name');
@@ -103,9 +137,7 @@ export function MoneyAccountsScreen({ navigation, route }: NativeStackScreenProp
   return (
     <MoneyScreenFrame
       title="Accounts"
-      onPressBack={route.params?.origin === 'settings'
-        ? () => rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' })
-        : undefined}
+      onPressBack={onPressBack}
     >
       <MoneyInventoryListFrame
         controls={(
@@ -152,7 +184,7 @@ export function MoneyAccountsScreen({ navigation, route }: NativeStackScreenProp
           </View>
         ) : null}
         {visibleAccounts.length > 0 ? visibleAccounts.map((account) => (
-          <AccountInventoryRow key={account.id} account={account} onPress={() => navigation.navigate('MoneyTransactions', { accountId: account.id })} />
+          <AccountInventoryRow key={account.id} account={account} onPress={() => onOpenTransactions(account.id)} />
         )) : accounts.length === 0 ? (
           <EmptyState
             illustration={null}

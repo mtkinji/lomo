@@ -6,6 +6,7 @@ import { MoneyScreenFrame } from './MoneyScreenFrame';
 
 const mockRefresh = jest.fn(async () => undefined);
 const mockUseMoneyData = jest.fn();
+const mockUseCapabilityShell = jest.fn(() => ({ openMenu: jest.fn() }));
 
 jest.mock('../../../services/HapticsService', () => ({
   HapticsService: { trigger: jest.fn(async () => undefined) },
@@ -15,7 +16,7 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: jest.fn() }),
 }));
 jest.mock('../../../navigation/CapabilityShellContext', () => ({
-  useCapabilityShell: () => ({ openMenu: jest.fn() }),
+  useCapabilityShell: () => mockUseCapabilityShell(),
 }));
 jest.mock('../data/MoneyDataContext', () => ({
   useMoneyData: () => mockUseMoneyData(),
@@ -36,6 +37,7 @@ function moneyState(overrides: Record<string, unknown>) {
 describe('MoneyScreenFrame recovery states', () => {
   beforeEach(() => {
     mockRefresh.mockClear();
+    mockUseCapabilityShell.mockReset().mockReturnValue({ openMenu: jest.fn() });
     jest.mocked(HapticsService.trigger).mockClear();
   });
 
@@ -101,5 +103,31 @@ describe('MoneyScreenFrame recovery states', () => {
 
     expect(HapticsService.trigger).toHaveBeenCalledTimes(1);
     expect(HapticsService.trigger).toHaveBeenCalledWith('canvas.selection');
+  });
+
+  it('renders a back-owned frame without requiring the global capability shell', () => {
+    mockUseMoneyData.mockReturnValue(moneyState({
+      snapshot: { generatedAt: 'now' },
+      status: 'ready',
+    }));
+    mockUseCapabilityShell.mockImplementation(() => {
+      throw new Error('Capability shell should not be read for a back-owned frame.');
+    });
+
+    const screen = render(
+      <SafeAreaProvider
+        initialMetrics={{
+          frame: { x: 0, y: 0, width: 390, height: 844 },
+          insets: { top: 47, right: 0, bottom: 34, left: 0 },
+        }}
+      >
+        <MoneyScreenFrame title="Accounts" onPressBack={jest.fn()}>
+          <Text>Account content</Text>
+        </MoneyScreenFrame>
+      </SafeAreaProvider>,
+    );
+
+    expect(screen.getByText('Account content')).toBeTruthy();
+    expect(mockUseCapabilityShell).not.toHaveBeenCalled();
   });
 });

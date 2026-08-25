@@ -1,6 +1,9 @@
 import { CommonActions } from '@react-navigation/native';
 import { getCapability, getCapabilityMenuDestination } from '../capabilities/registry';
-import type { CapabilityNavigationId } from '../capabilities/types';
+import type {
+  CapabilityMenuDestinationId,
+  CapabilityNavigationId,
+} from '../capabilities/types';
 
 export const ROOT_DRAWER_BACK_BEHAVIOR = 'history' as const;
 
@@ -62,6 +65,29 @@ export type CapabilityNavigationTarget =
 
 export function createCapabilityNavigateAction(target: { name: string; params?: object }) {
   return CommonActions.navigate(target.name, target.params);
+}
+
+type CapabilityMenuNavigationDependencies = {
+  dispatch: (action: ReturnType<typeof createCapabilityNavigateAction>) => void;
+  coverMenu: () => void;
+  captureSelection: (id: CapabilityMenuDestinationId) => void;
+};
+
+export function createCapabilityMenuNavigationHandlers({
+  dispatch,
+  coverMenu,
+  captureSelection,
+}: CapabilityMenuNavigationDependencies) {
+  return {
+    onSelectCapability: (id: CapabilityMenuDestinationId) => {
+      captureSelection(id);
+      dispatch(createCapabilityNavigateAction(resolveCapabilityNavigation(id)));
+      coverMenu();
+    },
+    onReselectCapability: (_id: CapabilityMenuDestinationId) => {
+      coverMenu();
+    },
+  };
 }
 
 export function resolveCapabilityNavigation(id: CapabilityNavigationId): CapabilityNavigationTarget {

@@ -31,6 +31,20 @@ describe('money detail view projection', () => {
     ]);
   });
 
+  it('charts only the portion of a purchase covered by the monthly plan', () => {
+    expect(buildCumulativeSpendSeries([
+      transaction({
+        id: 'saved-money-purchase',
+        date: '2026-08-18',
+        amountCents: 33_202,
+        savedResourceCents: 33_202,
+      }),
+      transaction({ id: 'mortgage', date: '2026-08-19', amountCents: 388_051 }),
+    ], '2026-08-01', '2026-08-31')).toEqual([
+      { xPercent: 60, valueCents: 388_051 },
+    ]);
+  });
+
   it('groups newest transactions by readable date', () => {
     const groups = groupMoneyTransactionsByDate([
       transaction({ id: 'new', date: '2026-07-04' }),

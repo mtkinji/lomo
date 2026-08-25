@@ -135,25 +135,35 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const selectCategory = async (category: MoneyCategory) => {
     if (!transaction) return;
     const choice = `category:${category.sourceId}`;
-    signalMoneyChoice();
-    setPendingChoice(choice);
-    const changed = await runReview(() => transaction.direction === 'inflow'
-      ? reviewTransactionMeaning(transaction.id, { meaning: 'category_credit', categoryId: category.sourceId })
-      : assignTransactionCategory(transaction.id, category.sourceId), 'transaction_category');
-    setPendingChoice(null);
-    if (!changed) return;
-    setCategoryPickerOpen(false);
-    setCategoryQuery('');
-    setDismissedRuleCategoryId(null);
     const outcome = getPostCategorySelectionOutcome({
       direction: transaction.direction,
       economicRoleReview: Boolean(route.params.economicRoleReview),
       existingRuleCategoryId: transaction.merchantRuleCategoryId,
       selectedCategoryId: category.id,
     });
+    signalMoneyChoice();
+    setPendingChoice(choice);
     if (outcome === 'offer_rule') {
       setPendingRuleCategory(category);
       setRuleDrawerOpen(false);
+      setCategoryPickerOpen(false);
+      setCategoryQuery('');
+    }
+    const changed = await runReview(() => transaction.direction === 'inflow'
+      ? reviewTransactionMeaning(transaction.id, { meaning: 'category_credit', categoryId: category.sourceId })
+      : assignTransactionCategory(transaction.id, category.sourceId), 'transaction_category');
+    setPendingChoice(null);
+    if (!changed) {
+      if (outcome === 'offer_rule') {
+        setPendingRuleCategory(null);
+        setCategoryPickerOpen(true);
+      }
+      return;
+    }
+    setCategoryPickerOpen(false);
+    setCategoryQuery('');
+    setDismissedRuleCategoryId(null);
+    if (outcome === 'offer_rule') {
       return;
     }
     if (outcome === 'return_to_summary') {
@@ -455,7 +465,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
       <BottomGuide
         dynamicSizing
-        onClose={() => void dismissRuleOffer()}
+        onClose={saving ? undefined : () => void dismissRuleOffer()}
         snapPoints={['42%']}
         visible={Boolean(ruleOfferCategory) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen}
       >
@@ -466,8 +476,8 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           </Text>
         </View>
         <View style={styles.ruleGuideActions}>
-          <Button fullWidth onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>
-          <Button fullWidth variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
+          <Button fullWidth loading={saving} loadingLabel="Saving category…" onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>
+          <Button fullWidth disabled={saving} variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
         </View>
       </BottomGuide>
 

@@ -1,4 +1,5 @@
 import type { MoneySnapshot } from '../data/moneySnapshot';
+import { buildCumulativeSpendSeries } from './moneyDetailView';
 import { projectMoneyCategoryPeriodView, projectMoneyPeriodView } from './moneyPeriodView';
 
 const snapshot: MoneySnapshot = {
@@ -160,6 +161,34 @@ describe('projectMoneyCategoryPeriodView', () => {
       ['mixed-june', 7000],
     ]);
     expect(view?.historicalTransactions.find(({ id }) => id === 'mixed-june')?.amountCents).toBe(7000);
+  });
+
+  it('keeps a saved-money split on the same plan-covered basis as category spending', () => {
+    const splitSnapshot: MoneySnapshot = {
+      ...snapshot,
+      transactions: [
+        ...snapshot.transactions,
+        {
+          id: 'saved-split', accountId: 'account', accountName: 'Checking', institutionName: 'Bank',
+          merchantName: 'Warehouse', amountCents: 9497, savedResourceCents: 3000,
+          direction: 'outflow', date: '2026-06-20', pending: false, currencyCode: 'USD',
+          categoryId: null, categoryName: 'Split across categories', reviewState: 'assigned', moneyMeaning: null,
+          allocations: [
+            { categoryId: 'groceries', sourceCategoryId: 'category-1', categoryName: 'Groceries', amountCents: 7000 },
+            { categoryId: 'shopping', sourceCategoryId: 'category-2', categoryName: 'Shopping', amountCents: 2497 },
+          ],
+        },
+      ],
+    };
+
+    const view = projectMoneyCategoryPeriodView(splitSnapshot, 'groceries', -1, new Date(2026, 6, 24));
+    const chartSeries = buildCumulativeSpendSeries(
+      view?.transactions ?? [],
+      view?.periodStartIso ?? '',
+      view?.periodEndIso ?? '',
+    );
+
+    expect(chartSeries.at(-1)?.valueCents).toBe(view?.category.spentCents);
   });
 
   it('returns null when the category is not in the authoritative snapshot', () => {

@@ -73,7 +73,6 @@ export function deriveActiveCapabilityDestinationId(
     if (moneySurface === 'MoneyTransactions' || moneySurface === 'MoneyTransactionDetail') {
       return 'money-transactions';
     }
-    if (moneySurface === 'MoneyAccounts') return 'money-accounts';
     return 'money-summary';
   }
   if (names[0] === 'Explore') return 'explore';

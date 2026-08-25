@@ -5,8 +5,7 @@ export type CapabilityId = 'goals' | 'todos' | 'plan' | 'arcs' | 'chapters' | 'm
 export type CapabilityMenuDestinationId =
   | Exclude<CapabilityId, 'money'>
   | 'money-summary'
-  | 'money-transactions'
-  | 'money-accounts';
+  | 'money-transactions';
 
 export type CapabilityNavigationId = CapabilityId | CapabilityMenuDestinationId;
 

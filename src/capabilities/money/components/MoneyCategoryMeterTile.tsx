@@ -48,7 +48,7 @@ export function MoneyCategoryMeterTile({
   const statusColor = isOverBudget
     ? colors.destructive
     : isWarning
-      ? colors.warning
+      ? colors.caution
       : colors.pine400;
 
   const handleLayout = (event: LayoutChangeEvent) => {
@@ -75,18 +75,26 @@ export function MoneyCategoryMeterTile({
             <View style={styles.valueRow}>
               <Text
                 numberOfLines={1}
-                style={[
-                  styles.value,
-                  isOverBudget ? styles.valueRisk : isWarning ? styles.valueWarning : null,
-                ]}
+                style={[styles.value, isOverBudget ? styles.valueRisk : null]}
               >
                 {percent}
               </Text>
               <Text style={styles.valueSuffix}>%</Text>
             </View>
-            <Text numberOfLines={2} style={styles.name}>
-              {category.name}
-            </Text>
+            <View style={styles.nameRow}>
+              {isWarning || isOverBudget ? (
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  testID={isOverBudget ? 'money-category-meter-over-indicator' : 'money-category-meter-projected-indicator'}
+                >
+                  <Icon color={statusColor} name="warning" size={13} strokeWidth={2.25} />
+                </View>
+              ) : null}
+              <Text numberOfLines={2} style={styles.name}>
+                {category.name}
+              </Text>
+            </View>
           </View>
         </RoundedRectRadialMeter>
       </View>
@@ -131,7 +139,7 @@ export function MoneyCategoryListRow({ category, onPress, periodElapsedPercent, 
   const paceColor = status.tone === 'danger'
     ? colors.destructive
     : status.tone === 'watch'
-      ? colors.turmeric500
+      ? colors.caution
       : colors.gray500;
   return (
     <Pressable
@@ -145,13 +153,18 @@ export function MoneyCategoryListRow({ category, onPress, periodElapsedPercent, 
         <Text numberOfLines={2} style={styles.listName}>{category.name}</Text>
         <View style={styles.listTrailing}>
           <Text numberOfLines={1} style={[styles.listValue, status.tone === 'danger' ? styles.valueRisk : null]}>{value}</Text>
-          {status.tone === 'watch' ? (
+          {status.tone !== 'neutral' ? (
             <View
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
-              testID="money-category-projected-warning"
+              testID={status.tone === 'danger' ? 'money-category-over-indicator' : 'money-category-projected-warning'}
             >
-              <Icon color={colors.turmeric600} name="warning" size={14} strokeWidth={2.25} />
+              <Icon
+                color={status.tone === 'danger' ? colors.destructive : colors.caution}
+                name="warning"
+                size={14}
+                strokeWidth={2.25}
+              />
             </View>
           ) : null}
           <Icon
@@ -372,7 +385,6 @@ const styles = StyleSheet.create({
     letterSpacing: -1.5,
   },
   valueRisk: { color: colors.destructive },
-  valueWarning: { color: colors.warning },
   valueSuffix: {
     flexShrink: 0,
     color: colors.gray500,
@@ -380,9 +392,17 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '600',
   },
-  name: {
+  nameRow: {
+    maxWidth: 124,
     minHeight: 36,
-    maxWidth: 112,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  name: {
+    flexShrink: 1,
+    minHeight: 36,
     color: colors.textSecondary,
     textAlign: 'center',
     fontSize: 14,

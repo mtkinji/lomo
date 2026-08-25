@@ -1,6 +1,8 @@
 import { fireEvent, render, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { CapabilityMenu } from './CapabilityMenu';
+import { CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
+import type { CapabilityMenuDestinationId } from '../capabilities/types';
 import { colors, fonts, radii } from '../theme';
 
 type MockSwipeableProps = {
@@ -51,6 +53,12 @@ const chats = [
   { id: 'chat-1', title: 'Tea tomorrow', updatedAt: '2026-07-21T18:00:00.000Z' },
 ];
 
+const menuDestinations = CAPABILITY_MENU_REGISTRY.map(({ id, label }) => [id, label] as const);
+
+function differentDestination(id: CapabilityMenuDestinationId): CapabilityMenuDestinationId {
+  return id === 'goals' ? 'todos' : 'goals';
+}
+
 describe('CapabilityMenu', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -73,7 +81,7 @@ describe('CapabilityMenu', () => {
     expect(getByText('MONEY')).toBeTruthy();
     expect(getByText('Budgets')).toBeTruthy();
     expect(getByText('Transactions')).toBeTruthy();
-    expect(getByText('Accounts')).toBeTruthy();
+    expect(queryByText('Accounts')).toBeNull();
     expect(queryByLabelText('Money')).toBeNull();
     expect(getByText('FUN')).toBeTruthy();
     expect(getByText('CHATS')).toBeTruthy();
@@ -86,7 +94,7 @@ describe('CapabilityMenu', () => {
     expect(queryByLabelText(/close/i)).toBeNull();
   });
 
-  it('selects each Money destination directly from the global menu', () => {
+  it('selects each visible Money destination directly from the global menu', () => {
     const { getByLabelText } = render(
       <CapabilityMenu
         activeCapabilityId="money-summary"
@@ -101,7 +109,70 @@ describe('CapabilityMenu', () => {
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('money-transactions');
   });
 
-  it('can hide pristine Transactions without hiding Budgets or Accounts', () => {
+  it.each(menuDestinations)(
+    'covers the menu without navigating when %s is already selected',
+    (id, label) => {
+      const onReselectCapability = jest.fn();
+      const menu = render(
+        <CapabilityMenu
+          activeCapabilityId={id}
+          chats={chats}
+          {...handlers}
+          exploreEnabled
+          choresEnabled
+          onReselectCapability={onReselectCapability}
+        />,
+      );
+
+      fireEvent.press(menu.getByLabelText(label));
+
+      expect(onReselectCapability).toHaveBeenCalledTimes(1);
+      expect(onReselectCapability).toHaveBeenCalledWith(id);
+      expect(handlers.onSelectCapability).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(menuDestinations)(
+    'navigates exactly once when selecting %s from another destination',
+    (id) => {
+      const onReselectCapability = jest.fn();
+      const menu = render(
+        <CapabilityMenu
+          activeCapabilityId={differentDestination(id)}
+          chats={chats}
+          {...handlers}
+          exploreEnabled
+          choresEnabled
+          onReselectCapability={onReselectCapability}
+        />,
+      );
+
+      fireEvent.press(menu.getByTestId(`capability.menu.${id}`));
+
+      expect(handlers.onSelectCapability).toHaveBeenCalledTimes(1);
+      expect(handlers.onSelectCapability).toHaveBeenCalledWith(id);
+      expect(onReselectCapability).not.toHaveBeenCalled();
+    },
+  );
+
+  it('covers the menu without navigating when Budgets is already selected', () => {
+    const onReselectCapability = jest.fn();
+    const menu = render(
+      <CapabilityMenu
+        activeCapabilityId="money-summary"
+        chats={chats}
+        {...handlers}
+        onReselectCapability={onReselectCapability}
+      />,
+    );
+
+    fireEvent.press(menu.getByLabelText('Budgets'));
+
+    expect(onReselectCapability).toHaveBeenCalledWith('money-summary');
+    expect(handlers.onSelectCapability).not.toHaveBeenCalled();
+  });
+
+  it('can hide pristine Transactions without hiding Budgets', () => {
     const menu = render(
       <CapabilityMenu
         activeCapabilityId={null}
@@ -113,7 +184,7 @@ describe('CapabilityMenu', () => {
 
     expect(menu.getByLabelText('Budgets')).toBeTruthy();
     expect(menu.queryByLabelText('Transactions')).toBeNull();
-    expect(menu.getByLabelText('Accounts')).toBeTruthy();
+    expect(menu.queryByLabelText('Accounts')).toBeNull();
   });
 
   it('uses the user-facing Budgets name for the Money home destination', () => {
@@ -125,6 +196,7 @@ describe('CapabilityMenu', () => {
   });
 
   it('shows Explore only when its feature flag is enabled', () => {
+    const onReselectCapability = jest.fn();
     const hidden = render(
       <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
     );
@@ -138,26 +210,37 @@ describe('CapabilityMenu', () => {
         chats={chats}
         exploreEnabled
         {...handlers}
+        onReselectCapability={onReselectCapability}
       />,
     );
     expect(enabled.getByLabelText('Explore').props.accessibilityState).toEqual({ selected: true });
     expect(enabled.getByLabelText('Collapse Fun')).toBeTruthy();
     fireEvent.press(enabled.getByLabelText('Explore'));
-    expect(handlers.onSelectCapability).toHaveBeenCalledWith('explore');
+    expect(onReselectCapability).toHaveBeenCalledWith('explore');
+    expect(handlers.onSelectCapability).not.toHaveBeenCalled();
   });
 
   it('always shows Games under Fun independently of the Explore feature flag', () => {
+    const onReselectCapability = jest.fn();
     const { getByLabelText } = render(
-      <CapabilityMenu activeCapabilityId="games" displayName="Andy" chats={chats} {...handlers} />,
+      <CapabilityMenu
+        activeCapabilityId="games"
+        displayName="Andy"
+        chats={chats}
+        {...handlers}
+        onReselectCapability={onReselectCapability}
+      />,
     );
 
     expect(getByLabelText('Collapse Fun')).toBeTruthy();
     expect(getByLabelText('Games').props.accessibilityState).toEqual({ selected: true });
     fireEvent.press(getByLabelText('Games'));
-    expect(handlers.onSelectCapability).toHaveBeenCalledWith('games');
+    expect(onReselectCapability).toHaveBeenCalledWith('games');
+    expect(handlers.onSelectCapability).not.toHaveBeenCalled();
   });
 
   it('shows Chores as a direct capability only after explicit Labs activation', () => {
+    const onReselectCapability = jest.fn();
     const hidden = render(
       <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
     );
@@ -170,11 +253,13 @@ describe('CapabilityMenu', () => {
         displayName="Andy"
         chats={chats}
         {...handlers}
+        onReselectCapability={onReselectCapability}
       />,
     );
     expect(enabled.getByLabelText('Chores').props.accessibilityState).toEqual({ selected: true });
     fireEvent.press(enabled.getByLabelText('Chores'));
-    expect(handlers.onSelectCapability).toHaveBeenCalledWith('chores');
+    expect(onReselectCapability).toHaveBeenCalledWith('chores');
+    expect(handlers.onSelectCapability).not.toHaveBeenCalled();
   });
 
   it('shows a caregiver review count on Chores without creating a global inbox', () => {
@@ -199,8 +284,15 @@ describe('CapabilityMenu', () => {
   });
 
   it('always shows Recipes and Groceries as separate Food destinations', () => {
+    const onReselectCapability = jest.fn();
     const enabled = render(
-      <CapabilityMenu activeCapabilityId="recipes" displayName="Andy" chats={chats} {...handlers} />,
+      <CapabilityMenu
+        activeCapabilityId="recipes"
+        displayName="Andy"
+        chats={chats}
+        {...handlers}
+        onReselectCapability={onReselectCapability}
+      />,
     );
     expect(enabled.getByLabelText('Recipes').props.accessibilityState).toEqual({ selected: true });
     expect(StyleSheet.flatten(enabled.getByText('Recipes').props.style))
@@ -208,7 +300,8 @@ describe('CapabilityMenu', () => {
     expect(enabled.queryByLabelText('Meal Plan')).toBeNull();
     expect(enabled.getByLabelText('Groceries')).toBeTruthy();
     fireEvent.press(enabled.getByLabelText('Recipes'));
-    expect(handlers.onSelectCapability).toHaveBeenCalledWith('recipes');
+    expect(onReselectCapability).toHaveBeenCalledWith('recipes');
+    expect(handlers.onSelectCapability).not.toHaveBeenCalled();
     fireEvent.press(enabled.getByLabelText('Groceries'));
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('groceries');
   });

@@ -112,6 +112,16 @@ const MONEY_ONBOARDING_DOOR = CAPABILITY_ONBOARDING_PATHS.find(
   ({ id }) => id === 'budget-app-controls',
 )!;
 
+function resetToMoneyDestination(
+  navigation: NativeStackNavigationProp<MoneyStackParamList>,
+  requestedPlace: MoneyPlaceRouteName,
+) {
+  navigation.reset({
+    index: 0,
+    routes: [{ name: requestedPlace }],
+  });
+}
+
 export function MoneySetupScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneySetup'>) {
   return (
     <MoneySetupExperience
@@ -217,7 +227,7 @@ export function MoneySetupExperience({
           mode,
         });
         if (decision.kind === 'destination') {
-          navigation.replace(decision.requestedPlace);
+          resetToMoneyDestination(navigation, decision.requestedPlace);
           return;
         }
         await recordMoneyOnboardingIntroduction(data.user.id, requestedPlace);
@@ -237,7 +247,7 @@ export function MoneySetupExperience({
       } catch (error) {
         if (!experienceMounted.current) return;
         if (mode === 'automatic') {
-          navigation.replace(requestedPlace);
+          resetToMoneyDestination(navigation, requestedPlace);
           return;
         }
         setMessage(error instanceof Error ? error.message : 'Money setup could not be loaded.');

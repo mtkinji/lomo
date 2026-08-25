@@ -137,15 +137,6 @@ export const CAPABILITY_MENU_REGISTRY = [
     availability: 'active',
     rootRoute: { root: 'Money', screen: 'MoneyTransactions' },
   },
-  {
-    id: 'money-accounts',
-    ownerId: 'money',
-    label: 'Accounts',
-    group: 'money',
-    icon: 'landmark',
-    availability: 'active',
-    rootRoute: { root: 'Money', screen: 'MoneyAccounts' },
-  },
 ] as const satisfies readonly CapabilityMenuDestinationDefinition[];
 
 export function getCapability(id: CapabilityId): CapabilityDefinition {

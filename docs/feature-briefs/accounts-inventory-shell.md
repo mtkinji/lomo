@@ -23,12 +23,12 @@ source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 
 Accounts is the standard object inventory for linked financial accounts in Kwilt Money. It owns connection setup, connection health, sync recency, and whether each account feeds budget lanes. Its durable management entry belongs in Settings, while Budget and other Money workflows may launch connection or recovery actions at the moment they are useful.
 
-The existing Accounts capability-menu item remains visible during this learning slice. Hiding it is a separate decision after the new entry motions have been exercised.
+Accounts no longer appears in the global capability menu. The Settings route and Budget's contextual entry motions proved sufficient to keep management available without competing with recurring Money work.
 
 ## Buildable Slice
 
-- Keep the current Accounts capability-menu destination available.
-- Add `Accounts & connections` under Settings → Money, routing to the capability-owned inventory with a clear return to Settings.
+- Keep Accounts available as a capability-owned destination without a global capability-menu row.
+- Add `Accounts` under Settings → Money, routing to the capability-owned inventory with a clear return to Settings.
 - Give Budget one stateful header slot: connect another account at rest, report checking during pull-to-refresh, show a five-second `Just now` receipt after a successful connected-account sync, and preserve a tappable failure or stale status when attention is required.
 - Add `Accounts & connections` to Budget's overflow menu and open a compact provenance drawer with connected-account count, freshness, direct connection, and account management.
 - Reuse one connection orchestration path for Plaid handoff, Money reconciliation, safe errors, and cancellation.
@@ -36,8 +36,8 @@ The existing Accounts capability-menu item remains visible during this learning 
 
 ## Acceptance Criteria
 
-- The existing Accounts main-menu item remains available during evaluation.
-- Settings → Money exposes `Accounts & connections` and returns to Settings when opened there.
+- Accounts is absent from the global capability menu.
+- Settings → Money exposes `Accounts` and returns to Settings when opened there.
 - Budget's non-pristine resting header exposes one compact `Connect` action that invokes the shared connection flow directly; pristine Money relies on its stronger empty-state action instead.
 - Pull-to-refresh replaces the resting action with checking, success, or failure feedback. `Just now` appears only after connected-account reconciliation with provider sync completes and returns to `Connect` after five seconds.
 - Existing stale or degraded Money evidence may temporarily outrank the resting connection action.
@@ -50,4 +50,4 @@ The existing Accounts capability-menu item remains visible during this learning 
 
 ## Spec Refinement
 
-This is a reversible learning slice. Account removal, Plaid repair, persisted account records, and lane-assignment editing remain deferred. Removing Accounts from the main capability menu is also deferred until the moment-of-need, Budget, and Settings motions prove sufficiently discoverable in real use.
+This remains a reversible learning slice. Account removal, Plaid repair, persisted account records, and lane-assignment editing remain deferred. Accounts has now moved out of the main capability menu because its moment-of-need, Budget, and Settings motions provide the intended access model.

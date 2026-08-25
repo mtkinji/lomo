@@ -37,9 +37,14 @@ describe('deriveActiveCapabilityId', () => {
   });
 
   it.each([
+    [['MainTabs', 'GoalsTab', 'GoalDetail'], 'goals'],
+    [['MainTabs', 'ActivitiesTab', 'ActivityDetail'], 'todos'],
+    [['MainTabs', 'PlanTab'], 'plan'],
+    [['MainTabs', 'MoreTab', 'MoreArcs', 'ArcDetail'], 'arcs'],
+    [['MainTabs', 'MoreTab', 'MoreChapters'], 'chapters'],
     [['Money', 'MoneySummary'], 'money-summary'],
     [['Money', 'MoneyTransactions'], 'money-transactions'],
-    [['Money', 'MoneyAccounts'], 'money-accounts'],
+    [['Money', 'MoneyAccounts'], 'money-summary'],
     [['Money', 'MoneyCategoryDetail'], 'money-summary'],
     [['Explore', 'ExploreMap'], 'explore'],
     [['Games', 'GamesShelf'], 'games'],

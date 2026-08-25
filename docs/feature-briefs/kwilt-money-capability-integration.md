@@ -147,10 +147,10 @@ layout.
 ### Navigation
 
 - Add `money` to `CapabilityId` as the lifecycle/data owner.
-- Add `money-summary`, `money-transactions`, and `money-accounts` as global menu destination
-  ids which all resolve to the same Money owner and stack.
-- Render Summary, Transactions, and Accounts as three direct rows under Money in the Option G
-  rail. Do not add a Money-local place bar or preserve the standalone bottom tab bar.
+- Add `money-summary` and `money-transactions` as global menu destination ids which both
+  resolve to the same Money owner and stack. Accounts remains a contextual and Settings route.
+- Render Summary and Transactions as direct rows under Money in the Option G rail. Do not add
+  a Money-local place bar or preserve the standalone bottom tab bar.
 - Keep one Money stack for object/detail/modal routes and preserve native back behavior.
 - Add `kwilt://money`, `kwilt://money/transactions`, `kwilt://money/accounts`,
   `kwilt://money/category/:categoryId`, and
@@ -165,7 +165,8 @@ layout.
 | Supabase client/session storage | Kwilt shell |
 | RevenueCat identity and purchases | Kwilt shell |
 | Capability menu and global header | Kwilt shell |
-| Money Summary/Transactions/Accounts global destinations | Kwilt shell, resolving to the Money capability owner |
+| Money Summary/Transactions global destinations | Kwilt shell, resolving to the Money capability owner |
+| Accounts contextual and Settings destination | Money capability, entered from Kwilt workflows |
 | Financial domain and display truth | Money capability |
 | Global account/privacy/legal/subscription settings | Kwilt shell |
 | Category, connection, and app-control settings | Money capability, linked contextually |

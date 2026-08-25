@@ -24,6 +24,7 @@ type CapabilityMenuProps = {
   displayName?: string;
   avatarUrl?: string | null;
   onSelectCapability: (id: CapabilityMenuDestinationId) => void;
+  onReselectCapability?: (id: CapabilityMenuDestinationId) => void;
   onSelectChat: (threadId: string) => void;
   onArchiveChat: (threadId: string) => void;
   onDeleteChat: (threadId: string) => void;
@@ -56,6 +57,7 @@ export function CapabilityMenu({
   displayName,
   avatarUrl,
   onSelectCapability,
+  onReselectCapability,
   onSelectChat,
   onArchiveChat,
   onDeleteChat,
@@ -110,7 +112,13 @@ export function CapabilityMenu({
         accessibilityLabel={accessibilityLabel}
         accessibilityState={{ selected }}
         testID={`capability.menu.${capability.id}`}
-        onPress={() => onSelectCapability(capability.id)}
+        onPress={() => {
+          if (selected && onReselectCapability) {
+            onReselectCapability(capability.id);
+            return;
+          }
+          onSelectCapability(capability.id);
+        }}
         style={({ pressed }) => [
           styles.capabilityRow,
           selected && styles.capabilityRowSelected,

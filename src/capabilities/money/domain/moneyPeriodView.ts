@@ -249,6 +249,10 @@ function projectTransactionForCategory(
   return {
     ...transaction,
     amountCents: allocation.amountCents,
+    savedResourceCents: Math.max(
+      0,
+      allocation.amountCents - projectPlanCoveredAmountForCategory(transaction, category),
+    ),
     categoryId: category.id,
     categoryName: category.name,
   };
