@@ -67,6 +67,8 @@ import {
   type RecipeRecommendation,
 } from "../domain/recipeRecommendations";
 import { resolveDefaultMealServings } from "../domain/mealPreferences";
+import { assessRecipeScaleability } from "../domain/recipeScaleAssessment";
+import type { RecipeScaleMultiplier } from "../domain/recipeScaling";
 import { canHideRecipe } from "../domain/hiddenRecipes";
 import { useHiddenRecipeStore } from "../runtime/useHiddenRecipeStore";
 import { useRecipeFavoriteStore } from "../runtime/useRecipeFavoriteStore";
@@ -203,7 +205,8 @@ export function RecipeHeaderActions({
 
 export function RecipeHomeView({
   projection,
-  servings,
+  multiplier,
+  scalingAvailable = false,
   checkedIngredients = new Set<string>(),
   priorLearning = null,
   cookCount = 0,
@@ -213,7 +216,7 @@ export function RecipeHomeView({
   actionBusy,
   showMoreActions = true,
   recommendations = [],
-  onServingsChange,
+  onMultiplierChange,
   onToggleIngredient = () => undefined,
   onDockAction,
   onMore,
@@ -225,7 +228,8 @@ export function RecipeHomeView({
   enrichment = null,
 }: {
   projection: RecipeProjection;
-  servings: number;
+  multiplier: RecipeScaleMultiplier;
+  scalingAvailable?: boolean;
   checkedIngredients?: Set<string>;
   priorLearning?: RecipeCookRecordProjection | null;
   cookCount?: number;
@@ -235,7 +239,7 @@ export function RecipeHomeView({
   actionBusy: boolean;
   showMoreActions?: boolean;
   recommendations?: RecipeRecommendation[];
-  onServingsChange(value: number): void;
+  onMultiplierChange(value: RecipeScaleMultiplier): void;
   onToggleIngredient?(id: string): void;
   onDockAction(actionId: RecipeNextActionId, source: "primary" | "menu"): void;
   onMore(): void;
@@ -324,8 +328,10 @@ export function RecipeHomeView({
             cookMinutes={version.cookMinutes}
             inactiveMinutes={starterMetadata?.inactiveMinutes}
             yieldQuantity={version.yieldQuantity}
-            servings={servings}
-            onServingsChange={onServingsChange}
+            yieldUnit={version.yieldUnit}
+            multiplier={multiplier}
+            scalingAvailable={scalingAvailable}
+            onMultiplierChange={onMultiplierChange}
           />
           {priorLearning &&
           (priorLearning.privateNote ||
@@ -375,8 +381,7 @@ export function RecipeHomeView({
           ) : null}
           <RecipeIngredientList
             lines={version.ingredients}
-            fromYield={version.yieldQuantity}
-            toYield={servings}
+            multiplier={multiplier}
             checked={checkedIngredients}
             onToggle={onToggleIngredient}
           />
@@ -472,12 +477,12 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     (state) => state.togglingRecipeIds,
   );
   const toggleFavorite = useRecipeFavoriteStore((state) => state.toggle);
-  const defaultServings = useAppStore((state) =>
+  const defaultPlannedPortions = useAppStore((state) =>
     resolveDefaultMealServings(
       state.userProfile?.preferences?.meals?.defaultServings,
     ),
   );
-  const [servings, setServings] = useState(defaultServings);
+  const [multiplier, setMultiplier] = useState<RecipeScaleMultiplier>(1);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set());
   const [showMore, setShowMore] = useState(false);
   const [mealChatVisible, setMealChatVisible] = useState(false);
@@ -498,6 +503,12 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
   const dispatchCapabilityOnboarding = useCapabilityOnboardingStore((state) => state.dispatch);
   const planActionRef = useRef<View>(null);
   const { capture } = useAnalytics();
+  useEffect(() => {
+    setMultiplier(1);
+  }, [route.params.recipeId]);
+  const scaling = projection
+    ? assessRecipeScaleability(projection.currentVersion.ingredients, projection.currentVersion.scalingState)
+    : { available: false, blockers: ['recipe_unavailable'] };
   const returnFromRecipeHome = () => {
     if (navigation.getState().index > 0) {
       navigation.goBack();
@@ -645,7 +656,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         cart: sharedCart,
         householdId: household.household?.id ?? null,
         projection,
-        servings,
+        servings: defaultPlannedPortions,
         candidateId: Crypto.randomUUID(),
         repository,
         reloadCart: reloadSharedCart,
@@ -731,11 +742,13 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     activeCook
       ? navigation.navigate("RecipeCookMode", {
           recipeId: projection.recipe.id,
-          servings,
+          servings: (projection.currentVersion.yieldQuantity ?? 1) * multiplier,
+          recipeScaleMultiplier: multiplier,
         })
       : navigation.navigate("RecipeReadiness", {
           recipeId: projection.recipe.id,
-          servings,
+          servings: (projection.currentVersion.yieldQuantity ?? 1) * multiplier,
+          recipeScaleMultiplier: multiplier,
           ...(route.params.source === 'meal_plan' ? { source: 'meal_plan' as const } : {}),
         });
   const compileIngredients = async (scope: "recipe" | "meal_plan") => {
@@ -762,7 +775,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
               originalText: line.originalText,
               optional: line.optional,
             })),
-            servings,
+            servings: (projection.currentVersion.yieldQuantity ?? 1) * multiplier,
           });
       capture(AnalyticsEvent.GroceryListCompiled, {
         outcome: "success",
@@ -826,7 +839,8 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
       />
       <RecipeHomeView
         projection={projection}
-        servings={servings}
+        multiplier={multiplier}
+        scalingAvailable={scaling.available}
         checkedIngredients={checkedIngredients}
         priorLearning={priorLearning}
         cookCount={cookCount}
@@ -836,7 +850,7 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
         actionBusy={actionBusy}
         showMoreActions={!starterRecipe}
         recommendations={recommendations}
-        onServingsChange={setServings}
+        onMultiplierChange={setMultiplier}
         onToggleIngredient={(id) =>
           setCheckedIngredients((current) => {
             const next = new Set(current);

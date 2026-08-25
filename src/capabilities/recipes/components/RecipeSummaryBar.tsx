@@ -5,6 +5,11 @@ import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
 import { Heading, Text } from '../../../ui/Typography';
+import {
+  formatScaledRecipeYield,
+  RECIPE_SCALE_MULTIPLIERS,
+  type RecipeScaleMultiplier,
+} from '../domain/recipeScaling';
 
 function duration(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
@@ -24,15 +29,19 @@ export function RecipeSummaryBar({
   cookMinutes,
   inactiveMinutes = 0,
   yieldQuantity,
-  servings,
-  onServingsChange,
+  yieldUnit,
+  multiplier,
+  scalingAvailable,
+  onMultiplierChange,
 }: {
   prepMinutes: number | null;
   cookMinutes: number | null;
   inactiveMinutes?: number;
   yieldQuantity: number | null;
-  servings: number;
-  onServingsChange(value: number): void;
+  yieldUnit: string | null;
+  multiplier: RecipeScaleMultiplier;
+  scalingAvailable: boolean;
+  onMultiplierChange(value: RecipeScaleMultiplier): void;
 }) {
   const totalMinutes =
     prepMinutes === null && cookMinutes === null
@@ -53,6 +62,12 @@ export function RecipeSummaryBar({
     items.push({ label: 'Waiting', value: duration(inactiveMinutes), icon: 'clock' });
   }
   if (!items.length && yieldQuantity === null) return null;
+  const scaledYield = yieldQuantity !== null && yieldUnit?.trim()
+    ? formatScaledRecipeYield({ yieldQuantity, yieldUnit, multiplier })
+    : null;
+  const multiplierIndex = RECIPE_SCALE_MULTIPLIERS.indexOf(multiplier);
+  const previousMultiplier = RECIPE_SCALE_MULTIPLIERS[multiplierIndex - 1];
+  const nextMultiplier = RECIPE_SCALE_MULTIPLIERS[multiplierIndex + 1];
 
   return (
     <View accessibilityLabel="What this recipe takes" style={styles.section}>
@@ -76,43 +91,46 @@ export function RecipeSummaryBar({
             {items.length ? <View style={styles.divider} /> : null}
             <View style={styles.row}>
               <View style={styles.icon}>
-                <Icon name="users" size={20} color={colors.textSecondary} />
+              <Icon name="layers" size={20} color={colors.textSecondary} />
               </View>
-              <Text style={styles.label}>Servings</Text>
+              <Text style={styles.label}>Recipe size</Text>
               <View style={styles.servingsControl}>
-                <View style={styles.servingsButtons}>
+                {scalingAvailable ? <View style={styles.servingsButtons}>
                   <Button
-                    accessibilityLabel="Decrease servings"
-                    accessibilityState={{ disabled: servings <= 1 }}
-                    disabled={servings <= 1}
+                    accessibilityLabel="Decrease recipe size"
+                    accessibilityState={{ disabled: previousMultiplier === undefined }}
+                    disabled={previousMultiplier === undefined}
                     hitSlop={8}
                     size="icon"
                     iconButtonSize={28}
                     variant="outline"
-                    onPress={() => onServingsChange(Math.max(1, servings - 1))}
+                    onPress={() => previousMultiplier && onMultiplierChange(previousMultiplier)}
                   >
                     −
                   </Button>
                   <Button
-                    accessibilityLabel="Increase servings"
+                    accessibilityLabel="Increase recipe size"
+                    accessibilityState={{ disabled: nextMultiplier === undefined }}
+                    disabled={nextMultiplier === undefined}
                     hitSlop={8}
                     size="icon"
                     iconButtonSize={28}
                     variant="outline"
-                    onPress={() => onServingsChange(servings + 1)}
+                    onPress={() => nextMultiplier && onMultiplierChange(nextMultiplier)}
                   >
                     +
                   </Button>
-                </View>
+                </View> : null}
                 <Text
-                  accessibilityLabel={`${servings} servings`}
+                  accessibilityLabel={`${multiplier} times${scaledYield ? `. Makes ${scaledYield}` : ''}`}
                   accessibilityLiveRegion="polite"
                   style={styles.servingsCount}
                 >
-                  {servings}
+                  {multiplier}×
                 </Text>
               </View>
             </View>
+            {scaledYield ? <Text tone="secondary" style={styles.yieldCopy}>Makes {scaledYield}</Text> : null}
           </View>
         ) : null}
       </View>
@@ -168,5 +186,8 @@ const styles = StyleSheet.create({
     minWidth: 24,
     color: colors.textSecondary,
     textAlign: 'right',
+  },
+  yieldCopy: {
+    marginLeft: 44,
   },
 });

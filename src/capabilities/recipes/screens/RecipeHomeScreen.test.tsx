@@ -163,9 +163,9 @@ describe("Recipe Home", () => {
           recipe: recipeContractFixture(),
           currentVersion: recipeVersionContractFixture(),
         }}
-        servings={4}
+        multiplier={1}
         {...defaultRecipeHomeDockProps}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onMore={jest.fn()}
         onChat={jest.fn()}
       />,
@@ -183,11 +183,11 @@ describe("Recipe Home", () => {
           recipe: recipeContractFixture(),
           currentVersion: recipeVersionContractFixture(),
         }}
-        servings={4}
+        multiplier={1}
         recommendedAction={actions.recommendedAction}
         menuActions={actions.menuActions}
         actionBusy={false}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onDockAction={onDockAction}
         onMore={jest.fn()}
       />,
@@ -204,12 +204,11 @@ describe("Recipe Home", () => {
     expect(screen.queryByText("Method")).toBeNull();
     expect(screen.getByText("Bake")).toBeTruthy();
     expect(screen.getByText("Finish")).toBeTruthy();
-    expect(screen.getByText("¾ cup flour, sifted")).toBeTruthy();
+    expect(screen.getByText("1 1/2 cups flour, sifted")).toBeTruthy();
     expect(screen.getByTestId("object-detail-media-hero")).toBeTruthy();
     expect(screen.getByTestId("object-detail-media-sheet")).toBeTruthy();
     expect(screen.getByLabelText("Recipe actions")).toBeTruthy();
     expect(screen.queryByText("More recipe actions")).toBeNull();
-    expect(screen.queryByText("1 1/2 cups flour, sifted")).toBeNull();
     expect(screen.getAllByRole("checkbox")).toHaveLength(
       recipeVersionContractFixture().ingredients.length,
     );
@@ -242,9 +241,9 @@ describe("Recipe Home", () => {
     const screen = render(
       <RecipeHomeView
         projection={{ recipe: recipeContractFixture(), currentVersion: version }}
-        servings={4}
+        multiplier={1}
         {...defaultRecipeHomeDockProps}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onMore={jest.fn()}
         onOpenEditorialPick={onOpenEditorialPick}
       />,
@@ -289,9 +288,9 @@ describe("Recipe Home", () => {
             },
           },
         ]}
-        servings={4}
+        multiplier={1}
         {...defaultRecipeHomeDockProps}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onMore={jest.fn()}
         onOpenRecipe={onOpenRecipe}
       />,
@@ -321,9 +320,9 @@ describe("Recipe Home", () => {
           recipe: recipeContractFixture(),
           currentVersion: version,
         }}
-        servings={8}
+        multiplier={1}
         {...defaultRecipeHomeDockProps}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onMore={jest.fn()}
       />,
     );
@@ -331,34 +330,37 @@ describe("Recipe Home", () => {
     expect(screen.queryByText("Total")).toBeNull();
     expect(screen.queryByText("Prep")).toBeNull();
     expect(screen.queryByText("Cook")).toBeNull();
-    expect(screen.getByText("Servings")).toBeTruthy();
-    expect(screen.getByLabelText("8 servings")).toBeTruthy();
-    expect(screen.queryByText("Makes")).toBeNull();
-    expect(screen.queryByText("Scale recipe")).toBeNull();
+    expect(screen.getByText("Recipe size")).toBeTruthy();
+    expect(screen.getByText("Makes 8 servings")).toBeTruthy();
+    expect(screen.queryByText("Servings")).toBeNull();
     expect(screen.getByText("Private to you")).toBeTruthy();
     expect(screen.getByText(/Grandma Ruth's card/)).toBeTruthy();
   });
 
-  it("adjusts servings from the integrated summary control", () => {
-    const onServingsChange = jest.fn();
+  it("adjusts recipe size from the integrated summary control", () => {
+    const onMultiplierChange = jest.fn();
+    const version = recipeVersionContractFixture();
+    version.scalingState = 'verified';
+    version.ingredients = version.ingredients.map((line) => ({ ...line, scaleRule: { kind: 'multiply' } }));
     const screen = render(
       <RecipeHomeView
         projection={{
           recipe: recipeContractFixture(),
-          currentVersion: recipeVersionContractFixture(),
+          currentVersion: version,
         }}
-        servings={4}
+        multiplier={2}
+        scalingAvailable
         {...defaultRecipeHomeDockProps}
-        onServingsChange={onServingsChange}
+        onMultiplierChange={onMultiplierChange}
         onMore={jest.fn()}
       />,
     );
 
-    fireEvent.press(screen.getByLabelText("Decrease servings"));
-    fireEvent.press(screen.getByLabelText("Increase servings"));
+    fireEvent.press(screen.getByLabelText("Decrease recipe size"));
+    fireEvent.press(screen.getByLabelText("Increase recipe size"));
 
-    expect(onServingsChange).toHaveBeenNthCalledWith(1, 3);
-    expect(onServingsChange).toHaveBeenNthCalledWith(2, 5);
+    expect(onMultiplierChange).toHaveBeenNthCalledWith(1, 1);
+    expect(onMultiplierChange).toHaveBeenNthCalledWith(2, 3);
   });
 
   it("presents Kwilt editorial context as a meal story while preserving personal notes", () => {
@@ -368,9 +370,9 @@ describe("Recipe Home", () => {
           recipe: recipeContractFixture(),
           currentVersion: recipeVersionContractFixture(),
         }}
-        servings={8}
+        multiplier={1}
         {...defaultRecipeHomeDockProps}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onMore={jest.fn()}
       />,
     );
@@ -390,9 +392,9 @@ describe("Recipe Home", () => {
           recipe: starterRecipe,
           currentVersion: recipeVersionContractFixture(),
         }}
-        servings={8}
+        multiplier={1}
         {...defaultRecipeHomeDockProps}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onMore={jest.fn()}
       />,
     );
@@ -407,7 +409,7 @@ describe("Recipe Home", () => {
           recipe: recipeContractFixture(),
           currentVersion: recipeVersionContractFixture(),
         }}
-        servings={8}
+        multiplier={1}
         {...deriveRecipeNextActions({ activeCook: true, isInPlan: true, planState: "finalized" })}
         actionBusy={false}
         cookCount={3}
@@ -430,7 +432,7 @@ describe("Recipe Home", () => {
           }],
           completedAt: "2026-08-05T12:00:00.000Z",
         }}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onDockAction={jest.fn()}
         onMore={jest.fn()}
       />,
@@ -450,9 +452,9 @@ describe("Recipe Home", () => {
     const screen = render(
       <RecipeHomeView
         projection={{ recipe, currentVersion: recipeVersionContractFixture() }}
-        servings={8}
+        multiplier={1}
         {...defaultRecipeHomeDockProps}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onMore={jest.fn()}
       />,
     );
@@ -477,9 +479,9 @@ describe("Recipe Home", () => {
           },
           currentVersion: recipeVersionContractFixture(),
         }}
-        servings={8}
+        multiplier={1}
         {...defaultRecipeHomeDockProps}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onMore={jest.fn()}
       />,
     );
@@ -495,9 +497,9 @@ describe("Recipe Home", () => {
     const screen = render(
       <RecipeHomeView
         projection={{ recipe: recipeContractFixture(), currentVersion: version }}
-        servings={8}
+        multiplier={1}
         {...defaultRecipeHomeDockProps}
-        onServingsChange={jest.fn()}
+        onMultiplierChange={jest.fn()}
         onMore={jest.fn()}
       />,
     );

@@ -42,8 +42,8 @@ export type FoodStackParamList = {
   RecipeEdit: { recipeId?: string };
   RecipeHome: { recipeId: string; source?: 'meal_plan' };
   RecipeCooking: { recipeId: string };
-  RecipeReadiness: { recipeId: string; servings: number; source?: 'meal_plan' };
-  RecipeCookMode: { recipeId: string; servings: number; source?: 'meal_plan' };
+  RecipeReadiness: { recipeId: string; servings: number; recipeScaleMultiplier: 1 | 2 | 3; source?: 'meal_plan' };
+  RecipeCookMode: { recipeId: string; servings: number; recipeScaleMultiplier: 1 | 2 | 3; source?: 'meal_plan' };
   RecipeCookComplete: { sessionId: string; recipeId: string };
   RecipeImportReview: { intent?: 'family' | 'web' } | undefined;
   NextMeals: undefined;
