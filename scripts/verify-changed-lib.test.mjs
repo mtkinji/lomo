@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildRelatedTestCommand } from './verify-changed-lib.mjs';
+import {
+  buildRelatedTestCommand,
+  needsEasUploadPolicy,
+} from './verify-changed-lib.mjs';
 
 test('related test command permits source files with no matching Jest tests', () => {
   assert.equal(
@@ -14,4 +17,15 @@ test('related test command safely quotes each changed path', () => {
     buildRelatedTestCommand(['src/example.ts', 'packages/example with spaces/source.ts']),
     'npm test -- --runInBand --passWithNoTests --findRelatedTests "src/example.ts" "packages/example with spaces/source.ts"',
   );
+});
+
+test('selects the EAS upload policy for upload configuration changes', () => {
+  assert.equal(needsEasUploadPolicy(['.easignore']), true);
+  assert.equal(needsEasUploadPolicy(['eas.json']), true);
+  assert.equal(needsEasUploadPolicy(['scripts/eas-upload-policy-lib.mjs']), true);
+  assert.equal(needsEasUploadPolicy(['scripts/eas-upload-policy.test.mjs']), true);
+});
+
+test('does not select the EAS upload policy for unrelated app changes', () => {
+  assert.equal(needsEasUploadPolicy(['src/App.tsx']), false);
 });

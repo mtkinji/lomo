@@ -3,3 +3,9 @@ export function buildRelatedTestCommand(files) {
     .map((file) => JSON.stringify(file))
     .join(' ')}`;
 }
+
+export function needsEasUploadPolicy(files) {
+  return files.some((file) =>
+    /^(\.easignore|eas\.json|scripts\/eas-upload-policy(?:-lib)?(?:\.test)?\.mjs)$/.test(file),
+  );
+}

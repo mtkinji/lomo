@@ -2,7 +2,10 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { buildRelatedTestCommand } from './verify-changed-lib.mjs';
+import {
+  buildRelatedTestCommand,
+  needsEasUploadPolicy,
+} from './verify-changed-lib.mjs';
 
 const argv = process.argv.slice(2);
 const shouldRun = argv.includes('--run');
@@ -90,6 +93,13 @@ if (
 
 if (matches(/^scripts\/code-health(-lib)?(\.test)?\.mjs$/)) {
   add('npm run test:code-health', 'unit-test the code-health ratchet rules');
+}
+
+if (needsEasUploadPolicy(files)) {
+  add(
+    'npm run test:eas-upload-policy',
+    'validate EAS archive exclusions and prevent credential or generated-artifact upload drift',
+  );
 }
 
 if (matches(/^(assets\/audio\/|modules\/kwilt-seamless-loop\/|src\/services\/(soundscape|soundscapeCatalog|soundscapeLoop|audioAsset)|scripts\/audio\/)/)) {
