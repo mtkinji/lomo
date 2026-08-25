@@ -33,7 +33,10 @@
           "ingredientConcept": "medium globe eggplants",
           "preparation": "about 3 pounds total",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -44,7 +47,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "plus more to taste",
           "optional": false,
-          "parseConfidence": 0.78
+          "parseConfidence": 0.78,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -55,7 +61,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -66,7 +75,10 @@
           "ingredientConcept": "neutral oil",
           "preparation": "plus more as needed for shallow-frying",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -77,7 +89,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -88,7 +103,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "lightly crushed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -99,7 +117,10 @@
           "ingredientConcept": "whole peeled tomatoes",
           "preparation": "crushed by hand",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -110,7 +131,10 @@
           "ingredientConcept": "packed cup basil leaves",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -121,7 +145,10 @@
           "ingredientConcept": "low-moisture whole-milk mozzarella",
           "preparation": "thinly sliced and patted dry",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -132,7 +159,10 @@
           "ingredientConcept": "finely grated parmigiano-reggiano",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -207,7 +237,8 @@
         "altText": "Eggplant parmigiana with four thin layers of fried eggplant, concentrated tomato, basil, mozzarella, and Parmigiano.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -238,7 +269,10 @@
           "ingredientConcept": "boneless skinless chicken breasts",
           "preparation": "sliced horizontally into 4 cutlets",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -249,7 +283,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -260,7 +297,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -271,7 +311,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -282,7 +325,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -293,7 +339,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": "divided and chilled",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -304,7 +353,10 @@
           "ingredientConcept": "dry white wine",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -315,7 +367,10 @@
           "ingredientConcept": "low-sodium chicken stock",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -326,7 +381,10 @@
           "ingredientConcept": "fresh lemon juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -337,7 +395,10 @@
           "ingredientConcept": "brined capers",
           "preparation": "rinsed and drained",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -348,7 +409,10 @@
           "ingredientConcept": "chopped flat-leaf parsley",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -424,7 +488,8 @@
         "altText": "Golden chicken piccata cutlets with a glossy lemon-butter pan sauce, capers, parsley, and lemon.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -455,7 +520,10 @@
           "ingredientConcept": "center-cut veal shanks",
           "preparation": "1 1/2 inches thick, about 12 ounces each",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -466,7 +534,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -477,7 +548,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -488,7 +562,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -499,7 +576,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -510,7 +590,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -521,7 +604,10 @@
           "ingredientConcept": "medium yellow onion",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -532,7 +618,10 @@
           "ingredientConcept": "medium carrot",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -543,7 +632,10 @@
           "ingredientConcept": "celery rib",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -554,7 +646,10 @@
           "ingredientConcept": "dry white wine",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -565,7 +660,10 @@
           "ingredientConcept": "unsalted beef or veal stock",
           "preparation": "heated",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -576,7 +674,10 @@
           "ingredientConcept": "bay leaf",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -587,7 +688,10 @@
           "ingredientConcept": "flat-leaf parsley leaves",
           "preparation": "finely chopped",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -598,7 +702,10 @@
           "ingredientConcept": "finely grated zest of 2 lemons",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.82
+          "parseConfidence": 0.82,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -609,7 +716,10 @@
           "ingredientConcept": "small garlic clove",
           "preparation": "finely grated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -684,7 +794,8 @@
         "altText": "Milanese osso buco with tender veal shanks, intact marrow bones, pale braising sauce, vegetables, and fresh gremolata.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -715,7 +826,10 @@
           "ingredientConcept": "boneless skinless chicken breasts",
           "preparation": "sliced horizontally into 4 cutlets",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -726,7 +840,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -737,7 +854,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -748,7 +868,10 @@
           "ingredientConcept": "large fresh sage leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -759,7 +882,10 @@
           "ingredientConcept": "thin slices prosciutto",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -770,7 +896,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -781,7 +910,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -792,7 +924,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": "divided and chilled",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -803,7 +938,10 @@
           "ingredientConcept": "dry white wine",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -814,7 +952,10 @@
           "ingredientConcept": "low-sodium chicken stock",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -889,7 +1030,8 @@
         "altText": "Chicken saltimbocca cutlets topped with crisp prosciutto and sage beside a glossy white-wine butter sauce.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -920,7 +1062,10 @@
           "ingredientConcept": "unsalted beef stock",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -931,7 +1076,10 @@
           "ingredientConcept": "saffron threads",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -942,7 +1090,10 @@
           "ingredientConcept": "beef marrow",
           "preparation": "finely chopped",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -953,7 +1104,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": "divided and chilled",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -964,7 +1118,10 @@
           "ingredientConcept": "small yellow onion",
           "preparation": "very finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -975,7 +1132,10 @@
           "ingredientConcept": "carnaroli rice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -986,7 +1146,10 @@
           "ingredientConcept": "dry white wine",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -997,7 +1160,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "plus more to taste",
           "optional": false,
-          "parseConfidence": 0.78
+          "parseConfidence": 0.78,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -1008,7 +1174,10 @@
           "ingredientConcept": "finely grated parmigiano-reggiano",
           "preparation": "chilled",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -1083,7 +1252,8 @@
         "altText": "Risotto alla milanese with flowing saffron-gold Carnaroli rice, Parmigiano, and a glossy all’onda finish.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -1114,7 +1284,10 @@
           "ingredientConcept": "dried porcini mushrooms",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -1125,7 +1298,10 @@
           "ingredientConcept": "boiling water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -1136,7 +1312,10 @@
           "ingredientConcept": "low-sodium chicken or vegetable stock",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -1147,7 +1326,10 @@
           "ingredientConcept": "mixed fresh mushrooms",
           "preparation": "such as cremini, shiitake, oyster, or maitake, trimmed and sliced",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -1158,7 +1340,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -1169,7 +1354,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -1180,7 +1368,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -1191,7 +1382,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": "divided and chilled",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -1202,7 +1396,10 @@
           "ingredientConcept": "large shallot",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -1213,7 +1410,10 @@
           "ingredientConcept": "carnaroli rice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -1224,7 +1424,10 @@
           "ingredientConcept": "dry white wine",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -1235,7 +1438,10 @@
           "ingredientConcept": "finely grated parmigiano-reggiano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -1246,7 +1452,10 @@
           "ingredientConcept": "chopped flat-leaf parsley",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -1321,7 +1530,8 @@
         "altText": "Wild mushroom risotto with flowing Carnaroli rice, browned mixed mushrooms, porcini, parsley, and Parmigiano.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -1352,7 +1562,10 @@
           "ingredientConcept": "russet potatoes",
           "preparation": "scrubbed and pierced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -1363,7 +1576,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": "100 grams, divided, plus more for dusting",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -1374,7 +1590,10 @@
           "ingredientConcept": "large egg yolks",
           "preparation": "lightly beaten",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -1385,7 +1604,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -1396,7 +1618,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -1407,7 +1632,10 @@
           "ingredientConcept": "large fresh sage leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -1418,7 +1646,10 @@
           "ingredientConcept": "finely grated parmigiano-reggiano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -1429,7 +1660,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -1504,7 +1738,8 @@
         "altText": "Potato gnocchi pillows glazed with brown butter, crisp sage, Parmigiano, and black pepper.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -1535,7 +1770,10 @@
           "ingredientConcept": "italian 00 flour",
           "preparation": "360 grams, plus more for dusting",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -1546,7 +1784,10 @@
           "ingredientConcept": "large eggs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -1557,7 +1798,10 @@
           "ingredientConcept": "water",
           "preparation": "only if needed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -1568,7 +1812,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -1579,7 +1826,10 @@
           "ingredientConcept": "whole-milk ricotta",
           "preparation": "drained overnight",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -1590,7 +1840,10 @@
           "ingredientConcept": "finely grated pecorino romano",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -1601,7 +1854,10 @@
           "ingredientConcept": "chopped flat-leaf parsley",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -1612,7 +1868,10 @@
           "ingredientConcept": "freshly grated nutmeg",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -1623,7 +1882,10 @@
           "ingredientConcept": "whole peeled tomatoes",
           "preparation": "crushed by hand",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -1634,7 +1896,10 @@
           "ingredientConcept": "small yellow onion",
           "preparation": "peeled and halved",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -1645,7 +1910,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -1656,7 +1924,10 @@
           "ingredientConcept": "basil leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -1731,7 +2002,8 @@
         "altText": "Handmade ricotta ravioli with thin sealed pasta, tomato-butter sauce, basil, and Pecorino Romano.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -1762,7 +2034,10 @@
           "ingredientConcept": "dried manicotti shells",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -1773,7 +2048,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -1784,7 +2062,10 @@
           "ingredientConcept": "frozen chopped spinach",
           "preparation": "thawed",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -1795,7 +2076,10 @@
           "ingredientConcept": "whole-milk ricotta",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -1806,7 +2090,10 @@
           "ingredientConcept": "large egg",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -1817,7 +2104,10 @@
           "ingredientConcept": "shredded whole-milk low-moisture mozzarella",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -1828,7 +2118,10 @@
           "ingredientConcept": "finely grated pecorino romano",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -1839,7 +2132,10 @@
           "ingredientConcept": "chopped basil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -1850,7 +2146,10 @@
           "ingredientConcept": "garlic clove",
           "preparation": "finely grated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -1861,7 +2160,10 @@
           "ingredientConcept": "freshly grated nutmeg",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -1872,7 +2174,10 @@
           "ingredientConcept": "thick marinara sauce",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -1948,7 +2253,8 @@
         "altText": "Spinach-ricotta manicotti tubes baked in marinara with browned mozzarella, Pecorino, and basil.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -1979,7 +2285,10 @@
           "ingredientConcept": "italian 00 or bread flour",
           "preparation": "400 grams",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -1990,7 +2299,10 @@
           "ingredientConcept": "water",
           "preparation": "260 grams, at 75°f",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -2001,7 +2313,10 @@
           "ingredientConcept": "fine sea salt",
           "preparation": "10 grams",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -2012,7 +2327,10 @@
           "ingredientConcept": "instant yeast",
           "preparation": "0.8 gram",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -2023,7 +2341,10 @@
           "ingredientConcept": "fine semolina or flour",
           "preparation": "for launching",
           "optional": false,
-          "parseConfidence": 0.72
+          "parseConfidence": 0.72,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -2034,7 +2355,10 @@
           "ingredientConcept": "canned whole peeled tomatoes",
           "preparation": "crushed by hand and drained of loose juice",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -2045,7 +2369,10 @@
           "ingredientConcept": "fine sea salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -2056,7 +2383,10 @@
           "ingredientConcept": "fresh fior di latte mozzarella",
           "preparation": "cut into strips and drained 2 hours",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -2067,7 +2397,10 @@
           "ingredientConcept": "fresh basil leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -2078,7 +2411,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -2153,7 +2489,8 @@
         "altText": "Home-oven Margherita pizza with a risen spotted rim, restrained tomato, drained fior di latte, basil, and olive oil.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -2184,7 +2521,10 @@
           "ingredientConcept": "durum rimacinata flour",
           "preparation": "400 grams",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 1,
@@ -2195,7 +2535,10 @@
           "ingredientConcept": "italian 00 flour",
           "preparation": "100 grams",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 2,
@@ -2206,7 +2549,10 @@
           "ingredientConcept": "warm water",
           "preparation": "300 grams, plus up to 2 tablespoons if needed",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 3,
@@ -2217,7 +2563,10 @@
           "ingredientConcept": "instant yeast",
           "preparation": "6 grams",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 4,
@@ -2228,7 +2577,10 @@
           "ingredientConcept": "sugar",
           "preparation": "5 grams",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 5,
@@ -2239,7 +2591,10 @@
           "ingredientConcept": "fine sea salt",
           "preparation": "10 grams",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 6,
@@ -2250,7 +2605,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 7,
@@ -2261,7 +2619,10 @@
           "ingredientConcept": "large yellow onions",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 8,
@@ -2272,7 +2633,10 @@
           "ingredientConcept": "oil-packed anchovy fillets",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 9,
@@ -2283,7 +2647,10 @@
           "ingredientConcept": "crushed tomatoes",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 10,
@@ -2294,7 +2661,10 @@
           "ingredientConcept": "dried sicilian oregano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 11,
@@ -2305,7 +2675,10 @@
           "ingredientConcept": "caciocavallo or aged provolone",
           "preparation": "cut in small cubes",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 12,
@@ -2316,7 +2689,10 @@
           "ingredientConcept": "coarse fresh breadcrumbs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 13,
@@ -2327,7 +2703,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -2414,7 +2793,8 @@
         "altText": "Sheet-pan Sicilian sfincione with tomato, onion, anchovy, aged cheese, breadcrumbs, and oregano.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "verified"
     },
     {
       "schemaVersion": 2,
@@ -2445,7 +2825,10 @@
           "ingredientConcept": "bone-in",
           "preparation": "skin-on chicken thighs and drumsticks",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -2456,7 +2839,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -2467,7 +2853,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -2478,7 +2867,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -2489,7 +2881,10 @@
           "ingredientConcept": "cremini mushrooms",
           "preparation": "quartered",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -2500,7 +2895,10 @@
           "ingredientConcept": "medium yellow onion",
           "preparation": "diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -2511,7 +2909,10 @@
           "ingredientConcept": "medium carrot",
           "preparation": "diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -2522,7 +2923,10 @@
           "ingredientConcept": "celery rib",
           "preparation": "diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -2533,7 +2937,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -2544,7 +2951,10 @@
           "ingredientConcept": "tomato paste",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -2555,7 +2965,10 @@
           "ingredientConcept": "dry red wine",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -2566,7 +2979,10 @@
           "ingredientConcept": "whole peeled tomatoes",
           "preparation": "crushed by hand",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -2577,7 +2993,10 @@
           "ingredientConcept": "rosemary sprigs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -2588,7 +3007,10 @@
           "ingredientConcept": "bay leaf",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -2599,7 +3021,10 @@
           "ingredientConcept": "pitted green olives",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 15,
@@ -2610,7 +3035,10 @@
           "ingredientConcept": "chopped flat-leaf parsley",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -2685,7 +3113,8 @@
         "altText": "Chicken cacciatore with browned bone-in chicken, tomato-wine sauce, mushrooms, green olives, herbs, and exposed crisp skin.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -2716,7 +3145,10 @@
           "ingredientConcept": "whole branzino",
           "preparation": "1 1/4 to 1 1/2 pounds each, scaled, gutted, and gills removed",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -2727,7 +3159,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -2738,7 +3173,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -2749,7 +3187,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -2760,7 +3201,10 @@
           "ingredientConcept": "lemons",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -2771,7 +3215,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "lightly crushed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -2782,7 +3229,10 @@
           "ingredientConcept": "thyme sprigs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -2793,7 +3243,10 @@
           "ingredientConcept": "flat-leaf parsley leaves",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -2804,7 +3257,10 @@
           "ingredientConcept": "crushed red pepper flakes",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -2879,7 +3335,8 @@
         "altText": "Two whole roasted branzino with scored crisp skin, lemon, garlic, thyme, parsley, and lemon oil.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -2910,7 +3367,10 @@
           "ingredientConcept": "skin-on boneless pork belly",
           "preparation": "5 to 6 pounds, in one even rectangle",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -2921,7 +3381,10 @@
           "ingredientConcept": "boneless center-cut pork loin",
           "preparation": "2 to 3 pounds, trimmed to the belly length",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -2932,7 +3395,10 @@
           "ingredientConcept": "fennel seeds",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -2943,7 +3409,10 @@
           "ingredientConcept": "black peppercorns",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -2954,7 +3423,10 @@
           "ingredientConcept": "crushed red pepper flakes",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -2965,7 +3437,10 @@
           "ingredientConcept": "finely chopped fresh rosemary",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -2976,7 +3451,10 @@
           "ingredientConcept": "finely chopped fresh sage",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -2987,7 +3465,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "finely grated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -2998,7 +3479,10 @@
           "ingredientConcept": "finely grated zest of 1 orange",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.82
+          "parseConfidence": 0.82,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -3009,7 +3493,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -3020,7 +3507,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -3095,7 +3585,8 @@
         "altText": "Sliced home-style porchetta with blistered crackling, a visible herb spiral, pork belly, and juicy loin.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -3126,7 +3617,10 @@
           "ingredientConcept": "boneless beef chuck",
           "preparation": "cut into 3-inch pieces",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -3137,7 +3631,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -3148,7 +3645,10 @@
           "ingredientConcept": "black pepper",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -3159,7 +3659,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -3170,7 +3673,10 @@
           "ingredientConcept": "large yellow onion",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -3181,7 +3687,10 @@
           "ingredientConcept": "carrots",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -3192,7 +3701,10 @@
           "ingredientConcept": "celery ribs",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -3203,7 +3715,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "finely chopped",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -3214,7 +3729,10 @@
           "ingredientConcept": "tomato paste",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -3225,7 +3743,10 @@
           "ingredientConcept": "dry red wine",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -3236,7 +3757,10 @@
           "ingredientConcept": "whole peeled tomatoes",
           "preparation": "crushed by hand",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -3247,7 +3771,10 @@
           "ingredientConcept": "low-sodium beef stock",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -3258,7 +3785,10 @@
           "ingredientConcept": "rosemary sprigs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -3269,7 +3799,10 @@
           "ingredientConcept": "bay leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -3280,7 +3813,10 @@
           "ingredientConcept": "water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 15,
@@ -3291,7 +3827,10 @@
           "ingredientConcept": "coarse stone-ground polenta",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 16,
@@ -3302,7 +3841,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 17,
@@ -3313,7 +3855,10 @@
           "ingredientConcept": "finely grated parmigiano-reggiano",
           "preparation": "plus more to serve",
           "optional": false,
-          "parseConfidence": 0.78
+          "parseConfidence": 0.78,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -3388,7 +3933,8 @@
         "altText": "Flowing yellow polenta topped with coarse tender beef ragù, tomato, herbs, and Parmigiano-Reggiano.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -3419,7 +3965,10 @@
           "ingredientConcept": "fresh sweet or hot italian pork sausage links",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -3430,7 +3979,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -3441,7 +3993,10 @@
           "ingredientConcept": "large yellow onions",
           "preparation": "sliced into 1/2-inch wedges",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -3452,7 +4007,10 @@
           "ingredientConcept": "red bell peppers",
           "preparation": "cut into 1/2-inch strips",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -3463,7 +4021,10 @@
           "ingredientConcept": "yellow bell pepper",
           "preparation": "cut into 1/2-inch strips",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -3474,7 +4035,10 @@
           "ingredientConcept": "poblano pepper",
           "preparation": "cut into 1/2-inch strips",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -3485,7 +4049,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -3496,7 +4063,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -3507,7 +4077,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -3518,7 +4091,10 @@
           "ingredientConcept": "tomato paste",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -3529,7 +4105,10 @@
           "ingredientConcept": "dry red wine",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -3540,7 +4119,10 @@
           "ingredientConcept": "dried oregano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -3551,7 +4133,10 @@
           "ingredientConcept": "red wine vinegar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -3562,7 +4147,10 @@
           "ingredientConcept": "torn basil leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -3638,7 +4226,8 @@
         "altText": "Italian American sausage and peppers with browned links, silky red and yellow peppers, onions, basil, and light pan juices.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -3669,7 +4258,10 @@
           "ingredientConcept": "boneless skinless chicken thighs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -3680,7 +4272,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -3691,7 +4286,10 @@
           "ingredientConcept": "low-sodium chicken stock",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -3702,7 +4300,10 @@
           "ingredientConcept": "dried guajillo chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -3713,7 +4314,10 @@
           "ingredientConcept": "dried ancho chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -3724,7 +4328,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -3735,7 +4342,10 @@
           "ingredientConcept": "white onion",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -3746,7 +4356,10 @@
           "ingredientConcept": "mexican oregano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -3757,7 +4370,10 @@
           "ingredientConcept": "ground cumin",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -3768,7 +4384,10 @@
           "ingredientConcept": "neutral oil",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -3779,7 +4398,10 @@
           "ingredientConcept": "fresh 6-inch corn tortillas",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -3790,7 +4412,10 @@
           "ingredientConcept": "queso fresco",
           "preparation": "crumbled",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -3801,7 +4426,10 @@
           "ingredientConcept": "mexican crema",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -3812,7 +4440,10 @@
           "ingredientConcept": "small white onion",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -3823,7 +4454,10 @@
           "ingredientConcept": "cilantro leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -3898,7 +4532,8 @@
         "altText": "Red chicken enchiladas with soft corn tortillas, guajillo-ancho sauce, queso fresco, crema, onion, and cilantro.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -3929,7 +4564,10 @@
           "ingredientConcept": "boneless beef chuck",
           "preparation": "cut into 3-inch pieces",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -3940,7 +4578,10 @@
           "ingredientConcept": "meaty beef short ribs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -3951,7 +4592,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -3962,7 +4606,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -3973,7 +4620,10 @@
           "ingredientConcept": "dried guajillo chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -3984,7 +4634,10 @@
           "ingredientConcept": "dried ancho chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -3995,7 +4648,10 @@
           "ingredientConcept": "dried árbol chiles",
           "preparation": "stemmed, optional",
           "optional": true,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -4006,7 +4662,10 @@
           "ingredientConcept": "roma tomatoes",
           "preparation": "halved",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -4017,7 +4676,10 @@
           "ingredientConcept": "large white onion",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -4028,7 +4690,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -4039,7 +4704,10 @@
           "ingredientConcept": "apple cider vinegar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -4050,7 +4718,10 @@
           "ingredientConcept": "dried mexican oregano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -4061,7 +4732,10 @@
           "ingredientConcept": "ground cumin",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -4072,7 +4746,10 @@
           "ingredientConcept": "ground cinnamon",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -4083,7 +4760,10 @@
           "ingredientConcept": "ground cloves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 15,
@@ -4094,7 +4774,10 @@
           "ingredientConcept": "low-sodium beef stock",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 16,
@@ -4105,7 +4788,10 @@
           "ingredientConcept": "bay leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 17,
@@ -4116,7 +4802,10 @@
           "ingredientConcept": "diced white onion",
           "preparation": "for serving",
           "optional": true,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 18,
@@ -4127,7 +4816,10 @@
           "ingredientConcept": "chopped cilantro",
           "preparation": "for serving",
           "optional": true,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 19,
@@ -4138,7 +4830,10 @@
           "ingredientConcept": "limes",
           "preparation": "cut into wedges",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -4213,7 +4908,8 @@
         "altText": "Jalisco-style beef birria in red consomé with large tender beef pieces, onion, cilantro, and lime.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -4244,7 +4940,10 @@
           "ingredientConcept": "outside skirt steak",
           "preparation": "silver skin removed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -4255,7 +4954,10 @@
           "ingredientConcept": "fresh orange juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -4266,7 +4968,10 @@
           "ingredientConcept": "fresh lime juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -4277,7 +4982,10 @@
           "ingredientConcept": "neutral oil",
           "preparation": "plus more for the grill",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -4288,7 +4996,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "finely grated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -4299,7 +5010,10 @@
           "ingredientConcept": "jalapeño",
           "preparation": "finely chopped",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -4310,7 +5024,10 @@
           "ingredientConcept": "chopped cilantro",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -4321,7 +5038,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -4332,7 +5052,10 @@
           "ingredientConcept": "ground cumin",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -4343,7 +5066,10 @@
           "ingredientConcept": "ancho chile powder",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -4354,7 +5080,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -4365,7 +5094,10 @@
           "ingredientConcept": "warm corn tortillas",
           "preparation": "for serving",
           "optional": true,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -4376,7 +5108,10 @@
           "ingredientConcept": "limes",
           "preparation": "cut into wedges",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -4451,7 +5186,8 @@
         "altText": "Thinly sliced carne asada with deep grill char, a juicy center, warm corn tortillas, cilantro, and lime.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -4482,7 +5218,10 @@
           "ingredientConcept": "boneless pork shoulder",
           "preparation": "partially frozen and sliced 1/8 inch thick",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -4493,7 +5232,10 @@
           "ingredientConcept": "dried guajillo chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -4504,7 +5246,10 @@
           "ingredientConcept": "dried ancho chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -4515,7 +5260,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -4526,7 +5274,10 @@
           "ingredientConcept": "achiote paste",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -4537,7 +5288,10 @@
           "ingredientConcept": "apple cider vinegar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -4548,7 +5302,10 @@
           "ingredientConcept": "fresh orange juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -4559,7 +5316,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -4570,7 +5330,10 @@
           "ingredientConcept": "mexican oregano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -4581,7 +5344,10 @@
           "ingredientConcept": "ground cumin",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -4592,7 +5358,10 @@
           "ingredientConcept": "ground cloves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -4603,7 +5372,10 @@
           "ingredientConcept": "small white onion",
           "preparation": "halved",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -4614,7 +5386,10 @@
           "ingredientConcept": "small ripe pineapple",
           "preparation": "peeled and cut into 1/2-inch slabs",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -4625,7 +5400,10 @@
           "ingredientConcept": "small corn tortillas",
           "preparation": "warmed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -4636,7 +5414,10 @@
           "ingredientConcept": "finely diced white onion",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 15,
@@ -4647,7 +5428,10 @@
           "ingredientConcept": "chopped cilantro",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 16,
@@ -4658,7 +5442,10 @@
           "ingredientConcept": "limes",
           "preparation": "cut into wedges",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 17,
@@ -4669,7 +5456,10 @@
           "ingredientConcept": "salsa taquera",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -4744,7 +5534,8 @@
         "altText": "A tacos al pastor platter with crisp-edged achiote pork, charred pineapple, tortillas, onion, cilantro, lime, and salsa.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -4775,7 +5566,10 @@
           "ingredientConcept": "boneless pork shoulder",
           "preparation": "cut into 3-inch pieces",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -4786,7 +5580,10 @@
           "ingredientConcept": "achiote paste",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -4797,7 +5594,10 @@
           "ingredientConcept": "fresh orange juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -4808,7 +5608,10 @@
           "ingredientConcept": "fresh lime juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -4819,7 +5622,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -4830,7 +5636,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -4841,7 +5650,10 @@
           "ingredientConcept": "dried mexican oregano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -4852,7 +5664,10 @@
           "ingredientConcept": "ground cumin",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -4863,7 +5678,10 @@
           "ingredientConcept": "ground allspice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -4874,7 +5692,10 @@
           "ingredientConcept": "large banana leaves",
           "preparation": "thawed if frozen",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -4885,7 +5706,10 @@
           "ingredientConcept": "large red onion",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -4896,7 +5720,10 @@
           "ingredientConcept": "habanero chile",
           "preparation": "thinly sliced, optional",
           "optional": true,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -4907,7 +5734,10 @@
           "ingredientConcept": "fresh lime juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -4918,7 +5748,10 @@
           "ingredientConcept": "fresh orange juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -4929,7 +5762,10 @@
           "ingredientConcept": "warm corn tortillas",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -5004,7 +5840,8 @@
         "altText": "Yucatecan-style cochinita pibil with achiote pork, banana leaves, pickled red onion, habanero, tortillas, and citrus juices.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -5035,7 +5872,10 @@
           "ingredientConcept": "boneless pork shoulder",
           "preparation": "cut into 3-inch pieces",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -5046,7 +5886,10 @@
           "ingredientConcept": "skinless pork belly",
           "preparation": "cut into 3-inch pieces",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -5057,7 +5900,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -5068,7 +5914,10 @@
           "ingredientConcept": "rendered pork lard",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -5079,7 +5928,10 @@
           "ingredientConcept": "water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -5090,7 +5942,10 @@
           "ingredientConcept": "warm corn tortillas",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -5101,7 +5956,10 @@
           "ingredientConcept": "finely diced white onion",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -5112,7 +5970,10 @@
           "ingredientConcept": "chopped cilantro",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -5123,7 +5984,10 @@
           "ingredientConcept": "limes",
           "preparation": "cut into wedges",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -5134,7 +5998,10 @@
           "ingredientConcept": "salsa verde",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -5209,7 +6076,8 @@
         "altText": "Michoacán-style carnitas with crisp bronze edges, juicy pork centers, tortillas, onion, cilantro, lime, and salsa verde.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -5240,7 +6108,10 @@
           "ingredientConcept": "large poblano chiles",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -5251,7 +6122,10 @@
           "ingredientConcept": "oaxaca or monterey jack cheese",
           "preparation": "cut into 6 logs",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -5262,7 +6136,10 @@
           "ingredientConcept": "roma tomatoes",
           "preparation": "halved",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -5273,7 +6150,10 @@
           "ingredientConcept": "white onion",
           "preparation": "quartered",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -5284,7 +6164,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -5295,7 +6178,10 @@
           "ingredientConcept": "low-sodium chicken or vegetable stock",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -5306,7 +6192,10 @@
           "ingredientConcept": "dried mexican oregano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -5317,7 +6206,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -5328,7 +6220,10 @@
           "ingredientConcept": "large eggs",
           "preparation": "separated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -5339,7 +6234,10 @@
           "ingredientConcept": "cream of tartar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -5350,7 +6248,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -5361,7 +6262,10 @@
           "ingredientConcept": "neutral oil",
           "preparation": "for frying",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -5436,7 +6340,8 @@
         "altText": "Cheese-filled chiles rellenos with airy golden egg batter over tomato caldillo and molten Oaxaca cheese.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -5467,7 +6372,10 @@
           "ingredientConcept": "bone-in chicken thighs and drumsticks",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -5478,7 +6386,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -5489,7 +6400,10 @@
           "ingredientConcept": "water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -5500,7 +6414,10 @@
           "ingredientConcept": "white onion",
           "preparation": "halved",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -5511,7 +6428,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -5522,7 +6442,10 @@
           "ingredientConcept": "dried ancho chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -5533,7 +6456,10 @@
           "ingredientConcept": "dried mulato chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -5544,7 +6470,10 @@
           "ingredientConcept": "dried pasilla chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -5555,7 +6484,10 @@
           "ingredientConcept": "dried chipotle chiles",
           "preparation": "stemmed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -5566,7 +6498,10 @@
           "ingredientConcept": "lard or neutral oil",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.78
+          "parseConfidence": 0.78,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -5577,7 +6512,10 @@
           "ingredientConcept": "roma tomatoes",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -5588,7 +6526,10 @@
           "ingredientConcept": "tomatillos",
           "preparation": "husked",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -5599,7 +6540,10 @@
           "ingredientConcept": "ripe plantain",
           "preparation": "sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -5610,7 +6554,10 @@
           "ingredientConcept": "raisins",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -5621,7 +6568,10 @@
           "ingredientConcept": "almonds",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 15,
@@ -5632,7 +6582,10 @@
           "ingredientConcept": "raw peanuts",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 16,
@@ -5643,7 +6596,10 @@
           "ingredientConcept": "sesame seeds",
           "preparation": "plus 2 tablespoons for garnish",
           "optional": true,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 17,
@@ -5654,7 +6610,10 @@
           "ingredientConcept": "corn tortilla",
           "preparation": "torn",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 18,
@@ -5665,7 +6624,10 @@
           "ingredientConcept": "slice stale bolillo or sturdy white bread",
           "preparation": "torn",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 19,
@@ -5676,7 +6638,10 @@
           "ingredientConcept": "ground cinnamon",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 20,
@@ -5687,7 +6652,10 @@
           "ingredientConcept": "ground cloves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 21,
@@ -5698,7 +6666,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 22,
@@ -5709,7 +6680,10 @@
           "ingredientConcept": "anise seeds",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 23,
@@ -5720,7 +6694,10 @@
           "ingredientConcept": "mexican chocolate",
           "preparation": "chopped",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 24,
@@ -5731,7 +6708,10 @@
           "ingredientConcept": "piloncillo or dark brown sugar",
           "preparation": "only if needed",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -5806,7 +6786,8 @@
         "altText": "Puebla-style mole poblano chicken coated in a dark chile-nut sauce and finished with sesame seeds.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -5837,7 +6818,10 @@
           "ingredientConcept": "large dried corn husks",
           "preparation": "plus extras for lining the steamer",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -5848,7 +6832,10 @@
           "ingredientConcept": "boneless pork shoulder",
           "preparation": "cut into 3-inch pieces",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -5859,7 +6846,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -5870,7 +6860,10 @@
           "ingredientConcept": "white onion",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -5881,7 +6874,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -5892,7 +6888,10 @@
           "ingredientConcept": "water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -5903,7 +6902,10 @@
           "ingredientConcept": "dried guajillo chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -5914,7 +6916,10 @@
           "ingredientConcept": "dried ancho chiles",
           "preparation": "stemmed and seeded",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -5925,7 +6930,10 @@
           "ingredientConcept": "dried mexican oregano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -5936,7 +6944,10 @@
           "ingredientConcept": "ground cumin",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -5947,7 +6958,10 @@
           "ingredientConcept": "lard",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -5958,7 +6972,10 @@
           "ingredientConcept": "masa harina para tamales",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -5969,7 +6986,10 @@
           "ingredientConcept": "baking powder",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -5980,7 +7000,10 @@
           "ingredientConcept": "room-temperature lard",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -5991,7 +7014,10 @@
           "ingredientConcept": "to 4 cups warm reserved pork broth",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -6066,7 +7092,8 @@
         "altText": "Red chile pork tamales in corn husks with set masa, moist pork filling, red chile sauce, and an opened tamal.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     }
   ]
 }

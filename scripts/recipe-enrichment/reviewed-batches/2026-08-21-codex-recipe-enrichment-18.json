@@ -33,7 +33,10 @@
           "ingredientConcept": "slender green beans",
           "preparation": "trimmed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -44,7 +47,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -55,7 +61,10 @@
           "ingredientConcept": "fresh lemon juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -66,7 +75,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -77,7 +89,10 @@
           "ingredientConcept": "top sirloin",
           "preparation": "sliced across the grain into four thin cutlets",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -88,7 +103,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -99,7 +117,10 @@
           "ingredientConcept": "neutral oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -110,7 +131,10 @@
           "ingredientConcept": "marraqueta",
           "preparation": "frica, or small crisp ciabatta rolls",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -121,7 +145,10 @@
           "ingredientConcept": "mayonnaise",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -132,7 +159,10 @@
           "ingredientConcept": "ripe tomatoes",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -143,7 +173,10 @@
           "ingredientConcept": "fresh ají verde or mild green chile",
           "preparation": "seeded and thinly sliced",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -218,7 +251,8 @@
         "altText": "Chilean chacarero sandwiches with thin seared beef, bright green beans, tomato, green chile, and restrained mayonnaise in crisp rolls.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -249,7 +283,10 @@
           "ingredientConcept": "small yellow onion",
           "preparation": "coarsely grated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -260,7 +297,10 @@
           "ingredientConcept": "plain whole-milk yogurt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -271,7 +311,10 @@
           "ingredientConcept": "tomato paste",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -282,7 +325,10 @@
           "ingredientConcept": "red-wine vinegar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -293,7 +339,10 @@
           "ingredientConcept": "dried thyme",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -304,7 +353,10 @@
           "ingredientConcept": "sweet paprika",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -315,7 +367,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -326,7 +381,10 @@
           "ingredientConcept": "olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -337,7 +395,10 @@
           "ingredientConcept": "boneless skinless chicken breasts",
           "preparation": "sliced horizontally into thin sheets",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -348,7 +409,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -359,7 +423,10 @@
           "ingredientConcept": "small red onion",
           "preparation": "very thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -370,7 +437,10 @@
           "ingredientConcept": "ground sumac",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -381,7 +451,10 @@
           "ingredientConcept": "packed cup flat-leaf parsley leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -392,7 +465,10 @@
           "ingredientConcept": "ripe tomatoes",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -403,7 +479,10 @@
           "ingredientConcept": "thin lavash breads",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -478,7 +557,8 @@
         "altText": "Turkish chicken döner dürüm with thin browned chicken, lavash, tomato, parsley, and sumac onion.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -509,7 +589,10 @@
           "ingredientConcept": "boneless skinless chicken thighs",
           "preparation": "cut into 1-inch strips",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -520,7 +603,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -531,7 +617,10 @@
           "ingredientConcept": "fresh lemon juice",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -542,7 +631,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -553,7 +645,10 @@
           "ingredientConcept": "sweet paprika",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -564,7 +659,10 @@
           "ingredientConcept": "ground cumin",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -575,7 +673,10 @@
           "ingredientConcept": "ground cardamom",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -586,7 +687,10 @@
           "ingredientConcept": "ground cinnamon",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -597,7 +701,10 @@
           "ingredientConcept": "cayenne",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -608,7 +715,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -619,7 +729,10 @@
           "ingredientConcept": "neutral oil",
           "preparation": "chilled",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -630,7 +743,10 @@
           "ingredientConcept": "ice water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -641,7 +757,10 @@
           "ingredientConcept": "thin lebanese-style pita breads",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -652,7 +771,10 @@
           "ingredientConcept": "cucumber pickles",
           "preparation": "well drained",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -663,7 +785,10 @@
           "ingredientConcept": "ripe tomatoes",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -738,7 +863,8 @@
         "altText": "Lebanese-style chicken shawarma pitas with crisp-edged spiced chicken, toum, cucumber pickles, and tomato.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -769,7 +895,10 @@
           "ingredientConcept": "dried chickpeas",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -780,7 +909,10 @@
           "ingredientConcept": "packed cup flat-leaf parsley leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -791,7 +923,10 @@
           "ingredientConcept": "packed cup cilantro leaves and tender stems",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -802,7 +937,10 @@
           "ingredientConcept": "small yellow onion",
           "preparation": "roughly chopped",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -813,7 +951,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -824,7 +965,10 @@
           "ingredientConcept": "ground cumin",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -835,7 +979,10 @@
           "ingredientConcept": "ground coriander",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -846,7 +993,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -857,7 +1007,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -868,7 +1021,10 @@
           "ingredientConcept": "baking powder",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -879,7 +1035,10 @@
           "ingredientConcept": "neutral oil for frying",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -890,7 +1049,10 @@
           "ingredientConcept": "tahini",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -901,7 +1063,10 @@
           "ingredientConcept": "fresh lemon juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -912,7 +1077,10 @@
           "ingredientConcept": "ice water",
           "preparation": "plus more as needed",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -923,7 +1091,10 @@
           "ingredientConcept": "thin pita breads",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 15,
@@ -934,7 +1105,10 @@
           "ingredientConcept": "ripe tomatoes",
           "preparation": "diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 16,
@@ -945,7 +1119,10 @@
           "ingredientConcept": "persian cucumber",
           "preparation": "diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 17,
@@ -956,7 +1133,10 @@
           "ingredientConcept": "cucumber pickles",
           "preparation": "drained and sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -1031,7 +1211,8 @@
         "altText": "Lebanese-style falafel pitas with crisp green-centered chickpea patties, tomato-cucumber salad, pickles, and tahini.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -1062,7 +1243,10 @@
           "ingredientConcept": "large globe eggplant",
           "preparation": "cut into twelve 1/2-inch rounds",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 1,
@@ -1073,7 +1257,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 2,
@@ -1084,7 +1271,10 @@
           "ingredientConcept": "cornstarch",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 3,
@@ -1095,7 +1285,11 @@
           "ingredientConcept": "neutral oil for frying",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "fixed",
+            "reason": "vessel"
+          }
         },
         {
           "position": 4,
@@ -1106,7 +1300,10 @@
           "ingredientConcept": "large eggs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 5,
@@ -1117,7 +1314,10 @@
           "ingredientConcept": "english cucumber",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 6,
@@ -1128,7 +1328,10 @@
           "ingredientConcept": "ripe tomatoes",
           "preparation": "seeded and finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 7,
@@ -1139,7 +1342,10 @@
           "ingredientConcept": "small red onion",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 8,
@@ -1150,7 +1356,10 @@
           "ingredientConcept": "packed cup flat-leaf parsley leaves",
           "preparation": "chopped",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 9,
@@ -1161,7 +1370,10 @@
           "ingredientConcept": "fresh lemon juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 10,
@@ -1172,7 +1384,10 @@
           "ingredientConcept": "tahini",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 11,
@@ -1183,7 +1398,10 @@
           "ingredientConcept": "ice water",
           "preparation": "plus more as needed",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 12,
@@ -1194,7 +1412,10 @@
           "ingredientConcept": "fresh pita breads",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 13,
@@ -1205,7 +1426,10 @@
           "ingredientConcept": "prepared amba mango pickle sauce",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         },
         {
           "position": 14,
@@ -1216,7 +1440,10 @@
           "ingredientConcept": "hummus",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "multiply"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -1297,7 +1524,8 @@
         "altText": "Sabich pita with hummus, fried eggplant, egg, chopped salad, tahini, and amba.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "verified"
     },
     {
       "schemaVersion": 2,
@@ -1328,7 +1556,10 @@
           "ingredientConcept": "small yellow onion",
           "preparation": "finely minced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -1339,7 +1570,10 @@
           "ingredientConcept": "small plum tomato",
           "preparation": "seeded, cored, and finely minced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -1350,7 +1584,10 @@
           "ingredientConcept": "packed cup flat-leaf parsley leaves",
           "preparation": "finely chopped",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -1361,7 +1598,10 @@
           "ingredientConcept": "85%-lean ground beef",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -1372,7 +1612,10 @@
           "ingredientConcept": "lebanese seven spice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -1383,7 +1626,10 @@
           "ingredientConcept": "ground sumac",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -1394,7 +1640,10 @@
           "ingredientConcept": "ground cinnamon",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -1405,7 +1654,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -1416,7 +1668,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -1427,7 +1682,10 @@
           "ingredientConcept": "sturdy double-layer pita breads",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -1438,7 +1696,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -1449,7 +1710,10 @@
           "ingredientConcept": "tahini",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -1460,7 +1724,10 @@
           "ingredientConcept": "fresh lemon juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -1471,7 +1738,10 @@
           "ingredientConcept": "ice water",
           "preparation": "plus more as needed",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -1546,7 +1816,8 @@
         "altText": "Lebanese beef arayes cut into crisp pita wedges with thin spiced kafta filling and tahini alongside.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -1577,7 +1848,10 @@
           "ingredientConcept": "boneless skinless chicken thighs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -1588,7 +1862,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -1599,7 +1876,10 @@
           "ingredientConcept": "fresh lemon juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -1610,7 +1890,10 @@
           "ingredientConcept": "dried greek oregano",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -1621,7 +1904,10 @@
           "ingredientConcept": "smoked paprika",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -1632,7 +1918,10 @@
           "ingredientConcept": "ground cumin",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -1643,7 +1932,10 @@
           "ingredientConcept": "honey",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -1654,7 +1946,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -1665,7 +1960,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -1676,7 +1974,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -1687,7 +1988,10 @@
           "ingredientConcept": "english cucumber",
           "preparation": "coarsely grated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -1698,7 +2002,10 @@
           "ingredientConcept": "full-fat greek yogurt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -1709,7 +2016,10 @@
           "ingredientConcept": "red-wine vinegar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -1720,7 +2030,10 @@
           "ingredientConcept": "thick greek-style pita breads",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -1731,7 +2044,10 @@
           "ingredientConcept": "ripe tomatoes",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 15,
@@ -1742,7 +2058,10 @@
           "ingredientConcept": "small red onion",
           "preparation": "very thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -1817,7 +2136,8 @@
         "altText": "Greek chicken gyro pitas with shaved crisp-edged chicken, thick tzatziki, tomato, and red onion.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -1848,7 +2168,10 @@
           "ingredientConcept": "boneless pork shoulder or pork neck",
           "preparation": "cut into 1-inch cubes",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -1859,7 +2182,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -1870,7 +2196,10 @@
           "ingredientConcept": "fresh lemon juice",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -1881,7 +2210,10 @@
           "ingredientConcept": "red-wine vinegar",
           "preparation": "plus 2 teaspoons for the sauce",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -1892,7 +2224,10 @@
           "ingredientConcept": "dried greek oregano",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -1903,7 +2238,10 @@
           "ingredientConcept": "honey",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -1914,7 +2252,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -1925,7 +2266,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -1936,7 +2280,10 @@
           "ingredientConcept": "english cucumber",
           "preparation": "coarsely grated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -1947,7 +2294,10 @@
           "ingredientConcept": "full-fat greek yogurt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -1958,7 +2308,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "finely grated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -1969,7 +2322,10 @@
           "ingredientConcept": "chopped fresh dill",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -1980,7 +2336,10 @@
           "ingredientConcept": "small red onion",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -1991,7 +2350,10 @@
           "ingredientConcept": "ripe tomatoes",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -2002,7 +2364,10 @@
           "ingredientConcept": "thick greek-style pita breads",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -2077,7 +2442,8 @@
         "altText": "Greek pork souvlaki pitas with deeply browned pork cubes, tzatziki, tomato, red onion, and oregano.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -2108,7 +2474,10 @@
           "ingredientConcept": "large ripe tomatoes",
           "preparation": "sliced 1/4 inch thick",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -2119,7 +2488,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -2130,7 +2502,10 @@
           "ingredientConcept": "fresh mozzarella",
           "preparation": "sliced 1/4 inch thick",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -2141,7 +2516,10 @@
           "ingredientConcept": "packed cups fresh basil leaves",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -2152,7 +2530,10 @@
           "ingredientConcept": "toasted pine nuts",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -2163,7 +2544,10 @@
           "ingredientConcept": "small garlic clove",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -2174,7 +2558,10 @@
           "ingredientConcept": "finely grated parmigiano-reggiano",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -2185,7 +2572,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": "plus 2 tablespoons for brushing",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -2196,7 +2586,10 @@
           "ingredientConcept": "fresh lemon juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -2207,7 +2600,10 @@
           "ingredientConcept": "ciabatta rolls",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -2282,7 +2678,8 @@
         "altText": "Caprese panini with crisp ciabatta, fresh mozzarella, blotted tomato, basil leaves, and restrained pesto.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -2313,7 +2710,10 @@
           "ingredientConcept": "bread flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -2324,7 +2724,10 @@
           "ingredientConcept": "warm water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -2335,7 +2738,10 @@
           "ingredientConcept": "instant yeast",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -2346,7 +2752,10 @@
           "ingredientConcept": "honey",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -2357,7 +2766,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -2368,7 +2780,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -2379,7 +2794,10 @@
           "ingredientConcept": "flaky sea salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -2390,7 +2808,10 @@
           "ingredientConcept": "shelled unsalted pistachios",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -2401,7 +2822,10 @@
           "ingredientConcept": "hot water",
           "preparation": "plus more as needed",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -2412,7 +2836,10 @@
           "ingredientConcept": "mortadella bologna igp",
           "preparation": "sliced tissue-thin",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -2423,7 +2850,10 @@
           "ingredientConcept": "burrata",
           "preparation": "drained and torn",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -2498,7 +2928,8 @@
         "altText": "Italian focaccia sandwiches with tissue-thin mortadella, burrata, savory pistachio cream, and chopped pistachios.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -2529,7 +2960,10 @@
           "ingredientConcept": "italian 00 flour or unbleached all-purpose flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -2540,7 +2974,10 @@
           "ingredientConcept": "rendered pork lard",
           "preparation": "softened",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -2551,7 +2988,10 @@
           "ingredientConcept": "warm water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -2562,7 +3002,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -2573,7 +3016,10 @@
           "ingredientConcept": "baking soda",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -2584,7 +3030,10 @@
           "ingredientConcept": "squacquerone or stracchino cheese",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -2595,7 +3044,10 @@
           "ingredientConcept": "prosciutto crudo",
           "preparation": "sliced paper-thin",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -2606,7 +3058,10 @@
           "ingredientConcept": "packed cups baby arugula",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -2681,7 +3136,8 @@
         "altText": "Piadina romagnola folded around squacquerone, paper-thin prosciutto crudo, and arugula.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -2712,7 +3168,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -2723,7 +3182,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -2734,7 +3196,10 @@
           "ingredientConcept": "whole milk",
           "preparation": "warmed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -2745,7 +3210,10 @@
           "ingredientConcept": "dijon mustard",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -2756,7 +3224,10 @@
           "ingredientConcept": "freshly grated nutmeg",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -2767,7 +3238,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -2778,7 +3252,10 @@
           "ingredientConcept": "white or black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -2789,7 +3266,10 @@
           "ingredientConcept": "slices pain de mie or soft white country bread",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -2800,7 +3280,10 @@
           "ingredientConcept": "jambon de paris or thin unsmoked cooked ham",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -2811,7 +3294,10 @@
           "ingredientConcept": "gruyère",
           "preparation": "finely grated, divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -2886,7 +3372,8 @@
         "altText": "French croque monsieur with toasted pain de mie, jambon de Paris, Gruyère, and browned béchamel topping.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -2917,7 +3404,10 @@
           "ingredientConcept": "same-day traditional baguettes",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -2928,7 +3418,10 @@
           "ingredientConcept": "high-fat cultured unsalted butter",
           "preparation": "softened",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -2939,7 +3432,10 @@
           "ingredientConcept": "fleur de sel or fine sea salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -2950,7 +3446,10 @@
           "ingredientConcept": "jambon de paris or thinly sliced unsmoked cooked ham",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -2961,7 +3460,10 @@
           "ingredientConcept": "small cornichons",
           "preparation": "chilled",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -3036,7 +3538,8 @@
         "altText": "French jambon-beurre baguettes with cool salted cultured butter and loosely folded jambon de Paris, with cornichons alongside.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -3067,7 +3570,10 @@
           "ingredientConcept": "small round crusty rolls",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -3078,7 +3584,10 @@
           "ingredientConcept": "garlic clove",
           "preparation": "halved",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -3089,7 +3598,10 @@
           "ingredientConcept": "very ripe tomatoes",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -3100,7 +3612,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -3111,7 +3626,10 @@
           "ingredientConcept": "extra-virgin olive oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -3122,7 +3640,10 @@
           "ingredientConcept": "red-wine vinegar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -3133,7 +3654,10 @@
           "ingredientConcept": "radishes",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -3144,7 +3668,10 @@
           "ingredientConcept": "scallions",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -3155,7 +3682,10 @@
           "ingredientConcept": "small green bell pepper",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -3166,7 +3696,10 @@
           "ingredientConcept": "shelled young fava beans or thinly sliced raw artichoke hearts",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -3177,7 +3710,10 @@
           "ingredientConcept": "oil-packed tuna",
           "preparation": "drained into large flakes",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -3188,7 +3724,10 @@
           "ingredientConcept": "large eggs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -3199,7 +3738,10 @@
           "ingredientConcept": "oil-packed anchovy fillets",
           "preparation": "drained",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -3210,7 +3752,10 @@
           "ingredientConcept": "niçoise olives",
           "preparation": "pitted",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -3221,7 +3766,10 @@
           "ingredientConcept": "packed cup fresh basil leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 15,
@@ -3232,7 +3780,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -3307,7 +3858,8 @@
         "altText": "Niçois pan bagnat with tomato-soaked rolls, tuna, anchovy, egg, raw vegetables, olives, and basil.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -3338,7 +3890,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -3349,7 +3904,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -3360,7 +3918,10 @@
           "ingredientConcept": "english mustard powder",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -3371,7 +3932,10 @@
           "ingredientConcept": "cayenne pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -3382,7 +3946,10 @@
           "ingredientConcept": "worcestershire sauce",
           "preparation": "plus more to serve",
           "optional": false,
-          "parseConfidence": 0.78
+          "parseConfidence": 0.78,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -3393,7 +3960,10 @@
           "ingredientConcept": "stout or dark mild ale",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -3404,7 +3974,10 @@
           "ingredientConcept": "mature sharp cheddar",
           "preparation": "finely grated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -3415,7 +3988,10 @@
           "ingredientConcept": "thick slices sturdy white country bread",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -3490,7 +4066,8 @@
         "altText": "Welsh rarebit on thick toast with a deeply browned, bubbling sharp-Cheddar and stout topping.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -3521,7 +4098,10 @@
           "ingredientConcept": "bread flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -3532,7 +4112,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "plus 2 teaspoons for the filling",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -3543,7 +4126,10 @@
           "ingredientConcept": "cold unsalted butter",
           "preparation": "cubed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -3554,7 +4140,10 @@
           "ingredientConcept": "cold lard",
           "preparation": "cubed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -3565,7 +4154,10 @@
           "ingredientConcept": "ice water",
           "preparation": "plus more as needed",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -3576,7 +4168,10 @@
           "ingredientConcept": "beef skirt or chuck",
           "preparation": "diced into 1/4-inch pieces",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -3587,7 +4182,10 @@
           "ingredientConcept": "waxy potato",
           "preparation": "peeled and diced 1/4 inch",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -3598,7 +4196,10 @@
           "ingredientConcept": "swede or rutabaga",
           "preparation": "peeled and diced 1/4 inch",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -3609,7 +4210,10 @@
           "ingredientConcept": "yellow onion",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -3620,7 +4224,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -3631,7 +4238,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": "cut into six pieces",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -3642,7 +4252,10 @@
           "ingredientConcept": "large egg",
           "preparation": "beaten with 1 tablespoon water",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -3717,7 +4330,8 @@
         "altText": "Cornish-style pasties with golden D-shaped pastry, side crimps, and diced beef, potato, swede, and onion filling.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -3748,7 +4362,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -3759,7 +4376,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "plus 1 1/2 teaspoons for the filling",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -3770,7 +4390,10 @@
           "ingredientConcept": "very cold unsalted butter",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -3781,7 +4404,10 @@
           "ingredientConcept": "ice water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -3792,7 +4418,10 @@
           "ingredientConcept": "apple-cider vinegar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -3803,7 +4432,10 @@
           "ingredientConcept": "neutral oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -3814,7 +4446,10 @@
           "ingredientConcept": "small yellow onion",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -3825,7 +4460,10 @@
           "ingredientConcept": "80%-lean ground pork",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -3836,7 +4474,10 @@
           "ingredientConcept": "streaky bacon",
           "preparation": "finely chopped",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -3847,7 +4488,10 @@
           "ingredientConcept": "fresh breadcrumbs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -3858,7 +4502,10 @@
           "ingredientConcept": "english mustard",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -3869,7 +4516,10 @@
           "ingredientConcept": "finely chopped fresh sage",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -3880,7 +4530,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -3891,7 +4544,10 @@
           "ingredientConcept": "large egg",
           "preparation": "beaten",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -3902,7 +4558,10 @@
           "ingredientConcept": "sesame seeds",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -3977,7 +4636,8 @@
         "altText": "British sausage rolls with deeply browned rough-puff pastry, pork-sage filling, and sesame-topped scored crusts.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -4008,7 +4668,10 @@
           "ingredientConcept": "mature farmhouse cheddar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -4019,7 +4682,10 @@
           "ingredientConcept": "stilton or another british territorial cheese",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -4030,7 +4696,10 @@
           "ingredientConcept": "small crusty farmhouse loaf",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -4041,7 +4710,10 @@
           "ingredientConcept": "salted butter",
           "preparation": "softened",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -4052,7 +4724,10 @@
           "ingredientConcept": "branston-style pickle or piccalilli",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -4063,7 +4738,10 @@
           "ingredientConcept": "small pickled onions",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -4074,7 +4752,10 @@
           "ingredientConcept": "crisp tart apple",
           "preparation": "cored and cut into wedges",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -4085,7 +4766,10 @@
           "ingredientConcept": "celery stalks",
           "preparation": "cut into short lengths",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -4096,7 +4780,10 @@
           "ingredientConcept": "thickly sliced good cooked ham",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -4171,7 +4858,8 @@
         "altText": "British ploughman’s lunch boards with mature Cheddar, Stilton, farmhouse bread, butter, pickle, pickled onions, apple, celery, and ham.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -4202,7 +4890,10 @@
           "ingredientConcept": "rashers dry-cured british back bacon",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -4213,7 +4904,10 @@
           "ingredientConcept": "thick slices very fresh soft white bread",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -4224,7 +4918,10 @@
           "ingredientConcept": "salted butter",
           "preparation": "softened",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -4235,7 +4932,10 @@
           "ingredientConcept": "british brown sauce",
           "preparation": "such as hp",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -4246,7 +4946,10 @@
           "ingredientConcept": "tomato ketchup",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -4321,7 +5024,8 @@
         "altText": "British bacon butties with hot back bacon in soft buttered white bread, brown sauce and ketchup alongside.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -4352,7 +5056,10 @@
           "ingredientConcept": "thick slices fresh white bakery bread",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -4363,7 +5070,10 @@
           "ingredientConcept": "salted butter",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -4374,7 +5084,10 @@
           "ingredientConcept": "thinly sliced cooked ham",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -4385,7 +5098,10 @@
           "ingredientConcept": "young gouda",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -4396,7 +5112,10 @@
           "ingredientConcept": "large pasteurized eggs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -4407,7 +5126,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -4418,7 +5140,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -4429,7 +5154,10 @@
           "ingredientConcept": "finely chopped chives",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -4440,7 +5168,10 @@
           "ingredientConcept": "dill pickles",
           "preparation": "sliced lengthwise",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -4515,7 +5246,8 @@
         "altText": "Dutch uitsmijter with open-faced buttered bread, ham, young Gouda, three sunny eggs, chives, and pickles.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -4546,7 +5278,10 @@
           "ingredientConcept": "russet potatoes",
           "preparation": "cut into 1/2-inch batons",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -4557,7 +5292,10 @@
           "ingredientConcept": "neutral oil",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -4568,7 +5306,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -4579,7 +5320,10 @@
           "ingredientConcept": "small yellow onion",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -4590,7 +5334,10 @@
           "ingredientConcept": "tomato paste",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -4601,7 +5348,10 @@
           "ingredientConcept": "tomato ketchup",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -4612,7 +5362,10 @@
           "ingredientConcept": "unsweetened apple juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -4623,7 +5376,10 @@
           "ingredientConcept": "apple-cider vinegar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -4634,7 +5390,10 @@
           "ingredientConcept": "worcestershire sauce",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -4645,7 +5404,10 @@
           "ingredientConcept": "german-style curry powder",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -4656,7 +5418,10 @@
           "ingredientConcept": "sweet paprika",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -4667,7 +5432,10 @@
           "ingredientConcept": "cayenne",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -4678,7 +5446,10 @@
           "ingredientConcept": "fully cooked fine-textured pork bratwursts or currywursts",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -4753,7 +5524,8 @@
         "altText": "Berlin-style currywurst plate with sliced browned sausage, glossy curry-tomato sauce, curry powder, and crisp fries.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -4784,7 +5556,10 @@
           "ingredientConcept": "boneless pork loin",
           "preparation": "cut into four cutlets",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -4795,7 +5570,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -4806,7 +5584,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -4817,7 +5598,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -4828,7 +5612,10 @@
           "ingredientConcept": "large eggs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -4839,7 +5626,10 @@
           "ingredientConcept": "whole milk",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -4850,7 +5640,10 @@
           "ingredientConcept": "fine dry kaiser-roll breadcrumbs",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -4861,7 +5654,10 @@
           "ingredientConcept": "clarified butter or neutral oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -4872,7 +5668,10 @@
           "ingredientConcept": "mayonnaise",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -4883,7 +5682,10 @@
           "ingredientConcept": "austrian or dijon mustard",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -4894,7 +5696,10 @@
           "ingredientConcept": "fresh lemon juice",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -4905,7 +5710,10 @@
           "ingredientConcept": "kaiser rolls",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -4916,7 +5724,10 @@
           "ingredientConcept": "iceberg-lettuce leaves",
           "preparation": "washed and completely dried",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -4927,7 +5738,10 @@
           "ingredientConcept": "ripe tomato",
           "preparation": "thinly sliced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -5002,7 +5816,8 @@
         "altText": "Austrian pork schnitzel sandwiches with puffed golden cutlets, Kaiser rolls, dry lettuce, tomato, and restrained mustard mayonnaise.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -5033,7 +5848,10 @@
           "ingredientConcept": "long fresh white baguette",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -5044,7 +5862,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -5055,7 +5876,10 @@
           "ingredientConcept": "small yellow onion",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -5066,7 +5890,10 @@
           "ingredientConcept": "white button mushrooms",
           "preparation": "coarsely grated",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -5077,7 +5904,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -5088,7 +5918,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -5099,7 +5932,10 @@
           "ingredientConcept": "gouda or edam",
           "preparation": "coarsely grated",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -5110,7 +5946,10 @@
           "ingredientConcept": "tomato ketchup",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -5121,7 +5960,10 @@
           "ingredientConcept": "finely chopped chives",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -5196,7 +6038,8 @@
         "altText": "Classic Polish zapiekanka baguettes with browned mushrooms, melted Gouda, ketchup stripes, and chives.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -5227,7 +6070,10 @@
           "ingredientConcept": "dried red kidney beans",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -5238,7 +6084,10 @@
           "ingredientConcept": "water",
           "preparation": "plus more for soaking",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -5249,7 +6098,10 @@
           "ingredientConcept": "bay leaves",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -5260,7 +6112,10 @@
           "ingredientConcept": "unsalted butter",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -5271,7 +6126,10 @@
           "ingredientConcept": "large yellow onion",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -5282,7 +6140,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "minced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -5293,7 +6154,10 @@
           "ingredientConcept": "ground coriander",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -5304,7 +6168,10 @@
           "ingredientConcept": "ground blue fenugreek",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -5315,7 +6182,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -5326,7 +6196,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -5337,7 +6210,10 @@
           "ingredientConcept": "all-purpose flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -5348,7 +6224,10 @@
           "ingredientConcept": "instant yeast",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -5359,7 +6238,10 @@
           "ingredientConcept": "sugar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -5370,7 +6252,10 @@
           "ingredientConcept": "warm water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -5381,7 +6266,10 @@
           "ingredientConcept": "neutral oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -5456,7 +6344,8 @@
         "altText": "Georgian lobiani bean breads with browned rounds, buttered crusts, and textured red-kidney-bean filling.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     },
     {
       "schemaVersion": 2,
@@ -5487,7 +6376,10 @@
           "ingredientConcept": "80%-lean ground beef chuck",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 1,
@@ -5498,7 +6390,10 @@
           "ingredientConcept": "ground lamb",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 2,
@@ -5509,7 +6404,10 @@
           "ingredientConcept": "garlic cloves",
           "preparation": "crushed",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 3,
@@ -5520,7 +6418,10 @@
           "ingredientConcept": "water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 4,
@@ -5531,7 +6432,10 @@
           "ingredientConcept": "cold sparkling water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 5,
@@ -5542,7 +6446,10 @@
           "ingredientConcept": "kosher salt",
           "preparation": "divided",
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 6,
@@ -5553,7 +6460,10 @@
           "ingredientConcept": "baking soda",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 7,
@@ -5564,7 +6474,10 @@
           "ingredientConcept": "black pepper",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 8,
@@ -5575,7 +6488,10 @@
           "ingredientConcept": "bread flour",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 9,
@@ -5586,7 +6502,10 @@
           "ingredientConcept": "instant yeast",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 10,
@@ -5597,7 +6516,10 @@
           "ingredientConcept": "sugar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 11,
@@ -5608,7 +6530,10 @@
           "ingredientConcept": "warm water",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 12,
@@ -5619,7 +6544,10 @@
           "ingredientConcept": "plain yogurt",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 13,
@@ -5630,7 +6558,10 @@
           "ingredientConcept": "neutral oil",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 14,
@@ -5641,7 +6572,10 @@
           "ingredientConcept": "large white onion",
           "preparation": "finely diced",
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 15,
@@ -5652,7 +6586,10 @@
           "ingredientConcept": "prepared ajvar",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.98
+          "parseConfidence": 0.98,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         },
         {
           "position": 16,
@@ -5663,7 +6600,10 @@
           "ingredientConcept": "kajmak or clotted cream",
           "preparation": null,
           "optional": false,
-          "parseConfidence": 0.88
+          "parseConfidence": 0.88,
+          "scaleRule": {
+            "kind": "review_required"
+          }
         }
       ],
       "instructionQuantityPhrases": {},
@@ -5742,7 +6682,8 @@
         "altText": "Bosnian-leaning ćevapi in lepinja with grilled beef-lamb fingers, raw onion, ajvar, and kajmak served separately.",
         "width": 1536,
         "height": 1024
-      }
+      },
+      "scalingState": "unavailable"
     }
   ]
 }

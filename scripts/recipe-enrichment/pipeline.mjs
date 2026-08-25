@@ -96,10 +96,11 @@ export function assertNoCommandArguments(command, args) {
 
 export async function validateReviewedRecords(catalog, records) {
   const dataRoot = path.join(kwiltRoot, 'src/capabilities/recipes/data');
+  const recipesRoot = path.join(kwiltRoot, 'src/capabilities/recipes');
   const parserFile = path.join(dataRoot, 'recipeEditorialEnrichment.ts');
   const parse = await compileTypeScriptExport({
     sourceFiles: [parserFile],
-    rootDir: dataRoot,
+    rootDir: recipesRoot,
     exportFile: parserFile,
     exportName: 'parseRecipeEditorialEnrichment',
   });

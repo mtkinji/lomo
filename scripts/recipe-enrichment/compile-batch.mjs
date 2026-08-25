@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { compileReviewedBatch } from './batch-compiler.mjs';
 import { compileTypeScriptExport, loadCanonicalCatalog } from './catalog.mjs';
 import { buildStructuredIngredientDraft } from './structured-ingredient-draft.mjs';
+import { applyReviewedScaling } from './reviewed-scaling.mjs';
 
 const [batchArgument, authoringArgument, outputArgument] = process.argv.slice(2);
 if (!batchArgument || !authoringArgument || !outputArgument) {
@@ -39,7 +40,7 @@ const result = compileReviewedBatch({
   batch,
   catalog,
   structuredDrafts,
-  authoring: authoringModule.default,
+  authoring: applyReviewedScaling(authoringModule.default, seed.recipes),
   existingRecords: seed.recipes,
 });
 

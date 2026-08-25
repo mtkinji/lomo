@@ -169,7 +169,7 @@ export default {
   },
   BA001: {
     cookingReview: approved('The recipe uses weight-backed flour, restrained correction flour, dough-volume proof cues, a shaped pan loaf, internal temperature, and a full cooling period to protect softness and sliceability.'),
-    reviewedAt: '2026-08-20', publication: sitePublished, costTier: '$', difficulty: 'Moderate', ingredientReview: accept(0, 4, 5, 6, 7),
+    reviewedAt: '2026-08-20', publication: sitePublished, costTier: '$', difficulty: 'Moderate', ingredientReview: { ...accept(0, 4, 5, 6, 7), 0: patch({ parseConfidence: 1 }) },
     commerce: reviewCategory('loaf-pan', 'loaf-pan', 'The loaf pan controls the dough’s height and slice geometry, making the correct footprint more consequential than decorative bread tools.', 'Use an 8 1/2-by-4 1/2- or 9-by-5-inch light-colored loaf pan and begin checking dark pans early.'),
     equipmentNeeds: [{ id: 'loaf-pan', label: '9-by-5-inch loaf pan', reviewCategoryId: 'loaf-pan' }, { id: 'cooling-rack', label: 'Cooling rack' }],
     equipmentAnnotations: [{ instructionIndex: 2, phrase: '9-by-5-inch loaf pan', needId: 'loaf-pan', focus: 'general' }, { instructionIndex: 4, phrase: 'rack', needId: 'cooling-rack', focus: 'general' }],
