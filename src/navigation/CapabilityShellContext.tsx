@@ -69,10 +69,6 @@ export function deriveActiveCapabilityDestinationId(
 ): CapabilityMenuDestinationId | null {
   const names = focusedRouteNames(state);
   if (names[0] === 'Money') {
-    const moneySurface = names[1] ?? 'MoneySummary';
-    if (moneySurface === 'MoneyTransactions' || moneySurface === 'MoneyTransactionDetail') {
-      return 'money-transactions';
-    }
     return 'money-summary';
   }
   if (names[0] === 'Explore') return 'explore';

@@ -36,6 +36,28 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   };
 });
 
+const mockOpenDropdownMenu = jest.fn();
+
+jest.mock('../ui/DropdownMenu', () => {
+  const React = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  const Trigger = React.forwardRef((props: object, ref: import('react').Ref<unknown>) => {
+    React.useImperativeHandle(ref, () => ({
+      open: mockOpenDropdownMenu,
+      close: jest.fn(),
+    }));
+    return React.createElement(View, props);
+  });
+
+  return {
+    DropdownMenu: View,
+    DropdownMenuTrigger: Trigger,
+    DropdownMenuContent: View,
+    DropdownMenuItem: Pressable,
+    DropdownMenuLabel: Text,
+  };
+});
+
 const handlers = {
   onSelectCapability: jest.fn(),
   onSelectChat: jest.fn(),
@@ -46,6 +68,7 @@ const handlers = {
   onOpenSettings: jest.fn(),
   onOpenHome: jest.fn(),
   onOpenChat: jest.fn(),
+  onSetCapabilityPinned: jest.fn(),
 };
 
 const chats = [
@@ -53,7 +76,9 @@ const chats = [
   { id: 'chat-1', title: 'Tea tomorrow', updatedAt: '2026-07-21T18:00:00.000Z' },
 ];
 
-const menuDestinations = CAPABILITY_MENU_REGISTRY.map(({ id, label }) => [id, label] as const);
+const menuDestinations = CAPABILITY_MENU_REGISTRY
+  .filter(({ availability }) => availability === 'active')
+  .map(({ id, label }) => [id, label] as const);
 
 function differentDestination(id: CapabilityMenuDestinationId): CapabilityMenuDestinationId {
   return id === 'goals' ? 'todos' : 'goals';
@@ -64,6 +89,98 @@ describe('CapabilityMenu', () => {
     jest.clearAllMocks();
   });
 
+  it('opens a Kwilt menu from a long press and pins only after choosing Pin', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    fireEvent.press(menu.getByLabelText('Expand More, 3 destinations'));
+    fireEvent(menu.getByLabelText('Games'), 'longPress');
+
+    expect(mockOpenDropdownMenu).toHaveBeenCalledTimes(1);
+    expect(menu.getByTestId('capability.menu.games.pin-menu').props.align).toBe('start');
+    expect(menu.getByLabelText('Pin Games').props.icon).toBe('pushPin');
+    expect(handlers.onSetCapabilityPinned).not.toHaveBeenCalled();
+
+    fireEvent.press(menu.getByLabelText('Pin Games'));
+    expect(handlers.onSetCapabilityPinned).toHaveBeenCalledWith('games', true);
+  });
+
+  it('keeps normal navigation presses separate from the pin menu', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    fireEvent.press(menu.getByLabelText('Budgets'));
+
+    expect(mockOpenDropdownMenu).not.toHaveBeenCalled();
+    expect(handlers.onSetCapabilityPinned).not.toHaveBeenCalled();
+    expect(handlers.onSelectCapability).toHaveBeenCalledWith('money-summary');
+  });
+
+  it('offers Unpin in the Kwilt menu for a primary destination', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId="chores" choresEnabled chats={chats} {...handlers} />,
+    );
+
+    fireEvent(menu.getByLabelText('Chores'), 'longPress');
+
+    expect(mockOpenDropdownMenu).toHaveBeenCalledTimes(1);
+    expect(menu.getByTestId('capability.menu.chores.pin-menu')).toBeTruthy();
+    expect(menu.getByLabelText('Unpin Chores').props.icon).toBe('pushPinOff');
+    fireEvent.press(menu.getByLabelText('Unpin Chores'));
+    expect(handlers.onSetCapabilityPinned).toHaveBeenCalledWith('chores', false);
+  });
+
+  it('offers Pin and Unpin as equivalent accessibility actions', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    fireEvent(menu.getByLabelText('To-dos'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'unpin' },
+    });
+    fireEvent.press(menu.getByLabelText('Expand More, 3 destinations'));
+    fireEvent(menu.getByLabelText('Games'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'pin' },
+    });
+
+    expect(handlers.onSetCapabilityPinned).toHaveBeenNthCalledWith(1, 'todos', false);
+    expect(handlers.onSetCapabilityPinned).toHaveBeenNthCalledWith(2, 'games', true);
+  });
+
+  it('moves pinned and unpinned destinations while preserving the accepted order', () => {
+    const menu = render(
+      <CapabilityMenu
+        activeCapabilityId="todos"
+        choresEnabled
+        chats={chats}
+        pinOverrides={{ chores: false, games: true }}
+        {...handlers}
+      />,
+    );
+
+    const primaryLabels = within(menu.getByTestId('capability.menu.primary'))
+      .getAllByRole('button')
+      .map((row) => row.props.accessibilityLabel);
+    expect(primaryLabels).toEqual([
+      'Budgets',
+      'Recipes',
+      'Groceries',
+      'To-dos',
+      'Plans',
+      'Goals',
+      'Games',
+    ]);
+
+    expect(menu.getByText('MORE (3)')).toBeTruthy();
+    fireEvent.press(menu.getByLabelText('Expand More, 3 destinations'));
+    const moreLabels = within(menu.getByTestId('capability.menu.more.items'))
+      .getAllByRole('button')
+      .map((row) => row.props.accessibilityLabel);
+    expect(moreLabels).toEqual(['Chores', 'Arcs', 'Chapters']);
+  });
+
   it('renders the accepted hierarchy without a close control', () => {
     const { getByText, getByLabelText, getByTestId, queryByLabelText, queryByText } = render(
       <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
@@ -72,18 +189,21 @@ describe('CapabilityMenu', () => {
     expect(getByText('Kwilt')).toBeTruthy();
     const header = getByTestId('capability.menu.header');
     expect(header.findByProps({ accessibilityLabel: 'Open profile and settings' })).toBeTruthy();
-    expect(getByText('GOALS & PLANS')).toBeTruthy();
     expect(getByText('Goals')).toBeTruthy();
     expect(getByText('To-dos')).toBeTruthy();
     expect(getByText('Plans')).toBeTruthy();
-    expect(getByText('Arcs')).toBeTruthy();
-    expect(getByText('Chapters')).toBeTruthy();
-    expect(getByText('MONEY')).toBeTruthy();
     expect(getByText('Budgets')).toBeTruthy();
-    expect(getByText('Transactions')).toBeTruthy();
+    expect(queryByText('Transactions')).toBeNull();
     expect(queryByText('Accounts')).toBeNull();
     expect(queryByLabelText('Money')).toBeNull();
-    expect(getByText('FUN')).toBeTruthy();
+    expect(queryByText('MONEY')).toBeNull();
+    expect(queryByText('FOOD')).toBeNull();
+    expect(queryByText('GOALS & PLANS')).toBeNull();
+    expect(queryByText('FUN')).toBeNull();
+    expect(getByText('MORE (3)')).toBeTruthy();
+    expect(queryByText('Arcs')).toBeNull();
+    expect(queryByText('Chapters')).toBeNull();
+    expect(queryByText('Games')).toBeNull();
     expect(getByText('CHATS')).toBeTruthy();
     const footer = getByTestId('capability.menu.footer');
     expect(footer.findByProps({ accessibilityLabel: 'Search Kwilt' })).toBeTruthy();
@@ -94,8 +214,53 @@ describe('CapabilityMenu', () => {
     expect(queryByLabelText(/close/i)).toBeNull();
   });
 
-  it('selects each visible Money destination directly from the global menu', () => {
-    const { getByLabelText } = render(
+  it('groups the profile avatar and settings icon in one settings pill', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    const settingsButton = menu.getByLabelText('Open profile and settings');
+    expect(StyleSheet.flatten(settingsButton.props.style)).toMatchObject({
+      height: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: radii.pill,
+      backgroundColor: colors.gray100,
+    });
+    expect(menu.getAllByTestId('capability.menu.settings.icon').length).toBeGreaterThan(0);
+
+    fireEvent.press(settingsButton);
+    expect(handlers.onOpenSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('orders primary destinations by household operations, food, then execution', () => {
+    const menu = render(
+      <CapabilityMenu
+        activeCapabilityId="todos"
+        choresEnabled
+        displayName="Andy"
+        chats={chats}
+        {...handlers}
+      />,
+    );
+
+    const primaryLabels = within(menu.getByTestId('capability.menu.primary'))
+      .getAllByRole('button')
+      .map((row) => row.props.accessibilityLabel);
+
+    expect(primaryLabels).toEqual([
+      'Budgets',
+      'Chores',
+      'Recipes',
+      'Groceries',
+      'To-dos',
+      'Plans',
+      'Goals',
+    ]);
+  });
+
+  it('keeps Budgets as the only visible Money destination', () => {
+    const { getByLabelText, queryByLabelText } = render(
       <CapabilityMenu
         activeCapabilityId="money-summary"
         displayName="Andy"
@@ -105,8 +270,7 @@ describe('CapabilityMenu', () => {
     );
 
     expect(getByLabelText('Budgets').props.accessibilityState).toEqual({ selected: true });
-    fireEvent.press(getByLabelText('Transactions'));
-    expect(handlers.onSelectCapability).toHaveBeenCalledWith('money-transactions');
+    expect(queryByLabelText('Transactions')).toBeNull();
   });
 
   it.each(menuDestinations)(
@@ -147,6 +311,9 @@ describe('CapabilityMenu', () => {
         />,
       );
 
+      if (!menu.queryByTestId(`capability.menu.${id}`)) {
+        fireEvent.press(menu.getByLabelText('Expand More, 4 destinations'));
+      }
       fireEvent.press(menu.getByTestId(`capability.menu.${id}`));
 
       expect(handlers.onSelectCapability).toHaveBeenCalledTimes(1);
@@ -214,13 +381,14 @@ describe('CapabilityMenu', () => {
       />,
     );
     expect(enabled.getByLabelText('Explore').props.accessibilityState).toEqual({ selected: true });
-    expect(enabled.getByLabelText('Collapse Fun')).toBeTruthy();
+    expect(enabled.getByText('MORE (4)')).toBeTruthy();
+    expect(enabled.getByLabelText('Collapse More, 4 destinations')).toBeTruthy();
     fireEvent.press(enabled.getByLabelText('Explore'));
     expect(onReselectCapability).toHaveBeenCalledWith('explore');
     expect(handlers.onSelectCapability).not.toHaveBeenCalled();
   });
 
-  it('always shows Games under Fun independently of the Explore feature flag', () => {
+  it('shows Games in More independently of the Explore feature flag', () => {
     const onReselectCapability = jest.fn();
     const { getByLabelText } = render(
       <CapabilityMenu
@@ -232,7 +400,7 @@ describe('CapabilityMenu', () => {
       />,
     );
 
-    expect(getByLabelText('Collapse Fun')).toBeTruthy();
+    expect(getByLabelText('Collapse More, 3 destinations')).toBeTruthy();
     expect(getByLabelText('Games').props.accessibilityState).toEqual({ selected: true });
     fireEvent.press(getByLabelText('Games'));
     expect(onReselectCapability).toHaveBeenCalledWith('games');
@@ -306,16 +474,52 @@ describe('CapabilityMenu', () => {
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('groceries');
   });
 
-  it('collapses and expands a capability group', () => {
+  it('keeps occasional destinations behind More and can reveal them', () => {
     const { getByLabelText, queryByText, getByText } = render(
       <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
     );
 
-    fireEvent.press(getByLabelText('Collapse Goals & Plans'));
-    expect(queryByText('To-dos')).toBeNull();
+    expect(queryByText('Arcs')).toBeNull();
+    expect(queryByText('Chapters')).toBeNull();
+    expect(queryByText('Games')).toBeNull();
 
-    fireEvent.press(getByLabelText('Expand Goals & Plans'));
-    expect(getByText('To-dos')).toBeTruthy();
+    expect(getByText('MORE (3)')).toBeTruthy();
+    fireEvent.press(getByLabelText('Expand More, 3 destinations'));
+    expect(getByText('Arcs')).toBeTruthy();
+    expect(getByText('Chapters')).toBeTruthy();
+    expect(getByText('Games')).toBeTruthy();
+
+    fireEvent.press(getByLabelText('Collapse More, 3 destinations'));
+    expect(queryByText('Arcs')).toBeNull();
+  });
+
+  it('counts only More destinations that are currently visible', () => {
+    const hidden = render(
+      <CapabilityMenu
+        activeCapabilityId="todos"
+        chats={chats}
+        hiddenCapabilityIds={['games']}
+        {...handlers}
+      />,
+    );
+
+    expect(hidden.getByText('MORE (2)')).toBeTruthy();
+    expect(hidden.getByLabelText('Expand More, 2 destinations')).toBeTruthy();
+  });
+
+  it('reveals More when navigation changes to one of its destinations', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    expect(menu.queryByText('Arcs')).toBeNull();
+
+    menu.rerender(
+      <CapabilityMenu activeCapabilityId="arcs" displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    expect(menu.getByLabelText('Collapse More, 3 destinations')).toBeTruthy();
+    expect(menu.getByLabelText('Arcs').props.accessibilityState).toEqual({ selected: true });
   });
 
   it('marks and selects the active capability', () => {
@@ -368,21 +572,23 @@ describe('CapabilityMenu', () => {
     expect(menu.getByLabelText('Recipes, new meal ideas')).toBeTruthy();
   });
 
-  it('moves discovery to a collapsed group header until its destinations are revealed', () => {
+  it('moves discovery to collapsed More until its destinations are revealed', () => {
     const menu = render(
       <CapabilityMenu
         activeCapabilityId="todos"
         displayName="Andy"
         chats={chats}
-        unvisitedCapabilityIds={['goals']}
+        unvisitedCapabilityIds={['arcs']}
         {...handlers}
       />,
     );
 
-    expect(menu.queryByTestId('capability.menu.group.goals-plans.discovery')).toBeNull();
-    fireEvent.press(menu.getByLabelText('Collapse Goals & Plans'));
-    expect(menu.getByTestId('capability.menu.group.goals-plans.discovery')).toBeTruthy();
-    expect(menu.getByLabelText('Expand Goals & Plans, contains unvisited destinations')).toBeTruthy();
+    expect(menu.getByTestId('capability.menu.more.discovery')).toBeTruthy();
+    expect(menu.getByLabelText('Expand More, 3 destinations, contains unvisited destinations')).toBeTruthy();
+
+    fireEvent.press(menu.getByLabelText('Expand More, 3 destinations, contains unvisited destinations'));
+    expect(menu.queryByTestId('capability.menu.more.discovery')).toBeNull();
+    expect(menu.getByTestId('capability.menu.arcs.discovery')).toBeTruthy();
   });
 
   it('uses neutral launcher chrome rather than Pine accents', () => {
@@ -402,6 +608,17 @@ describe('CapabilityMenu', () => {
       gap: 8,
       borderRadius: radii.pill,
     });
+  });
+
+  it('aligns the More disclosure and new-chat action in matching trailing slots', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    expect(StyleSheet.flatten(menu.getByTestId('capability.menu.more.action').props.style))
+      .toMatchObject({ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' });
+    expect(StyleSheet.flatten(menu.getByLabelText('New chat').props.style))
+      .toMatchObject({ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' });
   });
 
   it('reuses global search and settings and opens durable Chat', () => {

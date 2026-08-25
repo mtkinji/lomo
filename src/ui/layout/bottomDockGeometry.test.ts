@@ -7,6 +7,7 @@ import {
   resolveDrawerFloatingActionInlinePadding,
   resolvePhoneFloatingBottomInset,
   resolvePhoneFloatingActionContentInset,
+  resolveRestingFloatingControlContentInset,
 } from './bottomDockGeometry';
 
 describe('bottom dock geometry', () => {
@@ -18,6 +19,12 @@ describe('bottom dock geometry', () => {
   it('reserves scroll clearance from the same phone-floating geometry', () => {
     expect(resolvePhoneFloatingActionContentInset(34, 52)).toBe(85);
     expect(resolvePhoneFloatingActionContentInset(0, 52)).toBe(84);
+  });
+
+  it('uses the inventory-proven corner geometry for resting floating controls', () => {
+    expect(bottomDockGeometry.restingFloatingControl.inlineGap).toBe(32);
+    expect(bottomDockGeometry.restingFloatingControl.bottomGap).toBe(32);
+    expect(resolveRestingFloatingControlContentInset(56)).toBe(100);
   });
 
   it('keeps a drawer action above the safe area without losing its minimum bottom gap', () => {

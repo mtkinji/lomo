@@ -409,23 +409,29 @@ export function RecipeHomeView({
             {syncPending ? (
               <Text tone="secondary">Saved on this device · Will sync when connected</Text>
             ) : null}
-            <Text variant="label">Source</Text>
-            <Text tone="secondary">
-              {recipe.provenance.sourceTitle ??
-                recipe.provenance.sourceAuthor ??
-                "Added by you"}{" "}
-              · Version {version.version}
-            </Text>
-            {familyLabel ? (
-              <Text tone="secondary">Family recipe from {familyLabel}</Text>
-            ) : null}
-            <Text tone="secondary">
-              {recipe.provenance.rightsBasis === "kwilt_authored"
-                ? "Included with Kwilt"
-                : recipe.accessGrants.some((grant) => grant.status === "active")
-                  ? "Shared with specific people"
-                  : "Private to you"}
-            </Text>
+            {recipe.provenance.rightsBasis === "kwilt_authored" ? (
+              <Text tone="secondary">Kwilt recipe · Version {version.version}</Text>
+            ) : (
+              <>
+                <Text variant="label">
+                  {recipe.provenance.sourceTitle || recipe.provenance.sourceAuthor ? "Source" : "Recipe"}
+                </Text>
+                <Text tone="secondary">
+                  {recipe.provenance.sourceTitle ??
+                    recipe.provenance.sourceAuthor ??
+                    "Your recipe"}{" "}
+                  · Version {version.version}
+                </Text>
+                {familyLabel ? (
+                  <Text tone="secondary">Family recipe from {familyLabel}</Text>
+                ) : null}
+                <Text tone="secondary">
+                  {recipe.accessGrants.some((grant) => grant.status === "active")
+                    ? "Shared with specific people"
+                    : "Private to you"}
+                </Text>
+              </>
+            )}
           </View>
           <RecipeRecommendationsSection
             recommendations={recommendations}

@@ -9,6 +9,11 @@ type SharedCartSelectionRepository = {
   withdrawMealCandidate(householdId: string | null, candidateId: string): Promise<unknown> | unknown;
 };
 
+type SharedCartWithdrawalRepository = Pick<
+  SharedCartSelectionRepository,
+  'withdrawMealCandidate'
+>;
+
 export function sharedMealCartContainsRecipeVersion(
   cart: SharedMealCartProjection,
   projection: RecipeProjection,
@@ -63,5 +68,53 @@ export async function removeCandidateFromSharedMealCart({
   reloadCart(): Promise<SharedMealCartProjection>;
 }): Promise<SharedMealCartProjection> {
   await repository.withdrawMealCandidate(householdId, candidateId);
+  return reloadCart();
+}
+
+export async function addRecipeRecommendationsToSharedMealCart({
+  householdId,
+  projections,
+  plannedPortions,
+  createCandidateId,
+  repository,
+  reloadCart,
+}: {
+  householdId: string | null;
+  projections: readonly RecipeProjection[];
+  plannedPortions: number;
+  createCandidateId(): string;
+  repository: Pick<SharedCartSelectionRepository, 'addMealCandidate'>;
+  reloadCart(): Promise<SharedMealCartProjection>;
+}): Promise<{ cart: SharedMealCartProjection; candidateIds: string[] }> {
+  const candidateIds: string[] = [];
+  for (const projection of projections) {
+    const candidateId = createCandidateId();
+    await repository.addMealCandidate(
+      householdId,
+      buildMealPlanRecipeCandidate(projection, {
+        candidateId,
+        recipeScaleMultiplier: 1,
+        plannedPortions,
+      }),
+    );
+    candidateIds.push(candidateId);
+  }
+  return { cart: await reloadCart(), candidateIds };
+}
+
+export async function withdrawMealCandidatesFromSharedMealCart({
+  householdId,
+  candidateIds,
+  repository,
+  reloadCart,
+}: {
+  householdId: string | null;
+  candidateIds: readonly string[];
+  repository: SharedCartWithdrawalRepository;
+  reloadCart(): Promise<SharedMealCartProjection>;
+}): Promise<SharedMealCartProjection> {
+  for (const candidateId of candidateIds) {
+    await repository.withdrawMealCandidate(householdId, candidateId);
+  }
   return reloadCart();
 }

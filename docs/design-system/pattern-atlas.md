@@ -19,11 +19,11 @@ Bottom Dock Geometry is the first Canonical reusable composition. Andrew approve
 
 Job: When the current action must remain available at the bottom of a phone surface, the user needs it to feel deliberately nested inside the device rather than attached with arbitrary padding, so it remains reachable without colliding with the home indicator, keyboard, tab bar, or content.
 
-Status: Canonical. Explicit product/design-owner approval: Andrew, 2026-08-17.
+Status: Canonical. Explicit product/design-owner approval: Andrew, 2026-08-17; resting floating-control refinement approved 2026-08-25.
 
 Approved routes: `ActionDock` and `SplitActionDock` phone-floating controls; `FullWidthActionDock` for one persistent full-width page button; `BottomDrawerFooter`; `BottomDrawer.bottomAccessory` when it contains a fixed full-width drawer action; Unified Chat Conversation Mode composer states.
 
-Rendered references: `artifacts/conversation-mode/listening-nested-improved.png`; `artifacts/bottom-dock/activity-schedule-full-width-action.png`; accepted iPhone 17 Pro web composer proof with approximately 21px visible side and 22px visible bottom gaps; iPhone 17 Pro native drawer proof with a 24pt visible inline gap and full home-indicator clearance.
+Rendered references: `artifacts/conversation-mode/listening-nested-improved.png`; `artifacts/bottom-dock/activity-schedule-full-width-action.png`; To-dos inventory resting dock; Activity Detail next-action dock; accepted iPhone 17 Pro web composer proof with approximately 21px visible side and 22px visible bottom gaps; iPhone 17 Pro native drawer proof with a 24pt visible inline gap and full home-indicator clearance.
 
 Three-second read: One current action is visibly anchored to the surface and balanced within the phone's lower corner geometry.
 
@@ -31,15 +31,15 @@ Scan order: Current decision context -> one bottom action region -> surrounding 
 
 Primary action: The capability-owned current action. Geometry never invents, duplicates, or changes the action.
 
-Anatomy: Capability-owned content inside either a phone-floating frame or a fixed drawer-action frame. The frame owns inline gap, bottom gap, safe-area policy, keyboard relationship, and content clearance.
+Anatomy: Capability-owned content inside either a resting floating-control frame, a full-width phone-floating frame, or a fixed drawer-action frame. The frame owns inline gap, bottom gap, safe-area policy, keyboard relationship, and content clearance. Resting floating controls use the To-dos inventory's 32pt inline and 32pt compact-bottom corner nesting. Detail action docks keep the recommended split action intrinsically sized, preserve deliberate open space, and isolate completion or contextual status on the opposite edge. Inventory docks may let their capture or search surface fill the remaining row before fixed circular utilities.
 
-Canonical components: `ActionDock`, `SplitActionDock`, `FullWidthActionDock`, `BottomDrawerFooter`, and `BottomDrawer`'s `bottomAccessory` region. Geometry tokens live in `@kwilt/tokens/bottomDock`.
+Canonical components: `ActionDock`, `SplitActionDock`, `FullWidthActionDock`, `BottomDrawerFooter`, and `BottomDrawer`'s `bottomAccessory` region. Geometry tokens live in `@kwilt/tokens/bottomDock`: `restingFloatingControl` governs inventory and detail floating controls, while `phoneFloating` retains the narrower full-width page-action geometry.
 
 States: Resting, pressed, disabled, loading, keyboard open, no home indicator, home indicator present, and capability-owned state transitions such as Conversation Mode listening/thinking/speaking/recovering. State changes replace content without moving the outer frame.
 
-Responsive and accessibility behavior: Phone-floating controls use a 24pt inline optical gap and target at least a 20pt bottom gap, with a partial safe-area lift where needed. Fixed drawer actions use a 24pt inline gap, 12pt content separation, and at least 20pt below, expanding to the full bottom safe-area inset. Controls retain 44pt minimum targets, Dynamic Type support, and Reduce Motion behavior. Keyboard and tab-bar collision checks are mandatory.
+Responsive and accessibility behavior: Resting inventory and detail controls use 32pt inline and compact-bottom gaps. Full-width phone-floating page actions use a 24pt inline optical gap and target at least a 20pt bottom gap, with a partial safe-area lift where needed. Fixed drawer actions use a 24pt inline gap, 12pt content separation, and at least 20pt below, expanding to the full bottom safe-area inset. Controls retain 44pt minimum targets, Dynamic Type support, and Reduce Motion behavior. Keyboard and tab-bar collision checks are mandatory.
 
-Allowed variations: Floating versus drawer-contained anatomy; one full-width action versus a capability-owned split action; quiet top divider when scroll content needs separation; platform safe-area expansion. A persistent full-width page button uses `FullWidthActionDock` rather than screen-owned bottom padding. Visual materials and action semantics remain component-owned.
+Allowed variations: Floating versus drawer-contained anatomy; intrinsic detail action versus flexible inventory action versus one full-width page action; quiet top divider when scroll content needs separation; platform safe-area expansion. A persistent full-width page button uses `FullWidthActionDock` rather than screen-owned bottom padding. Intrinsic detail actions do not expand merely to occupy the row. Visual materials and action semantics remain component-owned.
 
 Do not use when: The action is not persistent, the drawer action naturally belongs in scrolling content, a platform-native bar owns the placement, or persistence would duplicate a nearby primary action. Do not pass numeric placement overrides from feature code.
 
@@ -49,7 +49,7 @@ External-exemplar preserve/translate/reject ledger: Preserve the calm corner bal
 
 Kwilt localization: This is an optical contract, not a demand that every bottom action look alike. Conversation Live Dock, action docks, and full-width drawer buttons share placement while retaining their own semantics and state presentation.
 
-Last reviewed: 2026-08-17.
+Last reviewed: 2026-08-25.
 
 ### Capability Onboarding Step
 

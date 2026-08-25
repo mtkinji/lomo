@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 
 import { colors, spacing } from '../../../theme';
@@ -15,13 +15,18 @@ export function recipeOriginMapRegion(origin: RecipeOrigin): Region {
 
 export function RecipeOriginStory({ enrichment }: { enrichment: RecipeEditorialEnrichment }) {
   const region = useMemo(() => recipeOriginMapRegion(enrichment.origin), [enrichment.origin]);
+  const repeatedRegion =
+    enrichment.origin.region.trim().toLocaleLowerCase() ===
+    enrichment.origin.label.trim().toLocaleLowerCase();
 
   return (
     <View style={styles.section}>
       <View style={styles.heading}>
         <Heading variant="md">Where this meal comes from</Heading>
         <Text>{enrichment.origin.label}</Text>
-        <Text tone="secondary">{enrichment.origin.region}</Text>
+        {!repeatedRegion ? (
+          <Text tone="secondary">{enrichment.origin.region}</Text>
+        ) : null}
       </View>
       <View
         accessible
@@ -54,21 +59,6 @@ export function RecipeOriginStory({ enrichment }: { enrichment: RecipeEditorialE
           <Text key={paragraph}>{paragraph}</Text>
         ))}
       </View>
-      <View style={styles.sources}>
-        <Text variant="label" tone="secondary">Sources</Text>
-        {enrichment.history.sources.map((source) => (
-          <Pressable
-            key={source.url}
-            accessibilityRole="link"
-            accessibilityLabel={`Open source: ${source.title}`}
-            onPress={() => { void Linking.openURL(source.url).catch(() => undefined); }}
-            style={({ pressed }) => [styles.source, pressed ? styles.sourcePressed : null]}
-          >
-            <Text>{source.title}</Text>
-            <Text tone="secondary">{source.publisher}</Text>
-          </Pressable>
-        ))}
-      </View>
     </View>
   );
 }
@@ -86,7 +76,4 @@ const styles = StyleSheet.create({
   },
   map: { width: '100%', height: '100%' },
   story: { gap: spacing.md },
-  sources: { gap: spacing.xs },
-  source: { minHeight: 44, justifyContent: 'center', paddingVertical: spacing.xs },
-  sourcePressed: { opacity: 0.65 },
 });

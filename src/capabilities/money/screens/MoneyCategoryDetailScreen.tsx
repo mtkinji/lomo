@@ -424,7 +424,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
                 })}
                 style={styles.viewAllRow}
               >
-                <Text style={styles.viewAllText}>View all in Transactions</Text>
+                <Text style={styles.viewAllText}>View all activity</Text>
                 <Icon name="chevronRight" size={18} color={colors.textSecondary} />
               </Pressable>
                   </View>

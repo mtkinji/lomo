@@ -19,7 +19,10 @@ import { KwiltRefreshFrame, useKwiltRefresh } from "../../../ui/KwiltRefresh";
 import { menuItemTextProps, menuStyles } from "../../../ui/menuStyles";
 import { Heading, Text } from "../../../ui/Typography";
 import type { RecipeProjection } from "../data/recipeCache";
-import { buildRecipeRecommendations } from "../domain/recipeRecommendations";
+import {
+  buildRecipeRecommendations,
+  type RecipeRecommendationPlanningContext,
+} from "../domain/recipeRecommendations";
 import {
   DEFAULT_RECIPE_INVENTORY_FILTERS,
   countActiveRecipeInventoryFilters,
@@ -68,6 +71,7 @@ export function RecipeLibraryView({
   likedOnly,
   onToggleLiked,
   totalCount,
+  recommendationPlanningContext,
   onboardingTargetRef,
 }: {
   recipes: RecipeProjection[];
@@ -90,6 +94,7 @@ export function RecipeLibraryView({
   likedOnly: boolean;
   onToggleLiked(): void;
   totalCount: number;
+  recommendationPlanningContext: RecipeRecommendationPlanningContext;
   onboardingTargetRef?: RefObject<View | null>;
 }) {
   const hasFilters = countActiveRecipeInventoryFilters(filters) > 0;
@@ -110,9 +115,10 @@ export function RecipeLibraryView({
                 .filter(isFavorite)
                 .map((projection) => projection.recipe.id),
             ),
+            recommendationPlanningContext,
           )
         : [],
-    [isFavorite, recipes, showShelves],
+    [isFavorite, recipes, recommendationPlanningContext, showShelves],
   );
   const shelves = useMemo(
     () => (showShelves ? buildRecipeShelves(recipes) : []),
@@ -138,6 +144,7 @@ export function RecipeLibraryView({
     return (
       <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
         <FlatList
+          key="recipe-discovery-shelves"
           testID="recipe-discovery-shelves"
           data={discoverySections}
           keyExtractor={(section) => section.kind === "shelf"
@@ -214,6 +221,7 @@ export function RecipeLibraryView({
   return (
     <KwiltRefreshFrame refreshOverlay={refreshOverlay} refreshing={refreshing}>
       <FlatList
+        key="recipe-results-grid"
         testID="recipe-results-grid"
         data={recipes}
         numColumns={2}

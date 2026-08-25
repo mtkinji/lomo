@@ -116,6 +116,14 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
     }
   };
 
+  const returnFromTransactions = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.replace('MoneySummary');
+  };
+
   return (
     <MoneyScreenFrame
       headerRightElement={snapshot?.lastSyncedAt
@@ -123,7 +131,7 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
         : undefined}
       onRefresh={checkActivity}
       title={title}
-      onPressBack={isScopedInventory || overageReview ? () => navigation.goBack() : undefined}
+      onPressBack={returnFromTransactions}
     >
       {overageProjection ? (
         <View style={styles.overageReview}>
@@ -140,6 +148,7 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
               {group.transactions.map((transaction) => (
                 <TransactionInventoryRow
                   key={transaction.id}
+                  showCategoryMeta={false}
                   transaction={transaction}
                   onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id, coverageReview: true })}
                 />
@@ -210,7 +219,7 @@ function TransactionMenuItem({ active, iconName, label, onPress }: { active: boo
   return <DropdownMenuItem onPress={onPress} accessibilityLabel={label}><View style={menuStyles.menuItemRow}><Icon name={iconName ?? (active ? 'check' : 'dot')} size={18} color={active ? colors.pine700 : colors.textSecondary} /><Text style={menuStyles.menuItemText} {...menuItemTextProps}>{label}</Text></View></DropdownMenuItem>;
 }
 
-function TransactionInventoryRow({ onPress, transaction }: { onPress: () => void; transaction: MoneyTransaction }) {
+function TransactionInventoryRow({ onPress, showCategoryMeta = true, transaction }: { onPress: () => void; showCategoryMeta?: boolean; transaction: MoneyTransaction }) {
   const state = transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.reviewState === 'not_counted' ? 'Not budgeted' : '';
   const stateStyle = transaction.reviewState === 'needs_review' ? styles.reviewChip : styles.neutralChip;
   const amountCents = transaction.direction === 'inflow' ? transaction.amountCents : -transaction.amountCents;
@@ -220,7 +229,7 @@ function TransactionInventoryRow({ onPress, transaction }: { onPress: () => void
     <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction, ${assignment}, ${amountLabel}`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.transactionRowPressed : null]}>
       <View style={styles.merchantBlock}>
         <Text numberOfLines={1} style={styles.merchant}>{transaction.merchantName}</Text>
-        {transaction.categoryName && transaction.categoryName !== state
+        {showCategoryMeta && transaction.categoryName && transaction.categoryName !== state
           ? <Text numberOfLines={1} style={styles.assignmentMeta}>{transaction.categoryName}</Text>
           : null}
       </View>

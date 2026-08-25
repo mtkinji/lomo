@@ -1,5 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 jest.mock('@rn-primitives/dropdown-menu', () => {
   const { Pressable, Text, View: NativeView } = require('react-native');
@@ -37,8 +38,9 @@ jest.mock('./Icon', () => {
   };
 });
 
-import { DropdownMenuItem } from './DropdownMenu';
+import { DropdownMenuContent, DropdownMenuItem } from './DropdownMenu';
 import { colors } from '../theme';
+import { cardElevation } from '../theme/surfaces';
 
 describe('DropdownMenuItem', () => {
   it('renders the app-owned label and icon anatomy and handles presses', () => {
@@ -69,5 +71,24 @@ describe('DropdownMenuItem', () => {
 
     expect(getByRole('menuitem').props.accessibilityState).toMatchObject({ selected: true });
     expect(getByTestId('icon-check').props.accessibilityLabel).toBe(colors.textPrimary);
+  });
+});
+
+describe('DropdownMenuContent', () => {
+  it('casts the canonical overlay shadow from an unclipped frame', () => {
+    const menu = render(
+      <DropdownMenuContent testID="test-menu">
+        <Text>Menu action</Text>
+      </DropdownMenuContent>,
+    );
+
+    const frameStyle = StyleSheet.flatten(menu.getByTestId('test-menu').props.style);
+    expect(frameStyle).toMatchObject(cardElevation.overlay);
+    expect(frameStyle.overflow).not.toBe('hidden');
+
+    const clippedSurface = menu.UNSAFE_getAllByType(View).find(
+      (node) => StyleSheet.flatten(node.props.style)?.overflow === 'hidden',
+    );
+    expect(clippedSurface).toBeTruthy();
   });
 });

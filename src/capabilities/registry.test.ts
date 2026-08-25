@@ -33,6 +33,11 @@ describe('capability registry', () => {
     ]);
   });
 
+  it('uses a chore-specific icon instead of the Home destination icon', () => {
+    expect(getCapability('chores').icon).toBe('chores');
+    expect(getCapabilityMenuDestination('chores').icon).toBe('chores');
+  });
+
   it('keeps Meal Planning contextual while exposing Recipes and Groceries as user-facing destinations', () => {
     expect(CAPABILITY_REGISTRY.filter(({ id }) => ['recipes', 'meal-planning', 'groceries'].includes(id))).toEqual([
       expect.objectContaining({ id: 'recipes', label: 'Recipes', icon: 'cookingPot', availability: 'active' }),
@@ -117,9 +122,9 @@ describe('capability registry', () => {
       .toEqual(['explore', 'games']);
   });
 
-  it('keeps account administration out of the global capability menu', () => {
+  it('keeps Budgets as the only active global Money destination', () => {
     expect(
-      CAPABILITY_MENU_REGISTRY.filter(({ group }) => group === 'money').map(
+      CAPABILITY_MENU_REGISTRY.filter(({ group, availability }) => group === 'money' && availability === 'active').map(
         ({ id, label, ownerId, rootRoute }) => ({ id, label, ownerId, rootRoute }),
       ),
     ).toEqual([
@@ -129,15 +134,14 @@ describe('capability registry', () => {
         ownerId: 'money',
         rootRoute: { root: 'Money', screen: 'MoneySummary' },
       },
-      {
-        id: 'money-transactions',
-        label: 'Transactions',
-        ownerId: 'money',
-        rootRoute: { root: 'Money', screen: 'MoneyTransactions' },
-      },
     ]);
 
     expect(getCapabilityMenuDestination('money-summary').ownerId).toBe('money');
+    expect(getCapabilityMenuDestination('money-summary').icon).toBe('wallet');
+    expect(getCapabilityMenuDestination('money-transactions')).toMatchObject({
+      availability: 'hidden',
+      rootRoute: { root: 'Money', screen: 'MoneyTransactions' },
+    });
   });
 
   it('maps the current capabilities onto their existing host routes', () => {

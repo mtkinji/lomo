@@ -121,6 +121,10 @@ test('Money widgets keep the category clock tile centered and give Flexible Mone
   assert.match(categoryView, /if category\.status == "over" \{ return MoneyWidgetPalette\.over \}/);
   assert.doesNotMatch(categoryView, /if category\.status == "near_limit" \{ return MoneyWidgetPalette\.watch \}/);
   assert.match(categoryView, /return category\.status == "over" \|\| category\.status == "near_limit"/);
+  assert.match(categoryView, /Color\.white/);
+  assert.match(categoryView, /MoneyWidgetPalette\.categoryPrimary/);
+  assert.match(categoryView, /MoneyWidgetPalette\.categorySecondary/);
+  assert.doesNotMatch(categoryView, /foregroundStyle\(\.primary\)|foregroundStyle\(\.secondary\)/);
   assert.doesNotMatch(categoryView, /moneyFreshnessLabel|Updated/);
 });
 
@@ -137,6 +141,9 @@ test('Money widgets use the same semantic colors as the in-app budget surfaces',
   assert.match(palette, /onTrack = Color\(red: 111\/255, green: 165\/255, blue: 146\/255\)/);
   assert.match(palette, /watch = Color\(red: 217\/255, green: 119\/255, blue: 6\/255\)/);
   assert.match(palette, /over = Color\(red: 220\/255, green: 38\/255, blue: 38\/255\)/);
+  assert.match(palette, /categoryPrimary = Color\(red: 28\/255, green: 26\/255, blue: 25\/255\)/);
+  assert.match(palette, /categorySecondary = Color\(red: 87\/255, green: 83\/255, blue: 78\/255\)/);
+  assert.match(palette, /inactive = MoneyWidgetPalette\.categoryPrimary\.opacity\(0\.16\)/);
   assert.match(flexibleAnswerCard, /if state == "over" \|\| state == "plan_over" \{ return MoneyWidgetPalette\.over \}[\s\S]*?return \.primary/);
 });
 

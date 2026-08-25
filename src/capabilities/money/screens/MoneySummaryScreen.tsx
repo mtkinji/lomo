@@ -248,7 +248,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="bottom" sideOffset={6} style={styles.summaryMenuContent}>
         <SummaryMenuItem icon="plus" label="Add category" onPress={() => navigation.navigate('MoneyCategoryCreate')} />
-        <SummaryMenuItem icon="receipt" label="Transactions" onPress={() => navigation.navigate('MoneyTransactions', {})} />
+        <SummaryMenuItem icon="receipt" label="All transactions" onPress={() => navigation.navigate('MoneyTransactions', {})} />
         <SummaryMenuItem
           icon="landmark"
           label="Accounts & connections"

@@ -72,6 +72,9 @@ type UnifiedResultRow =
 export function GlobalSearchDrawer() {
   const open = useAppStore((s) => s.globalSearchOpen);
   const close = useAppStore((s) => s.closeGlobalSearch);
+  const showScopeSelector = useAppStore(
+    (s) => s.globalSearchShowScopeSelector,
+  );
 
   const scopes = useAppStore((s) => s.globalSearchScopes);
   const setScopes = useAppStore((s) => s.setGlobalSearchScopes);
@@ -611,39 +614,41 @@ export function GlobalSearchDrawer() {
             )}
           </HStack>
         </View>
-        <View style={styles.chipRow}>
-          {SCOPE_CHIPS.map((chip) => {
-            const active = scopes[chip.scope];
-            return (
-              <Pressable
-                key={chip.scope}
-                accessibilityRole="button"
-                accessibilityLabel={`${active ? "Exclude" : "Include"} ${chip.label}`}
-                accessibilityState={{ selected: active }}
-                onPress={() => handleToggleScope(chip.scope)}
-                style={({ pressed }) => [
-                  styles.chip,
-                  active ? styles.chipActive : styles.chipInactive,
-                  pressed && styles.chipPressed,
-                ]}
-              >
-                <Icon
-                  name={chip.icon}
-                  size={12}
-                  color={active ? colors.pine700 : colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.chipLabel,
-                    active ? styles.chipLabelActive : styles.chipLabelInactive,
+        {showScopeSelector ? (
+          <View style={styles.chipRow}>
+            {SCOPE_CHIPS.map((chip) => {
+              const active = scopes[chip.scope];
+              return (
+                <Pressable
+                  key={chip.scope}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${active ? "Exclude" : "Include"} ${chip.label}`}
+                  accessibilityState={{ selected: active }}
+                  onPress={() => handleToggleScope(chip.scope)}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    active ? styles.chipActive : styles.chipInactive,
+                    pressed && styles.chipPressed,
                   ]}
                 >
-                  {chip.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+                  <Icon
+                    name={chip.icon}
+                    size={12}
+                    color={active ? colors.pine700 : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.chipLabel,
+                      active ? styles.chipLabelActive : styles.chipLabelInactive,
+                    ]}
+                  >
+                    {chip.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         <FlatList
           data={flatData}
           keyExtractor={(entry, index) =>

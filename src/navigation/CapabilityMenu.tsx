@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableProps,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { CAPABILITY_GROUPS, CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
-import type { CapabilityGroupId, CapabilityMenuDestinationId } from '../capabilities/types';
-import { colors, fonts, spacing, typography } from '../theme';
+import { CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
+import type { CapabilityMenuDestinationId } from '../capabilities/types';
+import { colors, fonts, radii, spacing, typography } from '../theme';
 import { BrandLockup } from '../ui/BrandLockup';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
@@ -14,6 +14,18 @@ import { ButtonLabel } from '../ui/Typography';
 import { KwiltLoader } from '../ui/KwiltLoader';
 import { Badge } from '../ui/Badge';
 import { NavigationDiscoveryDot } from '../ui/NavigationDiscoveryDot';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/DropdownMenu';
+import {
+  EMPTY_CAPABILITY_PIN_OVERRIDES,
+  getCapabilityMenuTiers,
+  isCapabilityPinned,
+  type CapabilityPinOverrides,
+} from './capabilityMenuPins';
 
 type CapabilityMenuProps = {
   activeCapabilityId: CapabilityMenuDestinationId | null;
@@ -25,6 +37,8 @@ type CapabilityMenuProps = {
   avatarUrl?: string | null;
   onSelectCapability: (id: CapabilityMenuDestinationId) => void;
   onReselectCapability?: (id: CapabilityMenuDestinationId) => void;
+  onSetCapabilityPinned: (id: CapabilityMenuDestinationId, pinned: boolean) => void;
+  onOpenCapabilityPinMenu?: (id: CapabilityMenuDestinationId, pinned: boolean) => void;
   onSelectChat: (threadId: string) => void;
   onArchiveChat: (threadId: string) => void;
   onDeleteChat: (threadId: string) => void;
@@ -40,12 +54,17 @@ type CapabilityMenuProps = {
   mealPlanNeedsAttention?: boolean;
   unvisitedCapabilityIds?: readonly CapabilityMenuDestinationId[];
   hiddenCapabilityIds?: readonly CapabilityMenuDestinationId[];
+  pinOverrides?: CapabilityPinOverrides;
 };
 
 export type CapabilityMenuChat = {
   id: string;
   title: string;
   updatedAt: string;
+};
+
+type CapabilityPinMenuTrigger = {
+  open: () => void;
 };
 
 export function CapabilityMenu({
@@ -58,6 +77,8 @@ export function CapabilityMenu({
   avatarUrl,
   onSelectCapability,
   onReselectCapability,
+  onSetCapabilityPinned,
+  onOpenCapabilityPinMenu,
   onSelectChat,
   onArchiveChat,
   onDeleteChat,
@@ -73,31 +94,43 @@ export function CapabilityMenu({
   mealPlanNeedsAttention = false,
   unvisitedCapabilityIds = [],
   hiddenCapabilityIds = [],
+  pinOverrides = EMPTY_CAPABILITY_PIN_OVERRIDES,
 }: CapabilityMenuProps) {
-  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<CapabilityGroupId>>(
-    () => new Set(CAPABILITY_GROUPS.map(({ id }) => id)),
+  const { primaryClusters, moreCapabilityIds } = useMemo(
+    () => getCapabilityMenuTiers(pinOverrides),
+    [pinOverrides],
   );
+  const [moreExpanded, setMoreExpanded] = useState(
+    () => activeCapabilityId !== null && moreCapabilityIds.includes(activeCapabilityId),
+  );
+  const pinMenuTriggers = useRef<Partial<Record<CapabilityMenuDestinationId, CapabilityPinMenuTrigger | null>>>({});
 
-  const toggleGroup = (id: CapabilityGroupId) => {
-    setExpandedGroups((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  useEffect(() => {
+    if (activeCapabilityId && moreCapabilityIds.includes(activeCapabilityId)) {
+      setMoreExpanded(true);
+    }
+  }, [activeCapabilityId, moreCapabilityIds]);
+
+  const isCapabilityVisible = (id: CapabilityMenuDestinationId) => {
+    const capability = CAPABILITY_MENU_REGISTRY.find((candidate) => candidate.id === id);
+    if (!capability || capability.availability !== 'active') return false;
+    if (hiddenCapabilityIds.includes(capability.id)) return false;
+    if (capability.id === 'explore' && !exploreEnabled) return false;
+    if (capability.id === 'chores' && !choresEnabled) return false;
+    return true;
   };
 
   const renderCapability = (id: CapabilityMenuDestinationId) => {
     const capability = CAPABILITY_MENU_REGISTRY.find((candidate) => candidate.id === id);
-    if (!capability || capability.availability !== 'active') return null;
-    if (hiddenCapabilityIds.includes(capability.id)) return null;
-    if (capability.id === 'explore' && !exploreEnabled) return null;
-    if (capability.id === 'chores' && !choresEnabled) return null;
+    if (!capability || !isCapabilityVisible(id)) return null;
     const selected = activeCapabilityId === capability.id;
     const label = capability.label;
     const attentionCount = capability.id === 'chores' ? choresAttentionCount : 0;
     const showsMealPlanAttention = capability.id === 'recipes' && mealPlanNeedsAttention;
     const unvisited = unvisitedCapabilityIds.includes(capability.id);
+    const pinned = isCapabilityPinned(capability.id, pinOverrides);
+    const pinActionName = pinned ? 'unpin' : 'pin';
+    const pinActionLabel = pinned ? 'Unpin' : 'Pin';
     const accessibilityLabel = [
       label,
       unvisited ? 'not yet visited' : null,
@@ -106,57 +139,97 @@ export function CapabilityMenu({
     ].filter(Boolean).join(', ');
 
     return (
-      <Pressable
-        key={capability.id}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        accessibilityState={{ selected }}
-        testID={`capability.menu.${capability.id}`}
-        onPress={() => {
-          if (selected && onReselectCapability) {
-            onReselectCapability(capability.id);
-            return;
-          }
-          onSelectCapability(capability.id);
-        }}
-        style={({ pressed }) => [
-          styles.capabilityRow,
-          selected && styles.capabilityRowSelected,
-          pressed && styles.rowPressed,
-        ]}
-      >
-        <Icon
-          name={capability.icon}
-          size={18}
-          color={selected ? colors.gray700 : colors.textSecondary}
+      <DropdownMenu key={capability.id}>
+        <DropdownMenuTrigger
+          ref={(trigger) => {
+            pinMenuTriggers.current[capability.id] = trigger;
+          }}
+          accessible={false}
+          pointerEvents="none"
+          style={StyleSheet.absoluteFillObject}
         />
-        <Text style={[styles.capabilityLabel, selected && styles.capabilityLabelSelected]}>
-          {label}
-        </Text>
-        {unvisited ? (
-          <NavigationDiscoveryDot testID={`capability.menu.${capability.id}.discovery`} />
-        ) : null}
-        {attentionCount > 0 ? (
-          <Badge
-            variant="secondary"
-            testID="capability.menu.chores.attention"
-            style={styles.attentionBadge}
-            textStyle={styles.attentionBadgeText}
-          >
-            {attentionCount}
-          </Badge>
-        ) : null}
-        {showsMealPlanAttention ? (
-          <View
-            testID="capability.menu.recipes.attention"
-            style={styles.mealPlanAttention}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          accessibilityState={{ selected }}
+          accessibilityActions={[
+            { name: pinActionName, label: `${pinActionLabel} ${label}` },
+          ]}
+          testID={`capability.menu.${capability.id}`}
+          onPress={() => {
+            if (selected && onReselectCapability) {
+              onReselectCapability(capability.id);
+              return;
+            }
+            onSelectCapability(capability.id);
+          }}
+          onLongPress={() => {
+            onOpenCapabilityPinMenu?.(capability.id, pinned);
+            pinMenuTriggers.current[capability.id]?.open();
+          }}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === pinActionName) {
+              onSetCapabilityPinned(capability.id, !pinned);
+            }
+          }}
+          style={({ pressed }) => [
+            styles.capabilityRow,
+            selected && styles.capabilityRowSelected,
+            pressed && styles.rowPressed,
+          ]}
+        >
+          <Icon
+            name={capability.icon}
+            size={18}
+            color={selected ? colors.gray700 : colors.textSecondary}
           />
-        ) : null}
-      </Pressable>
+          <Text style={[styles.capabilityLabel, selected && styles.capabilityLabelSelected]}>
+            {label}
+          </Text>
+          {unvisited ? (
+            <NavigationDiscoveryDot testID={`capability.menu.${capability.id}.discovery`} />
+          ) : null}
+          {attentionCount > 0 ? (
+            <Badge
+              variant="secondary"
+              testID="capability.menu.chores.attention"
+              style={styles.attentionBadge}
+              textStyle={styles.attentionBadgeText}
+            >
+              {attentionCount}
+            </Badge>
+          ) : null}
+          {showsMealPlanAttention ? (
+            <View
+              testID="capability.menu.recipes.attention"
+              style={styles.mealPlanAttention}
+            />
+          ) : null}
+        </Pressable>
+        <DropdownMenuContent
+          testID={`capability.menu.${capability.id}.pin-menu`}
+          side="bottom"
+          sideOffset={4}
+          align="start"
+        >
+          <DropdownMenuItem
+            accessibilityLabel={`${pinActionLabel} ${label}`}
+            icon={pinned ? 'pushPinOff' : 'pushPin'}
+            label={pinActionLabel}
+            onPress={() => onSetCapabilityPinned(capability.id, !pinned)}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   };
 
-  const directCapabilities = CAPABILITY_MENU_REGISTRY.filter(({ group }) => group === null);
+  const visibleMoreCapabilityIds = moreCapabilityIds.filter(isCapabilityVisible);
+  const moreCapabilityCount = visibleMoreCapabilityIds.length;
+  const moreDestinationNoun = moreCapabilityCount === 1 ? 'destination' : 'destinations';
+  const moreContainsUnvisited = visibleMoreCapabilityIds.some(
+    (id) => unvisitedCapabilityIds.includes(id),
+  );
+  const showMoreDiscovery = !moreExpanded && moreContainsUnvisited;
 
   return (
     <View style={styles.root}>
@@ -167,9 +240,18 @@ export function CapabilityMenu({
           accessibilityLabel="Open profile and settings"
           onPress={onOpenSettings}
           hitSlop={6}
-          style={({ pressed }) => [styles.avatarButton, pressed && styles.rowPressed]}
+          style={({ pressed }) => [
+            styles.settingsButton,
+            pressed && styles.settingsButtonPressed,
+          ]}
         >
           <ProfileAvatar name={displayName} avatarUrl={avatarUrl} size={36} />
+          <Icon
+            testID="capability.menu.settings.icon"
+            name="settings"
+            size={18}
+            color={colors.gray700}
+          />
         </Pressable>
       </View>
 
@@ -178,57 +260,54 @@ export function CapabilityMenu({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {CAPABILITY_GROUPS.map((group) => {
-          const expanded = expandedGroups.has(group.id);
-          const capabilityIds = CAPABILITY_MENU_REGISTRY.filter(
-            (capability) => capability.group === group.id,
-          ).map(({ id }) => id);
-          const groupContainsUnvisited = capabilityIds.some((id) => {
-            if (!unvisitedCapabilityIds.includes(id)) return false;
-            if (id === 'explore' && !exploreEnabled) return false;
-            if (id === 'chores' && !choresEnabled) return false;
-            return true;
-          });
-          const showGroupDiscovery = !expanded && groupContainsUnvisited;
-
-          return (
-            <View key={group.id} style={styles.group}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${group.label}${showGroupDiscovery ? ', contains unvisited destinations' : ''}`}
-                accessibilityState={{ expanded }}
-                onPress={() => toggleGroup(group.id)}
-                style={({ pressed }) => [styles.groupHeader, pressed && styles.rowPressed]}
-              >
-                <Text style={styles.groupLabel}>{group.label.toUpperCase()}</Text>
-                <View style={styles.groupHeaderActions}>
-                  {showGroupDiscovery ? (
-                    <NavigationDiscoveryDot
-                      testID={`capability.menu.group.${group.id}.discovery`}
-                    />
-                  ) : null}
-                  <Icon
-                    name={expanded ? 'chevronUp' : 'chevronDown'}
-                    size={15}
-                    color={colors.muted}
-                  />
-                </View>
-              </Pressable>
-              {expanded ? capabilityIds.map(renderCapability) : null}
+        <View testID="capability.menu.primary">
+          {primaryClusters.map((capabilityIds, index) => (
+            <View
+              key={capabilityIds.join('.')}
+              style={index < primaryClusters.length - 1
+                ? styles.primaryCluster
+                : undefined}
+            >
+              {capabilityIds.map(renderCapability)}
             </View>
-          );
-        })}
+          ))}
+        </View>
 
-        {directCapabilities.map(({ id }) => renderCapability(id))}
+        <View style={styles.moreSection}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${moreExpanded ? 'Collapse' : 'Expand'} More, ${moreCapabilityCount} ${moreDestinationNoun}${showMoreDiscovery ? ', contains unvisited destinations' : ''}`}
+            accessibilityState={{ expanded: moreExpanded }}
+            onPress={() => setMoreExpanded((expanded) => !expanded)}
+            style={({ pressed }) => [styles.sectionHeader, pressed && styles.rowPressed]}
+          >
+            <Text style={styles.groupLabel}>MORE ({moreCapabilityCount})</Text>
+            <View testID="capability.menu.more.action" style={styles.sectionHeaderAction}>
+              {showMoreDiscovery ? (
+                <NavigationDiscoveryDot testID="capability.menu.more.discovery" />
+              ) : null}
+              <Icon
+                name={moreExpanded ? 'chevronUp' : 'chevronDown'}
+                size={15}
+                color={colors.muted}
+              />
+            </View>
+          </Pressable>
+          {moreExpanded ? (
+            <View testID="capability.menu.more.items" style={styles.moreItems}>
+              {visibleMoreCapabilityIds.map(renderCapability)}
+            </View>
+          ) : null}
+        </View>
 
-        <View style={styles.chatsHeader}>
+        <View style={[styles.sectionHeader, styles.chatsHeader]}>
           <Text style={styles.groupLabel}>CHATS</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="New chat"
             onPress={onCreateChat}
             hitSlop={6}
-            style={({ pressed }) => [styles.newChatButton, pressed && styles.rowPressed]}
+            style={({ pressed }) => [styles.sectionHeaderAction, pressed && styles.rowPressed]}
           >
             <Icon name="plus" size={17} color={colors.textPrimary} />
           </Pressable>
@@ -423,10 +502,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.lg,
   },
-  group: {
+  primaryCluster: {
     marginBottom: spacing.sm,
   },
-  groupHeader: {
+  moreSection: {
+    marginTop: spacing.xs,
+  },
+  sectionHeader: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
@@ -438,10 +520,17 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.muted,
   },
-  groupHeaderActions: {
+  sectionHeaderAction: {
+    width: 36,
+    height: 36,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
+    borderRadius: 10,
+  },
+  moreItems: {
+    paddingLeft: spacing.md,
   },
   capabilityRow: {
     minHeight: 44,
@@ -481,19 +570,7 @@ const styles = StyleSheet.create({
     opacity: 0.62,
   },
   chatsHeader: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
     paddingTop: spacing.md,
-  },
-  newChatButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
   },
   chatStateRow: {
     minHeight: 44,
@@ -564,12 +641,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: spacing.sm,
   },
-  avatarButton: {
-    width: 44,
+  settingsButton: {
     height: 44,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    gap: spacing.sm,
+    paddingLeft: spacing.xs,
+    paddingRight: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.gray100,
+  },
+  settingsButtonPressed: {
+    backgroundColor: colors.gray200,
   },
   searchButton: {
     width: 44,

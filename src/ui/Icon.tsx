@@ -20,6 +20,7 @@ import Bold from 'lucide-react-native/dist/cjs/icons/bold';
 import BookOpen from 'lucide-react-native/dist/cjs/icons/book-open';
 import Box from 'lucide-react-native/dist/cjs/icons/box';
 import Briefcase from 'lucide-react-native/dist/cjs/icons/briefcase';
+import BrushCleaning from 'lucide-react-native/dist/cjs/icons/brush-cleaning';
 import Calendar from 'lucide-react-native/dist/cjs/icons/calendar';
 import CalendarDays from 'lucide-react-native/dist/cjs/icons/calendar-days';
 import CalendarX from 'lucide-react-native/dist/cjs/icons/calendar-x';
@@ -102,6 +103,8 @@ import PanelLeft from 'lucide-react-native/dist/cjs/icons/panel-left';
 import Paperclip from 'lucide-react-native/dist/cjs/icons/paperclip';
 import Pause from 'lucide-react-native/dist/cjs/icons/pause';
 import Phone from 'lucide-react-native/dist/cjs/icons/phone';
+import Pin from 'lucide-react-native/dist/cjs/icons/pin';
+import PinOff from 'lucide-react-native/dist/cjs/icons/pin-off';
 import Play from 'lucide-react-native/dist/cjs/icons/play';
 import Pizza from 'lucide-react-native/dist/cjs/icons/pizza';
 import Popcorn from 'lucide-react-native/dist/cjs/icons/popcorn';
@@ -141,6 +144,7 @@ import TriangleAlert from 'lucide-react-native/dist/cjs/icons/triangle-alert';
 import Underline from 'lucide-react-native/dist/cjs/icons/underline';
 import Utensils from 'lucide-react-native/dist/cjs/icons/utensils';
 import Video from 'lucide-react-native/dist/cjs/icons/video';
+import Wallet from 'lucide-react-native/dist/cjs/icons/wallet';
 import Waves from 'lucide-react-native/dist/cjs/icons/waves';
 import Wheat from 'lucide-react-native/dist/cjs/icons/wheat';
 import User from 'lucide-react-native/dist/cjs/icons/user';
@@ -170,6 +174,7 @@ const iconMap = {
   fileText: { library: 'lucide', icon: FileText },
   home: { library: 'lucide', icon: House },
   navHome: { library: 'lucide', icon: House },
+  chores: { library: 'lucide', icon: BrushCleaning },
   arcs: { library: 'lucide', icon: Compass },
   navArcs: { library: 'lucide', icon: Orbit },
   chapters: { library: 'lucide', icon: BookOpen },
@@ -187,6 +192,8 @@ const iconMap = {
   bell: { library: 'lucide', icon: Bell },
   phone: { library: 'lucide', icon: Phone },
   pin: { library: 'lucide', icon: MapPin },
+  pushPin: { library: 'lucide', icon: Pin },
+  pushPinOff: { library: 'lucide', icon: PinOff },
   map: { library: 'lucide', icon: MapIcon },
   dices: { library: 'lucide', icon: Dices },
   locate: { library: 'lucide', icon: Crosshair },
@@ -221,6 +228,7 @@ const iconMap = {
   target: { library: 'lucide', icon: Target },
   inbox: { library: 'lucide', icon: Inbox },
   layers: { library: 'lucide', icon: Layers },
+  recipeScale: { library: 'lucide', icon: Maximize2 },
   checklist: { library: 'lucide', icon: SquareCheck },
   navChecklist: { library: 'lucide', icon: ListChecks },
   info: { library: 'lucide', icon: Info },
@@ -248,6 +256,7 @@ const iconMap = {
   navPlan: { library: 'lucide', icon: Calendar },
   meal: { library: 'lucide', icon: Utensils },
   recipeLibrary: { library: 'lucide', icon: Library },
+  recipeYield: { library: 'lucide', icon: CookingPot },
   timer: { library: 'lucide', icon: Timer },
   coffee: { library: 'lucide', icon: Coffee },
   sandwich: { library: 'lucide', icon: Sandwich },
@@ -297,6 +306,7 @@ const iconMap = {
   starFilled: { library: 'lucide', icon: Star, fill: 'color' },
   funnel: { library: 'lucide', icon: Funnel },
   gauge: { library: 'lucide', icon: Gauge },
+  wallet: { library: 'lucide', icon: Wallet },
   creditCard: { library: 'lucide', icon: CreditCard },
   landmark: { library: 'lucide', icon: Landmark },
   receipt: { library: 'lucide', icon: ReceiptText },

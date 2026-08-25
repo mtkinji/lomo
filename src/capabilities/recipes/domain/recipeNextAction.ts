@@ -13,6 +13,8 @@ export type RecipeNextAction = ActionDockSplitAction<RecipeNextActionId>;
 
 type MealPlanState = 'draft' | 'collecting_choices' | 'ready_to_finalize' | 'finalized' | 'archived' | null;
 
+const recipeGroceryCompilationAvailable = false;
+
 const startCooking: RecipeNextAction = {
   id: 'start_cooking',
   icon: 'play',
@@ -76,8 +78,8 @@ export function deriveRecipeNextActions(input: {
     return {
       recommendedAction: continueCooking,
       menuActions: [
-        ...(canCompilePlan ? [mealPlanAction] : []),
-        thisMealAction(canCompilePlan),
+        ...(recipeGroceryCompilationAvailable && canCompilePlan ? [mealPlanAction] : []),
+        ...(recipeGroceryCompilationAvailable ? [thisMealAction(canCompilePlan)] : []),
         ...(input.isInPlan ? [reviewMealPlan] : []),
         planMembershipAction,
       ],
@@ -88,8 +90,8 @@ export function deriveRecipeNextActions(input: {
     return {
       recommendedAction: reviewMealPlan,
       menuActions: [
-        ...(canCompilePlan ? [mealPlanAction] : []),
-        thisMealAction(canCompilePlan),
+        ...(recipeGroceryCompilationAvailable && canCompilePlan ? [mealPlanAction] : []),
+        ...(recipeGroceryCompilationAvailable ? [thisMealAction(canCompilePlan)] : []),
         startCooking,
         removeFromPlan,
       ],
@@ -98,6 +100,9 @@ export function deriveRecipeNextActions(input: {
 
   return {
     recommendedAction: addToPlan,
-    menuActions: [thisMealAction(false), startCooking],
+    menuActions: [
+      ...(recipeGroceryCompilationAvailable ? [thisMealAction(false)] : []),
+      startCooking,
+    ],
   };
 }

@@ -1,4 +1,5 @@
 import { act, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { Toast } from './Toast';
 
 const mockUseAccessibilityPreferences = jest.fn(() => ({
@@ -24,7 +25,7 @@ describe('Toast accessibility contract', () => {
   });
 
   it('announces transient feedback without turning action buttons into one grouped element', () => {
-    const { getByText, getByRole } = render(
+    const { getByText, getByRole, getByTestId } = render(
       <Toast visible message="Goal saved" onDismiss={jest.fn()} />,
     );
 
@@ -33,6 +34,10 @@ describe('Toast accessibility contract', () => {
       accessibilityLiveRegion: 'polite',
     });
     expect(getByRole('button', { name: 'Dismiss notification' })).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('toast-container').props.style)).toMatchObject({
+      zIndex: 4000,
+      elevation: 4000,
+    });
   });
 
   it('does not auto-dismiss while a screen reader is active', () => {

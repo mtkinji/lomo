@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { ActionDockSplitContent } from './ActionDockSplitContent';
 
@@ -32,6 +33,7 @@ describe('ActionDockSplitContent', () => {
         ]}
         disabledActionIds={{ plan: true }}
         menuAccessibilityLabel="Show other Meal actions"
+        menuTriggerTestID="meal-action-menu"
         getMenuTestID={(id) => `meal-action-${id}`}
         onActionPress={onActionPress}
       />,
@@ -44,5 +46,9 @@ describe('ActionDockSplitContent', () => {
     expect(onActionPress).toHaveBeenNthCalledWith(2, 'cook', 'menu');
     expect(screen.getByLabelText('Show other Meal actions')).toBeTruthy();
     expect(screen.getByTestId('meal-action-plan').props.accessibilityState).toEqual({ disabled: true });
+    expect(StyleSheet.flatten(screen.getByTestId('meal-action-menu').props.style)).toMatchObject({
+      minHeight: 56,
+      width: 44,
+    });
   });
 });

@@ -1,11 +1,21 @@
 import {
   buildContextualRecipeRecommendations,
+  buildMealPlanIdeaRecommendations,
   buildRecipeRecommendations,
 } from './recipeRecommendations';
 import { buildRecipeLibraryInventory } from '../data/starterRecipeCatalog';
+import { getStarterRecipeMetadata } from '../data/starterRecipeCatalog';
 import { recipeContractFixture, recipeVersionContractFixture } from './recipeContractFixtures';
 
 describe('recipe recommendations', () => {
+  const mealContext = (recipeId: string) => {
+    const category = getStarterRecipeMetadata(recipeId)?.category;
+    if (category === 'Breakfast & brunch') return 'breakfast';
+    if (category === 'Dinner' || category === 'Soups & stews') return 'dinner';
+    if (category === 'Lunch & handhelds' || category === 'Salads & bowls') return 'lunch';
+    return 'other';
+  };
+
   it('uses only reasons that name the factor that materially affected ranking', () => {
     const recommendations = buildRecipeRecommendations(buildRecipeLibraryInventory([]), 6);
 
@@ -40,6 +50,59 @@ describe('recipe recommendations', () => {
       projection: { recipe: { id: liked.recipe.id } },
       reason: { id: 'liked', label: 'You liked this' },
     });
+  });
+
+  it('treats breakfast as passed at 9:00 and composes two dinner ideas for each lunch idea', () => {
+    const recommendations = buildRecipeRecommendations(
+      buildRecipeLibraryInventory([]),
+      6,
+      new Set(),
+      { localHour: 9 },
+    );
+
+    expect(recommendations.map(({ projection }) => mealContext(projection.recipe.id)))
+      .toEqual(['dinner', 'dinner', 'lunch', 'dinner', 'dinner', 'lunch']);
+    expect(recommendations.some(({ projection }) =>
+      mealContext(projection.recipe.id) === 'breakfast',
+    )).toBe(false);
+  });
+
+  it('keeps breakfast eligible before the 9:00 cutoff', () => {
+    const recommendations = buildRecipeRecommendations(
+      buildRecipeLibraryInventory([]),
+      3,
+      new Set(),
+      { localHour: 8 },
+    );
+
+    expect(mealContext(recommendations[0]!.projection.recipe.id)).toBe('breakfast');
+  });
+
+  it('reuses the Recommended pool for Plan ideas while excluding recipes already in Plan', () => {
+    const recipes = buildRecipeLibraryInventory([]);
+    const alreadyPlanned = recipes.slice(0, 2);
+    const existingRecipeVersionIds = new Set(
+      alreadyPlanned.map((projection) => projection.currentVersion.id),
+    );
+    const favoriteRecipeIds = new Set([recipes[0].recipe.id, recipes[20].recipe.id]);
+
+    const recommendations = buildMealPlanIdeaRecommendations({
+      recipes,
+      favoriteRecipeIds,
+      existingRecipeVersionIds,
+      limit: 3,
+      planningContext: { localHour: 9 },
+    });
+
+    expect(recommendations).toHaveLength(3);
+    expect(recommendations.map(({ projection }) => projection.currentVersion.id))
+      .not.toEqual(expect.arrayContaining([...existingRecipeVersionIds]));
+    expect(recommendations).toEqual(buildRecipeRecommendations(
+      recipes.filter((projection) => !existingRecipeVersionIds.has(projection.currentVersion.id)),
+      3,
+      favoriteRecipeIds,
+      { localHour: 9 },
+    ));
   });
 
   it('builds bounded alternatives that exclude the open, hidden, and unavailable Recipes', () => {

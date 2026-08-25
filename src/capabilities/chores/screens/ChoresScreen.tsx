@@ -91,10 +91,11 @@ function MemberMenu({ member, members, caregiverAvatarUrl, onSelect }: {
           hitSlop={{ top: 6, bottom: 6 }}
           style={({ pressed }) => [styles.memberControl, pressed && styles.pressed]}
         >
-          <ProfileAvatar
-            name={member.displayName}
-            avatarUrl={member.role === 'caregiver' ? caregiverAvatarUrl : undefined}
-            size={24}
+          <Icon
+            name="chevronsUpDown"
+            size={16}
+            color={colors.textSecondary}
+            testID="chores.member.switch-icon"
           />
           <Text variant="label">{member.displayName}</Text>
           <Icon name="chevronDown" size={15} color={colors.textSecondary} />
@@ -190,8 +191,8 @@ function ForMemberRow({ occurrence, tokensEnabled, onOpen, onAttemptComplete, on
         surface="flat"
         title={occurrence.title}
         meta={rowMetadata(occurrence, tokensEnabled)}
-        metaLeadingIconName={tokensEnabled ? 'circleDollarSign' : undefined}
-        metaLeadingIconSize={15}
+        metaLeadingIconName={tokensEnabled ? 'token' : undefined}
+        metaLeadingIconSize={20}
         metaAccessibilityLabel={rowMetadataAccessibilityLabel(occurrence, tokensEnabled)}
         isCompleted={isCompleted}
         showPriorityControl={false}
@@ -249,8 +250,8 @@ function HouseholdRow({ occurrence, tokensEnabled, onOpen, onTake }: {
         surface="flat"
         title={occurrence.title}
         meta={tokensEnabled ? tokenCount(occurrence.tokenValue) : undefined}
-        metaLeadingIconName={tokensEnabled ? 'circleDollarSign' : undefined}
-        metaLeadingIconSize={15}
+        metaLeadingIconName={tokensEnabled ? 'token' : undefined}
+        metaLeadingIconSize={20}
         metaAccessibilityLabel={rowMetadataAccessibilityLabel(occurrence, tokensEnabled)}
         showPriorityControl={false}
         showCheckbox={false}
@@ -788,7 +789,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
               testID="chores.rewards.action"
               accessibilityLabel="Open rewards wallet"
               accessibilityHint="Shows your tokens and redemptions"
-              icon="circleDollarSign"
+              icon="token"
               isProminent
               onPress={() => setRewardsOpen(true)}
               size={RESTING_COMPOSER_HEIGHT_PX}
@@ -862,7 +863,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                         ? `${pendingPaymentCount} reward ${pendingPaymentCount === 1 ? 'payment' : 'payments'} waiting`
                         : 'Open rewards'}
                       accessibilityHint="Shows household token balances and payouts"
-                      icon="circleDollarSign"
+                      icon="token"
                       isProminent
                       onPress={() => setRewardsOpen(true)}
                       size={RESTING_COMPOSER_HEIGHT_PX}
@@ -980,7 +981,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
 
 const styles = StyleSheet.create({
   content: { gap: spacing['2xl'], paddingHorizontal: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.xl },
-  memberControl: { height: 32, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingLeft: spacing.xs, paddingRight: spacing.sm, borderRadius: radii.pill, backgroundColor: colors.gray100 },
+  memberControl: { height: 32, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radii.pill, backgroundColor: colors.gray100 },
   memberMenu: { minWidth: 220 },
   memberMenuItemContent: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   pressed: { opacity: 0.7 },

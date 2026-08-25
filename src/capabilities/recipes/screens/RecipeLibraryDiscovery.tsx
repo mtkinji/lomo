@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { colors } from "../../../theme";
+import { HapticsService } from "../../../services/HapticsService";
 import { Badge } from "../../../ui/Badge";
 import { HeaderActionPill } from "../../../ui/layout/ObjectPageHeader";
 import { Icon, type IconName } from "../../../ui/Icon";
@@ -135,11 +136,6 @@ const RECIPE_SHELF_DEFINITIONS: ReadonlyArray<{
   filters: RecipeInventoryFilters;
 }> = [
   {
-    id: "yours",
-    title: "Your recipes",
-    filters: { ...DEFAULT_RECIPE_INVENTORY_FILTERS, source: "yours" },
-  },
-  {
     id: "quick",
     title: "Ready in 30 minutes",
     filters: { ...DEFAULT_RECIPE_INVENTORY_FILTERS, maxMinutes: 30 },
@@ -179,6 +175,11 @@ const RECIPE_SHELF_DEFINITIONS: ReadonlyArray<{
     id: "dessert",
     title: "Something sweet",
     filters: { ...DEFAULT_RECIPE_INVENTORY_FILTERS, category: "Desserts" },
+  },
+  {
+    id: "yours",
+    title: "Your recipes",
+    filters: { ...DEFAULT_RECIPE_INVENTORY_FILTERS, source: "yours" },
   },
 ];
 
@@ -396,7 +397,10 @@ function MealPlanCardToggle({
       accessibilityLabel={`${verb} ${projection.currentVersion.title} ${selected ? "from" : "to"} Meal Plan`}
       accessibilityState={{ selected }}
       hitSlop={8}
-      onPress={() => onPress(projection)}
+      onPress={() => {
+        void HapticsService.trigger(selected ? "canvas.toggle.off" : "canvas.toggle.on");
+        onPress(projection);
+      }}
       materialVariant="floatingWhite"
       material={!selected}
       size={36}

@@ -18,6 +18,12 @@ export type RecipeRecommendation = {
   reason: RecipeRecommendationReason;
 };
 
+export type RecipeRecommendationPlanningContext = {
+  localHour: number;
+};
+
+type RecipeMealContext = "breakfast" | "lunch" | "dinner" | "other";
+
 function minutesFor(projection: RecipeProjection): number {
   return getRecipeElapsedMinutes(projection);
 }
@@ -26,8 +32,16 @@ export function buildRecipeRecommendations(
   recipes: readonly RecipeProjection[],
   limit = 6,
   favoriteRecipeIds: ReadonlySet<string> = new Set(),
+  planningContext?: RecipeRecommendationPlanningContext,
 ): RecipeRecommendation[] {
   const safeLimit = Math.max(0, limit);
+  if (planningContext) {
+    return composeRecommendationsForPlanningContext(
+      buildRecommendationCandidatePool(recipes, favoriteRecipeIds),
+      safeLimit,
+      planningContext,
+    );
+  }
   const editorialLimit = Math.ceil(safeLimit / 2);
   const selectedIds = new Set<string>();
   const recommendations: RecipeRecommendation[] = [];
@@ -66,6 +80,117 @@ export function buildRecipeRecommendations(
   }
 
   return recommendations;
+}
+
+function buildRecommendationCandidatePool(
+  recipes: readonly RecipeProjection[],
+  favoriteRecipeIds: ReadonlySet<string>,
+): RecipeRecommendation[] {
+  const selectedIds = new Set<string>();
+  const candidates: RecipeRecommendation[] = [];
+  const add = (
+    projection: RecipeProjection,
+    reason: RecipeRecommendationReason,
+  ) => {
+    if (selectedIds.has(projection.recipe.id)) return;
+    selectedIds.add(projection.recipe.id);
+    candidates.push({ projection, reason });
+  };
+
+  for (const projection of recipes) {
+    if (favoriteRecipeIds.has(projection.recipe.id)) {
+      add(projection, { id: "liked", label: "You liked this", icon: "heart" });
+    }
+  }
+  for (const projection of recipes) {
+    if (getStarterRecipeMetadata(projection.recipe.id)?.featured) {
+      add(projection, {
+        id: "familiar",
+        label: "Familiar favorite",
+        icon: "sparkles",
+      });
+    }
+  }
+  for (const projection of recipes) {
+    const minutes = minutesFor(projection);
+    if (minutes > 0 && minutes <= 30) {
+      add(projection, { id: "quick", label: "Quick to make", icon: "clock" });
+    }
+  }
+  return candidates;
+}
+
+function mealContextFor(projection: RecipeProjection): RecipeMealContext {
+  switch (getStarterRecipeMetadata(projection.recipe.id)?.category) {
+    case "Breakfast & brunch":
+      return "breakfast";
+    case "Lunch & handhelds":
+    case "Salads & bowls":
+      return "lunch";
+    case "Dinner":
+    case "Soups & stews":
+      return "dinner";
+    default:
+      return "other";
+  }
+}
+
+function composeRecommendationsForPlanningContext(
+  candidates: readonly RecipeRecommendation[],
+  limit: number,
+  context: RecipeRecommendationPlanningContext,
+): RecipeRecommendation[] {
+  const breakfastIsRelevant = context.localHour >= 0 && context.localHour < 9;
+  const eligible = candidates.filter(
+    (candidate) => breakfastIsRelevant || mealContextFor(candidate.projection) !== "breakfast",
+  );
+  const slots: readonly RecipeMealContext[] = breakfastIsRelevant
+    ? ["breakfast", "dinner", "lunch", "dinner", "dinner", "lunch"]
+    : ["dinner", "dinner", "lunch"];
+  const selected = new Set<string>();
+  const recommendations: RecipeRecommendation[] = [];
+
+  for (let index = 0; index < limit; index += 1) {
+    const desired = slots[index % slots.length];
+    const candidate = eligible.find(
+      (item) =>
+        !selected.has(item.projection.recipe.id) &&
+        mealContextFor(item.projection) === desired,
+    ) ?? eligible.find((item) => !selected.has(item.projection.recipe.id));
+    if (!candidate) break;
+    selected.add(candidate.projection.recipe.id);
+    recommendations.push(candidate);
+  }
+  return recommendations;
+}
+
+export function buildRecipeRecommendationPlanningContext(
+  moment: Date = new Date(),
+): RecipeRecommendationPlanningContext {
+  return { localHour: moment.getHours() };
+}
+
+export function buildMealPlanIdeaRecommendations({
+  recipes,
+  favoriteRecipeIds,
+  existingRecipeVersionIds,
+  limit = 3,
+  planningContext,
+}: {
+  recipes: readonly RecipeProjection[];
+  favoriteRecipeIds: ReadonlySet<string>;
+  existingRecipeVersionIds: ReadonlySet<string>;
+  limit?: number;
+  planningContext?: RecipeRecommendationPlanningContext;
+}): RecipeRecommendation[] {
+  return buildRecipeRecommendations(
+    recipes.filter(
+      (projection) => !existingRecipeVersionIds.has(projection.currentVersion.id),
+    ),
+    limit,
+    favoriteRecipeIds,
+    planningContext,
+  );
 }
 
 function sourceIdentity(projection: RecipeProjection): {

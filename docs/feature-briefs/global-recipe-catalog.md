@@ -9,7 +9,7 @@ job_flow: job-flow-maya-feed-household-with-less-work
 serves: [jtbd-move-the-few-things-that-matter, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-food-loop, brief-food-ai-operating-layer, brief-personal-meal-favorites]
 owner: andrew
-last_updated: 2026-08-24
+last_updated: 2026-08-25
 ---
 
 # Global Recipe Catalog
@@ -143,15 +143,35 @@ Automated QA checks dimensions, crop safety, semantic match, forbidden text/logo
 - Missing media uses a quiet truthful fallback, never an unrelated food image.
 - No social tab, creator feed, leaderboard, review badges, catalog settings, or image-generation UI.
 
+### Contextual recommendations
+
+Recipes Recommended and Plan's **Get ideas from Kwilt** action share one
+deterministic recommendation selector. The Recipes session captures local time
+once so recommendations do not reshuffle while the person is considering them.
+
+Before 9:00 local time, breakfast may appear as the next-meal context. At and
+after 9:00, `Breakfast & brunch` is ineligible. When inventory permits, the
+selector then composes recommendations in a repeating dinner, dinner, lunch
+pattern. `Dinner` and `Soups & stews` provide dinner context;
+`Lunch & handhelds` and `Salads & bowls` provide lunch context. Favorites,
+editorial familiarity, and quickness order candidates within those buckets;
+personal or uncategorized Recipes remain eligible as fallbacks.
+
+This release does not infer pantry stock, meal history, family preference,
+weather, or budget fit. Each future signal must be authorized, materially affect
+rank, and support a truthful recommendation reason.
+
 ### Activation
 
 Heart is learned directly from cards. Rating is available on Recipe Home and contextually invited after Cook Complete. Cooking notes are discovered after reading/cooking a Recipe rather than promoted before useful experience. Recipe updating appears in Recipe actions and after a reviewed Cook learning. No onboarding carousel or attention campaign is added.
 
-### Authored yield and recipe size
+### Authored yield and recipe scaling
 
 Every immutable RecipeVersion owns one authored yield: a positive quantity plus its physical output unit. Recipe Home opens at `1×` and says what that batch makes. Household diner count, Meal Plan portions, and nutrition serving size are separate concepts and never overwrite authored yield.
 
 Recipe scaling uses reviewed whole-batch multipliers (`1×`, `2×`, `3×`). A Recipe may expose multipliers above `1×` only when every ingredient and repeated instruction quantity has an explicit reviewed scaling rule. Unknown or unsafe rules fail closed to the authored `1×` recipe; Kwilt never partially scales a recipe.
+
+User-facing surfaces lead with the resulting yield (`Makes <yield>`). `Scale <N>×` appears only as a secondary action for reviewed scalable recipes; fixed recipes never display a meaningless `1×` indicator.
 
 Meal Plan snapshots store diner context and recipe multiplier separately. Grocery and Cook Mode quantities derive from the stored multiplier, never from `planned portions ÷ authored yield`.
 
@@ -175,6 +195,8 @@ A fresh account can browse all 600 database-backed canonical Recipes after the e
 - Restoring an older version appends a new immutable version and never rewrites history.
 - Meal Plan and Grocery snapshots retain exact recipe/version/media lineage.
 - First 25 images pass automated and editorial contact-sheet review; published media resolves from Supabase CDN and can be replaced without a native build.
+- At 9:00 local time and later, Recommended excludes breakfast; when eligible inventory exists, each three-result sequence contains two dinner-context meals and one lunch-context meal.
+- Recommended and **Get ideas from Kwilt** use the same captured planning moment and selector, while deliberate category/search browsing remains unchanged.
 - `npm run verify:changed -- --run` passes; source proof, Simulator/Metro proof, signed-account/device proof, and production-default proof remain explicitly distinct.
 
 ## Learning and decision rule

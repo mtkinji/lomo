@@ -762,16 +762,16 @@ interface AppState {
    * and the host reads these flags to drive visibility + pre-selected scope.
    *
    * `initialScope`:
-   * - `'activities' | 'goals' | 'arcs' | 'chapters' | 'recipes'` seeds the chip bar so
-   *   that only the requested scope is selected on open (used when the
+   * - `'activities' | 'goals' | 'arcs' | 'chapters' | 'recipes'` seeds the scope
+   *   selection so only the requested scope is active on open (used when the
    *   caller is a scope-specific entry point like the Activities tab FAB).
-   *   The chip bar remains visible and users can broaden their search by
-   *   toggling other chips on.
    * - `null` preserves the user's last chip selection (falling back to all
    *   scopes on if nothing is selected).
    */
   globalSearchOpen: boolean;
   globalSearchInitialScope: 'activities' | 'goals' | 'arcs' | 'chapters' | 'recipes' | null;
+  /** Runtime-only launch presentation. Defaults to true and resets on close. */
+  globalSearchShowScopeSelector: boolean;
   /**
    * Selected object-kind scopes for the global search drawer. Backed by a
    * plain object keyed by scope for persistence-friendly serialization.
@@ -796,7 +796,10 @@ interface AppState {
    */
   globalSearchShowMeta: boolean;
   openGlobalSearch: (
-    opts?: { initialScope?: AppState['globalSearchInitialScope'] },
+    opts?: {
+      initialScope?: AppState['globalSearchInitialScope'];
+      showScopeSelector?: boolean;
+    },
   ) => void;
   closeGlobalSearch: () => void;
   setGlobalSearchScopes: (
@@ -1643,6 +1646,7 @@ export const useAppStore = create<AppState>()(
       activitySearchShowMeta: false,
       globalSearchOpen: false,
       globalSearchInitialScope: null,
+      globalSearchShowScopeSelector: true,
       globalSearchScopes: {
         activities: true,
         goals: true,
@@ -2942,12 +2946,13 @@ export const useAppStore = create<AppState>()(
           const next: Partial<AppState> = {
             globalSearchOpen: true,
             globalSearchInitialScope: scope,
+            globalSearchShowScopeSelector: opts?.showScopeSelector !== false,
           };
           // When callers ask for a specific scope (e.g. the Activities FAB),
-          // seed the chip selection so only that scope is active — but keep
-          // the chip bar visible and interactive so users can broaden from
-          // there. If no scope is provided, preserve the user's last chip
-          // selection unless it has collapsed to zero (safety net).
+          // seed the selection so only that scope is active. Callers decide
+          // separately whether the shared scope selector stays visible. If no
+          // scope is provided, preserve the user's last selection unless it
+          // has collapsed to zero (safety net).
           if (scope) {
             next.globalSearchScopes = {
               activities: scope === 'activities',
@@ -2976,6 +2981,7 @@ export const useAppStore = create<AppState>()(
         set(() => ({
           globalSearchOpen: false,
           globalSearchInitialScope: null,
+          globalSearchShowScopeSelector: true,
         })),
       setGlobalSearchScopes: (updater) =>
         set((state) => ({
@@ -3491,6 +3497,7 @@ export const useAppStore = create<AppState>()(
         // Drawer open-state is runtime-only; never persist it across launches.
         anyState.globalSearchOpen = false;
         anyState.globalSearchInitialScope = null;
+        anyState.globalSearchShowScopeSelector = true;
 
         if (
           !anyState.healthPreferences ||

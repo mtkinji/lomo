@@ -11,6 +11,8 @@ import {
 } from './DropdownMenu';
 import { Icon, type IconName } from './Icon';
 
+const MENU_TRIGGER_WIDTH_PX = 44;
+
 export type ActionDockSplitAction<Id extends string = string> = {
   id: Id;
   icon: IconName;
@@ -115,7 +117,7 @@ const styles = StyleSheet.create({
   primaryAction: { minHeight: 56, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingLeft: spacing.lg, paddingRight: spacing.md },
   primaryLabel: { ...typography.body, fontSize: 16, lineHeight: 22, color: colors.textPrimary, fontFamily: fonts.medium, flexShrink: 1 },
   divider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: colors.border },
-  menuTrigger: { width: 54, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
+  menuTrigger: { width: MENU_TRIGGER_WIDTH_PX, minHeight: 56, alignItems: 'center', justifyContent: 'center' },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minWidth: 0, flex: 1 },
   menuLabel: { ...typography.body, color: colors.textPrimary, fontFamily: fonts.medium, flexShrink: 1 },
   menuLabelDisabled: { color: colors.muted },

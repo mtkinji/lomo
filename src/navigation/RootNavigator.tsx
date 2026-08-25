@@ -101,6 +101,7 @@ import { DevToolsScreen } from '../features/dev/DevToolsScreen';
 import { GuidedOvertureLabScreen } from '../features/dev/GuidedOvertureLabScreen';
 import { useAppStore } from '../store/useAppStore';
 import { useToastStore } from '../store/useToastStore';
+import { useCapabilityMenuPinsStore } from '../store/useCapabilityMenuPinsStore';
 import { rootNavigationRef } from './rootNavigationRef';
 import { ChromeVisibilityProvider } from './ChromeVisibilityContext';
 import { ArcDraftContinueScreen } from '../features/arcs/ArcDraftContinueScreen';
@@ -142,6 +143,10 @@ import {
   useCapabilityMenuOpen,
 } from './CapabilityMenuStateContext';
 import { CapabilitySideSheet } from './CapabilitySideSheet';
+import {
+  EMPTY_CAPABILITY_PIN_OVERRIDES,
+  getCapabilityPinToastMessage,
+} from './capabilityMenuPins';
 import { createUnifiedChatRepository } from '../features/unifiedChat/threadRepository';
 import type { UnifiedChatThread } from '../features/unifiedChat/types';
 import { MoneyNavigator } from '../capabilities/money/navigation/MoneyNavigator';
@@ -1230,6 +1235,12 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const { capture } = useAnalytics();
   const { coverMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
+  const capabilityMenuPreferenceUserId = authIdentity?.userId ?? 'local';
+  const storedPinOverrides = useCapabilityMenuPinsStore(
+    (state) => state.overridesByUserId[capabilityMenuPreferenceUserId],
+  );
+  const pinOverrides = storedPinOverrides ?? EMPTY_CAPABILITY_PIN_OVERRIDES;
+  const setCapabilityPinned = useCapabilityMenuPinsStore((state) => state.setPinned);
   const liveTransactionsAvailability = useMoneyNavigationAvailabilityStore((state) => (
     authIdentity?.userId
       ? state.transactionsByUserId[authIdentity.userId] ?? 'unknown'
@@ -1420,8 +1431,28 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         displayName={displayName}
         avatarUrl={userProfile?.avatarUrl || authIdentity?.avatarUrl}
         hiddenCapabilityIds={menuTransactionsAvailability === 'pristine' ? ['money-transactions'] : []}
+        pinOverrides={pinOverrides}
         onSelectCapability={capabilityMenuNavigationHandlers.onSelectCapability}
         onReselectCapability={capabilityMenuNavigationHandlers.onReselectCapability}
+        onOpenCapabilityPinMenu={(id, pinned) => {
+          capture(AnalyticsEvent.CapabilityPinMenuOpened, {
+            destination_id: id,
+            current_state: pinned ? 'pinned' : 'unpinned',
+            source_surface: 'menu_long_press',
+          });
+        }}
+        onSetCapabilityPinned={(id, pinned) => {
+          setCapabilityPinned(capabilityMenuPreferenceUserId, id, pinned);
+          const label = CAPABILITY_MENU_REGISTRY.find((candidate) => candidate.id === id)?.label ?? 'Capability';
+          useToastStore.getState().showToast({
+            message: getCapabilityPinToastMessage(label, pinned),
+          });
+          capture(AnalyticsEvent.CapabilityPinChanged, {
+            destination_id: id,
+            state: pinned ? 'pinned' : 'unpinned',
+            source_surface: 'menu_long_press',
+          });
+        }}
         onSelectChat={openChatThread}
         onArchiveChat={(threadId) => void archiveChatThread(threadId)}
         onDeleteChat={deleteChatThread}

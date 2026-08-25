@@ -148,6 +148,8 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
 
     expect(source).toContain('<View style={styles.activityInventory}>');
     expect(source).toContain('<View style={styles.activityRows}>');
+    expect(source).toContain('View all activity');
+    expect(source).not.toContain('View all in Transactions');
     expect(source).toContain('activityInventory: { gap: spacing.md, padding: spacing.sm, borderRadius: radii.card, backgroundColor: colors.fieldFill }');
     expect(source).toContain('activityRows: { overflow: \'hidden\', borderRadius: radii.card, backgroundColor: colors.card }');
     expect(source).toContain('showDivider={index < group.transactions.length - 1}');

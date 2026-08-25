@@ -93,6 +93,8 @@ export const AnalyticsEvent = {
   // source surface, object type, and durations. Never object titles or chat content.
   CapabilityMenuOpened: 'capability_menu_opened',
   CapabilitySelected: 'capability_selected',
+  CapabilityPinMenuOpened: 'capability_pin_menu_opened',
+  CapabilityPinChanged: 'capability_pin_changed',
   CapabilityActivated: 'capability_activated',
   CapabilityDeactivated: 'capability_deactivated',
   CapabilityActivationFailed: 'capability_activation_failed',

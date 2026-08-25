@@ -671,6 +671,16 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(mockRootNavigate).toHaveBeenCalledWith('Settings', { screen: 'SettingsBudget' });
   });
 
+  it('opens all transactions as a secondary Budget destination', () => {
+    const navigation = { navigate: jest.fn() };
+    const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-transactions', name: 'MoneySummary' } as never} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Budget options' }));
+    fireEvent.press(screen.getByRole('menuitem', { name: 'All transactions' }));
+
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactions', {});
+  });
+
   it('connects another account directly from the Budget header', async () => {
     const navigation = { navigate: jest.fn() };
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary-connect', name: 'MoneySummary' } as never} />);

@@ -27,7 +27,7 @@ briefs:
   - online-grocery-cart-concierge
   - trusted-recipe-product-picks
 status: draft
-last_reviewed: 2026-08-20
+last_reviewed: 2026-08-25
 ---
 
 # Recipes
@@ -35,3 +35,5 @@ last_reviewed: 2026-08-20
 Owns private reusable Recipe identity, immutable content versions, provenance,
 capture/import review, clean cooking, copy/collaboration sharing, the global
 Kwilt-authored catalog, and explicit public publication boundaries.
+It also owns the explainable catalog recommendation selector used by Recipes
+discovery and by Meal Plan when it requests Recipe ideas.

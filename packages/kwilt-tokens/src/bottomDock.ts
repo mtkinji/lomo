@@ -8,6 +8,15 @@ import { spacing } from './spacing';
  * produce equal-looking gaps.
  */
 export const bottomDockGeometry = {
+  /**
+   * Resting floating controls on inventory and object-detail surfaces. These
+   * use the roomier corner nesting proven by the To-dos inventory dock.
+   */
+  restingFloatingControl: {
+    inlineGap: spacing['2xl'],
+    bottomGap: spacing['2xl'],
+    contentGap: spacing.md,
+  },
   phoneFloating: {
     inlineGap: spacing.xl,
     contentGap: spacing.md,
