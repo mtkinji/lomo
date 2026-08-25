@@ -60,6 +60,7 @@ export type GroceryCompilerLine = {
   planEntryId: string;
   fromYield: number | null;
   toYield: number | null;
+  recipeScaleMultiplier?: number | null;
   optional: boolean;
 };
 
@@ -157,7 +158,7 @@ export function assignAisle(concept:string):Aisle{
 export function buildGroceryCompilation(lines:GroceryCompilerLine[]):{items:CompiledGroceryItem[]}{
   const items:CompiledGroceryItem[]=[];
   for(const line of lines){
-    const parsed=parseIngredientLine(line.originalText); const factor=line.fromYield&&line.toYield?line.toYield/line.fromYield:1;
+    const parsed=parseIngredientLine(line.originalText); const factor=line.recipeScaleMultiplier??(line.fromYield&&line.toYield?line.toYield/line.fromYield:1);
     const quantityMin=parsed.quantityMin===null?null:Math.round(parsed.quantityMin*factor*1e9)/1e9; const quantityMax=parsed.quantityMax===null?null:Math.round(parsed.quantityMax*factor*1e9)/1e9;
     const mergeable=quantityMin!==null&&parsed.unit!==null&&!['to taste','for garnish','divided'].includes(parsed.preparation??'');
     const existing=mergeable?items.find((item)=>item.concept===parsed.concept&&item.preparation===parsed.preparation&&item.optional===line.optional&&item.packageQuantity===parsed.packageQuantity&&item.packageUnit===parsed.packageUnit&&compatible(item.unit,parsed.unit)):undefined;

@@ -12,6 +12,53 @@ function bounded(value: number): number {
   return Math.round(value * 1_000_000_000) / 1_000_000_000;
 }
 
+export const RECIPE_SCALE_MULTIPLIERS = [1, 2, 3] as const;
+
+export type RecipeScaleMultiplier = (typeof RECIPE_SCALE_MULTIPLIERS)[number];
+
+export function isRecipeScaleMultiplier(value: number): value is RecipeScaleMultiplier {
+  return RECIPE_SCALE_MULTIPLIERS.some((multiplier) => multiplier === value);
+}
+
+export function multiplyRecipeQuantity(input: {
+  quantity: number | null;
+  quantityMax: number | null;
+  multiplier: RecipeScaleMultiplier;
+}): { quantity: number | null; quantityMax: number | null } {
+  if (!isRecipeScaleMultiplier(input.multiplier)) {
+    throw new Error('Recipe multiplier must be one of the reviewed whole-batch options.');
+  }
+  if ((input.quantity !== null && input.quantity < 0) || (input.quantityMax !== null && input.quantityMax < 0)) {
+    throw new Error('Quantity cannot be negative.');
+  }
+  return {
+    quantity: input.quantity === null ? null : bounded(input.quantity * input.multiplier),
+    quantityMax: input.quantityMax === null ? null : bounded(input.quantityMax * input.multiplier),
+  };
+}
+
+function pluralizeYieldUnit(unit: string, quantity: number): string {
+  if (quantity === 1 || unit.endsWith('s')) return unit;
+  if (unit.endsWith('loaf')) return `${unit.slice(0, -1)}ves`;
+  if (/(?:ch|sh|x|z)$/.test(unit)) return `${unit}es`;
+  return `${unit}s`;
+}
+
+export function formatScaledRecipeYield(input: {
+  yieldQuantity: number;
+  yieldUnit: string;
+  multiplier: RecipeScaleMultiplier;
+}): string {
+  if (!Number.isFinite(input.yieldQuantity) || input.yieldQuantity <= 0) {
+    throw new Error('Recipe yield must be greater than zero.');
+  }
+  if (!isRecipeScaleMultiplier(input.multiplier)) {
+    throw new Error('Recipe multiplier must be one of the reviewed whole-batch options.');
+  }
+  const quantity = bounded(input.yieldQuantity * input.multiplier);
+  return `${formatKitchenQuantity(quantity)} ${pluralizeYieldUnit(input.yieldUnit.trim(), quantity)}`;
+}
+
 export function parseKitchenQuantity(text: string): number | null {
   const normalized = text.trim();
   if (!normalized) return null;

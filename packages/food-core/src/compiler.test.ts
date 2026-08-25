@@ -57,7 +57,12 @@ describe('food-core conservative compiler', () => {
     expect(result.items.every((item) => item.sources[0].ingredientLineId)).toBe(true);
   });
 
-  it('scales structured quantities by servings and assigns a bounded aisle deterministically', () => {
+  it('scales structured quantities by an explicit recipe multiplier', () => {
+    const result = buildGroceryCompilation([{ ...line('2 onions', 'r1', 'i1'), recipeScaleMultiplier: 3 }]);
+    expect(result.items[0]).toEqual(expect.objectContaining({ quantityMin: 6, aisle: 'produce' }));
+  });
+
+  it('temporarily supports legacy serving-derived scale factors during migration', () => {
     const result = buildGroceryCompilation([{ ...line('2 onions', 'r1', 'i1'), fromYield: 4, toYield: 6 }]);
     expect(result.items[0]).toEqual(expect.objectContaining({ quantityMin: 3, aisle: 'produce' }));
   });

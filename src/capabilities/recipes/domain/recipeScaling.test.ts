@@ -1,6 +1,36 @@
-import { formatKitchenQuantity, parseKitchenQuantity, scaleRecipeQuantity } from './recipeScaling';
+import {
+  formatKitchenQuantity,
+  formatScaledRecipeYield,
+  multiplyRecipeQuantity,
+  parseKitchenQuantity,
+  RECIPE_SCALE_MULTIPLIERS,
+  scaleRecipeQuantity,
+} from './recipeScaling';
 
 describe('Recipe serving scaling', () => {
+  it('supports only reviewed whole-batch multipliers', () => {
+    expect(RECIPE_SCALE_MULTIPLIERS).toEqual([1, 2, 3]);
+  });
+
+  it('multiplies a quantity and range without using diner count', () => {
+    expect(multiplyRecipeQuantity({ quantity: 1.5, quantityMax: 2.25, multiplier: 2 }))
+      .toEqual({ quantity: 3, quantityMax: 4.5 });
+  });
+
+  it('formats the physical result of a multiplier', () => {
+    expect(formatScaledRecipeYield({ yieldQuantity: 1, yieldUnit: '9-by-5-inch loaf', multiplier: 2 }))
+      .toBe('2 9-by-5-inch loaves');
+    expect(formatScaledRecipeYield({ yieldQuantity: 24, yieldUnit: 'halves', multiplier: 3 }))
+      .toBe('72 halves');
+  });
+
+  it('rejects arbitrary, fractional, and non-positive multipliers', () => {
+    expect(() => multiplyRecipeQuantity({ quantity: 1, quantityMax: null, multiplier: 1.5 as never }))
+      .toThrow('Recipe multiplier');
+    expect(() => multiplyRecipeQuantity({ quantity: 1, quantityMax: null, multiplier: 0 as never }))
+      .toThrow('Recipe multiplier');
+  });
+
   test.each([
     ['1', 1], ['1.5', 1.5], ['1/2', 0.5], ['1 1/2', 1.5], ['1½', 1.5], ['¾', 0.75], ['⅙', 1 / 6],
   ])('parses %s', (text, expected) => expect(parseKitchenQuantity(text)).toBe(expected));
