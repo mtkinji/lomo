@@ -72,7 +72,9 @@ export function createRecipeCookRepository(client: SupabaseClient = getSupabaseC
     async save(userId: string, value: RecipeCookSession): Promise<{ session: RecipeCookSession; remote: 'synced' | 'pending' }> {
       const session = parseRecipeCookSession(value); await cache.write(userId, session);
       try {
-        const { error } = await client.rpc('sync_kwilt_recipe_cook_session', { p_session: session, p_expected_revision: Math.max(0, session.revision - 1) });
+        const legacyRpcSession: Record<string, unknown> = { ...session, servingScale: session.recipeScaleMultiplier };
+        delete legacyRpcSession.recipeScaleMultiplier;
+        const { error } = await client.rpc('sync_kwilt_recipe_cook_session', { p_session: legacyRpcSession, p_expected_revision: Math.max(0, session.revision - 1) });
         if (error) throw error; return { session, remote: 'synced' };
       } catch { return { session, remote: 'pending' }; }
     },

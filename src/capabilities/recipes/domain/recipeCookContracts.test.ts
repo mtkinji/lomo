@@ -16,7 +16,7 @@ describe('Recipe Cook contracts', () => {
 export function session() {
   return {
     id: 'cook-1', ownerPersonId: 'person-1', recipeId: 'recipe-1', recipeVersionId: 'version-3', recipeVersion: 3,
-    servingScale: 1.5, status: 'active' as const, currentCueIndex: 0, cueCount: 2, revision: 1,
+    recipeScaleMultiplier: 2 as const, status: 'active' as const, currentCueIndex: 0, cueCount: 2, revision: 1,
     startedAt: '2026-08-05T12:00:00.000Z', pausedAt: null, completedAt: null, updatedAt: '2026-08-05T12:00:00.000Z',
     lastDevice: { deviceId: 'device-1', platform: 'ios' as const, appVersion: '1.0.102', observedAt: '2026-08-05T12:00:00.000Z' }, timers: [],
   };

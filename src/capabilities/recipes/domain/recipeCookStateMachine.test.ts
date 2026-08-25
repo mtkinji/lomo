@@ -1,7 +1,7 @@
 import { createRecipeCookSession, transitionRecipeCookSession } from './recipeCookStateMachine';
 
 describe('Recipe Cook state machine', () => {
-  const started = () => createRecipeCookSession({ id: 'cook-1', ownerPersonId: 'person-1', recipeId: 'recipe-1', recipeVersionId: 'version-3', recipeVersion: 3, servingScale: 1, cueCount: 3, now: '2026-08-05T12:00:00.000Z', device: { deviceId: 'd1', platform: 'ios', appVersion: '1' } });
+  const started = () => createRecipeCookSession({ id: 'cook-1', ownerPersonId: 'person-1', recipeId: 'recipe-1', recipeVersionId: 'version-3', recipeVersion: 3, recipeScaleMultiplier: 1, cueCount: 3, now: '2026-08-05T12:00:00.000Z', device: { deviceId: 'd1', platform: 'ios', appVersion: '1' } });
 
   test.each([
     ['next', 1], ['next', 1], ['back', 0],

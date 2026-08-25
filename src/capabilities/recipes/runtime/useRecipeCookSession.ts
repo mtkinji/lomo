@@ -12,14 +12,15 @@ import { buildRecipeCookCues } from '../domain/recipeCookCueBuilder';
 import { reconcileRecipeCookSessionCues } from '../domain/recipeCookSessionCueMigration';
 import { createRecipeCookSession, transitionRecipeCookSession, type RecipeCookCommand, type RecipeCookEvent } from '../domain/recipeCookStateMachine';
 import type { CookCue, RecipeCookSession } from '../domain/recipeCookContracts';
+import type { RecipeScaleMultiplier } from '../domain/recipeScaling';
 
 const KEEP_AWAKE_TAG = 'kwilt-recipe-cook';
-export function useRecipeCookSession(recipe: RecipeProjection, servings: number) {
+export function useRecipeCookSession(recipe: RecipeProjection, recipeScaleMultiplier: RecipeScaleMultiplier) {
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const cues = useMemo(() => buildRecipeCookCues(recipe.currentVersion, {
-    servings,
+    multiplier: recipeScaleMultiplier,
     mediaAssets: recipe.recipe.mediaAssets,
-  }), [recipe, servings]);
+  }), [recipe, recipeScaleMultiplier]);
   const [session, setSession] = useState<RecipeCookSession | null>(null);
   const [restoring, setRestoring] = useState(true);
   const repository = useMemo(() => createRecipeCookRepository(), []);
@@ -31,9 +32,9 @@ export function useRecipeCookSession(recipe: RecipeProjection, servings: number)
   const persist = useCallback(async (next: RecipeCookSession) => { setSession(next); if (userId) await repository.save(userId, next); }, [repository, userId]);
   const start = useCallback(async () => {
     if (session) return session;
-    const now = new Date().toISOString(); const next = createRecipeCookSession({ id: Crypto.randomUUID(), ownerPersonId: recipe.recipe.ownerPersonId, recipeId: recipe.recipe.id, recipeVersionId: recipe.currentVersion.id, recipeVersion: recipe.currentVersion.version, servingScale: servings / (recipe.currentVersion.yieldQuantity ?? servings), cueCount: Math.max(1, cues.length), now, device: { deviceId: userId ?? 'local-device', platform: Platform.OS === 'android' ? 'android' : 'ios', appVersion: Application.nativeApplicationVersion ?? 'development' } });
+    const now = new Date().toISOString(); const next = createRecipeCookSession({ id: Crypto.randomUUID(), ownerPersonId: recipe.recipe.ownerPersonId, recipeId: recipe.recipe.id, recipeVersionId: recipe.currentVersion.id, recipeVersion: recipe.currentVersion.version, recipeScaleMultiplier, cueCount: Math.max(1, cues.length), now, device: { deviceId: userId ?? 'local-device', platform: Platform.OS === 'android' ? 'android' : 'ios', appVersion: Application.nativeApplicationVersion ?? 'development' } });
     await persist(next); return next;
-  }, [cues.length, persist, recipe, servings, session, userId]);
+  }, [cues.length, persist, recipe, recipeScaleMultiplier, session, userId]);
   const send = useCallback(async (event: RecipeCookCommand) => { if (!session) throw new Error('Cook Session is not ready.');let command:RecipeCookCommand=event;let scheduled:string|null=null;if(event.type==='resume_timer'){const timer=session.timers.find((item)=>item.id===event.timerId);if(timer){const permission=await Notifications.getPermissionsAsync();if(permission.status==='granted')scheduled=await Notifications.scheduleNotificationAsync({content:{title:`${timer.label} timer`,body:`${recipe.currentVersion.title} is ready for the next action.`,data:{capability:'food',recipeId:recipe.recipe.id,cookSessionId:session.id}},trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:new Date(Date.now()+timer.remainingSeconds*1000)}});command={...event,notificationId:scheduled};}}let next:RecipeCookSession;try{next=transitionRecipeCookSession(session,{...command,expectedRevision:session.revision,now:new Date().toISOString()}as RecipeCookEvent);}catch(error){if(scheduled)await Notifications.cancelScheduledNotificationAsync(scheduled).catch(()=>undefined);throw error;}await persist(next);if((event.type==='pause_timer'||event.type==='cancel_timer')){const previous=session.timers.find((item)=>item.id===event.timerId)?.notificationId;if(previous)await Notifications.cancelScheduledNotificationAsync(previous).catch(()=>undefined);}return next; }, [persist, recipe.currentVersion.title, recipe.recipe.id, session]);
   const startTimer = useCallback(async (suggestion: CookCue['timerSuggestions'][number]) => {
     if (!session) return; let notificationId: string | null = null;

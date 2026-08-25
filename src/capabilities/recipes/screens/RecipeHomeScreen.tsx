@@ -743,12 +743,10 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
     activeCook
       ? navigation.navigate("RecipeCookMode", {
           recipeId: projection.recipe.id,
-          servings: (projection.currentVersion.yieldQuantity ?? 1) * multiplier,
           recipeScaleMultiplier: multiplier,
         })
       : navigation.navigate("RecipeReadiness", {
           recipeId: projection.recipe.id,
-          servings: (projection.currentVersion.yieldQuantity ?? 1) * multiplier,
           recipeScaleMultiplier: multiplier,
           ...(route.params.source === 'meal_plan' ? { source: 'meal_plan' as const } : {}),
         });
@@ -771,12 +769,13 @@ export function RecipeHomeScreen({ navigation, route }: Props) {
             sourceType: projection.recipe.provenance.method,
             title: projection.currentVersion.title,
             yieldQuantity: projection.currentVersion.yieldQuantity,
+            yieldUnit: projection.currentVersion.yieldUnit,
             ingredients: projection.currentVersion.ingredients.map((line) => ({
               id: line.id,
               originalText: line.originalText,
               optional: line.optional,
             })),
-            servings: (projection.currentVersion.yieldQuantity ?? 1) * multiplier,
+            recipeScaleMultiplier: multiplier,
           });
       capture(AnalyticsEvent.GroceryListCompiled, {
         outcome: "success",

@@ -16,15 +16,21 @@ import { STARTER_RECIPE_PROJECTIONS, getStarterRecipeEnrichment } from '../data/
 import { resolveAvailableRecipe } from '../data/resolveAvailableRecipe';
 import { cookModeEducationCache } from '../data/cookModeEducationCache';
 import { useAppStore } from '../../../store/useAppStore';
+import { formatScaledRecipeYield, type RecipeScaleMultiplier } from '../domain/recipeScaling';
 
 export type RecipeReadinessItem = { id: string; label: string; inferred: boolean };
 export function deriveRecipeReadiness(
   version: RecipeVersion,
-  servings: number,
+  recipeScaleMultiplier: RecipeScaleMultiplier,
   enrichment: RecipeEditorialEnrichment | null = null,
 ): RecipeReadinessItem[] {
   const text = version.instructions.map((step) => step.text).join(' ');
-  const items: RecipeReadinessItem[] = [{ id: 'servings', label: `Cooking for ${servings}`, inferred: false }];
+  const items: RecipeReadinessItem[] = [{ id: 'recipe-size', label: `Recipe size ${recipeScaleMultiplier}×`, inferred: false }];
+  if (version.yieldQuantity && version.yieldUnit) items.push({
+    id: 'yield',
+    label: `Makes ${formatScaledRecipeYield({ yieldQuantity: version.yieldQuantity, yieldUnit: version.yieldUnit, multiplier: recipeScaleMultiplier })}`,
+    inferred: false,
+  });
   const preheat = /preheat[^.]*\.?/i.exec(text)?.[0]; if (preheat) items.push({ id: 'preheat', label: preheat, inferred: false });
   if (enrichment?.equipmentNeeds.length) {
     items.push(...enrichment.equipmentNeeds.map((need) => ({
@@ -62,7 +68,7 @@ export function RecipeReadinessScreen({ navigation, route }: Props) {
   if (!projection) return <AppShell><PageHeader title="Before you begin" onPressBack={() => navigation.goBack()} /><View style={styles.center}><Text>This recipe is not available.</Text></View></AppShell>;
   const items = deriveRecipeReadiness(
     projection.currentVersion,
-    route.params.servings,
+    route.params.recipeScaleMultiplier,
     getStarterRecipeEnrichment(projection.recipe.id),
   );
   return <AppShell><PageHeader title="Before you begin" onPressBack={() => navigation.goBack()} /><ScrollView contentContainerStyle={styles.content}>{shouldShowFoodCookGuide(route.params.source, foodGuideSeen) ? <View style={styles.guide}><Heading variant="sm">Your place stays here.</Heading><Text tone="secondary">Use the touch controls to move one cue at a time. If you leave, Kwilt resumes this recipe at the same cue.</Text><Button size="sm" variant="outline" onPress={() => { setFoodGuideSeen(true); void cookModeEducationCache.markFoodMealLoopCookGuideSeen(identityId); }}>Got it</Button></View> : null}<Heading variant="lg">Set yourself up, then cook one step at a time.</Heading><Text tone="secondary">These checks don’t change your recipe. Inferred equipment is labeled so you can ignore it.</Text><View style={styles.list}>{items.map((item) => <View key={item.id} style={styles.item}><CheckCircle2 color={colors.pine700} size={22} /><View style={styles.itemText}><Text>{item.label}</Text>{item.inferred ? <Text variant="label" tone="secondary">INFERRED</Text> : null}</View></View>)}</View>{!projection.currentVersion.instructions.length ? <Text tone="destructive">Add at least one method step before starting Cook Mode.</Text> : null}<Button variant="primary" disabled={!projection.currentVersion.instructions.length} onPress={() => navigation.replace('RecipeCookMode', route.params)}>Start cooking</Button><Button variant="ghost" onPress={() => navigation.goBack()}>Not yet</Button></ScrollView></AppShell>;

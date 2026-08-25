@@ -20,6 +20,7 @@ function parseRecipeSource(value: unknown): RecipeGrocerySource | null {
     || typeof source.title !== 'string'
     || source.title.length > 500
     || (source.yieldQuantity !== null && typeof source.yieldQuantity !== 'number')
+    || (source.yieldUnit !== null && typeof source.yieldUnit !== 'string')
     || !ingredients
     || ingredients.length > 200) return null;
   const parsedIngredients: RecipeGrocerySource['ingredients'] = [];
@@ -41,6 +42,7 @@ function parseRecipeSource(value: unknown): RecipeGrocerySource | null {
     sourceType: source.sourceType,
     title: source.title,
     yieldQuantity: source.yieldQuantity === null ? null : Number(source.yieldQuantity),
+    yieldUnit: source.yieldUnit === null ? null : String(source.yieldUnit),
     ingredients: parsedIngredients,
   };
 }
@@ -53,9 +55,9 @@ serve(async(req)=>{
     const token=/^Bearer\s+(.+)$/i.exec(req.headers.get('authorization')??'')?.[1]; const url=Deno.env.get('SUPABASE_URL'); const key=Deno.env.get('SUPABASE_ANON_KEY')??Deno.env.get('SUPABASE_PUBLISHABLE_KEY'); if(!token||!url||!key)throw new Error('configuration_error');
     const userClient=createClient(url,key,{global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}});
 
-    const recipeSource=parseRecipeSource(body?.recipe); const servings=Number(body?.servings);
+    const recipeSource=parseRecipeSource(body?.recipe); const recipeScaleMultiplier=Number(body?.recipeScaleMultiplier);
     if(recipeSource){
-      if(!Number.isFinite(servings)||servings<=0)return json(400,{error:{code:'invalid_request'}});
+      if(![1,2,3].includes(recipeScaleMultiplier))return json(400,{error:{code:'invalid_request'}});
       let authoritativeIngredients:Array<{id:string;original_text:string;optional:boolean}>|null=null;
       if(recipeSource.sourceType!=='catalog'){
         const {data:version,error:versionError}=await userClient.from('kwilt_recipe_versions').select('id,recipe_id,version,content_hash,ingredients:kwilt_recipe_ingredients(id,original_text,optional),recipe:kwilt_recipes!inner(id,lifecycle)').eq('id',recipeSource.recipeVersionId).maybeSingle();
@@ -68,8 +70,8 @@ serve(async(req)=>{
           || recipeRelation?.lifecycle==='deleted')throw new Error('missing_recipe_version');
         authoritativeIngredients=(version.ingredients??[]) as Array<{id:string;original_text:string;optional:boolean}>;
       }
-      const compiled=compileRecipeGroceryAuthority({source:recipeSource,servings,authoritativeIngredients}); const payloadHash=await hash(compiled.items);
-      const {data:receipt,error}=await userClient.rpc('compile_kwilt_recipe_grocery_list',{p_recipe_source:{...recipeSource,servings},p_payload_hash:payloadHash,p_compiled_items:compiled.items}); if(error)throw error;
+      const compiled=compileRecipeGroceryAuthority({source:recipeSource,recipeScaleMultiplier:recipeScaleMultiplier as 1|2|3,authoritativeIngredients}); const payloadHash=await hash(compiled.items);
+      const {data:receipt,error}=await userClient.rpc('compile_kwilt_recipe_grocery_list',{p_recipe_source:{...recipeSource,recipeScaleMultiplier},p_payload_hash:payloadHash,p_compiled_items:compiled.items}); if(error)throw error;
       return json(200,{receipt});
     }
 

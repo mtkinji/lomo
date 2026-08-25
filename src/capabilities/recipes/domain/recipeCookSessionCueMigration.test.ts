@@ -8,7 +8,7 @@ function session(): RecipeCookSession {
     recipeId: 'recipe-1',
     recipeVersionId: 'version-1',
     recipeVersion: 1,
-    servingScale: 1,
+    recipeScaleMultiplier: 1,
     status: 'paused',
     currentCueIndex: 3,
     cueCount: 5,

@@ -62,11 +62,6 @@ describe('food-core conservative compiler', () => {
     expect(result.items[0]).toEqual(expect.objectContaining({ quantityMin: 6, aisle: 'produce' }));
   });
 
-  it('temporarily supports legacy serving-derived scale factors during migration', () => {
-    const result = buildGroceryCompilation([{ ...line('2 onions', 'r1', 'i1'), fromYield: 4, toYield: 6 }]);
-    expect(result.items[0]).toEqual(expect.objectContaining({ quantityMin: 3, aisle: 'produce' }));
-  });
-
   it('hashes semantic content deterministically regardless of object key order', () => {
     expect(stableContentHash({ planId: 'p1', version: 2, selected: ['a'] }))
       .toBe(stableContentHash({ selected: ['a'], version: 2, planId: 'p1' }));
@@ -84,5 +79,5 @@ describe('food-core conservative compiler', () => {
 });
 
 function line(originalText: string, recipeVersionId: string, ingredientLineId: string) {
-  return { originalText, recipeVersionId, ingredientLineId, planEntryId: `entry-${recipeVersionId}`, fromYield: null, toYield: null, optional: false };
+  return { originalText, recipeVersionId, ingredientLineId, planEntryId: `entry-${recipeVersionId}`, recipeScaleMultiplier: 1, optional: false };
 }

@@ -17,4 +17,17 @@ describe('Recipe Cook cache', () => {
     await expect(createRecipeCookCache(storage).read('user-1')).resolves.toBeNull();
     expect(storage.removeItem).toHaveBeenCalled();
   });
+
+  it('restores the database-era servingScale alias as a recipe multiplier', async () => {
+    const legacy = { ...session(), servingScale: 2 } as Record<string, unknown>;
+    delete legacy.recipeScaleMultiplier;
+    const storage = {
+      getItem: jest.fn(async () => JSON.stringify(legacy)),
+      setItem: jest.fn(),
+      removeItem: jest.fn(async () => undefined),
+    };
+    await expect(createRecipeCookCache(storage).read('user-1')).resolves.toMatchObject({
+      recipeScaleMultiplier: 2,
+    });
+  });
 });

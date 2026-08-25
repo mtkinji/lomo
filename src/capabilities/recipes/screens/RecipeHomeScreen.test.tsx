@@ -418,7 +418,7 @@ describe("Recipe Home", () => {
           sessionId: "session-1",
           recipeId: "recipe-1",
           recipeVersionId: "version-1",
-          servingScale: 1,
+          recipeScaleMultiplier: 1,
           wouldMakeAgain: true,
           outcomeRating: 4,
           privateNote: "Use more sauce",

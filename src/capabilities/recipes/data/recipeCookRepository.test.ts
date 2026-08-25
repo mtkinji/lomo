@@ -1,8 +1,19 @@
 import { createRecipeCookRepository } from './recipeCookRepository';
+import { session } from '../domain/recipeCookContracts.test';
 
 function chain() { const value: any = { select: jest.fn(), eq: jest.fn(), order: jest.fn(), limit: jest.fn(), maybeSingle: jest.fn() }; value.select.mockReturnValue(value); value.eq.mockReturnValue(value); value.order.mockReturnValue(value); return value; }
 
 describe('Recipe Cook record projection', () => {
+  it('maps the recipe multiplier to the legacy RPC servingScale alias', async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: null, error: null });
+    const cache = { read: jest.fn(), write: jest.fn(), clear: jest.fn() };
+    await createRecipeCookRepository({ rpc } as never, cache as never).save('user-1', session());
+    expect(rpc).toHaveBeenCalledWith('sync_kwilt_recipe_cook_session', {
+      p_session: expect.objectContaining({ servingScale: 2 }),
+      p_expected_revision: 0,
+    });
+    expect(rpc.mock.calls[0][1].p_session).not.toHaveProperty('recipeScaleMultiplier');
+  });
   it('saves private outcomes and normalized substitutions through the journal RPC', async () => {
     const rpc = jest.fn().mockResolvedValue({ data: { cookCount: 2 }, error: null });
     const learning = {

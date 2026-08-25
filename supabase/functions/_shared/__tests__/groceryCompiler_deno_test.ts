@@ -2,7 +2,7 @@ import { compileGroceryAuthority, compileHouseholdPlanGroceryAuthority, compileR
 
 const input = {
   plan: { id: 'plan-1', version: 3, state: 'finalized', organizer_person_id: 'person-1' }, expectedVersion: 3, actorPersonId: 'person-1',
-  entries: [{ id: 'entry-1', plan_version: 3, servings: 8, recipe_snapshot: { recipeVersionId: 'version-1', yieldQuantity: 4 } }],
+  entries: [{ id: 'entry-1', plan_version: 3, servings: 8, recipe_snapshot: { recipeVersionId: 'version-1', yieldQuantity: 4, yieldUnit: 'servings', selectedServings: 8 } }],
   ingredientsByVersionId: { 'version-1': [{ id: 'ingredient-1', original_text: '2 onions', optional: false }] },
 };
 
@@ -30,8 +30,8 @@ Deno.test('compiles every dish once while keeping dish entry provenance private'
   const result = compileGroceryAuthority({
     ...input,
     entries: [
-      { id: 'adult-dish', plan_version: 3, servings: 4, recipe_snapshot: { recipeVersionId: 'version-1', yieldQuantity: 4 } },
-      { id: 'alternate-dish', plan_version: 3, servings: 2, recipe_snapshot: { recipeVersionId: 'version-2', yieldQuantity: 2 } },
+      { id: 'adult-dish', plan_version: 3, servings: 4, recipe_snapshot: { recipeVersionId: 'version-1', yieldQuantity: 4, recipeScaleMultiplier: 1 } },
+      { id: 'alternate-dish', plan_version: 3, servings: 2, recipe_snapshot: { recipeVersionId: 'version-2', yieldQuantity: 2, recipeScaleMultiplier: 1 } },
     ],
     ingredientsByVersionId: {
       'version-1': [{ id: 'onions', original_text: '2 onions', optional: false }],
@@ -54,6 +54,7 @@ Deno.test('compiles an immutable bundled-catalog ingredient snapshot without pri
       recipe_snapshot: {
         recipeVersionId: 'kwilt-recipe-br001-v1',
         yieldQuantity: 4,
+        recipeScaleMultiplier: 2,
         sourceType: 'catalog',
         contentHash: 'kwilt:BR001:v1',
         ingredients: [{
@@ -81,9 +82,10 @@ Deno.test('compiles one readable Recipe version without inventing Meal Plan memb
       sourceType: 'manual',
       title: 'Onion soup',
       yieldQuantity: 4,
+      yieldUnit: 'servings',
       ingredients: [],
     },
-    servings: 8,
+    recipeScaleMultiplier: 2,
     authoritativeIngredients: [{ id: 'ingredient-1', original_text: '2 onions', optional: false }],
   });
 
@@ -102,9 +104,10 @@ Deno.test('compiles one immutable bundled-catalog Recipe snapshot', () => {
       sourceType: 'catalog',
       title: 'Pancakes',
       yieldQuantity: 4,
+      yieldUnit: 'servings',
       ingredients: [{ id: 'kwilt-recipe-br001-v1-ingredient-1', originalText: '2 cups flour', optional: false }],
     },
-    servings: 8,
+    recipeScaleMultiplier: 2,
     authoritativeIngredients: null,
   });
 
@@ -119,8 +122,8 @@ Deno.test('compiles a persistent household Plan with candidate-level quantities'
     actorPersonId: 'person-1',
     actorRole: 'caregiver',
     candidates: [
-      { id: 'candidate-a', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { recipeVersionId: 'version-a', yieldQuantity: 4, selectedServings: 8 } },
-      { id: 'candidate-b', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { recipeVersionId: 'version-b', yieldQuantity: 4, selectedServings: 4 } },
+      { id: 'candidate-a', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { recipeVersionId: 'version-a', yieldQuantity: 4, recipeScaleMultiplier: 2, plannedPortions: 8, selectedServings: 8 } },
+      { id: 'candidate-b', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { recipeVersionId: 'version-b', yieldQuantity: 4, recipeScaleMultiplier: 1, plannedPortions: 4, selectedServings: 4 } },
     ],
     ingredientsByVersionId: {
       'version-a': [{ id: 'cheese-a', original_text: '1 cup cheese', optional: false }],
@@ -155,7 +158,7 @@ Deno.test('lets only the organizer compile a personal draft Plan', () => {
     actorRole: null,
     candidates: [{
       id: 'candidate-a', lifecycleState: 'sent' as const, removedGroceryBehavior: null,
-      recipeSnapshot: { recipeVersionId: 'version-a', yieldQuantity: 2, selectedServings: 4 },
+      recipeSnapshot: { recipeVersionId: 'version-a', yieldQuantity: 2, yieldUnit: 'servings', selectedServings: 4 },
     }],
     ingredientsByVersionId: {
       'version-a': [{ id: 'rice', original_text: '1 cup rice', optional: false }],
@@ -172,4 +175,49 @@ Deno.test('lets only the organizer compile a personal draft Plan', () => {
     failed = true;
   }
   if (!failed) throw new Error('a different person compiled a personal Plan');
+});
+
+Deno.test('compiles a loaf snapshot from recipeScaleMultiplier instead of planned portions', () => {
+  const result = compileHouseholdPlanGroceryAuthority({
+    plan: { id: 'plan-loaf', household_id: 'household-1', organizer_person_id: 'person-1', version: 1, state: 'draft' },
+    expectedVersion: 1,
+    actorPersonId: 'person-1',
+    actorRole: 'owner',
+    candidates: [{
+      id: 'loaf', lifecycleState: 'sent', removedGroceryBehavior: null,
+      recipeSnapshot: { recipeVersionId: 'bread-v1', yieldQuantity: 1, yieldUnit: 'loaf', selectedServings: 6, recipeScaleMultiplier: 1 },
+    }],
+    ingredientsByVersionId: { 'bread-v1': [{ id: 'milk', original_text: '1 cup milk', optional: false }] },
+  });
+  if (result.items.find((item) => item.concept === 'milk')?.quantityMin !== 1) throw new Error('planned portions changed loaf size');
+});
+
+Deno.test('doubles a loaf only from an explicit recipe multiplier', () => {
+  const result = compileHouseholdPlanGroceryAuthority({
+    plan: { id: 'plan-loaf', household_id: 'household-1', organizer_person_id: 'person-1', version: 1, state: 'draft' },
+    expectedVersion: 1,
+    actorPersonId: 'person-1',
+    actorRole: 'owner',
+    candidates: [{
+      id: 'loaf', lifecycleState: 'sent', removedGroceryBehavior: null,
+      recipeSnapshot: { recipeVersionId: 'bread-v1', yieldQuantity: 1, yieldUnit: 'loaf', selectedServings: 6, recipeScaleMultiplier: 2 },
+    }],
+    ingredientsByVersionId: { 'bread-v1': [{ id: 'milk', original_text: '1 cup milk', optional: false }] },
+  });
+  if (result.items.find((item) => item.concept === 'milk')?.quantityMin !== 2) throw new Error('explicit loaf multiplier was ignored');
+});
+
+Deno.test('requires review before compiling an ambiguous legacy physical yield', () => {
+  let failed = false;
+  try {
+    compileHouseholdPlanGroceryAuthority({
+      plan: { id: 'plan-loaf', household_id: 'household-1', organizer_person_id: 'person-1', version: 1, state: 'draft' },
+      expectedVersion: 1, actorPersonId: 'person-1', actorRole: 'owner',
+      candidates: [{ id: 'loaf', lifecycleState: 'sent', removedGroceryBehavior: null, recipeSnapshot: { recipeVersionId: 'bread-v1', yieldQuantity: 1, yieldUnit: 'loaf', selectedServings: 6 } }],
+      ingredientsByVersionId: { 'bread-v1': [{ id: 'milk', original_text: '1 cup milk', optional: false }] },
+    });
+  } catch (error) {
+    failed = error instanceof Error && error.message === 'legacy_recipe_scale_review_required';
+  }
+  if (!failed) throw new Error('ambiguous legacy loaf compiled');
 });

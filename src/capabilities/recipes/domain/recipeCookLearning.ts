@@ -88,7 +88,7 @@ export function buildRecipeCookLearning(
   return {
     record: {
       id: `cook-record:${session.id}`, sessionId: session.id, ownerPersonId: session.ownerPersonId, recipeId: session.recipeId,
-      recipeVersionId: session.recipeVersionId, servingScale: session.servingScale, completed: true, wouldMakeAgain: input.wouldMakeAgain,
+      recipeVersionId: session.recipeVersionId, servingScale: session.recipeScaleMultiplier, completed: true, wouldMakeAgain: input.wouldMakeAgain,
       outcomeRating: input.outcomeRating, privateNote: input.destination === 'private_note' ? note || null : null,
       substitutions, completedAt: session.completedAt, provenance: 'cook_session',
     },

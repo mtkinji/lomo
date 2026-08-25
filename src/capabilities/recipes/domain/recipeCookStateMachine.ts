@@ -2,11 +2,11 @@ import { parseRecipeCookSession, RecipeCookContractError, type RecipeCookSession
 
 type DeviceInput = Omit<RecipeCookSession['lastDevice'], 'observedAt'>;
 export function createRecipeCookSession(input: {
-  id: string; ownerPersonId: string; recipeId: string; recipeVersionId: string; recipeVersion: number; servingScale: number; cueCount: number; now: string; device: DeviceInput;
+  id: string; ownerPersonId: string; recipeId: string; recipeVersionId: string; recipeVersion: number; recipeScaleMultiplier: RecipeCookSession['recipeScaleMultiplier']; cueCount: number; now: string; device: DeviceInput;
 }): RecipeCookSession {
   return parseRecipeCookSession({
     id: input.id, ownerPersonId: input.ownerPersonId, recipeId: input.recipeId, recipeVersionId: input.recipeVersionId, recipeVersion: input.recipeVersion,
-    servingScale: input.servingScale, status: 'active', currentCueIndex: 0, cueCount: input.cueCount, revision: 1,
+    recipeScaleMultiplier: input.recipeScaleMultiplier, status: 'active', currentCueIndex: 0, cueCount: input.cueCount, revision: 1,
     startedAt: input.now, pausedAt: null, completedAt: null, updatedAt: input.now, lastDevice: { ...input.device, observedAt: input.now }, timers: [],
   });
 }

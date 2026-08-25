@@ -29,12 +29,12 @@ describe('Grocery repository', () => {
   it('compiles through the server boundary and mutates only through revisioned RPCs', async () => {
     const invoke=jest.fn().mockResolvedValue({data:{receipt:{}},error:null}); const rpc=jest.fn().mockResolvedValue({data:{},error:null}); const repository=createGroceryRepository({functions:{invoke},rpc} as never);
     await repository.compile('plan-1',3); await repository.compile('plan-1',4,{fromListId:'list-1',expectedRevision:5}); await repository.compileRecipe({
-      recipeId:'recipe-1',recipeVersionId:'version-1',recipeVersion:2,contentHash:'sha256:recipe-1-v2',sourceType:'manual',title:'Onion soup',yieldQuantity:4,
-      ingredients:[{id:'ingredient-1',originalText:'2 onions',optional:false}],servings:8,
+      recipeId:'recipe-1',recipeVersionId:'version-1',recipeVersion:2,contentHash:'sha256:recipe-1-v2',sourceType:'manual',title:'Onion soup',yieldQuantity:4,yieldUnit:'servings',
+      ingredients:[{id:'ingredient-1',originalText:'2 onions',optional:false}],recipeScaleMultiplier:2,
     }); await repository.setItemState('item-1',2,'already_have'); await repository.addItem('list-1',3,'Dish soap'); await repository.markReviewed('list-1',4); await repository.handoff('list-1',5,'instacart'); await repository.markHandoffOpened('handoff-1');
     expect(invoke).toHaveBeenCalledWith('grocery-compile',{body:{planId:'plan-1',expectedVersion:3}});
     expect(invoke).toHaveBeenNthCalledWith(2,'grocery-compile',{body:{planId:'plan-1',expectedVersion:4,rebaseFromListId:'list-1',expectedRebaseRevision:5}});
-    expect(invoke).toHaveBeenNthCalledWith(3,'grocery-compile',{body:{recipe:{recipeId:'recipe-1',recipeVersionId:'version-1',recipeVersion:2,contentHash:'sha256:recipe-1-v2',sourceType:'manual',title:'Onion soup',yieldQuantity:4,ingredients:[{id:'ingredient-1',originalText:'2 onions',optional:false}]},servings:8}});
+    expect(invoke).toHaveBeenNthCalledWith(3,'grocery-compile',{body:{recipe:{recipeId:'recipe-1',recipeVersionId:'version-1',recipeVersion:2,contentHash:'sha256:recipe-1-v2',sourceType:'manual',title:'Onion soup',yieldQuantity:4,yieldUnit:'servings',ingredients:[{id:'ingredient-1',originalText:'2 onions',optional:false}]},recipeScaleMultiplier:2}});
     expect(rpc.mock.calls.map((call)=>call[0])).toEqual(['set_kwilt_grocery_item_state','add_kwilt_grocery_item','mark_kwilt_grocery_list_reviewed']);
     expect(invoke).toHaveBeenNthCalledWith(4,'grocery-handoff',{body:{groceryListId:'list-1',expectedRevision:5,provider:'instacart'}});
     expect(invoke).toHaveBeenNthCalledWith(5,'grocery-handoff',{body:{action:'opened',handoffId:'handoff-1'}});

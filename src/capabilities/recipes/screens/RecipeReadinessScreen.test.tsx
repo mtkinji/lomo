@@ -3,11 +3,12 @@ import { RECIPE_EDITORIAL_ENRICHMENT_BY_ROSTER_ID } from '../data/recipeEditoria
 import { deriveRecipeReadiness, shouldShowFoodCookGuide } from './RecipeReadinessScreen';
 
 describe('Recipe readiness', () => {
-  it('locks servings and labels inferred equipment', () => {
+  it('locks recipe size and labels inferred equipment', () => {
     const version = recipeVersionContractFixture();
     version.instructions = [{ ...version.instructions[0], text: 'Preheat the oven to 350°F. Bake for 20 minutes.' }];
-    const items = deriveRecipeReadiness(version, 6);
-    expect(items).toContainEqual({ id: 'servings', label: 'Cooking for 6', inferred: false });
+    const items = deriveRecipeReadiness(version, 2);
+    expect(items).toContainEqual({ id: 'recipe-size', label: 'Recipe size 2×', inferred: false });
+    expect(items).toContainEqual({ id: 'yield', label: 'Makes 16 servings', inferred: false });
     expect(items).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'equipment', inferred: true, label: expect.stringContaining('oven') })]));
   });
 
@@ -21,7 +22,7 @@ describe('Recipe readiness', () => {
     const version = recipeVersionContractFixture();
     version.instructions = [{ ...version.instructions[0], text: 'Use the oven and skillet.' }];
     const enrichment = RECIPE_EDITORIAL_ENRICHMENT_BY_ROSTER_ID.get('BR031')!;
-    const items = deriveRecipeReadiness(version, 4, enrichment);
+    const items = deriveRecipeReadiness(version, 1, enrichment);
 
     expect(items).toEqual(expect.arrayContaining([
       { id: 'equipment-tamagoyaki-pan', label: 'Rectangular tamagoyaki pan', inferred: false },

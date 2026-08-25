@@ -1,3 +1,5 @@
+import type { RecipeScaleMultiplier } from './recipeScaling';
+
 export type RecipeCookDevice = { deviceId: string; platform: 'ios' | 'android'; appVersion: string; observedAt: string };
 export type CookTimer = {
   id: string; cueId: string; label: string; durationSeconds: number; remainingSeconds: number;
@@ -6,7 +8,7 @@ export type CookTimer = {
 };
 export type RecipeCookSession = {
   id: string; ownerPersonId: string; recipeId: string; recipeVersionId: string; recipeVersion: number;
-  servingScale: number; status: 'active' | 'paused' | 'completed' | 'abandoned'; currentCueIndex: number; cueCount: number;
+  recipeScaleMultiplier: RecipeScaleMultiplier; status: 'active' | 'paused' | 'completed' | 'abandoned'; currentCueIndex: number; cueCount: number;
   revision: number; startedAt: string; pausedAt: string | null; completedAt: string | null; updatedAt: string;
   lastDevice: RecipeCookDevice; timers: CookTimer[];
 };
@@ -40,7 +42,7 @@ export function parseRecipeCookSession(value: RecipeCookSession): RecipeCookSess
   if (!value.id || !value.ownerPersonId || !value.recipeId || !value.recipeVersionId || !Number.isInteger(value.recipeVersion) || value.recipeVersion < 1 || !Number.isInteger(value.revision) || value.revision < 1) {
     throw new RecipeCookContractError('recipe_cook.identity_invalid', 'Cook Session identity and exact Recipe version are required.');
   }
-  if (!Number.isFinite(value.servingScale) || value.servingScale <= 0) throw new RecipeCookContractError('recipe_cook.scale_invalid', 'Serving scale must be positive.');
+  if (![1, 2, 3].includes(value.recipeScaleMultiplier)) throw new RecipeCookContractError('recipe_cook.scale_invalid', 'Recipe multiplier must be 1, 2, or 3.');
   if (!Number.isInteger(value.cueCount) || value.cueCount < 1 || !Number.isInteger(value.currentCueIndex) || value.currentCueIndex < 0 || value.currentCueIndex >= value.cueCount) {
     throw new RecipeCookContractError('recipe_cook.cue_invalid', 'Cook cue position is outside this Recipe version.');
   }

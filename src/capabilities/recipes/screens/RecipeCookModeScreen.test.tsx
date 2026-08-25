@@ -73,7 +73,7 @@ describe("RecipeCookModeExperience", () => {
     const screen = render(
       <RecipeCookModeExperience
         projection={projection}
-        servings={4}
+        recipeScaleMultiplier={1}
         landscape={true}
         navigation={navigation}
       />,
@@ -129,7 +129,7 @@ describe("RecipeCookModeExperience", () => {
       screen.rerender(
         <RecipeCookModeExperience
           projection={projection}
-          servings={4}
+          recipeScaleMultiplier={1}
           landscape={true}
           navigation={navigation}
         />,
@@ -244,7 +244,7 @@ describe("RecipeCookModeExperience", () => {
     const screen = render(
       <RecipeCookModeExperience
         projection={projection}
-        servings={4}
+        recipeScaleMultiplier={1}
         landscape={true}
         navigation={navigation as never}
       />,

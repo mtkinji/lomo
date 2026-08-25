@@ -7,7 +7,16 @@ export function createRecipeCookCache(storage: StorageAdapter) {
   return {
     async read(userId: string): Promise<RecipeCookSession | null> {
       const key = recipeCookCacheKey(userId);
-      try { const raw = await storage.getItem(key); return raw ? parseRecipeCookSession(JSON.parse(raw)) : null; }
+      try {
+        const raw = await storage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        if (parsed.recipeScaleMultiplier === undefined && [1, 2, 3].includes(Number(parsed.servingScale))) {
+          parsed.recipeScaleMultiplier = Number(parsed.servingScale);
+        }
+        delete parsed.servingScale;
+        return parseRecipeCookSession(parsed as RecipeCookSession);
+      }
       catch { await storage.removeItem(key).catch(() => undefined); return null; }
     },
     async write(userId: string, session: RecipeCookSession): Promise<void> { await storage.setItem(recipeCookCacheKey(userId), JSON.stringify(parseRecipeCookSession(session))); },

@@ -70,7 +70,7 @@ export function RecipeCookModeScreen({ navigation, route }: Props) {
   return (
     <RecipeCookModeExperience
       projection={projection}
-      servings={route.params.servings}
+      recipeScaleMultiplier={route.params.recipeScaleMultiplier}
       landscape={landscape}
       navigation={navigation}
     />
@@ -79,18 +79,18 @@ export function RecipeCookModeScreen({ navigation, route }: Props) {
 
 export function RecipeCookModeExperience({
   projection,
-  servings,
+  recipeScaleMultiplier,
   landscape,
   navigation,
 }: {
   projection: RecipeProjection;
-  servings: number;
+  recipeScaleMultiplier: 1 | 2 | 3;
   landscape: boolean;
   navigation: Props["navigation"];
 }) {
   const { capture } = useAnalytics();
   const trackedSession = useRef<string | null>(null);
-  const cook = useRecipeCookSession(projection, servings);
+  const cook = useRecipeCookSession(projection, recipeScaleMultiplier);
   useEffect(() => {
     if (!cook.restoring && !cook.session) void cook.start();
   }, [cook.restoring, cook.session, cook.start]);
