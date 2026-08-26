@@ -16,6 +16,14 @@ export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrato
 export { createRuntimeToolProviderRegistry } from './providerRegistry';
 export { normalizeStrictToolArguments, toStrictToolInputSchema } from './strictToolSchema';
 export { resolveTurnPolicy } from './planning/resolveTurnPolicy';
+export {
+  isKwiltToolNamespaceId,
+  KWILT_TOOL_NAMESPACE_IDS,
+  KWILT_TOOL_NAMESPACES,
+  namespaceForCapability,
+  namespaceForTool,
+} from './toolNamespaces';
+export type { KwiltToolNamespaceId } from './toolNamespaces';
 export type {
   RuntimeToolHandler,
   RuntimeToolProviderRegistration,

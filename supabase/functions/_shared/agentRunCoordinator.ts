@@ -11,6 +11,12 @@ import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
 import { executeServerAgentTool } from './serverAgentTools.ts';
 import { calendarDateInTimeZone, normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 import { buildUnifiedChatAgentInstructions } from './unifiedChatAgentPolicy.ts';
+import {
+  planServerTurn,
+  type ServerTurnJudgment,
+  type ServerTurnPlan,
+} from './serverTurnPlanning.ts';
+import type { KwiltToolNamespaceId } from '../../../packages/kwilt-agent-runtime/src/toolNamespaces.ts';
 
 export type EnqueuedAgentRun = {
   threadId: string;
@@ -59,6 +65,10 @@ export type AgentRunPersistence = {
     round: number;
     metadata: ServerAgentModelMetadata;
   }) => Promise<void>;
+  recordTurnPlanning: (input: {
+    run: EnqueuedAgentRun;
+    plan: ServerTurnPlan;
+  }) => Promise<void>;
   complete: (input: {
     run: EnqueuedAgentRun;
     expectedVersion: number;
@@ -89,8 +99,15 @@ type AgentRunExecutionDependencies = {
   };
   modelStep: (input: {
     messages: readonly ServerAgentLoopMessage[];
+    tools: readonly (typeof SERVER_AGENT_TOOL_CATALOG)[number][];
+    resolvedTools: readonly (typeof SERVER_AGENT_TOOL_CATALOG)[number][];
+    toolSearchNamespaces: readonly KwiltToolNamespaceId[];
     round: number;
   }) => Promise<ServerAgentModelStep>;
+  requestJudgment?: (input: {
+    prompt: string;
+    namespaces: readonly { id: KwiltToolNamespaceId; description: string; capabilityIds: readonly string[] }[];
+  }) => Promise<ServerTurnJudgment | null>;
   authorizeTool?: (tool: (typeof SERVER_AGENT_TOOL_CATALOG)[number]) => boolean;
 };
 
@@ -163,6 +180,7 @@ export async function executeEnqueuedCanonicalAgentRun({
   persistence,
   dataClient,
   modelStep,
+  requestJudgment,
   authorizeTool,
 }: AgentRunExecutionDependencies & {
   enqueued: EnqueuedAgentRun;
@@ -171,15 +189,37 @@ export async function executeEnqueuedCanonicalAgentRun({
   try {
     activeVersion = await persistence.start(enqueued, request);
     const history = await persistence.loadHistory(enqueued.threadId);
+    const actorAllowedTools = SERVER_AGENT_TOOL_CATALOG.filter((tool) => !authorizeTool || authorizeTool(tool));
+    const plan = await planServerTurn({
+      prompt: request.prompt,
+      tools: SERVER_AGENT_TOOL_CATALOG,
+      actorPermissions: {
+        canRead: actorAllowedTools.some((tool) => tool.effect === 'read'),
+        canWrite: actorAllowedTools.some((tool) => tool.effect === 'write'),
+        allowedToolIds: actorAllowedTools.map((tool) => tool.id),
+      },
+      executionProvider: 'server',
+      requestJudgment,
+    });
+    await persistence.recordTurnPlanning({ run: enqueued, plan });
+    const policyToolIds = new Set(plan.policy.allowedToolIds);
+    const executableTools = SERVER_AGENT_TOOL_CATALOG.filter((tool) => policyToolIds.has(tool.id));
     const initialMessages: ServerAgentLoopMessage[] = [{
       role: 'system',
       content: buildAgentSystemPrompt(request),
     }, ...history];
     const loop = await runBoundedServerAgentToolLoop({
-      tools: SERVER_AGENT_TOOL_CATALOG,
+      tools: executableTools,
+      modelTools: plan.visibleTools,
       initialMessages,
       modelStep: async ({ messages, round }) => {
-        const step = await modelStep({ messages, round });
+        const step = await modelStep({
+          messages,
+          round,
+          tools: plan.visibleTools,
+          resolvedTools: executableTools,
+          toolSearchNamespaces: plan.toolSearchNamespaces,
+        });
         if (step.metadata) {
           await persistence.recordModelStep({ run: enqueued, round, metadata: step.metadata });
         }

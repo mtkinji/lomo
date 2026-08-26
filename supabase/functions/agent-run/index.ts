@@ -8,7 +8,7 @@ import {
   resolveAgentChannelAdmission,
 } from '../_shared/agentRuntime.ts';
 import { SERVER_AGENT_TOOL_CATALOG } from '../_shared/serverAgentCatalog.ts';
-import { requestServerAgentModel } from '../_shared/serverAgentModel.ts';
+import { requestServerAgentModel, requestServerTurnJudgment } from '../_shared/serverAgentModel.ts';
 import { resolveServerProEntitlement } from '../_shared/serverAgentEntitlement.ts';
 import {
   executeCanonicalAgentRun,
@@ -119,14 +119,27 @@ serve(async (req) => {
       const isPro = await resolveServerProEntitlement(admin, authData.user.id);
       const dependencies = {
         request, userId: authData.user.id, persistence, dataClient: admin,
-        modelStep: ({ messages }: { messages: Parameters<typeof requestServerAgentModel>[0]['messages'] }) => requestServerAgentModel({
+        modelStep: ({ messages, tools, resolvedTools, toolSearchNamespaces }: {
+          messages: Parameters<typeof requestServerAgentModel>[0]['messages'];
+          tools: Parameters<typeof requestServerAgentModel>[0]['tools'];
+          resolvedTools: Parameters<typeof requestServerAgentModel>[0]['resolvedTools'];
+          toolSearchNamespaces: Parameters<typeof requestServerAgentModel>[0]['toolSearchNamespaces'];
+        }) => requestServerAgentModel({
           supabaseUrl: url, anonKey, serviceRoleToken: serviceRole, quotaIdentity: authData.user.id,
-          isPro, messages, tools: SERVER_AGENT_TOOL_CATALOG,
+          isPro, messages, tools, resolvedTools, toolSearchNamespaces,
           policyContext: {
             currentDate: calendarDateInTimeZone(new Date(), request.channelContext.timeZone ?? 'UTC'),
             timeZone: request.channelContext.timeZone ?? 'UTC',
           },
         }),
+        requestJudgment: ({ prompt, namespaces }: {
+          prompt: string;
+          namespaces: Parameters<typeof requestServerTurnJudgment>[0]['namespaces'];
+        }) =>
+          requestServerTurnJudgment({
+            supabaseUrl: url, anonKey, serviceRoleToken: serviceRole,
+            quotaIdentity: authData.user.id, isPro, prompt, namespaces,
+          }),
         authorizeTool: (tool: (typeof SERVER_AGENT_TOOL_CATALOG)[number]) => (
         (request.channel !== 'sms' && request.channel !== 'phone')
         || (

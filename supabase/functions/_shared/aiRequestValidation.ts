@@ -51,10 +51,6 @@ function validateAgentJudgmentRequest(parsed: Record<string, unknown>): Validati
   return { ok: true };
 }
 
-const UNIFIED_CHAT_TOOL_SEARCH_NAMESPACES = new Set([
-  'life_structure', 'tasks_plan', 'household', 'money', 'food', 'device_wellbeing',
-  'account_navigation',
-]);
 const STRICT_SCHEMA_KEYS = new Set([
   'type', 'properties', 'required', 'additionalProperties', 'items', 'enum', 'const',
   'description', 'title', 'format', 'pattern', 'minimum', 'maximum', 'exclusiveMinimum',
@@ -107,14 +103,16 @@ function validUnifiedChatInputItem(value: unknown): boolean {
 function validUnifiedChatTool(value: unknown): boolean {
   if (!isRecord(value)) return false;
   if (value.type === 'tool_search') {
-    return Object.keys(value).every((key) => key === 'type' || key === 'namespace') &&
-      typeof value.namespace === 'string' && UNIFIED_CHAT_TOOL_SEARCH_NAMESPACES.has(value.namespace);
+    return Object.keys(value).every((key) => key === 'type' || key === 'execution') &&
+      value.execution === 'server';
   }
   return value.type === 'function' &&
-    Object.keys(value).every((key) => ['type', 'name', 'description', 'parameters', 'strict'].includes(key)) &&
+    Object.keys(value).every((key) =>
+      ['type', 'name', 'description', 'parameters', 'strict', 'defer_loading'].includes(key)) &&
     typeof value.name === 'string' && /^[a-z][a-z0-9_.-]{0,119}$/.test(value.name) &&
     typeof value.description === 'string' && value.description.length > 0 && value.description.length <= 1_000 &&
-    value.strict === true && isStrictSchema(value.parameters, true);
+    value.strict === true && (value.defer_loading === undefined || value.defer_loading === true) &&
+    isStrictSchema(value.parameters, true);
 }
 
 function validateUnifiedChatAgentRequest(parsed: Record<string, unknown>): ValidationResult {
@@ -135,10 +133,11 @@ function validateUnifiedChatAgentRequest(parsed: Record<string, unknown>): Valid
     !parsed.input.every(validUnifiedChatInputItem)) {
     return invalid('unified chat agent input item is invalid');
   }
-  if (!Array.isArray(parsed.tools) || parsed.tools.length < 1 || parsed.tools.length > 128 ||
-    !parsed.tools.every(validUnifiedChatTool) ||
-    !parsed.tools.some((tool) => isRecord(tool) && tool.type === 'function')) {
-    return invalid('unified chat agent tools are invalid');
+  if (parsed.tools != null) {
+    if (!Array.isArray(parsed.tools) || parsed.tools.length < 1 || parsed.tools.length > 128 ||
+      !parsed.tools.every(validUnifiedChatTool)) {
+      return invalid('unified chat agent tools are invalid');
+    }
   }
   const policyContext = parsed.policy_context;
   if (!isRecord(policyContext) ||

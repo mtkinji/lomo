@@ -9,6 +9,7 @@ import type {
   ServerAgentToolCall,
   ServerAgentToolDefinition,
 } from './agentRuntime.ts';
+import type { KwiltToolNamespaceId } from '../../../packages/kwilt-agent-runtime/src/toolNamespaces.ts';
 
 export const SERVER_AGENT_PROMPT_VERSION = 'unified-chat-agent-v1';
 
@@ -186,6 +187,8 @@ export async function requestServerAgentResponse({
   isPro,
   messages,
   tools,
+  resolvedTools = tools,
+  toolSearchNamespaces = [],
   policyContext,
   signal,
   fetcher = fetch,
@@ -197,11 +200,21 @@ export async function requestServerAgentResponse({
   isPro: boolean;
   messages: readonly ServerAgentLoopMessage[];
   tools: readonly ServerAgentToolDefinition[];
+  resolvedTools?: readonly ServerAgentToolDefinition[];
+  toolSearchNamespaces?: readonly KwiltToolNamespaceId[];
   policyContext: ResponsesPolicyContext;
   signal?: AbortSignal;
   fetcher?: typeof fetch;
 }): Promise<ServerAgentModelStep> {
-  const toolCatalogHash = serverResponsesToolCatalogHash(tools);
+  const toolCatalogHash = serverResponsesToolCatalogHash(resolvedTools);
+  const visibleToolIds = new Set(tools.map((tool) => tool.id));
+  const requestTools: Array<Record<string, unknown>> = resolvedTools.map((tool) => ({
+    ...toServerResponsesTools([tool])[0],
+    ...(!visibleToolIds.has(tool.id) ? { defer_loading: true } : {}),
+  }));
+  if (toolSearchNamespaces.length > 0) {
+    requestTools.push({ type: 'tool_search', execution: 'server' });
+  }
   const startedAt = Date.now();
   let response: Response;
   try {
@@ -220,7 +233,7 @@ export async function requestServerAgentResponse({
         max_output_tokens: 1_200,
         parallel_tool_calls: false,
         input: toServerResponsesInput(messages),
-        tools: toServerResponsesTools(tools),
+        ...(requestTools.length > 0 ? { tools: requestTools } : {}),
         policy_context: policyContext,
       }),
       ...(signal ? { signal } : {}),
@@ -235,7 +248,7 @@ export async function requestServerAgentResponse({
   if (!response.ok) throw new Error(`model_request_failed:${response.status}:${responseText.slice(0, 300)}`);
   let data: unknown;
   try { data = JSON.parse(responseText); } catch { throw new Error('model_response_malformed'); }
-  return parseServerAgentResponse(data, tools, {
+  return parseServerAgentResponse(data, resolvedTools, {
     latencyMs: Date.now() - startedAt,
     toolCatalogHash,
   });

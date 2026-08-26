@@ -141,4 +141,28 @@ describe('serverAgentResponses', () => {
       fetcher: async () => { throw new DOMException('timed out', 'TimeoutError'); },
     })).rejects.toThrow('model_request_timeout:retryable');
   });
+
+  test('resolves an authorized deferred function returned through bounded tool search', async () => {
+    const deferred = { ...tools[0], id: 'goals.delete', purpose: 'Delete one goal.' };
+    const fetcher = jest.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.tools).toEqual([
+        expect.objectContaining({ type: 'function', name: 'goals.update' }),
+        expect.objectContaining({ type: 'function', name: 'goals.delete', defer_loading: true }),
+        { type: 'tool_search', execution: 'server' },
+      ]);
+      return new Response(JSON.stringify({
+        ...completedResponse,
+        output: [{ type: 'function_call', call_id: 'provider-deferred', name: 'goals.delete', arguments: '{"goalId":"g2"}' }],
+      }), { status: 200 });
+    });
+    await expect(requestServerAgentResponse({
+      supabaseUrl: 'https://example.supabase.co', anonKey: 'anon', serviceRoleToken: 'service',
+      quotaIdentity: 'user-1', isPro: true, messages, tools,
+      resolvedTools: [...tools, deferred], toolSearchNamespaces: ['life_structure'],
+      policyContext: { currentDate: '2026-08-26', timeZone: 'America/Denver' }, fetcher,
+    })).resolves.toMatchObject({
+      toolCalls: [{ id: 'resp-1:tool:1', providerCallId: 'provider-deferred', toolId: 'goals.delete' }],
+    });
+  });
 });

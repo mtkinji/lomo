@@ -6,7 +6,7 @@ import type {
 } from './types.ts';
 
 const EXPLICIT_WRITE_PATTERN =
-  /\b(?:add|allow|archive|block|cancel|change|complete|configure|correct|create|delete|disable|enable|forget|make|mark|move|open|put|remember|remove|rename|reschedule|save|schedule|set(?:\s+up)?|share|start|stop|turn\s+(?:on|off)|update)\b/i;
+  /\b(?:add|allow|archive|block|cancel|change|complete|configure|correct|create|delete|disable|enable|forget|make|mark|move|open|put|remember|remind|remove|rename|reschedule|save|schedule|set(?:\s+up)?|share|split|start|stop|turn\s+(?:on|off)|update)\b/i;
 const READ_REQUEST_PATTERN =
   /^(?:can|could|do|does|how|list|read|review|show|tell|what|when|where|which|who|why)\b|\b(?:show me|tell me|what(?:'s| is)|list my|read my|current|status)\b/i;
 const AFFIRMATIVE_PATTERN = /^(?:yes\b|yep\b|yeah\b|sure\b|okay\b|ok\b|do\s+(?:it|that)\b|go\s+ahead\b)/i;
@@ -59,7 +59,12 @@ export function resolveTurnPolicy(input: ResolveTurnPolicyInput): ResolvedTurnPo
   const writeTools = candidates.filter((tool) => tool.effect === 'write');
   const prompt = input.prompt.trim();
   const acceptedPriorSuggestion = input.acceptedPriorSuggestion && AFFIRMATIVE_PATTERN.test(prompt);
-  const explicitWrite = EXPLICIT_WRITE_PATTERN.test(prompt) || acceptedPriorSuggestion;
+  const explicitRelationshipFact = writeTools.some((tool) => tool.id === 'relationships.remember') &&
+    /\b(?:birthday\s+is|anniversary\s+is|likes?|loves?|prefers?|is allergic to)\b/i.test(prompt);
+  const explicitRelationshipCorrection = writeTools.some((tool) => tool.id === 'relationships.correct') &&
+    /^(?:actually|correction\b|update\b)/i.test(prompt);
+  const explicitWrite = EXPLICIT_WRITE_PATTERN.test(prompt) || acceptedPriorSuggestion ||
+    explicitRelationshipFact || explicitRelationshipCorrection;
   const readOnlyLanguage = READ_REQUEST_PATTERN.test(prompt) && !explicitWrite;
 
   if (writeTools.length === 0 || readOnlyLanguage) {

@@ -184,6 +184,20 @@ export function createServiceAgentRunPersistence({
       });
       if (error) throw new Error('model_step_event_write_failed');
     },
+    recordTurnPlanning: async ({ run, plan }) => {
+      const { error } = await admin.rpc('append_kwilt_agent_turn_planning_events', {
+        p_user_id: userId,
+        p_run_id: run.runId,
+        p_selected_namespaces: plan.judgment.selectedNamespaces,
+        p_planner_confidence: plan.judgment.confidence,
+        p_planner_reason: plan.judgment.reason,
+        p_authorization: plan.policy.authorization,
+        p_allowed_effects: plan.policy.allowedEffects,
+        p_allowed_tool_ids: plan.policy.allowedToolIds,
+        p_unresolved_references: plan.policy.unresolvedReferences,
+      });
+      if (error) throw new Error('turn_planning_event_write_failed');
+    },
     complete: async (input) => {
       const { data, error } = await admin.rpc('complete_kwilt_agent_run_with_message', {
         p_run_id: input.run.runId, p_expected_version: input.expectedVersion,

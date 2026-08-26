@@ -7,7 +7,7 @@ import { normalizeAgentRunRequest } from '../_shared/agentRuntime.ts';
 import { executeCanonicalAgentRun } from '../_shared/agentRunCoordinator.ts';
 import { SERVER_AGENT_TOOL_CATALOG } from '../_shared/serverAgentCatalog.ts';
 import { resolveServerProEntitlement } from '../_shared/serverAgentEntitlement.ts';
-import { requestServerAgentModel } from '../_shared/serverAgentModel.ts';
+import { requestServerAgentModel, requestServerTurnJudgment } from '../_shared/serverAgentModel.ts';
 import { sendPhoneAgentSms } from '../_shared/phoneAgentDelivery.ts';
 import { buildLegacyPhoneAgentEnrichmentPayload } from '../_shared/phoneAgent.ts';
 import { createServiceAgentRunPersistence } from '../_shared/serviceAgentRunPersistence.ts';
@@ -94,13 +94,17 @@ serve(async (req) => {
           userId: input.userId,
           persistence: createServiceAgentRunPersistence({ admin, userId: input.userId }),
           dataClient: admin,
-          modelStep: ({ messages }) => requestServerAgentModel({
+          modelStep: ({ messages, tools, resolvedTools, toolSearchNamespaces }) => requestServerAgentModel({
             supabaseUrl: url, anonKey, serviceRoleToken: serviceRole, quotaIdentity: input.userId,
-            isPro, messages, tools: SERVER_AGENT_TOOL_CATALOG,
+            isPro, messages, tools, resolvedTools, toolSearchNamespaces,
             policyContext: {
               currentDate: calendarDateInTimeZone(new Date(), input.timeZone),
               timeZone: input.timeZone,
             },
+          }),
+          requestJudgment: ({ prompt, namespaces }) => requestServerTurnJudgment({
+            supabaseUrl: url, anonKey, serviceRoleToken: serviceRole,
+            quotaIdentity: input.userId, isPro, prompt, namespaces,
           }),
           authorizeTool: (tool) => (
             (tool.id !== 'activities.capture' || input.permissions.create_activities === true)

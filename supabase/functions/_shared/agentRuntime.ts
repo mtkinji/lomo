@@ -233,6 +233,7 @@ function stableValue(value: unknown): unknown {
 
 export async function runBoundedServerAgentToolLoop({
   tools,
+  modelTools = tools,
   initialMessages,
   modelStep,
   executeTool,
@@ -241,6 +242,7 @@ export async function runBoundedServerAgentToolLoop({
   maxToolCalls = 12,
 }: {
   tools: readonly ServerAgentToolDefinition[];
+  modelTools?: readonly ServerAgentToolDefinition[];
   initialMessages: readonly ServerAgentLoopMessage[];
   modelStep: (input: {
     messages: readonly ServerAgentLoopMessage[];
@@ -266,7 +268,7 @@ export async function runBoundedServerAgentToolLoop({
 
   for (let round = 1; round <= maxRounds; round += 1) {
     if (signal?.aborted) return stopped(round);
-    const step = await modelStep({ messages, tools, round, ...(signal ? { signal } : {}) });
+    const step = await modelStep({ messages, tools: modelTools, round, ...(signal ? { signal } : {}) });
     events.push({
       sequence: ++eventSequence, type: 'model_step', round,
       ...(step.metadata ? { metadata: step.metadata } : {}),

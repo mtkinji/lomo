@@ -51,6 +51,7 @@ function persistence(order: string[]): AgentRunPersistence {
       return proposals.map((_, index) => ({ id: `proposal-${index + 1}`, status: 'pending', version: 1, replayed: false }));
     }),
     recordModelStep: jest.fn(async () => undefined),
+    recordTurnPlanning: jest.fn(async () => undefined),
     complete: jest.fn(async (input) => { order.push('complete'); return { id: input.run.runId, status: input.status }; }),
     fail: jest.fn(async () => { order.push('fail'); }),
   };
@@ -169,8 +170,9 @@ test('returns a tool-level denial when channel permission rejects a discovered w
     request, userId: 'user-1', persistence: store, dataClient: { from: jest.fn() }, modelStep,
     authorizeTool: (candidate) => candidate.id !== 'activities.capture',
   });
+  expect(modelStep.mock.calls[0][0].tools).not.toContainEqual(expect.objectContaining({ id: 'activities.capture' }));
   expect(modelStep.mock.calls[1][0].messages).toContainEqual(expect.objectContaining({
-    role: 'tool', content: expect.stringContaining('tool_not_permitted'),
+    role: 'tool', content: expect.stringContaining('unknown_tool'),
   }));
 });
 

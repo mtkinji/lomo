@@ -73,6 +73,30 @@ test('appends bounded model telemetry without raw request or authorization data'
   expect(JSON.stringify(rpc.mock.calls[0])).not.toContain('Authorization');
 });
 
+test('records advisory planning separately from deterministic authority', async () => {
+  const rpc = jest.fn(async () => ({ data: null, error: null }));
+  const persistence = createServiceAgentRunPersistence({
+    admin: { rpc, from: jest.fn() }, userId: 'user-1',
+  });
+  await persistence.recordTurnPlanning({
+    run: { threadId: 'thread-1', messageId: 'message-1', runId: 'run-1', status: 'active', version: 2, replayed: false },
+    plan: {
+      judgment: { selectedNamespaces: ['life_structure'], confidence: 0.9, reason: 'Goal question.' },
+      policy: {
+        authorization: { kind: 'read' }, allowedEffects: ['read'],
+        allowedToolIds: ['goals.read'], unresolvedReferences: [],
+      },
+      selectedNamespaces: ['life_structure'], visibleTools: [], deferredToolIds: [], toolSearchNamespaces: [],
+    },
+  });
+  expect(rpc).toHaveBeenCalledWith('append_kwilt_agent_turn_planning_events', {
+    p_user_id: 'user-1', p_run_id: 'run-1', p_selected_namespaces: ['life_structure'],
+    p_planner_confidence: 0.9, p_planner_reason: 'Goal question.',
+    p_authorization: { kind: 'read' }, p_allowed_effects: ['read'],
+    p_allowed_tool_ids: ['goals.read'], p_unresolved_references: [],
+  });
+});
+
 test('stages a cross-channel proposal through one owner-scoped idempotent RPC', async () => {
   const rpc = jest.fn(async () => ({
     data: { id: 'proposal-1', status: 'pending', version: 1, replayed: false }, error: null,
