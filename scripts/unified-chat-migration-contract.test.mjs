@@ -30,6 +30,10 @@ const channelRunMigration = readFileSync(
   new URL('../supabase/migrations/20260723164223_canonical_agent_run_channels.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
+const channelRunTriggerRepairMigration = readFileSync(
+  new URL('../supabase/migrations/20260826012500_repair_channel_run_trigger_enqueue.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
 const channelJobMigration = readFileSync(
   new URL('../supabase/migrations/20260723170039_agent_channel_job_queue.sql', import.meta.url),
   'utf8',
@@ -341,6 +345,12 @@ test('enqueues a cross-channel run atomically and idempotently under the authent
   assert.match(channelRunMigration, /create or replace function public\.transition_kwilt_agent_channel_run/);
   assert.match(channelRunMigration, /invalid_channel_run_transition/);
   assert.match(channelRunMigration, /grant execute on function public\.transition_kwilt_agent_channel_run[^;]+to service_role/);
+});
+
+test('supplies a non-null trigger identity on the initial channel-run insert', () => {
+  assert.match(channelRunTriggerRepairMigration, /create or replace function public\.enqueue_kwilt_agent_run/);
+  assert.match(channelRunTriggerRepairMigration, /initiator, trigger_kind, trigger_id/);
+  assert.match(channelRunTriggerRepairMigration, /'user', 'user_message', btrim\(p_client_request_id\)/);
 });
 
 test('queues channel work idempotently and claims it with bounded crash recovery', () => {

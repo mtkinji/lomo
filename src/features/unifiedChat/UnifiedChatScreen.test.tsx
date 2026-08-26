@@ -183,6 +183,16 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('signal: controller.signal');
   });
 
+  test('hands eligible text follow-ups to a server-owned run that survives app backgrounding', () => {
+    expect(screenSource).toContain('isDurableMobileChatEligible({');
+    expect(screenSource).toContain('runDurableMobileChatTurn({');
+    expect(screenSource).toContain("owner: 'local' as 'local' | 'server'");
+    expect(screenSource).toContain("run.originChannel === 'mobile'");
+    expect(screenSource).toContain("nextState !== 'active'");
+    expect(screenSource).toContain('transitionServerOwnedRun');
+    expect(screenSource).toContain('const refreshTimer = setTimeout');
+  });
+
   test('keeps microphone recording and authenticated transcription in the native host', () => {
     expect(screenSource).toContain("command.type === 'voice.toggle'");
     expect(screenSource).toContain('startUnifiedChatVoiceRecording');

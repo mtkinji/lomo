@@ -1,4 +1,10 @@
-import { buildAgentSystemPrompt, executeCanonicalAgentRun, type AgentRunPersistence } from '../agentRunCoordinator';
+import {
+  buildAgentSystemPrompt,
+  enqueueCanonicalAgentRun,
+  executeCanonicalAgentRun,
+  executeEnqueuedCanonicalAgentRun,
+  type AgentRunPersistence,
+} from '../agentRunCoordinator';
 import type { CanonicalAgentRunRequest, ServerAgentModelStep } from '../agentRuntime';
 
 const request: CanonicalAgentRunRequest = {
@@ -84,6 +90,47 @@ test('returns an idempotent replay without invoking the model', async () => {
   })).resolves.toMatchObject({ state: 'complete', replayed: true, answer: 'Persisted answer' });
   expect(modelStep).not.toHaveBeenCalled();
   expect(order).toEqual(['replay']);
+});
+
+test('executes an already-enqueued run without inserting the user turn twice', async () => {
+  const order: string[] = [];
+  const store = persistence(order);
+  const enqueued = await enqueueCanonicalAgentRun({ request, persistence: store });
+  await expect(executeEnqueuedCanonicalAgentRun({
+    request,
+    enqueued,
+    userId: 'user-1',
+    persistence: store,
+    dataClient: { from: jest.fn() },
+    modelStep: async () => ({ content: 'Persisted after acceptance.', toolCalls: [] }),
+  })).resolves.toMatchObject({
+    state: 'complete', replayed: false, answer: 'Persisted after acceptance.',
+  });
+  expect(store.enqueue).toHaveBeenCalledTimes(1);
+  expect(order).toEqual(['enqueue', 'start', 'history', 'complete']);
+});
+
+test('does not invoke the model when another recovery worker already claimed the queued run', async () => {
+  const order: string[] = [];
+  const store = persistence(order);
+  (store.start as jest.Mock).mockRejectedValue(new Error('run_start_failed'));
+  const modelStep = jest.fn();
+
+  await expect(executeEnqueuedCanonicalAgentRun({
+    request,
+    enqueued: { ...run, replayed: true },
+    userId: 'user-1',
+    persistence: store,
+    dataClient: { from: jest.fn() },
+    modelStep,
+  })).rejects.toThrow('run_start_failed');
+
+  expect(modelStep).not.toHaveBeenCalled();
+  expect(store.loadHistory).not.toHaveBeenCalled();
+  expect(store.fail).toHaveBeenCalledWith(expect.objectContaining({
+    expectedVersion: run.version,
+    code: 'run_start_failed',
+  }));
 });
 
 test('records a durable failure after an active run throws', async () => {

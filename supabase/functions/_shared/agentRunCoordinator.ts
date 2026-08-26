@@ -72,6 +72,21 @@ export type AgentRunCoordinatorResult =
   | { state: 'complete' | 'partial'; replayed: true; run: EnqueuedAgentRun; answer: string }
   | { state: 'complete' | 'partial'; replayed: false; run: Record<string, unknown>; answer: string };
 
+type AgentRunExecutionDependencies = {
+  request: CanonicalAgentRunRequest;
+  userId: string;
+  persistence: AgentRunPersistence;
+  dataClient: {
+    from: (table: string) => unknown;
+    rpc?: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }>;
+  };
+  modelStep: (input: {
+    messages: readonly ServerAgentLoopMessage[];
+    round: number;
+  }) => Promise<ServerAgentModelStep>;
+  authorizeTool?: (tool: (typeof SERVER_AGENT_TOOL_CATALOG)[number]) => boolean;
+};
+
 function projectAuthoritativeServerAnswer({
   modelContent,
   events,
@@ -134,36 +149,27 @@ export function buildAgentSystemPrompt(request: CanonicalAgentRunRequest, now = 
   ].join(' ');
 }
 
-export async function executeCanonicalAgentRun({
+export async function enqueueCanonicalAgentRun({
   request,
+  persistence,
+}: {
+  request: CanonicalAgentRunRequest;
+  persistence: AgentRunPersistence;
+}): Promise<EnqueuedAgentRun> {
+  return persistence.enqueue(request);
+}
+
+export async function executeEnqueuedCanonicalAgentRun({
+  request,
+  enqueued,
   userId,
   persistence,
   dataClient,
   modelStep,
   authorizeTool,
-}: {
-  request: CanonicalAgentRunRequest;
-  userId: string;
-  persistence: AgentRunPersistence;
-  dataClient: {
-    from: (table: string) => unknown;
-    rpc?: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }>;
-  };
-  modelStep: (input: {
-    messages: readonly ServerAgentLoopMessage[];
-    round: number;
-  }) => Promise<ServerAgentModelStep>;
-  authorizeTool?: (tool: (typeof SERVER_AGENT_TOOL_CATALOG)[number]) => boolean;
+}: AgentRunExecutionDependencies & {
+  enqueued: EnqueuedAgentRun;
 }): Promise<AgentRunCoordinatorResult> {
-  const enqueued = await persistence.enqueue(request);
-  if (enqueued.replayed) {
-    if (enqueued.status !== 'complete' && enqueued.status !== 'partial') {
-      throw new Error('run_replay_not_terminal');
-    }
-    const replay = await persistence.loadReplay(enqueued);
-    return { state: replay.status, replayed: true, run: enqueued, answer: replay.answer };
-  }
-
   let activeVersion = enqueued.version;
   try {
     activeVersion = await persistence.start(enqueued, request);
@@ -220,4 +226,18 @@ export async function executeCanonicalAgentRun({
     await persistence.fail({ run: enqueued, expectedVersion: activeVersion, code, request });
     throw error;
   }
+}
+
+export async function executeCanonicalAgentRun(
+  dependencies: AgentRunExecutionDependencies,
+): Promise<AgentRunCoordinatorResult> {
+  const enqueued = await enqueueCanonicalAgentRun(dependencies);
+  if (enqueued.replayed) {
+    if (enqueued.status !== 'complete' && enqueued.status !== 'partial') {
+      throw new Error('run_replay_not_terminal');
+    }
+    const replay = await dependencies.persistence.loadReplay(enqueued);
+    return { state: replay.status, replayed: true, run: enqueued, answer: replay.answer };
+  }
+  return executeEnqueuedCanonicalAgentRun({ ...dependencies, enqueued });
 }

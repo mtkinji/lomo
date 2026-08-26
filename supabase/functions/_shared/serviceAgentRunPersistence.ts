@@ -84,6 +84,14 @@ export function createServiceAgentRunPersistence({
         p_parent_run_id: request.parentRunId ?? null,
         p_user_id: userId,
       });
+      if (error) {
+        const failure = record(error);
+        console.warn('[agent-run] Enqueue RPC failed', {
+          code: typeof failure.code === 'string' ? failure.code : 'unknown',
+          message: typeof failure.message === 'string' ? failure.message : 'unknown',
+          hint: typeof failure.hint === 'string' ? failure.hint : null,
+        });
+      }
       if (error || !data) throw new Error('run_enqueue_failed');
       return mapEnqueued(data);
     },

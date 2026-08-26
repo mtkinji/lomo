@@ -23,6 +23,11 @@ import type {
   UnifiedChatThread,
   UnifiedChatThreadAggregate,
 } from './types';
+import {
+  isDurableMobileChatEligible,
+  runDurableMobileChatTurn,
+  transitionDurableMobileChatRun,
+} from './durableMobileChatTurn';
 import { getUnifiedChatConfig } from './unifiedChatConfig';
 import { makeAgentWorkbenchHostMessage, parseAgentWorkbenchSurfaceMessage } from './workbenchProtocol';
 import {
@@ -232,6 +237,7 @@ export function UnifiedChatScreen({
   } | null>(null);
   const activeTurn = useRef<{
     runId: string | null;
+    owner: 'local' | 'server';
     controller: AbortController;
     disposition: { type: 'stop' } | { type: 'steer'; prompt: string; requestId: string };
   } | null>(null);
@@ -688,13 +694,34 @@ export function UnifiedChatScreen({
       const hasResumableAction = (aggregate.clientActions ?? []).some(
         (item) => item.status === 'pending_client_action' || item.status === 'presenting',
       );
-      if (!hasResumableAction) return;
+      const hasServerOwnedRun = aggregate.runs.some((run) =>
+        run.originChannel === 'mobile' && (run.status === 'queued' || run.status === 'active'));
+      if (!hasResumableAction && !hasServerOwnedRun) return;
       const threadId = aggregate.thread.id;
       void loadThreadWithRecovery(threadId).then((next) => {
         setAggregate((current) => current?.thread.id === threadId ? next : current);
-      }).catch(() => setError('Kwilt could not refresh the pending device review.'));
+      }).catch(() => setError(hasServerOwnedRun
+        ? 'Kwilt could not refresh the response yet.'
+        : 'Kwilt could not refresh the pending device review.'));
     });
     return () => subscription.remove();
+  }, [aggregate, loadThreadWithRecovery]);
+
+  useEffect(() => {
+    const threadId = aggregate?.thread.id;
+    const hasServerOwnedRun = aggregate?.runs.some((run) =>
+      run.originChannel === 'mobile' && (run.status === 'queued' || run.status === 'active'));
+    if (!threadId || !hasServerOwnedRun) return undefined;
+    let cancelled = false;
+    const refreshTimer = setTimeout(() => {
+      void loadThreadWithRecovery(threadId).then((next) => {
+        if (!cancelled) setAggregate((current) => current?.thread.id === threadId ? next : current);
+      }).catch(() => undefined);
+    }, 1_000);
+    return () => {
+      cancelled = true;
+      clearTimeout(refreshTimer);
+    };
   }, [aggregate, loadThreadWithRecovery]);
 
   useEffect(() => {
@@ -841,6 +868,18 @@ export function UnifiedChatScreen({
       setClientActionInFlight(false);
     }
   }, [aggregate, clientActionInFlight, loadThreadWithRecovery, openNativeClientAction, repository]);
+
+  const transitionServerOwnedRun = useCallback(async (
+    runId: string,
+    disposition: { type: 'stop' } | { type: 'steer'; prompt: string },
+  ): Promise<UnifiedChatThreadAggregate | null> => {
+    const threadId = aggregateRef.current?.thread.id;
+    if (!threadId) return null;
+    return transitionDurableMobileChatRun({
+      threadId, runId, disposition, loadThread: loadThreadWithRecovery,
+      transitionRunStatus: repository.transitionRunStatus,
+    });
+  }, [loadThreadWithRecovery, repository]);
 
   const handleSurfaceMessage = useCallback(
     async (event: WebViewMessageEvent) => {
@@ -1390,8 +1429,20 @@ export function UnifiedChatScreen({
         const run = aggregate.runs.find((item) => item.id === command.runId);
         if (!run || (run.status !== 'active' && run.status !== 'queued')) return;
         if (activeTurn.current?.runId === command.runId) {
-          activeTurn.current.disposition = { type: 'stop' };
-          activeTurn.current.controller.abort();
+          const current = activeTurn.current;
+          current.disposition = { type: 'stop' };
+          if (current.owner === 'server') {
+            try {
+              const next = await transitionServerOwnedRun(command.runId, { type: 'stop' });
+              if (next) setAggregate(next);
+              current.controller.abort();
+            } catch (stopError) {
+              setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+              setError(stopError instanceof Error ? stopError.message : 'Kwilt could not stop that response.');
+            }
+          } else {
+            activeTurn.current.controller.abort();
+          }
         }
         return;
       }
@@ -1400,7 +1451,19 @@ export function UnifiedChatScreen({
         const current = activeTurn.current;
         if (!run || (run.status !== 'active' && run.status !== 'queued') || current?.runId !== run.id) return;
         current.disposition = { type: 'steer', prompt: command.prompt.trim(), requestId: message.requestId };
-        current.controller.abort();
+        if (current.owner === 'server') {
+          try {
+            const next = await transitionServerOwnedRun(run.id, { type: 'steer', prompt: command.prompt.trim() });
+            if (next) setAggregate(next);
+            current.controller.abort();
+          } catch (steerError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(steerError instanceof Error ? steerError.message : 'Kwilt could not update that response.');
+            return;
+          }
+        } else {
+          current.controller.abort();
+        }
         setPrompt('');
         return;
       }
@@ -1471,12 +1534,14 @@ export function UnifiedChatScreen({
       let turnRequestId = message.requestId;
       let retryRunId = retryRun?.id;
       let turnAttachments = command.type === 'run.send' ? attachments : [];
+      let parentRunId: string | null = null;
       while (turnPrompt.trim()) {
         setStreamingResponse(null);
         setProcessingNotice(null);
         const controller = new AbortController();
         const turnState = {
           runId: null as string | null,
+          owner: 'local' as 'local' | 'server',
           controller,
           disposition: { type: 'stop' as const } as
             | { type: 'stop' }
@@ -1490,7 +1555,31 @@ export function UnifiedChatScreen({
           // short answer attached to the assistant question that prompted it.
           turnAggregate = await loadThreadWithRecovery(turnAggregate.thread.id);
           const isConversationTurn = liveConversation.current !== null;
-          refreshedAggregate = await runUnifiedChatTurn({
+          const useDurableMobileRun = isDurableMobileChatEligible({
+            aggregate: turnAggregate,
+            attachmentCount: turnAttachments.length,
+            interactionMode: isConversationTurn ? 'conversation' : 'text',
+            isRetry: Boolean(retryRunId),
+          });
+          if (useDurableMobileRun) {
+            turnState.owner = 'server';
+            refreshedAggregate = await runDurableMobileChatTurn({
+              threadId: turnAggregate.thread.id,
+              prompt: turnPrompt,
+              requestId: turnRequestId,
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+              parentRunId,
+              invoke: (functionName, options) => getSupabaseClient().functions.invoke(functionName, options),
+              loadThread: loadThreadWithRecovery,
+              signal: controller.signal,
+              onProgress: (progressAggregate, runId) => {
+                turnState.runId = runId;
+                setAggregate(progressAggregate);
+                setAttachments([]);
+              },
+            });
+          } else {
+            refreshedAggregate = await runUnifiedChatTurn({
             aggregate: turnAggregate,
             prompt: turnPrompt,
             interactionMode: isConversationTurn ? 'conversation' : 'text',
@@ -1545,7 +1634,8 @@ export function UnifiedChatScreen({
               setThreads((current) => current.map((thread) =>
                 thread.id === updatedThread.id ? updatedThread : thread));
             },
-          });
+            });
+          }
           const completedRunId = refreshedAggregate.runs.at(-1)?.id;
           const autoApplyProposal = completedRunId
             ? findAutoApplyCreateProposal(refreshedAggregate, completedRunId)
@@ -1607,6 +1697,7 @@ export function UnifiedChatScreen({
 
         if (controller.signal.aborted && turnState.disposition.type === 'steer' && refreshedAggregate) {
           turnAggregate = refreshedAggregate;
+          parentRunId = turnState.owner === 'server' ? turnState.runId : null;
           turnPrompt = turnState.disposition.prompt;
           turnRequestId = turnState.disposition.requestId;
           retryRunId = undefined;
@@ -1616,7 +1707,7 @@ export function UnifiedChatScreen({
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, transitionServerOwnedRun, voice.state],
   );
 
   const pendingClientAction = useMemo(
