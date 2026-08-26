@@ -53,6 +53,7 @@ async function requestEphemeralSession(locale?: string): Promise<EphemeralSessio
 }
 
 export type LiveConversationConnection = {
+  sessionId: string;
   stop: () => Promise<void>;
   setMicrophoneEnabled(enabled: boolean): void;
 };
@@ -64,6 +65,7 @@ export async function startLiveConversationSession(input: {
   onFailure: (error: Error) => void;
 }): Promise<LiveConversationConnection> {
   const session = await requestEphemeralSession(input.locale);
+  const sessionId = `live-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   const peer = new RTCPeerConnection();
   let stream: MediaStream | null = null;
   let stopped = false;
@@ -75,6 +77,7 @@ export async function startLiveConversationSession(input: {
     peer.close();
   };
   const connection: LiveConversationConnection = {
+    sessionId,
     stop,
     setMicrophoneEnabled(enabled) {
       stream?.getAudioTracks().forEach((track) => { track.enabled = enabled; });

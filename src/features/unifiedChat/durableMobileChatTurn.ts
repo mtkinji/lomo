@@ -51,7 +51,7 @@ export function isDurableMobileChatEligible({
   void aggregate;
   void attachmentCount;
   void isRetry;
-  return interactionMode === 'text';
+  return interactionMode === 'text' || interactionMode === 'conversation';
 }
 
 export async function runDurableMobileChatTurn({

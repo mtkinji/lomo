@@ -14,12 +14,22 @@ describe('versioned Kwilt channel context', () => {
       }],
       pendingProposalIds: ['proposal-1'], pendingClientActionIds: ['action-1'],
       availableDeviceProviders: Array.from({ length: 30 }, (_, index) => `provider-${index}`),
+      voice: {
+        sessionId: 'conversation-1', utteranceId: 'item-1', source: 'provider_final',
+        locale: 'en-US', interrupted: true, speechStoppedAt: '2026-08-26T18:00:00.000Z',
+        finalizedAt: '2026-08-26T18:00:00.500Z',
+      },
     });
 
     expect(packet).toMatchObject({
       schemaVersion: 1, locale: 'en-US', timeZone: 'America/Denver', appState: 'foreground',
       origin: { screen: 'UnifiedChat', action: 'run.retry' },
       pendingWork: { proposalIds: ['proposal-1'], clientActionIds: ['action-1'] },
+      voice: {
+        sessionId: 'conversation-1', utteranceId: 'item-1', source: 'provider_final',
+        locale: 'en-US', interrupted: true, speechStoppedAt: '2026-08-26T18:00:00.000Z',
+        finalizedAt: '2026-08-26T18:00:00.500Z',
+      },
     });
     expect(packet.selectedEntities).toHaveLength(8);
     expect(packet.availableDeviceProviders).toHaveLength(16);

@@ -48,10 +48,10 @@ test.each([
   })).toBe(true);
 });
 
-test('keeps a live Conversation turn on its realtime device path', () => {
+test('routes a finalized Conversation utterance through durable mobile execution', () => {
   expect(isDurableMobileChatEligible({
     aggregate: aggregate(), attachmentCount: 0, interactionMode: 'conversation', isRetry: false,
-  })).toBe(false);
+  })).toBe(true);
 });
 
 test('accepts once and polls the canonical thread until the server-owned run completes', async () => {

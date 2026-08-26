@@ -31,6 +31,7 @@ import {
 import { buildMobileTurnChannelContext } from './channelContext';
 import { getUnifiedChatConfig } from './unifiedChatConfig';
 import { makeAgentWorkbenchHostMessage, parseAgentWorkbenchSurfaceMessage } from './workbenchProtocol';
+import { buildFinalizedConversationRunMessage } from './finalizedConversationTurn';
 import {
   useCapabilityMenuActions,
   useCapabilityMenuOpen,
@@ -231,6 +232,7 @@ export function UnifiedChatScreen({
   const moneyRepository = useMemo(() => createMoneyRepository(), []);
   const webViewRef = useRef<WebView>(null);
   const handledRequestIds = useRef(new Set<string>());
+  const submittedConversationUtteranceIds = useRef(new Set<string>());
   const freshFirstSendRequestIdRef = useRef<string | null>(null);
   const freshEntrySentRef = useRef(false);
   const freshThreadGateRef = useRef<{
@@ -250,6 +252,9 @@ export function UnifiedChatScreen({
   const conversationLatencyRef = useRef<ActiveConversationLatency | null>(null);
   const conversationProgressHistoryRef = useRef<ConversationProgressCueId[]>([]);
   const conversationResponseGenerationRef = useRef(0);
+  const conversationAssistantSpeechActiveRef = useRef(false);
+  const conversationInterruptedRef = useRef(false);
+  const conversationSpeechStoppedAtRef = useRef('');
   const [threads, setThreads] = useState<UnifiedChatThread[]>([]);
   const [aggregate, setAggregate] = useState<UnifiedChatThreadAggregate | null>(null);
   const [streamingResponse, setStreamingResponse] = useState<{ runId: string; text: string } | null>(null);
@@ -271,7 +276,16 @@ export function UnifiedChatScreen({
     elapsedSeconds: number;
     levels: number[];
     provisionalTranscript?: string;
-    finalizedUtterance?: { id: string; text: string };
+    finalizedUtterance?: {
+      id: string;
+      text: string;
+      sessionId: string;
+      source: 'provider_final' | 'frozen_provisional';
+      locale: string;
+      interrupted: boolean;
+      speechStoppedAt: string;
+      finalizedAt: string;
+    };
     message?: string;
   }>({ state: 'idle', elapsedSeconds: 0, levels: [] });
   const conversationTurnFinalizerRef = useRef<ReturnType<typeof createConversationTurnFinalizer> | null>(null);
@@ -287,7 +301,18 @@ export function UnifiedChatScreen({
         conversationAssistantCountRef.current = aggregateRef.current?.messages
           .filter((item) => item.role === 'assistant').length ?? 0;
         setVoice((current) => ({ ...current, state: 'thinking', provisionalTranscript: '',
-          finalizedUtterance: { id: itemId, text: transcript }, message: 'Thinking…' }));
+          finalizedUtterance: {
+            id: itemId,
+            text: transcript,
+            sessionId: liveConversation.current?.sessionId ?? 'live-unavailable',
+            source,
+            locale: Intl.DateTimeFormat().resolvedOptions().locale || 'en-US',
+            interrupted: conversationInterruptedRef.current,
+            speechStoppedAt: conversationSpeechStoppedAtRef.current,
+            finalizedAt: new Date().toISOString(),
+          },
+          message: 'Thinking…',
+        }));
       },
     });
   }
@@ -568,6 +593,10 @@ export function UnifiedChatScreen({
     await cancelUnifiedChatVoiceRecording();
     await sweepLegacyCookVoiceCacheOnce();
     conversationProgressHistoryRef.current = [];
+    conversationAssistantSpeechActiveRef.current = false;
+    conversationInterruptedRef.current = false;
+    conversationSpeechStoppedAtRef.current = '';
+    submittedConversationUtteranceIds.current.clear();
     conversationTurnFinalizerRef.current?.reset();
     clearVoiceTimer();
     setVoice({ state: 'connecting', elapsedSeconds: 0, levels: [], message: 'Connecting…' });
@@ -586,6 +615,8 @@ export function UnifiedChatScreen({
         onEvent: (event) => {
           conversationTurnFinalizerRef.current?.handle(event);
           if (event.type === 'speech_started') {
+            conversationInterruptedRef.current = conversationAssistantSpeechActiveRef.current;
+            conversationAssistantSpeechActiveRef.current = false;
             conversationResponseGenerationRef.current += 1;
             conversationProgressSpeech.stop();
             void liveConversationSpeech.stop();
@@ -594,6 +625,7 @@ export function UnifiedChatScreen({
             setVoice((current) => ({ ...current, state: 'listening', provisionalTranscript: '',
               finalizedUtterance: undefined, message: 'Listening' }));
           } else if (event.type === 'speech_stopped') {
+            conversationSpeechStoppedAtRef.current = new Date().toISOString();
             conversationResponseGenerationRef.current += 1;
             conversationActivationFeedback.thinking();
             const tracker = createConversationLatencyTracker();
@@ -655,6 +687,7 @@ export function UnifiedChatScreen({
         if (conversationLatencyRef.current) conversationLatencyRef.current.fallbackUsed = true;
       },
       onStart: () => {
+        conversationAssistantSpeechActiveRef.current = true;
         conversationLatencyRef.current?.tracker.mark('playback_started');
         conversationActivationFeedback.speaking();
         setVoice((current) => ({ ...current, state: 'speaking', message: 'Speaking' }));
@@ -664,6 +697,7 @@ export function UnifiedChatScreen({
     })().catch(() => {
       publishConversationLatency('failed', false);
     }).finally(() => {
+      conversationAssistantSpeechActiveRef.current = false;
       if (liveConversation.current) conversationActivationFeedback.listening();
       setVoice((current) => liveConversation.current
         ? { ...current, state: 'listening', message: 'Listening' }
@@ -1575,6 +1609,17 @@ export function UnifiedChatScreen({
                 locale: Intl.DateTimeFormat().resolvedOptions().locale || 'en-US', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
                 appState: AppState.currentState,
                 action: retryRunId ? 'run.retry' : parentRunId ? 'run.steer' : 'run.send',
+                ...(isConversationTurn && voice.finalizedUtterance ? {
+                  voice: {
+                    sessionId: voice.finalizedUtterance.sessionId,
+                    utteranceId: voice.finalizedUtterance.id,
+                    source: voice.finalizedUtterance.source,
+                    locale: voice.finalizedUtterance.locale,
+                    interrupted: voice.finalizedUtterance.interrupted,
+                    speechStoppedAt: voice.finalizedUtterance.speechStoppedAt,
+                    finalizedAt: voice.finalizedUtterance.finalizedAt,
+                  },
+                } : {}),
               }),
               parentRunId,
               invoke: (functionName, options) => getSupabaseClient().functions.invoke(functionName, options),
@@ -1715,8 +1760,19 @@ export function UnifiedChatScreen({
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, transitionServerOwnedRun, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, transitionServerOwnedRun, voice.finalizedUtterance, voice.state],
   );
+
+  useEffect(() => {
+    const utterance = voice.finalizedUtterance;
+    if (!utterance || submittedConversationUtteranceIds.current.has(utterance.id)) return;
+    const message = buildFinalizedConversationRunMessage({
+      itemId: utterance.id,
+      transcript: utterance.text,
+    });
+    submittedConversationUtteranceIds.current.add(utterance.id);
+    void handleSurfaceMessage({ nativeEvent: { data: message.payload } } as WebViewMessageEvent);
+  }, [handleSurfaceMessage, voice.finalizedUtterance]);
 
   const pendingClientAction = useMemo(
     () => (aggregate?.clientActions ?? []).find(

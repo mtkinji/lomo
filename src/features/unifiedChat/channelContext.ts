@@ -15,6 +15,16 @@ export type MobileChannelContextInput = {
   pendingProposalIds: readonly string[];
   pendingClientActionIds: readonly string[];
   availableDeviceProviders: readonly string[];
+  voice?: {
+    sessionId: string;
+    utteranceId: string;
+    source: 'provider_final' | 'frozen_provisional';
+    locale: string;
+    interrupted: boolean;
+    speechStoppedAt: string;
+    finalizedAt: string;
+    confidence?: number;
+  };
 };
 
 export function buildMobileChannelContext(input: MobileChannelContextInput): KwiltChannelContextPacket {
@@ -22,6 +32,7 @@ export function buildMobileChannelContext(input: MobileChannelContextInput): Kwi
     ...input,
     selectedEntities: input.selectedEntities,
     attachments: input.attachments,
+    voice: input.voice,
   });
 }
 
@@ -32,6 +43,7 @@ export function buildMobileTurnChannelContext({
   locale,
   timeZone,
   appState,
+  voice,
 }: {
   aggregate: UnifiedChatThreadAggregate;
   attachments: readonly UnifiedChatAttachment[];
@@ -39,6 +51,7 @@ export function buildMobileTurnChannelContext({
   locale: string;
   timeZone: string;
   appState: string;
+  voice?: MobileChannelContextInput['voice'];
 }): KwiltChannelContextPacket {
   return buildMobileChannelContext({
     locale, timeZone, appState, origin: { screen: 'UnifiedChat', action }, attachments,
@@ -49,7 +62,7 @@ export function buildMobileTurnChannelContext({
     pendingClientActionIds: (aggregate.clientActions ?? [])
       .filter((clientAction) => clientAction.status === 'pending_client_action' || clientAction.status === 'presenting')
       .map((clientAction) => clientAction.id),
-    availableDeviceProviders: ['native_navigation', 'native_review'],
+    availableDeviceProviders: ['native_navigation', 'native_review'], voice,
   });
 }
 

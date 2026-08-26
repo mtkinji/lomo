@@ -21,6 +21,16 @@ export type KwiltChannelContextPacket = {
   }>;
   pendingWork: { proposalIds: string[]; clientActionIds: string[] };
   availableDeviceProviders: string[];
+  voice?: {
+    sessionId: string;
+    utteranceId: string;
+    source: 'provider_final' | 'frozen_provisional';
+    locale: string;
+    interrupted: boolean;
+    speechStoppedAt: string;
+    finalizedAt: string;
+    confidence?: number;
+  };
 };
 
 type ChannelContextInput = {
@@ -33,6 +43,16 @@ type ChannelContextInput = {
   pendingProposalIds: readonly unknown[];
   pendingClientActionIds: readonly unknown[];
   availableDeviceProviders: readonly unknown[];
+  voice?: {
+    sessionId?: unknown;
+    utteranceId?: unknown;
+    source?: unknown;
+    locale?: unknown;
+    interrupted?: unknown;
+    speechStoppedAt?: unknown;
+    finalizedAt?: unknown;
+    confidence?: unknown;
+  };
 };
 
 function text(value: unknown, maxLength: number, fallback = ''): string {
@@ -45,6 +65,10 @@ function identifiers(values: readonly unknown[], maxItems: number): string[] {
 }
 
 export function buildKwiltChannelContext(input: ChannelContextInput): KwiltChannelContextPacket {
+  const voiceSessionId = text(input.voice?.sessionId, 200);
+  const voiceUtteranceId = text(input.voice?.utteranceId, 200);
+  const voiceSource = input.voice?.source === 'provider_final' || input.voice?.source === 'frozen_provisional'
+    ? input.voice.source : null;
   return {
     schemaVersion: KWILT_CHANNEL_CONTEXT_SCHEMA_VERSION,
     locale: text(input.locale, 35, 'en-US'),
@@ -74,6 +98,20 @@ export function buildKwiltChannelContext(input: ChannelContextInput): KwiltChann
       clientActionIds: identifiers(input.pendingClientActionIds, 20),
     },
     availableDeviceProviders: identifiers(input.availableDeviceProviders, 16),
+    ...(voiceSessionId && voiceUtteranceId && voiceSource ? {
+      voice: {
+        sessionId: voiceSessionId,
+        utteranceId: voiceUtteranceId,
+        source: voiceSource,
+        locale: text(input.voice?.locale, 35, 'en-US'),
+        interrupted: input.voice?.interrupted === true,
+        speechStoppedAt: text(input.voice?.speechStoppedAt, 40),
+        finalizedAt: text(input.voice?.finalizedAt, 40),
+        ...(typeof input.voice?.confidence === 'number' && Number.isFinite(input.voice.confidence)
+          ? { confidence: Math.max(0, Math.min(1, input.voice.confidence)) }
+          : {}),
+      },
+    } : {}),
   };
 }
 
@@ -85,6 +123,8 @@ export function normalizeKwiltChannelContext(value: unknown): KwiltChannelContex
     ? raw.origin as Record<string, unknown> : {};
   const pendingWork = raw.pendingWork && typeof raw.pendingWork === 'object' && !Array.isArray(raw.pendingWork)
     ? raw.pendingWork as Record<string, unknown> : {};
+  const voice = raw.voice && typeof raw.voice === 'object' && !Array.isArray(raw.voice)
+    ? raw.voice as Record<string, unknown> : undefined;
   return buildKwiltChannelContext({
     locale: raw.locale,
     timeZone: raw.timeZone,
@@ -97,5 +137,6 @@ export function normalizeKwiltChannelContext(value: unknown): KwiltChannelContex
     pendingProposalIds: Array.isArray(pendingWork.proposalIds) ? pendingWork.proposalIds : [],
     pendingClientActionIds: Array.isArray(pendingWork.clientActionIds) ? pendingWork.clientActionIds : [],
     availableDeviceProviders: Array.isArray(raw.availableDeviceProviders) ? raw.availableDeviceProviders : [],
+    voice,
   });
 }
