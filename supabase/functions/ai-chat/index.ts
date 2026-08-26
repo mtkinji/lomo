@@ -2,7 +2,7 @@
 //
 // Routes:
 // - POST /v1/chat/completions
-// - POST /v1/responses (hosted web search or bounded Chat attachment inspection)
+// - POST /v1/responses (hosted web search, bounded Chat attachment inspection, or Unified Chat agent)
 // - POST /v1/images/generations
 //
 // Called via:
@@ -318,7 +318,7 @@ serve(async (req) => {
   const chatMode = (req.headers.get('x-kwilt-chat-mode') ?? '').trim();
   const aiJob = (req.headers.get('x-kwilt-ai-job') ?? '').trim();
   if (route === '/v1/responses' && aiJob !== 'current_information' && aiJob !== 'unified_chat_attachment' &&
-    aiJob !== 'agent_judgment') {
+    aiJob !== 'agent_judgment' && aiJob !== 'unified_chat_agent') {
     return json(400, { error: { message: 'Responses route requires an allowed job', code: 'bad_request' } });
   }
   const isOnboarding = chatMode === 'firstTimeOnboarding';

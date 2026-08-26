@@ -51,6 +51,96 @@ function validateAgentJudgmentRequest(parsed: Record<string, unknown>): Validati
   return { ok: true };
 }
 
+const UNIFIED_CHAT_TOOL_SEARCH_NAMESPACES = new Set([
+  'life_structure', 'tasks_plan', 'household', 'money', 'food', 'device_wellbeing',
+  'account_navigation',
+]);
+const STRICT_SCHEMA_KEYS = new Set([
+  'type', 'properties', 'required', 'additionalProperties', 'items', 'enum', 'const',
+  'description', 'title', 'format', 'pattern', 'minimum', 'maximum', 'exclusiveMinimum',
+  'exclusiveMaximum', 'multipleOf', 'minLength', 'maxLength', 'minItems', 'maxItems',
+  'uniqueItems', 'minProperties', 'maxProperties',
+]);
+
+function isStrictSchema(schema: unknown, root = false): boolean {
+  if (!isRecord(schema) || Object.keys(schema).some((key) => !STRICT_SCHEMA_KEYS.has(key))) return false;
+  const types = typeof schema.type === 'string'
+    ? [schema.type]
+    : Array.isArray(schema.type) && schema.type.every((type) => typeof type === 'string')
+      ? schema.type
+      : [];
+  if (types.length === 0 || (root && (types.length !== 1 || types[0] !== 'object'))) return false;
+  if (types.includes('object')) {
+    const required = schema.required;
+    if (!isRecord(schema.properties) || schema.additionalProperties !== false || !Array.isArray(required)) {
+      return false;
+    }
+    const propertyNames = Object.keys(schema.properties);
+    if (required.length !== propertyNames.length ||
+      !propertyNames.every((name) => required.includes(name)) ||
+      !Object.values(schema.properties).every((property) => isStrictSchema(property))) return false;
+  }
+  if (types.includes('array') && !isStrictSchema(schema.items)) return false;
+  return true;
+}
+
+function validUnifiedChatInputItem(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.role === 'user' || value.role === 'assistant') {
+    return Object.keys(value).every((key) => key === 'role' || key === 'content') &&
+      typeof value.content === 'string' && value.content.length <= 20_000;
+  }
+  if (value.type === 'function_call') {
+    return Object.keys(value).every((key) => ['type', 'call_id', 'name', 'arguments'].includes(key)) &&
+      typeof value.call_id === 'string' && value.call_id.length > 0 && value.call_id.length <= 160 &&
+      typeof value.name === 'string' && /^[a-z][a-z0-9_.-]{0,119}$/.test(value.name) &&
+      typeof value.arguments === 'string' && value.arguments.length <= 40_000;
+  }
+  if (value.type === 'function_call_output') {
+    return Object.keys(value).every((key) => ['type', 'call_id', 'output'].includes(key)) &&
+      typeof value.call_id === 'string' && value.call_id.length > 0 && value.call_id.length <= 160 &&
+      typeof value.output === 'string' && value.output.length <= 40_000;
+  }
+  return false;
+}
+
+function validUnifiedChatTool(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.type === 'tool_search') {
+    return Object.keys(value).every((key) => key === 'type' || key === 'namespace') &&
+      typeof value.namespace === 'string' && UNIFIED_CHAT_TOOL_SEARCH_NAMESPACES.has(value.namespace);
+  }
+  return value.type === 'function' &&
+    Object.keys(value).every((key) => ['type', 'name', 'description', 'parameters', 'strict'].includes(key)) &&
+    typeof value.name === 'string' && /^[a-z][a-z0-9_.-]{0,119}$/.test(value.name) &&
+    typeof value.description === 'string' && value.description.length > 0 && value.description.length <= 1_000 &&
+    value.strict === true && isStrictSchema(value.parameters, true);
+}
+
+function validateUnifiedChatAgentRequest(parsed: Record<string, unknown>): ValidationResult {
+  const allowedKeys = new Set(['store', 'max_output_tokens', 'parallel_tool_calls', 'input', 'tools']);
+  if (Object.keys(parsed).some((key) => !allowedKeys.has(key))) {
+    return invalid('unified chat agent contains unsupported request fields');
+  }
+  if (parsed.store !== false || parsed.parallel_tool_calls !== false) {
+    return invalid('unified chat agent requires ephemeral sequential execution');
+  }
+  if (!Number.isInteger(parsed.max_output_tokens) ||
+    (parsed.max_output_tokens as number) < 1 || (parsed.max_output_tokens as number) > 1_200) {
+    return invalid('unified chat agent output budget is invalid');
+  }
+  if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > 40 ||
+    !parsed.input.every(validUnifiedChatInputItem)) {
+    return invalid('unified chat agent input item is invalid');
+  }
+  if (!Array.isArray(parsed.tools) || parsed.tools.length < 1 || parsed.tools.length > 32 ||
+    !parsed.tools.every(validUnifiedChatTool) ||
+    !parsed.tools.some((tool) => isRecord(tool) && tool.type === 'function')) {
+    return invalid('unified chat agent tools are invalid');
+  }
+  return { ok: true };
+}
+
 export function validateKwiltAiRequestShape(
   route: string,
   parsed: unknown,
@@ -82,6 +172,7 @@ export function validateKwiltAiRequestShape(
       return invalid('stored and background responses are not allowed');
     }
     if (aiJob === 'agent_judgment') return validateAgentJudgmentRequest(parsed);
+    if (aiJob === 'unified_chat_agent') return validateUnifiedChatAgentRequest(parsed);
     if (aiJob === 'current_information') {
       if (!Array.isArray(parsed.tools) || parsed.tools.length !== 1 || !isRecord(parsed.tools[0]) ||
         parsed.tools[0].type !== 'web_search') {

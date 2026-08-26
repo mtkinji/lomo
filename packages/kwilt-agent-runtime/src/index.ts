@@ -42,6 +42,7 @@ export type {
   KwiltGenerationJobContract,
   KwiltGenerationJobId,
   KwiltGenerationPrivacyClass,
+  KwiltResponsesGenerationContract,
   KwiltLocalGenerationContract,
   KwiltLocalPromotion,
 } from './generationJobContracts';

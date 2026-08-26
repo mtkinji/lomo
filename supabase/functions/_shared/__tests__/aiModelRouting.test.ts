@@ -15,6 +15,7 @@ describe('resolveKwiltAiModel', () => {
     expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'current_information' })).toBe('gpt-5.2');
     expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'unified_chat_attachment' })).toBe('gpt-5-mini');
     expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'agent_judgment' })).toBe('gpt-5.6-luna');
+    expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'unified_chat_agent' })).toBe('gpt-5.6-terra');
     expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'default_chat' })).toBeNull();
   });
 
@@ -39,14 +40,20 @@ describe('resolveKwiltAiModel', () => {
     expect(normalizeKwiltAiJob('arc_generation')).toBe('arc_generation');
     expect(normalizeKwiltAiJob('story_game')).toBe('story_game');
     expect(normalizeKwiltAiJob('agent_judgment')).toBe('agent_judgment');
+    expect(normalizeKwiltAiJob('unified_chat_agent')).toBe('unified_chat_agent');
     expect(normalizeKwiltAiJob('thread_title')).toBe('thread_title');
   });
 
   it('projects every registered text job from the portable cloud contract', () => {
     for (const job of KWILT_GENERATION_JOB_IDS) {
+      if (getKwiltGenerationJobContract(job).responses) continue;
       expect(resolveKwiltAiModel({ route: '/v1/chat/completions', job })).toBe(
         getKwiltGenerationJobContract(job).cloudModel,
       );
     }
+  });
+
+  it('does not route Responses-only jobs through Chat Completions', () => {
+    expect(resolveKwiltAiModel({ route: '/v1/chat/completions', job: 'unified_chat_agent' })).toBeNull();
   });
 });
