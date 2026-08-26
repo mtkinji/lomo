@@ -1,19 +1,27 @@
 import { Pressable } from '@/src/ui/HapticPressable';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable-flatlist';
 import { HapticsService } from '../../../services/HapticsService';
 import { colors, fonts, spacing } from '../../../theme';
 import { BottomDrawer } from '../../../ui/BottomDrawer';
-import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
-import { moneyCategoryOrderChanged, moveMoneyCategory } from '../domain/moneyCategoryOrder';
+import { SegmentedControl } from '../../../ui/SegmentedControl';
+import {
+  mergeMoneyCategoryGroupOrder,
+  moneyCategoryOrderChanged,
+  moveMoneyCategory,
+  splitMoneyCategoriesByPlanRole,
+} from '../domain/moneyCategoryOrder';
 
 type ReorderCategory = {
   sourceId: string;
   name: string;
+  planRole?: 'protected' | 'flexible';
 };
+
+type CategoryGroup = 'flexible' | 'committed';
 
 export function MoneyCategoryReorderDrawer({
   categories,
@@ -28,78 +36,107 @@ export function MoneyCategoryReorderDrawer({
   saving: boolean;
   visible: boolean;
 }) {
-  const [localCategories, setLocalCategories] = useState<readonly ReorderCategory[]>(categories);
+  const initialGroups = splitMoneyCategoriesByPlanRole(categories);
+  const [flexibleCategories, setFlexibleCategories] = useState<readonly ReorderCategory[]>(initialGroups.flexible);
+  const [committedCategories, setCommittedCategories] = useState<readonly ReorderCategory[]>(initialGroups.committed);
+  const [activeGroup, setActiveGroup] = useState<CategoryGroup>('flexible');
   const [error, setError] = useState<string | null>(null);
+  const wasVisibleRef = useRef(false);
 
   useEffect(() => {
-    if (!visible) return;
-    setLocalCategories(categories);
-    setError(null);
+    if (visible && !wasVisibleRef.current) {
+      const groups = splitMoneyCategoriesByPlanRole(categories);
+      setFlexibleCategories(groups.flexible);
+      setCommittedCategories(groups.committed);
+      setActiveGroup(groups.flexible.length > 0 ? 'flexible' : 'committed');
+      setError(null);
+    }
+    wasVisibleRef.current = visible;
   }, [categories, visible]);
 
-  const changed = moneyCategoryOrderChanged(categories, localCategories);
-  const handleClose = () => {
-    if (!saving) onClose();
-  };
-  const handleSave = async () => {
-    if (!changed || saving) return;
+  const saveOrder = async (
+    nextFlexible: readonly ReorderCategory[],
+    nextCommitted: readonly ReorderCategory[],
+  ) => {
     setError(null);
     try {
-      await onSave(localCategories.map((category) => category.sourceId));
+      const completeOrder = mergeMoneyCategoryGroupOrder(categories, nextFlexible, nextCommitted);
+      await onSave(completeOrder.map((category) => category.sourceId));
       void HapticsService.trigger('outcome.success');
-      onClose();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'The category order could not be saved.');
     }
   };
 
-  const moveCategory = (sourceId: string, offset: -1 | 1) => {
-    setLocalCategories((current) => moveMoneyCategory(current, sourceId, offset));
+  const moveCategory = (group: CategoryGroup, sourceId: string, offset: -1 | 1) => {
+    if (saving) return;
+    const current = group === 'flexible' ? flexibleCategories : committedCategories;
+    const next = moveMoneyCategory(current, sourceId, offset);
+    if (next === current) return;
+
+    if (group === 'flexible') setFlexibleCategories(next);
+    else setCommittedCategories(next);
     void HapticsService.trigger('canvas.selection');
+    void saveOrder(
+      group === 'flexible' ? next : flexibleCategories,
+      group === 'committed' ? next : committedCategories,
+    );
+  };
+  const activeCategories = activeGroup === 'flexible' ? flexibleCategories : committedCategories;
+  const setActiveCategories = activeGroup === 'flexible' ? setFlexibleCategories : setCommittedCategories;
+  const activeGroupLabel = activeGroup === 'flexible' ? 'Flexible spending' : 'Committed spending';
+  const reorderActiveCategories = (next: readonly ReorderCategory[]) => {
+    if (saving || !moneyCategoryOrderChanged(activeCategories, next)) return;
+    setActiveCategories(next);
+    void saveOrder(
+      activeGroup === 'flexible' ? next : flexibleCategories,
+      activeGroup === 'committed' ? next : committedCategories,
+    );
   };
 
   return (
     <BottomDrawer
       visible={visible}
-      onClose={handleClose}
-      dismissable={!saving}
+      onClose={onClose}
       snapPoints={['82%']}
       keyboardAvoidanceEnabled={false}
     >
       <View style={styles.container}>
         <BottomDrawerHeader
           title="Reorder categories"
-          variant="navbar"
-          leftAction={(
-            <Button accessibilityLabel="Cancel category reordering" disabled={saving} haptic={false} onPress={handleClose} size="sm" variant="link">
-              Cancel
-            </Button>
-          )}
-          rightAction={(
-            <Button
-              accessibilityLabel="Save category order"
-              disabled={!changed || saving}
-              haptic={false}
-              onPress={() => { void handleSave(); }}
-              size="sm"
-              variant="link"
-            >
-              {saving ? 'Saving…' : 'Done'}
-            </Button>
-          )}
+          variant="withClose"
+          closeAccessibilityLabel="Close category reordering"
+          onClose={onClose}
         />
-        {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+        {error ? <Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+        <SegmentedControl
+          accessibilityLabel="Category list"
+          accessibilityState={{ disabled: saving }}
+          onChange={setActiveGroup}
+          options={[
+            { value: 'flexible', label: 'Flexible spending' },
+            { value: 'committed', label: 'Committed spending' },
+          ]}
+          size="compact"
+          style={styles.groupControl}
+          testIDPrefix="money-category-reorder.group"
+          value={activeGroup}
+        />
         <DraggableFlatList
           activationDistance={8}
           contentContainerStyle={styles.listContent}
-          data={[...localCategories]}
+          data={[...activeCategories]}
+          key={activeGroup}
           keyExtractor={(category) => category.sourceId}
           onDragBegin={() => { void HapticsService.trigger('canvas.selection'); }}
-          onDragEnd={({ data }) => setLocalCategories(data)}
+          onDragEnd={({ data }) => reorderActiveCategories(data)}
           renderItem={(params) => (
             <CategoryOrderRow
               {...params}
-              count={localCategories.length}
+              count={activeCategories.length}
+              disabled={saving}
+              group={activeGroup}
+              groupLabel={activeGroupLabel}
               onMove={moveCategory}
             />
           )}
@@ -111,17 +148,23 @@ export function MoneyCategoryReorderDrawer({
 
 function CategoryOrderRow({
   count,
+  disabled,
   drag,
   getIndex,
+  group,
+  groupLabel,
   isActive,
   item,
   onMove,
 }: RenderItemParams<ReorderCategory> & {
   count: number;
-  onMove: (sourceId: string, offset: -1 | 1) => void;
+  disabled: boolean;
+  group: CategoryGroup;
+  groupLabel: string;
+  onMove: (group: CategoryGroup, sourceId: string, offset: -1 | 1) => void;
 }) {
   const index = getIndex?.() ?? 0;
-  const actions = [
+  const actions = disabled ? [] : [
     ...(index > 0 ? [{ name: 'moveUp', label: 'Move up' }] : []),
     ...(index < count - 1 ? [{ name: 'moveDown', label: 'Move down' }] : []),
   ];
@@ -129,10 +172,11 @@ function CategoryOrderRow({
     <View
       accessible
       accessibilityActions={actions}
-      accessibilityLabel={`${item.name}, position ${index + 1} of ${count}`}
+      accessibilityLabel={`${item.name}, position ${index + 1} of ${count} in ${groupLabel}`}
+      accessibilityState={{ disabled }}
       onAccessibilityAction={(event) => {
-        if (event.nativeEvent.actionName === 'moveUp') onMove(item.sourceId, -1);
-        if (event.nativeEvent.actionName === 'moveDown') onMove(item.sourceId, 1);
+        if (event.nativeEvent.actionName === 'moveUp') onMove(group, item.sourceId, -1);
+        if (event.nativeEvent.actionName === 'moveDown') onMove(group, item.sourceId, 1);
       }}
       style={[styles.row, isActive ? styles.rowActive : null]}
     >
@@ -141,6 +185,7 @@ function CategoryOrderRow({
         accessibilityLabel={`Drag ${item.name}`}
         accessibilityRole="button"
         delayLongPress={100}
+        disabled={disabled}
         hitSlop={10}
         onLongPress={drag}
         style={({ pressed }) => [styles.dragHandle, pressed ? styles.dragHandlePressed : null]}
@@ -153,7 +198,8 @@ function CategoryOrderRow({
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: spacing.lg },
-  listContent: { paddingBottom: spacing['3xl'] },
+  listContent: { paddingBottom: spacing.xl },
+  groupControl: { alignSelf: 'stretch', marginBottom: spacing.sm },
   row: {
     minHeight: 58,
     flexDirection: 'row',

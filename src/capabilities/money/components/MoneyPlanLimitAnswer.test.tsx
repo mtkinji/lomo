@@ -44,7 +44,14 @@ describe('MoneyPlanLimitAnswer', () => {
     expect(screen.queryByText('$342.96 left')).toBeNull();
     expect(screen.queryByText('Current budget $1,360')).toBeNull();
     expect(screen.queryByText('$1,017.04 of $1,360 spent')).toBeNull();
+    const explanation = screen.getByRole('button', { name: 'About flexible spending' });
+    expect(explanation.props.accessibilityState).toMatchObject({ expanded: false });
+    fireEvent.press(explanation);
+    expect(onExplain).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Spending you can adjust month to month, after bills and money set aside.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'About flexible spending' }).props.accessibilityState).toMatchObject({ expanded: true });
     fireEvent.press(screen.getByRole('button', { name: 'About flexible spending' }));
+    expect(screen.queryByText('Spending you can adjust month to month, after bills and money set aside.')).toBeNull();
     expect(onExplain).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: 'See calculation' })).toBeNull();
     expect(screen.queryByText(/left for flexible spending this month/i)).toBeNull();

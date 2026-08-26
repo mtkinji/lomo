@@ -13,6 +13,7 @@ export type LivingPlanTrigger =
   | 'sync_evidence_changed'
   | 'target_changed'
   | 'planning_basis_changed'
+  | 'transaction_review_changed'
   | 'override_changed'
   | 'category_changed'
   | 'period_rollover'

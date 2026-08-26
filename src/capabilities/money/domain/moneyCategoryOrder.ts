@@ -1,4 +1,31 @@
 type OrderedMoneyCategory = { sourceId: string };
+type GroupedMoneyCategory = OrderedMoneyCategory & { planRole?: 'protected' | 'flexible' };
+
+export function splitMoneyCategoriesByPlanRole<T extends GroupedMoneyCategory>(
+  categories: readonly T[],
+): { flexible: T[]; committed: T[] } {
+  return categories.reduce<{ flexible: T[]; committed: T[] }>((groups, category) => {
+    if (category.planRole === 'protected') groups.committed.push(category);
+    else groups.flexible.push(category);
+    return groups;
+  }, { flexible: [], committed: [] });
+}
+
+export function mergeMoneyCategoryGroupOrder<T extends GroupedMoneyCategory>(
+  initial: readonly T[],
+  flexible: readonly T[],
+  committed: readonly T[],
+): readonly T[] {
+  let flexibleIndex = 0;
+  let committedIndex = 0;
+
+  return initial.map((category) => {
+    if (category.planRole === 'protected') {
+      return committed[committedIndex++] ?? category;
+    }
+    return flexible[flexibleIndex++] ?? category;
+  });
+}
 
 export function moveMoneyCategory<T extends OrderedMoneyCategory>(
   categories: readonly T[],

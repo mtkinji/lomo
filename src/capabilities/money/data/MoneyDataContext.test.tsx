@@ -96,6 +96,16 @@ function snapshotCache(cached: MoneySnapshot | null): MoneySnapshotCache {
 describe('MoneyDataProvider merchant-rule confirmation', () => {
   beforeEach(() => jest.mocked(reconcileConnectedMoneyActivity).mockReset());
 
+  it('reconciles the governed plan after a persisted transaction review', () => {
+    const source = require('fs').readFileSync(require('path').join(__dirname, 'MoneyDataContext.tsx'), 'utf8');
+    const reviewBoundedTransaction = source.slice(
+      source.indexOf('const reviewBoundedTransaction = useCallback'),
+      source.indexOf('const reviewBroadTransaction = useCallback'),
+    );
+
+    expect(reviewBoundedTransaction).toContain("reconcileLivingPlan(getSupabaseClient(), 'transaction_review_changed')");
+  });
+
   it('keeps the last snapshot visible and surfaces a connected-refresh failure', async () => {
     const repository = {
       loadSnapshot: jest.fn().mockResolvedValue(snapshot),

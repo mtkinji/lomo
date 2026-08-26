@@ -1,4 +1,5 @@
 import { Pressable } from '@/src/ui/HapticPressable';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export function MoneyPlanLimitAnswer({ answer, freshness, showHeader = true, onExplain, onReviewIncome, onReviewOverages }: Props) {
+  const [explanationOpen, setExplanationOpen] = useState(false);
   const content = formatMoneyPlanLimitAnswer(answer, freshness);
   if (answer.state === 'missing_income_basis') {
     const actionLabel = 'Finish plan';
@@ -49,19 +51,31 @@ export function MoneyPlanLimitAnswer({ answer, freshness, showHeader = true, onE
       : null;
   return (
     <View testID="money-limit-card" style={styles.answerSection}>
-      {showHeader ? <View testID="money-limit-header" style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>{compact.label}</Text>
-        <Pressable
-          accessibilityHint="Explains what is included and how this amount is calculated."
-          accessibilityLabel={actionLabel}
-          accessibilityRole="button"
-          hitSlop={10}
-          onPress={onExplain}
-          testID="money-limit-explanation-trigger"
-          style={({ pressed }) => [styles.explainAction, pressed ? styles.explainActionPressed : null]}
-        >
-          <Icon name="info" size={16} color={colors.textSecondary} />
-        </Pressable>
+      {showHeader ? <View testID="money-limit-header" style={styles.conceptBlock}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>{compact.label}</Text>
+          <Pressable
+            accessibilityHint="Explains flexible spending."
+            accessibilityLabel={actionLabel}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: explanationOpen }}
+            hitSlop={10}
+            onPress={() => {
+              const next = !explanationOpen;
+              setExplanationOpen(next);
+              if (next) onExplain();
+            }}
+            testID="money-limit-explanation-trigger"
+            style={({ pressed }) => [styles.explainAction, pressed ? styles.explainActionPressed : null]}
+          >
+            <Icon name="info" size={16} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+        {explanationOpen ? (
+          <Text style={styles.conceptExplanation}>
+            Spending you can adjust month to month, after bills and money set aside.
+          </Text>
+        ) : null}
       </View> : null}
       <Card
         elevation="none"
@@ -153,8 +167,10 @@ const styles = StyleSheet.create({
   answerSection: { gap: spacing.xs },
   answerCard: { gap: spacing.xs, borderWidth: 0 },
   answerCardNeutral: { backgroundColor: colors.fieldFill },
-  sectionHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  conceptBlock: { gap: spacing.xs },
+  sectionHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   sectionLabel: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, fontWeight: '600' },
+  conceptExplanation: { maxWidth: 330, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   amountRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
   amountValueRow: { minWidth: 0, flexDirection: 'row', alignItems: 'flex-start' },
   currencySymbol: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 22, lineHeight: 28, fontWeight: '800', marginTop: 2 },

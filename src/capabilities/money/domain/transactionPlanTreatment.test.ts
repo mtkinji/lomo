@@ -35,6 +35,19 @@ describe('getTransactionPlanTreatment', () => {
     });
   });
 
+  it('treats unreviewed provider payroll as income instead of outside the plan', () => {
+    expect(getTransactionPlanTreatment(transaction({
+      direction: 'inflow',
+      moneyMeaning: null,
+      reviewState: 'not_counted',
+      providerCategoryPrimary: 'INCOME',
+      providerCategoryDetailed: 'INCOME_SALARY',
+    }), [protectedCategory])).toEqual({
+      kind: 'income',
+      label: 'Income',
+    });
+  });
+
   it('discloses when a split spans both category roles', () => {
     expect(getTransactionPlanTreatment(transaction({
       categoryId: null,

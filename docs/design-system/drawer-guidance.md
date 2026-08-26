@@ -36,6 +36,7 @@ intentional brand-aware frame.
 The shared package should eventually own:
 
 - `BottomDrawer` mechanics: snap points, scrim, keyboard avoidance, safe-area handling, drag-to-dismiss, scroll gesture coordination.
+- `BottomDrawer` motion: semantic enter, exit, resize, settle, and rebound timing from `theme/motion`; feature callers do not author drawer durations or easing.
 - Header primitives: grabber, title block, close/action slots, optional subtitle, optional divider.
 - Row primitives: selectable rows, command rows, selected state, trailing check slot, optional leading icon/emoji.
 - Search primitive: compact drawer search field with focus state and clear action.

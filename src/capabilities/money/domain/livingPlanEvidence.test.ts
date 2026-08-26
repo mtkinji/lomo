@@ -79,4 +79,28 @@ describe('buildLivingPlanEvidence', () => {
     }]);
     expect(evidence.sourceInputs).toEqual([]);
   });
+
+  it('keeps explicitly excluded inflows out of planning-income evidence', () => {
+    const evidence = buildLivingPlanEvidence({
+      nowIso: '2026-08-25T12:00:00.000Z',
+      lastSyncedAtIso: '2026-08-25T11:00:00.000Z',
+      transactions: [
+        {
+          id: 'included-payroll', date: '2026-07-14', direction: 'inflow', amountCents: 333_181,
+          description: 'Adobe payroll', providerCategory: 'INCOME_SALARY',
+        },
+        {
+          id: 'excluded-payroll', date: '2026-08-14', direction: 'inflow', amountCents: 333_181,
+          description: 'Adobe payroll', providerCategory: 'INCOME_SALARY', moneyMeaning: 'not_counted',
+        },
+      ],
+      forecastSettings: [],
+      overrides: [],
+    });
+
+    expect(evidence.sourceInputs).toEqual([expect.objectContaining({
+      samples: [333_181],
+      activePeriodCount: 1,
+    })]);
+  });
 });

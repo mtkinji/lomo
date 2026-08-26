@@ -228,6 +228,37 @@ describe('projectMoneySnapshot', () => {
     expect(snapshot.transactions[0]?.reviewState).toBe('needs_review');
   });
 
+  it('projects unreviewed provider payroll as income instead of an explicit exclusion', () => {
+    const snapshot = projectMoneySnapshot({
+      categories,
+      plans,
+      accounts: [],
+      connections: [],
+      transactions: [{
+        id: 'adobe-payroll',
+        financial_account_id: null,
+        name: 'ADOBE INC. PAYROLL PPD ID: 6506940773',
+        merchant_name: 'Adobe',
+        amount_cents: 333_181,
+        direction: 'inflow',
+        date: '2026-08-14',
+        pending: false,
+        iso_currency_code: 'USD',
+        budget_id: null,
+        budget_match_source: null,
+        money_meaning: null,
+        personal_finance_category_primary: 'INCOME',
+        personal_finance_category_detailed: 'INCOME_SALARY',
+      }],
+    }, new Date('2026-08-25T18:00:00.000Z'));
+
+    expect(snapshot.transactions[0]).toMatchObject({
+      categoryName: 'Income',
+      matchSource: null,
+      moneyMeaning: null,
+    });
+  });
+
   it('counts pending purchases immediately without trusting pending inflows', () => {
     const snapshot = projectMoneySnapshot({
       categories,
@@ -469,5 +500,52 @@ describe('projectMoneySnapshot', () => {
         catchUpContributionCents: 1000,
       },
     });
+  });
+
+  it('keeps an exact provider card payment out of review and links its owned card counterpart', () => {
+    const snapshot = projectMoneySnapshot({
+      categories,
+      plans,
+      connections: [],
+      accounts: [
+        {
+          id: 'checking', connection_id: 'connection-1', name: 'Total Checking', official_name: null,
+          mask: '6860', type: 'depository', subtype: 'checking',
+        },
+        {
+          id: 'card', connection_id: 'connection-1', name: 'Credit Card', official_name: null,
+          mask: '5824', type: 'credit', subtype: 'credit card',
+        },
+      ],
+      transactions: [
+        {
+          id: 'checking-payment', financial_account_id: 'checking', name: 'Payment to Chase card ending in 5824', merchant_name: null,
+          original_description: 'Payment to Chase card ending in 5824 08/14', amount_cents: 350065,
+          direction: 'outflow', date: '2026-08-14', pending: false, iso_currency_code: 'USD', budget_id: null,
+          money_meaning: null, personal_finance_category_primary: 'LOAN_PAYMENTS',
+          personal_finance_category_detailed: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT', personal_finance_category_confidence: 'VERY_HIGH',
+        },
+        {
+          id: 'card-credit', financial_account_id: 'card', name: 'Payment Thank You-Mobile', merchant_name: null,
+          amount_cents: 350065, direction: 'inflow', date: '2026-08-14', pending: false,
+          iso_currency_code: 'USD', budget_id: null, money_meaning: null,
+          personal_finance_category_primary: 'LOAN_DISBURSEMENTS',
+          personal_finance_category_detailed: 'LOAN_DISBURSEMENTS_OTHER_DISBURSEMENT', personal_finance_category_confidence: 'VERY_HIGH',
+        },
+      ],
+    }, new Date('2026-08-15T18:00:00.000Z'));
+
+    expect(snapshot.totals.needsReviewCount).toBe(0);
+    expect(snapshot.outsidePlan).toEqual({ spentCents: 0, transactionCount: 0 });
+    expect(snapshot.transactions).toEqual([
+      expect.objectContaining({
+        id: 'checking-payment', moneyMeaning: 'transfer', reviewState: 'not_counted', categoryName: 'Internal transfer',
+        transferPair: expect.objectContaining({ counterpartTransactionId: 'card-credit' }),
+      }),
+      expect.objectContaining({
+        id: 'card-credit', moneyMeaning: 'transfer', reviewState: 'not_counted', categoryName: 'Internal transfer',
+        transferPair: expect.objectContaining({ counterpartTransactionId: 'checking-payment' }),
+      }),
+    ]);
   });
 });

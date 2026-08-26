@@ -6,16 +6,33 @@ describe('projectMonthlyBudgetSummary', () => {
   it('keeps actual income and spending separate from the plan comparison', () => {
     const result = projectMonthlyBudgetSummary({
       audit: audit({ incomeReceivedCents: 1_106_456, totalSpendingCents: 1_043_768 }),
-      monthlyPlan: { regularPlanCents: 774_519, plannedOutflowCents: 774_519 },
-      answer: answer({ protectedPlanCents: 400_000, protectedOverageCents: 21_253, countedFlexibleSpendCents: 622_515 }),
+      monthlyPlan: { committedPlanCents: 400_000, flexiblePlanCents: 400_000 },
+      answer: answer({
+        resourceBasisCents: 1_106_456,
+        livingPercent: 70,
+        livingLimitCents: 774_519,
+        protectedPlanCents: 400_000,
+        protectedOverageCents: 21_253,
+        countedFlexibleSpendCents: 622_515,
+      }),
     });
 
     expect(result).toEqual({
       incomeReceivedCents: 1_106_456,
       totalSpendingCents: 1_043_768,
-      monthlyPlanCents: 774_519,
+      spendingIncomePercent: 94.3,
+      planTargetCents: 774_519,
+      planTargetPercent: 70,
+      planTargetBasisCents: 1_106_456,
+      committedPlanCents: 400_000,
+      flexiblePlanCents: 400_000,
+      monthlyPlanCents: 800_000,
+      planVsTarget: { status: 'above', amountCents: 25_481 },
+      planCoveredSpendingCents: 1_043_768,
+      savedResourceSpendingCents: 0,
+      outsidePlanSpendingCents: 0,
       planAccountedCents: 1_043_768,
-      planResult: { status: 'over', amountCents: 269_249 },
+      planResult: { status: 'over', amountCents: 243_768 },
       spendingOutsideCurrentPlanCents: 0,
     });
   });
@@ -28,11 +45,14 @@ describe('projectMonthlyBudgetSummary', () => {
         savedResourceSpendingCents: 20_000,
         outsidePlanSpendingCents: 10_000,
       }),
-      monthlyPlan: { regularPlanCents: 80_000, plannedOutflowCents: 80_000 },
+      monthlyPlan: { committedPlanCents: 20_000, flexiblePlanCents: 60_000 },
       answer: answer({ protectedPlanCents: 0, protectedOverageCents: 0, countedFlexibleSpendCents: 70_000 }),
     });
 
     expect(result.totalSpendingCents).toBe(100_000);
+    expect(result.planCoveredSpendingCents).toBe(70_000);
+    expect(result.savedResourceSpendingCents).toBe(20_000);
+    expect(result.outsidePlanSpendingCents).toBe(10_000);
     expect(result.planAccountedCents).toBe(70_000);
     expect(result.spendingOutsideCurrentPlanCents).toBe(30_000);
     expect(result.planResult).toEqual({ status: 'left', amountCents: 10_000 });
@@ -41,12 +61,14 @@ describe('projectMonthlyBudgetSummary', () => {
   it('keeps the plan result unavailable when the supported plan arithmetic is unavailable', () => {
     const result = projectMonthlyBudgetSummary({
       audit: audit({ incomeReceivedCents: 50_000, totalSpendingCents: 30_000 }),
-      monthlyPlan: { regularPlanCents: 80_000, plannedOutflowCents: 80_000 },
+      monthlyPlan: { committedPlanCents: 20_000, flexiblePlanCents: 60_000 },
       answer: null,
     });
 
     expect(result.planAccountedCents).toBeNull();
     expect(result.planResult).toBeNull();
+    expect(result.planTargetCents).toBeNull();
+    expect(result.planVsTarget).toBeNull();
   });
 });
 

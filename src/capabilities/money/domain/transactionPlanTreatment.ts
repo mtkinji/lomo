@@ -1,4 +1,5 @@
 import type { MoneyCategory, MoneyTransaction } from '../data/moneySnapshot';
+import { getEffectiveMoneyMeaning } from './transactionMeaning';
 
 export type TransactionPlanTreatment = {
   kind: 'protected' | 'flexible' | 'mixed' | 'outside' | 'income' | 'transfer' | 'unassigned';
@@ -9,11 +10,12 @@ export function getTransactionPlanTreatment(
   transaction: MoneyTransaction,
   categories: MoneyCategory[],
 ): TransactionPlanTreatment {
-  if (transaction.reviewState === 'not_counted' || transaction.moneyMeaning === 'not_counted') {
+  if (transaction.moneyMeaning === 'not_counted') {
     return { kind: 'outside', label: 'Outside the plan' };
   }
-  if (transaction.moneyMeaning === 'income') return { kind: 'income', label: 'Income' };
-  if (transaction.moneyMeaning === 'transfer') return { kind: 'transfer', label: 'Internal transfer' };
+  const effectiveMeaning = getEffectiveMoneyMeaning(transaction);
+  if (effectiveMeaning === 'income') return { kind: 'income', label: 'Income' };
+  if (effectiveMeaning === 'transfer') return { kind: 'transfer', label: 'Internal transfer' };
 
   if (!transaction.allocations?.length && transaction.categoryId && transaction.planRoleOverride) {
     return transaction.planRoleOverride === 'protected'

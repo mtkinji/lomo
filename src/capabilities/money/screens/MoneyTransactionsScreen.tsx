@@ -22,6 +22,8 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyTransaction } from '../data/moneySnapshot';
 import { projectMoneyTransactionsForCategory } from '../domain/moneyPeriodView';
 import { projectBudgetOverageReview } from '../domain/budgetOverageReview';
+import { collapseLinkedCreditCardPaymentTransfers } from '../domain/creditCardPaymentTransfers';
+import { isProviderIncome } from '../domain/transactionMeaning';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 import { EmptyState } from '../../../ui/EmptyState';
@@ -84,7 +86,8 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
       : matchesDateScope(transaction.date, dateScope)
   )), [dateScope, monthEnd, monthStart, scopedInventory]);
   const transactions = useMemo(() => sortTransactions(dateTransactions.filter((transaction) => matchesFilter(transaction, filter)), sort), [dateTransactions, filter, sort]);
-  const groups = useMemo(() => groupByDate(transactions), [transactions]);
+  const inventoryTransactions = useMemo(() => collapseLinkedCreditCardPaymentTransfers(transactions), [transactions]);
+  const groups = useMemo(() => groupByDate(inventoryTransactions), [inventoryTransactions]);
   const accountLabel = accountId ? snapshot?.accounts.find((account) => account.id === accountId)?.name : null;
   const categoryLabel = selectedCategory?.name ?? null;
   const title = inventoryTitle ?? (reviewTransactionIds
@@ -175,7 +178,10 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
             </IconMenu>
           </MoneyInventoryControlGroup>
         )}
-        count={{ visible: transactions.length, total: scopedInventory.length }}
+        count={{
+          visible: inventoryTransactions.length,
+          total: collapseLinkedCreditCardPaymentTransfers(scopedInventory).length,
+        }}
         action={(
           <Pressable accessibilityRole="button" accessibilityLabel="Check for new activity" disabled={syncing} hitSlop={10} onPress={() => void checkActivity()} style={({ pressed }) => [styles.iconButton, syncing ? styles.iconButtonDisabled : null, pressed ? styles.iconButtonPressed : null]}>
             <Icon name="refresh" size={18} color={colors.textPrimary} />
@@ -221,21 +227,31 @@ function TransactionMenuItem({ active, iconName, label, onPress }: { active: boo
 }
 
 function TransactionInventoryRow({ onPress, showCategoryMeta = true, transaction }: { onPress: () => void; showCategoryMeta?: boolean; transaction: MoneyTransaction }) {
-  const state = transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.reviewState === 'not_counted' ? 'Not budgeted' : '';
+  const transferPair = transaction.transferPair;
+  const state = transferPair
+    ? 'Transfer'
+    : isProviderIncome(transaction)
+      ? ''
+      : transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.reviewState === 'not_counted' ? 'Not budgeted' : '';
   const stateStyle = transaction.reviewState === 'needs_review' ? styles.reviewChip : styles.neutralChip;
-  const amountCents = transaction.direction === 'inflow' ? transaction.amountCents : -transaction.amountCents;
+  const amountCents = transferPair ? transaction.amountCents : transaction.direction === 'inflow' ? transaction.amountCents : -transaction.amountCents;
   const assignment = transaction.categoryName ?? (state || 'Uncategorized');
-  const amountLabel = `${amountCents > 0 ? '+' : ''}${formatMoney(amountCents, transaction.currencyCode)}`;
+  const amountLabel = `${amountCents > 0 && !transferPair ? '+' : ''}${formatMoney(amountCents, transaction.currencyCode)}`;
+  const title = transferPair ? 'Credit card payment' : transaction.merchantName;
+  const detail = transferPair
+    ? `${transferPair.sourceAccountName} → ${transferPair.destinationAccountName}`
+    : showCategoryMeta && transaction.categoryName && transaction.categoryName !== state ? transaction.categoryName : null;
+  const accessibilityLabel = transferPair
+    ? `Open credit card payment, ${transferPair.sourceAccountName} to ${transferPair.destinationAccountName}, ${amountLabel}`
+    : `Open ${transaction.merchantName} transaction, ${assignment}, ${amountLabel}`;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction, ${assignment}, ${amountLabel}`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.transactionRowPressed : null]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.transactionRowPressed : null]}>
       <View style={styles.merchantBlock}>
-        <Text numberOfLines={1} style={styles.merchant}>{transaction.merchantName}</Text>
-        {showCategoryMeta && transaction.categoryName && transaction.categoryName !== state
-          ? <Text numberOfLines={1} style={styles.assignmentMeta}>{transaction.categoryName}</Text>
-          : null}
+        <Text numberOfLines={1} style={styles.merchant}>{title}</Text>
+        {detail ? <Text numberOfLines={1} style={styles.assignmentMeta}>{detail}</Text> : null}
       </View>
       {state ? <Text numberOfLines={1} style={[styles.assignmentChip, stateStyle]}>{state}</Text> : null}
-      <Text style={[styles.amount, transaction.direction === 'inflow' ? styles.inflowAmount : null]}>{amountLabel}</Text>
+      <Text style={[styles.amount, transaction.direction === 'inflow' && !transferPair ? styles.inflowAmount : null]}>{amountLabel}</Text>
     </Pressable>
   );
 }
@@ -243,7 +259,8 @@ function TransactionInventoryRow({ onPress, showCategoryMeta = true, transaction
 function matchesFilter(transaction: MoneyTransaction, filter: Filter): boolean {
   if (filter === 'all') return true;
   if (filter === 'unmatched') return transaction.reviewState === 'needs_review';
-  if (filter === 'matched') return transaction.reviewState === 'assigned';
+  if (filter === 'matched') return transaction.reviewState === 'assigned' || transaction.moneyMeaning === 'transfer';
+  if (transaction.moneyMeaning === 'transfer') return false;
   return transaction.direction === filter;
 }
 

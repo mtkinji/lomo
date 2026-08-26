@@ -82,6 +82,12 @@ interface BottomGuideProps {
   animateOnClose?: boolean;
   /** Layout override for guides that need a bounded scroll body. */
   contentStyle?: StyleProp<ViewStyle>;
+  /**
+   * Let a floating guide's own content inset replace BottomDrawer's generic
+   * safe-area padding. Use when the guide already clears the phone edge and its
+   * bottom actions need equal side, bottom, and control-radius geometry.
+   */
+  contentExtendsIntoBottomSafeArea?: boolean;
 }
 
 /**
@@ -105,6 +111,7 @@ export function BottomGuide({
   dynamicSizing = false,
   animateOnClose = false,
   contentStyle,
+  contentExtendsIntoBottomSafeArea = false,
 }: BottomGuideProps) {
   const suppressionKeyRef = useRef(
     `bottomGuide-${Math.random().toString(36).slice(2)}-${Date.now()}`,
@@ -173,7 +180,7 @@ export function BottomGuide({
       dynamicSizing={dynamicSizing}
       animateOnHide={animateOnClose}
       bottomAccessory={bottomAccessory}
-      contentExtendsIntoBottomSafeArea={Boolean(bottomAccessory)}
+      contentExtendsIntoBottomSafeArea={Boolean(bottomAccessory) || contentExtendsIntoBottomSafeArea}
     >
       <View style={[styles.content, contentStyle]}>{children}</View>
     </BottomDrawer>

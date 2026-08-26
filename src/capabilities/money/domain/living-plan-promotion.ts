@@ -16,6 +16,7 @@ export function decideLivingPlanActivation(input: {
   if (
     input.trigger === 'target_changed'
     || input.trigger === 'planning_basis_changed'
+    || input.trigger === 'transaction_review_changed'
     || input.trigger === 'override_changed'
     || input.trigger === 'category_changed'
   ) {

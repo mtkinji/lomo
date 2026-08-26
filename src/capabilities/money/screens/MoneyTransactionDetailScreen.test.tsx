@@ -91,6 +91,13 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(source).toContain('visible={Boolean(ruleOfferCategory) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen}');
     expect(source).toContain('Use {ruleOfferCategory?.name} next time?');
     expect(source).toContain('Review rule');
+    expect(source).toContain('scrim="light"');
+    expect(source).toContain('contentStyle={styles.ruleGuideContent}');
+    expect(source).toContain('contentExtendsIntoBottomSafeArea');
+    expect(source).toContain('See which future {transaction.merchantName} transactions would match.');
+    expect(source).toContain("ruleGuideActions: { flexDirection: 'row'");
+    expect(source.indexOf('>Not now</Button>')).toBeLessThan(source.indexOf('>Review rule</Button>'));
+    expect(source).not.toContain('Kwilt won’t create a rule until you confirm.');
     expect(source).not.toContain('style={({ pressed }) => [styles.ruleOffer, pressed ? styles.pressed : null]}');
   });
 
@@ -104,8 +111,8 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(selectCategory).toContain('setPendingRuleCategory(null)');
     expect(selectCategory).toContain('setCategoryPickerOpen(true)');
     expect(source).toContain('onClose={saving ? undefined : () => void dismissRuleOffer()}');
-    expect(source).toContain('<Button fullWidth loading={saving} loadingLabel="Saving category…" onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>');
-    expect(source).toContain('<Button fullWidth disabled={saving} variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>');
+    expect(source).toContain('<Button loading={saving} loadingLabel="Saving category…" onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>');
+    expect(source).toContain('<Button disabled={saving} variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>');
   });
 
   it('makes transaction counts-as treatment compact and removes the standalone plan-treatment field', () => {
@@ -123,5 +130,14 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(source).not.toContain('transaction.pending ? <Text style={styles.pendingText}>Pending</Text>');
     expect(source).not.toContain('pendingText:');
     expect(source).not.toContain('Temporary hold');
+  });
+
+  it('does not present inferred payroll as reviewed or explicitly outside the plan', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('isTransactionExplicitlyReviewed(transaction)');
+    expect(source).toContain("if (isProviderIncome(transaction)) return 'Income';");
+    expect(source).not.toContain("option.meaning === 'not_counted' && transaction.reviewState === 'not_counted'");
+    expect(source).not.toContain("transaction.reviewState === 'not_counted' || transaction.moneyMeaning === 'not_counted'");
   });
 });

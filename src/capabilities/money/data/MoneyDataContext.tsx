@@ -257,6 +257,9 @@ export function MoneyDataProvider({
           moneyMeaning: result.meaning,
         },
       });
+      if (!repository) {
+        await reconcileLivingPlan(getSupabaseClient(), 'transaction_review_changed').catch(() => undefined);
+      }
       const version = ++mutationVersionRef.current;
       refreshInBackground(version);
     } catch (error) {
@@ -266,7 +269,7 @@ export function MoneyDataProvider({
     } finally {
       setReviewingTransactionId(null);
     }
-  }, [refreshInBackground, state.snapshot]);
+  }, [refreshInBackground, repository, state.snapshot]);
 
   const reviewBroadTransaction = useCallback(async (
     transactionId: string,

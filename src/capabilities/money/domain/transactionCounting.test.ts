@@ -18,6 +18,13 @@ describe('transaction counting', () => {
     expect(isCommittedOutflow({ ...pendingPurchase, moneyMeaning: 'not_counted' })).toBe(false);
   });
 
+  it('excludes exact provider credit-card payment evidence before stored meaning catches up', () => {
+    expect(isCommittedOutflow({
+      ...pendingPurchase,
+      providerCategoryDetailed: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT',
+    })).toBe(false);
+  });
+
   it('recognizes an ordinary settled purchase as posted history', () => {
     expect(isPostedOutflow({ ...pendingPurchase, pending: false })).toBe(true);
   });

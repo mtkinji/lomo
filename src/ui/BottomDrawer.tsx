@@ -33,7 +33,7 @@ import Animated, {
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Portal } from '@rn-primitives/portal';
-import { bottomDockGeometry, cardElevation, colors, scrims, spacing, type ScrimToken } from '../theme';
+import { bottomDockGeometry, cardElevation, colors, motion, scrims, spacing, type ScrimToken } from '../theme';
 import { BUTTON_SIZE_TOKENS } from './buttonTokens';
 import {
   getAccessibleAnimationDuration,
@@ -516,7 +516,10 @@ export function BottomDrawer({
     if (!mounted || !visible) return;
 
     isAnimating.value = true;
-    translateY.value = withTiming(closedOffset, { duration: motionDuration(260) }, (finished) => {
+    translateY.value = withTiming(closedOffset, {
+      duration: motionDuration(motion.drawer.exit.durationMs),
+      easing: motion.drawer.exit.easing,
+    }, (finished) => {
       isAnimating.value = false;
       if (finished) {
         runOnJS(closeIfAllowed)();
@@ -590,14 +593,17 @@ export function BottomDrawer({
     }
 
     isAnimating.value = true;
-    translateY.value = withTiming(closedOffset, { duration: motionDuration(280) }, (finished) => {
+    translateY.value = withTiming(closedOffset, {
+      duration: motionDuration(motion.drawer.exit.durationMs),
+      easing: motion.drawer.exit.easing,
+    }, (finished) => {
       isAnimating.value = false;
       if (finished) {
         runOnJS(setMounted)(false);
       }
     });
 
-    const fallbackUnmountMs = motionDuration(360); // slightly > duration to avoid cutting off the close animation
+    const fallbackUnmountMs = motionDuration(motion.drawer.exit.durationMs + 80);
     const timeoutId = setTimeout(() => {
       setMounted(false);
     }, fallbackUnmountMs);
@@ -621,7 +627,10 @@ export function BottomDrawer({
       // Commit the final height once, then animate only the transform.
       sheetHeight.value = targetHeight;
       translateY.value = targetHeight + 24;
-      translateY.value = withTiming(0, { duration: motionDuration(320) }, (finished) => {
+      translateY.value = withTiming(0, {
+        duration: motionDuration(motion.drawer.enter.durationMs),
+        easing: motion.drawer.enter.easing,
+      }, (finished) => {
         isAnimating.value = false;
         if (finished) runOnJS(notifySnapIndexChange)(openToIndex);
       });
@@ -631,7 +640,10 @@ export function BottomDrawer({
     // Snap-height changes while open should resize the sheet in place. Replaying
     // the entrance animation here makes under-keyboard composers appear to close
     // and reopen whenever their content grows by a line.
-    sheetHeight.value = withTiming(targetHeight, { duration: motionDuration(180) }, (finished) => {
+    sheetHeight.value = withTiming(targetHeight, {
+      duration: motionDuration(motion.drawer.resize.durationMs),
+      easing: motion.drawer.resize.easing,
+    }, (finished) => {
       if (finished) runOnJS(notifySnapIndexChange)(openToIndex);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -734,7 +746,10 @@ export function BottomDrawer({
 
         if (shouldDismiss) {
           isAnimating.value = true;
-          translateY.value = withTiming(closedOffset, { duration: motionDuration(260) }, (finished) => {
+          translateY.value = withTiming(closedOffset, {
+            duration: motionDuration(motion.drawer.exit.durationMs),
+            easing: motion.drawer.exit.easing,
+          }, (finished) => {
             isAnimating.value = false;
             if (finished) {
               runOnJS(closeIfAllowed)();
@@ -745,13 +760,19 @@ export function BottomDrawer({
 
         // Ensure we settle back to the base position (no close translation).
         if (currentTranslate !== 0) {
-          translateY.value = withTiming(0, { duration: motionDuration(220) });
+          translateY.value = withTiming(0, {
+            duration: motionDuration(motion.drawer.rebound.durationMs),
+            easing: motion.drawer.rebound.easing,
+          });
         }
 
         const projectedHeight = clamp(currentHeight - vY * 0.15, minSnapHeight, maxSnapHeight);
         const idx = getClosestIndex({ snapY: projectedHeight, snapYs: snapHeights });
         isAnimating.value = true;
-        sheetHeight.value = withTiming(snapHeights[idx] ?? maxSnapHeight, { duration: motionDuration(260) }, (finished) => {
+        sheetHeight.value = withTiming(snapHeights[idx] ?? maxSnapHeight, {
+          duration: motionDuration(motion.drawer.settle.durationMs),
+          easing: motion.drawer.settle.easing,
+        }, (finished) => {
           isAnimating.value = false;
           if (finished) runOnJS(notifySnapIndexChange)(idx);
         });

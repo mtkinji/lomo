@@ -123,7 +123,7 @@ export function projectMoneyPlanProjection(
     protectedPlanCents: protectedRequirement.protectedPlanCents,
     protectedOverageCents: protectedRequirement.protectedOverageCents,
   });
-  const regularPlanCents = Math.max(0, Math.round(active.targetCents));
+  const regularPlanCents = Math.max(0, Math.round(plannedCents));
   const committedPlanCents = Math.max(0, Math.round(protectedRequirement.protectedPlanCents));
   return {
     versionId: active.versionId,

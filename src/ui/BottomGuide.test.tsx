@@ -156,4 +156,14 @@ describe('BottomGuide interaction semantics', () => {
     expect(mockBottomDrawerProps.at(-1)?.bottomAccessory).toBeTruthy();
     expect(mockBottomDrawerProps.at(-1)?.contentExtendsIntoBottomSafeArea).toBe(true);
   });
+
+  it('can let floating content own an equal bottom inset without a second safe-area lift', () => {
+    renderWithProviders(
+      <BottomGuide visible contentExtendsIntoBottomSafeArea onClose={jest.fn()}>
+        <Text>Guidance</Text>
+      </BottomGuide>,
+    );
+
+    expect(mockBottomDrawerProps.at(-1)?.contentExtendsIntoBottomSafeArea).toBe(true);
+  });
 });

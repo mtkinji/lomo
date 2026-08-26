@@ -53,7 +53,7 @@ export function buildLivingPlanEvidence(input: LivingPlanEvidenceInput): LivingP
   const validRows = input.transactions.filter((row) => Number.isFinite(row.amountCents) && row.amountCents >= 0);
   const postedRows = validRows.filter((row) => !row.pending);
   const inflowGroups = new Map<string, LivingPlanEvidenceTransaction[]>();
-  for (const row of postedRows.filter((item) => item.direction === 'inflow')) {
+  for (const row of postedRows.filter((item) => item.direction === 'inflow' && item.moneyMeaning !== 'not_counted')) {
     const description = `${row.description} ${row.providerCategory ?? ''}`.toLowerCase();
     const exceptional = /\b(brokerage|fidelity|schwab|vanguard|robinhood|investment|securities|stock sale|reserve withdrawal|savings withdrawal|bonus|gift|inheritance|windfall|loan proceeds|loan disbursement)\b/.test(description);
     const providerIncome = /^income(?:\b|_)/i.test(row.providerCategory ?? '');

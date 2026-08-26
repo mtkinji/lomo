@@ -35,8 +35,8 @@ describe('projectMoneyPlanProjection', () => {
     const active = {
       versionId: 'version-2', predecessorVersionId: 'version-1', periodId: '2026-07', livingPercent: 60,
       allocatorVersion: 'living-plan-v2', evidenceHash: 'evidence', candidateHash: 'candidate', status: 'ready',
-      resourceBasisCents: 100000, targetCents: 60000, plannedCents: 60000, unassignedCents: 0, overTargetCents: 0,
-      allocations: [allocation('housing', 35000), allocation('food', 25000)],
+      resourceBasisCents: 100000, targetCents: 60000, plannedCents: 65000, unassignedCents: 0, overTargetCents: 5000,
+      allocations: [allocation('housing', 35000), allocation('food', 30000)],
       receipt: { id: 'receipt-2', planVersionId: 'version-2', priorVersionId: 'version-1', trigger: 'category_changed', outcome: 'material', cause: 'override', changedCategoryIds: ['housing', 'food'], materialReasons: ['allocation_changed'], seenAtIso: null },
     } as ActiveLivingPlan;
 
@@ -46,20 +46,20 @@ describe('projectMoneyPlanProjection', () => {
     expect(result.receipt?.id).toBe('receipt-2');
     expect(result.snapshot.categories.map(({ id, plannedCents }) => ({ id, plannedCents }))).toEqual([
       { id: 'housing', plannedCents: 35000 },
-      { id: 'food', plannedCents: 25000 },
+      { id: 'food', plannedCents: 30000 },
     ]);
-    expect(result.snapshot.totals.plannedCents).toBe(60000);
+    expect(result.snapshot.totals.plannedCents).toBe(65000);
     expect(result.snapshot.livingLimitAnswer).toMatchObject({
-      state: 'supported',
+      state: 'over_limit',
       facts: { planVersionId: 'version-2', livingLimitCents: 60000, protectedPlanCents: 35000 },
     });
     expect(result.snapshot.monthlyPlan).toEqual({
       periodId: '2026-07',
-      regularPlanCents: 60_000,
+      regularPlanCents: 65_000,
       committedPlanCents: 35_000,
-      flexiblePlanCents: 25_000,
+      flexiblePlanCents: 30_000,
       additionCents: 0,
-      plannedOutflowCents: 60_000,
+      plannedOutflowCents: 65_000,
       derivation: 'detected_income',
     });
   });

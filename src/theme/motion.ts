@@ -23,4 +23,33 @@ export const motion = {
       .easing(Easing.in(Easing.quad))
       .reduceMotion(ReduceMotion.System),
   },
+  drawer: {
+    // Drawers cover meaningful distance, so the entrance must shed most of its
+    // velocity early instead of reading as a constant-speed lift.
+    enter: {
+      character: 'decelerate',
+      durationMs: 220,
+      easing: Easing.out(Easing.cubic),
+    },
+    exit: {
+      character: 'accelerate',
+      durationMs: 180,
+      easing: Easing.in(Easing.cubic),
+    },
+    resize: {
+      character: 'decelerate',
+      durationMs: 160,
+      easing: Easing.out(Easing.cubic),
+    },
+    settle: {
+      character: 'decelerate',
+      durationMs: 200,
+      easing: Easing.out(Easing.cubic),
+    },
+    rebound: {
+      character: 'decelerate',
+      durationMs: 180,
+      easing: Easing.out(Easing.cubic),
+    },
+  },
 } as const;

@@ -23,6 +23,7 @@ import { getPersistedMerchantRuleOfferCategoryId, getPostCategorySelectionOutcom
 import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
 import { getPaymentSourcePresentation, type InstitutionPalette } from '../domain/paymentSourcePresentation';
 import { getTransactionMeaningOptions, type TransactionMeaningOption } from '../domain/transactionMeaningOptions';
+import { getEffectiveMoneyMeaning, isProviderIncome, isTransactionExplicitlyReviewed } from '../domain/transactionMeaning';
 import { getTransactionPlanTreatment } from '../domain/transactionPlanTreatment';
 import { canEditTransactionPlanCoverage, projectTransactionCoverageImpact, usesOnlySavedMoney } from '../domain/transactionPlanCoverage';
 import type { TransactionSplitMode } from '../domain/transactionTruthTelemetry';
@@ -353,6 +354,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
   const relationLabel = getCategoryRelationLabel(transaction, currentCategory);
   const planTreatment = getTransactionPlanTreatment(transaction, categories);
+  const effectiveMeaning = getEffectiveMoneyMeaning(transaction);
 
   return (
     <>
@@ -362,7 +364,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           <View style={styles.hero}>
             <View style={styles.heroMetaRow}>
               <Text style={styles.heroMeta}>{formatTransactionDate(transaction.date)}</Text>
-              {transaction.reviewState !== 'needs_review' ? <Text style={styles.reviewedPill}>Reviewed</Text> : null}
+              {isTransactionExplicitlyReviewed(transaction) ? <Text style={styles.reviewedPill}>Reviewed</Text> : null}
             </View>
             <Text style={[styles.amount, transaction.direction === 'inflow' ? styles.inflowAmount : null]}>
               {transaction.direction === 'inflow' ? '+' : '-'}{formatMoney(transaction.amountCents, transaction.currencyCode)}
@@ -465,20 +467,23 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       </AppShell>
 
       <BottomGuide
+        contentExtendsIntoBottomSafeArea
+        contentStyle={styles.ruleGuideContent}
         dynamicSizing
         onClose={saving ? undefined : () => void dismissRuleOffer()}
+        scrim="light"
         snapPoints={['42%']}
         visible={Boolean(ruleOfferCategory) && !ruleDrawerOpen && !categoryPickerOpen && !countsAsOpen && !splitEditorOpen}
       >
         <View style={styles.ruleGuideCopy}>
           <Text style={styles.ruleGuideTitle}>Use {ruleOfferCategory?.name} next time?</Text>
           <Text style={styles.ruleGuideDetail}>
-            Review how future {transaction.merchantName} transactions would match. Kwilt won’t create a rule until you confirm.
+            See which future {transaction.merchantName} transactions would match.
           </Text>
         </View>
         <View style={styles.ruleGuideActions}>
-          <Button fullWidth loading={saving} loadingLabel="Saving category…" onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>
-          <Button fullWidth disabled={saving} variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
+          <Button disabled={saving} variant="ghost" onPress={() => void dismissRuleOffer()}>Not now</Button>
+          <Button loading={saving} loadingLabel="Saving category…" onPress={() => setRuleDrawerOpen(true)}>Review rule</Button>
         </View>
       </BottomGuide>
 
@@ -619,7 +624,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                 detail={option.detail}
                 icon={getMeaningIcon(option.meaning)}
                 label={option.label}
-                selected={transaction.moneyMeaning === option.meaning || (option.meaning === 'not_counted' && transaction.reviewState === 'not_counted')}
+                selected={effectiveMeaning === option.meaning}
                 disabled={pendingChoice !== null}
                 pending={pendingChoice === `meaning:${option.meaning}`}
                 onPress={() => void selectMeaning(option.meaning)}
@@ -844,7 +849,8 @@ function getCategoryRelationLabel(transaction: MoneyTransaction, category?: Mone
   if (category) return category.name;
   if (transaction.moneyMeaning === 'income') return 'Income';
   if (transaction.moneyMeaning === 'transfer') return 'Internal transfer';
-  if (transaction.reviewState === 'not_counted' || transaction.moneyMeaning === 'not_counted') return 'Outside the plan';
+  if (transaction.moneyMeaning === 'not_counted') return 'Outside the plan';
+  if (isProviderIncome(transaction)) return 'Income';
   return null;
 }
 
@@ -904,10 +910,11 @@ const styles = StyleSheet.create({
   classificationDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   ruleReceipt: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 10, backgroundColor: colors.pine50 },
   ruleReceiptText: { flex: 1, color: colors.pine700, fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, fontWeight: '500' },
+  ruleGuideContent: { paddingTop: spacing.sm, paddingBottom: spacing.xl },
   ruleGuideCopy: { gap: spacing.xs },
   ruleGuideTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, fontWeight: '700' },
   ruleGuideDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
-  ruleGuideActions: { gap: spacing.xs, paddingTop: spacing.sm },
+  ruleGuideActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: spacing.sm, paddingTop: spacing.lg },
   splitReceipt: { gap: spacing.sm, padding: spacing.lg, borderWidth: 1, borderColor: colors.pine200, borderRadius: 12, backgroundColor: colors.pine50 },
   splitReceiptTitle: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   splitReceiptRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.lg },

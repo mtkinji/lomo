@@ -16,6 +16,8 @@ import {
 import type { MoneyPlanLimitAnswer } from '../domain/moneyPlanLimitAnswer';
 import { inferMoneyCategoryPlanRole, type MoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
 import { isCommittedOutflow } from '../domain/transactionCounting';
+import { linkCreditCardPaymentTransfers } from '../domain/creditCardPaymentTransfers';
+import { isProviderIncome } from '../domain/transactionMeaning';
 
 export type MoneyCategoryRow = {
   id: string;
@@ -181,6 +183,11 @@ export type MoneyTransaction = {
   savedResourceCents?: number;
   planCoverageReviewedAt?: string | null;
   allocations?: MoneyTransactionAllocation[];
+  transferPair?: {
+    counterpartTransactionId: string;
+    sourceAccountName: string;
+    destinationAccountName: string;
+  };
 };
 
 export type MoneyAccount = {
@@ -271,14 +278,14 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
 
   const accountById = new Map(rows.accounts.map((account) => [account.id, account]));
   const currentTransactions = rows.transactions.filter((transaction) => transaction.date.startsWith(monthKey));
-  const transactions = rows.transactions
+  const transactions = linkCreditCardPaymentTransfers(rows.transactions
     .map((transaction) => projectTransaction(
       transaction,
       accountById,
       categoryByAlias,
       rows.rules ?? [],
       allocationsByTransactionId.get(transaction.id),
-    ))
+    )))
     .sort((left, right) => right.date.localeCompare(left.date));
 
   const categories = rows.categories
@@ -526,7 +533,15 @@ function projectTransaction(
     currencyCode: transaction.iso_currency_code || 'USD',
     categoryId: category ? category.legacy_budget_id?.trim() || category.slug : null,
     categoryName: allocations?.length ? 'Split across categories' : category?.name.trim()
-      || (reviewState === 'not_counted' ? 'Not counted' : transaction.direction === 'inflow' ? 'Income or transfer' : 'Needs review'),
+      || (transaction.money_meaning === 'not_counted'
+        ? 'Not counted'
+        : isProviderIncome({
+          direction: transaction.direction,
+          moneyMeaning: transaction.money_meaning,
+          providerCategoryPrimary: transaction.personal_finance_category_primary,
+        })
+          ? 'Income'
+          : transaction.direction === 'inflow' ? 'Income or transfer' : reviewState === 'not_counted' ? 'Not counted' : 'Needs review'),
     reviewState,
     matchSource: transaction.budget_match_source ?? null,
     merchantRuleCategoryId: merchantRuleCategory
@@ -581,6 +596,7 @@ function reviewStateFor(
 ): MoneyTransaction['reviewState'] {
   if (allocations?.length) return 'assigned';
   if (transaction.budget_match_source === 'excluded' || transaction.money_meaning === 'not_counted') return 'not_counted';
+  if (isProviderCreditCardPayment(transaction)) return 'not_counted';
   if (transaction.budget_id && categories.has(transaction.budget_id)) return 'assigned';
   return isCommittedRowOutflow(transaction) ? 'needs_review' : 'not_counted';
 }
@@ -637,7 +653,14 @@ function isCommittedRowOutflow(transaction: MoneyTransactionRow): boolean {
     direction: transaction.direction,
     pending: transaction.pending,
     moneyMeaning: transaction.money_meaning,
+    providerCategoryDetailed: transaction.personal_finance_category_detailed,
   });
+}
+
+function isProviderCreditCardPayment(transaction: MoneyTransactionRow): boolean {
+  return transaction.direction === 'outflow'
+    && transaction.personal_finance_category_detailed === 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT'
+    && (transaction.money_meaning == null || transaction.money_meaning === 'unknown' || transaction.money_meaning === 'transfer');
 }
 
 function validCents(value: number): number {

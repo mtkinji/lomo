@@ -33,6 +33,14 @@ describe('decideLivingPlanActivation', () => {
     })).toEqual({ action: 'hold_for_period', activationPeriodId: '2026-08', reason: 'automatic_monthly_maintenance' });
   });
 
+  it('promotes an explicit transaction review immediately', () => {
+    expect(decideLivingPlanActivation({
+      trigger: 'transaction_review_changed',
+      candidatePeriodId: '2026-08',
+      activePeriodId: '2026-08',
+    })).toEqual({ action: 'promote_now', reason: 'explicit_user_save' });
+  });
+
   it('promotes automatic maintenance at the period boundary', () => {
     expect(decideLivingPlanActivation({
       trigger: 'period_rollover',

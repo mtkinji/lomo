@@ -63,7 +63,7 @@ import {
 } from '../runtime/moneyOnboardingStorage';
 import { buildMoneyOnboardingDemoBudget } from '../domain/moneyOnboardingDemoBudget';
 import { MoneyFreshnessStamp } from '../components/MoneyFreshnessStamp';
-import { formatBudgetOverviewMoney } from '../presentation/budgetOverviewMoney';
+import { formatBudgetOverviewMoney, formatIncomeSpendingDifference } from '../presentation/budgetOverviewMoney';
 import { ActionDock, useActionDockClearance } from '../../../ui/ActionDock';
 import { InventoryControlGroup } from '../../../ui/InventoryControlGroup';
 import { connectMoneyAccount } from '../runtime/connectMoneyAccount';
@@ -82,7 +82,6 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   const actionDockClearance = useActionDockClearance();
   const [measuredPagerWidth, setMeasuredPagerWidth] = useState(0);
   const [currentMonthIndex, setCurrentMonthIndex] = useState(INITIAL_MONTH_INDEX);
-  const [limitExplanationOpen, setLimitExplanationOpen] = useState(false);
   const [monthlySummaryOpen, setMonthlySummaryOpen] = useState(false);
   const [unclearReviewOpen, setUnclearReviewOpen] = useState(false);
   const [categoryPresentation, setCategoryPresentation] = useState<MoneyCategoryPresentation>('list');
@@ -418,7 +417,6 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
                 monthlyPlan={item.monthOffset === 0 ? snapshot.monthlyPlan ?? null : null}
                 onExplain={() => {
                   if (livingLimitAnswer) capture(AnalyticsEvent.MoneyBudgetExplanationOpened, buildMoneyBudgetExplanationOpenedProps({ answer: livingLimitAnswer, surface: 'budget' }));
-                  setLimitExplanationOpen(true);
                 }}
                 onOpenMonthlySummary={() => setMonthlySummaryOpen(true)}
                 onReviewIncome={openBudgetSettings}
@@ -517,45 +515,6 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
       </BottomDrawerScrollView>
     </BottomDrawer>
     <BottomDrawer
-      visible={Boolean(livingLimitAnswer) && limitExplanationOpen}
-      onClose={() => setLimitExplanationOpen(false)}
-      snapPoints={['78%']}
-      dynamicSizing={false}
-      enableContentPanningGesture
-    >
-      {livingLimitAnswer && planAudit ? (
-        <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
-          <BottomDrawerHeader
-            title="Flexible spending"
-            variant="withClose"
-            closeAccessibilityLabel="Close flexible spending calculation"
-            onClose={() => setLimitExplanationOpen(false)}
-          />
-          <LimitFacts
-            answer={livingLimitAnswer}
-            audit={planAudit}
-            freshness={formatMoneyFreshness(snapshot?.lastSyncedAt ?? null)}
-            onChangeTarget={() => {
-              setLimitExplanationOpen(false);
-              openBudgetSettings();
-            }}
-            onOpenUnclear={() => {
-              setLimitExplanationOpen(false);
-              setUnclearReviewOpen(true);
-            }}
-            onOpenTransactions={(title, transactionIds) => {
-              if (transactionIds.length === 0) return;
-              setLimitExplanationOpen(false);
-              navigation.navigate('MoneyTransactions', {
-                inventoryTitle: title,
-                reviewTransactionIds: transactionIds,
-              });
-            }}
-          />
-        </BottomDrawerScrollView>
-      ) : null}
-    </BottomDrawer>
-    <BottomDrawer
       visible={monthlySummaryOpen && Boolean(monthlyBudgetSummary && planAudit && snapshot?.monthlyPlan)}
       onClose={() => setMonthlySummaryOpen(false)}
       snapPoints={['72%']}
@@ -574,6 +533,14 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
             answer={livingLimitAnswer}
             audit={planAudit}
             summary={monthlyBudgetSummary}
+            onOpenTransactions={(title, transactionIds) => {
+              if (transactionIds.length === 0) return;
+              setMonthlySummaryOpen(false);
+              navigation.navigate('MoneyTransactions', {
+                inventoryTitle: title,
+                reviewTransactionIds: transactionIds,
+              });
+            }}
             onReviewPlan={() => {
               setMonthlySummaryOpen(false);
               openBudgetSettings();
@@ -803,7 +770,7 @@ function SummaryMonthPanel({
           <CategoryConceptHeader
             label="Flexible spending"
             accessibilityLabel="About flexible spending"
-            explanation="Everyday categories that use the flexible spending amount shown here."
+            explanation="Spending you can adjust month to month, after bills and money set aside."
           />
         </View> : null}
         {answer ? (
@@ -850,7 +817,7 @@ function SummaryMonthPanel({
             <CategoryConceptHeader
               label="Committed spending"
               accessibilityLabel="About committed spending"
-              explanation="Bills and money already set aside before your flexible spending is calculated."
+              explanation="Bills and money set aside before Kwilt calculates your flexible room."
             />
           </View>
           <View style={categoryView.layout === 'meters' ? styles.categoryGrid : styles.categoryList}>
@@ -899,17 +866,34 @@ function SummaryMonthPanel({
             <Text style={styles.monthlyPlanSummaryLabel}>Total spent</Text>
             <Text style={styles.monthlyPlanSummaryValue}>{formatBudgetOverviewMoney(monthlySummary.totalSpendingCents)}</Text>
           </View>
-          {monthlySummary.spendingOutsideCurrentPlanCents > 0 ? (
+          <View style={[styles.monthlyPlanSummaryRow, styles.monthlyPlanSummaryDifference]}>
+            <Text style={styles.monthlyPlanSummaryDifferenceLabel}>Difference</Text>
+            <Text style={styles.monthlyPlanSummaryDifferenceValue}>
+              {formatIncomeSpendingDifference(monthlySummary.incomeReceivedCents, monthlySummary.totalSpendingCents)}
+            </Text>
+          </View>
+          {monthlySummary.spendingIncomePercent != null ? (
             <Text style={styles.monthlyPlanSummarySupport}>
-              {formatBudgetOverviewMoney(monthlySummary.spendingOutsideCurrentPlanCents)} of spending did not count toward this month’s plan.
+              {formatPercent(monthlySummary.spendingIncomePercent)} of income received
             </Text>
           ) : null}
-          <Text style={[styles.monthlyPlanSummarySectionLabel, styles.monthlyPlanSummaryPlanLabel]}>PLAN</Text>
+          {monthlySummary.savedResourceSpendingCents > 0 ? (
+            <Text style={styles.monthlyPlanSummarySupport}>
+              Includes {formatBudgetOverviewMoney(monthlySummary.savedResourceSpendingCents)} paid from saved money
+            </Text>
+          ) : null}
+          <Text style={[styles.monthlyPlanSummarySectionLabel, styles.monthlyPlanSummaryPlanLabel]}>TARGET &amp; PLAN</Text>
+          {monthlySummary.planTargetCents != null ? (
+            <View style={styles.monthlyPlanSummaryRow}>
+              <Text style={styles.monthlyPlanSummaryLabel}>{planTargetLabel(monthlySummary)}</Text>
+              <Text style={styles.monthlyPlanSummaryValue}>{formatBudgetOverviewMoney(monthlySummary.planTargetCents)}</Text>
+            </View>
+          ) : null}
           <View style={styles.monthlyPlanSummaryRow}>
             <Text style={styles.monthlyPlanSummaryTotalLabel}>Monthly plan</Text>
             <Text style={styles.monthlyPlanSummaryTotalValue}>{formatBudgetOverviewMoney(monthlySummary.monthlyPlanCents)}</Text>
           </View>
-          <MonthPlanResultRow summary={monthlySummary} />
+          <Text style={styles.monthlyPlanSummaryPlanStatus}>{planVsTargetSummary(monthlySummary)}</Text>
         </Pressable>
       ) : null}
       {!answer ? <View style={styles.totalSection}>
@@ -929,43 +913,86 @@ function SummaryMonthPanel({
 function MonthlySummaryFacts({
   answer,
   audit,
+  onOpenTransactions,
   onReviewPlan,
   summary,
 }: {
   answer: LivingLimitAnswer | null;
   audit: MoneyPlanAudit;
+  onOpenTransactions: (title: string, transactionIds: string[]) => void;
   onReviewPlan: () => void;
   summary: MonthlyBudgetSummary;
 }) {
   const effectiveProtectedCents = answer?.facts.protectedPlanCents == null
     ? null
     : answer.facts.protectedPlanCents + answer.facts.protectedOverageCents;
+  const committedSupport = answer?.facts.protectedPlanCents == null
+    ? undefined
+    : answer.facts.protectedOverageCents > 0
+      ? `Budget ${formatMoney(answer.facts.protectedPlanCents)} · ${formatMoney(answer.facts.protectedOverageCents)} over`
+      : `Budget ${formatMoney(answer.facts.protectedPlanCents)}`;
+  const flexibleSupport = answer?.facts.flexibleCapacityCents == null
+    ? undefined
+    : answer.facts.flexibleRoomCents == null
+      ? `Budget ${formatMoney(answer.facts.flexibleCapacityCents)}`
+      : `Budget ${formatMoney(answer.facts.flexibleCapacityCents)} · ${formatMoney(Math.abs(answer.facts.flexibleRoomCents))} ${answer.facts.flexibleRoomCents < 0 ? 'over' : 'left'}`;
   return (
     <View style={styles.drawerFacts}>
       <StatementSection label="ACTUAL">
         <StatementRow label="Income received" value={formatMoney(summary.incomeReceivedCents)} />
         <StatementRow label="Total spent" value={formatMoney(summary.totalSpendingCents)} emphasized />
-        {audit.savedResourceSpendingCents > 0 ? (
-          <StatementRow label="Paid from saved money" value={formatMoney(audit.savedResourceSpendingCents)} />
-        ) : null}
-        {audit.outsidePlanSpendingCents > 0 ? (
-          <StatementRow label="Outside this month’s plan" value={formatMoney(audit.outsidePlanSpendingCents)} />
+        <StatementRow
+          label="Difference"
+          value={formatIncomeSpendingDifference(summary.incomeReceivedCents, summary.totalSpendingCents)}
+        />
+        {summary.spendingIncomePercent != null ? (
+          <Text style={styles.drawerSupportingFact}>{formatPercent(summary.spendingIncomePercent)} of income received</Text>
         ) : null}
       </StatementSection>
 
-      <StatementSection label="PLAN">
-        <StatementRow label="Monthly plan" value={formatMoney(summary.monthlyPlanCents)} />
+      <StatementSection label="SPENDING">
+        <StatementRow label="Counted toward monthly plan" value={formatMoney(summary.planCoveredSpendingCents)} />
+        {summary.savedResourceSpendingCents > 0 ? (
+          <StatementRow label="Paid from saved money" value={formatMoney(summary.savedResourceSpendingCents)} />
+        ) : null}
+        {summary.outsidePlanSpendingCents > 0 ? (
+          <StatementRow label="Outside the plan" value={formatMoney(summary.outsidePlanSpendingCents)} />
+        ) : null}
+      </StatementSection>
+
+      <StatementSection label="TARGET & PLAN">
+        {summary.planTargetCents != null ? (
+          <StatementRow
+            label={planTargetLabel(summary)}
+            value={formatMoney(summary.planTargetCents)}
+            support={summary.planTargetBasisCents == null
+              ? undefined
+              : `Based on ${formatMoney(summary.planTargetBasisCents)} in planning income`}
+          />
+        ) : null}
+        <StatementRow label="Committed plan" value={formatMoney(summary.committedPlanCents)} />
+        <StatementRow label="Flexible plan" value={formatMoney(summary.flexiblePlanCents)} />
+        <StatementRow label="Monthly plan" value={formatMoney(summary.monthlyPlanCents)} emphasized />
+        <StatementRow
+          label={planVsTargetLabel(summary)}
+          value={summary.planVsTarget ? formatMoney(summary.planVsTarget.amountCents) : 'Not available'}
+        />
+      </StatementSection>
+
+      <StatementSection label="CURRENT PLAN">
         {answer ? (
           <>
             <StatementRow
               label="Bills and money set aside"
               value={effectiveProtectedCents == null ? 'Not available' : formatStatementOutflow(effectiveProtectedCents)}
+              support={committedSupport}
             />
             <StatementRow
               label={audit.unclearSpendingCents > 0 ? 'Flexible and unclear spending' : 'Flexible spending from plan'}
               value={answer.facts.countedFlexibleSpendCents == null
                 ? 'Not available'
                 : formatStatementOutflow(answer.facts.countedFlexibleSpendCents)}
+              support={flexibleSupport}
             />
           </>
         ) : null}
@@ -983,25 +1010,27 @@ function MonthlySummaryFacts({
           {formatMoney(summary.spendingOutsideCurrentPlanCents)} of actual spending did not count toward this month’s plan.
         </Text>
       ) : null}
+      {audit.nonSpendingCents > 0 ? (
+        <Text style={styles.drawerEvidence}>
+          {formatMoney(audit.nonSpendingCents)} in income, transfers, and other non-spending activity is outside this total.
+        </Text>
+      ) : null}
       <View style={styles.drawerActions}>
+        {audit.flexibleTransactionIds.length > 0 ? (
+          <Button
+            accessibilityLabel="Review flexible transactions"
+            fullWidth
+            onPress={() => onOpenTransactions('Flexible spending', audit.flexibleTransactionIds)}
+            size="sm"
+            variant="outline"
+          >
+            Review flexible transactions
+          </Button>
+        ) : null}
         <Button accessibilityLabel="Review monthly plan" fullWidth onPress={onReviewPlan} size="sm" variant="outline">
           Review monthly plan
         </Button>
       </View>
-    </View>
-  );
-}
-
-function MonthPlanResultRow({ summary }: { summary: MonthlyBudgetSummary }) {
-  return (
-    <View style={[styles.monthlyPlanSummaryRow, styles.monthlyPlanSummaryTotal]}>
-      <Text style={styles.monthlyPlanSummaryTotalLabel}>{monthPlanResultLabel(summary)}</Text>
-      <Text style={[
-        styles.monthlyPlanSummaryTotalValue,
-        summary.planResult?.status === 'over' ? styles.monthlyPlanSummaryResultOver : null,
-      ]}>
-        {summary.planResult ? formatBudgetOverviewMoney(summary.planResult.amountCents) : 'Not available'}
-      </Text>
     </View>
   );
 }
@@ -1013,11 +1042,36 @@ function monthPlanResultLabel(summary: MonthlyBudgetSummary): string {
   return 'Left in plan';
 }
 
+function planTargetLabel(summary: MonthlyBudgetSummary): string {
+  return summary.planTargetPercent == null ? 'Plan target' : `Plan target · ${formatPercent(summary.planTargetPercent)}`;
+}
+
+function planVsTargetLabel(summary: MonthlyBudgetSummary): string {
+  if (!summary.planVsTarget) return 'Plan vs target';
+  if (summary.planVsTarget.status === 'above') return 'Above target';
+  if (summary.planVsTarget.status === 'below') return 'Below target';
+  return 'On target';
+}
+
+function planVsTargetSummary(summary: MonthlyBudgetSummary): string {
+  if (!summary.planVsTarget) return 'Target comparison unavailable';
+  if (summary.planVsTarget.status === 'even') return 'On target';
+  return `${formatBudgetOverviewMoney(summary.planVsTarget.amountCents)} ${summary.planVsTarget.status} target`;
+}
+
+function formatPercent(value: number): string {
+  return `${Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)}%`;
+}
+
 function monthlySummaryAccessibilityLabel(periodLabel: string, summary: MonthlyBudgetSummary): string {
-  const result = summary.planResult
-    ? `${formatMoney(summary.planResult.amountCents)} ${summary.planResult.status === 'over' ? 'over plan' : summary.planResult.status === 'left' ? 'left in plan' : 'on plan'}`
-    : 'plan comparison unavailable';
-  return `Review ${moneyPeriodMonthName(periodLabel)} summary, ${formatMoney(summary.incomeReceivedCents)} income received, ${formatMoney(summary.totalSpendingCents)} spent, ${formatMoney(summary.monthlyPlanCents)} monthly plan, ${result}`;
+  const incomeSpendingDifference = formatIncomeSpendingDifference(summary.incomeReceivedCents, summary.totalSpendingCents);
+  const target = summary.planTargetCents == null
+    ? 'plan target unavailable'
+    : `${formatMoney(summary.planTargetCents)} ${planTargetLabel(summary).toLowerCase()}`;
+  const savings = summary.savedResourceSpendingCents > 0
+    ? `, ${formatMoney(summary.savedResourceSpendingCents)} paid from saved money`
+    : '';
+  return `Review ${moneyPeriodMonthName(periodLabel)} summary, ${formatMoney(summary.incomeReceivedCents)} income received, ${formatMoney(summary.totalSpendingCents)} spent, ${incomeSpendingDifference} difference${savings}, ${target}, ${formatMoney(summary.monthlyPlanCents)} monthly plan, ${planVsTargetSummary(summary)}`;
 }
 
 function moneyPeriodMonthName(periodLabel: string): string {
@@ -1094,26 +1148,24 @@ function CategoryConceptHeader({ accessibilityLabel, explanation, label }: {
   explanation: string;
   label: string;
 }) {
+  const [explanationOpen, setExplanationOpen] = useState(false);
   return (
-    <View style={styles.categoryConceptHeader}>
-      <Text style={styles.categoryTitle}>{label}</Text>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Pressable
-            accessibilityHint={explanation}
-            accessibilityLabel={accessibilityLabel}
-            accessibilityRole="button"
-            hitSlop={10}
-            style={({ pressed }) => [styles.categoryInfoButton, pressed ? styles.iconButtonPressed : null]}
-          >
-            <Icon name="info" size={16} color={colors.textSecondary} />
-          </Pressable>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side="bottom" sideOffset={4} style={styles.categoryConceptPopover}>
-          <Text style={styles.categoryConceptPopoverTitle}>{label}</Text>
-          <Text style={styles.categoryConceptPopoverCopy}>{explanation}</Text>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <View style={styles.categoryConceptBlock}>
+      <View style={styles.categoryConceptHeader}>
+        <Text style={styles.categoryTitle}>{label}</Text>
+        <Pressable
+          accessibilityHint={`Explains ${label.toLowerCase()}.`}
+          accessibilityLabel={accessibilityLabel}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: explanationOpen }}
+          hitSlop={10}
+          onPress={() => setExplanationOpen((current) => !current)}
+          style={({ pressed }) => [styles.categoryInfoButton, pressed ? styles.iconButtonPressed : null]}
+        >
+          <Icon name="info" size={16} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+      {explanationOpen ? <Text style={styles.categoryConceptExplanation}>{explanation}</Text> : null}
     </View>
   );
 }
@@ -1161,136 +1213,6 @@ function CategoryViewChoice({ label, value }: { label: string; value: string }) 
   );
 }
 
-function LimitFacts({
-  answer,
-  audit,
-  freshness,
-  onChangeTarget,
-  onOpenUnclear,
-  onOpenTransactions,
-}: {
-  answer: LivingLimitAnswer;
-  audit: MoneyPlanAudit;
-  freshness: string;
-  onChangeTarget: () => void;
-  onOpenUnclear: () => void;
-  onOpenTransactions: (title: string, transactionIds: string[]) => void;
-}) {
-  const { facts } = answer;
-  const protectedOverageCents = facts.protectedOverageCents ?? 0;
-  const effectiveProtectedCents = facts.protectedPlanCents == null
-    ? null
-    : facts.protectedPlanCents + protectedOverageCents;
-  const roomCents = facts.flexibleRoomCents;
-  const monthlyRoomCents = roomCents == null ? null : roomCents - protectedOverageCents;
-  const monthName = moneyMonthName(facts.periodId);
-  const monthlyResultValue = monthlyRoomCents == null
-    ? 'Not available'
-    : formatMoney(Math.abs(monthlyRoomCents));
-  const committedSupport = facts.protectedPlanCents == null
-    ? undefined
-    : protectedOverageCents > 0
-      ? `Budget ${formatMoney(facts.protectedPlanCents)} · ${formatMoney(protectedOverageCents)} over`
-      : `Budget ${formatMoney(facts.protectedPlanCents)}`;
-  const flexibleSupport = facts.flexibleCapacityCents == null
-    ? undefined
-    : roomCents == null
-      ? `Budget ${formatMoney(facts.flexibleCapacityCents)}`
-      : `Budget ${formatMoney(facts.flexibleCapacityCents)} · ${formatMoney(Math.abs(roomCents))} ${roomCents < 0 ? 'over' : 'left'}`;
-  const calculationSpendingLabel = audit.unclearSpendingCents > 0
-    ? 'Flexible and unclear spending'
-    : 'Flexible spending this month';
-  return (
-    <View style={styles.drawerFacts}>
-      <StatementSection label={`${monthName.toUpperCase()} SPENDING`}>
-        <StatementRow
-          label="Total spent"
-          value={formatMoney(audit.totalSpendingCents)}
-          emphasized
-        />
-        <StatementRow label="Committed" value={formatMoney(audit.committedSpendingCents)} />
-        <StatementRow label="Flexible" value={formatMoney(audit.flexibleSpendingCents)} />
-        {audit.unclearSpendingCents > 0 ? (
-          <StatementRow label="Unclear" value={formatMoney(audit.unclearSpendingCents)} />
-        ) : null}
-        {audit.outsidePlanSpendingCents > 0 ? (
-          <StatementRow label="Outside the plan" value={formatMoney(audit.outsidePlanSpendingCents)} />
-        ) : null}
-      </StatementSection>
-
-      <StatementSection label="HOW YOUR FLEXIBLE ROOM WORKS">
-        <StatementRow
-          label="Monthly plan"
-          value={facts.livingLimitCents == null ? 'Not available' : formatMoney(facts.livingLimitCents)}
-        />
-        <StatementRow
-          label="Bills and money set aside"
-          value={effectiveProtectedCents == null ? 'Not available' : formatStatementOutflow(effectiveProtectedCents)}
-          support={committedSupport}
-        />
-        <StatementRow
-          label={calculationSpendingLabel}
-          value={facts.countedFlexibleSpendCents == null ? 'Not available' : formatStatementOutflow(facts.countedFlexibleSpendCents)}
-          support={flexibleSupport}
-        />
-        {audit.savedResourceSpendingCents > 0 ? (
-          <StatementRow label="Paid from saved money" value={formatMoney(audit.savedResourceSpendingCents)} />
-        ) : null}
-        <View style={styles.drawerRule} />
-        <StatementRow
-          label={monthlyRoomCents != null && monthlyRoomCents < 0 ? 'Over monthly plan' : 'Left in monthly plan'}
-          value={monthlyResultValue}
-          emphasized
-          destructive={monthlyRoomCents != null && monthlyRoomCents < 0}
-        />
-      </StatementSection>
-
-      {audit.nonSpendingCents > 0 ? (
-        <Text style={styles.drawerEvidence}>
-          {formatMoney(audit.nonSpendingCents)} in income, transfers, and other non-spending activity is outside this total.
-        </Text>
-      ) : null}
-      <Text style={styles.drawerBasis}>
-        {facts.resourceBasisCents == null ? 'Income basis unavailable' : `${basisLabel(facts.resourceBasisKind)}: ${formatMoney(facts.resourceBasisCents)}`} · {freshness}
-      </Text>
-
-      <View style={styles.drawerActions}>
-        {audit.flexibleTransactionIds.length > 0 ? (
-          <Button
-            accessibilityLabel="Review flexible transactions"
-            fullWidth
-            onPress={() => onOpenTransactions('Flexible spending', audit.flexibleTransactionIds)}
-            size="sm"
-            variant="outline"
-          >
-            Review flexible transactions
-          </Button>
-        ) : null}
-        {audit.unclearTransactionIds.length > 0 ? (
-          <Button
-            accessibilityLabel="Review unclear spending"
-            fullWidth
-            onPress={onOpenUnclear}
-            size="sm"
-            variant="outline"
-          >
-            Review unclear spending
-          </Button>
-        ) : null}
-        <Button
-          accessibilityLabel={`Change ${facts.livingPercent}% target`}
-          fullWidth
-          onPress={onChangeTarget}
-          size="sm"
-          variant="ghost"
-        >
-          {`Change ${facts.livingPercent}% target`}
-        </Button>
-      </View>
-    </View>
-  );
-}
-
 function StatementSection({ children, label }: { children: ReactNode; label: string }) {
   return (
     <View style={styles.statementSection}>
@@ -1322,13 +1244,6 @@ function StatementRow({
       {support ? <Text style={styles.drawerSupportingFact}>{support}</Text> : null}
     </View>
   );
-}
-
-function basisLabel(kind: LivingLimitAnswer['facts']['resourceBasisKind']): string {
-  if (kind === 'user_set') return 'You set this';
-  if (kind === 'detected_income') return 'Detected income';
-  if (kind === 'prior_supported_basis') return 'Last supported income';
-  return 'Not confirmed';
 }
 
 function moneyMonthName(periodId: string): string {
@@ -1480,19 +1395,20 @@ const styles = StyleSheet.create({
   monthlyPlanSummaryRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   monthlyPlanSummaryLabel: { flex: 1, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
   monthlyPlanSummaryValue: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, fontWeight: '500', fontVariant: ['tabular-nums'] },
-  monthlyPlanSummaryTotal: { borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingTop: spacing.sm },
+  monthlyPlanSummaryDifference: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.cardBorder, paddingTop: spacing.xs },
+  monthlyPlanSummaryDifferenceLabel: { flex: 1, color: colors.textSecondary, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, fontWeight: '500' },
+  monthlyPlanSummaryDifferenceValue: { color: colors.textSecondary, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, fontWeight: '500', fontVariant: ['tabular-nums'] },
+  monthlyPlanSummarySupport: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   monthlyPlanSummaryTotalLabel: { flex: 1, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, fontWeight: '600' },
   monthlyPlanSummaryTotalValue: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  monthlyPlanSummaryResultOver: { color: colors.destructive },
-  monthlyPlanSummarySupport: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  monthlyPlanSummaryPlanStatus: { color: colors.textSecondary, fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, textAlign: 'right' },
   categorySection: { gap: spacing.sm },
   categoryHeader: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  categoryConceptBlock: { minWidth: 0, flex: 1, gap: spacing.xs },
   categoryConceptHeader: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   categoryTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, fontWeight: '600' },
   categoryInfoButton: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
-  categoryConceptPopover: { width: 260, paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: spacing.xs },
-  categoryConceptPopoverTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, fontWeight: '600' },
-  categoryConceptPopoverCopy: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
+  categoryConceptExplanation: { maxWidth: 330, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   viewTrigger: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 8, paddingHorizontal: spacing.xs },
   viewTriggerText: { color: colors.textSecondary, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, fontWeight: '500' },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.md, columnGap: spacing.sm },
@@ -1542,7 +1458,6 @@ const styles = StyleSheet.create({
   drawerRule: { height: 1, backgroundColor: colors.cardBorder, marginVertical: spacing.xs },
   drawerSupportingFact: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   drawerEvidence: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
-  drawerBasis: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   drawerActions: { gap: spacing.xs },
   unclearReview: { gap: spacing.md },
   unclearReviewSummary: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 20, lineHeight: 27, fontWeight: '600', fontVariant: ['tabular-nums'] },

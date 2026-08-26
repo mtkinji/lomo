@@ -9,7 +9,7 @@ job_flow: job-flow-maya-review-budget-reality-before-spending
 serves: [jtbd-review-budget-reality-before-spending, jtbd-trust-this-app-with-my-life]
 related_briefs: [governed-household-money-plan, category-budget-planning]
 owner: andrew
-last_updated: 2026-08-04
+last_updated: 2026-08-25
 ---
 
 # Money Category Ordering
@@ -44,9 +44,9 @@ When Maya reviews household Money, she wants the categories that matter most to 
 
 ## Design
 
-Add `Reorder categories` to Summary's existing View menu. It opens a single-header bottom drawer containing a full-width draggable list. The drawer uses existing drag infrastructure and provides VoiceOver Move up/Move down actions. Done sends the complete active-category ID sequence to an owner-scoped atomic RPC. The drawer may show the optimistic sequence immediately, but success is announced only after the RPC confirms the exact set. On failure it preserves the local sequence and keeps the drawer open with a readable recovery message.
+Add `Reorder categories` to Summary's existing View menu. It opens a bottom drawer with the standard left-aligned title and close control, plus an explicit Flexible spending / Committed spending switch above the selected full-width draggable list. Reordering is direct manipulation: each completed drag or VoiceOver Move up/Move down action immediately submits the complete active-category ID sequence to the owner-scoped atomic RPC. There is no separate Done action. The drawer may show the optimistic sequence immediately, but success is signaled only after the RPC confirms the exact set. On failure it preserves the local sequence and shows a readable recovery message.
 
-The saved order is the one sequence used by Summary, transaction category pickers, split allocation, and future category inventories. New categories append after the highest active `sort_order`. This release does not add groups, pins, per-month order, hidden categories, or AI ranking.
+The saved order is the one sequence used by Summary, transaction category pickers, split allocation, and future category inventories. New categories append after the highest active `sort_order`. This release does not let people create or change groups, add pins, set per-month order, hide categories, or use AI ranking. The two visible sections reflect the category roles already used by Summary.
 
 ## Success signal
 
@@ -57,8 +57,9 @@ A category moved to first position remains first after refresh and relaunch, app
 - The client submits every active category ID exactly once; the server rejects missing, duplicate, foreign, or inactive IDs.
 - The server locks the owner's active category rows and rewrites contiguous zero-based `sort_order` values in one transaction.
 - No write occurs when the order is unchanged.
+- A completed reorder saves immediately; closing the drawer is not a hidden commit step.
 - Accessibility actions are required, not deferred.
-- Direct grid dragging and category groups are explicitly deferred.
+- Direct grid dragging and user-created category groups are explicitly deferred.
 
 ## Open questions
 

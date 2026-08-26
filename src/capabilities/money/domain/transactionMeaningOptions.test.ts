@@ -10,7 +10,7 @@ describe('getTransactionMeaningOptions', () => {
 
   it('also offers income for inflows', () => {
     expect(getTransactionMeaningOptions('inflow')).toEqual([
-      { meaning: 'income', label: 'Income', detail: 'Available to fund the plan' },
+      { meaning: 'income', label: 'Income', detail: 'Income evidence—not a direct addition to the plan' },
       { meaning: 'transfer', label: 'Internal transfer', detail: 'Money moved between your own accounts—not spending' },
       { meaning: 'not_counted', label: 'Outside the plan', detail: 'Money you don’t want included in income or this monthly plan' },
     ]);

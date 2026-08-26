@@ -302,7 +302,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByText('left')).toBeTruthy();
     expect(screen.queryByText('Current budget $1,360')).toBeNull();
     expect(screen.getByText('Monthly plan')).toBeTruthy();
-    expect(screen.getByText('$3,360')).toBeTruthy();
+    expect(within(screen.getByTestId('money-month-summary')).getAllByText('$3,360').length).toBeGreaterThan(0);
     const monthSummary = screen.getByTestId('money-month-summary');
     expect(within(monthSummary).getByText('July summary')).toBeTruthy();
     expect(within(monthSummary).getByText('ACTUAL')).toBeTruthy();
@@ -310,10 +310,14 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(within(monthSummary).getByText('$0')).toBeTruthy();
     expect(within(monthSummary).getByText('Total spent')).toBeTruthy();
     expect(within(monthSummary).getByText('$1,017')).toBeTruthy();
-    expect(within(monthSummary).getByText('PLAN')).toBeTruthy();
+    expect(within(monthSummary).getByText('Difference')).toBeTruthy();
+    expect(within(monthSummary).getByText('-$1,017')).toBeTruthy();
+    expect(within(monthSummary).getByText('TARGET & PLAN')).toBeTruthy();
+    expect(within(monthSummary).getByText('Plan target · 70%')).toBeTruthy();
     expect(within(monthSummary).getByText('Monthly plan')).toBeTruthy();
-    expect(within(monthSummary).getByText('Left in plan')).toBeTruthy();
+    expect(within(monthSummary).getByText('On target')).toBeTruthy();
     expect(monthSummary.props.accessibilityLabel).toContain('$1,017.04 spent');
+    expect(monthSummary.props.accessibilityLabel).toContain('$1,017.04 spent, -$1,017 difference');
     fireEvent.press(monthSummary);
     expect(screen.getByRole('header', { name: 'July summary' })).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Review monthly plan' }));
@@ -337,28 +341,26 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getAllByText('Saved transaction history').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'What’s included?' })).toBeNull();
     fireEvent.press(screen.getByTestId('money-limit-explanation-trigger'));
-    expect(screen.getAllByText('Flexible spending').length).toBeGreaterThan(0);
-    expect(screen.queryByText('$342.96 left this month')).toBeNull();
-    expect(screen.getByText('JULY SPENDING')).toBeTruthy();
-    expect(screen.getByText('HOW YOUR FLEXIBLE ROOM WORKS')).toBeTruthy();
+    expect(screen.getByText('Spending you can adjust month to month, after bills and money set aside.')).toBeTruthy();
+    expect(screen.queryByText('HOW YOUR FLEXIBLE ROOM WORKS')).toBeNull();
+    fireEvent.press(monthSummary);
+    expect(screen.getByText('SPENDING')).toBeTruthy();
+    expect(screen.getAllByText('TARGET & PLAN').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Monthly plan').length).toBeGreaterThan(0);
     expect(screen.getByText('Bills and money set aside')).toBeTruthy();
-    expect(screen.getByText('Flexible spending this month')).toBeTruthy();
+    expect(screen.getByText('Flexible spending from plan')).toBeTruthy();
     expect(screen.getByText('Budget $1,360 · $342.96 left')).toBeTruthy();
-    expect(screen.getByText('Left in monthly plan')).toBeTruthy();
+    expect(screen.getByText('Left in plan')).toBeTruthy();
     expect(screen.getByText('$50 in income, transfers, and other non-spending activity is outside this total.')).toBeTruthy();
     expect(screen.queryByText('Protected costs')).toBeNull();
     expect(screen.queryByText('Not included in flexible spending')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Adjust plan' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Monthly living boundary · 70%' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Flexible spending this month' })).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Change 70% target' }));
-    expect(mockRootNavigate).toHaveBeenCalledWith('Settings', { screen: 'SettingsBudget' });
-
-    const explanationDrawer = mockBottomDrawerProps.find((props) => (
+    expect(screen.queryByRole('button', { name: 'Change 70% target' })).toBeNull();
+    expect(mockBottomDrawerProps.some((props) => (
       Array.isArray(props.snapPoints) && props.snapPoints.includes('78%')
-    ));
-    expect(explanationDrawer).toMatchObject({ dynamicSizing: false });
+    ))).toBe(false);
   });
 
   it('shows actual spending without charging saved-money or outside-plan spending to the plan result', () => {
@@ -376,7 +378,9 @@ describe('MoneySummaryScreen living limit answer', () => {
         headlineAmountCents: 20000,
         facts: {
           ...mockAnswer.facts,
-          livingLimitCents: 80000,
+          resourceBasisCents: 100000,
+          livingPercent: 75,
+          livingLimitCents: 75000,
           protectedPlanCents: 20000,
           flexibleCapacityCents: 60000,
           countedFlexibleSpendCents: 40000,
@@ -400,9 +404,17 @@ describe('MoneySummaryScreen living limit answer', () => {
 
     expect(within(summary).getByText('$1,000')).toBeTruthy();
     expect(within(summary).getByText('$550')).toBeTruthy();
+    expect(within(summary).getByText('Includes $100 paid from saved money')).toBeTruthy();
+    expect(within(summary).getByText('Plan target · 75%')).toBeTruthy();
+    expect(within(summary).getByText('$750')).toBeTruthy();
     expect(within(summary).getByText('$800')).toBeTruthy();
-    expect(within(summary).getByText('$200')).toBeTruthy();
-    expect(within(summary).getByText('$150 of spending did not count toward this month’s plan.')).toBeTruthy();
+    expect(within(summary).getByText('$50 above target')).toBeTruthy();
+    expect(within(summary).getByText('$450')).toBeTruthy();
+    fireEvent.press(summary);
+    expect(screen.getByText('Counted toward monthly plan')).toBeTruthy();
+    expect(screen.getByText('Paid from saved money')).toBeTruthy();
+    expect(screen.getByText('Outside the plan')).toBeTruthy();
+    expect(screen.getAllByText('55% of income received').length).toBeGreaterThan(0);
   });
 
   it('keeps flexible and committed variances separate before totaling the month', () => {
@@ -441,13 +453,13 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByRole('button', { name: 'Review overages' })).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Review overages' }));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactions', expect.objectContaining({ overageReview: true }));
-    fireEvent.press(screen.getByTestId('money-limit-explanation-trigger'));
+    fireEvent.press(screen.getByTestId('money-month-summary'));
     expect(screen.getAllByText('Monthly plan').length).toBeGreaterThan(0);
     expect(screen.getByText('Bills and money set aside')).toBeTruthy();
     expect(screen.getByText('Budget $4,000 · $212.53 over')).toBeTruthy();
-    expect(screen.getByText('Flexible spending this month')).toBeTruthy();
+    expect(screen.getByText('Flexible spending from plan')).toBeTruthy();
     expect(screen.getByText('Budget $3,745.19 · $2,479.96 over')).toBeTruthy();
-    expect(screen.getByText('Over monthly plan')).toBeTruthy();
+    expect(screen.getByText('Over plan')).toBeTruthy();
     expect(screen.getByText('$2,692.49')).toBeTruthy();
   });
 
@@ -480,14 +492,13 @@ describe('MoneySummaryScreen living limit answer', () => {
       economicRoleReview: true,
     });
 
-    fireEvent.press(screen.getByTestId('money-limit-explanation-trigger'));
-    expect(screen.getByText('JULY SPENDING')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('money-month-summary'));
+    expect(screen.getByText('SPENDING')).toBeTruthy();
     expect(screen.getAllByText('Total spent').length).toBeGreaterThan(0);
     expect(screen.getAllByText('$105').length).toBeGreaterThan(0);
-    expect(screen.getByText('Committed')).toBeTruthy();
-    expect(screen.getByText('Unclear')).toBeTruthy();
+    expect(screen.getByText('Counted toward monthly plan')).toBeTruthy();
     expect(screen.getByText('Outside the plan')).toBeTruthy();
-    expect(screen.getByText('HOW YOUR FLEXIBLE ROOM WORKS')).toBeTruthy();
+    expect(screen.getByText('CURRENT PLAN')).toBeTruthy();
     expect(screen.getByText('Flexible and unclear spending')).toBeTruthy();
     expect(screen.getByText('$300 in income, transfers, and other non-spending activity is outside this total.')).toBeTruthy();
   });
@@ -587,14 +598,15 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getAllByText('Housing').length).toBeGreaterThan(0);
 
     const flexibleInfo = screen.getAllByRole('button', { name: 'About flexible spending' })[0];
-    expect(flexibleInfo.props.accessibilityHint).toBe('Explains what is included and how this amount is calculated.');
+    expect(flexibleInfo.props.accessibilityHint).toBe('Explains flexible spending.');
     fireEvent.press(flexibleInfo);
-    expect(screen.getByText('Left in monthly plan')).toBeTruthy();
-    expect(screen.getByText('$342.96')).toBeTruthy();
+    expect(screen.getByText('Spending you can adjust month to month, after bills and money set aside.')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'About flexible spending' })[0].props.accessibilityState).toMatchObject({ expanded: true });
 
     const committedInfo = screen.getAllByRole('button', { name: 'About committed spending' })[0];
-    expect(committedInfo.props.accessibilityHint).toBe('Bills and money already set aside before your flexible spending is calculated.');
+    expect(committedInfo.props.accessibilityHint).toBe('Explains committed spending.');
     fireEvent.press(committedInfo);
+    expect(screen.getByText('Bills and money set aside before Kwilt calculates your flexible room.')).toBeTruthy();
     expect(committedInfo.props.accessibilityState).toMatchObject({ expanded: true });
   });
 
@@ -716,7 +728,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     const navigation = { navigate: jest.fn() };
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary', name: 'MoneySummary' } as never} />);
 
-    fireEvent.press(screen.getByTestId('money-limit-explanation-trigger'));
+    fireEvent.press(screen.getByTestId('money-month-summary'));
     fireEvent.press(screen.getByRole('button', { name: 'Review flexible transactions' }));
 
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactions', {

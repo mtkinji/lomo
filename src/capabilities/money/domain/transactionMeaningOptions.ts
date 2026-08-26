@@ -27,7 +27,7 @@ export function getTransactionMeaningOptions(
 ): TransactionMeaningOption[] {
   if (direction === 'inflow') {
     return [
-      { meaning: 'income', label: 'Income', detail: 'Available to fund the plan' },
+      { meaning: 'income', label: 'Income', detail: 'Income evidence—not a direct addition to the plan' },
       TRANSFER,
       outsidePlanOption(direction),
     ];
