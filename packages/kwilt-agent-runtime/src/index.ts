@@ -14,6 +14,7 @@ export {
 } from './capabilityManifest';
 export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
 export { createRuntimeToolProviderRegistry } from './providerRegistry';
+export { normalizeStrictToolArguments, toStrictToolInputSchema } from './strictToolSchema';
 export type {
   RuntimeToolHandler,
   RuntimeToolProviderRegistration,
