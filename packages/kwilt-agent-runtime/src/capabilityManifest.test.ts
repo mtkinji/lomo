@@ -8,6 +8,7 @@ import {
   type RuntimeToolImplementation,
 } from './capabilityManifest';
 import { KWILT_CAPABILITY_MANIFEST } from './kwiltCapabilityManifest';
+import type { RuntimeToolProviderRegistration } from './providerRegistry';
 
 const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: false } as const;
 
@@ -47,6 +48,26 @@ function inspectOperation(
 }
 
 describe('canonical capability manifest', () => {
+  test('projects only tool providers backed by executable registrations', () => {
+    const manifest = defineCapabilityManifest([inspectOperation({
+      tools: [
+        inspectOperation().tools[0],
+        { ...inspectOperation().tools[0], id: 'test.unregistered' },
+      ],
+    })]);
+    const registrations: RuntimeToolProviderRegistration<Record<string, never>>[] = [{
+      toolId: 'test.inspect',
+      provider: 'device',
+      execute: async () => ({ status: 'completed', output: {}, receipt: null }),
+    }];
+
+    expect(projectAgentToolCatalog(manifest, {
+      runtime: 'mobile', registrations,
+    }).map((tool) => ({ id: tool.id, providers: tool.providers }))).toEqual([
+      { id: 'test.inspect', providers: ['device'] },
+    ]);
+  });
+
   test('registering one operation projects the same tool contract into eligible runtimes', () => {
     const manifest = defineCapabilityManifest([inspectOperation()]);
     const implementations: RuntimeToolImplementation[] = [

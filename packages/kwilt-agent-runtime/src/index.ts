@@ -13,6 +13,12 @@ export {
   projectOperationCoverage,
 } from './capabilityManifest';
 export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
+export { createRuntimeToolProviderRegistry } from './providerRegistry';
+export type {
+  RuntimeToolHandler,
+  RuntimeToolProviderRegistration,
+  RuntimeToolProviderRegistry,
+} from './providerRegistry';
 export { calendarDateInTimeZone, normalizeIanaTimeZone } from './timeContext';
 export {
   RELIABILITY_CORPUS,
