@@ -200,6 +200,20 @@
           "forbiddenPatterns": [{ "pattern": "store\\.updateNote\\(", "message": "Chat Chapter updates must call the Chapter capability action" }]
         }
       ]
+    },
+    {
+      "id": "profile.update",
+      "actionModule": "src/capabilities/life-structure/actions/profileActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/account/ProfileSettingsScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "useAppStore\\(\\(state\\) => state\\.updateUserProfile\\)", "message": "native Profile updates must call updateProfile" }]
+        },
+        {
+          "path": "src/features/unifiedChat/profileProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "store\\.updateProfileAt\\(", "message": "Chat Profile updates must call the Profile capability action" }]
+        }
+      ]
     }
   ]
 }

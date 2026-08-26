@@ -75,6 +75,10 @@ surface and Chat. The action checks the authoritative server timestamp before
 writing and returns the same reversible result shape; Chapter content
 generation and feedback remain separate capability operations.
 
+Profile edits use `profileActions.ts` across native Settings and Chat. The
+action requires the exact profile id and last-updated timestamp, writes through
+the same persistence adapter, and returns a reversible normalized receipt.
+
 ## Evidence sufficiency
 
 Evidence breadth follows the interpreted job:

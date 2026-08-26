@@ -71,6 +71,7 @@ import { resetCapabilityOnboardingForUser } from '../features/capability-onboard
 import type { TodoActionStoreBoundary } from '../capabilities/todos/actions/todoActions';
 import type { ArcActionStoreBoundary } from '../capabilities/life-structure/actions/arcActions';
 import type { GoalActionStoreBoundary } from '../capabilities/life-structure/actions/goalActions';
+import type { ProfileActionStoreBoundary } from '../capabilities/life-structure/actions/profileActions';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 export type { QuickAddAiActionPreference } from './uiPreferences';
@@ -4169,6 +4170,14 @@ export function getGoalActionStoreBoundary(): GoalActionStoreBoundary {
     addGoal: (goal) => useAppStore.getState().addGoal(goal),
     updateGoal: (goalId, updater) => useAppStore.getState().updateGoal(goalId, updater),
     removeGoal: (goalId) => useAppStore.getState().removeGoal(goalId),
+  };
+}
+
+/** Persistence adapter shared by native UI and mobile Chat Profile actions. */
+export function getProfileActionStoreBoundary(): ProfileActionStoreBoundary {
+  return {
+    getProfile: () => useAppStore.getState().userProfile,
+    updateProfileAt: (updater, updatedAt) => useAppStore.getState().updateUserProfileAt(updater, updatedAt),
   };
 }
 
