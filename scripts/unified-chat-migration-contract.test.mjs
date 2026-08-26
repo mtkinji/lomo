@@ -82,6 +82,18 @@ const channelTickFunction = readFileSync(
   new URL('../supabase/functions/agent-channel-tick/index.ts', import.meta.url),
   'utf8',
 );
+const nativeOperationsSource = readFileSync(
+  new URL('../src/capabilities/operations.ts', import.meta.url), 'utf8',
+);
+const chatCoverageSource = readFileSync(
+  new URL('../src/features/unifiedChat/chatCapabilityCoverage.ts', import.meta.url), 'utf8',
+);
+const mobileRegistrationSource = readFileSync(
+  new URL('../src/features/unifiedChat/mobileToolImplementations.ts', import.meta.url), 'utf8',
+);
+const serverRegistrationSource = readFileSync(
+  new URL('../supabase/functions/_shared/serverToolImplementations.ts', import.meta.url), 'utf8',
+);
 
 test('persists bounded phone-link timezone context for relative Plan dates', () => {
   assert.match(phoneAgentTimezoneMigration, /add column if not exists timezone text/);
@@ -441,4 +453,16 @@ test('keeps compliance commands deterministic while ordinary SMS enters the dura
   assert.match(channelTickFunction, /processAgentChannelJob/);
   assert.match(channelTickFunction, /executeCanonicalAgentRun/);
   assert.match(channelTickFunction, /createServiceAgentRunPersistence/);
+});
+
+test('derives conversational coverage from independent operations and executable handlers', () => {
+  assert.doesNotMatch(nativeOperationsSource, /KWILT_CAPABILITY_MANIFEST\.map/);
+  assert.doesNotMatch(chatCoverageSource, /projectOperationCoverage\s*\(/);
+  assert.match(chatCoverageSource, /MOBILE_TOOL_PROVIDER_REGISTRATIONS/);
+  assert.match(chatCoverageSource, /SERVER_TOOL_PROVIDER_REGISTRATIONS/);
+  assert.match(chatCoverageSource, /Missing executable \$\{channel\} handler/);
+  assert.match(mobileRegistrationSource, /MOBILE_EXECUTABLE_TOOL_IDS/);
+  assert.match(serverRegistrationSource, /SERVER_EXECUTABLE_TOOL_IDS/);
+  assert.doesNotMatch(mobileRegistrationSource, /KWILT_TOOL_CONTRACTS\s*\.filter/);
+  assert.doesNotMatch(serverRegistrationSource, /KWILT_TOOL_CONTRACTS\s*\.filter/);
 });

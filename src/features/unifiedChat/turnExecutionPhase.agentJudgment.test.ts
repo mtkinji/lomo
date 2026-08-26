@@ -65,10 +65,10 @@ test('self-directed Screen Time requests cannot receive child-control tools', ()
     screenTimeTools,
     'Set up Screen Time controls for me.',
   ).map((tool) => tool.id)).toEqual(expect.arrayContaining([
-    'screen_time.read',
     'screen_time.personal.setup.open',
     'money.app_control.review',
   ]));
+  expect(screenTimeTools.map((tool) => tool.id)).not.toContain('screen_time.read');
   expect(selectSubjectSafeRuntimeTools(
     screenTimeTools,
     'Set up Screen Time controls for me.',
@@ -80,7 +80,6 @@ test('self-directed Screen Time requests cannot receive child-control tools', ()
   const screenshotPrompt = 'Set a screen time rule that allows me to use Instagram for 10 minutes before I have to turn it off.';
   const screenshotTools = selectSubjectSafeRuntimeTools(screenTimeTools, screenshotPrompt).map((tool) => tool.id);
   expect(screenshotTools).toEqual(expect.arrayContaining([
-    'screen_time.read',
     'screen_time.personal.limit.open',
   ]));
   expect(screenshotTools).not.toEqual(expect.arrayContaining([

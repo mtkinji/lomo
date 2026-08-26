@@ -27,10 +27,13 @@ const MOBILE_EXECUTABLE_TOOL_IDS = [
 ] as const;
 
 const contractById = new Map(KWILT_TOOL_CONTRACTS.map((tool) => [tool.id, tool]));
+const contractOrder = new Map(KWILT_TOOL_CONTRACTS.map((tool, index) => [tool.id, index]));
 
 /** Each entry names an ID handled by createUnifiedChatToolProvider or its delegates. */
 export const MOBILE_TOOL_PROVIDER_REGISTRATIONS: readonly RuntimeToolProviderRegistration<MobileToolProviderContext>[] =
-  MOBILE_EXECUTABLE_TOOL_IDS.flatMap((toolId) => {
+  [...MOBILE_EXECUTABLE_TOOL_IDS]
+    .sort((left, right) => (contractOrder.get(left) ?? 0) - (contractOrder.get(right) ?? 0))
+    .flatMap((toolId) => {
     const tool = contractById.get(toolId);
     if (!tool) throw new Error(`Missing canonical mobile tool contract: ${toolId}`);
     return tool.providers.map((provider) => ({

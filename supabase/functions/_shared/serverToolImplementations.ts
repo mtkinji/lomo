@@ -28,10 +28,13 @@ const SERVER_EXECUTABLE_TOOL_IDS = [
 ] as const;
 
 const contractById = new Map(KWILT_TOOL_CONTRACTS.map((tool) => [tool.id, tool]));
+const contractOrder = new Map(KWILT_TOOL_CONTRACTS.map((tool, index) => [tool.id, index]));
 
 /** Each registration names an ID handled by executeServerAgentTool or one of its delegates. */
 export const SERVER_TOOL_PROVIDER_REGISTRATIONS: readonly RuntimeToolProviderRegistration<ServerToolProviderContext>[] =
-  SERVER_EXECUTABLE_TOOL_IDS.map((toolId) => {
+  [...SERVER_EXECUTABLE_TOOL_IDS]
+    .sort((left, right) => (contractOrder.get(left) ?? 0) - (contractOrder.get(right) ?? 0))
+    .map((toolId) => {
     const tool = contractById.get(toolId);
     if (!tool) throw new Error(`Missing canonical server tool contract: ${toolId}`);
     const provider = tool.providers.includes('server') ? 'server' as const : 'device' as const;
