@@ -118,7 +118,9 @@ function validUnifiedChatTool(value: unknown): boolean {
 }
 
 function validateUnifiedChatAgentRequest(parsed: Record<string, unknown>): ValidationResult {
-  const allowedKeys = new Set(['store', 'max_output_tokens', 'parallel_tool_calls', 'input', 'tools']);
+  const allowedKeys = new Set([
+    'store', 'max_output_tokens', 'parallel_tool_calls', 'input', 'tools', 'policy_context',
+  ]);
   if (Object.keys(parsed).some((key) => !allowedKeys.has(key))) {
     return invalid('unified chat agent contains unsupported request fields');
   }
@@ -129,14 +131,22 @@ function validateUnifiedChatAgentRequest(parsed: Record<string, unknown>): Valid
     (parsed.max_output_tokens as number) < 1 || (parsed.max_output_tokens as number) > 1_200) {
     return invalid('unified chat agent output budget is invalid');
   }
-  if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > 40 ||
+  if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > 80 ||
     !parsed.input.every(validUnifiedChatInputItem)) {
     return invalid('unified chat agent input item is invalid');
   }
-  if (!Array.isArray(parsed.tools) || parsed.tools.length < 1 || parsed.tools.length > 32 ||
+  if (!Array.isArray(parsed.tools) || parsed.tools.length < 1 || parsed.tools.length > 128 ||
     !parsed.tools.every(validUnifiedChatTool) ||
     !parsed.tools.some((tool) => isRecord(tool) && tool.type === 'function')) {
     return invalid('unified chat agent tools are invalid');
+  }
+  const policyContext = parsed.policy_context;
+  if (!isRecord(policyContext) ||
+    Object.keys(policyContext).some((key) => key !== 'currentDate' && key !== 'timeZone') ||
+    typeof policyContext.currentDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(policyContext.currentDate) ||
+    typeof policyContext.timeZone !== 'string' || policyContext.timeZone.length < 1 ||
+    policyContext.timeZone.length > 100) {
+    return invalid('unified chat agent policy context is invalid');
   }
   return { ok: true };
 }
@@ -165,7 +175,8 @@ export function validateKwiltAiRequestShape(
   }
 
   if (route === '/v1/responses') {
-    if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > 40) {
+    const maxInputItems = aiJob === 'unified_chat_agent' ? 80 : 40;
+    if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > maxInputItems) {
       return invalid('input must be a bounded non-empty array');
     }
     if (parsed.store === true || parsed.background === true) {

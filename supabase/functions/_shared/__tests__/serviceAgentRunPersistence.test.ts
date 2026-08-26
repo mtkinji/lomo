@@ -50,6 +50,29 @@ test('loads the persisted terminal answer for idempotent delivery recovery', asy
   });
 });
 
+test('appends bounded model telemetry without raw request or authorization data', async () => {
+  const rpc = jest.fn(async () => ({ data: null, error: null }));
+  const persistence = createServiceAgentRunPersistence({
+    admin: { rpc, from: jest.fn() }, userId: 'user-1',
+  });
+  await persistence.recordModelStep({
+    run: { threadId: 'thread-1', messageId: 'message-1', runId: 'run-1', status: 'active', version: 2, replayed: false },
+    round: 1,
+    metadata: {
+      responseId: 'resp-1', routedModel: 'gpt-5.6-terra', promptVersion: 'unified-chat-agent-v1',
+      toolCatalogHash: 'fnv1a:12345678', latencyMs: 42,
+      usage: { inputTokens: 20, outputTokens: 8, totalTokens: 28 },
+    },
+  });
+  expect(rpc).toHaveBeenCalledWith('append_kwilt_agent_model_step_event', {
+    p_user_id: 'user-1', p_run_id: 'run-1', p_round: 1, p_response_id: 'resp-1',
+    p_routed_model: 'gpt-5.6-terra', p_prompt_version: 'unified-chat-agent-v1',
+    p_tool_catalog_hash: 'fnv1a:12345678', p_latency_ms: 42,
+    p_input_tokens: 20, p_output_tokens: 8, p_total_tokens: 28,
+  });
+  expect(JSON.stringify(rpc.mock.calls[0])).not.toContain('Authorization');
+});
+
 test('stages a cross-channel proposal through one owner-scoped idempotent RPC', async () => {
   const rpc = jest.fn(async () => ({
     data: { id: 'proposal-1', status: 'pending', version: 1, replayed: false }, error: null,

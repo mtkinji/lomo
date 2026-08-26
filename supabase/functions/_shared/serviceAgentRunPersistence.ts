@@ -168,6 +168,22 @@ export function createServiceAgentRunPersistence({
       if (error || !data) throw new Error('proposal_batch_stage_failed');
       return mapProposals(data);
     },
+    recordModelStep: async ({ run, round, metadata }) => {
+      const { error } = await admin.rpc('append_kwilt_agent_model_step_event', {
+        p_user_id: userId,
+        p_run_id: run.runId,
+        p_round: round,
+        p_response_id: metadata.responseId,
+        p_routed_model: metadata.routedModel,
+        p_prompt_version: metadata.promptVersion,
+        p_tool_catalog_hash: metadata.toolCatalogHash,
+        p_latency_ms: metadata.latencyMs,
+        p_input_tokens: metadata.usage.inputTokens,
+        p_output_tokens: metadata.usage.outputTokens,
+        p_total_tokens: metadata.usage.totalTokens,
+      });
+      if (error) throw new Error('model_step_event_write_failed');
+    },
     complete: async (input) => {
       const { data, error } = await admin.rpc('complete_kwilt_agent_run_with_message', {
         p_run_id: input.run.runId, p_expected_version: input.expectedVersion,

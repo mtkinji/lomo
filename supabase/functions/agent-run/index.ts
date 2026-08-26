@@ -16,6 +16,7 @@ import {
 } from '../_shared/agentRunCoordinator.ts';
 import { createServiceAgentRunPersistence } from '../_shared/serviceAgentRunPersistence.ts';
 import { acceptMobileAgentRun } from '../_shared/mobileAgentRunBackground.ts';
+import { calendarDateInTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -119,8 +120,12 @@ serve(async (req) => {
       const dependencies = {
         request, userId: authData.user.id, persistence, dataClient: admin,
         modelStep: ({ messages }: { messages: Parameters<typeof requestServerAgentModel>[0]['messages'] }) => requestServerAgentModel({
-          supabaseUrl: url, anonKey, token, quotaIdentity: authData.user.id,
+          supabaseUrl: url, anonKey, serviceRoleToken: serviceRole, quotaIdentity: authData.user.id,
           isPro, messages, tools: SERVER_AGENT_TOOL_CATALOG,
+          policyContext: {
+            currentDate: calendarDateInTimeZone(new Date(), request.channelContext.timeZone ?? 'UTC'),
+            timeZone: request.channelContext.timeZone ?? 'UTC',
+          },
         }),
         authorizeTool: (tool: (typeof SERVER_AGENT_TOOL_CATALOG)[number]) => (
         (request.channel !== 'sms' && request.channel !== 'phone')

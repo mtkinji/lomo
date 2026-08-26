@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { validateKwiltAiRequestShape } from '../aiRequestValidation';
+import { prepareUnifiedChatAgentUpstreamBody } from '../unifiedChatAgentPolicy';
 
 const strictParameters = {
   type: 'object',
@@ -27,6 +28,7 @@ const validRequest = {
     parameters: strictParameters,
     strict: true,
   }],
+  policy_context: { currentDate: '2026-08-26', timeZone: 'America/Denver' },
 };
 
 describe('unified_chat_agent request contract', () => {
@@ -72,5 +74,13 @@ describe('unified_chat_agent request contract', () => {
   test('the proxy allowlist names the Responses job explicitly', () => {
     const source = readFileSync('supabase/functions/ai-chat/index.ts', 'utf8');
     expect(source).toContain("aiJob !== 'unified_chat_agent'");
+    expect(source).toContain("bearer !== `Bearer ${serviceRole}`");
+  });
+
+  test('replaces bounded policy context with server-owned instructions before forwarding', () => {
+    const upstream = prepareUnifiedChatAgentUpstreamBody(validRequest);
+    expect(upstream).not.toHaveProperty('policy_context');
+    expect(upstream.instructions).toContain('Current date in America/Denver is 2026-08-26');
+    expect(upstream.instructions).toContain('Never invent account state');
   });
 });

@@ -14,6 +14,7 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { resolveKwiltAiModel } from '../_shared/aiModelRouting.ts';
 import { validateKwiltAiRequestShape } from '../_shared/aiRequestValidation.ts';
+import { prepareUnifiedChatAgentUpstreamBody } from '../_shared/unifiedChatAgentPolicy.ts';
 import {
   createChatCompletionStreamAccumulator,
   type ChatCompletionStreamUsage,
@@ -321,6 +322,13 @@ serve(async (req) => {
     aiJob !== 'agent_judgment' && aiJob !== 'unified_chat_agent') {
     return json(400, { error: { message: 'Responses route requires an allowed job', code: 'bad_request' } });
   }
+  if (aiJob === 'unified_chat_agent') {
+    const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const bearer = req.headers.get('authorization') ?? '';
+    if (!serviceRole || bearer !== `Bearer ${serviceRole}`) {
+      return json(403, { error: { message: 'Unified Chat agent requires trusted server execution', code: 'forbidden' } });
+    }
+  }
   const isOnboarding = chatMode === 'firstTimeOnboarding';
   const isPreview = chatMode.startsWith('preview_');
   // Preview calls should not consume the user's monthly credits. We isolate them into a separate
@@ -351,7 +359,7 @@ serve(async (req) => {
   }
 
   let model: string | null = null;
-  const parsedBody = safeJsonParse(requestText);
+  let parsedBody = safeJsonParse(requestText);
   if (!parsedBody) {
     return json(400, { error: { message: 'Invalid JSON body', code: 'bad_request' } });
   }
@@ -360,6 +368,9 @@ serve(async (req) => {
   const shape = validateKwiltAiRequestShape(route, parsedBody, aiJob);
   if (!shape.ok) {
     return json(400, { error: { message: shape.message, code: 'bad_request' } });
+  }
+  if (aiJob === 'unified_chat_agent') {
+    parsedBody = prepareUnifiedChatAgentUpstreamBody(parsedBody);
   }
 
   // Server-authoritative model routing. The client may send an old persisted

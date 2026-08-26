@@ -11,6 +11,7 @@ import { requestServerAgentModel } from '../_shared/serverAgentModel.ts';
 import { sendPhoneAgentSms } from '../_shared/phoneAgentDelivery.ts';
 import { buildLegacyPhoneAgentEnrichmentPayload } from '../_shared/phoneAgent.ts';
 import { createServiceAgentRunPersistence } from '../_shared/serviceAgentRunPersistence.ts';
+import { calendarDateInTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -94,8 +95,12 @@ serve(async (req) => {
           persistence: createServiceAgentRunPersistence({ admin, userId: input.userId }),
           dataClient: admin,
           modelStep: ({ messages }) => requestServerAgentModel({
-            supabaseUrl: url, anonKey, token: serviceRole, quotaIdentity: input.userId,
+            supabaseUrl: url, anonKey, serviceRoleToken: serviceRole, quotaIdentity: input.userId,
             isPro, messages, tools: SERVER_AGENT_TOOL_CATALOG,
+            policyContext: {
+              currentDate: calendarDateInTimeZone(new Date(), input.timeZone),
+              timeZone: input.timeZone,
+            },
           }),
           authorizeTool: (tool) => (
             (tool.id !== 'activities.capture' || input.permissions.create_activities === true)

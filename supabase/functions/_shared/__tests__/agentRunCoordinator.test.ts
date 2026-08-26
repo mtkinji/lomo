@@ -50,6 +50,7 @@ function persistence(order: string[]): AgentRunPersistence {
       order.push('proposals');
       return proposals.map((_, index) => ({ id: `proposal-${index + 1}`, status: 'pending', version: 1, replayed: false }));
     }),
+    recordModelStep: jest.fn(async () => undefined),
     complete: jest.fn(async (input) => { order.push('complete'); return { id: input.run.runId, status: input.status }; }),
     fail: jest.fn(async () => { order.push('fail'); }),
   };
@@ -77,6 +78,20 @@ test('persists causal run state around the shared bounded loop', async () => {
   expect(store.complete).toHaveBeenCalledWith(expect.objectContaining({
     expectedVersion: 2, participatingCapabilities: ['screenTime'], requestClass: 'capability_question',
   }));
+});
+
+test('persists bounded Responses metadata for every model step', async () => {
+  const store = persistence([]);
+  const metadata = {
+    responseId: 'resp-1', routedModel: 'gpt-5.6-terra',
+    promptVersion: 'unified-chat-agent-v1', toolCatalogHash: 'fnv1a:12345678', latencyMs: 45,
+    usage: { inputTokens: 20, outputTokens: 8, totalTokens: 28 },
+  };
+  await executeCanonicalAgentRun({
+    request, userId: 'user-1', persistence: store, dataClient: { from: jest.fn() },
+    modelStep: async () => ({ content: 'Done.', toolCalls: [], metadata }),
+  });
+  expect(store.recordModelStep).toHaveBeenCalledWith({ run, round: 1, metadata });
 });
 
 test('returns an idempotent replay without invoking the model', async () => {
