@@ -44,3 +44,13 @@ reintroducing raw mutations. For the initial To-do slice:
 Native navigation, Toasts, haptics, and undo presentation stay in their UI
 callers after the capability action returns. Add an operation to the boundary
 manifest only after every protected path named there uses the capability action.
+
+The Household slice follows the same rule through
+`src/capabilities/relationships/actions/relationshipActions.ts`. Native
+Household settings and Chat's authorized Family Screen Time evidence loader now
+share `household.read`. Membership, invitation, child-capability, and caregiver
+grant writes also use confirmed action handlers and canonical receipts in the
+native UI. Their strict tool contracts are intentionally `pending_provider`:
+neither mobile Chat nor Phone may advertise or execute them until an
+authenticated Household provider, review proposal, durable receipt, and undo or
+explicit non-reversible boundary are implemented.

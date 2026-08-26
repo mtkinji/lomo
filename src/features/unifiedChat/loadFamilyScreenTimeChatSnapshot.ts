@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getHouseholdSnapshot } from '../household/data/household';
+import { readHousehold } from '../../capabilities/relationships/actions/relationshipActions';
+import { createHouseholdActionBoundary } from '../household/data/householdActionBoundary';
 import { fetchFamilyScreenTimeSnapshot } from '../household/screenTime/data/familyScreenTime';
 import type { ScreenTimeChatSnapshot } from './capabilityAdapters';
 import type { ScreenTimeAuthorizationStatus } from '../../services/screenTimeProtection';
@@ -14,7 +15,7 @@ export async function loadFamilyScreenTimeChatSnapshot(
     kind: 'self', deviceScope: 'current_device',
     authorizationStatus: await getSelfAuthorizationStatus(),
   };
-  const household = await getHouseholdSnapshot(client);
+  const household = (await readHousehold(createHouseholdActionBoundary(client))).result;
   const actor = household.members.find((member) => member.id === household.currentMembershipId);
   if (!household.household || !actor || !['owner', 'caregiver'].includes(actor.role)) {
     return { self, children: [] };

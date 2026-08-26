@@ -17,4 +17,26 @@ describe('KWILT_OPERATION_REGISTRY', () => {
     expect(source).not.toContain('KWILT_CAPABILITY_MANIFEST.map');
     expect(Object.isFrozen(KWILT_OPERATION_REGISTRY)).toBe(true);
   });
+
+  test('inventories core Household writes without overstating conversational coverage', () => {
+    const expected = [
+      ['household.read', 'none'],
+      ['household.member.add_dependent', 'explicit'],
+      ['household.invitation.create', 'explicit'],
+      ['household.invitation.preview', 'none'],
+      ['household.invitation.accept', 'explicit'],
+      ['household.child_capability.update', 'explicit'],
+      ['household.caregiver_grant.update', 'explicit'],
+    ] as const;
+    const byId = new Map(KWILT_CAPABILITY_MANIFEST.map((operation) => [operation.id, operation]));
+    for (const [id, confirmation] of expected) {
+      expect(byId.get(id)).toMatchObject({
+        owner: 'household', confirmation,
+        channels: {
+          mobile: { state: 'pending_provider', outcome: 'honest_boundary' },
+          phone: { state: 'pending_provider', outcome: 'honest_boundary' },
+        },
+      });
+    }
+  });
 });

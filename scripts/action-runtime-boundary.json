@@ -214,6 +214,68 @@
           "forbiddenPatterns": [{ "pattern": "store\\.updateProfileAt\\(", "message": "Chat Profile updates must call the Profile capability action" }]
         }
       ]
+    },
+    {
+      "id": "household.read",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/household/HouseholdSettingsScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "getHouseholdSnapshot\\(", "message": "native Household reads must call readHousehold" }]
+        },
+        {
+          "path": "src/features/unifiedChat/loadFamilyScreenTimeChatSnapshot.ts",
+          "forbiddenPatterns": [{ "pattern": "getHouseholdSnapshot\\(", "message": "Chat Household evidence must call readHousehold" }]
+        }
+      ]
+    },
+    {
+      "id": "household.member.add_dependent",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "addDependentChild\\(", "message": "native dependent creation must call addDependentHouseholdMember" }]
+      }]
+    },
+    {
+      "id": "household.invitation.create",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "createHouseholdMemberInvite\\(", "message": "native Household invitations must call createHouseholdInvitation" }]
+      }]
+    },
+    {
+      "id": "household.invitation.preview",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "previewHouseholdInvite\\(", "message": "native invitation review must call previewHouseholdInvitation" }]
+      }]
+    },
+    {
+      "id": "household.invitation.accept",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "acceptHouseholdMemberInvite\\(", "message": "native Household acceptance must call acceptHouseholdInvitation" }]
+      }]
+    },
+    {
+      "id": "household.child_capability.update",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "setChildCapabilityActivation\\(", "message": "native child capability changes must call setHouseholdChildCapability" }]
+      }]
+    },
+    {
+      "id": "household.caregiver_grant.update",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "setCaregiverCapabilityGrant\\(", "message": "native caregiver authority changes must call setHouseholdCaregiverGrant" }]
+      }]
     }
   ]
 }

@@ -35,6 +35,7 @@ Gives Maya a private family boundary with explicit membership, child-by-child ca
 - `HouseholdDevicesScreen.tsx` - caregiver-owned designation and member access for shared Household devices.
 - `screenTime/` - child-specific family agreement, delivery-state learning, and child-facing explanation.
 - `data/household.ts` - typed client boundary for server-authorized Household commands.
+- `data/householdActionBoundary.ts` - Supabase-backed adapter for the canonical Household action handlers shared by native UI and authorized Chat evidence reads.
 - `data/householdMigration.test.ts` - authorization and privacy contract for the canonical Household schema.
 
 The accepted future Household Mode design keeps one assigned caregiver account beneath a restricted child-facing layer. One active-member control appears in the capability menu and attribution-sensitive capability headers; child member codes select the actor, while fresh Face ID, Touch ID, or device-passcode authentication restores the caregiver's full Kwilt. Chores is the first capability shaped around that shared-device participation model, but neither brief is marked shipped by this feature manifest.
@@ -42,6 +43,8 @@ The accepted future Household Mode design keeps one assigned caregiver account b
 ## Notes
 
 Household membership shares only roster and relationship metadata. Possessing an invitation grants nothing until a signed-in person reviews and accepts it. Every capability must opt into family participation explicitly; no personal capability content becomes shared through membership alone.
+
+Core Household membership, invitation, activation, and caregiver-grant changes pass through `src/capabilities/relationships/actions/relationshipActions.ts`. Chat tool contracts describe those same actions but remain unavailable until an authenticated provider can preserve the native review, authorization, receipt, and reversibility boundaries.
 
 Family Screen Time owns caregiver and child policy meaning inside Household. Shared native enforcement and cross-domain conflict behavior follow [`docs/architecture/screen-time-control-plane.md`](../../../docs/architecture/screen-time-control-plane.md).
 Child-device setup, device authentication, policy reconciliation, application receipts,

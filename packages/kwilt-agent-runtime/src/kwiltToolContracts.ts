@@ -90,6 +90,14 @@ const PROFILE_FIELD_PROPERTIES = {
     enum: ['under-18', '18-24', '25-34', '35-44', '45-54', '55-64', '65-plus', 'prefer-not-to-say', null],
   },
 } as const;
+const HOUSEHOLD_ID = { type: ['string', 'null'], minLength: 1, maxLength: 200 } as const;
+const HOUSEHOLD_MEMBER_ID = { type: 'string', minLength: 1, maxLength: 200 } as const;
+const HOUSEHOLD_CAPABILITY_ID = {
+  type: 'string', enum: ['todos', 'screen-time', 'meal-planning'],
+} as const;
+const HOUSEHOLD_ROLE = { type: 'string', enum: ['caregiver', 'child'] } as const;
+const HOUSEHOLD_INVITE_CODE = { type: 'string', minLength: 1, maxLength: 200 } as const;
+const HOUSEHOLD_DISPLAY_NAME = { type: 'string', minLength: 1, maxLength: 160 } as const;
 const RELATIONSHIP_MEMORY_SCHEMA = {
   type: 'object',
   properties: {
@@ -310,6 +318,82 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
     purpose: 'Forget one identified relationship memory, event, or cadence using its current version and retain exact receipt undo.',
     providers: ['server'], effect: 'write', consequence: 'low', reversible: true,
     confirmation: 'none', canDeferToClient: false, inputSchema: RELATIONSHIP_FORGET_SCHEMA, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.read', version: 1, capabilityId: 'household',
+    purpose: 'Read the authenticated actor’s bounded Household roster, roles, child capability states, and explicit caregiver grants.',
+    providers: ['device', 'server'], effect: 'read', consequence: 'low', reversible: true,
+    confirmation: 'none', canDeferToClient: false, inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.member.add_dependent', version: 1, capabilityId: 'household',
+    purpose: 'Create one dependent child membership after explicit Household review.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: false,
+    confirmation: 'explicit', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { householdId: HOUSEHOLD_ID, displayName: HOUSEHOLD_DISPLAY_NAME, ownerDisplayName: HOUSEHOLD_DISPLAY_NAME },
+      required: ['householdId', 'displayName', 'ownerDisplayName'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.invitation.create', version: 1, capabilityId: 'household',
+    purpose: 'Create one short-lived Household invitation for a reviewed caregiver or child role.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: false,
+    confirmation: 'explicit', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        householdId: HOUSEHOLD_ID, role: HOUSEHOLD_ROLE,
+        invitedEmail: { type: ['string', 'null'], maxLength: 320 },
+        ownerDisplayName: HOUSEHOLD_DISPLAY_NAME,
+      }, required: ['householdId', 'role', 'invitedEmail', 'ownerDisplayName'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.invitation.preview', version: 1, capabilityId: 'household',
+    purpose: 'Preview the bounded inviter, Household, role, and expiry for one invitation code before acceptance.',
+    providers: ['device', 'server'], effect: 'read', consequence: 'low', reversible: true,
+    confirmation: 'none', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { code: HOUSEHOLD_INVITE_CODE }, required: ['code'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.invitation.accept', version: 1, capabilityId: 'household',
+    purpose: 'Accept one reviewed Household invitation as the authenticated person.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: false,
+    confirmation: 'explicit', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { code: HOUSEHOLD_INVITE_CODE, displayName: HOUSEHOLD_DISPLAY_NAME },
+      required: ['code', 'displayName'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.child_capability.update', version: 1, capabilityId: 'household',
+    purpose: 'Enable or disable one named capability for one exact child membership after explicit authority review.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { childMembershipId: HOUSEHOLD_MEMBER_ID, capabilityId: HOUSEHOLD_CAPABILITY_ID, enabled: { type: 'boolean' } },
+      required: ['childMembershipId', 'capabilityId', 'enabled'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.caregiver_grant.update', version: 1, capabilityId: 'household',
+    purpose: 'Grant or revoke one caregiver’s authority over one child capability after explicit review.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        caregiverMembershipId: HOUSEHOLD_MEMBER_ID, childMembershipId: HOUSEHOLD_MEMBER_ID,
+        capabilityId: HOUSEHOLD_CAPABILITY_ID, granted: { type: 'boolean' },
+      }, required: ['caregiverMembershipId', 'childMembershipId', 'capabilityId', 'granted'],
+    }, outputSchema: OBJECT_SCHEMA,
   },
   {
     id: 'screen_time.read', version: 1, capabilityId: 'screenTime',

@@ -213,7 +213,7 @@ describe('HouseholdSettingsScreen', () => {
     fireEvent.press(getByText('Join household'));
 
     await waitFor(() => expect(mockAcceptHouseholdMemberInvite).toHaveBeenCalledWith(expect.anything(), {
-      code: 'child12',
+      code: 'CHILD12',
       displayName: 'Andrew',
     }));
   });
