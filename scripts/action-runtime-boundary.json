@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "operations": [
+    {
+      "id": "activities.capture",
+      "actionModule": "src/capabilities/todos/actions/todoActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/activities/useQuickAddDockController.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "addActivity\\(activity\\)",
+              "message": "native Quick Add must call createTodo through commitQuickAddTodo"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/activityProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.addActivity\\(",
+              "message": "Chat create must call the To-do capability action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "activities.update.completion",
+      "actionModule": "src/capabilities/todos/actions/todoActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/plan/ActivityEventPeek.tsx",
+          "forbiddenPatterns": [
+            {
+              "pattern": "applyPlanActivityCompletionAction\\(prev",
+              "message": "Plan completion must call performPlanActivityCompletionAction"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/activityProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.updateActivity\\(",
+              "message": "Chat updates must call the To-do capability action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "activities.delete",
+      "actionModule": "src/capabilities/todos/actions/todoActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/activities/ActivityDetailScreen.tsx",
+          "forbiddenPatterns": [
+            {
+              "pattern": "removeActivity\\(activity\\.id\\)",
+              "message": "reviewed native delete must call deleteTodo"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/activityProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.removeActivity\\(",
+              "message": "Chat delete must call the To-do capability action"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

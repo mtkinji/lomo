@@ -56,3 +56,26 @@ export function findRawInteractiveControlImports(relativeFile, text) {
     `${relativeFile}: import app-owned ${controls} from src/ui/HapticPressable so enabled controls acknowledge taps`,
   ];
 }
+
+export function findActionRuntimeBoundaryViolations(relativeFile, text, manifest) {
+  const findings = [];
+  for (const operation of manifest?.operations ?? []) {
+    if (relativeFile === operation.actionModule) continue;
+    const protectedFile = (operation.protectedFiles ?? [])
+      .find((candidate) => candidate.path === relativeFile);
+    if (!protectedFile) continue;
+    for (const rule of protectedFile.forbiddenPatterns ?? []) {
+      let pattern;
+      try {
+        pattern = new RegExp(rule.pattern, 'u');
+      } catch {
+        findings.push(`${relativeFile}: ${operation.id}: invalid action-boundary pattern ${rule.pattern}`);
+        continue;
+      }
+      if (pattern.test(text)) {
+        findings.push(`${relativeFile}: ${operation.id}: ${rule.message}`);
+      }
+    }
+  }
+  return findings;
+}
