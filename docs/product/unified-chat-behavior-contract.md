@@ -55,6 +55,14 @@ The planner chooses only tools projected from the canonical capability manifest.
 
 Capabilities continue to own data semantics, ranking kernels, validation, consequence level, confirmation, mutation, authoritative receipts, recovery, undo, and exact native return. Chat must not recreate those rules in prompts.
 
+Arc writes now make that ownership executable. Native UI and Chat both call the
+capability action in `src/capabilities/life-structure/actions/arcActions.ts` for
+create, update, and delete. It enforces optimistic versions and Arc limits,
+returns normalized reversible receipts, and reports cascaded Goal/Activity
+effects. The app store remains the persistence adapter; it is not a second
+business-action implementation. Architecture lint rejects a return to direct
+Arc mutations in the migrated entry points.
+
 ## Evidence sufficiency
 
 Evidence breadth follows the interpreted job:

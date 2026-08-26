@@ -72,6 +72,78 @@
           ]
         }
       ]
+    },
+    {
+      "id": "arcs.create",
+      "actionModule": "src/capabilities/life-structure/actions/arcActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/arcs/ArcsScreen.tsx",
+          "forbiddenPatterns": [
+            {
+              "pattern": "useAppStore\\(\\(state\\) => state\\.addArc\\)",
+              "message": "native Arc creation must call createArc"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/arcProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.addArc\\(",
+              "message": "Chat Arc creation must call the Arc capability action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arcs.update",
+      "actionModule": "src/capabilities/life-structure/actions/arcActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/arcs/ArcDetailScreen.tsx",
+          "forbiddenPatterns": [
+            {
+              "pattern": "useAppStore\\(\\(state\\) => state\\.updateArc\\)",
+              "message": "native Arc updates must call updateArc"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/arcProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.updateArc\\(",
+              "message": "Chat Arc updates must call the Arc capability action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arcs.delete",
+      "actionModule": "src/capabilities/life-structure/actions/arcActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/arcs/ArcDetailScreen.tsx",
+          "forbiddenPatterns": [
+            {
+              "pattern": "useAppStore\\(\\(state\\) => state\\.removeArc\\)",
+              "message": "reviewed native Arc delete must call deleteArc"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/arcProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.removeArc\\(",
+              "message": "Chat Arc delete must call the Arc capability action"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

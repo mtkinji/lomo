@@ -69,6 +69,7 @@ import {
 } from './uiPreferences';
 import { resetCapabilityOnboardingForUser } from '../features/capability-onboarding/useCapabilityOnboardingStore';
 import type { TodoActionStoreBoundary } from '../capabilities/todos/actions/todoActions';
+import type { ArcActionStoreBoundary } from '../capabilities/life-structure/actions/arcActions';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 export type { QuickAddAiActionPreference } from './uiPreferences';
@@ -4141,6 +4142,20 @@ export function getTodoActionStoreBoundary(): TodoActionStoreBoundary {
     addActivity: (activity) => useAppStore.getState().addActivity(activity),
     updateActivity: (activityId, updater) => useAppStore.getState().updateActivity(activityId, updater),
     removeActivity: (activityId) => useAppStore.getState().removeActivity(activityId),
+  };
+}
+
+/** Persistence adapter shared by native UI and mobile Chat Arc actions. */
+export function getArcActionStoreBoundary(): ArcActionStoreBoundary {
+  return {
+    getArcs: () => useAppStore.getState().arcs,
+    getGoals: () => useAppStore.getState().goals,
+    getActivities: () => useAppStore.getState().activities,
+    getGoalRecommendations: (arcId) => useAppStore.getState().goalRecommendations[arcId] ?? [],
+    getIsPro: () => useEntitlementsStore.getState().isPro,
+    addArc: (arc) => useAppStore.getState().addArc(arc),
+    updateArc: (arcId, updater) => useAppStore.getState().updateArc(arcId, updater),
+    removeArc: (arcId) => useAppStore.getState().removeArc(arcId),
   };
 }
 
