@@ -1,8 +1,8 @@
 import type { UnifiedChatRepository } from './threadRepository';
 import type { UnifiedChatRun, UnifiedChatThreadAggregate } from './types';
+import type { KwiltChannelContextPacket } from './channelContext';
 
 const TERMINAL_RUN_STATUSES = new Set(['complete', 'partial', 'stopped', 'steered', 'failed']);
-const OPEN_PROPOSAL_STATUSES = new Set(['pending', 'edited', 'deferred', 'approved', 'applying']);
 
 type InvokeAgentRun = (
   functionName: string,
@@ -48,21 +48,17 @@ export function isDurableMobileChatEligible({
   interactionMode: 'text' | 'conversation';
   isRetry: boolean;
 }): boolean {
-  if (isRetry || interactionMode !== 'text' || attachmentCount > 0) return false;
-  if (!aggregate.messages.some((message) => message.role === 'assistant')) return false;
-  if ((aggregate.contextRefs ?? []).some((context) => context.active)) return false;
-  if ((aggregate.proposals ?? []).some((proposal) => OPEN_PROPOSAL_STATUSES.has(proposal.status))) return false;
-  if ((aggregate.clientActions ?? []).some(
-    (action) => action.status === 'pending_client_action' || action.status === 'presenting',
-  )) return false;
-  return true;
+  void aggregate;
+  void attachmentCount;
+  void isRetry;
+  return interactionMode === 'text';
 }
 
 export async function runDurableMobileChatTurn({
   threadId,
   prompt,
   requestId,
-  timeZone,
+  channelContext,
   parentRunId,
   invoke,
   loadThread,
@@ -73,7 +69,7 @@ export async function runDurableMobileChatTurn({
   threadId: string;
   prompt: string;
   requestId: string;
-  timeZone: string;
+  channelContext: KwiltChannelContextPacket;
   parentRunId?: string | null;
   invoke: InvokeAgentRun;
   loadThread: (threadId: string) => Promise<UnifiedChatThreadAggregate>;
@@ -91,7 +87,7 @@ export async function runDurableMobileChatTurn({
       triggerKind: 'user_message',
       triggerId: requestId,
       parentRunId: parentRunId ?? null,
-      channelContext: { timeZone },
+      channelContext,
     },
   });
   if (error) throw new Error(error.message || 'Kwilt could not start the response.');

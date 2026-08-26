@@ -57,6 +57,29 @@ describe('server agent runtime channel contract', () => {
     }).channelContext).toEqual({});
   });
 
+  test('accepts a bounded versioned mobile context packet and strips attachment contents', () => {
+    const mod = loadModule();
+    const request = mod.normalizeAgentRunRequest({
+      channel: 'mobile', requestId: 'mobile-1', prompt: 'Use this schedule',
+      threadId: '2a6f9844-7ee2-4a24-bbd0-ddd957cfcc46',
+      channelContext: {
+        schemaVersion: 1, locale: 'en-US', timeZone: 'America/Denver', appState: 'foreground',
+        origin: { screen: 'UnifiedChat', action: 'run.send' },
+        selectedEntities: [{ capabilityId: 'todos', objectType: 'activity', objectId: 'a-1', label: 'School' }],
+        attachments: [{ attachmentId: 'file-1', name: 'schedule.png', mimeType: 'image/png', sizeBytes: 20, objectPath: null, content: 'secret', dataUrl: 'data:image/png;base64,abc' }],
+        pendingWork: { proposalIds: ['p-1'], clientActionIds: ['c-1'] },
+        availableDeviceProviders: ['navigation'],
+      },
+    });
+
+    expect(request.channelContext).toMatchObject({
+      schemaVersion: 1, locale: 'en-US', timeZone: 'America/Denver', appState: 'foreground',
+      attachments: [{ attachmentId: 'file-1', objectPath: null }],
+    });
+    expect(JSON.stringify(request.channelContext)).not.toContain('secret');
+    expect(JSON.stringify(request.channelContext)).not.toContain('base64');
+  });
+
   test('rejects empty, oversized, or unidentified requests', () => {
     const mod = loadModule();
     expect(() => mod.normalizeAgentRunRequest({ channel: 'sms', requestId: '', prompt: 'Hi' })).toThrow('request_id');

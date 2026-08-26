@@ -1,4 +1,5 @@
 import {
+  buildAgentChannelContextPrompt,
   buildAgentSystemPrompt,
   enqueueCanonicalAgentRun,
   executeCanonicalAgentRun,
@@ -36,6 +37,26 @@ test('requires explicit relationship facts instead of inferred sensitive memory'
     'Use relationships.remember only when the user explicitly asks Kwilt to remember or directly states a personal fact',
   );
   expect(buildAgentSystemPrompt(request)).toContain('Never infer sensitive relationship facts');
+});
+
+test('grounds the server turn in bounded selected UI context without attachment contents', () => {
+  const context = buildAgentChannelContextPrompt({
+    ...request,
+    channel: 'mobile',
+    channelContext: {
+      schemaVersion: 1, locale: 'en-US', timeZone: 'America/Denver', appState: 'foreground',
+      origin: { screen: 'UnifiedChat', action: 'run.retry' },
+      selectedEntities: [{ capabilityId: 'todos', objectType: 'activity', objectId: 'a-1', label: 'School pickup' }],
+      attachments: [{ attachmentId: 'file-1', name: 'schedule.png', mimeType: 'image/png', sizeBytes: 10, objectPath: null }],
+      pendingWork: { proposalIds: ['p-1'], clientActionIds: ['c-1'] },
+      availableDeviceProviders: ['native_navigation'],
+    },
+  });
+
+  expect(context).toContain('Selected entity: todos/activity/a-1 (School pickup)');
+  expect(context).toContain('Attachment reference: file-1 (schedule.png, image/png, 10 bytes; object unavailable)');
+  expect(context).toContain('Pending proposal IDs: p-1');
+  expect(context).not.toContain('content');
 });
 
 function persistence(order: string[]): AgentRunPersistence {

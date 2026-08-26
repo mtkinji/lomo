@@ -28,6 +28,7 @@ import {
   runDurableMobileChatTurn,
   transitionDurableMobileChatRun,
 } from './durableMobileChatTurn';
+import { buildMobileTurnChannelContext } from './channelContext';
 import { getUnifiedChatConfig } from './unifiedChatConfig';
 import { makeAgentWorkbenchHostMessage, parseAgentWorkbenchSurfaceMessage } from './workbenchProtocol';
 import {
@@ -1533,8 +1534,8 @@ export function UnifiedChatScreen({
       let turnPrompt = command.type === 'run.send' ? command.prompt : retryMessage?.body ?? '';
       let turnRequestId = message.requestId;
       let retryRunId = retryRun?.id;
-      let turnAttachments = command.type === 'run.send' ? attachments : [];
-      let parentRunId: string | null = null;
+      let turnAttachments = command.type === 'run.send' ? attachments : retryMessage?.attachments ?? [];
+      let parentRunId: string | null = retryRunId ?? null;
       while (turnPrompt.trim()) {
         setStreamingResponse(null);
         setProcessingNotice(null);
@@ -1567,7 +1568,12 @@ export function UnifiedChatScreen({
               threadId: turnAggregate.thread.id,
               prompt: turnPrompt,
               requestId: turnRequestId,
-              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+              channelContext: buildMobileTurnChannelContext({
+                aggregate: turnAggregate, attachments: turnAttachments,
+                locale: Intl.DateTimeFormat().resolvedOptions().locale || 'en-US', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+                appState: AppState.currentState,
+                action: retryRunId ? 'run.retry' : parentRunId ? 'run.steer' : 'run.send',
+              }),
               parentRunId,
               invoke: (functionName, options) => getSupabaseClient().functions.invoke(functionName, options),
               loadThread: loadThreadWithRecovery,

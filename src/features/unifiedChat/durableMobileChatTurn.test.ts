@@ -33,19 +33,24 @@ test('routes an established plain-text follow-up through durable mobile executio
 });
 
 test.each([
-  ['first message', aggregate({ messages: [] }), 0, 'text', false],
-  ['attachment', aggregate(), 1, 'text', false],
-  ['voice', aggregate(), 0, 'conversation', false],
-  ['retry', aggregate(), 0, 'text', true],
-  ['attached context', aggregate({ contextRefs: [{ active: true } as never] }), 0, 'text', false],
-  ['pending proposal', aggregate({ proposals: [{ status: 'pending' } as never] }), 0, 'text', false],
-  ['pending device action', aggregate({ clientActions: [{ status: 'pending_client_action' } as never] }), 0, 'text', false],
-] as const)('keeps %s on the device-owned turn path', (_label, source, attachmentCount, interactionMode, isRetry) => {
+  ['first message', aggregate({ messages: [] }), 0, false],
+  ['attachment', aggregate(), 1, false],
+  ['retry', aggregate(), 0, true],
+  ['attached context', aggregate({ contextRefs: [{ active: true } as never] }), 0, false],
+  ['pending proposal', aggregate({ proposals: [{ status: 'pending' } as never] }), 0, false],
+  ['pending device action', aggregate({ clientActions: [{ status: 'pending_client_action' } as never] }), 0, false],
+] as const)('routes %s through canonical durable text execution', (_label, source, attachmentCount, isRetry) => {
   expect(isDurableMobileChatEligible({
     aggregate: source,
     attachmentCount,
-    interactionMode,
+    interactionMode: 'text',
     isRetry,
+  })).toBe(true);
+});
+
+test('keeps a live Conversation turn on its realtime device path', () => {
+  expect(isDurableMobileChatEligible({
+    aggregate: aggregate(), attachmentCount: 0, interactionMode: 'conversation', isRetry: false,
   })).toBe(false);
 });
 
@@ -69,7 +74,11 @@ test('accepts once and polls the canonical thread until the server-owned run com
     threadId: aggregate().thread.id,
     prompt: 'We do not have bananas.',
     requestId: 'request-1',
-    timeZone: 'America/Denver',
+    channelContext: {
+      schemaVersion: 1, locale: 'en-US', timeZone: 'America/Denver', appState: 'foreground',
+      origin: { screen: 'UnifiedChat', action: 'run.send' }, selectedEntities: [], attachments: [],
+      pendingWork: { proposalIds: [], clientActionIds: [] }, availableDeviceProviders: ['navigation'],
+    },
     invoke,
     loadThread,
     onProgress,
@@ -81,6 +90,7 @@ test('accepts once and polls the canonical thread until the server-owned run com
     body: expect.objectContaining({
       channel: 'mobile', requestId: 'request-1', prompt: 'We do not have bananas.',
       threadId: aggregate().thread.id,
+      channelContext: expect.objectContaining({ schemaVersion: 1, timeZone: 'America/Denver' }),
     }),
   }));
   expect(onProgress).toHaveBeenNthCalledWith(1, accepted, 'run-1');
@@ -101,7 +111,11 @@ test('does not turn app suspension into a client-side response deadline', async 
     threadId: aggregate().thread.id,
     prompt: 'We do not have bananas.',
     requestId: 'request-1',
-    timeZone: 'America/Denver',
+    channelContext: {
+      schemaVersion: 1, locale: 'en-US', timeZone: 'America/Denver', appState: 'background',
+      origin: { screen: 'UnifiedChat', action: 'run.send' }, selectedEntities: [], attachments: [],
+      pendingWork: { proposalIds: [], clientActionIds: [] }, availableDeviceProviders: [],
+    },
     invoke: async () => ({ data: { state: 'accepted', run: { runId: 'run-1' } }, error: null }),
     loadThread,
     signal: controller.signal,

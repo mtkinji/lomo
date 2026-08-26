@@ -31,6 +31,12 @@ export type {
 } from './providerRegistry';
 export { calendarDateInTimeZone, normalizeIanaTimeZone } from './timeContext';
 export {
+  buildKwiltChannelContext,
+  KWILT_CHANNEL_CONTEXT_SCHEMA_VERSION,
+  normalizeKwiltChannelContext,
+} from './channelContext';
+export type { KwiltChannelContextPacket } from './channelContext';
+export {
   RELIABILITY_CORPUS,
   RELIABILITY_CORPUS_VERSION,
   validateReliabilityCorpus,

@@ -1,5 +1,9 @@
 import { parseSmsCommand } from './phoneAgent.ts';
 import { normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
+import {
+  normalizeKwiltChannelContext,
+  type KwiltChannelContextPacket,
+} from '../../../packages/kwilt-agent-runtime/src/channelContext.ts';
 
 export type AgentRunChannel = 'mobile' | 'sms' | 'phone' | 'desktop' | 'external';
 export type AgentRunInitiator = 'user' | 'system';
@@ -25,7 +29,7 @@ export type CanonicalAgentRunRequest = {
     externalMessageId?: string;
     disclosureAcknowledged?: boolean;
     timeZone?: string;
-  };
+  } & Partial<KwiltChannelContextPacket>;
 };
 
 type PhoneLinkPolicy = {
@@ -74,6 +78,8 @@ export function normalizeAgentRunRequest(raw: unknown): CanonicalAgentRunRequest
   if (parentRunId && !UUID_PATTERN.test(parentRunId)) throw new Error('invalid_parent_run_id');
   const rawContext = record(input.channelContext);
   const channelContext: CanonicalAgentRunRequest['channelContext'] = {};
+  const mobileContext = normalizeKwiltChannelContext(rawContext);
+  if (channel === 'mobile' && mobileContext) Object.assign(channelContext, mobileContext);
   if (typeof rawContext.phoneLinkId === 'string' && rawContext.phoneLinkId.trim()) {
     channelContext.phoneLinkId = rawContext.phoneLinkId.trim().slice(0, 200);
   }
@@ -83,6 +89,7 @@ export function normalizeAgentRunRequest(raw: unknown): CanonicalAgentRunRequest
   if (rawContext.disclosureAcknowledged === true) channelContext.disclosureAcknowledged = true;
   const timeZone = normalizeIanaTimeZone(rawContext.timeZone);
   if (timeZone) channelContext.timeZone = timeZone;
+  else delete channelContext.timeZone;
   return {
     channel: channel as AgentRunChannel,
     requestId,
