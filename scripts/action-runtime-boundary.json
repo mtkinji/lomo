@@ -276,6 +276,50 @@
         "path": "src/features/household/HouseholdSettingsScreen.tsx",
         "forbiddenPatterns": [{ "pattern": "setCaregiverCapabilityGrant\\(", "message": "native caregiver authority changes must call setHouseholdCaregiverGrant" }]
       }]
+    },
+    {
+      "id": "plan.schedule_activity",
+      "actionModule": "src/capabilities/plan/actions/planActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/plan/PlanPager.tsx",
+          "forbiddenPatterns": [{ "pattern": "createCalendarEvent\\(", "message": "native Plan scheduling must call schedulePlanCalendarSession" }]
+        },
+        {
+          "path": "src/features/unifiedChat/planProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "calendar\\.createEvent\\(", "message": "Chat Plan scheduling must call schedulePlanCalendarSession" }]
+        }
+      ]
+    },
+    {
+      "id": "plan.schedule_chunks",
+      "actionModule": "src/capabilities/plan/actions/planActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/unifiedChat/planProposalExecutor.ts",
+        "forbiddenPatterns": [{ "pattern": "calendar\\.resolveAfterCreate\\(", "message": "Chat Plan chunk scheduling must call schedulePlanCalendarSession" }]
+      }]
+    },
+    {
+      "id": "plan.reschedule_activity",
+      "actionModule": "src/capabilities/plan/actions/planActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/plan/usePlanSessionEditor.ts",
+          "forbiddenPatterns": [{ "pattern": "moveManagedEvent\\(", "message": "native Plan moves must call reschedulePlanCalendarSession" }]
+        },
+        {
+          "path": "src/features/unifiedChat/planProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "calendar\\.moveEvent\\(", "message": "Chat Plan moves must call reschedulePlanCalendarSession" }]
+        }
+      ]
+    },
+    {
+      "id": "plan.remove_activity",
+      "actionModule": "src/capabilities/plan/actions/planActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/unifiedChat/planProposalExecutor.ts",
+        "forbiddenPatterns": [{ "pattern": "calendar\\.deleteEvent\\(", "message": "Chat Plan removals must call removePlanCalendarSession" }]
+      }]
     }
   ]
 }

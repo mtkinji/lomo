@@ -54,3 +54,10 @@ native UI. Their strict tool contracts are intentionally `pending_provider`:
 neither mobile Chat nor Phone may advertise or execute them until an
 authenticated Household provider, review proposal, durable receipt, and undo or
 explicit non-reversible boundary are implemented.
+
+The Plan slice centralizes confirmed calendar provider effects in
+`src/capabilities/plan/actions/planActions.ts`. Native slot placement, native
+session adjustment, Chat proposal application, and Chat undo share the same
+create/recover, move, and remove actions. Activity and schedule-session
+persistence stays in each authoritative adapter so the migration preserves
+Plan's multi-session model while removing duplicate provider-write logic.

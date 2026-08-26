@@ -386,8 +386,8 @@ const CAPABILITY_ROWS = [
   live({ id: 'activities.steps.reorder', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['activities.steps.reorder'], sourceRefs: ['mcp:reorder_activity_steps'] }, activityStepProof),
   bounded('confirmation_only', { id: 'activities.focus.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['activities.open_focus'], sourceRefs: ['legacy:enter_focus_mode'] }, 'Chat stages a durable handoff; opening Focus is not proof a session started.', deviceHandoffProof),
   live({ id: 'activities.focus_today', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['activities.focus_today'], sourceRefs: ['mcp:set_focus_today'] }, activityProof),
-  live({ id: 'activities.schedule', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_activity'], sourceRefs: ['legacy:schedule_activity_on_calendar'] }, planProof),
-  live({ id: 'plan.schedule_chunks', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_chunks'], sourceRefs: ['legacy:schedule_activity_chunks_on_calendar'] }, planProof),
+  live({ id: 'activities.schedule', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_activity'], sourceRefs: ['legacy:schedule_activity_on_calendar', 'action:planActions'] }, planProof),
+  live({ id: 'plan.schedule_chunks', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_chunks'], sourceRefs: ['legacy:schedule_activity_chunks_on_calendar', 'action:planActions'] }, planProof),
   live({ id: 'activities.reminder.update', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['activities.reminder.update'], sourceRefs: ['service:NotificationService'] }, activityScheduleProof),
   live({ id: 'activities.repeat.update', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['activities.repeat.update'], sourceRefs: ['domain:activityRecurrence'] }, activityScheduleProof),
   bounded('confirmation_only', { id: 'activities.location.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['activities.location.update'], sourceRefs: [] }, 'Chat stages a durable handoff; location triggers complete only after native permission and consequence review.', deviceHandoffProof),
@@ -396,9 +396,9 @@ const CAPABILITY_ROWS = [
 
   live({ id: 'plan.read_day_context', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['plan.read_day_context'], sourceRefs: ['capability:plan'] }, readProof),
   live({ id: 'plan.recommend_day', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['plan.recommend_day'], sourceRefs: [] }, readProof),
-  live({ id: 'plan.schedule_activity', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_activity'], sourceRefs: [] }, planProof),
-  live({ id: 'plan.reschedule_activity', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.reschedule_activity'], sourceRefs: [] }, planProof),
-  live({ id: 'plan.remove_activity', providers: ['connector', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['plan.remove_activity'], sourceRefs: [] }, planProof),
+  live({ id: 'plan.schedule_activity', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_activity'], sourceRefs: ['action:planActions'] }, planProof),
+  live({ id: 'plan.reschedule_activity', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.reschedule_activity'], sourceRefs: ['action:planActions'] }, planProof),
+  live({ id: 'plan.remove_activity', providers: ['connector', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['plan.remove_activity'], sourceRefs: ['action:planActions'] }, planProof),
   bounded('confirmation_only', { id: 'plan.preferences.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['plan.preferences.open'], sourceRefs: [] }, 'Chat stages a durable handoff; availability and calendar changes remain native settings actions.', deviceHandoffProof),
 
   live({ id: 'chapters.list', providers: ['server'], consequence: 'low', confirmation: 'none', toolIds: ['chapters.read'], sourceRefs: ['capability:chapters'] }, readProof),
