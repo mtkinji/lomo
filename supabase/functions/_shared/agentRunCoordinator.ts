@@ -17,6 +17,16 @@ import {
   type ServerTurnPlan,
 } from './serverTurnPlanning.ts';
 import type { KwiltToolNamespaceId } from '../../../packages/kwilt-agent-runtime/src/toolNamespaces.ts';
+import type { KwiltActionSource } from '../../../packages/kwilt-agent-runtime/src/types.ts';
+
+function actionSourceForRequest(request: CanonicalAgentRunRequest): KwiltActionSource {
+  if (request.initiator === 'system' || (request.triggerKind && request.triggerKind !== 'user_message')) {
+    return 'scheduled';
+  }
+  if (request.channel === 'phone' || request.channel === 'sms') return 'phone';
+  if (request.channel === 'mobile') return 'mobile_chat';
+  return 'mcp';
+}
 
 export type EnqueuedAgentRun = {
   threadId: string;
@@ -268,6 +278,7 @@ export async function executeEnqueuedCanonicalAgentRun({
           call,
           tool,
           writeContext: { threadId: enqueued.threadId, runId: enqueued.runId, messageId: enqueued.messageId },
+          actionSource: actionSourceForRequest(request),
           stageDeviceAction: (action) => persistence.stageClientAction({ run: enqueued, callId: call.id, action }),
           stageProposal: (proposal) => persistence.stageProposal({ run: enqueued, callId: call.id, proposal }),
           stageProposals: (proposals) => persistence.stageProposals({ run: enqueued, callId: call.id, proposals }),

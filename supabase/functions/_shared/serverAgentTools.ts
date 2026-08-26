@@ -10,7 +10,10 @@ import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
 import {
   createServerToolProviderRegistry,
   executeServerRegisteredTool,
+  serverToolResultFromActionReceipt,
 } from './serverToolProviderRegistry.ts';
+import { dispatchServerAction } from './serverActionDispatcher.ts';
+import type { KwiltActionSource } from '../../../packages/kwilt-agent-runtime/src/types.ts';
 import { calendarDateInTimeZone, normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 import { evaluateToolPolicy } from '../../../packages/kwilt-agent-runtime/src/policy.ts';
 type ClientActionRequest = ServerDeviceActionRequest;
@@ -33,6 +36,7 @@ type ExecuteServerAgentToolArgs = {
   stageProposal?: (request: ServerAgentProposalRequest) => Promise<ServerAgentProposalRecord>;
   stageProposals?: (requests: ServerAgentProposalRequest[]) => Promise<ServerAgentProposalRecord[]>;
   writeContext?: { threadId: string; runId: string; messageId: string };
+  actionSource?: KwiltActionSource;
   timeZone?: string;
 };
 const SERVER_TOOL_PROVIDER_REGISTRY = createServerToolProviderRegistry(SERVER_AGENT_TOOL_CATALOG);
@@ -386,6 +390,7 @@ async function executeServerAgentToolHandler({
   stageProposal,
   stageProposals,
   writeContext,
+  actionSource,
   timeZone,
 }: ExecuteServerAgentToolArgs): Promise<ServerAgentToolResult> {
   if (call.toolId !== tool.id) {
@@ -790,21 +795,39 @@ async function executeServerAgentToolHandler({
     if (!writeContext || !client.rpc) {
       return { status: 'unavailable', reason: 'server_write_context_unavailable', retryable: false };
     }
-    const { data, error } = await client.rpc('capture_kwilt_agent_activity', {
-      p_user_id: userId, p_thread_id: writeContext.threadId, p_run_id: writeContext.runId,
-      p_message_id: writeContext.messageId, p_call_id: call.id, p_payload: payload,
+    const actionReceipt = await dispatchServerAction({
+      request: {
+        operationId: call.toolId,
+        requestId: call.id,
+        actorId: userId,
+        householdId: userId,
+        source: actionSource ?? 'mobile_chat',
+        input: payload,
+      },
+      authorize: (request) => request.actorId === userId && request.operationId === 'activities.capture',
+      // The RPC owns the durable idempotency lookup and mutation transaction.
+      findMutationReceipt: async () => null,
+      execute: async () => {
+        const { data, error } = await client.rpc!('capture_kwilt_agent_activity', {
+          p_user_id: userId, p_thread_id: writeContext.threadId, p_run_id: writeContext.runId,
+          p_message_id: writeContext.messageId, p_call_id: call.id, p_payload: payload,
+        });
+        const result = asRecord(data);
+        const activityId = typeof result.activityId === 'string' ? result.activityId : '';
+        const receiptId = typeof result.receiptId === 'string' ? result.receiptId : '';
+        if (error || result.status !== 'applied' || !activityId || !receiptId) {
+          throw new Error('activity_capture_failed');
+        }
+        return {
+          id: receiptId,
+          status: String(result.status),
+          resulting_object_type: 'activity',
+          resulting_object_id: activityId,
+          can_undo: true,
+        };
+      },
     });
-    const result = asRecord(data);
-    const activityId = typeof result.activityId === 'string' ? result.activityId : '';
-    const receiptId = typeof result.receiptId === 'string' ? result.receiptId : '';
-    if (error || result.status !== 'applied' || !activityId || !receiptId) {
-      return { status: 'failed', code: 'activity_capture_failed', message: 'Kwilt could not capture this To-do.', retryable: true };
-    }
-    return {
-      status: 'completed',
-      output: { activityId, title: payload.title, replayed: result.replayed === true },
-      receipt: { id: receiptId, status: 'applied', resultingObjectType: 'activity', resultingObjectId: activityId },
-    };
+    return serverToolResultFromActionReceipt(actionReceipt);
   }
   if (tool.effect !== 'read' || !tool.providers.includes('server')) {
     return { status: 'unavailable', reason: 'server_provider_unavailable', retryable: false };

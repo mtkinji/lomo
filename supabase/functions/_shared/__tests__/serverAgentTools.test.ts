@@ -153,11 +153,17 @@ test('captures a low-risk Activity through one receipt-safe service RPC', async 
     client: { ...client, rpc }, userId: 'user-1',
     call: { id: 'call-1', toolId: 'activities.capture', arguments: { title: 'Pack lunch', scheduledDate: '2026-07-24' } },
     tool: tool('activities.capture'), stageDeviceAction: jest.fn(),
+    actionSource: 'phone',
     writeContext: { threadId: 'thread-1', runId: 'run-1', messageId: 'message-1' },
   })).resolves.toEqual({
     status: 'completed',
-    output: { activityId: 'activity-1', title: 'Pack lunch', replayed: false },
-    receipt: { id: 'receipt-1', status: 'applied', resultingObjectType: 'activity', resultingObjectId: 'activity-1' },
+    output: { receiptId: 'receipt-1', resultRefs: [{ kind: 'activity', id: 'activity-1' }] },
+    receipt: {
+      receiptId: 'receipt-1', operationId: 'activities.capture', requestId: 'call-1',
+      actorId: 'user-1', householdId: 'user-1', source: 'phone', status: 'completed',
+      resultRefs: [{ kind: 'activity', id: 'activity-1' }], reversible: true,
+      createdAt: expect.any(String),
+    },
   });
   expect(rpc).toHaveBeenCalledWith('capture_kwilt_agent_activity', {
     p_user_id: 'user-1', p_thread_id: 'thread-1', p_run_id: 'run-1', p_message_id: 'message-1',
