@@ -63,6 +63,13 @@ effects. The app store remains the persistence adapter; it is not a second
 business-action implementation. Architecture lint rejects a return to direct
 Arc mutations in the migrated entry points.
 
+Goal writes use the neighboring `goalActions.ts` boundary across the native
+Goals surfaces and Chat proposal execution. It validates Goal-to-Arc links and
+optimistic versions, returns the same normalized receipts to every caller, and
+includes dependent Activities in delete evidence. Goal deletion remains an
+explicitly reviewed action because the persistence operation cascades to those
+Activities.
+
 ## Evidence sufficiency
 
 Evidence breadth follows the interpreted job:

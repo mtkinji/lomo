@@ -11,7 +11,8 @@ import { GoalListCard } from '../../ui/GoalListCard';
 import { Card } from '../../ui/Card';
 import { colors, spacing, typography } from '../../theme';
 import type { GoalsStackParamList } from '../../navigation/RootNavigator';
-import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { getGoalActionStoreBoundary, useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { createGoal } from '../../capabilities/life-structure/actions/goalActions';
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { useToastStore } from '../../store/useToastStore';
 import { usePaywallStore } from '../../store/usePaywallStore';
@@ -99,6 +100,11 @@ import type { UnifiedChatLaunchContext } from '../unifiedChat/launchContext';
 
 const GOALS_CHAT_BUTTON_SIZE_PX = 48;
 
+const addGoalThroughAction = (goal: Goal) => createGoal(
+  { goal },
+  getGoalActionStoreBoundary(),
+);
+
 type GoalDraftEntry = {
   arcId: string;
   arcName: string;
@@ -145,7 +151,7 @@ export function GoalsScreen() {
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const goalRecommendations = useAppStore((state) => state.goalRecommendations);
-  const addGoal = useAppStore((state) => state.addGoal);
+  const addGoal = addGoalThroughAction;
   const dismissGoalRecommendation = useAppStore((state) => state.dismissGoalRecommendation);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isPro = useEntitlementsStore((state) => state.isPro);
@@ -895,7 +901,7 @@ export function GoalCoachDrawer({
     [initialDescription, launchFromArcId, initialTitle],
   );
   const [draft, setDraft] = React.useState<GoalCreationDraft>(() => buildEmptyDraft());
-  const addGoal = useAppStore((state) => state.addGoal);
+  const addGoal = addGoalThroughAction;
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const canUseUnsplash = useCanUseProTools('unsplash_banners');

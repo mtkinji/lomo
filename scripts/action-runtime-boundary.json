@@ -144,6 +144,48 @@
           ]
         }
       ]
+    },
+    {
+      "id": "goals.create",
+      "actionModule": "src/capabilities/life-structure/actions/goalActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/goals/GoalsScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "useAppStore\\(\\(state\\) => state\\.addGoal\\)", "message": "native Goal creation must call createGoal" }]
+        },
+        {
+          "path": "src/features/unifiedChat/goalProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "store\\.addGoal\\(", "message": "Chat Goal creation must call the Goal capability action" }]
+        }
+      ]
+    },
+    {
+      "id": "goals.update",
+      "actionModule": "src/capabilities/life-structure/actions/goalActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/arcs/GoalDetailScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "useAppStore\\(\\(state\\) => state\\.updateGoal\\)", "message": "native Goal updates must call updateGoal" }]
+        },
+        {
+          "path": "src/features/unifiedChat/goalProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "store\\.updateGoal\\(", "message": "Chat Goal updates must call the Goal capability action" }]
+        }
+      ]
+    },
+    {
+      "id": "goals.delete",
+      "actionModule": "src/capabilities/life-structure/actions/goalActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/arcs/GoalDetailScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "useAppStore\\(\\(state\\) => state\\.removeGoal\\)", "message": "reviewed native Goal delete must call deleteGoal" }]
+        },
+        {
+          "path": "src/features/unifiedChat/goalProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "store\\.removeGoal\\(", "message": "Chat Goal delete must call the Goal capability action" }]
+        }
+      ]
     }
   ]
 }

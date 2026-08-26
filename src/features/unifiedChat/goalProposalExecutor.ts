@@ -1,4 +1,5 @@
 import type { Activity, Goal } from '../../domain/types';
+import { createGoal, deleteGoal, updateGoal } from '../../capabilities/life-structure/actions/goalActions';
 import type { UnifiedChatMutationReceipt, UnifiedChatProposal } from './types';
 
 type GoalProposal = Extract<UnifiedChatProposal, { capabilityId: 'goals' }>;
@@ -182,17 +183,24 @@ export function applyApprovedGoalProposal({ proposal, store, now = () => new Dat
   if (proposal.capabilityId === 'goals' && proposal.operation.type === 'create_goal') {
     const approved = proposal as GoalProposal;
     const goal = createGoalForProposal(approved, store, appliedAt);
-    store.addGoal(goal);
+    createGoal({ goal }, store);
     return creationReceipt(approved, goal, appliedAt);
   }
   if (proposal.capabilityId === 'goals' && proposal.operation.type === 'delete_goal') {
     const approved = proposal as GoalProposal;
     const receipt = deletionReceipt(approved, store, appliedAt);
-    store.removeGoal(receipt.resultingObjectId);
+    deleteGoal({
+      goalId: receipt.resultingObjectId,
+      expectedUpdatedAt: approved.operation.payload.expectedUpdatedAt ?? undefined,
+    }, store);
     return receipt;
   }
   const { current, next } = computeGoalMutation(proposal, store, appliedAt);
-  store.updateGoal(current.id, () => next);
+  updateGoal({
+    goalId: current.id,
+    expectedUpdatedAt: current.updatedAt,
+    update: () => next,
+  }, store);
   return receiptFor(proposal as GoalProposal, current, next, appliedAt);
 }
 
@@ -218,10 +226,14 @@ export function undoAppliedGoalProposal({ receipt, store, now = () => new Date()
   }
   const undoneAt = now();
   if (receipt.undoOperation.type === 'delete_created_goal') {
-    store.removeGoal(current.id);
+    deleteGoal({ goalId: current.id, expectedUpdatedAt: current.updatedAt }, store);
   } else {
     const prior = receipt.undoOperation.goal;
-    store.updateGoal(current.id, () => ({ ...prior, updatedAt: undoneAt }));
+    updateGoal({
+      goalId: current.id,
+      expectedUpdatedAt: current.updatedAt,
+      update: () => ({ ...prior, updatedAt: undoneAt }),
+    }, store);
   }
   return { undoneAt };
 }

@@ -70,6 +70,7 @@ import {
 import { resetCapabilityOnboardingForUser } from '../features/capability-onboarding/useCapabilityOnboardingStore';
 import type { TodoActionStoreBoundary } from '../capabilities/todos/actions/todoActions';
 import type { ArcActionStoreBoundary } from '../capabilities/life-structure/actions/arcActions';
+import type { GoalActionStoreBoundary } from '../capabilities/life-structure/actions/goalActions';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 export type { QuickAddAiActionPreference } from './uiPreferences';
@@ -4156,6 +4157,18 @@ export function getArcActionStoreBoundary(): ArcActionStoreBoundary {
     addArc: (arc) => useAppStore.getState().addArc(arc),
     updateArc: (arcId, updater) => useAppStore.getState().updateArc(arcId, updater),
     removeArc: (arcId) => useAppStore.getState().removeArc(arcId),
+  };
+}
+
+/** Persistence adapter shared by native UI and mobile Chat Goal actions. */
+export function getGoalActionStoreBoundary(): GoalActionStoreBoundary {
+  return {
+    getGoals: () => useAppStore.getState().goals,
+    getActivities: () => useAppStore.getState().activities,
+    getArcIds: () => useAppStore.getState().arcs.map((arc) => arc.id),
+    addGoal: (goal) => useAppStore.getState().addGoal(goal),
+    updateGoal: (goalId, updater) => useAppStore.getState().updateGoal(goalId, updater),
+    removeGoal: (goalId) => useAppStore.getState().removeGoal(goalId),
   };
 }
 
