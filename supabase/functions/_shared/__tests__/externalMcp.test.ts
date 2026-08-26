@@ -1,4 +1,5 @@
 import {
+  EXTERNAL_MCP_ACTION_CATALOG,
   EXTERNAL_MCP_READ_TOOLS,
   EXTERNAL_MCP_WRITE_TOOLS,
   normalizeGetArcArgs,
@@ -14,6 +15,38 @@ import {
 } from '../externalMcp';
 
 describe('externalMcp helpers', () => {
+  test('snapshots generated names, schemas, annotations, scopes, and compatibility aliases', () => {
+    expect(EXTERNAL_MCP_ACTION_CATALOG.map((tool) => ({
+      name: tool.name,
+      canonicalName: tool.canonicalName,
+      operationId: tool.operationId,
+      toolId: tool.toolId,
+      inputSchema: tool.inputSchema,
+      annotations: tool.annotations,
+      scopes: tool.requiredScopes,
+      compatibilityAlias: tool.compatibilityAlias,
+    }))).toMatchSnapshot();
+  });
+
+  test('exports only strict schemas projected from handler-backed registrations', () => {
+    const assertStrict = (schema: unknown): void => {
+      if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return;
+      const record = schema as Record<string, unknown>;
+      if (record.type === 'object') {
+        expect(record.additionalProperties).toBe(false);
+        const properties = record.properties && typeof record.properties === 'object' && !Array.isArray(record.properties)
+          ? record.properties as Record<string, unknown>
+          : {};
+        for (const child of Object.values(properties)) assertStrict(child);
+      }
+      if (record.type === 'array') assertStrict(record.items);
+      for (const child of Array.isArray(record.oneOf) ? record.oneOf : []) assertStrict(child);
+    };
+
+    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(26);
+    for (const tool of EXTERNAL_MCP_ACTION_CATALOG) assertStrict(tool.inputSchema);
+  });
+
   describe('EXTERNAL_MCP_READ_TOOLS', () => {
     test('advertises the Sprint A read-only tool set', () => {
       expect(EXTERNAL_MCP_READ_TOOLS.map((tool) => tool.name)).toEqual([

@@ -1,19 +1,33 @@
+import {
+  EXTERNAL_ACTION_REGISTRATIONS,
+  projectExternalActionCatalog,
+  type ExternalActionAnnotations,
+  type ExternalRedactionPolicy,
+} from '../../../packages/kwilt-agent-runtime/src/externalActionCatalog.ts';
+import { KWILT_CAPABILITY_MANIFEST } from '../../../packages/kwilt-agent-runtime/src/kwiltCapabilityManifest.ts';
+import { SERVER_TOOL_PROVIDER_REGISTRATIONS } from './serverToolImplementations.ts';
+
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type JsonObject = { [key: string]: JsonValue };
 
 export type ExternalMcpToolDefinition = {
   name: string;
   description: string;
-  scope?: 'read' | 'write';
+  scope: 'read' | 'write';
   inputSchema: JsonObject;
-  annotations: {
-    title: string;
-    readOnlyHint: boolean;
-    destructiveHint: boolean;
-    idempotentHint?: boolean;
-    openWorldHint: boolean;
-  };
+  annotations: ExternalActionAnnotations;
+  canonicalName: string;
+  operationId: string;
+  toolId: string;
+  requiredScopes: string[];
+  redactionPolicy: ExternalRedactionPolicy;
+  compatibilityAlias: { name: string; version: 1 };
 };
+
+type LegacyExternalMcpToolDefinition = Pick<
+  ExternalMcpToolDefinition,
+  'name' | 'description' | 'scope' | 'inputSchema' | 'annotations'
+>;
 
 const ACTIVITY_STEP_SCHEMA: JsonObject = {
   type: 'array',
@@ -65,7 +79,7 @@ function deleteAnnotations(title: string) {
   };
 }
 
-export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
+const LEGACY_EXTERNAL_MCP_READ_TOOLS: LegacyExternalMcpToolDefinition[] = [
   {
     name: 'get_current_account',
     description: 'Get the authenticated Kwilt account for this MCP connection.',
@@ -169,7 +183,7 @@ const IDEMPOTENCY_PROPERTY = {
   description: 'Optional stable key for safely retrying the same write without creating duplicates.',
 };
 
-export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
+const LEGACY_EXTERNAL_MCP_WRITE_TOOLS: LegacyExternalMcpToolDefinition[] = [
   {
     name: 'create_arc',
     description: 'Create a Kwilt Arc for the authenticated user. The Arc appears exactly as if the user created it in Kwilt.',
@@ -474,6 +488,71 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
     annotations: writeAnnotations('Update Chapter Note'),
   },
 ];
+
+const LEGACY_EXTERNAL_MCP_TOOLS = [
+  ...LEGACY_EXTERNAL_MCP_READ_TOOLS,
+  ...LEGACY_EXTERNAL_MCP_WRITE_TOOLS,
+];
+
+function strictExternalSchema(schema: JsonObject): JsonObject {
+  const result = Object.fromEntries(Object.entries(schema).map(([key, value]) => {
+    if (key === 'properties' && value && typeof value === 'object' && !Array.isArray(value)) {
+      return [key, Object.fromEntries(Object.entries(value).map(([name, child]) => [
+        name,
+        child && typeof child === 'object' && !Array.isArray(child) ? strictExternalSchema(child as JsonObject) : child,
+      ]))];
+    }
+    if (key === 'items' && value && typeof value === 'object' && !Array.isArray(value)) {
+      return [key, strictExternalSchema(value as JsonObject)];
+    }
+    if (key === 'oneOf' && Array.isArray(value)) {
+      return [key, value.map((child) => child && typeof child === 'object' && !Array.isArray(child)
+        ? strictExternalSchema(child as JsonObject)
+        : child)];
+    }
+    return [key, value];
+  })) as JsonObject;
+  if (schema.type === 'object') result.additionalProperties = false;
+  return result;
+}
+
+const projectedActions = projectExternalActionCatalog({
+  manifest: KWILT_CAPABILITY_MANIFEST,
+  serverRegistrations: SERVER_TOOL_PROVIDER_REGISTRATIONS,
+  externalRegistrations: EXTERNAL_ACTION_REGISTRATIONS,
+  availableScopes: ['read', 'write'],
+});
+const legacyToolByName = new Map(LEGACY_EXTERNAL_MCP_TOOLS.map((tool) => [tool.name, tool] as const));
+
+export const EXTERNAL_MCP_ACTION_CATALOG: readonly ExternalMcpToolDefinition[] = projectedActions.flatMap((action) =>
+  action.compatibilityAliases.map((compatibilityAlias) => {
+    const legacy = legacyToolByName.get(compatibilityAlias.name);
+    if (!legacy) throw new Error(`Missing external MCP compatibility schema: ${compatibilityAlias.name}`);
+    const scope = action.effect === 'write' ? 'write' as const : 'read' as const;
+    if (legacy.scope !== scope) throw new Error(`External MCP scope drift: ${compatibilityAlias.name}`);
+    return {
+      ...legacy,
+      scope,
+      inputSchema: strictExternalSchema(legacy.inputSchema),
+      annotations: action.annotations,
+      canonicalName: action.canonicalName,
+      operationId: action.operationId,
+      toolId: action.toolId,
+      requiredScopes: [...action.requiredScopes],
+      redactionPolicy: action.redactionPolicy,
+      compatibilityAlias,
+    };
+  }));
+
+const projectedAliasNames = new Set(EXTERNAL_MCP_ACTION_CATALOG.map((tool) => tool.name));
+for (const legacy of LEGACY_EXTERNAL_MCP_TOOLS) {
+  if (!projectedAliasNames.has(legacy.name)) {
+    throw new Error(`External MCP tool is not backed by an exposed server action: ${legacy.name}`);
+  }
+}
+
+export const EXTERNAL_MCP_READ_TOOLS = EXTERNAL_MCP_ACTION_CATALOG.filter((tool) => tool.scope === 'read');
+export const EXTERNAL_MCP_WRITE_TOOLS = EXTERNAL_MCP_ACTION_CATALOG.filter((tool) => tool.scope === 'write');
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;

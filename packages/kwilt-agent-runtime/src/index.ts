@@ -14,6 +14,10 @@ export {
 } from './capabilityManifest';
 export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
 export { createRuntimeToolProviderRegistry } from './providerRegistry';
+export {
+  EXTERNAL_ACTION_REGISTRATIONS,
+  projectExternalActionCatalog,
+} from './externalActionCatalog';
 export { normalizeStrictToolArguments, toStrictToolInputSchema } from './strictToolSchema';
 export { resolveTurnPolicy } from './planning/resolveTurnPolicy';
 export {
@@ -24,6 +28,14 @@ export {
   namespaceForTool,
 } from './toolNamespaces';
 export type { KwiltToolNamespaceId } from './toolNamespaces';
+export type {
+  ExternalActionAnnotations,
+  ExternalActionCatalogEntry,
+  ExternalActionRegistration,
+  ExternalCompatibilityAlias,
+  ExternalExposureState,
+  ExternalRedactionPolicy,
+} from './externalActionCatalog';
 export type {
   RuntimeToolHandler,
   RuntimeToolProviderRegistration,

@@ -1,0 +1,492 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`EXTERNAL_ACTION_REGISTRATIONS snapshots the compatibility surface and explicit policy metadata 1`] = `
+[
+  {
+    "aliases": [
+      {
+        "name": "get_current_account",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_profile_read",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "profile.read",
+    "redaction": "account_identity",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "profile.read",
+  },
+  {
+    "aliases": [
+      {
+        "name": "list_arcs",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_arcs_list",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "arcs.list",
+    "redaction": "identity_summary",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "arcs.read",
+  },
+  {
+    "aliases": [
+      {
+        "name": "get_arc",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_arcs_get",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "arcs.get",
+    "redaction": "identity_summary",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "arcs.read",
+  },
+  {
+    "aliases": [
+      {
+        "name": "list_goals",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_goals_list",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "goals.list",
+    "redaction": "goal_summary",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "goals.read",
+  },
+  {
+    "aliases": [
+      {
+        "name": "get_goal",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_goals_get",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "goals.get",
+    "redaction": "goal_summary",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "goals.read",
+  },
+  {
+    "aliases": [
+      {
+        "name": "list_recent_activities",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activities_list",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "activities.list",
+    "redaction": "activity_summary",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "activities.read",
+  },
+  {
+    "aliases": [
+      {
+        "name": "get_current_chapter",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_chapters_get_current",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "chapters.get",
+    "redaction": "chapter_summary",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "chapters.read",
+  },
+  {
+    "aliases": [
+      {
+        "name": "get_show_up_status",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_account_show_up_status",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "account.show_up_status",
+    "redaction": "streak_summary",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "account.show_up_status",
+  },
+  {
+    "aliases": [
+      {
+        "name": "create_arc",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_arcs_create",
+    "confirmation": "explicit",
+    "consequence": "consequential",
+    "exposure": "exposed",
+    "operationId": "arcs.create",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "arcs.create",
+  },
+  {
+    "aliases": [
+      {
+        "name": "update_arc",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_arcs_update",
+    "confirmation": "explicit",
+    "consequence": "consequential",
+    "exposure": "exposed",
+    "operationId": "arcs.update",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "arcs.update",
+  },
+  {
+    "aliases": [
+      {
+        "name": "delete_arc",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_arcs_delete",
+    "confirmation": "explicit",
+    "consequence": "consequential",
+    "exposure": "exposed",
+    "operationId": "arcs.delete",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "arcs.delete",
+  },
+  {
+    "aliases": [
+      {
+        "name": "create_goal",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_goals_create",
+    "confirmation": "explicit",
+    "consequence": "consequential",
+    "exposure": "exposed",
+    "operationId": "goals.create",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "goals.create",
+  },
+  {
+    "aliases": [
+      {
+        "name": "update_goal",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_goals_update",
+    "confirmation": "explicit",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "goals.update",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "goals.update",
+  },
+  {
+    "aliases": [
+      {
+        "name": "delete_goal",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_goals_delete",
+    "confirmation": "explicit",
+    "consequence": "consequential",
+    "exposure": "exposed",
+    "operationId": "goals.delete",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "goals.delete",
+  },
+  {
+    "aliases": [
+      {
+        "name": "add_goal_checkin",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_goals_check_in",
+    "confirmation": "native",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "goals.check_in",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "goals.check_in",
+  },
+  {
+    "aliases": [
+      {
+        "name": "capture_activity",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activities_capture",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "activities.capture",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.capture",
+  },
+  {
+    "aliases": [
+      {
+        "name": "update_activity",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activities_update",
+    "confirmation": "explicit",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "activities.update",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.update",
+  },
+  {
+    "aliases": [
+      {
+        "name": "create_activity_step",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activity_steps_create",
+    "confirmation": "explicit",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "activities.steps.create",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.steps.create",
+  },
+  {
+    "aliases": [
+      {
+        "name": "update_activity_step",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activity_steps_update",
+    "confirmation": "explicit",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "activities.steps.update",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.steps.update",
+  },
+  {
+    "aliases": [
+      {
+        "name": "mark_activity_step_done",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activity_steps_complete",
+    "confirmation": "explicit",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "activities.steps.complete",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.steps.complete",
+  },
+  {
+    "aliases": [
+      {
+        "name": "delete_activity_step",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activity_steps_delete",
+    "confirmation": "explicit",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "activities.steps.delete",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.steps.delete",
+  },
+  {
+    "aliases": [
+      {
+        "name": "reorder_activity_steps",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activity_steps_reorder",
+    "confirmation": "explicit",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "activities.steps.reorder",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.steps.reorder",
+  },
+  {
+    "aliases": [
+      {
+        "name": "mark_activity_done",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activities_complete",
+    "confirmation": "explicit",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "activities.complete",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.update",
+  },
+  {
+    "aliases": [
+      {
+        "name": "set_focus_today",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activities_focus_today",
+    "confirmation": "explicit",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "activities.focus_today",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.focus_today",
+  },
+  {
+    "aliases": [
+      {
+        "name": "delete_activity",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_activities_delete",
+    "confirmation": "explicit",
+    "consequence": "consequential",
+    "exposure": "exposed",
+    "operationId": "activities.delete",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.delete",
+  },
+  {
+    "aliases": [
+      {
+        "name": "update_chapter_user_note",
+        "version": 1,
+      },
+    ],
+    "canonicalName": "kwilt_chapters_note_update",
+    "confirmation": "explicit",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "chapters.note.update",
+    "redaction": "mutation_receipt",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "chapters.note.update",
+  },
+]
+`;

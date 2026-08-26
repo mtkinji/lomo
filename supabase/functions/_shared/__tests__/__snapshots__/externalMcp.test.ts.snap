@@ -1,0 +1,1241 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`externalMcp helpers snapshots generated names, schemas, annotations, scopes, and compatibility aliases 1`] = `
+[
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get Current Account",
+    },
+    "canonicalName": "kwilt_profile_read",
+    "compatibilityAlias": {
+      "name": "get_current_account",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "get_current_account",
+    "operationId": "profile.read",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "profile.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List Arcs",
+    },
+    "canonicalName": "kwilt_arcs_list",
+    "compatibilityAlias": {
+      "name": "list_arcs",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer",
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused",
+            "archived",
+          ],
+          "type": "string",
+        },
+      },
+      "type": "object",
+    },
+    "name": "list_arcs",
+    "operationId": "arcs.list",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "arcs.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get Arc",
+    },
+    "canonicalName": "kwilt_arcs_get",
+    "compatibilityAlias": {
+      "name": "get_arc",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "arc_id": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "arc_id",
+      ],
+      "type": "object",
+    },
+    "name": "get_arc",
+    "operationId": "arcs.get",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "arcs.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List Goals",
+    },
+    "canonicalName": "kwilt_goals_list",
+    "compatibilityAlias": {
+      "name": "list_goals",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "arc_id": {
+          "type": "string",
+        },
+        "limit": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer",
+        },
+        "status": {
+          "oneOf": [
+            {
+              "type": "string",
+            },
+            {
+              "items": {
+                "type": "string",
+              },
+              "type": "array",
+            },
+          ],
+        },
+      },
+      "type": "object",
+    },
+    "name": "list_goals",
+    "operationId": "goals.list",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "goals.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get Goal",
+    },
+    "canonicalName": "kwilt_goals_get",
+    "compatibilityAlias": {
+      "name": "get_goal",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "goal_id": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "goal_id",
+      ],
+      "type": "object",
+    },
+    "name": "get_goal",
+    "operationId": "goals.get",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "goals.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List Recent To-dos",
+    },
+    "canonicalName": "kwilt_activities_list",
+    "compatibilityAlias": {
+      "name": "list_recent_activities",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "days": {
+          "maximum": 90,
+          "minimum": 1,
+          "type": "integer",
+        },
+        "include_rich": {
+          "type": "boolean",
+        },
+      },
+      "type": "object",
+    },
+    "name": "list_recent_activities",
+    "operationId": "activities.list",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "activities.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get Current Chapter",
+    },
+    "canonicalName": "kwilt_chapters_get_current",
+    "compatibilityAlias": {
+      "name": "get_current_chapter",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "get_current_chapter",
+    "operationId": "chapters.get",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "chapters.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get Show-up Status",
+    },
+    "canonicalName": "kwilt_account_show_up_status",
+    "compatibilityAlias": {
+      "name": "get_show_up_status",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "get_show_up_status",
+    "operationId": "account.show_up_status",
+    "scopes": [
+      "read",
+    ],
+    "toolId": "account.show_up_status",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Create Arc",
+    },
+    "canonicalName": "kwilt_arcs_create",
+    "compatibilityAlias": {
+      "name": "create_arc",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "identity_statement": {
+          "type": "string",
+        },
+        "name": {
+          "type": "string",
+        },
+        "narrative": {
+          "type": "string",
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused",
+            "archived",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "name",
+      ],
+      "type": "object",
+    },
+    "name": "create_arc",
+    "operationId": "arcs.create",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "arcs.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Arc",
+    },
+    "canonicalName": "kwilt_arcs_update",
+    "compatibilityAlias": {
+      "name": "update_arc",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "arc_id": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "identity_statement": {
+          "type": "string",
+        },
+        "name": {
+          "type": "string",
+        },
+        "narrative": {
+          "type": "string",
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused",
+            "archived",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "arc_id",
+      ],
+      "type": "object",
+    },
+    "name": "update_arc",
+    "operationId": "arcs.update",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "arcs.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Delete Arc",
+    },
+    "canonicalName": "kwilt_arcs_delete",
+    "compatibilityAlias": {
+      "name": "delete_arc",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "arc_id": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "arc_id",
+      ],
+      "type": "object",
+    },
+    "name": "delete_arc",
+    "operationId": "arcs.delete",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "arcs.delete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Create Goal",
+    },
+    "canonicalName": "kwilt_goals_create",
+    "compatibilityAlias": {
+      "name": "create_goal",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "arc_id": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "description": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "priority": {
+          "enum": [
+            1,
+            2,
+            3,
+          ],
+          "type": "integer",
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "in_progress",
+            "completed",
+            "archived",
+          ],
+          "type": "string",
+        },
+        "target_date": {
+          "type": "string",
+        },
+        "title": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "title",
+      ],
+      "type": "object",
+    },
+    "name": "create_goal",
+    "operationId": "goals.create",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "goals.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Goal",
+    },
+    "canonicalName": "kwilt_goals_update",
+    "compatibilityAlias": {
+      "name": "update_goal",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "arc_id": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "description": {
+          "type": "string",
+        },
+        "goal_id": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "priority": {
+          "enum": [
+            1,
+            2,
+            3,
+          ],
+          "type": "integer",
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "in_progress",
+            "completed",
+            "archived",
+          ],
+          "type": "string",
+        },
+        "target_date": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "title": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "goal_id",
+      ],
+      "type": "object",
+    },
+    "name": "update_goal",
+    "operationId": "goals.update",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "goals.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Delete Goal",
+    },
+    "canonicalName": "kwilt_goals_delete",
+    "compatibilityAlias": {
+      "name": "delete_goal",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "goal_id": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "goal_id",
+      ],
+      "type": "object",
+    },
+    "name": "delete_goal",
+    "operationId": "goals.delete",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "goals.delete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Add Goal Check-in",
+    },
+    "canonicalName": "kwilt_goals_check_in",
+    "compatibilityAlias": {
+      "name": "add_goal_checkin",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "goal_id": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "preset": {
+          "enum": [
+            "made_progress",
+            "struggled_today",
+            "need_encouragement",
+            "just_checking_in",
+            null,
+          ],
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "text": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "goal_id",
+      ],
+      "type": "object",
+    },
+    "name": "add_goal_checkin",
+    "operationId": "goals.check_in",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "goals.check_in",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Capture To-do",
+    },
+    "canonicalName": "kwilt_activities_capture",
+    "compatibilityAlias": {
+      "name": "capture_activity",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "goal_id": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "notes": {
+          "type": "string",
+        },
+        "priority": {
+          "enum": [
+            1,
+            2,
+            3,
+          ],
+          "type": "integer",
+        },
+        "scheduled_date": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "in_progress",
+            "done",
+            "skipped",
+            "cancelled",
+          ],
+          "type": "string",
+        },
+        "steps": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "completed_at": {
+                "type": [
+                  "string",
+                  "null",
+                ],
+              },
+              "id": {
+                "type": "string",
+              },
+              "is_optional": {
+                "type": "boolean",
+              },
+              "order_index": {
+                "type": "integer",
+              },
+              "title": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "title",
+            ],
+            "type": "object",
+          },
+          "type": "array",
+        },
+        "tags": {
+          "items": {
+            "type": "string",
+          },
+          "type": "array",
+        },
+        "title": {
+          "type": "string",
+        },
+        "type": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "title",
+      ],
+      "type": "object",
+    },
+    "name": "capture_activity",
+    "operationId": "activities.capture",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.capture",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update To-do",
+    },
+    "canonicalName": "kwilt_activities_update",
+    "compatibilityAlias": {
+      "name": "update_activity",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "type": "string",
+        },
+        "goal_id": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "notes": {
+          "type": "string",
+        },
+        "priority": {
+          "enum": [
+            1,
+            2,
+            3,
+            null,
+          ],
+          "type": [
+            "integer",
+            "null",
+          ],
+        },
+        "scheduled_date": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "in_progress",
+            "done",
+            "skipped",
+            "cancelled",
+          ],
+          "type": "string",
+        },
+        "steps": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "completed_at": {
+                "type": [
+                  "string",
+                  "null",
+                ],
+              },
+              "id": {
+                "type": "string",
+              },
+              "is_optional": {
+                "type": "boolean",
+              },
+              "order_index": {
+                "type": "integer",
+              },
+              "title": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "title",
+            ],
+            "type": "object",
+          },
+          "type": "array",
+        },
+        "tags": {
+          "items": {
+            "type": "string",
+          },
+          "type": "array",
+        },
+        "title": {
+          "type": "string",
+        },
+        "type": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "activity_id",
+      ],
+      "type": "object",
+    },
+    "name": "update_activity",
+    "operationId": "activities.update",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Create To-do Step",
+    },
+    "canonicalName": "kwilt_activity_steps_create",
+    "compatibilityAlias": {
+      "name": "create_activity_step",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "type": "string",
+        },
+        "completed_at": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "id": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "is_optional": {
+          "type": "boolean",
+        },
+        "order_index": {
+          "type": "integer",
+        },
+        "title": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "activity_id",
+        "title",
+      ],
+      "type": "object",
+    },
+    "name": "create_activity_step",
+    "operationId": "activities.steps.create",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.steps.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update To-do Step",
+    },
+    "canonicalName": "kwilt_activity_steps_update",
+    "compatibilityAlias": {
+      "name": "update_activity_step",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "type": "string",
+        },
+        "completed_at": {
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "is_optional": {
+          "type": "boolean",
+        },
+        "order_index": {
+          "type": "integer",
+        },
+        "step_id": {
+          "type": "string",
+        },
+        "title": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "activity_id",
+        "step_id",
+      ],
+      "type": "object",
+    },
+    "name": "update_activity_step",
+    "operationId": "activities.steps.update",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.steps.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Mark To-do Step Done",
+    },
+    "canonicalName": "kwilt_activity_steps_complete",
+    "compatibilityAlias": {
+      "name": "mark_activity_step_done",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "type": "string",
+        },
+        "completed_at": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "step_id": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "activity_id",
+        "step_id",
+      ],
+      "type": "object",
+    },
+    "name": "mark_activity_step_done",
+    "operationId": "activities.steps.complete",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.steps.complete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Delete To-do Step",
+    },
+    "canonicalName": "kwilt_activity_steps_delete",
+    "compatibilityAlias": {
+      "name": "delete_activity_step",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "step_id": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "activity_id",
+        "step_id",
+      ],
+      "type": "object",
+    },
+    "name": "delete_activity_step",
+    "operationId": "activities.steps.delete",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.steps.delete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Reorder To-do Steps",
+    },
+    "canonicalName": "kwilt_activity_steps_reorder",
+    "compatibilityAlias": {
+      "name": "reorder_activity_steps",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "step_ids": {
+          "items": {
+            "type": "string",
+          },
+          "type": "array",
+        },
+      },
+      "required": [
+        "activity_id",
+        "step_ids",
+      ],
+      "type": "object",
+    },
+    "name": "reorder_activity_steps",
+    "operationId": "activities.steps.reorder",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.steps.reorder",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Mark To-do Done",
+    },
+    "canonicalName": "kwilt_activities_complete",
+    "compatibilityAlias": {
+      "name": "mark_activity_done",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "type": "string",
+        },
+        "completed_at": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "activity_id",
+      ],
+      "type": "object",
+    },
+    "name": "mark_activity_done",
+    "operationId": "activities.complete",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Set Focus Today",
+    },
+    "canonicalName": "kwilt_activities_focus_today",
+    "compatibilityAlias": {
+      "name": "set_focus_today",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "type": "string",
+        },
+        "date": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "activity_id",
+      ],
+      "type": "object",
+    },
+    "name": "set_focus_today",
+    "operationId": "activities.focus_today",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.focus_today",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Delete To-do",
+    },
+    "canonicalName": "kwilt_activities_delete",
+    "compatibilityAlias": {
+      "name": "delete_activity",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "activity_id": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "activity_id",
+      ],
+      "type": "object",
+    },
+    "name": "delete_activity",
+    "operationId": "activities.delete",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "activities.delete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Chapter Note",
+    },
+    "canonicalName": "kwilt_chapters_note_update",
+    "compatibilityAlias": {
+      "name": "update_chapter_user_note",
+      "version": 1,
+    },
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "chapter_id": {
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Optional stable key for safely retrying the same write without creating duplicates.",
+          "type": "string",
+        },
+        "note": {
+          "type": "string",
+        },
+      },
+      "required": [
+        "chapter_id",
+        "note",
+      ],
+      "type": "object",
+    },
+    "name": "update_chapter_user_note",
+    "operationId": "chapters.note.update",
+    "scopes": [
+      "read",
+      "write",
+    ],
+    "toolId": "chapters.note.update",
+  },
+]
+`;
