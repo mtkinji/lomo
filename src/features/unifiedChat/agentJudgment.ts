@@ -1,3 +1,12 @@
+import type {
+  AgentJudgment,
+  AgentJudgmentAuthorization,
+  AgentJudgmentConstraint,
+  AgentJudgmentEvidenceScope,
+  AgentJudgmentExecutionMode,
+  AgentJudgmentResponseContract,
+  AgentJudgmentStep,
+} from '@kwilt/agent-runtime';
 import {
   UNIFIED_CHAT_CAPABILITY_IDS,
   isUnifiedChatCapabilityId,
@@ -5,53 +14,15 @@ import {
   type UnifiedChatRequestClass,
 } from './requestPolicy';
 
-export type AgentJudgmentExecutionMode =
-  | 'direct_answer'
-  | 'single_tool'
-  | 'multi_tool'
-  | 'clarify'
-  | 'boundary';
-
-export type AgentJudgmentAuthorization =
-  | 'none'
-  | 'explicit_request'
-  | 'accepted_prior_suggestion';
-
-export type AgentJudgmentEvidenceScope = 'none' | 'focused' | 'broad';
-
-export type AgentJudgmentResponseContract = 'direct' | 'evidence_linked';
-
-export type AgentJudgmentConstraint = {
-  kind: 'title' | 'date' | 'time' | 'timezone' | 'recurrence' | 'person' | 'amount' | 'other';
-  sourceText: string;
-  normalizedValue: string;
-};
-
-export type AgentJudgmentStep = {
-  sequence: number;
-  objective: string;
-  toolId: string | null;
-  dependsOn: number | null;
-};
-
-export type AgentJudgment = {
-  schemaVersion: 1;
-  userJob: string;
-  desiredOutcome: string;
-  requestClass: UnifiedChatRequestClass;
-  participatingCapabilities: UnifiedChatCapabilityId[];
-  usePrivateContext: boolean;
-  informationNeed: 'stable' | 'current';
-  authorization: AgentJudgmentAuthorization;
-  evidenceScope: AgentJudgmentEvidenceScope;
-  responseContract: AgentJudgmentResponseContract;
-  executionMode: AgentJudgmentExecutionMode;
-  constraints: AgentJudgmentConstraint[];
-  steps: AgentJudgmentStep[];
-  clarificationQuestion: string | null;
-  confidence: number;
-  reason: string;
-};
+export type {
+  AgentJudgment,
+  AgentJudgmentAuthorization,
+  AgentJudgmentConstraint,
+  AgentJudgmentEvidenceScope,
+  AgentJudgmentExecutionMode,
+  AgentJudgmentResponseContract,
+  AgentJudgmentStep,
+} from '@kwilt/agent-runtime';
 
 const REQUEST_CLASSES: readonly UnifiedChatRequestClass[] = [
   'general',

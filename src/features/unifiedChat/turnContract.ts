@@ -1,6 +1,10 @@
 import {
   KWILT_CAPABILITY_MANIFEST,
   type CapabilityManifestEntry,
+  type ResolvedUnifiedChatTurnContract,
+  type UnifiedChatTurnActionContract,
+  type UnifiedChatTurnContract,
+  type UnifiedChatTurnReferenceKind,
 } from '@kwilt/agent-runtime';
 import type { AgentJudgment } from './agentJudgment';
 import type {
@@ -16,33 +20,12 @@ import {
 } from './requestPolicy';
 import type { UnifiedChatThreadAggregate } from './types';
 
-export type UnifiedChatTurnReferenceKind = 'correction' | 'retry';
-
-export type UnifiedChatTurnActionContract = {
-  operationIds: string[];
-  targetScope: 'selected_objects' | 'all_matching';
-  targetQuery: string;
-};
-
-export type UnifiedChatTurnContract = {
-  schemaVersion: 2;
-  userJob: string;
-  desiredOutcome: string;
-  constraints: string[];
-  requestClass: UnifiedChatRequestClass;
-  participatingCapabilities: UnifiedChatCapabilityId[];
-  usePrivateContext: boolean;
-  authorization: AgentJudgmentAuthorization;
-  evidenceScope: AgentJudgmentEvidenceScope;
-  responseContract: AgentJudgmentResponseContract;
-  action: UnifiedChatTurnActionContract | null;
-  referent: { runId: string; kind: UnifiedChatTurnReferenceKind } | null;
-};
-
-export type ResolvedUnifiedChatTurnContract = {
-  runId: string;
-  contract: UnifiedChatTurnContract;
-};
+export type {
+  ResolvedUnifiedChatTurnContract,
+  UnifiedChatTurnActionContract,
+  UnifiedChatTurnContract,
+  UnifiedChatTurnReferenceKind,
+} from '@kwilt/agent-runtime';
 
 const RETRY_PATTERN = /\b(?:retry|try\s+(?:that|it|this)?\s*again)\b/i;
 const CORRECTION_PATTERN =

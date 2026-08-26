@@ -15,6 +15,7 @@ export {
 export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
 export { createRuntimeToolProviderRegistry } from './providerRegistry';
 export { normalizeStrictToolArguments, toStrictToolInputSchema } from './strictToolSchema';
+export { resolveTurnPolicy } from './planning/resolveTurnPolicy';
 export type {
   RuntimeToolHandler,
   RuntimeToolProviderRegistration,
@@ -82,3 +83,22 @@ export type {
   OperationCoverageProjection,
   RuntimeToolImplementation,
 } from './capabilityManifest';
+export type {
+  AgentJudgment,
+  AgentJudgmentAuthorization,
+  AgentJudgmentConstraint,
+  AgentJudgmentEvidenceScope,
+  AgentJudgmentExecutionMode,
+  AgentJudgmentResponseContract,
+  AgentJudgmentStep,
+  PortableUnifiedChatCapabilityId,
+  PortableUnifiedChatRequestClass,
+  ResolvedTurnPolicy,
+  ResolvedUnifiedChatTurnContract,
+  ResolveTurnPolicyInput,
+  TurnActorPermissions,
+  TurnAuthorization,
+  UnifiedChatTurnActionContract,
+  UnifiedChatTurnContract,
+  UnifiedChatTurnReferenceKind,
+} from './planning/types';

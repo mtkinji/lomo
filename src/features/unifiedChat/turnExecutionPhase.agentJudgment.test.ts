@@ -1,4 +1,4 @@
-import type { AgentJudgment } from './agentJudgment';
+import { resolveTurnPolicy, type AgentJudgment } from '@kwilt/agent-runtime';
 import {
   buildAgentJudgmentGrounding,
   buildActionTargetGrounding,
@@ -137,4 +137,23 @@ test('keeps create-plus-calendar intent as an explicit post-create continuation'
     stagedCreate: false,
     stagedPlanPlacement: true,
   })).toBeNull();
+});
+
+test('treats judgment-selected write tools as advisory until deterministic authority resolves', () => {
+  const policy = resolveTurnPolicy({
+    prompt: 'My fitness goal has a different title now.',
+    tools: UNIFIED_CHAT_TOOL_CATALOG,
+    advisoryToolIds: ['goals.update'],
+    unresolvedReferences: [],
+    actorPermissions: {
+      canRead: true,
+      canWrite: true,
+      allowedToolIds: UNIFIED_CHAT_TOOL_CATALOG.map((tool) => tool.id),
+    },
+    executionProvider: 'device',
+    acceptedPriorSuggestion: false,
+  });
+
+  expect(policy.authorization).toEqual({ kind: 'none', reason: 'write_not_explicit' });
+  expect(policy.allowedToolIds).toEqual([]);
 });
