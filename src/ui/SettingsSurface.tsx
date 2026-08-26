@@ -10,11 +10,13 @@ import { AppShell } from './layout/AppShell';
 export function SettingsPage({
   children,
   contentStyle,
+  headerAction,
   onBack,
   title,
 }: {
   children: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
+  headerAction?: ReactNode;
   onBack: () => void;
   title: string;
 }) {
@@ -32,7 +34,7 @@ export function SettingsPage({
         <Text selectable numberOfLines={1} style={styles.headerTitle}>
           {title}
         </Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerAction}>{headerAction}</View>
       </View>
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll} contentContainerStyle={[styles.content, contentStyle]}>
         {children}
@@ -277,6 +279,7 @@ export function SettingsToggleRow({
   onPress,
   switchTone,
   title,
+  value,
 }: {
   description?: string;
   disabled?: boolean;
@@ -284,12 +287,14 @@ export function SettingsToggleRow({
   onPress: () => void;
   switchTone?: KwiltSwitchProps['tone'];
   title: string;
+  value?: string;
 }) {
   return (
     <Pressable
       accessibilityRole="switch"
       accessibilityLabel={title}
       accessibilityState={{ checked: enabled, disabled }}
+      accessibilityValue={value ? { text: value } : undefined}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [styles.row, disabled ? styles.disabled : null, pressed ? styles.pressed : null]}
@@ -304,7 +309,12 @@ export function SettingsToggleRow({
           </Text>
         ) : null}
       </View>
-      <View pointerEvents="none">
+      <View pointerEvents="none" style={styles.toggleTrailing}>
+        {value ? (
+          <Text selectable={false} numberOfLines={1} style={styles.rowValue}>
+            {value}
+          </Text>
+        ) : null}
         <SettingsToggle
           accessible={false}
           accessibilityLabel={title}
@@ -367,9 +377,11 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     textAlign: 'center',
   },
-  headerSpacer: {
+  headerAction: {
     width: 44,
     height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scroll: {
     flex: 1,
@@ -496,6 +508,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: spacing.xs,
+  },
+  toggleTrailing: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
   },
   choiceIndicator: {
     width: 20,

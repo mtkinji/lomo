@@ -205,7 +205,7 @@ promotion is a separate implementation and verification gate.
 
 | State | Avatar | Action / copy |
 | --- | --- | --- |
-| Dependent, no photo | Initials | **Add photo** |
+| Dependent, no photo | Initials | Avatar/camera opens **Add photo** |
 | Dependent, managed photo | Managed image | Avatar/camera opens **Update photo** |
 | Connected, account photo | Account image | `Photo comes from <name>'s Kwilt account.` |
 | Connected, no account photo, dependent fallback | Managed image | Account source boundary; no caregiver edit in this slice |

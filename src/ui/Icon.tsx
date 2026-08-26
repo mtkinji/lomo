@@ -191,6 +191,7 @@ const iconMap = {
   clock: { library: 'lucide', icon: Clock },
   bell: { library: 'lucide', icon: Bell },
   phone: { library: 'lucide', icon: Phone },
+  smartphone: { library: 'lucide', icon: Smartphone },
   pin: { library: 'lucide', icon: MapPin },
   pushPin: { library: 'lucide', icon: Pin },
   pushPinOff: { library: 'lucide', icon: PinOff },

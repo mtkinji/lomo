@@ -596,7 +596,7 @@ export function PlanCalendarLensPage({
       lastFocusedSlotRequestIdRef.current = null;
       return;
     }
-    if (bottomOverlayInset <= 0 || timelineViewportHeight <= 0) return;
+    if (timelineViewportHeight <= 0) return;
 
     const margin = SLOT_HANDLE_OFFSET_PX + spacing.sm;
     const shouldFocusSlot = lastFocusedSlotRequestIdRef.current !== slotFocusRequestId;
@@ -687,6 +687,7 @@ export function PlanCalendarLensPage({
       </View>
 
       <ScrollView
+        testID="plan-calendar-timeline"
         ref={(n) => {
           scrollRef.current = n;
         }}

@@ -81,7 +81,10 @@ describe('MoneySetupExperience entry resolution', () => {
     await waitFor(() => {
       expect(navigation.reset).toHaveBeenCalledWith({
         index: 0,
-        routes: [{ name: 'MoneySummary' }],
+        routes: [{
+          name: 'MoneySummary',
+          params: { entryTransition: 'none' },
+        }],
       });
     });
     expect(navigation.replace).not.toHaveBeenCalled();

@@ -192,12 +192,7 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
               <View accessibilityElementsHidden accessibilityRole="none" style={styles.deviceIcon}>
                 <Icon color={colors.textSecondary} name="smartphone" size={22} />
               </View>
-              <View style={styles.deviceCopy}>
-                <Text style={styles.deviceTitle}>No iPhone connected</Text>
-                <Text style={styles.deviceDescription}>
-                  {`${member.displayName} can still participate in your household without one.`}
-                </Text>
-              </View>
+              <Text style={styles.deviceTitle}>No device connected</Text>
               {canManage && householdId ? (
                 <View style={styles.deviceAction}>
                   <Button
@@ -209,7 +204,7 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
                     })}
                     variant="secondary"
                   >
-                    {`Connect ${member.displayName}'s iPhone`}
+                    {`Connect ${member.displayName}'s device`}
                   </Button>
                 </View>
               ) : null}
@@ -243,8 +238,6 @@ const styles = StyleSheet.create({
   sheet: { gap: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
   deviceEmptyState: { alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg },
   deviceIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.shellAlt },
-  deviceCopy: { alignItems: 'center', gap: spacing.xs },
   deviceTitle: { ...typography.body, color: colors.textPrimary, textAlign: 'center' },
-  deviceDescription: { ...typography.bodySm, maxWidth: 320, color: colors.textSecondary, textAlign: 'center' },
   deviceAction: { alignSelf: 'stretch' },
 });

@@ -48,8 +48,8 @@ describe('HouseholdDeviceSetupScreen', () => {
     const { getByLabelText, getByText, queryByText } = renderWithProviders(<HouseholdDeviceSetupScreen {...props} />);
     await waitFor(() => expect(mockCreate).toHaveBeenCalledWith(expect.anything(), 'child-1'));
     expect(queryByText('Continue')).toBeNull();
-    expect(getByText("Scan this with Charlie's iPhone")).toBeTruthy();
-    expect(getByText("Open Kwilt on Charlie's iPhone and scan this code. Charlie does not need a separate Kwilt account.")).toBeTruthy();
+    expect(getByText("Scan this with Charlie's device")).toBeTruthy();
+    expect(getByText("Open Kwilt on Charlie's device and scan this code.")).toBeTruthy();
     expect(getByText('482-731')).toBeTruthy();
     expect(queryByText('Share link')).toBeNull();
     expect(queryByText('Cancel setup')).toBeNull();
@@ -58,7 +58,7 @@ describe('HouseholdDeviceSetupScreen', () => {
     fireEvent.press(getByLabelText('Share setup link for Charlie'));
     expect(share).toHaveBeenCalledWith({ message: 'https://go.kwilt.app/open/household-device/secret-1' });
 
-    fireEvent.press(getByLabelText("Go back from Connect Charlie's iPhone"));
+    fireEvent.press(getByLabelText("Go back from Connect Charlie's device"));
     await waitFor(() => expect(mockCancel).toHaveBeenCalledWith(expect.anything(), 'session-1'));
     expect(mockGoBack).toHaveBeenCalled();
   });
@@ -77,7 +77,7 @@ describe('HouseholdDeviceSetupScreen', () => {
     try {
       const { getByTestId, getByText, queryByText } = renderWithProviders(<HouseholdDeviceSetupScreen {...props} />);
       await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1));
-      expect(getByText("Scan this with Charlie's iPhone")).toBeTruthy();
+      expect(getByText("Scan this with Charlie's device")).toBeTruthy();
 
       await act(async () => {
         jest.advanceTimersByTime(3_000);
@@ -87,7 +87,8 @@ describe('HouseholdDeviceSetupScreen', () => {
       expect(getByText("Charlie's device is connected")).toBeTruthy();
       expect(getByTestId('household-device-connected-illustration', { includeHiddenElements: true })).toBeTruthy();
       expect(queryByText('482-731')).toBeNull();
-      expect(getByText('Done')).toBeTruthy();
+      fireEvent.press(getByText('Done'));
+      expect(mockGoBack).toHaveBeenCalled();
 
       act(() => jest.advanceTimersByTime(6_000));
       expect(mockList).toHaveBeenCalledTimes(2);

@@ -1,6 +1,10 @@
 import type { MoneyEntryMode, MoneyEntrySource, MoneyPlaceRouteName } from '../domain/moneyOnboarding';
 import type { MoneyOnboardingHandoffReceipt } from '../domain/moneyOnboardingHandoff';
 
+export type MoneyPlaceEntryParams = {
+  entryTransition?: 'none';
+};
+
 export type MoneyStackParamList = {
   MoneyEntry: {
     requestedPlace: MoneyPlaceRouteName;
@@ -9,11 +13,13 @@ export type MoneyStackParamList = {
     demoScenario?: 'connected-household';
   };
   MoneySummary: {
+    entryTransition?: 'none';
     entryIntent?: 'app-control-onboarding';
     devBudgetState?: 'none' | 'onboarding-sample';
     onboardingHandoff?: MoneyOnboardingHandoffReceipt;
   } | undefined;
   MoneyTransactions: {
+    entryTransition?: 'none';
     accountId?: string;
     categoryId?: string;
     monthStart?: string;
@@ -25,7 +31,7 @@ export type MoneyStackParamList = {
     overageReview?: boolean;
     flexibleRoomCents?: number;
   } | undefined;
-  MoneyAccounts: undefined;
+  MoneyAccounts: MoneyPlaceEntryParams | undefined;
   MoneyCategoryDetail: { categoryId: string; monthOffset?: number };
   MoneyCategoryCreate: undefined;
   MoneySetup: { requestedPlace?: MoneyPlaceRouteName; demoScenario?: 'connected-household' } | undefined;

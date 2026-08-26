@@ -119,10 +119,8 @@ The member page must pass this three-second read:
 
 On Charlie's page, use a neutral **Devices** section:
 
-- empty state: **No iPhone connected** with a quiet phone icon;
-- supporting copy inside the same card: Charlie can still participate in the
-  household without one;
-- secondary action: **Connect Charlie's iPhone**;
+- empty state: **No device connected** with a quiet phone icon;
+- secondary action: **Connect Charlie's device**;
 - connected rows show device name, state, and only relevant capability follow-ups.
 
 Household settings owns a separate **Household devices** destination for shared

@@ -1,5 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
-import { View } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useState } from 'react';
+import { Platform, ScrollView, View } from 'react-native';
 import { colors, spacing } from '../../theme';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
@@ -13,6 +15,7 @@ import { DurationPicker, formatDurationMinutes } from './DurationPicker';
 import { styles } from './activityDetailStyles';
 import type { ActivityScheduleSheetController } from './useActivityScheduleSheetController';
 import { KwiltLoader } from '../../ui/KwiltLoader';
+import type { ManualScheduleSlotAdvisory } from './activityScheduleSlots';
 
 type ActivityScheduleSheetProps = {
   visible: boolean;
@@ -23,6 +26,17 @@ type ActivityScheduleSheetProps = {
   onOpenAvailabilitySettings: () => void;
 };
 
+function advisoryCopy(advisories: ManualScheduleSlotAdvisory[]): string | null {
+  const messages: string[] = [];
+  if (advisories.includes('busy')) messages.push('Overlaps another calendar event');
+  if (advisories.some((advisory) => advisory === 'day-disabled' || advisory === 'no-window')) {
+    messages.push('Outside your usual planning days');
+  } else if (advisories.includes('outside-window')) {
+    messages.push('Outside your usual planning hours');
+  }
+  return messages.length > 0 ? `${messages.join('. ')}.` : null;
+}
+
 export function ActivityScheduleSheet({
   visible,
   activityTitle,
@@ -31,6 +45,7 @@ export function ActivityScheduleSheet({
   onOpenCalendarSettings,
   onOpenAvailabilitySettings,
 }: ActivityScheduleSheetProps) {
+  const [androidDatePickerVisible, setAndroidDatePickerVisible] = useState(false);
   const {
     bindingHealth,
     close,
@@ -44,8 +59,12 @@ export function ActivityScheduleSheet({
     kwiltBlocks,
     loading,
     selectedSlot,
+    selectedSlotAdvisories,
+    selectedSlotDraft,
     selectedSlotIndex,
     selectedSlotLabel,
+    slotFocusRequestId,
+    selectSlotDraft,
     selectManualTime,
     selectSuggestedSlot,
     selectTargetDate,
@@ -56,6 +75,15 @@ export function ActivityScheduleSheet({
     targetDayLabel,
     writeRef,
   } = controller;
+  const selectedAdvisoryCopy = advisoryCopy(selectedSlotAdvisories);
+  const minimumDate = new Date();
+  minimumDate.setHours(0, 0, 0, 0);
+
+  const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS !== 'ios') setAndroidDatePickerVisible(false);
+    if (event.type === 'dismissed' || !date) return;
+    selectTargetDate(date);
+  };
 
   return (
     <BottomDrawer
@@ -79,7 +107,7 @@ export function ActivityScheduleSheet({
             {isCommitting
               ? 'Scheduling...'
               : selectedSlotLabel
-                ? `Schedule ${selectedSlotLabel}`
+                ? `${selectedSlotAdvisories.length > 0 ? 'Schedule anyway' : 'Schedule'} ${selectedSlotLabel}`
                 : 'Schedule'}
           </Text>
         </Button>
@@ -187,11 +215,13 @@ export function ActivityScheduleSheet({
               </View>
             ) : (
               <VStack space="sm">
-                <Text style={styles.sheetSectionLabel}>
-                  {slots.length > 0 ? 'Suggested times' : 'Pick a time'}
-                </Text>
+                <Text style={styles.sheetSectionLabel}>{slots.length > 0 ? 'Good fits' : 'Pick a time'}</Text>
                 {slots.length > 0 ? (
-                  <HStack style={{ flexWrap: 'wrap', gap: spacing.sm }}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.scheduleSuggestionRail}
+                  >
                     {slots.map((slot, index) => {
                       const start = new Date(slot.startDate);
                       const end = new Date(slot.endDate);
@@ -207,16 +237,63 @@ export function ActivityScheduleSheet({
                         </Button>
                       );
                     })}
-                  </HStack>
+                  </ScrollView>
                 ) : null}
               </VStack>
             )}
 
             {writeRef ? (
               <View style={{ flex: 1, minHeight: 0, marginTop: spacing.sm }}>
+                <HStack justifyContent="space-between" alignItems="center" style={styles.scheduleDateControlRow}>
+                  <Text style={styles.scheduleSelectedDayLabel}>Date</Text>
+                  {Platform.OS === 'ios' ? (
+                    <DateTimePicker
+                      value={targetDate}
+                      mode="date"
+                      display="compact"
+                      minimumDate={minimumDate}
+                      onChange={handleDateChange}
+                      accessibilityLabel="Choose any scheduling date"
+                    />
+                  ) : (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Choose any scheduling date"
+                      onPress={() => setAndroidDatePickerVisible(true)}
+                      style={({ pressed }) => [
+                        styles.scheduleDatePickerButton,
+                        pressed ? styles.scheduleDurationChipPressed : null,
+                      ]}
+                    >
+                      <Icon name="calendar" size={16} color={colors.textPrimary} />
+                      <Text style={styles.scheduleDatePickerButtonText}>{targetDayLabel}</Text>
+                    </Pressable>
+                  )}
+                </HStack>
+                {androidDatePickerVisible ? (
+                  <DateTimePicker
+                    value={targetDate}
+                    mode="date"
+                    display="default"
+                    minimumDate={minimumDate}
+                    onChange={handleDateChange}
+                  />
+                ) : null}
                 <View style={{ height: 72, marginBottom: spacing.xs }}>
                   <PlanDateStrip selectedDate={targetDate} onSelectDate={selectTargetDate} />
                 </View>
+                <Text style={styles.schedulePlacementHint}>
+                  {!selectedSlotDraft
+                    ? 'Tap any time below to place this to-do.'
+                    : selectedSlotIndex >= 0
+                      ? 'Next open time is placed below. Drag the block or tap anywhere to move it.'
+                      : 'Drag the block or either handle to adjust it.'}
+                </Text>
+                {selectedAdvisoryCopy ? (
+                  <Text accessibilityLiveRegion="polite" style={styles.scheduleAdvisoryText}>
+                    {selectedAdvisoryCopy}
+                  </Text>
+                ) : null}
                 <View style={{ flex: 1, minHeight: Math.min(280, lensHeight) }}>
                   <PlanCalendarLensPage
                     contentPadding={0}
@@ -224,15 +301,10 @@ export function ActivityScheduleSheet({
                     targetDate={targetDate}
                     externalEvents={externalEvents}
                     calendarColorByRefKey={controller.calendarColorByRefKey}
-                    proposedBlocks={
-                      selectedSlot
-                        ? [{
-                            title: activityTitle,
-                            start: new Date(selectedSlot.startDate),
-                            end: new Date(selectedSlot.endDate),
-                          }]
-                        : []
-                    }
+                    proposedBlocks={[]}
+                    slotDraft={selectedSlotDraft}
+                    slotDraftTitle={activityTitle}
+                    slotFocusRequestId={slotFocusRequestId}
                     kwiltBlocks={kwiltBlocks}
                     conflictActivityIds={[]}
                     calendarStatus="connected"
@@ -242,6 +314,10 @@ export function ActivityScheduleSheet({
                       onOpenCalendarSettings();
                     }}
                     onPressEmptyTime={selectManualTime}
+                    onSlotDraftChange={(draft) => {
+                      if (draft) selectSlotDraft(draft);
+                    }}
+                    onSlotDraftComplete={selectSlotDraft}
                   />
                 </View>
               </View>

@@ -9,7 +9,6 @@ import { getEdgeFunctionUrl, getEdgeFunctionUrlCandidates } from '../../services
 import { getInstallId } from '../../services/installId';
 import { getSupabasePublishableKey } from '../../utils/getEnv';
 import {
-  buildLiveConversationSessionUpdate,
   parseOpenAiRealtimeEvent,
   type LiveConversationProviderEvent,
 } from './openAiRealtimeEvents';
@@ -102,7 +101,6 @@ export async function startLiveConversationSession(input: {
     if (!response.ok || !answer.trim()) throw new Error('Conversation connection could not be established.');
     await peer.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answer }));
     await waitForLiveConversationDataChannel(events);
-    events.send(JSON.stringify(buildLiveConversationSessionUpdate()));
     events.onerror = () => input.onFailure(new Error('Conversation connection interrupted.'));
     input.onConnected(connection);
     return connection;

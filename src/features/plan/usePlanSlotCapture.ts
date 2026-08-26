@@ -219,20 +219,21 @@ export function usePlanSlotCapture(params: {
   );
 
   const validateSlot = useCallback(
-    (activity: Activity): { proposal: DailyPlanProposal; conflicts: boolean } | null => {
+    (activity: Activity): {
+      proposal: DailyPlanProposal;
+      conflicts: boolean;
+      outsideAvailability: boolean;
+    } | null => {
       if (!slotDraft) return null;
       if (!writeCalendarId) {
         Alert.alert('Choose a calendar', 'Select a write calendar in Settings before committing.');
         return null;
       }
       const mode = getPlanModeForActivity(activity);
-      if (!isWithinWindows(mode, slotDraft.start, slotDraft.end)) {
-        Alert.alert('Outside availability', 'Pick a time within your availability windows.');
-        return null;
-      }
+      const outsideAvailability = !isWithinWindows(mode, slotDraft.start, slotDraft.end);
       const conflicts = busyIntervals.some((busy) => busy.start < slotDraft.end && slotDraft.start < busy.end);
       const proposal = buildProposal(activity);
-      return proposal ? { proposal, conflicts } : null;
+      return proposal ? { proposal, conflicts, outsideAvailability } : null;
     },
     [buildProposal, busyIntervals, getPlanModeForActivity, isWithinWindows, slotDraft, writeCalendarId],
   );
@@ -262,10 +263,20 @@ export function usePlanSlotCapture(params: {
       }
       const validation = validateSlot(activity);
       if (!validation) return;
-      if (validation.conflicts) {
+      if (validation.outsideAvailability || validation.conflicts) {
+        const title = validation.outsideAvailability && validation.conflicts
+          ? 'Scheduling warnings'
+          : validation.outsideAvailability
+            ? 'Outside availability'
+            : 'Time conflict';
+        const message = validation.outsideAvailability && validation.conflicts
+          ? 'This time is outside your availability and conflicts with your calendar. Add it anyway?'
+          : validation.outsideAvailability
+            ? 'This time is outside your availability. Add it anyway?'
+            : 'That time conflicts with your calendar. Add it anyway?';
         Alert.alert(
-          'Time conflict',
-          'That time conflicts with your calendar. Add it anyway?',
+          title,
+          message,
           [
             { text: 'Cancel', style: 'cancel' },
             {

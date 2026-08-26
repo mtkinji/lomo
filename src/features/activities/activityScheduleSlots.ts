@@ -9,7 +9,9 @@ export type ManualScheduleSlot = { startDate: string; endDate: string };
 export type ManualScheduleSlotRejectionReason =
   | 'invalid-date'
   | 'end-of-day'
-  | 'past-today'
+  | 'past-today';
+
+export type ManualScheduleSlotAdvisory =
   | 'day-disabled'
   | 'no-window'
   | 'outside-window'
@@ -21,7 +23,7 @@ type ScheduleSlotToast = {
 };
 
 export type ManualScheduleSlotResult =
-  | { ok: true; slot: ManualScheduleSlot }
+  | { ok: true; slot: ManualScheduleSlot; advisories: ManualScheduleSlotAdvisory[] }
   | { ok: false; reason: ManualScheduleSlotRejectionReason; toast?: ScheduleSlotToast };
 
 type ResolveManualScheduleSlotParams = {
@@ -38,10 +40,6 @@ type ResolveManualScheduleSlotParams = {
 const REJECTION_TOASTS = {
   endOfDay: { message: 'Not enough time before the end of day.', durationMs: 2200 },
   pastToday: { message: 'Pick a time later today.', durationMs: 2200 },
-  dayDisabled: { message: 'This day is disabled in your availability.', durationMs: 2400 },
-  noWindow: { message: 'No availability window for this to-do.', durationMs: 2400 },
-  outsideWindow: { message: 'That time is outside your availability.', durationMs: 2400 },
-  busy: { message: 'That time is busy.', durationMs: 2200 },
 } satisfies Record<string, ScheduleSlotToast>;
 
 export function resolveManualScheduleSlot(params: ResolveManualScheduleSlotParams): ManualScheduleSlotResult {
@@ -72,34 +70,36 @@ export function resolveManualScheduleSlot(params: ResolveManualScheduleSlotParam
     }
   }
 
+  const advisories: ManualScheduleSlotAdvisory[] = [];
   const dayAvailability = getAvailabilityForDate(params.userProfile, start);
   if (!dayAvailability.enabled) {
-    return { ok: false, reason: 'day-disabled', toast: REJECTION_TOASTS.dayDisabled };
+    advisories.push('day-disabled');
+  } else {
+    const inferredMode = inferSchedulingDomain(params.activity, params.goals).toLowerCase().includes('work')
+      ? 'work'
+      : 'personal';
+    const mode = resolvePlanModeForArea(params.activityAreas, params.activity.areaId ?? null, inferredMode);
+    const windows = getWindowsForMode(dayAvailability, mode);
+    if (windows.length === 0) {
+      advisories.push('no-window');
+    } else {
+      const insideWindow = windows.some((window) => {
+        const windowStart = setTimeOnDate(start, window.start);
+        const windowEnd = setTimeOnDate(start, window.end);
+        if (!windowStart || !windowEnd) return false;
+        return start >= windowStart && end <= windowEnd;
+      });
+      if (!insideWindow) advisories.push('outside-window');
+    }
   }
 
-  const inferredMode = inferSchedulingDomain(params.activity, params.goals).toLowerCase().includes('work')
-    ? 'work'
-    : 'personal';
-  const mode = resolvePlanModeForArea(params.activityAreas, params.activity.areaId ?? null, inferredMode);
-  const windows = getWindowsForMode(dayAvailability, mode);
-  if (windows.length === 0) {
-    return { ok: false, reason: 'no-window', toast: REJECTION_TOASTS.noWindow };
+  if (params.busyIntervals.some((busy) => start < busy.end && busy.start < end)) {
+    advisories.push('busy');
   }
 
-  const insideWindow = windows.some((window) => {
-    const windowStart = setTimeOnDate(start, window.start);
-    const windowEnd = setTimeOnDate(start, window.end);
-    if (!windowStart || !windowEnd) return false;
-    return start >= windowStart && end <= windowEnd;
-  });
-  if (!insideWindow) {
-    return { ok: false, reason: 'outside-window', toast: REJECTION_TOASTS.outsideWindow };
-  }
-
-  const conflicts = params.busyIntervals.some((busy) => start < busy.end && busy.start < end);
-  if (conflicts) {
-    return { ok: false, reason: 'busy', toast: REJECTION_TOASTS.busy };
-  }
-
-  return { ok: true, slot: { startDate: start.toISOString(), endDate: end.toISOString() } };
+  return {
+    ok: true,
+    slot: { startDate: start.toISOString(), endDate: end.toISOString() },
+    advisories,
+  };
 }

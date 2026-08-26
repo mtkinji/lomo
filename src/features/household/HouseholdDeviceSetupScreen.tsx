@@ -107,7 +107,6 @@ export function HouseholdDeviceSetupScreen({ navigation, route }: Props) {
         title={`${childDisplayName}'s device`}
       >
         <View style={styles.connectedLayout}>
-          <Heading>{`${childDisplayName}'s device is connected`}</Heading>
           <View
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
@@ -121,8 +120,9 @@ export function HouseholdDeviceSetupScreen({ navigation, route }: Props) {
               style={styles.connectedIllustration}
             />
           </View>
-          <Button fullWidth onPress={() => navigation.goBack()}>Done</Button>
+          <Heading>{`${childDisplayName}'s device is connected`}</Heading>
           <Text style={styles.body}>Kwilt is ready for the Household features you choose for {childDisplayName}.</Text>
+          <Button fullWidth onPress={() => navigation.goBack()}>Done</Button>
         </View>
       </SettingsPage>
     );
@@ -130,13 +130,13 @@ export function HouseholdDeviceSetupScreen({ navigation, route }: Props) {
 
   if (!session) {
     return (
-      <SettingsPage onBack={() => navigation.goBack()} title={`Connect ${childDisplayName}'s iPhone`}>
+      <SettingsPage onBack={() => navigation.goBack()} title={`Connect ${childDisplayName}'s device`}>
         <View style={styles.hero}>
           <Heading>{startError ? 'Unable to create a pairing code' : 'Creating a secure pairing code…'}</Heading>
           <Text style={styles.body}>
             {startError
               ? startError
-              : `${childDisplayName} does not need a separate Kwilt account. This code connects an iPhone used mainly by ${childDisplayName}.`}
+              : `${childDisplayName} does not need a separate Kwilt account.`}
           </Text>
           {startError ? (
             <Button disabled={busy} fullWidth onPress={() => void start()}>Try again</Button>
@@ -164,12 +164,12 @@ export function HouseholdDeviceSetupScreen({ navigation, route }: Props) {
         </Button>
       )}
       onBack={() => void cancel()}
-      title={`Connect ${childDisplayName}'s iPhone`}
+      title={`Connect ${childDisplayName}'s device`}
     >
       <View style={styles.receiptLayout}>
         <View style={styles.receiptIntro}>
-          <Heading>{`Scan this with ${childDisplayName}'s iPhone`}</Heading>
-          <Text style={styles.body}>{`Open Kwilt on ${childDisplayName}'s iPhone and scan this code. ${childDisplayName} does not need a separate Kwilt account.`}</Text>
+          <Heading>{`Scan this with ${childDisplayName}'s device`}</Heading>
+          <Text style={styles.body}>{`Open Kwilt on ${childDisplayName}'s device and scan this code.`}</Text>
           <View style={styles.qrCard} testID="household-device-qr-card">
             <QRCode backgroundColor={colors.canvas} color={colors.textPrimary} size={190} value={setupUrl} />
           </View>
@@ -191,5 +191,5 @@ const styles = StyleSheet.create({
   connectedIllustrationSlot: { height: 280, alignItems: 'center', justifyContent: 'center' },
   connectedIllustration: { width: '100%', height: 240 },
   body: { ...typography.body, color: colors.textSecondary },
-  qrCard: { width: '100%', alignItems: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.xl, borderRadius: 24, backgroundColor: colors.canvas },
+  qrCard: { width: '100%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 24, backgroundColor: colors.canvas },
 });

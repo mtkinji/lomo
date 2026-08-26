@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { fireEvent } from '@testing-library/react-native';
+import { ScrollView } from 'react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { PlanCalendarLensPage } from './PlanCalendarLensPage';
 
@@ -70,6 +71,30 @@ describe('PlanCalendarLensPage', () => {
       start: slotStart,
       end: new Date(2026, 6, 8, 11, 15),
     });
+  });
+
+  it('focuses a newly staged slot even without a bottom overlay', () => {
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(jest.fn());
+    const { getByTestId } = renderWithProviders(
+      <PlanCalendarLensPage
+        {...baseProps}
+        slotDraft={{
+          start: new Date(2026, 6, 8, 17),
+          end: new Date(2026, 6, 8, 17, 30),
+        }}
+        slotFocusRequestId={1}
+        bottomOverlayInset={0}
+        onSlotDraftChange={jest.fn()}
+        onSlotDraftComplete={jest.fn()}
+      />,
+    );
+
+    fireEvent(getByTestId('plan-calendar-timeline'), 'layout', {
+      nativeEvent: { layout: { height: 320 } },
+    });
+
+    expect(scrollTo).toHaveBeenCalledWith({ y: expect.any(Number), animated: true });
+    scrollTo.mockRestore();
   });
 
   it('replaces a selected persisted session with the titled editable overlay', () => {

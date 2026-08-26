@@ -76,7 +76,7 @@ describe('BottomDrawer accessibility contract', () => {
     expect(isBottomDrawerHandleTouchY(-0.01)).toBe(false);
   });
 
-  it('uses one absolute pan owner for the handle and expanded top-edge target', () => {
+  it('keeps the expanded handle target centered so it cannot cover header actions', () => {
     const { getByTestId, UNSAFE_getAllByType } = renderWithProviders(
       <BottomDrawer visible onClose={jest.fn()}>
         <Text>Standard drawer</Text>
@@ -88,10 +88,14 @@ describe('BottomDrawer accessibility contract', () => {
     expect(StyleSheet.flatten(touchTarget.props.style)).toMatchObject({
       position: 'absolute',
       top: 0,
-      left: 0,
-      right: 0,
+      alignSelf: 'center',
+      width: 96,
       height: 44,
       zIndex: 2,
+    });
+    expect(StyleSheet.flatten(touchTarget.props.style)).not.toMatchObject({
+      left: 0,
+      right: 0,
     });
     expect(touchTarget.props.pointerEvents).toBe('box-only');
   });

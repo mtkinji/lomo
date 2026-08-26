@@ -289,7 +289,8 @@ describe('Unified Chat coexistence contract', () => {
 
   test('surfaces an interrupted realtime connection as a retryable error instead of fake reconnection', () => {
     expect(screenSource).not.toContain("message: 'Reconnecting…'");
-    expect(screenSource).toContain("message = 'Check your microphone or connection, then try again.'");
+    expect(screenSource).toContain("message = 'Conversation connection ended. Try again.'");
+    expect(screenSource).not.toContain('Check your microphone or connection');
     expect(screenSource).toContain("setVoice({ state: 'error'");
   });
 

@@ -88,10 +88,10 @@ describe('HouseholdMemberDetailScreen', () => {
   });
 
   it('offers optional personal-device setup without requiring a child account', async () => {
-    const { getByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
-    await waitFor(() => expect(getByText('No iPhone connected')).toBeTruthy());
-    expect(getByText('Riley can still participate in your household without one.')).toBeTruthy();
-    fireEvent.press(getByText("Connect Riley's iPhone"));
+    const { getByText, queryByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
+    await waitFor(() => expect(getByText('No device connected')).toBeTruthy());
+    expect(queryByText('Riley can still participate in your household without one.')).toBeNull();
+    fireEvent.press(getByText("Connect Riley's device"));
     expect(props.navigation.navigate).toHaveBeenCalledWith('SettingsHouseholdDeviceSetup', {
       childMembershipId: 'child-1', childDisplayName: 'Riley', householdId: 'household-1',
     });

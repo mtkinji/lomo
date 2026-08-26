@@ -110,7 +110,10 @@ function resetToMoneyDestination(
 ) {
   navigation.reset({
     index: 0,
-    routes: [{ name: requestedPlace }],
+    routes: [{
+      name: requestedPlace,
+      params: { entryTransition: 'none' },
+    }],
   });
 }
 

@@ -14,6 +14,7 @@ import { MoneyLivingPlanReceiptScreen } from '../screens/MoneyLivingPlanReceiptS
 import { MoneySetupScreen } from '../screens/MoneySetupScreen';
 import { MoneyEntryScreen } from '../screens/MoneyEntryScreen';
 import { useAppStore } from '../../../store/useAppStore';
+import { getMoneyPlaceScreenOptions } from './moneyNavigationOptions';
 
 const Stack = createNativeStackNavigator<MoneyStackParamList>();
 
@@ -24,9 +25,21 @@ export function MoneyNavigator() {
       <MoneyDataProvider key={userId ?? 'signed-out'} userId={userId}>
         <Stack.Navigator initialRouteName="MoneySummary" screenOptions={{ headerShown: false }}>
           <Stack.Screen name="MoneyEntry" component={MoneyEntryScreen} />
-          <Stack.Screen name="MoneySummary" component={MoneySummaryScreen} />
-          <Stack.Screen name="MoneyTransactions" component={MoneyTransactionsScreen} />
-          <Stack.Screen name="MoneyAccounts" component={MoneyAccountsScreen} />
+          <Stack.Screen
+            name="MoneySummary"
+            component={MoneySummaryScreen}
+            options={({ route }) => getMoneyPlaceScreenOptions(route.params)}
+          />
+          <Stack.Screen
+            name="MoneyTransactions"
+            component={MoneyTransactionsScreen}
+            options={({ route }) => getMoneyPlaceScreenOptions(route.params)}
+          />
+          <Stack.Screen
+            name="MoneyAccounts"
+            component={MoneyAccountsScreen}
+            options={({ route }) => getMoneyPlaceScreenOptions(route.params)}
+          />
           <Stack.Screen name="MoneyCategoryDetail" component={MoneyCategoryDetailScreen} />
           <Stack.Screen name="MoneyCategoryCreate" component={MoneyCategoryCreateScreen} />
           <Stack.Screen name="MoneySetup" component={MoneySetupScreen} />

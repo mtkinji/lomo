@@ -3,6 +3,11 @@ export type ActivityScheduleSlot = {
   endDate: string;
 };
 
+export type ActivityScheduleDraft = {
+  start: Date;
+  end: Date;
+};
+
 type ResolveSelectedScheduleSlotInput = {
   manualScheduleSlot: ActivityScheduleSlot | null;
   scheduleSlots: ActivityScheduleSlot[];
@@ -20,6 +25,16 @@ export function resolveSelectedScheduleSlot({
   selectedSlotIndex,
 }: ResolveSelectedScheduleSlotInput): ActivityScheduleSlot | null {
   return manualScheduleSlot ?? scheduleSlots[selectedSlotIndex] ?? null;
+}
+
+export function activityScheduleSlotToDraft(
+  slot: ActivityScheduleSlot | null,
+): ActivityScheduleDraft | null {
+  if (!slot) return null;
+  const start = new Date(slot.startDate);
+  const end = new Date(slot.endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return null;
+  return { start, end };
 }
 
 export function formatScheduleSlotTimeRange(

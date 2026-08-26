@@ -37,6 +37,9 @@ export function buildOpenAiLiveTranscriptionClientSecretRequest(input: {
             model: input.model,
             ...(input.locale ? { languages: [input.locale.split('-')[0].toLowerCase()] } : {}),
           },
+          turn_detection: {
+            type: 'server_vad',
+          },
         },
       },
     },

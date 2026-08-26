@@ -5,23 +5,6 @@ export type LiveConversationProviderEvent =
   | { type: 'transcript_final'; itemId: string; transcript: string }
   | { type: 'provider_error'; message: string };
 
-export function buildLiveConversationSessionUpdate() {
-  return {
-    type: 'session.update',
-    session: {
-      type: 'transcription',
-      audio: {
-        input: {
-          turn_detection: {
-            type: 'semantic_vad',
-            eagerness: 'medium',
-          },
-        },
-      },
-    },
-  } as const;
-}
-
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>

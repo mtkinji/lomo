@@ -551,7 +551,7 @@ export function UnifiedChatScreen({
     setVoice({ state: 'idle', elapsedSeconds: 0, levels: [] });
   }, [clearVoiceTimer, publishConversationLatency]);
 
-  const failConversation = useCallback((message = 'Check your microphone or connection, then try again.') => {
+  const failConversation = useCallback((message = 'Conversation connection ended. Try again.') => {
     const failedConnection = liveConversation.current;
     liveConversation.current = null;
     clearVoiceTimer();
@@ -612,10 +612,12 @@ export function UnifiedChatScreen({
               provisionalTranscript: `${current.provisionalTranscript ?? ''}${event.delta}` }));
           } else if (event.type === 'transcript_final') {
           } else if (event.type === 'provider_error') {
+            console.warn('[live-conversation] Provider event failed', { message: event.message });
             failConversation();
           }
         },
-        onFailure: () => {
+        onFailure: (error) => {
+          console.warn('[live-conversation] Connection failed', { message: error.message });
           failConversation();
         },
       });

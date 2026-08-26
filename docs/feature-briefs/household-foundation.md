@@ -124,9 +124,8 @@ account and no device. Device participation is optional infrastructure for the m
 when Charlie needs to use Kwilt directly.
 
 Charlie's member page owns a neutral **Devices** section. With no personal device it
-shows **No iPhone connected**, explains inside the same card that Charlie can still
-participate in the household without one, and offers a secondary **Connect Charlie's
-iPhone** action. That action immediately
+shows **No device connected** and offers a secondary **Connect Charlie's device**
+action. That action immediately
 creates a short-lived setup session for Charlie's exact membership and presents its QR
 code and six-digit manual-code fallback; there is no second invitation or generic **Continue**.
 The code carries that

@@ -126,6 +126,78 @@ describe('usePlanSlotCapture', () => {
     expect(clearSlotDraft).toHaveBeenCalledTimes(1);
   });
 
+  it('lets the user add a manually selected time after warning that it is outside availability', async () => {
+    const slotDraft: PlanSlotDraft = {
+      start: new Date('2026-08-26T11:45:00.000-06:00'),
+      end: new Date('2026-08-26T12:45:00.000-06:00'),
+    };
+    const activity: Activity = {
+      id: 'activity-1',
+      goalId: null,
+      title: 'Pick up my drivers license from Chase Bank tomorrow',
+      type: 'task',
+      tags: [],
+      status: 'planned',
+      forceActual: {},
+      createdAt: '2026-08-26T14:00:00.000Z',
+      updatedAt: '2026-08-26T14:00:00.000Z',
+    };
+    const commitProposal = jest.fn(async () => true);
+    const clearSlotDraft = jest.fn();
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const { result } = renderHook(() =>
+      usePlanSlotCapture({
+        slotDraft,
+        activities: [activity],
+        goals: [],
+        arcs: [],
+        dateKey: '2026-08-26',
+        busyIntervals: [],
+        scheduleProposals: [],
+        writeCalendarId: 'calendar-1',
+        getPlanModeForActivity: () => 'personal',
+        isWithinWindows: () => false,
+        quickAddAiActions: [],
+        setQuickAddAiActions: jest.fn(),
+        addActivity: jest.fn(),
+        updateActivity: jest.fn(),
+        recordShowUp: jest.fn(),
+        showToast: jest.fn(),
+        commitProposal,
+        clearSlotDraft,
+      }),
+    );
+
+    act(() => result.current?.onSelectActivity(activity.id));
+    await act(async () => result.current?.onCommitExisting());
+
+    expect(commitProposal).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Outside availability',
+      'This time is outside your availability. Add it anyway?',
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'Cancel', style: 'cancel' }),
+        expect.objectContaining({ text: 'Add anyway', onPress: expect.any(Function) }),
+      ]),
+    );
+
+    const addAnyway = alertSpy.mock.calls[0]?.[2]?.find((button) => button.text === 'Add anyway');
+    await act(async () => {
+      addAnyway?.onPress?.();
+      await Promise.resolve();
+    });
+
+    expect(commitProposal).toHaveBeenCalledWith(
+      activity.id,
+      expect.objectContaining({
+        activityId: activity.id,
+        startDate: slotDraft.start.toISOString(),
+        endDate: slotDraft.end.toISOString(),
+      }),
+    );
+    expect(clearSlotDraft).toHaveBeenCalledTimes(1);
+  });
+
   it('blocks an exact duplicate session before offering the generic conflict override', async () => {
     const slotDraft: PlanSlotDraft = {
       start: new Date('2026-07-20T09:00:00.000-06:00'),

@@ -1279,8 +1279,8 @@ const styles = StyleSheet.create({
   handleTouchTarget: {
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
+    alignSelf: 'center',
+    width: standardChrome.handleTouchTargetWidth,
     height: standardChrome.handleTouchTargetHeight,
     zIndex: 2,
   },
