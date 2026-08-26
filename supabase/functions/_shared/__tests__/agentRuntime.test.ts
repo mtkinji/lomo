@@ -11,7 +11,7 @@ import { KWILT_CAPABILITY_MANIFEST } from '../../../../packages/kwilt-agent-runt
 import { projectOperationCoverage } from '../../../../packages/kwilt-agent-runtime/src/capabilityManifest';
 import { UNIFIED_CHAT_TOOL_CATALOG } from '../../../../src/features/unifiedChat/toolCatalog';
 import { SERVER_AGENT_TOOL_CATALOG } from '../serverAgentCatalog';
-import { SERVER_TOOL_IMPLEMENTATIONS } from '../serverToolImplementations';
+import { SERVER_TOOL_PROVIDER_REGISTRATIONS } from '../serverToolImplementations';
 
 describe('server agent runtime channel contract', () => {
   test('normalizes a bounded canonical request without persisting raw phone identity', () => {
@@ -135,7 +135,7 @@ describe('server agent runtime channel contract', () => {
   test('keeps every deployed server tool version and policy aligned with the mobile catalog', () => {
     expect(SERVER_AGENT_TOOL_CATALOG).toEqual(projectAgentToolCatalog(
       KWILT_CAPABILITY_MANIFEST,
-      { runtime: 'server', implementations: SERVER_TOOL_IMPLEMENTATIONS },
+      { runtime: 'server', registrations: SERVER_TOOL_PROVIDER_REGISTRATIONS },
     ));
     for (const serverTool of SERVER_AGENT_TOOL_CATALOG) {
       const mobileTool = UNIFIED_CHAT_TOOL_CATALOG.find((candidate) => candidate.id === serverTool.id);

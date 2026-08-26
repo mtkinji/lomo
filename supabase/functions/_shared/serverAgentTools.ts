@@ -6,6 +6,11 @@ import { executeServerPlanTool } from './serverPlanTools.ts';
 import { executeServerDeviceHandoff, type ServerDeviceActionRequest } from './serverDeviceHandoffs.ts';
 import { executeServerProfileTool } from './serverProfileTools.ts';
 import { executeServerRelationshipTool } from './serverRelationshipTools.ts';
+import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
+import {
+  createServerToolProviderRegistry,
+  executeServerRegisteredTool,
+} from './serverToolProviderRegistry.ts';
 import { calendarDateInTimeZone, normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 import { evaluateToolPolicy } from '../../../packages/kwilt-agent-runtime/src/policy.ts';
 type ClientActionRequest = ServerDeviceActionRequest;
@@ -19,6 +24,18 @@ type ReadResult = { data: unknown; error: unknown }; type ReadQuery = {
 };
 type ServerDataClient = { from: (table: string) => unknown;
   rpc?: (name: string, args: Record<string, unknown>) => PromiseLike<ReadResult> };
+type ExecuteServerAgentToolArgs = {
+  client: ServerDataClient;
+  userId: string;
+  call: ServerAgentToolCall;
+  tool: ServerAgentToolDefinition;
+  stageDeviceAction: (request: ClientActionRequest) => Promise<void>;
+  stageProposal?: (request: ServerAgentProposalRequest) => Promise<ServerAgentProposalRecord>;
+  stageProposals?: (requests: ServerAgentProposalRequest[]) => Promise<ServerAgentProposalRecord[]>;
+  writeContext?: { threadId: string; runId: string; messageId: string };
+  timeZone?: string;
+};
+const SERVER_TOOL_PROVIDER_REGISTRY = createServerToolProviderRegistry(SERVER_AGENT_TOOL_CATALOG);
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -360,7 +377,7 @@ function withUpdatedAt(row: Record<string, unknown>): Record<string, unknown> {
   return { ...data, id: row.id, updated_at: row.updated_at };
 }
 
-export async function executeServerAgentTool({
+async function executeServerAgentToolHandler({
   client,
   userId,
   call,
@@ -370,17 +387,7 @@ export async function executeServerAgentTool({
   stageProposals,
   writeContext,
   timeZone,
-}: {
-  client: ServerDataClient;
-  userId: string;
-  call: ServerAgentToolCall;
-  tool: ServerAgentToolDefinition;
-  stageDeviceAction: (request: ClientActionRequest) => Promise<void>;
-  stageProposal?: (request: ServerAgentProposalRequest) => Promise<ServerAgentProposalRecord>;
-  stageProposals?: (requests: ServerAgentProposalRequest[]) => Promise<ServerAgentProposalRecord[]>;
-  writeContext?: { threadId: string; runId: string; messageId: string };
-  timeZone?: string;
-}): Promise<ServerAgentToolResult> {
+}: ExecuteServerAgentToolArgs): Promise<ServerAgentToolResult> {
   if (call.toolId !== tool.id) {
     return { status: 'failed', code: 'tool_mismatch', message: 'The discovered tool does not match this call.', retryable: false };
   }
@@ -852,4 +859,17 @@ export async function executeServerAgentTool({
     return { status: 'completed', output: { showUp: summarizeShowUpStatus(data ?? {}) }, receipt: null };
   }
   return { status: 'unavailable', reason: 'unknown_server_tool', retryable: false };
+}
+
+export async function executeServerAgentTool(
+  args: ExecuteServerAgentToolArgs,
+): Promise<ServerAgentToolResult> {
+  return executeServerRegisteredTool({
+    registry: SERVER_TOOL_PROVIDER_REGISTRY,
+    context: {
+      dispatch: (call) => executeServerAgentToolHandler({ ...args, call, tool: args.tool }),
+    },
+    call: args.call,
+    tool: args.tool,
+  });
 }
