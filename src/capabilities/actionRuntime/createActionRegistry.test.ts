@@ -2,7 +2,7 @@ import { createActionRegistry, type KwiltActionRegistration } from './createActi
 
 const registration = (operationId: string): KwiltActionRegistration<{}> => ({
   operationId, confirmation: 'none', reversible: false,
-  execute: jest.fn(async () => ({ status: 'completed', resultRefs: [] })),
+  execute: jest.fn(async () => ({ status: 'completed' as const, resultRefs: [] })),
 });
 
 test('rejects duplicate operation IDs', () => {

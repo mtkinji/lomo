@@ -18,7 +18,7 @@ function store(): KwiltActionDispatchStore {
 function registration(overrides: Partial<KwiltActionRegistration<{}>> = {}): KwiltActionRegistration<{}> {
   return {
     operationId: 'goals.update', confirmation: 'none', reversible: true,
-    execute: jest.fn(async () => ({ status: 'completed', resultRefs: [{ kind: 'goal', id: 'goal-1' }] })),
+    execute: jest.fn(async () => ({ status: 'completed' as const, resultRefs: [{ kind: 'goal', id: 'goal-1' }] })),
     ...overrides,
   };
 }
@@ -61,7 +61,7 @@ test('returns needs_input until explicit confirmation is supplied', async () => 
 
 test('preserves native handoffs and reversible result references', async () => {
   const handoff = registration({
-    execute: jest.fn(async () => ({ status: 'pending_client_action', resultRefs: [{ kind: 'client_action', id: 'action-1' }] })),
+    execute: jest.fn(async () => ({ status: 'pending_client_action' as const, resultRefs: [{ kind: 'client_action', id: 'action-1' }] })),
   });
   const receipt = await dispatchKwiltAction({
     registry: createActionRegistry([handoff]), request, context: {}, store: store(), authorize: () => true,
