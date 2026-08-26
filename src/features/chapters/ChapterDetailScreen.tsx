@@ -27,6 +27,7 @@ import {
   type ChapterFeedbackRow,
   type ChapterRecommendationEventKind,
 } from '../../services/chapters';
+import { updateChapterNote } from '../../capabilities/life-structure/actions/chapterActions';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { consumeChapterOpenHint, recordChapterOpenHint } from './chapterOpenSource';
@@ -1252,18 +1253,14 @@ export function ChapterDetailScreen() {
     }
     setUserNoteSaving(true);
     try {
-      const updated = await updateChapterUserNote({
+      const updated = (await updateChapterNote({
         chapterId,
         note: trimmed.length > 0 ? trimmed : null,
-      });
-      if (!updated) {
-        showToast({
-          message: 'Could not save your line',
-          variant: 'danger',
-          durationMs: 2400,
-        });
-        return;
-      }
+        expectedUpdatedAt: chapter ? (chapter.user_note_updated_at ?? chapter.updated_at) : undefined,
+      }, {
+        getChapter: fetchMyChapterById,
+        updateNote: (id, note) => updateChapterUserNote({ chapterId: id, note }),
+      })).result;
       setChapter(updated);
       setUserNoteDraft(updated.user_note ?? '');
       setUserNoteEditing(false);

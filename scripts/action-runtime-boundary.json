@@ -186,6 +186,20 @@
           "forbiddenPatterns": [{ "pattern": "store\\.removeGoal\\(", "message": "Chat Goal delete must call the Goal capability action" }]
         }
       ]
+    },
+    {
+      "id": "chapters.note.update",
+      "actionModule": "src/capabilities/life-structure/actions/chapterActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/chapters/ChapterDetailScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "await updateChapterUserNote\\(\\{", "message": "native Chapter note updates must call updateChapterNote" }]
+        },
+        {
+          "path": "src/features/unifiedChat/chapterProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "store\\.updateNote\\(", "message": "Chat Chapter updates must call the Chapter capability action" }]
+        }
+      ]
     }
   ]
 }

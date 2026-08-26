@@ -70,6 +70,11 @@ includes dependent Activities in delete evidence. Goal deletion remains an
 explicitly reviewed action because the persistence operation cascades to those
 Activities.
 
+Chapter note edits use `chapterActions.ts` from both the native Chapter detail
+surface and Chat. The action checks the authoritative server timestamp before
+writing and returns the same reversible result shape; Chapter content
+generation and feedback remain separate capability operations.
+
 ## Evidence sufficiency
 
 Evidence breadth follows the interpreted job:
