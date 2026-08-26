@@ -1,6 +1,7 @@
 import type { Activity } from '../../domain/types';
 import {
   applyQuickAddAiEnrichment,
+  commitQuickAddTodo,
   consumeQuickAddAiActionCredits,
   inferQuickAddTriggerDefaults,
   resolveQuickAddLocationTriggerEnrichment,
@@ -248,6 +249,23 @@ describe('applyQuickAddAiEnrichment', () => {
     expect(result.scheduledDate).toBe('2026-05-20');
     expect(result.repeatRule).toBe('daily');
     expect(result.aiPlanning).toBeUndefined();
+  });
+});
+
+describe('commitQuickAddTodo', () => {
+  it('routes native quick add through the To-do capability action receipt', () => {
+    const activity = baseActivity();
+    const addActivity = jest.fn();
+
+    const receipt = commitQuickAddTodo(activity, addActivity);
+
+    expect(addActivity).toHaveBeenCalledWith(activity);
+    expect(receipt).toMatchObject({
+      operationId: 'activities.capture',
+      status: 'completed',
+      result: activity,
+      resultRefs: [{ kind: 'activity', id: activity.id }],
+    });
   });
 });
 

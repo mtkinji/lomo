@@ -1,5 +1,6 @@
 import {
   mergeActivityViewsWithSystemDefaults,
+  getTodoActionStoreBoundary,
   useAppStore,
   resetUserSpecificState,
 } from './useAppStore';
@@ -8,6 +9,7 @@ import { canCreateArc, canCreateGoalInArc, countActiveGoalsForArc } from '../dom
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../domain/generativeCredits';
 import type { Activity, ActivityView, Arc, Goal } from '../domain/types';
 import { useCapabilityOnboardingStore } from '../features/capability-onboarding/useCapabilityOnboardingStore';
+import { createTodo, deleteTodo, setTodoCompletion } from '../capabilities/todos/actions/todoActions';
 
 function arc(overrides: Partial<Arc> = {}): Arc {
   const nowIso = new Date('2026-01-01T12:00:00.000Z').toISOString();
@@ -63,6 +65,25 @@ describe('useAppStore object lifecycles', () => {
   beforeEach(() => {
     // Reset persisted state between tests (also keeps tests independent).
     useAppStore.getState().resetStore();
+  });
+
+  it('provides the canonical persistence boundary for UI and Chat To-do actions', () => {
+    const created = activity({ id: 'action-todo', goalId: null, updatedAt: 'created' });
+    const store = getTodoActionStoreBoundary();
+
+    createTodo({ activity: created }, store);
+    const completed = setTodoCompletion({
+      activityId: created.id,
+      completed: true,
+      timestamp: 'completed',
+      expectedUpdatedAt: 'created',
+    }, store);
+    deleteTodo({
+      activityId: created.id,
+      expectedUpdatedAt: completed.result.updatedAt,
+    }, store);
+
+    expect(useAppStore.getState().activities).toEqual([]);
   });
 
   it('removeArc is destructive and cascades to goals + activities for that arc', () => {

@@ -3,6 +3,7 @@ import { activityFixture } from '../../test/storeFixtures';
 import {
   applyPlanActivityCompletionAction,
   getPlanActivityCompletionAction,
+  performPlanActivityCompletionAction,
 } from './planActivityCompletion';
 
 const baseActivity: Activity = activityFixture({
@@ -88,5 +89,25 @@ describe('planActivityCompletion', () => {
     expect(next.status).toBe('in_progress');
     expect(next.completedAt).toBeNull();
     expect(next.steps?.[0]?.completedAt).toBe('2026-07-09T17:00:00.000Z');
+  });
+
+  it('performs Plan completion through the canonical To-do update action', () => {
+    let current = baseActivity;
+    const receipt = performPlanActivityCompletionAction({
+      activityId: current.id,
+      expectedUpdatedAt: current.updatedAt,
+      timestamp,
+      store: {
+        getActivities: () => [current],
+        updateActivity: (_id, updater) => { current = updater(current); },
+      },
+    });
+
+    expect(receipt).toMatchObject({
+      operationId: 'activities.update',
+      status: 'completed',
+      result: { id: 'activity-1', status: 'done', completedAt: timestamp },
+    });
+    expect(current).toBe(receipt.result);
   });
 });

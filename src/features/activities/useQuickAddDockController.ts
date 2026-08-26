@@ -8,6 +8,7 @@ import { HapticsService } from '../../services/HapticsService';
 import { toLocalDateKey } from '../../services/plan/planDates';
 import { useActivityEnrichmentStore } from '../../store/useActivityEnrichmentStore';
 import { resolveQuickAddPlaceEnrichment } from './quickAddPlaceEnrichment';
+import { createTodo, type TodoActionReceipt } from '../../capabilities/todos/actions/todoActions';
 
 export type QuickAddAiAction = 'steps' | 'triggers' | 'details' | 'cover_image';
 
@@ -20,6 +21,20 @@ type QuickAddSubmitOptions = {
 
 const VALID_REPEAT_RULES: ActivityRepeatRule[] = ['daily', 'weekly', 'weekdays', 'monthly', 'yearly'];
 const DEFAULT_LOCATION_TRIGGER_RADIUS_M = 150;
+
+export function commitQuickAddTodo(
+  activity: Activity,
+  addActivity: (activity: Activity) => void,
+): TodoActionReceipt {
+  let created: Activity | null = null;
+  return createTodo({ activity }, {
+    getActivities: () => created ? [created] : [],
+    addActivity: (next) => {
+      addActivity(next);
+      created = next;
+    },
+  });
+}
 
 type QuickAddGoalContext = Pick<Goal, 'id' | 'targetDate' | 'priority'>;
 
@@ -331,9 +346,10 @@ export function useQuickAddDockController(params: Params) {
 
     // Note: Creating activities no longer counts as "showing up" for streaks.
     // Streaks require completing activities/focus sessions.
-    addActivity(activity);
+    const createReceipt = commitQuickAddTodo(activity, addActivity);
+    const createdActivity = createReceipt.result;
 
-    onCreated?.(activity);
+    onCreated?.(createdActivity);
 
     showToast({
       message: 'To-do created',
@@ -358,8 +374,8 @@ export function useQuickAddDockController(params: Params) {
     }
 
     if (shouldRunAiActions && updateActivity) {
-      markSharedActivityEnrichment(activity.id, true);
-      markActivityEnrichment?.(activity.id, true);
+      markSharedActivityEnrichment(createdActivity.id, true);
+      markActivityEnrichment?.(createdActivity.id, true);
       const applyEnrichment = (enrichment: any) => {
         const ts = new Date().toISOString();
         const resolvedEnrichment = resolveQuickAddLocationTriggerEnrichment({
@@ -367,14 +383,14 @@ export function useQuickAddDockController(params: Params) {
         });
         if (resolvedEnrichment.recommendation) {
           onLocationTriggerRecommended?.({
-            activityId: activity.id,
-            activityTitle: activity.title,
+            activityId: createdActivity.id,
+            activityTitle: createdActivity.title,
             ...resolvedEnrichment.recommendation,
           });
         }
-        updateActivity(activity.id, (prev) => {
+        updateActivity(createdActivity.id, (prev) => {
           return applyQuickAddAiEnrichment(prev, resolvedEnrichment.enrichment, {
-            activityId: activity.id,
+            activityId: createdActivity.id,
             selectedActions: aiActions,
             timestamp: ts,
             goalContext,
@@ -384,7 +400,7 @@ export function useQuickAddDockController(params: Params) {
       const applyCoverImage = (selection: QuickAddCoverImageSelection | null | undefined) => {
         if (!selection?.thumbnailUrl && !selection?.heroImageMeta) return;
         const ts = new Date().toISOString();
-        updateActivity(activity.id, (prev) => ({
+        updateActivity(createdActivity.id, (prev) => ({
           ...prev,
           thumbnailUrl: selection.thumbnailUrl,
           heroImageMeta: selection.heroImageMeta,
@@ -394,7 +410,7 @@ export function useQuickAddDockController(params: Params) {
       const enrichmentPromise =
         shouldEnrichWithAI && enrichActivityWithAI
           ? enrichActivityWithAI({
-              activityId: activity.id,
+              activityId: createdActivity.id,
               title: trimmed,
               goalId: goalId ?? null,
               activityType: resolvedType,
@@ -405,7 +421,7 @@ export function useQuickAddDockController(params: Params) {
       const coverImagePromise =
         shouldFindCoverImage && findCoverImageWithAI
           ? findCoverImageWithAI({
-              activityId: activity.id,
+              activityId: createdActivity.id,
               title: trimmed,
               goalId: goalId ?? null,
               activityType: resolvedType,
@@ -430,8 +446,8 @@ export function useQuickAddDockController(params: Params) {
           applyEnrichment({});
         })
         .finally(() => {
-          markSharedActivityEnrichment(activity.id, false);
-          markActivityEnrichment?.(activity.id, false);
+          markSharedActivityEnrichment(createdActivity.id, false);
+          markActivityEnrichment?.(createdActivity.id, false);
         });
     }
   }, [

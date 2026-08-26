@@ -6,7 +6,7 @@ import { ButtonLabel, HStack, Heading, Text, VStack } from '../../ui/primitives'
 import { Button, IconButton } from '../../ui/Button';
 import { GoalPill } from '../../ui/GoalPill';
 import { formatTimeRange } from '../../services/plan/planDates';
-import { useAppStore } from '../../store/useAppStore';
+import { getTodoActionStoreBoundary, useAppStore } from '../../store/useAppStore';
 import { useToastStore } from '../../store/useToastStore';
 import { KeyActionsRow, type KeyActionItem } from '../../ui/KeyActionsRow';
 import { Icon } from '../../ui/Icon';
@@ -26,8 +26,8 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
 import {
-  applyPlanActivityCompletionAction,
   getPlanActivityCompletionAction,
+  performPlanActivityCompletionAction,
 } from './planActivityCompletion';
 
 const SESSION_MANAGEMENT_FADE_START = 0.17;
@@ -225,14 +225,17 @@ export function ActivityEventPeek({
     const wasDone = activity.status === 'done';
     let nextStatus = activity.status;
     let completionUndoSnapshot: ActivityCompletionUndoSnapshot | null = null;
-    updateActivity(activityId, (prev) => {
-      const next = applyPlanActivityCompletionAction(prev, timestamp);
-      nextStatus = next.status;
-      if (prev.status !== 'done' && next.status === 'done') {
-        completionUndoSnapshot = buildActivityCompletionUndoSnapshot(prev);
-      }
-      return next;
+    const receipt = performPlanActivityCompletionAction({
+      activityId,
+      expectedUpdatedAt: activity.updatedAt,
+      timestamp,
+      store: getTodoActionStoreBoundary(),
     });
+    nextStatus = receipt.result.status;
+    const previousActivity = receipt.previous;
+    if (previousActivity && previousActivity.status !== 'done' && receipt.result.status === 'done') {
+      completionUndoSnapshot = buildActivityCompletionUndoSnapshot(previousActivity);
+    }
 
     const didCompleteNow = !wasDone && nextStatus === 'done';
     void HapticsService.trigger(didCompleteNow ? 'outcome.bigSuccess' : 'canvas.primary.confirm');

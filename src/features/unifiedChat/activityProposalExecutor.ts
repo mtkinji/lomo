@@ -1,4 +1,10 @@
 import type { Activity, Goal } from '../../domain/types';
+import {
+  createTodo,
+  deleteTodo,
+  updateTodo,
+  type TodoActionStoreBoundary,
+} from '../../capabilities/todos/actions/todoActions';
 import { assertActivityProposalCanApply, type ActivityMutationPatch } from './activityProposal';
 import { todosChatAdapter } from './capabilityAdapters';
 import type { CapabilityNativeReturnTarget } from './capabilityContracts';
@@ -6,12 +12,8 @@ import type { UnifiedChatMutationReceipt, UnifiedChatProposal } from './types';
 
 type TodoUnifiedChatProposal = Extract<UnifiedChatProposal, { capabilityId: 'todos' }>;
 
-export type ActivityStoreBoundary = {
-  getActivities: () => readonly Activity[];
+export type ActivityStoreBoundary = TodoActionStoreBoundary & {
   getGoals: () => readonly Goal[];
-  addActivity: (activity: Activity) => void;
-  updateActivity: (id: string, updater: (current: Activity) => Activity) => void;
-  removeActivity: (id: string) => void;
 };
 
 export type ActivityUndoOperation =
@@ -309,9 +311,7 @@ export function applyApprovedActivityProposal({
       updatedAt: at,
     };
     const created = applyPatch(base, operation.payload, at);
-    store.addActivity(created);
-    const authoritative = store.getActivities().find((activity) => activity.id === id);
-    if (!authoritative) throw new ActivityMutationConflictError('The new To-do could not be reloaded.');
+    const authoritative = createTodo({ activity: created }, store).result;
     return receiptFor({
       proposal,
       activity: authoritative,
@@ -328,10 +328,10 @@ export function applyApprovedActivityProposal({
     throw new ActivityMutationConflictError('The To-do changed after this proposal was prepared.');
   }
   if (operation.type === 'delete_activity') {
-    store.removeActivity(targetId);
+    const deleted = deleteTodo({ activityId: targetId, expectedUpdatedAt }, store).result;
     return receiptFor({
       proposal,
-      activity: current,
+      activity: deleted,
       undoOperation: {
         type: 'restore_deleted_activity', activity: current,
         expectedUpdatedAt: current.updatedAt,
@@ -340,9 +340,11 @@ export function applyApprovedActivityProposal({
     });
   }
   const next = applyExistingActivityOperation(current, operation, at);
-  store.updateActivity(targetId, () => next);
-  const authoritative = store.getActivities().find((activity) => activity.id === targetId);
-  if (!authoritative) throw new ActivityMutationConflictError('The updated To-do could not be reloaded.');
+  const authoritative = updateTodo({
+    activityId: targetId,
+    expectedUpdatedAt,
+    update: () => next,
+  }, store).result;
   return receiptFor({
     proposal,
     activity: authoritative,
@@ -369,7 +371,7 @@ export function undoAppliedActivityProposal({
       throw new ActivityMutationConflictError('A To-do now uses this id, so Kwilt will not overwrite it during undo.');
     }
     const at = now();
-    store.addActivity({ ...receipt.undoOperation.activity, updatedAt: at });
+    createTodo({ activity: { ...receipt.undoOperation.activity, updatedAt: at } }, store);
     return { ...receipt, status: 'undone', undoneAt: at };
   }
   if (!current || current.updatedAt !== receipt.undoOperation.expectedUpdatedAt) {
@@ -377,10 +379,14 @@ export function undoAppliedActivityProposal({
   }
   const at = now();
   if (receipt.undoOperation.type === 'remove_created_activity') {
-    store.removeActivity(current.id);
+    deleteTodo({ activityId: current.id, expectedUpdatedAt: current.updatedAt }, store);
   } else {
     const activityToRestore = receipt.undoOperation.activity;
-    store.updateActivity(current.id, () => ({ ...activityToRestore, updatedAt: at }));
+    updateTodo({
+      activityId: current.id,
+      expectedUpdatedAt: current.updatedAt,
+      update: () => ({ ...activityToRestore, updatedAt: at }),
+    }, store);
   }
   return { ...receipt, status: 'undone', undoneAt: at };
 }

@@ -68,6 +68,7 @@ import {
   type QuickAddAiActionPreference,
 } from './uiPreferences';
 import { resetCapabilityOnboardingForUser } from '../features/capability-onboarding/useCapabilityOnboardingStore';
+import type { TodoActionStoreBoundary } from '../capabilities/todos/actions/todoActions';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 export type { QuickAddAiActionPreference } from './uiPreferences';
@@ -4132,6 +4133,16 @@ useAppStore.subscribe(
     }
   },
 );
+
+/** Persistence adapter shared by native UI and mobile Chat To-do actions. */
+export function getTodoActionStoreBoundary(): TodoActionStoreBoundary {
+  return {
+    getActivities: () => useAppStore.getState().activities,
+    addActivity: (activity) => useAppStore.getState().addActivity(activity),
+    updateActivity: (activityId, updater) => useAppStore.getState().updateActivity(activityId, updater),
+    removeActivity: (activityId) => useAppStore.getState().removeActivity(activityId),
+  };
+}
 
 // Reliability: flush domain snapshot when the app backgrounds so users don't lose newly
 // created objects if the process is killed before the debounce fires.
