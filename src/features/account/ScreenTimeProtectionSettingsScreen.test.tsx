@@ -145,6 +145,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
 
     fireEvent.press(getByText('Charlie'));
     expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsFamilyScreenTime', {
+      householdId: 'household-1',
       childMembershipId: 'child-charlie',
       childDisplayName: 'Charlie',
     });
@@ -163,6 +164,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     fireEvent.press(getByLabelText('Add Household rule'));
 
     expect(mockSettingsNavigate).toHaveBeenCalledWith('SettingsFamilyScreenTime', {
+      householdId: 'household-1',
       childMembershipId: 'child-charlie',
       childDisplayName: 'Charlie',
     });

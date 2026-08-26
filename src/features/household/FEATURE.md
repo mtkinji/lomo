@@ -4,6 +4,9 @@ audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-move-family-life-forward
+job_flows:
+  - job-flow-maya-move-family-life-forward
+  - job-flow-maya-establish-family-screen-time
 serves:
   - jtbd-move-the-few-things-that-matter
   - jtbd-put-intention-before-impulse
@@ -18,7 +21,7 @@ briefs:
   - family-screen-time-simple-administration
   - household-member-photos
 status: shipping
-last_reviewed: 2026-08-18
+last_reviewed: 2026-08-26
 ---
 
 # household
@@ -28,6 +31,8 @@ Gives Maya a private family boundary with explicit membership, child-by-child ca
 ## Surfaces in this folder
 
 - `HouseholdSettingsScreen.tsx` - parent-facing roster, dependent setup, accepted private member-photo detail entry point, child capability activation, shareable installed-app invitations, and explicit review-before-join; connected account avatars remain account-owned.
+- `HouseholdDeviceSetupScreen.tsx` - caregiver pairing receipt for one exact child's personal device, including native sharing, short-code fallback, automatic server-receipt confirmation, and truthful separation from Apple authorization.
+- `HouseholdDevicesScreen.tsx` - caregiver-owned designation and member access for shared Household devices.
 - `screenTime/` - child-specific family agreement, delivery-state learning, and child-facing explanation.
 - `data/household.ts` - typed client boundary for server-authorized Household commands.
 - `data/householdMigration.test.ts` - authorization and privacy contract for the canonical Household schema.
@@ -39,3 +44,6 @@ The accepted future Household Mode design keeps one assigned caregiver account b
 Household membership shares only roster and relationship metadata. Possessing an invitation grants nothing until a signed-in person reviews and accepts it. Every capability must opt into family participation explicitly; no personal capability content becomes shared through membership alone.
 
 Family Screen Time owns caregiver and child policy meaning inside Household. Shared native enforcement and cross-domain conflict behavior follow [`docs/architecture/screen-time-control-plane.md`](../../../docs/architecture/screen-time-control-plane.md).
+Child-device setup, device authentication, policy reconciliation, application receipts,
+full snapshots, readiness, recovery, and release follow
+[`docs/architecture/family-screen-time-device-enrollment-and-reconciliation.md`](../../../docs/architecture/family-screen-time-device-enrollment-and-reconciliation.md).

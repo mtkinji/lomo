@@ -33,6 +33,7 @@ export async function loadFamilyScreenTimeChatSnapshot(
   return {
     self,
     children: await Promise.all(children.map(async (child) => ({
+      householdId: household.household!.id,
       membershipId: child.id,
       displayName: child.displayName,
       canManage: true,

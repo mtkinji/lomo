@@ -5,11 +5,11 @@ status: accepted
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
-job_flow: job-flow-maya-move-family-life-forward
+job_flow: job-flow-maya-establish-family-screen-time
 serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-foundation, brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-screen-time-controls-contextual-setup, brief-screen-time-controls]
 owner: andrew
-last_updated: 2026-08-10
+last_updated: 2026-08-26
 ---
 
 # Family Screen Time Controls
@@ -38,7 +38,11 @@ How might we let Maya's family express one understandable access agreement that 
 
 ## Job flow step
 
-The work supports Maya's **Family participation**, **Schedule or hand off**, and **Keep using the system** steps, all currently incomplete. It should not receive a delivery-score increase until a real family uses the behavior dependably.
+The work supports every step in
+`job-flow-maya-establish-family-screen-time`, beginning with understanding setup and
+ending with safe release or replacement. **Enroll and authorize device**, **Apply starter
+agreement**, **Recover**, and **Release or replace** are currently 1/5. No step receives a
+delivery-score increase until its named signed-device evidence exists.
 
 ## JTBD framing
 
@@ -208,6 +212,22 @@ The pre-TestFlight slice must prove:
 - Reloading the local build preserves the learning state for the same caregiver and child without leaking it to another child.
 
 Signed physical-device and TestFlight proof remains required before the capability can claim authorization, app selection, scheduled enforcement, usage measurement, background behavior, offline behavior, or cleanup.
+
+## Spec refinement: child-device enrollment and reconciliation
+
+The accepted
+[child-device enrollment and reconciliation contract](../architecture/family-screen-time-device-enrollment-and-reconciliation.md)
+resolves the production continuation from one guardian-managed personal device for an
+exact child membership. Household owns the short-lived setup session, exact child-device
+claim, and device credential; Screen Time adds `.child` Apple authorization, capability report, child-device
+policy channel, bootstrap policy, canonical application receipts, full enforcement
+snapshots, readiness derivation, recovery, and caregiver-authenticated release.
+
+The first real-device slice is one child and one active iOS/iPadOS device. **Ready**
+requires an applied bootstrap version plus a coherent snapshot; `received`, push delivery,
+Apple approval, app selection, or a caregiver save cannot produce readiness. The
+[device setup copy contract](../product/family-screen-time-device-setup-copy.md) owns the
+parent- and child-facing instructions and recovery language.
 
 ## Spec refinement: prerequisite foreground activity
 

@@ -16,6 +16,11 @@ import { SettingsGroup, SettingsPage, SettingsRow } from '../../ui/SettingsSurfa
 import { Heading, Text, VStack } from '../../ui/primitives';
 import { getHouseholdSnapshot, type HouseholdMember } from './data/household';
 import {
+  listHouseholdDevices,
+  revokeHouseholdDevice,
+  type HouseholdDevice,
+} from './data/householdDeviceParticipation';
+import {
   removeAvatar,
   resolveHouseholdAvatars,
   uploadAvatar,
@@ -32,6 +37,8 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [personalDevices, setPersonalDevices] = useState<HouseholdDevice[]>([]);
+  const [householdId, setHouseholdId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!client) return;
@@ -42,8 +49,15 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
       const selected = snapshot.members.find((item) => item.id === route.params.membershipId) ?? null;
       const current = snapshot.members.find((item) => item.id === snapshot.currentMembershipId) ?? null;
       if (!selected) throw new Error('This person is no longer in your household.');
+      setHouseholdId(snapshot.household?.id ?? null);
       setMember({ ...selected, ...(avatars[selected.id] ?? {}) });
       setCanManage(current?.role === 'owner' && selected.role === 'child');
+      const devices = snapshot.household && selected.role === 'child'
+        ? await listHouseholdDevices(client, snapshot.household.id).catch(() => [])
+        : [];
+      setPersonalDevices(devices.filter((device) => (
+        device.kind === 'personal_child' && device.childMembershipId === selected.id
+      )));
     } catch (error) {
       Alert.alert('Unable to load this person', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -52,6 +66,30 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
   }, [client, route.params.membershipId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const confirmDeviceRemoval = (device: HouseholdDevice) => {
+    if (!client || busy || !member) return;
+    Alert.alert(
+      `Remove ${device.label}?`,
+      `Kwilt access for ${member.displayName} will stop on this device. ${member.displayName} will remain in your Household.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove device',
+          style: 'destructive',
+          onPress: () => {
+            setBusy(true);
+            void revokeHouseholdDevice(client, device.id)
+              .then(() => setPersonalDevices((devices) => devices.filter((row) => row.id !== device.id)))
+              .catch((error) => Alert.alert(
+                'Unable to remove device', error instanceof Error ? error.message : 'Please try again.',
+              ))
+              .finally(() => setBusy(false));
+          },
+        },
+      ],
+    );
+  };
 
   const denied = (type: 'camera' | 'library') => {
     Alert.alert(
@@ -125,16 +163,58 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
         <Heading style={styles.name}>{loading ? 'Loading…' : member?.displayName}</Heading>
         {connected && member ? (
           <Text style={styles.source}>{`Photo comes from ${member.displayName}'s Kwilt account.`}</Text>
-        ) : editable && member ? (
-          <Button disabled={busy} onPress={() => setPickerVisible(true)} variant="secondary">
-            {member.avatarSource === 'dependent' ? 'Update photo' : 'Add photo'}
-          </Button>
         ) : null}
       </View>
 
       {member ? (
         <SettingsGroup title="Household">
           <SettingsRow title="Role" value={member.role === 'child' ? 'Child' : member.role === 'owner' ? 'Organizer' : 'Caregiver'} />
+        </SettingsGroup>
+      ) : null}
+
+      {member?.role === 'child' ? (
+        <SettingsGroup
+          footer={personalDevices.length > 0
+            ? 'Personal devices are used mainly by this child. Shared household devices are managed separately.'
+            : undefined}
+          title="Devices"
+        >
+          {personalDevices.length > 0 ? personalDevices.map((device) => (
+            <SettingsRow
+              key={device.id}
+              disabled={busy || !canManage}
+              onPress={canManage ? () => confirmDeviceRemoval(device) : undefined}
+              title={device.label}
+              value={device.status === 'ready' ? 'Connected' : 'Needs attention'}
+            />
+          )) : (
+            <View style={styles.deviceEmptyState}>
+              <View accessibilityElementsHidden accessibilityRole="none" style={styles.deviceIcon}>
+                <Icon color={colors.textSecondary} name="smartphone" size={22} />
+              </View>
+              <View style={styles.deviceCopy}>
+                <Text style={styles.deviceTitle}>No iPhone connected</Text>
+                <Text style={styles.deviceDescription}>
+                  {`${member.displayName} can still participate in your household without one.`}
+                </Text>
+              </View>
+              {canManage && householdId ? (
+                <View style={styles.deviceAction}>
+                  <Button
+                    fullWidth
+                    onPress={() => navigation.navigate('SettingsHouseholdDeviceSetup', {
+                      childMembershipId: member.id,
+                      childDisplayName: member.displayName,
+                      householdId,
+                    })}
+                    variant="secondary"
+                  >
+                    {`Connect ${member.displayName}'s iPhone`}
+                  </Button>
+                </View>
+              ) : null}
+            </View>
+          )}
         </SettingsGroup>
       ) : null}
 
@@ -161,4 +241,10 @@ const styles = StyleSheet.create({
   name: { textAlign: 'center' },
   source: { ...typography.bodySm, color: colors.textSecondary, textAlign: 'center' },
   sheet: { gap: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  deviceEmptyState: { alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg },
+  deviceIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.shellAlt },
+  deviceCopy: { alignItems: 'center', gap: spacing.xs },
+  deviceTitle: { ...typography.body, color: colors.textPrimary, textAlign: 'center' },
+  deviceDescription: { ...typography.bodySm, maxWidth: 320, color: colors.textSecondary, textAlign: 'center' },
+  deviceAction: { alignSelf: 'stretch' },
 });

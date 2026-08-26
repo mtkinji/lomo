@@ -36,6 +36,13 @@ describe('Screen Time prerequisite native generation', () => {
     expect(bridgePlugin).not.toContain('Gospel Library');
   });
 
+  it('requires callers to choose individual or child authorization explicitly', () => {
+    expect(bridgePlugin).toContain('let requestedMember: FamilyControlsMember');
+    expect(bridgePlugin).toContain('member == "child" ? .child : .individual');
+    expect(bridgePlugin).toContain('requestAuthorization(for: requestedMember)');
+    expect(bridgePlugin).not.toContain('requestAuthorization(for: .individual)');
+  });
+
   it('starts a separate personal daily-limit monitor that shields only after threshold', () => {
     expect(bridgePlugin).toContain('applyPersonalUsageLimit');
     expect(bridgePlugin).toContain('clearPersonalUsageLimit');

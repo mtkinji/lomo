@@ -10,18 +10,23 @@ import {
 } from './useFamilyScreenTimeLearningStore';
 
 const mockSimulatePolicyDelivery = jest.fn();
+const mockListDevices = jest.fn();
 
 jest.mock('./simulatedFamilyScreenTimeDevice', () => ({
   simulateFamilyScreenTimePolicyDelivery: (...args: unknown[]) => mockSimulatePolicyDelivery(...args),
 }));
+jest.mock('../../../services/backend/supabaseClient', () => ({ getSupabaseClient: () => ({ rpc: jest.fn() }) }));
+jest.mock('../data/householdDeviceParticipation', () => ({
+  listHouseholdDevices: (...args: unknown[]) => mockListDevices(...args),
+}));
 
 const screenProps = {
-  navigation: { goBack: jest.fn(), getParent: jest.fn() },
+  navigation: { goBack: jest.fn(), navigate: jest.fn() },
   now: () => new Date('2026-07-30T15:00:00.000Z'),
   route: {
     key: 'family-screen-time',
     name: 'SettingsFamilyScreenTime',
-    params: { childMembershipId: 'child-1', childDisplayName: 'Charlie' },
+    params: { householdId: 'household-1', childMembershipId: 'child-1', childDisplayName: 'Charlie' },
   },
 };
 
@@ -32,7 +37,8 @@ describe('FamilyScreenTimeLearningScreen', () => {
     resetAllStores();
     resetFamilyScreenTimeLearningStoreForTests();
     useAppStore.getState().setAuthIdentity({ userId: 'user-1', email: 'a@example.com', name: 'Andrew' });
-    screenProps.navigation.getParent.mockReset();
+    screenProps.navigation.navigate.mockReset();
+    mockListDevices.mockReset().mockResolvedValue([]);
     mockSimulatePolicyDelivery.mockReset().mockResolvedValue({
       policyVersion: 1,
       acknowledgedAtIso: '2026-07-29T22:00:01.000Z',
@@ -40,25 +46,22 @@ describe('FamilyScreenTimeLearningScreen', () => {
   });
 
   it('shows one device setup sentence and one action before setup', () => {
-    const navigate = jest.fn();
-    screenProps.navigation.getParent.mockReturnValue({ navigate });
     const { getAllByRole, getByText, queryByText } = renderWithProviders(
       <FamilyScreenTimeLearningScreen {...screenProps} />,
     );
 
-    expect(getByText('Connect Charlie’s iPhone to continue.')).toBeTruthy();
-    expect(getByText('Continue setup')).toBeTruthy();
+    expect(getByText('Set up a device for Charlie to continue.')).toBeTruthy();
+    expect(getByText('Set up a device')).toBeTruthy();
     expect(getAllByRole('button')).toHaveLength(2); // Back and the one screen action.
     expect(queryByText('One clear agreement')).toBeNull();
     expect(queryByText('Delivery')).toBeNull();
     expect(queryByText(/simulated|Apple authorization/i)).toBeNull();
 
-    fireEvent.press(getByText('Continue setup'));
-    expect(navigate).toHaveBeenCalledWith('DevTools', {
-      familyScreenTimeChild: {
-        childMembershipId: 'child-1',
-        childDisplayName: 'Charlie',
-      },
+    fireEvent.press(getByText('Set up a device'));
+    expect(screenProps.navigation.navigate).toHaveBeenCalledWith('SettingsHouseholdDeviceSetup', {
+      householdId: 'household-1',
+      childMembershipId: 'child-1',
+      childDisplayName: 'Charlie',
     });
   });
 

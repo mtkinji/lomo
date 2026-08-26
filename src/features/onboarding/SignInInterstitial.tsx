@@ -31,6 +31,7 @@ export type SignInResult = {
 
 interface SignInInterstitialProps {
   onSignInComplete: (result: SignInResult) => void;
+  onSetUpChildDevice?: () => void;
 }
 
 const CATCH_MESSAGES = [
@@ -51,7 +52,7 @@ const TEXT_FADE_OUT_MS = 650;
 const TEXT_FADE_IN_MS = 750;
 const RETURNING_ACCOUNT_AGE_MS = 30 * 60 * 1000;
 
-export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps) {
+export function SignInInterstitial({ onSetUpChildDevice, onSignInComplete }: SignInInterstitialProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [loadingProvider, setLoadingProvider] = useState<'apple' | 'google' | null>(null);
@@ -409,6 +410,18 @@ export function SignInInterstitial({ onSignInComplete }: SignInInterstitialProps
                           </Text>
                         </View>
                       </Button>
+
+                      {onSetUpChildDevice ? (
+                        <Button
+                          variant="ghost"
+                          fullWidth
+                          disabled={busy}
+                          onPress={onSetUpChildDevice}
+                          accessibilityLabel="Set up a child's device"
+                        >
+                          <Text style={styles.childSetupLabel}>Set up a child’s device</Text>
+                        </Button>
+                      ) : null}
                     </View>
                   </View>
                 </View>
@@ -515,6 +528,11 @@ const styles = StyleSheet.create({
   googleButtonLabel: {
     ...typography.body,
     color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  childSetupLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
     fontWeight: '600',
   },
   disclaimer: {

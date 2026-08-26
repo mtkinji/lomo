@@ -399,6 +399,12 @@ verify_jwt = false
 [functions.household-avatars]
 verify_jwt = true
 
+[functions.household-device-access]
+# Personal child-device setup happens before ordinary sign-in. The Edge Function
+# accepts only a short-lived opaque setup secret, returns generic failures, and calls
+# service-role-only preview/claim RPCs that store hashed secrets and credentials.
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

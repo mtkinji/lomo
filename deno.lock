@@ -105,6 +105,7 @@
         "npm:expo-location@~55.1.12",
         "npm:expo-notifications@~55.0.25",
         "npm:expo-screen-orientation@~55.0.18",
+        "npm:expo-secure-store@~55.0.18",
         "npm:expo-sensors@~55.0.17",
         "npm:expo-speech@~55.0.16",
         "npm:expo-status-bar@~55.0.6",

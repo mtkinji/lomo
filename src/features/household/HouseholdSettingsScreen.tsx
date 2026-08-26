@@ -508,6 +508,17 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
         </SettingsGroup>
       ) : null}
 
+      {snapshot?.household ? (
+        <SettingsGroup footer="Set up shared iPads separately from a child's personal device." title="Devices">
+          <SettingsRow
+            onPress={() => navigation.navigate('SettingsHouseholdDevices', {
+              householdId: snapshot.household!.id,
+            })}
+            title="Household devices"
+          />
+        </SettingsGroup>
+      ) : null}
+
       {!loading ? (
         <View style={styles.entrySection}>
           {entryMode ? entryForm : actionList}
@@ -552,13 +563,14 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
                     }));
                   }}
                   title={capability.name}
+                  value={mutationKey === key ? 'Saving…' : stateDescription(state)}
                 />
-                <Text style={{ paddingHorizontal: 16, paddingBottom: 10 }}>{mutationKey === key ? 'Saving…' : stateDescription(state)}</Text>
                 {capability.id === 'screen-time' && state && enabledStates.has(state) ? (
                   <>
                     <SettingsDivider />
                     <SettingsRow
                       onPress={() => navigation.navigate('SettingsFamilyScreenTime', {
+                        householdId: snapshot.household!.id,
                         childMembershipId: child.id,
                         childDisplayName: child.displayName,
                       })}

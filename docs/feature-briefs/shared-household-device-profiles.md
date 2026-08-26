@@ -48,17 +48,28 @@ When the household shares an iPad, Maya wants each child to enter only the parts
 
 One individually assigned caregiver's real Kwilt account remains authenticated on the shared iPad. Household Mode is a restricted family-facing layer over that session. It is not a separate family account, a shared password, or a set of complete cached account sessions.
 
+The primary setup is intentionally direct: the caregiver signs in normally on the iPad,
+chooses **Set up this iPad for your household**, confirms the Household, and selects
+eligible members and capabilities. The authenticated caregiver authorizes the current
+install, so the shared-iPad branch uses no QR code and no repeated pairing for each
+child. If setup is skipped, the same action remains available at **Settings > Household
+> Household devices > Set up this iPad**.
+
 ### Identity control
 
 The switcher lists eligible dependent children and the assigned caregiver. The same active-member control appears in the capability menu and in capability headers where attribution matters, beginning with Chores.
 
 - Selecting a child establishes that household member as the bounded actor and requests the child's member code when configured.
 - Selecting another child changes the actor only after that child's required code succeeds.
-- Selecting the caregiver invokes Face ID, Touch ID, or device-passcode authentication.
+- Selecting the caregiver invokes caregiver-only reauthentication. Face ID or Touch ID
+  may satisfy it only when the product can truthfully bind the result to the assigned
+  caregiver; an ordinary device passcode known to children is not sufficient.
 - Successful caregiver authentication exits Household Mode into the caregiver's complete Kwilt.
 - Cancellation or failure retains the current child context.
 
-Device authentication authorizes the transition to the assigned caregiver account; it does not identify which enrolled adult supplied the biometric or device passcode.
+Device-owner authentication alone does not identify which enrolled adult supplied a
+biometric or passcode. The implementation must not describe a shared passcode as
+caregiver proof.
 
 ### Household capability set
 
@@ -92,6 +103,8 @@ On a designated family iPad, two children can switch into their own bounded Chor
 - Using biometrics to identify children.
 - Exposing the caregiver's entire Kwilt through Household Mode.
 - Treating Guided Access as household authentication.
+- Pairing the shared iPad separately to every child.
+- Treating a shared iPad as one child's Screen Time device.
 - Authorizing under-13 production use without the separate child-data and parental-consent contract.
 
 ## Open questions

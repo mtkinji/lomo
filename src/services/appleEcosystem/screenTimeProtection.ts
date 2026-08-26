@@ -36,7 +36,7 @@ export type ScreenTimeShieldRestriction = {
 
 type KwiltScreenTimeProtectionNativeModule = {
   getAuthorizationStatus?: () => Promise<ScreenTimeAuthorizationStatus | string>;
-  requestAuthorization?: () => Promise<ScreenTimeAuthorizationStatus | string>;
+  requestAuthorization?: (member: 'individual' | 'child') => Promise<ScreenTimeAuthorizationStatus | string>;
   presentActivityPicker?: (json: string) => Promise<ScreenTimeSelectionResult | null | undefined>;
   applyRestrictions?: (json: string) => Promise<boolean>;
   clearRestrictions?: () => Promise<boolean>;
@@ -75,11 +75,13 @@ export async function getScreenTimeAuthorizationStatus(): Promise<ScreenTimeAuth
   }
 }
 
-export async function requestScreenTimeAuthorization(): Promise<ScreenTimeAuthorizationStatus> {
+export async function requestScreenTimeAuthorization(
+  member: 'individual' | 'child' = 'individual',
+): Promise<ScreenTimeAuthorizationStatus> {
   if (Platform.OS !== 'ios') return 'unavailable';
   if (!native?.requestAuthorization) return 'unavailable';
   try {
-    return normalizeStatus(await native.requestAuthorization());
+    return normalizeStatus(await native.requestAuthorization(member));
   } catch {
     return 'unavailable';
   }

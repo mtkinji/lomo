@@ -97,13 +97,17 @@ export function resolveClientActionOpenInstruction(
       const childDisplayName = typeof action.payload.childDisplayName === 'string'
         ? action.payload.childDisplayName.trim()
         : '';
+      const householdId = typeof action.payload.householdId === 'string'
+        ? action.payload.householdId.trim()
+        : '';
       const setupStep = action.payload.setupStep === 'selection' || action.payload.setupStep === 'release'
         ? action.payload.setupStep
         : 'device';
-      if (!action.targetId || !childDisplayName) return null;
+      if (!action.targetId || !householdId || !childDisplayName) return null;
       return {
         kind: 'navigate', name: 'Settings', params: {
           screen: 'SettingsFamilyScreenTime', params: {
+            householdId,
             childMembershipId: action.targetId,
             childDisplayName,
             setupStep,

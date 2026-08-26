@@ -165,7 +165,7 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
         ? call.arguments.childMembershipId.trim()
         : '';
       const child = snapshots.screenTime?.children.find((candidate) => (
-        candidate.canManage && candidate.membershipId === childMembershipId
+        candidate.canManage && candidate.householdId && candidate.membershipId === childMembershipId
       ));
       if (!child) {
         return {
@@ -189,6 +189,7 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
           ? 'Kwilt will open native release review. Removing protection still happens only after you confirm there.'
           : 'Kwilt will open the exact native setup step. Apple authorization or app selection still happens there.',
         payload: {
+          householdId: child.householdId,
           childDisplayName: child.displayName,
           setupStep,
           ...(suggestedLabel ? { suggestedLabel } : {}),

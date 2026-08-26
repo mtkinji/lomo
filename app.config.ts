@@ -254,6 +254,7 @@ const config = {
     'expo-web-browser',
     'expo-video',
     'expo-font',
+    'expo-secure-store',
     [
       'expo-audio',
       {
@@ -293,7 +294,7 @@ const config = {
     [
       'expo-local-authentication',
       {
-        faceIDPermission: 'Allow Kwilt to use Face ID to protect your Money details.',
+        faceIDPermission: 'Allow Kwilt to use Face ID to protect private account details and caregiver access.',
       },
     ],
     [

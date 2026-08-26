@@ -579,9 +579,10 @@ export function ScreenTimeProtectionSettingsScreen() {
   };
 
   const openHouseholdRuleBuilder = () => {
-    if (familyRows.length === 1) {
+    if (familyRows.length === 1 && householdSnapshot?.household?.id) {
       const row = familyRows[0];
       navigation.navigate('SettingsFamilyScreenTime', {
+        householdId: householdSnapshot.household.id,
         childMembershipId: row.childMembershipId,
         childDisplayName: row.displayName,
       });
@@ -677,13 +678,14 @@ export function ScreenTimeProtectionSettingsScreen() {
         <SettingsGroup title="Household setup">
           <SettingsRow onPress={() => navigation.navigate('SettingsHousehold')} title="Household" value="Unavailable" />
         </SettingsGroup>
-      ) : familyRows.length > 0 ? (
+      ) : familyRows.length > 0 && householdSnapshot?.household?.id ? (
         <SettingsGroup title="Household setup">
           {familyRows.map((row, index) => (
             <Fragment key={row.childMembershipId}>
               {index > 0 ? <SettingsDivider /> : null}
               <SettingsRow
                 onPress={() => navigation.navigate('SettingsFamilyScreenTime', {
+                  householdId: householdSnapshot.household!.id,
                   childMembershipId: row.childMembershipId,
                   childDisplayName: row.displayName,
                 })}
