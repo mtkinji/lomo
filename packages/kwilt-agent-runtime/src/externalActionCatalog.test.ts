@@ -24,7 +24,7 @@ function operation(overrides: Partial<CapabilityManifestEntry> = {}): Capability
 
 const registration: ExternalActionRegistration = {
   operationId: 'todos.list', toolId: 'todos.read', canonicalName: 'kwilt_todos_list',
-  title: 'List To-dos', exposure: 'exposed', requiredScopes: ['read'], consequence: 'low',
+  title: 'List To-dos', exposure: 'exposed', requiredScopes: ['life.read'], consequence: 'low',
   confirmation: 'none', redactionPolicy: 'bounded_summary',
   compatibilityAliases: [{ name: 'list_todos', version: 1 }],
 };
@@ -39,12 +39,12 @@ describe('projectExternalActionCatalog', () => {
         { ...registration, operationId: 'todos.list', canonicalName: 'kwilt_hidden', exposure: 'hidden', compatibilityAliases: [] },
         { ...registration, operationId: 'todos.list', canonicalName: 'kwilt_admin', requiredScopes: ['admin'], compatibilityAliases: [] },
       ],
-      availableScopes: ['read', 'write'],
+      availableScopes: ['life.read', 'life.write'],
     });
 
     expect(catalog.map((action) => action.canonicalName)).toEqual(['kwilt_todos_list']);
     expect(catalog[0]).toMatchObject({
-      operationId: 'todos.list', toolId: 'todos.read', requiredScopes: ['read'],
+      operationId: 'todos.list', toolId: 'todos.read', requiredScopes: ['life.read'],
       inputSchema: EMPTY_SCHEMA,
       annotations: {
         title: 'List To-dos', readOnlyHint: true, destructiveHint: false,
@@ -64,10 +64,10 @@ describe('projectExternalActionCatalog', () => {
       manifest: [write], serverRegistrations: [],
       externalRegistrations: [{
         ...registration, operationId: 'todos.open', toolId: 'todos.open', canonicalName: 'kwilt_todos_open',
-        exposure: 'status_only', requiredScopes: ['write'], consequence: 'consequential', confirmation: 'native',
+        exposure: 'status_only', requiredScopes: ['life.write'], consequence: 'consequential', confirmation: 'native',
         compatibilityAliases: [],
       }],
-      availableScopes: ['read', 'write'],
+      availableScopes: ['life.read', 'life.write'],
     });
     expect(catalog).toEqual([]);
   });
@@ -75,12 +75,12 @@ describe('projectExternalActionCatalog', () => {
   test('rejects metadata drift and duplicate names instead of silently weakening policy', () => {
     expect(() => projectExternalActionCatalog({
       manifest: [operation()], serverRegistrations: [{ toolId: 'todos.read' }],
-      externalRegistrations: [{ ...registration, consequence: 'consequential' }], availableScopes: ['read'],
+      externalRegistrations: [{ ...registration, consequence: 'consequential' }], availableScopes: ['life.read'],
     })).toThrow('External consequence does not match operation todos.list');
 
     expect(() => projectExternalActionCatalog({
       manifest: [operation()], serverRegistrations: [{ toolId: 'todos.read' }],
-      externalRegistrations: [registration, { ...registration, operationId: 'todos.list' }], availableScopes: ['read'],
+      externalRegistrations: [registration, { ...registration, operationId: 'todos.list' }], availableScopes: ['life.read'],
     })).toThrow('Duplicate external action name: kwilt_todos_list');
   });
 });

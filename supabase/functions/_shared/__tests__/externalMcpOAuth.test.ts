@@ -2,9 +2,12 @@ import {
   buildAuthorizationServerMetadata,
   buildClientRegistrationResponse,
   buildProtectedResourceMetadata,
+  EXTERNAL_OAUTH_SCOPES,
+  LEGACY_SCOPE_COMPATIBILITY_REMOVAL_AT,
   normalizeClientRegistration,
-  normalizeOAuthScope,
+  normalizeRequestedOAuthScope,
   normalizeResourceIndicator,
+  normalizeStoredOAuthScope,
   sha256Base64Url,
   verifyPkceChallenge,
 } from '../externalMcpOAuth';
@@ -133,21 +136,63 @@ describe('externalMcpOAuth helpers', () => {
     });
   });
 
-  describe('normalizeOAuthScope', () => {
-    test('defaults to the read scope', () => {
-      expect(normalizeOAuthScope(null)).toBe('read');
-      expect(normalizeOAuthScope('')).toBe('read');
+  describe('capability OAuth scopes', () => {
+    test('defaults new grants to the least-privilege Life read scope', () => {
+      expect(normalizeRequestedOAuthScope(null)).toBe('life.read');
+      expect(normalizeRequestedOAuthScope('')).toBe('life.read');
     });
 
-    test('normalizes supported scopes and makes write imply read', () => {
-      expect(normalizeOAuthScope('read write')).toBe('read write');
-      expect(normalizeOAuthScope('write')).toBe('read write');
-      expect(normalizeOAuthScope('write read write')).toBe('read write');
+    test('normalizes capability scopes and makes each write imply its matching read', () => {
+      expect(normalizeRequestedOAuthScope('money.write life.read')).toBe('life.read money.read money.write');
+      expect(normalizeRequestedOAuthScope('food.write food.read food.write')).toBe('food.read food.write');
     });
 
-    test('rejects unknown scopes', () => {
-      expect(normalizeOAuthScope('admin')).toBeNull();
-      expect(normalizeOAuthScope('read delete')).toBeNull();
+    test('rejects unknown and legacy broad scopes for new grants', () => {
+      expect(normalizeRequestedOAuthScope('admin')).toBeNull();
+      expect(normalizeRequestedOAuthScope('read')).toBeNull();
+      expect(normalizeRequestedOAuthScope('life.read write')).toBeNull();
+    });
+
+    test('maps marked legacy grants only to the existing Life surface before removal', () => {
+      const beforeRemoval = new Date('2026-11-29T23:59:59.000Z');
+      expect(normalizeStoredOAuthScope('read', {
+        policyVersion: 1,
+        legacyScopeExpiresAt: LEGACY_SCOPE_COMPATIBILITY_REMOVAL_AT,
+        now: beforeRemoval,
+      })).toBe('life.read');
+      expect(normalizeStoredOAuthScope('write', {
+        policyVersion: 1,
+        legacyScopeExpiresAt: LEGACY_SCOPE_COMPATIBILITY_REMOVAL_AT,
+        now: beforeRemoval,
+      })).toBe('life.read life.write');
+      expect(normalizeStoredOAuthScope('read write', {
+        policyVersion: 1,
+        legacyScopeExpiresAt: LEGACY_SCOPE_COMPATIBILITY_REMOVAL_AT,
+        now: beforeRemoval,
+      })).toBe('life.read life.write');
+    });
+
+    test('rejects unmarked, expanded, or expired legacy grants', () => {
+      expect(normalizeStoredOAuthScope('read', { policyVersion: 2 })).toBeNull();
+      expect(normalizeStoredOAuthScope('read money.read', {
+        policyVersion: 1,
+        legacyScopeExpiresAt: LEGACY_SCOPE_COMPATIBILITY_REMOVAL_AT,
+        now: new Date('2026-10-01T00:00:00.000Z'),
+      })).toBeNull();
+      expect(normalizeStoredOAuthScope('read write', {
+        policyVersion: 1,
+        legacyScopeExpiresAt: LEGACY_SCOPE_COMPATIBILITY_REMOVAL_AT,
+        now: new Date(LEGACY_SCOPE_COMPATIBILITY_REMOVAL_AT),
+      })).toBeNull();
+    });
+
+    test('accepts capability-scoped stored grants only under the current policy', () => {
+      expect(normalizeStoredOAuthScope('household.write', { policyVersion: 2 }))
+        .toBe('household.read household.write');
+      expect(normalizeStoredOAuthScope('household.write', { policyVersion: 1 }))
+        .toBeNull();
+      expect(normalizeStoredOAuthScope(null, { policyVersion: 2 })).toBeNull();
+      expect(normalizeStoredOAuthScope('', { policyVersion: 2 })).toBeNull();
     });
   });
 
@@ -202,7 +247,7 @@ describe('externalMcpOAuth helpers', () => {
       expect(meta.revocation_endpoint).toBe(`${issuer}/revoke`);
       expect(meta.code_challenge_methods_supported).toEqual(['S256']);
       expect(meta.resource_indicators_supported).toBe(true);
-      expect(meta.scopes_supported).toEqual(['read', 'write']);
+      expect(meta.scopes_supported).toEqual(EXTERNAL_OAUTH_SCOPES);
       expect(meta.token_endpoint_auth_methods_supported).toEqual([
         'client_secret_post',
         'client_secret_basic',
@@ -216,7 +261,7 @@ describe('externalMcpOAuth helpers', () => {
       expect(meta.authorization_server).toBe(`${issuer}/.well-known/oauth-authorization-server`);
       expect(meta.authorization_servers).toEqual([issuer]);
       expect(meta.bearer_methods_supported).toEqual(['header']);
-      expect(meta.scopes_supported).toEqual(['read', 'write']);
+      expect(meta.scopes_supported).toEqual(EXTERNAL_OAUTH_SCOPES);
     });
   });
 });

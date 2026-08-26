@@ -163,7 +163,9 @@ const LEGACY_EXTERNAL_MCP_READ_TOOLS: LegacyExternalMcpToolDefinition[] = [
 
 const IDEMPOTENCY_PROPERTY = {
   type: 'string',
-  description: 'Optional stable key for safely retrying the same write without creating duplicates.',
+  minLength: 8,
+  maxLength: 200,
+  description: 'Required stable request ID. Reuse it only when safely retrying the same write.',
 };
 
 const LEGACY_EXTERNAL_MCP_WRITE_TOOLS: LegacyExternalMcpToolDefinition[] = [
@@ -491,11 +493,21 @@ function strictExternalSchema(schema: JsonObject): JsonObject {
   return result;
 }
 
+function requireStableWriteRequestId(schema: JsonObject): JsonObject {
+  const required = Array.isArray(schema.required)
+    ? schema.required.filter((value): value is string => typeof value === 'string')
+    : [];
+  return {
+    ...schema,
+    required: Array.from(new Set([...required, 'idempotency_key'])),
+  };
+}
+
 const projectedActions = projectExternalActionCatalog({
   manifest: KWILT_CAPABILITY_MANIFEST,
   serverRegistrations: SERVER_TOOL_PROVIDER_REGISTRATIONS,
   externalRegistrations: EXTERNAL_ACTION_REGISTRATIONS,
-  availableScopes: ['read', 'write'],
+  availableScopes: ['life.read', 'life.write'],
 });
 const legacyToolByName = new Map(LEGACY_EXTERNAL_MCP_TOOLS.map((tool) => [tool.name, tool] as const));
 
@@ -508,7 +520,9 @@ export const EXTERNAL_MCP_ACTION_CATALOG: readonly ExternalMcpToolDefinition[] =
     return {
       ...legacy,
       scope,
-      inputSchema: strictExternalSchema(legacy.inputSchema),
+      inputSchema: action.effect === 'write'
+        ? requireStableWriteRequestId(strictExternalSchema(legacy.inputSchema))
+        : strictExternalSchema(legacy.inputSchema),
       annotations: action.annotations,
       canonicalName: action.canonicalName,
       operationId: action.operationId,
@@ -535,6 +549,11 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function asString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+export function normalizeExternalWriteRequestId(value: unknown): string | null {
+  const requestId = asString(value);
+  return requestId && requestId.length >= 8 && requestId.length <= 200 ? requestId : null;
 }
 
 function asInt(value: unknown): number | null {

@@ -1,6 +1,17 @@
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-const SUPPORTED_OAUTH_SCOPES = ['read', 'write'] as const;
-const SUPPORTED_OAUTH_SCOPES_JSON = ['read', 'write'];
+export const EXTERNAL_OAUTH_SCOPES = [
+  'life.read',
+  'life.write',
+  'household.read',
+  'household.write',
+  'money.read',
+  'money.write',
+  'food.read',
+  'food.write',
+] as const;
+export const LEGACY_SCOPE_COMPATIBILITY_REMOVAL_AT = '2026-11-30T00:00:00.000Z';
+
+type ExternalOAuthScope = (typeof EXTERNAL_OAUTH_SCOPES)[number];
 
 export type NormalizedClientRegistration =
   | {
@@ -130,15 +141,43 @@ export async function verifyPkceChallenge(params: {
   return false;
 }
 
-export function normalizeOAuthScope(raw: unknown): string | null {
+export function normalizeRequestedOAuthScope(raw: unknown): string | null {
   const requested = typeof raw === 'string' ? raw.split(/\s+/).filter(Boolean) : [];
-  if (requested.some((scope) => !SUPPORTED_OAUTH_SCOPES.includes(scope as (typeof SUPPORTED_OAUTH_SCOPES)[number]))) {
+  if (requested.some((scope) => !EXTERNAL_OAUTH_SCOPES.includes(scope as ExternalOAuthScope))) {
     return null;
   }
 
-  const scopes = new Set(requested.length > 0 ? requested : ['read']);
-  scopes.add('read');
-  return SUPPORTED_OAUTH_SCOPES.filter((scope) => scopes.has(scope)).join(' ');
+  const scopes = new Set(requested.length > 0 ? requested : ['life.read']);
+  for (const scope of [...scopes]) {
+    if (scope.endsWith('.write')) scopes.add(scope.replace(/\.write$/, '.read'));
+  }
+  return EXTERNAL_OAUTH_SCOPES.filter((scope) => scopes.has(scope)).join(' ');
+}
+
+export function normalizeStoredOAuthScope(
+  raw: unknown,
+  options: {
+    policyVersion: unknown;
+    legacyScopeExpiresAt?: unknown;
+    now?: Date;
+  },
+): string | null {
+  const policyVersion = Number(options.policyVersion);
+  if (policyVersion === 2) {
+    if (typeof raw !== 'string' || !raw.trim()) return null;
+    return normalizeRequestedOAuthScope(raw);
+  }
+  if (policyVersion !== 1 || typeof raw !== 'string') return null;
+
+  const legacyScopes = Array.from(new Set(raw.split(/\s+/).filter(Boolean)));
+  if (legacyScopes.length === 0 || legacyScopes.some((scope) => scope !== 'read' && scope !== 'write')) return null;
+  const expiresAt = typeof options.legacyScopeExpiresAt === 'string'
+    ? new Date(options.legacyScopeExpiresAt).getTime()
+    : NaN;
+  const removalAt = new Date(LEGACY_SCOPE_COMPATIBILITY_REMOVAL_AT).getTime();
+  if (!Number.isFinite(expiresAt) || expiresAt > removalAt || (options.now ?? new Date()).getTime() >= expiresAt) return null;
+
+  return legacyScopes.includes('write') ? 'life.read life.write' : 'life.read';
 }
 
 export function normalizeResourceIndicator(raw: unknown, expectedResource: string): string | null {
@@ -167,7 +206,7 @@ export function buildAuthorizationServerMetadata(baseUrl: string): Record<string
     token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic', 'none'],
     code_challenge_methods_supported: ['S256'],
     resource_indicators_supported: true,
-    scopes_supported: SUPPORTED_OAUTH_SCOPES_JSON,
+    scopes_supported: [...EXTERNAL_OAUTH_SCOPES],
   };
 }
 
@@ -177,7 +216,7 @@ export function buildProtectedResourceMetadata(baseUrl: string): Record<string, 
     resource,
     authorization_server: `${resource}/.well-known/oauth-authorization-server`,
     authorization_servers: [resource],
-    scopes_supported: SUPPORTED_OAUTH_SCOPES_JSON,
+    scopes_supported: [...EXTERNAL_OAUTH_SCOPES],
     bearer_methods_supported: ['header'],
     resource_documentation: 'https://kwilt.app/privacy',
   };

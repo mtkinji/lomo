@@ -86,7 +86,7 @@ export function projectExternalActionCatalog(input: {
     if (registration.confirmation !== operation.confirmation) {
       throw new Error(`External confirmation does not match operation ${operation.id}`);
     }
-    if (operation.effect === 'write' && !registration.requiredScopes.includes('write')) {
+    if (operation.effect === 'write' && !registration.requiredScopes.some((scope) => scope.endsWith('.write'))) {
       throw new Error(`External write requires write scope: ${operation.id}`);
     }
 
@@ -117,7 +117,7 @@ const read = (
   legacyName: string,
   redactionPolicy: Exclude<ExternalRedactionPolicy, 'mutation_receipt'>,
 ): ExternalActionRegistration => ({
-  operationId, toolId, canonicalName, title, exposure: 'exposed', requiredScopes: ['read'],
+  operationId, toolId, canonicalName, title, exposure: 'exposed', requiredScopes: ['life.read'],
   consequence: 'low', confirmation: 'none', redactionPolicy, compatibilityAliases: alias(legacyName),
 });
 const write = (
@@ -129,7 +129,7 @@ const write = (
   consequence: ExternalActionRegistration['consequence'],
   confirmation: CapabilityConfirmation,
 ): ExternalActionRegistration => ({
-  operationId, toolId, canonicalName, title, exposure: 'exposed', requiredScopes: ['read', 'write'],
+  operationId, toolId, canonicalName, title, exposure: 'exposed', requiredScopes: ['life.read', 'life.write'],
   consequence, confirmation, redactionPolicy: 'mutation_receipt', compatibilityAliases: alias(legacyName),
 });
 

@@ -2,7 +2,7 @@
 
 Status: canonical product and engineering contract
 Owner: Andrew
-Last updated: 2026-08-11
+Last updated: 2026-08-26
 
 ## Purpose
 
@@ -79,6 +79,29 @@ Profile edits use `profileActions.ts` across native Settings and Chat. The
 action requires the exact profile id and last-updated timestamp, writes through
 the same persistence adapter, and returns a reversible normalized receipt.
 
+### External AI authorization
+
+ChatGPT, Claude, Codex, and other MCP clients enter through the hosted Supabase
+Edge Function, but they do not receive a separate action model. The generated
+external-safe catalog projects only canonical operations with a registered
+server handler, explicit external exposure, satisfiable OAuth scopes, and a
+declared redaction policy.
+
+OAuth scopes separate capability from effect: `life.read`, `life.write`,
+`household.read`, `household.write`, `money.read`, `money.write`, `food.read`,
+and `food.write`. A write grant implies only the matching capability read grant.
+Destructive or consequential review is action policy, not an OAuth super-scope.
+Existing broad `read`/`write` tokens are policy-versioned compatibility grants:
+through 2026-11-30 they map only to the pre-existing Life surface and never gain
+Household, Money, or Food access.
+
+Every external write requires a caller-supplied stable `idempotency_key`. The
+same key reused for the same canonical operation returns the prior durable
+outcome instead of duplicating it, including when a compatibility alias was
+used. OAuth write eligibility never proves instruction authority: ambiguous or
+consequential work persists a review proposal, device-owned work returns a
+native handoff, and completed work returns the canonical receipt.
+
 ## Evidence sufficiency
 
 Evidence breadth follows the interpreted job:
@@ -134,7 +157,7 @@ The `Express intent in ordinary language` job-flow score remains below 5 until h
 
 ## Generated action coverage table
 
-This checked-in table is generated from the independent product operation declarations, canonical tool contracts, and executable mobile/server registrations. `External exposure` currently means the operation resolves to an existing external MCP source reference; Project 5 replaces that compatibility signal with the least-privilege OAuth MCP registry itself. A `no` is a visible delivery gap, not an implied implementation.
+This checked-in table is generated from the independent product operation declarations, canonical tool contracts, and executable mobile/server registrations. External MCP publication additionally requires explicit exposure metadata, a registered server handler, and satisfiable capability scopes. A `no` is a visible delivery gap, not an implied implementation.
 
 | Operation | Tool | Mobile handler | Server handler | External exposure | Confirmation | Outcome class |
 |---|---|---:|---:|---:|---|---|

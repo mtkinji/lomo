@@ -8,6 +8,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   EXTERNAL_MCP_READ_TOOLS,
   EXTERNAL_MCP_WRITE_TOOLS,
+  normalizeExternalWriteRequestId,
   normalizeGetArcArgs,
   normalizeGetGoalArgs,
   normalizeListGoalsArgs,
@@ -33,8 +34,9 @@ import {
   buildClientRegistrationResponse,
   buildProtectedResourceMetadata,
   normalizeClientRegistration,
-  normalizeOAuthScope,
+  normalizeRequestedOAuthScope,
   normalizeResourceIndicator,
+  normalizeStoredOAuthScope,
   verifyPkceChallenge,
 } from '../_shared/externalMcpOAuth.ts';
 
@@ -163,8 +165,12 @@ function scopeSet(scope: string): Set<string> {
   return new Set(scope.split(/\s+/).filter(Boolean));
 }
 
-function hasScope(context: ExternalTokenContext, scope: 'read' | 'write'): boolean {
+function hasScope(context: ExternalTokenContext, scope: string): boolean {
   return scopeSet(context.scope).has(scope);
+}
+
+function hasRequiredScopes(context: ExternalTokenContext, scopes: readonly string[]): boolean {
+  return scopes.every((scope) => hasScope(context, scope));
 }
 
 function getExternalTool(name: string) {
@@ -172,7 +178,7 @@ function getExternalTool(name: string) {
 }
 
 function getIdempotencyKey(args: unknown): string | null {
-  return asString(asRecord(args)?.idempotency_key);
+  return normalizeExternalWriteRequestId(asRecord(args)?.idempotency_key);
 }
 
 function base64Url(bytes: Uint8Array): string {
@@ -230,7 +236,7 @@ async function requireExternalToken(req: Request): Promise<
   const tokenHash = await sha256Hex(token);
   const { data, error } = await admin
     .from('kwilt_external_oauth_tokens')
-    .select('id,user_id,client_id,scope,expires_at,revoked_at,kwilt_external_oauth_clients(surface,revoked_at)')
+    .select('id,user_id,client_id,scope,scope_policy_version,legacy_scope_expires_at,expires_at,revoked_at,kwilt_external_oauth_clients(surface,revoked_at)')
     .eq('token_hash', tokenHash)
     .maybeSingle();
 
@@ -241,7 +247,10 @@ async function requireExternalToken(req: Request): Promise<
   if (error || !row || row.revoked_at || client?.revoked_at || new Date(String(row.expires_at)).getTime() <= Date.now()) {
     return { ok: false, response: json(401, { error: { message: 'Unauthorized', code: 'unauthorized' } }) };
   }
-  const scope = normalizeOAuthScope(row.scope);
+  const scope = normalizeStoredOAuthScope(row.scope, {
+    policyVersion: row.scope_policy_version,
+    legacyScopeExpiresAt: row.legacy_scope_expires_at,
+  });
   if (!scope) return { ok: false, response: json(403, { error: { message: 'Invalid scope', code: 'insufficient_scope' } }) };
 
   try {
@@ -283,7 +292,7 @@ async function auditToolCall(
   params: {
     toolName: string;
     toolKind: 'read' | 'write';
-    scopeUsed: 'read' | 'write';
+    scopeUsed: string;
     args: unknown;
     success: boolean;
     errorCode?: string | null;
@@ -728,7 +737,7 @@ async function handleAuthorizeApprove(req: Request) {
     return json(200, { redirect_to: destination.toString() });
   }
 
-  const scope = normalizeOAuthScope(body.scope);
+  const scope = normalizeRequestedOAuthScope(body.scope);
   if (!scope) return json(400, { error: 'invalid_scope' });
 
   const code = randomToken('kwilt_code', 32);
@@ -769,7 +778,10 @@ async function handleToken(req: Request) {
   }
 
   let userId: string | null = null;
-  let scope = 'read';
+  let scope = 'life.read';
+  let storedScope = scope;
+  let scopePolicyVersion = 2;
+  let legacyScopeExpiresAt: string | null = null;
   let previousRefreshTokenRowId: string | null = null;
   if (grantType === 'authorization_code') {
     const code = asString(body.code);
@@ -805,9 +817,15 @@ async function handleToken(req: Request) {
       .maybeSingle();
     if (!claimed) return json(400, { error: 'invalid_grant' });
     userId = String(row.user_id);
-    const normalizedScope = normalizeOAuthScope(row.scope);
+    const normalizedScope = normalizeStoredOAuthScope(row.scope, {
+      policyVersion: row.scope_policy_version,
+      legacyScopeExpiresAt: row.legacy_scope_expires_at,
+    });
     if (!normalizedScope) return json(400, { error: 'invalid_grant' });
     scope = normalizedScope;
+    scopePolicyVersion = Number(row.scope_policy_version);
+    legacyScopeExpiresAt = row.legacy_scope_expires_at ? String(row.legacy_scope_expires_at) : null;
+    storedScope = scopePolicyVersion === 1 ? String(row.scope) : scope;
   } else if (grantType === 'refresh_token') {
     const refreshToken = asString(body.refresh_token);
     if (!refreshToken) return json(400, { error: 'invalid_grant' });
@@ -820,9 +838,15 @@ async function handleToken(req: Request) {
     if (!row || row.client_id !== clientId || row.revoked_at) return json(400, { error: 'invalid_grant' });
     userId = String(row.user_id);
     previousRefreshTokenRowId = String(row.id);
-    const normalizedScope = normalizeOAuthScope(row.scope);
+    const normalizedScope = normalizeStoredOAuthScope(row.scope, {
+      policyVersion: row.scope_policy_version,
+      legacyScopeExpiresAt: row.legacy_scope_expires_at,
+    });
     if (!normalizedScope) return json(400, { error: 'invalid_grant' });
     scope = normalizedScope;
+    scopePolicyVersion = Number(row.scope_policy_version);
+    legacyScopeExpiresAt = row.legacy_scope_expires_at ? String(row.legacy_scope_expires_at) : null;
+    storedScope = scopePolicyVersion === 1 ? String(row.scope) : scope;
   } else {
     return json(400, { error: 'unsupported_grant_type' });
   }
@@ -835,7 +859,9 @@ async function handleToken(req: Request) {
     refresh_token_hash: await sha256Hex(refreshToken),
     client_id: clientId,
     user_id: userId,
-    scope,
+    scope: storedScope,
+    scope_policy_version: scopePolicyVersion,
+    legacy_scope_expires_at: legacyScopeExpiresAt,
     expires_at: expiresAt.toISOString(),
   });
   if (error) return json(500, { error: 'token_issue_failed' });
@@ -904,7 +930,7 @@ async function handleMcp(req: Request) {
   }
 
   if (method === 'tools/list') {
-    const tools = hasScope(auth.context, 'write') ? ALL_EXTERNAL_MCP_TOOLS : EXTERNAL_MCP_READ_TOOLS;
+    const tools = ALL_EXTERNAL_MCP_TOOLS.filter((tool) => hasRequiredScopes(auth.context, tool.requiredScopes));
     return json(200, rpcResult(id, { tools } as JsonObject));
   }
 
@@ -916,10 +942,15 @@ async function handleMcp(req: Request) {
   const externalTool = getExternalTool(name);
   const toolScope = externalTool?.scope ?? null;
   if (!externalTool || !toolScope) return json(200, rpcError(id, -32601, `Unknown tool: ${name}`));
-  if (!hasScope(auth.context, toolScope)) return json(200, rpcError(id, -32000, `${toolScope} scope required`));
+  if (!hasRequiredScopes(auth.context, externalTool.requiredScopes)) {
+    return json(200, rpcError(id, -32000, `${externalTool.requiredScopes.join(' and ')} scope required`));
+  }
 
   try {
     const idempotencyKey = toolScope === 'write' ? getIdempotencyKey(args) : null;
+    if (toolScope === 'write' && !idempotencyKey) {
+      return json(200, rpcError(id, -32602, 'Writes require a stable idempotency_key request ID'));
+    }
     const idempotencyKeyHash = idempotencyKey
       ? await sha256Hex(externalMcpIdempotencyMaterial(externalTool, idempotencyKey))
       : null;
@@ -939,7 +970,7 @@ async function handleMcp(req: Request) {
     await auditToolCall(auth.admin, auth.context, {
       toolName: externalTool.canonicalName,
       toolKind: toolScope,
-      scopeUsed: toolScope,
+      scopeUsed: externalTool.requiredScopes.join(' '),
       args,
       success: true,
       requestId: typeof id === 'string' || typeof id === 'number' ? String(id) : null,
@@ -959,7 +990,7 @@ async function handleMcp(req: Request) {
         compatibility_alias: name,
         operation: externalTool.operationId,
         tool_kind: toolScope,
-        scope_used: toolScope,
+        scope_used: externalTool.requiredScopes.join(' '),
         success: true,
       },
     });
@@ -969,7 +1000,7 @@ async function handleMcp(req: Request) {
     await auditToolCall(auth.admin, auth.context, {
       toolName: externalTool.canonicalName,
       toolKind: toolScope,
-      scopeUsed: toolScope,
+      scopeUsed: externalTool.requiredScopes.join(' '),
       args,
       success: false,
       errorCode,

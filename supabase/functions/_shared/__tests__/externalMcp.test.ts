@@ -2,6 +2,7 @@ import {
   EXTERNAL_MCP_ACTION_CATALOG,
   EXTERNAL_MCP_READ_TOOLS,
   EXTERNAL_MCP_WRITE_TOOLS,
+  normalizeExternalWriteRequestId,
   normalizeGetArcArgs,
   normalizeGetGoalArgs,
   normalizeListGoalsArgs,
@@ -104,8 +105,23 @@ describe('externalMcp helpers', () => {
         expect(tool.annotations.readOnlyHint).toBe(false);
         expect(tool.annotations.openWorldHint).toBe(false);
         expect(schema.properties?.idempotency_key).toBeDefined();
+        expect(schema.required).toContain('idempotency_key');
+        expect(tool.requiredScopes).toEqual(['life.read', 'life.write']);
         expect(tool.annotations.destructiveHint).toBe(tool.name.startsWith('delete_'));
       }
+    });
+
+    test('uses Life read scope for every currently exposed read tool', () => {
+      for (const tool of EXTERNAL_MCP_READ_TOOLS) {
+        expect(tool.requiredScopes).toEqual(['life.read']);
+      }
+    });
+
+    test('accepts bounded stable write request IDs and rejects weak values', () => {
+      expect(normalizeExternalWriteRequestId(' request-123 ')).toBe('request-123');
+      expect(normalizeExternalWriteRequestId('short')).toBeNull();
+      expect(normalizeExternalWriteRequestId('x'.repeat(201))).toBeNull();
+      expect(normalizeExternalWriteRequestId(null)).toBeNull();
     });
 
     test('keeps compound step replacement out of activity create and update tools', () => {
