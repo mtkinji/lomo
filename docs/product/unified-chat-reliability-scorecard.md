@@ -75,6 +75,8 @@ Keep these cohorts separate:
 
 Each report names app version/build, Git commit and dirty state, backend deployment identifiers, database migration level, environment, device/OS where applicable, actor fixture, corpus version, model, prompt version, tool-registry version, and the evaluation window.
 
+Current voice proof record: [`docs/qa/unified-chat-voice-proof.md`](../qa/unified-chat-voice-proof.md). Its source checkpoint is complete, while hosted non-production and signed-device cohorts remain pending and must not be reported as passed.
+
 ## Release decision
 
 A release report lists every failed scenario and forbidden effect, not only aggregate scores. Any unauthorized write, duplicate consequential effect, lost accepted turn, false completion claim, cross-user disclosure, or device-only action reported as server-completed blocks promotion regardless of the average. Source/test, hosted backend, signed app, ChatGPT connection, submission, and public release remain distinct gates.
