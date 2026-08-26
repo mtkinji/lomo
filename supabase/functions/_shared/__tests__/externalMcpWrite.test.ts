@@ -1,476 +1,63 @@
+import { EXTERNAL_MCP_WRITE_TOOLS } from '../externalMcp';
 import {
-  createActivityStepForUser,
-  createActivityForUser,
-  createGoalForUser,
-  deleteActivityStepForUser,
-  markActivityStepDoneForUser,
-  reorderActivityStepsForUser,
-  softDeleteObjectForUser,
-  updateActivityForUser,
-  updateActivityStepForUser,
+  executeExternalMcpWrite,
+  externalMcpIdempotencyMaterial,
+  prepareExternalMcpAction,
+  projectExternalMcpWriteResult,
 } from '../externalMcpWrite';
 
-function createMockAdmin() {
-  const calls: Array<{ table: string; operation: string; payload?: any }> = [];
-  const rows = new Map<string, any>();
+const tool = (name: string) => {
+  const found = EXTERNAL_MCP_WRITE_TOOLS.find((candidate) => candidate.name === name);
+  if (!found) throw new Error(`missing test tool ${name}`);
+  return found;
+};
 
-  const from = (table: string) => ({
-    upsert: (payload: any) => {
-      calls.push({ table, operation: 'upsert', payload });
-      rows.set(`${table}:${payload.user_id}:${payload.id}`, {
-        id: payload.id,
-        data: payload.data,
-        is_deleted: payload.is_deleted,
-        updated_at: payload.updated_at,
-      });
-      return { error: null };
-    },
-    select: () => ({
-      eq: (_field: string, _value: string) => ({
-        eq: (_field2: string, _value2: string) => ({
-          maybeSingle: async () => ({ data: null, error: null }),
-        }),
+describe('externalMcpWrite canonical adapter', () => {
+  test('rejects undeclared arguments, including legacy compound fields that canonical actions cannot preserve', () => {
+    expect(() => prepareExternalMcpAction(tool('create_goal'), { title: 'Goal', surprise: true }, 'request-1'))
+      .toThrow('unsupported_external_argument:surprise');
+    expect(() => prepareExternalMcpAction(tool('capture_activity'), { title: 'Todo', steps: [] }, 'request-1'))
+      .toThrow('unsupported_external_argument:steps');
+  });
+
+  test('binds idempotency to the operation rather than a compatibility alias', () => {
+    const compatibilityTool = tool('capture_activity');
+    const canonicalAlias = { ...compatibilityTool, name: compatibilityTool.canonicalName };
+    expect(externalMcpIdempotencyMaterial(compatibilityTool, 'same-key'))
+      .toBe(externalMcpIdempotencyMaterial(canonicalAlias, 'same-key'));
+  });
+
+  test('returns canonical receipt fields for completed actions', async () => {
+    const result = await executeExternalMcpWrite({
+      tool: tool('capture_activity'), args: { title: 'Pack lunch', idempotency_key: 'same-request' }, requestId: 'request-1',
+      execute: async (call) => ({
+        status: 'completed', output: {},
+        receipt: { receiptId: 'receipt-1', operationId: call.toolId, resultRefs: [{ kind: 'activity', id: 'activity-1' }] },
       }),
-    }),
-  });
-
-  return { admin: { from }, calls, rows };
-}
-
-describe('externalMcpWrite helpers', () => {
-  beforeEach(() => {
-    jest.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-4000-8000-000000000001');
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  test('createGoalForUser writes a UI-compatible goal row without external-origin fields', async () => {
-    const { admin, calls } = createMockAdmin();
-
-    const result = await createGoalForUser(admin, 'user-1', {
-      title: 'Finish the launch checklist',
-      description: 'Make the last pieces visible.',
-      status: 'in_progress',
-      priority: 1,
     });
-
-    expect(result.object_type).toBe('goal');
-    const upsert = calls.find((call) => call.table === 'kwilt_goals');
-    expect(upsert?.payload).toMatchObject({
-      user_id: 'user-1',
-      id: 'goal_00000000-0000-4000-8000-000000000001',
-      is_deleted: false,
-      deleted_at: null,
-    });
-    expect(upsert?.payload.data).toMatchObject({
-      id: 'goal_00000000-0000-4000-8000-000000000001',
-      arcId: null,
-      title: 'Finish the launch checklist',
-      description: 'Make the last pieces visible.',
-      status: 'in_progress',
-      priority: 1,
-      metrics: [],
-    });
-    expect(upsert?.payload.data.creationSource).toBeUndefined();
-    expect(upsert?.payload.data.externalClientId).toBeUndefined();
-  });
-
-  test('createActivityForUser records a normal activity row and best-effort show-up event', async () => {
-    const { admin, calls } = createMockAdmin();
-
-    await createActivityForUser(admin, 'user-1', {
-      title: 'Book the appointment',
-      tags: ['home', 'home'],
-    });
-
-    const activity = calls.find((call) => call.table === 'kwilt_activities');
-    expect(activity?.payload.data).toMatchObject({
-      title: 'Book the appointment',
-      goalId: null,
-      type: 'task',
-      tags: ['home'],
-      forceActual: {
-        'force-activity': 0,
-        'force-connection': 0,
-        'force-mastery': 0,
-        'force-spirituality': 0,
+    expect(result).toEqual({
+      object_type: 'activity', object_id: 'activity-1', result_summary: 'Completed Capture To-do.',
+      structured: {
+        receipt_id: 'receipt-1', operation: 'activities.capture', status: 'completed',
+        result_references: [{ kind: 'activity', id: 'activity-1' }], confirmation: null, handoff: null,
+        summary: 'Completed Capture To-do.',
       },
     });
-    expect(calls.some((call) => call.table === 'kwilt_streak_events')).toBe(true);
   });
 
-  test('createActivityForUser normalizes provided steps into app-compatible activity steps', async () => {
-    const { admin, calls } = createMockAdmin();
-
-    await createActivityForUser(admin, 'user-1', {
-      title: 'Improve to-do organization',
-      steps: [
-        { title: 'Write the grouping brief', completed_at: '2026-06-23T12:00:00.000Z' },
-        { id: 'external-step-2', title: 'Ship the grouping controls', is_optional: true, order_index: 7 },
-        { title: 'Verify unchecked step', completed_at: null },
-        { title: '   ' },
-        'ignored',
-      ],
+  test('keeps proposal and device handoff states explicit without inventing a receipt', () => {
+    expect(projectExternalMcpWriteResult({
+      tool: tool('update_goal'), requestId: 'request-1',
+      result: { status: 'proposed', proposal: { id: 'proposal-1', status: 'pending' } },
+    }).structured).toMatchObject({
+      receipt_id: null, operation: 'goals.update', status: 'proposed',
+      confirmation: { required: true, state: 'pending', proposal_id: 'proposal-1' },
     });
-
-    const activity = calls.find((call) => call.table === 'kwilt_activities');
-    expect(activity?.payload.data.steps).toEqual([
-      {
-        id: 'step-activity_00000000-0000-4000-8000-000000000001-0',
-        title: 'Write the grouping brief',
-        completedAt: '2026-06-23T12:00:00.000Z',
-        orderIndex: 0,
-      },
-      {
-        id: 'external-step-2',
-        title: 'Ship the grouping controls',
-        isOptional: true,
-        orderIndex: 7,
-      },
-      {
-        id: 'step-activity_00000000-0000-4000-8000-000000000001-2',
-        title: 'Verify unchecked step',
-        completedAt: null,
-        orderIndex: 2,
-      },
-    ]);
-  });
-
-  test('softDeleteObjectForUser writes the same tombstone shape as domainSync', async () => {
-    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
-    const admin = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({ data: { id: 'goal-1', data: { id: 'goal-1' }, is_deleted: false }, error: null }),
-            }),
-          }),
-        }),
-        upsert: (payload: any) => {
-          calls.push({ table, operation: 'upsert', payload });
-          return { error: null };
-        },
-      }),
-    };
-
-    await softDeleteObjectForUser(admin, 'user-1', 'kwilt_goals', 'goal-1');
-
-    expect(calls[0].payload).toMatchObject({
-      user_id: 'user-1',
-      id: 'goal-1',
-      data: {},
-      is_deleted: true,
+    expect(projectExternalMcpWriteResult({
+      tool: tool('add_goal_checkin'), requestId: 'request-2',
+      result: { status: 'pending_client_action', provider: 'device', request: { actionType: 'goal_check_in' } },
+    }).structured).toMatchObject({
+      receipt_id: null, status: 'pending_client_action', handoff: { required: true, provider: 'device' },
     });
-    expect(typeof calls[0].payload.deleted_at).toBe('string');
-  });
-
-  test('updateActivityForUser marks done with the provided completion timestamp', async () => {
-    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
-    const admin = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  id: 'activity-1',
-                  data: { id: 'activity-1', title: 'Call Sam', status: 'planned', updatedAt: '2026-05-01T00:00:00.000Z' },
-                  is_deleted: false,
-                },
-                error: null,
-              }),
-            }),
-          }),
-        }),
-        upsert: (payload: any) => {
-          calls.push({ table, operation: 'upsert', payload });
-          return { error: null };
-        },
-      }),
-    };
-
-    await updateActivityForUser(admin, 'user-1', {
-      activity_id: 'activity-1',
-      status: 'done',
-      completed_at: '2026-05-13T12:00:00.000Z',
-    });
-
-    expect(calls.find((call) => call.table === 'kwilt_activities')?.payload.data).toMatchObject({
-      id: 'activity-1',
-      status: 'done',
-      completedAt: '2026-05-13T12:00:00.000Z',
-    });
-  });
-
-  test('updateActivityForUser replaces steps only when steps are provided', async () => {
-    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
-    const admin = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  id: 'activity-1',
-                  data: {
-                    id: 'activity-1',
-                    title: 'Improve to-do organization',
-                    status: 'planned',
-                    updatedAt: '2026-05-01T00:00:00.000Z',
-                    steps: [{ id: 'old-step', title: 'Old step', orderIndex: 0 }],
-                  },
-                  is_deleted: false,
-                },
-                error: null,
-              }),
-            }),
-          }),
-        }),
-        upsert: (payload: any) => {
-          calls.push({ table, operation: 'upsert', payload });
-          return { error: null };
-        },
-      }),
-    };
-
-    await updateActivityForUser(admin, 'user-1', {
-      activity_id: 'activity-1',
-      title: 'Renamed',
-    });
-    await updateActivityForUser(admin, 'user-1', {
-      activity_id: 'activity-1',
-      steps: [{ title: 'New step' }],
-    });
-    await updateActivityForUser(admin, 'user-1', {
-      activity_id: 'activity-1',
-      steps: [],
-    });
-
-    expect(calls[0].payload.data.steps).toEqual([{ id: 'old-step', title: 'Old step', orderIndex: 0 }]);
-    expect(calls[1].payload.data.steps).toEqual([
-      { id: 'step-activity-1-0', title: 'New step', orderIndex: 0 },
-    ]);
-    expect(calls[2].payload.data.steps).toEqual([]);
-  });
-
-  test('createActivityStepForUser appends one step without replacing existing steps', async () => {
-    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
-    const admin = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  id: 'activity-1',
-                  data: {
-                    id: 'activity-1',
-                    title: 'Launch prep',
-                    steps: [{ id: 'step-1', title: 'Draft', orderIndex: 0 }],
-                  },
-                  is_deleted: false,
-                },
-                error: null,
-              }),
-            }),
-          }),
-        }),
-        upsert: (payload: any) => {
-          calls.push({ table, operation: 'upsert', payload });
-          return { error: null };
-        },
-      }),
-    };
-
-    const result = await createActivityStepForUser(admin, 'user-1', {
-      activity_id: 'activity-1',
-      title: 'Review',
-      is_optional: true,
-    });
-
-    expect(result.structured.step_id).toEqual('step-activity-1-00000000-0000-4000-8000-000000000001');
-    expect(calls[0].payload.data.steps).toEqual([
-      { id: 'step-1', title: 'Draft', orderIndex: 0 },
-      {
-        id: 'step-activity-1-00000000-0000-4000-8000-000000000001',
-        title: 'Review',
-        isOptional: true,
-        orderIndex: 1,
-      },
-    ]);
-  });
-
-  test('updateActivityStepForUser patches one step and preserves the others', async () => {
-    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
-    const admin = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  id: 'activity-1',
-                  data: {
-                    id: 'activity-1',
-                    steps: [
-                      { id: 'step-1', title: 'Draft', orderIndex: 0 },
-                      { id: 'step-2', title: 'Review', orderIndex: 1 },
-                    ],
-                  },
-                  is_deleted: false,
-                },
-                error: null,
-              }),
-            }),
-          }),
-        }),
-        upsert: (payload: any) => {
-          calls.push({ table, operation: 'upsert', payload });
-          return { error: null };
-        },
-      }),
-    };
-
-    await updateActivityStepForUser(admin, 'user-1', {
-      activity_id: 'activity-1',
-      step_id: 'step-2',
-      title: 'Review with Sam',
-      completed_at: null,
-      order_index: 4,
-    });
-
-    expect(calls[0].payload.data.steps).toEqual([
-      { id: 'step-1', title: 'Draft', orderIndex: 0 },
-      { id: 'step-2', title: 'Review with Sam', completedAt: null, orderIndex: 4 },
-    ]);
-  });
-
-  test('markActivityStepDoneForUser completes only the requested step', async () => {
-    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
-    const admin = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  id: 'activity-1',
-                  data: {
-                    id: 'activity-1',
-                    steps: [
-                      { id: 'step-1', title: 'Draft', orderIndex: 0 },
-                      { id: 'step-2', title: 'Review', orderIndex: 1 },
-                    ],
-                  },
-                  is_deleted: false,
-                },
-                error: null,
-              }),
-            }),
-          }),
-        }),
-        upsert: (payload: any) => {
-          calls.push({ table, operation: 'upsert', payload });
-          return { error: null };
-        },
-      }),
-    };
-
-    await markActivityStepDoneForUser(admin, 'user-1', {
-      activity_id: 'activity-1',
-      step_id: 'step-1',
-      completed_at: '2026-06-25T12:00:00.000Z',
-    });
-
-    expect(calls[0].payload.data.steps).toEqual([
-      { id: 'step-1', title: 'Draft', completedAt: '2026-06-25T12:00:00.000Z', orderIndex: 0 },
-      { id: 'step-2', title: 'Review', orderIndex: 1 },
-    ]);
-  });
-
-  test('deleteActivityStepForUser removes only the requested step', async () => {
-    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
-    const admin = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  id: 'activity-1',
-                  data: {
-                    id: 'activity-1',
-                    steps: [
-                      { id: 'step-1', title: 'Draft', orderIndex: 0 },
-                      { id: 'step-2', title: 'Review', orderIndex: 1 },
-                    ],
-                  },
-                  is_deleted: false,
-                },
-                error: null,
-              }),
-            }),
-          }),
-        }),
-        upsert: (payload: any) => {
-          calls.push({ table, operation: 'upsert', payload });
-          return { error: null };
-        },
-      }),
-    };
-
-    await deleteActivityStepForUser(admin, 'user-1', {
-      activity_id: 'activity-1',
-      step_id: 'step-1',
-    });
-
-    expect(calls[0].payload.data.steps).toEqual([{ id: 'step-2', title: 'Review', orderIndex: 0 }]);
-  });
-
-  test('reorderActivityStepsForUser reorders listed steps and appends omitted steps', async () => {
-    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
-    const admin = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  id: 'activity-1',
-                  data: {
-                    id: 'activity-1',
-                    steps: [
-                      { id: 'step-1', title: 'Draft', orderIndex: 0 },
-                      { id: 'step-2', title: 'Review', orderIndex: 1 },
-                      { id: 'step-3', title: 'Ship', orderIndex: 2 },
-                    ],
-                  },
-                  is_deleted: false,
-                },
-                error: null,
-              }),
-            }),
-          }),
-        }),
-        upsert: (payload: any) => {
-          calls.push({ table, operation: 'upsert', payload });
-          return { error: null };
-        },
-      }),
-    };
-
-    await reorderActivityStepsForUser(admin, 'user-1', {
-      activity_id: 'activity-1',
-      step_ids: ['step-3', 'step-1'],
-    });
-
-    expect(calls[0].payload.data.steps).toEqual([
-      { id: 'step-3', title: 'Ship', orderIndex: 0 },
-      { id: 'step-1', title: 'Draft', orderIndex: 1 },
-      { id: 'step-2', title: 'Review', orderIndex: 2 },
-    ]);
   });
 });

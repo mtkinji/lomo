@@ -108,16 +108,12 @@ describe('externalMcp helpers', () => {
       }
     });
 
-    test('advertises steps on activity create and update tools', () => {
+    test('keeps compound step replacement out of activity create and update tools', () => {
       const capture = EXTERNAL_MCP_WRITE_TOOLS.find((tool) => tool.name === 'capture_activity');
       const update = EXTERNAL_MCP_WRITE_TOOLS.find((tool) => tool.name === 'update_activity');
 
-      expect((capture?.inputSchema as any).properties.steps).toMatchObject({
-        type: 'array',
-      });
-      expect((update?.inputSchema as any).properties.steps).toMatchObject({
-        type: 'array',
-      });
+      expect((capture?.inputSchema as any).properties.steps).toBeUndefined();
+      expect((update?.inputSchema as any).properties.steps).toBeUndefined();
     });
 
     test('advertises first-class activity step tools', () => {

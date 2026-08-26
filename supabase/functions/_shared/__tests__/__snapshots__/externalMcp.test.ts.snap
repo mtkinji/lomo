@@ -676,36 +676,6 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           ],
           "type": "string",
         },
-        "steps": {
-          "items": {
-            "additionalProperties": false,
-            "properties": {
-              "completed_at": {
-                "type": [
-                  "string",
-                  "null",
-                ],
-              },
-              "id": {
-                "type": "string",
-              },
-              "is_optional": {
-                "type": "boolean",
-              },
-              "order_index": {
-                "type": "integer",
-              },
-              "title": {
-                "type": "string",
-              },
-            },
-            "required": [
-              "title",
-            ],
-            "type": "object",
-          },
-          "type": "array",
-        },
         "tags": {
           "items": {
             "type": "string",
@@ -791,36 +761,6 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
           ],
           "type": "string",
         },
-        "steps": {
-          "items": {
-            "additionalProperties": false,
-            "properties": {
-              "completed_at": {
-                "type": [
-                  "string",
-                  "null",
-                ],
-              },
-              "id": {
-                "type": "string",
-              },
-              "is_optional": {
-                "type": "boolean",
-              },
-              "order_index": {
-                "type": "integer",
-              },
-              "title": {
-                "type": "string",
-              },
-            },
-            "required": [
-              "title",
-            ],
-            "type": "object",
-          },
-          "type": "array",
-        },
         "tags": {
           "items": {
             "type": "string",
@@ -865,24 +805,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
         "activity_id": {
           "type": "string",
         },
-        "completed_at": {
-          "type": [
-            "string",
-            "null",
-          ],
-        },
-        "id": {
-          "type": "string",
-        },
         "idempotency_key": {
           "description": "Optional stable key for safely retrying the same write without creating duplicates.",
           "type": "string",
         },
         "is_optional": {
           "type": "boolean",
-        },
-        "order_index": {
-          "type": "integer",
         },
         "title": {
           "type": "string",
@@ -920,21 +848,12 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
         "activity_id": {
           "type": "string",
         },
-        "completed_at": {
-          "type": [
-            "string",
-            "null",
-          ],
-        },
         "idempotency_key": {
           "description": "Optional stable key for safely retrying the same write without creating duplicates.",
           "type": "string",
         },
         "is_optional": {
           "type": "boolean",
-        },
-        "order_index": {
-          "type": "integer",
         },
         "step_id": {
           "type": "string",
@@ -973,9 +892,6 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "additionalProperties": false,
       "properties": {
         "activity_id": {
-          "type": "string",
-        },
-        "completed_at": {
           "type": "string",
         },
         "idempotency_key": {
@@ -1101,9 +1017,6 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
         "activity_id": {
           "type": "string",
         },
-        "completed_at": {
-          "type": "string",
-        },
         "idempotency_key": {
           "description": "Optional stable key for safely retrying the same write without creating duplicates.",
           "type": "string",
@@ -1138,9 +1051,6 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "additionalProperties": false,
       "properties": {
         "activity_id": {
-          "type": "string",
-        },
-        "date": {
           "type": "string",
         },
         "idempotency_key": {

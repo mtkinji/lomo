@@ -29,26 +29,9 @@ type LegacyExternalMcpToolDefinition = Pick<
   'name' | 'description' | 'scope' | 'inputSchema' | 'annotations'
 >;
 
-const ACTIVITY_STEP_SCHEMA: JsonObject = {
-  type: 'array',
-  items: {
-    type: 'object',
-    properties: {
-      id: { type: 'string' },
-      title: { type: 'string' },
-      completed_at: { type: ['string', 'null'] },
-      is_optional: { type: 'boolean' },
-      order_index: { type: 'integer' },
-    },
-    required: ['title'],
-  },
-};
-
 const ACTIVITY_STEP_PATCH_PROPERTIES: JsonObject = {
   title: { type: 'string' },
-  completed_at: { type: ['string', 'null'] },
   is_optional: { type: 'boolean' },
-  order_index: { type: 'integer' },
 };
 
 function readOnlyAnnotations(title: string) {
@@ -316,7 +299,6 @@ const LEGACY_EXTERNAL_MCP_WRITE_TOOLS: LegacyExternalMcpToolDefinition[] = [
         type: { type: 'string' },
         status: { type: 'string', enum: ['planned', 'in_progress', 'done', 'skipped', 'cancelled'] },
         tags: { type: 'array', items: { type: 'string' } },
-        steps: ACTIVITY_STEP_SCHEMA,
         priority: { type: 'integer', enum: [1, 2, 3] },
         scheduled_date: { type: ['string', 'null'] },
       },
@@ -339,7 +321,6 @@ const LEGACY_EXTERNAL_MCP_WRITE_TOOLS: LegacyExternalMcpToolDefinition[] = [
         type: { type: 'string' },
         status: { type: 'string', enum: ['planned', 'in_progress', 'done', 'skipped', 'cancelled'] },
         tags: { type: 'array', items: { type: 'string' } },
-        steps: ACTIVITY_STEP_SCHEMA,
         priority: { type: ['integer', 'null'], enum: [1, 2, 3, null] },
         scheduled_date: { type: ['string', 'null'] },
       },
@@ -356,11 +337,8 @@ const LEGACY_EXTERNAL_MCP_WRITE_TOOLS: LegacyExternalMcpToolDefinition[] = [
       properties: {
         activity_id: { type: 'string' },
         idempotency_key: IDEMPOTENCY_PROPERTY,
-        id: { type: 'string' },
         title: { type: 'string' },
-        completed_at: { type: ['string', 'null'] },
         is_optional: { type: 'boolean' },
-        order_index: { type: 'integer' },
       },
       required: ['activity_id', 'title'],
     },
@@ -392,7 +370,6 @@ const LEGACY_EXTERNAL_MCP_WRITE_TOOLS: LegacyExternalMcpToolDefinition[] = [
         activity_id: { type: 'string' },
         step_id: { type: 'string' },
         idempotency_key: IDEMPOTENCY_PROPERTY,
-        completed_at: { type: 'string' },
       },
       required: ['activity_id', 'step_id'],
     },
@@ -437,7 +414,6 @@ const LEGACY_EXTERNAL_MCP_WRITE_TOOLS: LegacyExternalMcpToolDefinition[] = [
       properties: {
         activity_id: { type: 'string' },
         idempotency_key: IDEMPOTENCY_PROPERTY,
-        completed_at: { type: 'string' },
       },
       required: ['activity_id'],
     },
@@ -452,7 +428,6 @@ const LEGACY_EXTERNAL_MCP_WRITE_TOOLS: LegacyExternalMcpToolDefinition[] = [
       properties: {
         activity_id: { type: 'string' },
         idempotency_key: IDEMPOTENCY_PROPERTY,
-        date: { type: 'string' },
       },
       required: ['activity_id'],
     },

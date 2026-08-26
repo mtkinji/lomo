@@ -20,26 +20,14 @@ import {
   summarizeShowUpStatus,
 } from '../_shared/externalMcp.ts';
 import {
-  addGoalCheckinForUser,
-  createActivityStepForUser,
-  createActivityForUser,
-  createArcForUser,
-  createGoalForUser,
-  deleteActivityForUser,
-  deleteActivityStepForUser,
-  deleteArcForUser,
-  deleteGoalForUser,
-  markActivityStepDoneForUser,
-  markActivityDoneForUser,
-  reorderActivityStepsForUser,
-  setFocusTodayForUser,
-  updateActivityStepForUser,
-  updateActivityForUser,
-  updateArcForUser,
-  updateChapterUserNoteForUser,
-  updateGoalForUser,
+  executeExternalMcpWrite,
+  externalMcpIdempotencyMaterial,
   type ExternalWriteResult,
 } from '../_shared/externalMcpWrite.ts';
+import { SERVER_AGENT_TOOL_CATALOG } from '../_shared/serverAgentCatalog.ts';
+import { executeServerAgentTool } from '../_shared/serverAgentTools.ts';
+import { createServiceAgentRunPersistence } from '../_shared/serviceAgentRunPersistence.ts';
+import type { ServerAgentToolCall, ServerAgentToolResult } from '../_shared/agentRuntime.ts';
 import {
   buildAuthorizationServerMetadata,
   buildClientRegistrationResponse,
@@ -67,6 +55,7 @@ type ExternalTokenContext = {
   scope: string;
   tokenId: string;
 };
+type ExternalServiceClient = Parameters<typeof createServiceAgentRunPersistence>[0]['admin'];
 
 const MCP_PROTOCOL_VERSION = '2024-11-05';
 const ALL_EXTERNAL_MCP_TOOLS = [...EXTERNAL_MCP_READ_TOOLS, ...EXTERNAL_MCP_WRITE_TOOLS];
@@ -178,9 +167,8 @@ function hasScope(context: ExternalTokenContext, scope: 'read' | 'write'): boole
   return scopeSet(context.scope).has(scope);
 }
 
-function getToolScope(name: string): 'read' | 'write' | null {
-  const tool = ALL_EXTERNAL_MCP_TOOLS.find((candidate) => candidate.name === name);
-  return tool?.scope === 'write' ? 'write' : tool ? 'read' : null;
+function getExternalTool(name: string) {
+  return ALL_EXTERNAL_MCP_TOOLS.find((candidate) => candidate.name === name) ?? null;
 }
 
 function getIdempotencyKey(args: unknown): string | null {
@@ -510,7 +498,12 @@ async function handleReadTool(admin: any, context: ExternalTokenContext, name: s
   throw new Error('unknown_tool');
 }
 
-async function findIdempotentWrite(admin: any, context: ExternalTokenContext, idempotencyKeyHash: string): Promise<JsonObject | null> {
+async function findIdempotentWrite(
+  admin: any,
+  context: ExternalTokenContext,
+  tool: (typeof ALL_EXTERNAL_MCP_TOOLS)[number],
+  idempotencyKeyHash: string,
+): Promise<JsonObject | null> {
   const { data } = await admin
     .from('kwilt_external_capture_log')
     .select('object_type,object_id,result_summary,result_status')
@@ -521,55 +514,99 @@ async function findIdempotentWrite(admin: any, context: ExternalTokenContext, id
     .maybeSingle();
   const row = data as any;
   if (!row?.object_type || !row?.object_id) return null;
+  const objectType = String(row.object_type);
+  const objectId = String(row.object_id);
+  const status = objectType === 'proposal' ? 'proposed'
+    : objectType === 'client_action' ? 'pending_client_action'
+      : 'completed';
+  const summary = asString(row.result_summary) ?? 'Already completed.';
   return {
+    receipt_id: null,
+    operation: tool.operationId,
+    status,
+    result_references: status === 'completed' ? [{ kind: objectType, id: objectId }] : [],
+    confirmation: status === 'proposed' ? { required: true, state: 'pending', proposal_id: objectId } : null,
+    handoff: status === 'pending_client_action' ? { required: true, provider: 'device' } : null,
+    summary,
     idempotent_replay: true,
-    object_type: String(row.object_type),
-    object_id: String(row.object_id),
-    result_summary: asString(row.result_summary) ?? 'Already completed.',
+    object_type: objectType,
+    object_id: objectId,
+    result_summary: summary,
   };
 }
 
-async function handleWriteTool(admin: any, context: ExternalTokenContext, name: string, args: unknown): Promise<ExternalWriteResult> {
-  switch (name) {
-    case 'create_arc':
-      return createArcForUser(admin, context.userId, args);
-    case 'update_arc':
-      return updateArcForUser(admin, context.userId, args);
-    case 'delete_arc':
-      return deleteArcForUser(admin, context.userId, args);
-    case 'create_goal':
-      return createGoalForUser(admin, context.userId, args);
-    case 'update_goal':
-      return updateGoalForUser(admin, context.userId, args);
-    case 'delete_goal':
-      return deleteGoalForUser(admin, context.userId, args);
-    case 'add_goal_checkin':
-      return addGoalCheckinForUser(admin, context.userId, args);
-    case 'capture_activity':
-      return createActivityForUser(admin, context.userId, args);
-    case 'update_activity':
-      return updateActivityForUser(admin, context.userId, args);
-    case 'create_activity_step':
-      return createActivityStepForUser(admin, context.userId, args);
-    case 'update_activity_step':
-      return updateActivityStepForUser(admin, context.userId, args);
-    case 'mark_activity_step_done':
-      return markActivityStepDoneForUser(admin, context.userId, args);
-    case 'delete_activity_step':
-      return deleteActivityStepForUser(admin, context.userId, args);
-    case 'reorder_activity_steps':
-      return reorderActivityStepsForUser(admin, context.userId, args);
-    case 'mark_activity_done':
-      return markActivityDoneForUser(admin, context.userId, args);
-    case 'set_focus_today':
-      return setFocusTodayForUser(admin, context.userId, args);
-    case 'delete_activity':
-      return deleteActivityForUser(admin, context.userId, args);
-    case 'update_chapter_user_note':
-      return updateChapterUserNoteForUser(admin, context.userId, args);
-    default:
-      throw new Error('unknown_tool');
+function serverResultSummary(toolTitle: string, result: ServerAgentToolResult): string {
+  if (result.status === 'completed') return `${toolTitle} completed.`;
+  if (result.status === 'proposed') return `${toolTitle} is ready for review in Kwilt.`;
+  if (result.status === 'pending_client_action') return `${toolTitle} is ready to continue in Kwilt.`;
+  if (result.status === 'needs_input') return result.prompt;
+  if (result.status === 'unavailable') return result.reason;
+  return result.message;
+}
+
+async function executeCanonicalExternalTool(
+  admin: ExternalServiceClient,
+  context: ExternalTokenContext,
+  externalTool: (typeof ALL_EXTERNAL_MCP_TOOLS)[number],
+  call: ServerAgentToolCall,
+): Promise<ServerAgentToolResult> {
+  const tool = SERVER_AGENT_TOOL_CATALOG.find((candidate) => candidate.id === call.toolId);
+  if (!tool) throw new Error('canonical_server_tool_unavailable');
+  const persistence = createServiceAgentRunPersistence({ admin, userId: context.userId });
+  const request = {
+    channel: 'external' as const,
+    requestId: call.id,
+    prompt: `External connector requested ${externalTool.operationId}.`,
+    threadId: null,
+    initiator: 'user' as const,
+    triggerKind: 'user_message' as const,
+    triggerId: call.id,
+    channelContext: { externalMessageId: call.id },
+  };
+  const run = await persistence.enqueue(request);
+  if (run.replayed) throw new Error('external_action_in_progress_or_completed');
+  const activeVersion = await persistence.start(run, request);
+  try {
+    const result = await executeServerAgentTool({
+      client: admin,
+      userId: context.userId,
+      call,
+      tool,
+      writeContext: { threadId: run.threadId, runId: run.runId, messageId: run.messageId },
+      actionSource: 'mcp',
+      stageDeviceAction: (action) => persistence.stageClientAction({ run, callId: call.id, action }),
+      stageProposal: (proposal) => persistence.stageProposal({ run, callId: call.id, proposal }),
+      stageProposals: (proposals) => persistence.stageProposals({ run, callId: call.id, proposals }),
+      timeZone: 'UTC',
+    });
+    await persistence.complete({
+      run,
+      expectedVersion: activeVersion,
+      body: serverResultSummary(externalTool.annotations.title, result),
+      status: result.status === 'failed' || result.status === 'unavailable' ? 'partial' : 'complete',
+      participatingCapabilities: [tool.capabilityId],
+      requestClass: 'capability_question',
+    });
+    return result;
+  } catch (error) {
+    await persistence.fail({ run, expectedVersion: activeVersion, code: 'external_action_failed', request });
+    throw error;
   }
+}
+
+async function handleWriteTool(
+  admin: any,
+  context: ExternalTokenContext,
+  tool: (typeof ALL_EXTERNAL_MCP_TOOLS)[number],
+  args: unknown,
+  requestId: string,
+): Promise<ExternalWriteResult> {
+  return executeExternalMcpWrite({
+    tool,
+    args,
+    requestId,
+    execute: (call) => executeCanonicalExternalTool(admin, context, tool, call),
+  });
 }
 
 async function handleRegister(req: Request) {
@@ -876,20 +913,31 @@ async function handleMcp(req: Request) {
   const name = asString(params.name);
   const args = params.arguments ?? {};
   if (!name) return json(200, rpcError(id, -32602, 'Missing tool name'));
-  const toolScope = getToolScope(name);
-  if (!toolScope) return json(200, rpcError(id, -32601, `Unknown tool: ${name}`));
+  const externalTool = getExternalTool(name);
+  const toolScope = externalTool?.scope ?? null;
+  if (!externalTool || !toolScope) return json(200, rpcError(id, -32601, `Unknown tool: ${name}`));
   if (!hasScope(auth.context, toolScope)) return json(200, rpcError(id, -32000, `${toolScope} scope required`));
 
   try {
     const idempotencyKey = toolScope === 'write' ? getIdempotencyKey(args) : null;
-    const idempotencyKeyHash = idempotencyKey ? await sha256Hex(`${name}:${idempotencyKey}`) : null;
-    const replay = idempotencyKeyHash ? await findIdempotentWrite(auth.admin, auth.context, idempotencyKeyHash) : null;
+    const idempotencyKeyHash = idempotencyKey
+      ? await sha256Hex(externalMcpIdempotencyMaterial(externalTool, idempotencyKey))
+      : null;
+    const replay = idempotencyKeyHash
+      ? await findIdempotentWrite(auth.admin, auth.context, externalTool, idempotencyKeyHash)
+      : null;
     const writeResult = toolScope === 'write' && !replay
-      ? await handleWriteTool(auth.admin, auth.context, name, args)
+      ? await handleWriteTool(
+        auth.admin,
+        auth.context,
+        externalTool,
+        args,
+        idempotencyKeyHash ? `mcp-${idempotencyKeyHash.slice(0, 64)}` : `mcp-${crypto.randomUUID()}`,
+      )
       : null;
     const finalResult = replay ?? (writeResult ? writeResult.structured : await handleReadTool(auth.admin, auth.context, name, args));
     await auditToolCall(auth.admin, auth.context, {
-      toolName: name,
+      toolName: externalTool.canonicalName,
       toolKind: toolScope,
       scopeUsed: toolScope,
       args,
@@ -907,7 +955,9 @@ async function handleMcp(req: Request) {
       event: 'ExternalToolCalled',
       properties: {
         surface: auth.context.surface,
-        tool_name: name,
+        tool_name: externalTool.canonicalName,
+        compatibility_alias: name,
+        operation: externalTool.operationId,
         tool_kind: toolScope,
         scope_used: toolScope,
         success: true,
@@ -917,7 +967,7 @@ async function handleMcp(req: Request) {
   } catch (error) {
     const errorCode = error instanceof Error ? error.message : 'tool_failed';
     await auditToolCall(auth.admin, auth.context, {
-      toolName: name,
+      toolName: externalTool.canonicalName,
       toolKind: toolScope,
       scopeUsed: toolScope,
       args,
@@ -932,14 +982,18 @@ async function handleMcp(req: Request) {
       event: 'ExternalToolCalled',
       properties: {
         surface: auth.context.surface,
-        tool_name: name,
+        tool_name: externalTool.canonicalName,
+        compatibility_alias: name,
+        operation: externalTool.operationId,
         tool_kind: toolScope,
         scope_used: toolScope,
         success: false,
         error_code: errorCode,
       },
     });
-    return json(200, rpcError(id, errorCode.startsWith('missing_') ? -32602 : -32000, errorCode));
+    const invalidArguments = errorCode.startsWith('missing_') || errorCode.startsWith('unsupported_external_argument:')
+      || errorCode === 'activity_steps_require_step_tools' || errorCode === 'use_specific_activity_step_tool';
+    return json(200, rpcError(id, invalidArguments ? -32602 : -32000, errorCode));
   }
 }
 
