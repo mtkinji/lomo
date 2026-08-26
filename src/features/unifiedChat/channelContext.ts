@@ -1,5 +1,6 @@
 import {
   buildKwiltChannelContext,
+  KWILT_CHANNEL_CONTEXT_SCHEMA_VERSION,
   type KwiltChannelContextPacket,
 } from '../../../packages/kwilt-agent-runtime/src/channelContext';
 import type { UnifiedChatAttachment } from './unifiedChatAttachmentPolicy';
@@ -66,4 +67,5 @@ export function buildMobileTurnChannelContext({
   });
 }
 
+export { KWILT_CHANNEL_CONTEXT_SCHEMA_VERSION };
 export type { KwiltChannelContextPacket };

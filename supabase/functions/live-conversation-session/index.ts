@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   buildLiveConversationSafetyIdentifier,
-  buildOpenAiLiveTranscriptionClientSecretRequest,
+  buildOpenAiLiveConversationClientSecretRequest,
   extractEphemeralClientSecret,
   parseLiveConversationSessionRequest,
   summarizeOpenAiError,
@@ -40,7 +40,8 @@ serve(async (req) => {
   const safetySecret = Deno.env.get('LIVE_CONVERSATION_SAFETY_SECRET')?.trim() ?? openAiKey;
   if (!openAiKey || !safetySecret) return json(503, { error: { code: 'provider_unavailable', message: 'Conversation mode is unavailable.' } });
 
-  const model = Deno.env.get('OPENAI_LIVE_TRANSCRIPTION_MODEL')?.trim() || 'gpt-live-transcribe';
+  const model = 'gpt-realtime-2.1';
+  const transcriptionModel = Deno.env.get('OPENAI_LIVE_TRANSCRIPTION_MODEL')?.trim() || 'gpt-live-transcribe';
   const safetyIdentifier = await buildLiveConversationSafetyIdentifier(data.user.id, safetySecret);
   const upstream = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
     method: 'POST',
@@ -49,13 +50,15 @@ serve(async (req) => {
       'Content-Type': 'application/json',
       'OpenAI-Safety-Identifier': safetyIdentifier,
     },
-    body: JSON.stringify(buildOpenAiLiveTranscriptionClientSecretRequest({ model, locale: parsed.locale })),
+    body: JSON.stringify(buildOpenAiLiveConversationClientSecretRequest({
+      model, transcriptionModel, locale: parsed.locale,
+    })),
   });
   const upstreamBody: unknown = await upstream.json().catch(() => null);
   const clientSecret = extractEphemeralClientSecret(upstreamBody);
   if (!upstream.ok || !clientSecret) {
     const diagnostic = summarizeOpenAiError(upstreamBody);
-    console.error('OpenAI live transcription session rejected', {
+    console.error('OpenAI live conversation session rejected', {
       status: upstream.status,
       ...diagnostic,
     });

@@ -24,24 +24,61 @@ export async function buildLiveConversationSafetyIdentifier(userId: string, secr
   return `kwilt_${[...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 48)}`;
 }
 
-export function buildOpenAiLiveTranscriptionClientSecretRequest(input: {
+export function buildOpenAiLiveConversationClientSecretRequest(input: {
   model: string;
+  transcriptionModel: string;
   locale?: string;
 }) {
   return {
     session: {
-      type: 'transcription',
+      type: 'realtime',
+      model: input.model,
+      instructions: [
+        'You are Kwilt Conversation Mode. Keep spoken responses concise and warm.',
+        'For every user request, call kwilt.run exactly once before giving a final answer.',
+        'Pass only the current Realtime input item id and channel context version 1.',
+        'Never invent, paraphrase, or pass transcript text as a tool argument.',
+        'The tool result is authoritative. Read its terminal message without claiming any action beyond that result.',
+      ].join(' '),
+      output_modalities: ['audio'],
       audio: {
         input: {
           transcription: {
-            model: input.model,
+            model: input.transcriptionModel,
             ...(input.locale ? { languages: [input.locale.split('-')[0].toLowerCase()] } : {}),
           },
           turn_detection: {
             type: 'server_vad',
+            create_response: true,
+            interrupt_response: true,
           },
         },
+        output: {
+          voice: 'marin',
+        },
       },
+      tools: [{
+        type: 'function',
+        name: 'kwilt.run',
+        description: 'Submit the current finalized user utterance to Kwilt durable Chat and wait for its authoritative result.',
+        parameters: {
+          type: 'object',
+          properties: {
+            realtimeItemId: {
+              type: 'string',
+              description: 'The OpenAI Realtime conversation item id for the current user utterance.',
+            },
+            channelContextVersion: {
+              type: 'integer',
+              enum: [1],
+              description: 'The Kwilt channel context schema version.',
+            },
+          },
+          required: ['realtimeItemId', 'channelContextVersion'],
+          additionalProperties: false,
+        },
+      }],
+      tool_choice: 'required',
     },
   };
 }

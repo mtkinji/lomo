@@ -3,6 +3,7 @@ import path from 'node:path';
 
 const featureDir = path.resolve(__dirname);
 const screenSource = readFileSync(path.join(featureDir, 'UnifiedChatScreen.tsx'), 'utf8');
+const realtimeRequestSource = readFileSync(path.join(featureDir, 'runDurableRealtimeRequest.ts'), 'utf8');
 const drawerHeaderSource = readFileSync(path.join(featureDir, 'UnifiedChatDrawerHeader.tsx'), 'utf8');
 const screenPropsSource = readFileSync(path.join(featureDir, 'UnifiedChatScreenProps.ts'), 'utf8');
 const contextualPresentationSource = readFileSync(
@@ -292,6 +293,17 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain("message = 'Conversation connection ended. Try again.'");
     expect(screenSource).not.toContain('Check your microphone or connection');
     expect(screenSource).toContain("setVoice({ state: 'error'");
+  });
+
+  test('routes the single Realtime tool through the existing durable Chat request', () => {
+    expect(screenSource).toContain('onDurableRun: (request) => durableRealtimeRunRef.current(request)');
+    expect(realtimeRequestSource).toContain('buildFinalizedConversationRunMessage({');
+    expect(realtimeRequestSource).toContain('candidate.triggerId === message.requestId');
+    expect(realtimeRequestSource).toContain('request.channelContextVersion !== KWILT_CHANNEL_CONTEXT_SCHEMA_VERSION');
+    expect(screenSource).toContain('liveConversation.current?.cancelResponse()');
+    expect(screenSource).toContain('liveConversation.current?.usesRealtimeSpeech');
+    expect(realtimeRequestSource).toContain('isDurableRealtimeStopUtterance(request.transcript)');
+    expect(screenSource).toContain("transitionServerOwnedRun(runId, { type: 'stop' })");
   });
 
   test('offers a local full-chat copy from the conversation options menu', () => {

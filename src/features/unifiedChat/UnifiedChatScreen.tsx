@@ -28,10 +28,11 @@ import {
   runDurableMobileChatTurn,
   transitionDurableMobileChatRun,
 } from './durableMobileChatTurn';
-import { buildMobileTurnChannelContext } from './channelContext';
+import {
+  buildMobileTurnChannelContext,
+} from './channelContext';
 import { getUnifiedChatConfig } from './unifiedChatConfig';
 import { makeAgentWorkbenchHostMessage, parseAgentWorkbenchSurfaceMessage } from './workbenchProtocol';
-import { buildFinalizedConversationRunMessage } from './finalizedConversationTurn';
 import {
   useCapabilityMenuActions,
   useCapabilityMenuOpen,
@@ -108,11 +109,16 @@ import {
 import { appendUnifiedChatVoiceLevel } from './unifiedChatVoiceMetering';
 import { startLiveConversationSession, type LiveConversationConnection } from '../liveConversation/liveConversationSessionClient';
 import { sweepLegacyCookVoiceCacheOnce } from '../../capabilities/recipes/voice/cookVoiceCacheCleanup';
-import { conversationProgressSpeech, liveConversationSpeech } from '../liveConversation/conversationSpeechRuntime';
+import { conversationProgressSpeech, liveConversationSpeechFallback } from '../liveConversation/conversationSpeechRuntime';
 import { conversationActivationFeedback } from '../liveConversation/conversationActivationFeedbackRuntime';
 import type { ConversationProgressCueId } from '../liveConversation/conversationProgressCue';
 import { createConversationLatencyTracker, type ActiveConversationLatency } from '../liveConversation/conversationLatency';
 import { createConversationTurnFinalizer } from '../liveConversation/conversationTurnFinalizer';
+import type {
+  DurableRealtimeRunRequest,
+  DurableRealtimeToolResult,
+} from '../liveConversation/durableRealtimeTool';
+import { runDurableRealtimeRequest } from './runDurableRealtimeRequest';
 import {
   insertUnifiedChatTranscriptAtSelection,
   type UnifiedChatVoiceInsertion,
@@ -232,7 +238,6 @@ export function UnifiedChatScreen({
   const moneyRepository = useMemo(() => createMoneyRepository(), []);
   const webViewRef = useRef<WebView>(null);
   const handledRequestIds = useRef(new Set<string>());
-  const submittedConversationUtteranceIds = useRef(new Set<string>());
   const freshFirstSendRequestIdRef = useRef<string | null>(null);
   const freshEntrySentRef = useRef(false);
   const freshThreadGateRef = useRef<{
@@ -255,6 +260,21 @@ export function UnifiedChatScreen({
   const conversationAssistantSpeechActiveRef = useRef(false);
   const conversationInterruptedRef = useRef(false);
   const conversationSpeechStoppedAtRef = useRef('');
+  const finalizedConversationUtteranceRef = useRef<{
+    id: string;
+    text: string;
+    sessionId: string;
+    source: 'provider_final' | 'frozen_provisional';
+    locale: string;
+    interrupted: boolean;
+    speechStoppedAt: string;
+    finalizedAt: string;
+  } | null>(null);
+  const durableRealtimeRunRef = useRef<(
+    request: DurableRealtimeRunRequest,
+  ) => Promise<DurableRealtimeToolResult>>(async () => ({
+    status: 'needs_input', message: 'Kwilt Chat is not ready yet.',
+  }));
   const [threads, setThreads] = useState<UnifiedChatThread[]>([]);
   const [aggregate, setAggregate] = useState<UnifiedChatThreadAggregate | null>(null);
   const [streamingResponse, setStreamingResponse] = useState<{ runId: string; text: string } | null>(null);
@@ -300,8 +320,7 @@ export function UnifiedChatScreen({
         }
         conversationAssistantCountRef.current = aggregateRef.current?.messages
           .filter((item) => item.role === 'assistant').length ?? 0;
-        setVoice((current) => ({ ...current, state: 'thinking', provisionalTranscript: '',
-          finalizedUtterance: {
+        const finalizedUtterance = {
             id: itemId,
             text: transcript,
             sessionId: liveConversation.current?.sessionId ?? 'live-unavailable',
@@ -310,7 +329,10 @@ export function UnifiedChatScreen({
             interrupted: conversationInterruptedRef.current,
             speechStoppedAt: conversationSpeechStoppedAtRef.current,
             finalizedAt: new Date().toISOString(),
-          },
+          } as const;
+        finalizedConversationUtteranceRef.current = finalizedUtterance;
+        setVoice((current) => ({ ...current, state: 'thinking', provisionalTranscript: '',
+          finalizedUtterance,
           message: 'Thinking…',
         }));
       },
@@ -559,7 +581,7 @@ export function UnifiedChatScreen({
     conversationTurnFinalizerRef.current?.reset();
     conversationActivationFeedback.cancel();
     conversationProgressSpeech.stop();
-    void liveConversationSpeech.stop();
+    void liveConversationSpeechFallback.stop();
   }, [clearVoiceTimer]);
 
   const stopConversation = useCallback(async () => {
@@ -572,7 +594,7 @@ export function UnifiedChatScreen({
     conversationProgressHistoryRef.current = [];
     conversationProgressSpeech.stop();
     publishConversationLatency('interrupted', true);
-    await Promise.all([current?.stop(), liveConversationSpeech.stop()]);
+    await Promise.all([current?.stop(), liveConversationSpeechFallback.stop()]);
     setVoice({ state: 'idle', elapsedSeconds: 0, levels: [] });
   }, [clearVoiceTimer, publishConversationLatency]);
 
@@ -583,7 +605,7 @@ export function UnifiedChatScreen({
     conversationTurnFinalizerRef.current?.reset();
     conversationActivationFeedback.fail();
     conversationProgressSpeech.stop();
-    void Promise.all([failedConnection?.stop(), liveConversationSpeech.stop()]);
+    void Promise.all([failedConnection?.stop(), liveConversationSpeechFallback.stop()]);
     setVoice({ state: 'error', elapsedSeconds: 0, levels: [], message });
   }, [clearVoiceTimer]);
 
@@ -596,12 +618,13 @@ export function UnifiedChatScreen({
     conversationAssistantSpeechActiveRef.current = false;
     conversationInterruptedRef.current = false;
     conversationSpeechStoppedAtRef.current = '';
-    submittedConversationUtteranceIds.current.clear();
+    finalizedConversationUtteranceRef.current = null;
     conversationTurnFinalizerRef.current?.reset();
     clearVoiceTimer();
     setVoice({ state: 'connecting', elapsedSeconds: 0, levels: [], message: 'Connecting…' });
     try {
       const connection = await startLiveConversationSession({
+        onDurableRun: (request) => durableRealtimeRunRef.current(request),
         onConnected: (connection) => {
           liveConversation.current = connection;
           setVoice((current) => ({ ...current, state: 'listening', message: 'Listening' }));
@@ -615,11 +638,13 @@ export function UnifiedChatScreen({
         onEvent: (event) => {
           conversationTurnFinalizerRef.current?.handle(event);
           if (event.type === 'speech_started') {
-            conversationInterruptedRef.current = conversationAssistantSpeechActiveRef.current;
+            const interruptedAssistantSpeech = conversationAssistantSpeechActiveRef.current;
+            if (interruptedAssistantSpeech) liveConversation.current?.cancelResponse();
+            conversationInterruptedRef.current = interruptedAssistantSpeech;
             conversationAssistantSpeechActiveRef.current = false;
             conversationResponseGenerationRef.current += 1;
             conversationProgressSpeech.stop();
-            void liveConversationSpeech.stop();
+            void liveConversationSpeechFallback.stop();
             conversationActivationFeedback.listening();
             publishConversationLatency('interrupted', true);
             setVoice((current) => ({ ...current, state: 'listening', provisionalTranscript: '',
@@ -643,6 +668,19 @@ export function UnifiedChatScreen({
               state: current.state === 'thinking' ? 'thinking' : 'listening',
               provisionalTranscript: `${current.provisionalTranscript ?? ''}${event.delta}` }));
           } else if (event.type === 'transcript_final') {
+          } else if (event.type === 'tool_call') {
+          } else if (event.type === 'assistant_audio_started') {
+            conversationAssistantSpeechActiveRef.current = true;
+            conversationLatencyRef.current?.tracker.mark('playback_started');
+            conversationActivationFeedback.speaking();
+            setVoice((current) => ({ ...current, state: 'speaking', message: 'Speaking' }));
+            publishConversationLatency('completed', false);
+          } else if (event.type === 'assistant_audio_stopped') {
+            conversationAssistantSpeechActiveRef.current = false;
+            if (liveConversation.current) conversationActivationFeedback.listening();
+            setVoice((current) => liveConversation.current
+              ? { ...current, state: 'listening', finalizedUtterance: undefined, message: 'Listening' }
+              : current);
           } else if (event.type === 'provider_error') {
             console.warn('[live-conversation] Provider event failed', { message: event.message });
             failConversation();
@@ -669,6 +707,7 @@ export function UnifiedChatScreen({
 
   useEffect(() => {
     if (voice.state !== 'thinking' || !aggregate) return;
+    if (liveConversation.current?.usesRealtimeSpeech) return;
     const assistantMessages = aggregate.messages.filter((item) => item.role === 'assistant');
     if (assistantMessages.length <= conversationAssistantCountRef.current) return;
     const responseMessage = assistantMessages.at(-1);
@@ -682,7 +721,7 @@ export function UnifiedChatScreen({
     void (async () => {
       await conversationProgressSpeech.finishBeforeFinalAnswer();
       if (responseGeneration !== conversationResponseGenerationRef.current || !liveConversation.current) return;
-      await liveConversationSpeech.speakMessage(responseMessage, {
+      await liveConversationSpeechFallback.speakMessage(responseMessage, {
       onFallback: () => {
         if (conversationLatencyRef.current) conversationLatencyRef.current.fallbackUsed = true;
       },
@@ -1525,6 +1564,7 @@ export function UnifiedChatScreen({
             created.thread,
             ...current.filter((thread) => thread.id !== created.thread.id),
           ]);
+          aggregateRef.current = created;
           setAggregate(created);
           freshEntrySentRef.current = true;
           track(
@@ -1609,15 +1649,15 @@ export function UnifiedChatScreen({
                 locale: Intl.DateTimeFormat().resolvedOptions().locale || 'en-US', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
                 appState: AppState.currentState,
                 action: retryRunId ? 'run.retry' : parentRunId ? 'run.steer' : 'run.send',
-                ...(isConversationTurn && voice.finalizedUtterance ? {
+                ...(isConversationTurn && finalizedConversationUtteranceRef.current ? {
                   voice: {
-                    sessionId: voice.finalizedUtterance.sessionId,
-                    utteranceId: voice.finalizedUtterance.id,
-                    source: voice.finalizedUtterance.source,
-                    locale: voice.finalizedUtterance.locale,
-                    interrupted: voice.finalizedUtterance.interrupted,
-                    speechStoppedAt: voice.finalizedUtterance.speechStoppedAt,
-                    finalizedAt: voice.finalizedUtterance.finalizedAt,
+                    sessionId: finalizedConversationUtteranceRef.current.sessionId,
+                    utteranceId: finalizedConversationUtteranceRef.current.id,
+                    source: finalizedConversationUtteranceRef.current.source,
+                    locale: finalizedConversationUtteranceRef.current.locale,
+                    interrupted: finalizedConversationUtteranceRef.current.interrupted,
+                    speechStoppedAt: finalizedConversationUtteranceRef.current.speechStoppedAt,
+                    finalizedAt: finalizedConversationUtteranceRef.current.finalizedAt,
                   },
                 } : {}),
               }),
@@ -1732,11 +1772,13 @@ export function UnifiedChatScreen({
             });
             refreshedAggregate = await loadThreadWithRecovery(turnAggregate.thread.id);
           }
+          aggregateRef.current = refreshedAggregate;
           setAggregate(refreshedAggregate);
           setThreads(await repository.listThreads());
         } catch (turnError) {
           try {
             refreshedAggregate = await loadThreadWithRecovery(turnAggregate.thread.id);
+            aggregateRef.current = refreshedAggregate;
             setAggregate(refreshedAggregate);
             setError(null);
           } catch {
@@ -1760,19 +1802,19 @@ export function UnifiedChatScreen({
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, transitionServerOwnedRun, voice.finalizedUtterance, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, transitionServerOwnedRun, voice.state],
   );
 
-  useEffect(() => {
-    const utterance = voice.finalizedUtterance;
-    if (!utterance || submittedConversationUtteranceIds.current.has(utterance.id)) return;
-    const message = buildFinalizedConversationRunMessage({
-      itemId: utterance.id,
-      transcript: utterance.text,
+  durableRealtimeRunRef.current = async (request) => {
+    return runDurableRealtimeRequest({
+      request, activeRun: activeTurn.current,
+      send: (payload) => handleSurfaceMessage({ nativeEvent: { data: payload } } as WebViewMessageEvent),
+      getThreadId: () => aggregateRef.current?.thread.id,
+      loadThread: loadThreadWithRecovery,
+      stopRun: (runId) => transitionServerOwnedRun(runId, { type: 'stop' }),
+      onLoaded: (latest) => { aggregateRef.current = latest; },
     });
-    submittedConversationUtteranceIds.current.add(utterance.id);
-    void handleSurfaceMessage({ nativeEvent: { data: message.payload } } as WebViewMessageEvent);
-  }, [handleSurfaceMessage, voice.finalizedUtterance]);
+  };
 
   const pendingClientAction = useMemo(
     () => (aggregate?.clientActions ?? []).find(

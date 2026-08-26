@@ -13,6 +13,12 @@ import {
   type LiveConversationProviderEvent,
 } from './openAiRealtimeEvents';
 import { waitForLiveConversationDataChannel } from './liveConversationConnection';
+import {
+  buildRealtimeToolResultEvents,
+  createDurableRealtimeTool,
+  type DurableRealtimeRunRequest,
+  type DurableRealtimeToolResult,
+} from './durableRealtimeTool';
 
 type EphemeralSession = { clientSecret: string };
 
@@ -54,7 +60,9 @@ async function requestEphemeralSession(locale?: string): Promise<EphemeralSessio
 
 export type LiveConversationConnection = {
   sessionId: string;
+  usesRealtimeSpeech: true;
   stop: () => Promise<void>;
+  cancelResponse(): void;
   setMicrophoneEnabled(enabled: boolean): void;
 };
 
@@ -62,6 +70,7 @@ export async function startLiveConversationSession(input: {
   locale?: string;
   onConnected: (connection: LiveConversationConnection) => void;
   onEvent: (event: LiveConversationProviderEvent) => void;
+  onDurableRun: (request: DurableRealtimeRunRequest) => Promise<DurableRealtimeToolResult>;
   onFailure: (error: Error) => void;
 }): Promise<LiveConversationConnection> {
   const session = await requestEphemeralSession(input.locale);
@@ -69,16 +78,25 @@ export async function startLiveConversationSession(input: {
   const peer = new RTCPeerConnection();
   let stream: MediaStream | null = null;
   let stopped = false;
+  let events: ReturnType<RTCPeerConnection['createDataChannel']> | null = null;
+  const durableTool = createDurableRealtimeTool({ run: input.onDurableRun });
+  const handledToolCallIds = new Set<string>();
   const stop = async () => {
     if (stopped) return;
     stopped = true;
     stream?.getTracks().forEach((track) => track.stop());
     stream = null;
+    durableTool.reset();
+    handledToolCallIds.clear();
     peer.close();
   };
   const connection: LiveConversationConnection = {
     sessionId,
+    usesRealtimeSpeech: true,
     stop,
+    cancelResponse() {
+      if (events?.readyState === 'open') events.send(JSON.stringify({ type: 'response.cancel' }));
+    },
     setMicrophoneEnabled(enabled) {
       stream?.getAudioTracks().forEach((track) => { track.enabled = enabled; });
     },
@@ -86,11 +104,24 @@ export async function startLiveConversationSession(input: {
   try {
     stream = await mediaDevices.getUserMedia({ audio: true, video: false });
     stream.getTracks().forEach((track) => peer.addTrack(track, stream!));
-    const events = peer.createDataChannel('oai-events');
+    events = peer.createDataChannel('oai-events');
     events.onmessage = (message: { data: unknown }) => {
       if (typeof message.data !== 'string') return;
       const event = parseOpenAiRealtimeEvent(message.data);
-      if (event) input.onEvent(event);
+      if (!event) return;
+      if (event.type === 'transcript_final') {
+        durableTool.observeFinalTranscript({ itemId: event.itemId, transcript: event.transcript });
+      }
+      if (event.type === 'tool_call') {
+        if (handledToolCallIds.has(event.callId)) return;
+        handledToolCallIds.add(event.callId);
+        void durableTool.execute(event).then((result) => {
+          if (events?.readyState !== 'open') return;
+          buildRealtimeToolResultEvents(event.callId, result)
+            .forEach((payload) => events?.send(JSON.stringify(payload)));
+        }).catch(() => input.onFailure(new Error('Conversation action bridge interrupted.')));
+      }
+      input.onEvent(event);
     };
     events.onerror = () => input.onFailure(new Error('Conversation connection interrupted.'));
     const offer = await peer.createOffer();

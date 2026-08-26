@@ -7,7 +7,10 @@ import { CONVERSATION_PROGRESS_ASSETS } from './conversationProgressAssets';
 import { createConversationProgressSpeech } from './conversationProgressSpeech';
 import { createLiveConversationSpeech } from './liveConversationSpeech';
 
-export const liveConversationSpeech = createLiveConversationSpeech({
+// Keep this path available until signed-device proof covers Realtime playback,
+// interruption, accessibility routes, and Bluetooth. Realtime sessions do not
+// invoke it during normal speech-to-speech operation.
+export const liveConversationSpeechFallback = createLiveConversationSpeech({
   getAccessToken,
   getPublishableKey: getSupabasePublishableKey,
   getFunctionUrl: () => getEdgeFunctionUrl('cook-voice-speech'),
