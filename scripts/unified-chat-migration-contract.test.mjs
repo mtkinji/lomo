@@ -31,7 +31,7 @@ const channelRunMigration = readFileSync(
   'utf8',
 ).toLowerCase();
 const channelRunTriggerRepairMigration = readFileSync(
-  new URL('../supabase/migrations/20260826012500_repair_channel_run_trigger_enqueue.sql', import.meta.url),
+  new URL('../supabase/migrations/20260826012026_repair_channel_run_trigger_enqueue.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
 const channelJobMigration = readFileSync(

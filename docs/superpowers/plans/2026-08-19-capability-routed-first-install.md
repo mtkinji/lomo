@@ -44,7 +44,7 @@
 
 ### Individual-first Meal Plans
 
-- Modify `supabase/migrations/20260819181607_individual_first_meal_plans.sql` — nullable Household attachment, personal authority, create/attach RPCs, and policy updates.
+- Modify `supabase/pending-migrations/20260819181607_individual_first_meal_plans.sql` — nullable Household attachment, personal authority, create/attach RPCs, and policy updates.
 - Create `src/capabilities/meal-planning/domain/individualFirstMealPlanMigration.test.ts` — static migration security contract.
 - Modify `src/capabilities/meal-planning/data/mealPlanningRepository.ts` and `.test.ts` — nullable `householdId`, personal create, and explicit attach.
 - Modify `src/capabilities/meal-planning/screens/MealPlanEditorScreen.tsx`.
@@ -427,7 +427,7 @@ Expected: PASS.
 ### Task 6: Make Meal Plan ownership individual-first in Supabase
 
 **Files:**
-- Modify: `supabase/migrations/20260819181607_individual_first_meal_plans.sql`
+- Modify: `supabase/pending-migrations/20260819181607_individual_first_meal_plans.sql`
 - Create: `src/capabilities/meal-planning/domain/individualFirstMealPlanMigration.test.ts`
 
 - [ ] **Step 1: Review current Supabase guidance before SQL implementation**

@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 describe('Family Screen Time prerequisite agreement migration', () => {
   const migration = readFileSync(resolve(
     process.cwd(),
-    'supabase/migrations/20260806012026_family_screen_time_prerequisite_activity.sql',
+    'supabase/pending-migrations/20260806012026_family_screen_time_prerequisite_activity.sql',
   ), 'utf8').toLowerCase();
 
   it('creates one atomic authorized and versioned prerequisite agreement RPC', () => {

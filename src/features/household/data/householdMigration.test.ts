@@ -7,7 +7,7 @@ const migrationPath = resolve(
 );
 const mealCountMigration = readFileSync(resolve(
   process.cwd(),
-  'supabase/migrations/20260817180341_add_usual_diner_count.sql',
+  'supabase/pending-migrations/20260817180341_add_usual_diner_count.sql',
 ), 'utf8');
 
 describe('Household foundation migration', () => {

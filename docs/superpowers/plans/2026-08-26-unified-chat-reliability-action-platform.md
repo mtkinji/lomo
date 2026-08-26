@@ -94,7 +94,7 @@ ChatGPT / Codex MCP ──────┘                                  │  
 - Modify: `src/features/unifiedChat/UnifiedChatScreen.tsx`
 - Modify: `src/features/unifiedChat/UnifiedChatScreen.test.tsx`
 - Modify: `scripts/unified-chat-migration-contract.test.mjs`
-- Add: `supabase/migrations/20260826012500_repair_channel_run_trigger_enqueue.sql`
+- Add: `supabase/migrations/20260826012026_repair_channel_run_trigger_enqueue.sql` (hosted migration timestamp; originally authored locally as `20260826012500`)
 
 - [ ] Re-read the current diff and separate background-continuity hunks from unrelated edits:
 
@@ -135,7 +135,7 @@ npm run verify:changed -- --run
 ```bash
 git diff --check
 git add -p supabase/functions/_shared/agentRunCoordinator.ts supabase/functions/_shared/serviceAgentRunPersistence.ts supabase/functions/agent-run/index.ts src/features/unifiedChat/UnifiedChatScreen.tsx src/features/unifiedChat/UnifiedChatScreen.test.tsx
-git add docs/superpowers/plans/2026-08-25-mobile-chat-background-continuity.md scripts/unified-chat-migration-contract.test.mjs supabase/functions/_shared/mobileAgentRunBackground.ts supabase/functions/_shared/__tests__/mobileAgentRunBackground.test.ts src/features/unifiedChat/durableMobileChatTurn.ts src/features/unifiedChat/durableMobileChatTurn.test.ts supabase/migrations/20260826012500_repair_channel_run_trigger_enqueue.sql
+git add docs/superpowers/plans/2026-08-25-mobile-chat-background-continuity.md scripts/unified-chat-migration-contract.test.mjs supabase/functions/_shared/mobileAgentRunBackground.ts supabase/functions/_shared/__tests__/mobileAgentRunBackground.test.ts src/features/unifiedChat/durableMobileChatTurn.ts src/features/unifiedChat/durableMobileChatTurn.test.ts supabase/migrations/20260826012026_repair_channel_run_trigger_enqueue.sql
 git diff --cached --check
 git commit -m "feat(chat): keep durable mobile turns running in background"
 ```

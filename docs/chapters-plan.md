@@ -208,7 +208,7 @@ Future-state note: monthly / yearly "wrap-up" features are not canceled — they
 
 Implementation (migration files on disk):
 
-- `supabase/migrations/20260417020000_kwilt_chapter_templates_weekly_only.sql` — drops monthly/yearly/manual templates.
+- `supabase/pending-migrations/20260417020000_kwilt_chapter_templates_weekly_only.sql` — drops monthly/yearly/manual templates; retained for review and not recorded in the hosted migration chain.
 - `ChapterGenerateDrawer.tsx` deleted from the tree (visible in `git status`).
 - `src/services/chapters.ts` retains only the weekly default factory; the `triggerChapterGeneration` call site is gone from `ChaptersScreen`. The function itself is kept for the ops-only regenerate path.
 - `openCreateChapter` param removed from the `MoreStack` type and the global "+" plumbing routed into Activities / Arcs creation instead.

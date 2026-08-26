@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const sql = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260812175939_guest_meal_plan_feedback.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260813001536_guest_meal_plan_feedback.sql'),
   'utf8',
 ).toLowerCase();
 const taskFirstChoiceSql = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260813122516_task_first_guest_meal_choices.sql'),
+  resolve(process.cwd(), 'supabase/pending-migrations/20260813122516_task_first_guest_meal_choices.sql'),
   'utf8',
 ).toLowerCase();
 
