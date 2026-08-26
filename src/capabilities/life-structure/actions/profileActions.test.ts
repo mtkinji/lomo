@@ -3,6 +3,7 @@ import { updateProfile, type ProfileActionStoreBoundary } from './profileActions
 
 const before: UserProfile = {
   id: 'profile-1', fullName: 'Andrew', createdAt: 'before', updatedAt: 'before',
+  communication: {}, visuals: {},
 };
 
 function harness() {
