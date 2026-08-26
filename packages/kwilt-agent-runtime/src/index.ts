@@ -15,6 +15,15 @@ export {
 export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
 export { calendarDateInTimeZone, normalizeIanaTimeZone } from './timeContext';
 export {
+  RELIABILITY_CORPUS,
+  RELIABILITY_CORPUS_VERSION,
+  validateReliabilityCorpus,
+} from './reliabilityCorpus';
+export type {
+  ReliabilityExpectedOutcome,
+  ReliabilityScenario,
+} from './reliabilityCorpus';
+export {
   getKwiltGenerationJobContract,
   KWILT_GENERATION_JOB_CONTRACTS,
   KWILT_GENERATION_JOB_IDS,
