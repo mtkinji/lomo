@@ -1,5 +1,44 @@
 export type AgentToolProvider = 'server' | 'device' | 'channel' | 'connector';
 
+export type KwiltActionSource =
+  | 'native_ui'
+  | 'mobile_chat'
+  | 'voice'
+  | 'phone'
+  | 'mcp'
+  | 'scheduled';
+
+export type KwiltActionRequest<Input = unknown> = {
+  operationId: string;
+  requestId: string;
+  actorId: string;
+  householdId: string;
+  source: KwiltActionSource;
+  input: Input;
+};
+
+export type KwiltActionReceiptStatus =
+  | 'completed'
+  | 'proposed'
+  | 'pending_client_action'
+  | 'needs_input'
+  | 'unavailable'
+  | 'refused'
+  | 'failed';
+
+export type KwiltActionReceipt = {
+  receiptId: string;
+  operationId: string;
+  requestId: string;
+  actorId: string;
+  householdId: string;
+  source: KwiltActionSource;
+  status: KwiltActionReceiptStatus;
+  resultRefs: readonly { kind: string; id: string }[];
+  reversible: boolean;
+  createdAt: string;
+};
+
 export type ToolProviderAvailability = Record<AgentToolProvider, boolean>;
 
 export type AgentToolDefinition = {

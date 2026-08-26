@@ -76,6 +76,10 @@ export type {
   AppControlPlanResult,
   AppControlResultReference,
   AppControlStep,
+  KwiltActionReceipt,
+  KwiltActionReceiptStatus,
+  KwiltActionRequest,
+  KwiltActionSource,
 } from './types';
 export type { DiscoveredAgentTool } from './discovery';
 export type {
