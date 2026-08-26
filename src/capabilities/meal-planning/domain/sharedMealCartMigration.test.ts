@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const sql = [
-  '20260808032242_shared_meal_cart.sql',
-  '20260808034442_harden_shared_meal_cart_grants.sql',
-  '20260808034640_fix_shared_meal_cart_candidate_snapshot.sql',
-  '20260808034921_hide_shared_meal_cart_policy_helper.sql',
+  '20260808034339_shared_meal_cart.sql',
+  '20260808034505_harden_shared_meal_cart_grants.sql',
+  '20260808034729_fix_shared_meal_cart_candidate_snapshot.sql',
+  '20260808034954_hide_shared_meal_cart_policy_helper.sql',
 ].map((file) => readFileSync(resolve(process.cwd(), 'supabase/migrations', file), 'utf8')).join('\n').toLowerCase();
 
 describe('shared Meal Cart migration contract', () => {

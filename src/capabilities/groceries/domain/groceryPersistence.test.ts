@@ -3,9 +3,9 @@ import { resolve } from 'node:path';
 
 const sql = [
   '20260806030000_groceries.sql',
-  '20260807013757_support_bundled_catalog_grocery_sources.sql',
-  '20260807030912_preserve_grocery_item_states_on_rebase.sql',
-  '20260807172852_support_recipe_scoped_grocery_lists.sql',
+  '20260807014118_support_bundled_catalog_grocery_sources.sql',
+  '20260807031135_preserve_grocery_item_states_on_rebase.sql',
+  '20260808034329_support_recipe_scoped_grocery_lists.sql',
   '20260820213000_manual_grocery_lists.sql',
 ].map((file) => readFileSync(resolve(process.cwd(), 'supabase/migrations', file), 'utf8')).join('\n').toLowerCase();
 

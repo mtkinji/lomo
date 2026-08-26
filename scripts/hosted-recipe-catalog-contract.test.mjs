@@ -11,7 +11,7 @@ const scalingMigration = readFileSync(
   'utf8',
 ).toLowerCase();
 const immutableScalingMigration = readFileSync(
-  new URL('../supabase/migrations/20260825152717_publish_scaling_as_immutable_recipe_version.sql', import.meta.url),
+  new URL('../supabase/migrations/20260825154258_publish_scaling_as_immutable_recipe_version.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
 

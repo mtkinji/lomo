@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 const migrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260729183000_household_child_account_invites.sql',
+  'supabase/migrations/20260730042845_household_child_account_invites.sql',
 );
 
 describe('Household child account invitation migration', () => {

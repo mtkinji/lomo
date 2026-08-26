@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 
 const sql = [
   '20260806020000_meal_planning.sql',
-  '20260807014330_preserve_meal_entry_candidate_snapshots.sql',
-  '20260807025224_stale_groceries_when_revising_meal_plan.sql',
+  '20260807014411_preserve_meal_entry_candidate_snapshots.sql',
+  '20260807025344_stale_groceries_when_revising_meal_plan.sql',
 ].map((file) => readFileSync(resolve(process.cwd(), 'supabase/migrations', file), 'utf8')).join('\n').toLowerCase();
 
 describe('Meal Planning persistence contract', () => {
