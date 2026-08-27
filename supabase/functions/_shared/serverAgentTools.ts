@@ -16,6 +16,11 @@ import {
 } from './serverToolProviderRegistry.ts';
 import { dispatchServerAction } from './serverActionDispatcher.ts';
 import type { KwiltActionSource } from '../../../packages/kwilt-agent-runtime/src/types.ts';
+import {
+  executeActionEnvelope,
+  type ActionExecutionReceiptStore,
+  type KwiltActionExecutionEnvelope,
+} from '../../../packages/kwilt-agent-runtime/src/actionExecution.ts';
 import { calendarDateInTimeZone, normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 import { evaluateToolPolicy } from '../../../packages/kwilt-agent-runtime/src/policy.ts';
 type ClientActionRequest = ServerDeviceActionRequest;
@@ -40,6 +45,13 @@ type ExecuteServerAgentToolArgs = {
   writeContext?: { threadId: string; runId: string; messageId: string };
   actionSource?: KwiltActionSource;
   timeZone?: string;
+  actionExecution?: {
+    envelope(call: ServerAgentToolCall, tool: ServerAgentToolDefinition): KwiltActionExecutionEnvelope;
+    store: ActionExecutionReceiptStore;
+    resolveTarget?: Parameters<typeof executeActionEnvelope>[0]['resolveTarget'];
+    createReceiptId(): string;
+    now(): string;
+  };
 };
 const SERVER_TOOL_PROVIDER_REGISTRY = createServerToolProviderRegistry(SERVER_AGENT_TOOL_CATALOG);
 function asRecord(value: unknown): Record<string, unknown> {
@@ -830,6 +842,7 @@ async function executeServerAgentToolHandler({
           resulting_object_type: 'activity',
           resulting_object_id: activityId,
           can_undo: true,
+          replayed: result.replayed === true,
         };
       },
     });
@@ -893,7 +906,7 @@ async function executeServerAgentToolHandler({
 export async function executeServerAgentTool(
   args: ExecuteServerAgentToolArgs,
 ): Promise<ServerAgentToolResult> {
-  return executeServerRegisteredTool({
+  const executeRaw = () => executeServerRegisteredTool({
     registry: SERVER_TOOL_PROVIDER_REGISTRY,
     context: {
       dispatch: (call) => executeServerAgentToolHandler({ ...args, call, tool: args.tool }),
@@ -901,4 +914,14 @@ export async function executeServerAgentTool(
     call: args.call,
     tool: args.tool,
   });
+  if (!args.actionExecution) return executeRaw();
+  const receipt = await executeActionEnvelope({
+    envelope: args.actionExecution.envelope(args.call, args.tool),
+    store: args.actionExecution.store,
+    resolveTarget: args.actionExecution.resolveTarget,
+    createReceiptId: args.actionExecution.createReceiptId,
+    now: args.actionExecution.now,
+    execute: executeRaw,
+  });
+  return serverToolResultFromActionReceipt(receipt);
 }

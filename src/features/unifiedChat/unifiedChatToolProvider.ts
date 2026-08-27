@@ -1,8 +1,12 @@
 import {
   evaluateToolPolicy,
+  executeActionEnvelope,
+  toolResultFromActionReceipt,
+  type ActionExecutionReceiptStore,
   type AgentToolCall,
   type AgentToolDefinition,
   type AgentToolExecutionResult,
+  type KwiltActionExecutionEnvelope,
 } from '@kwilt/agent-runtime';
 import type { ActivityProposalOperation } from './activityProposal';
 import { buildRecurringReminderFields, parseActivityMutationPatch } from './activityProposal';
@@ -142,6 +146,7 @@ export function createUnifiedChatToolProvider({
   planConversationReferent,
   executeRelationshipTool,
   executeHouseholdTool,
+  actionExecution,
   now = () => new Date(),
 }: {
   snapshots: UnifiedChatCapabilitySnapshots;
@@ -154,6 +159,13 @@ export function createUnifiedChatToolProvider({
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
+  actionExecution?: {
+    envelope(call: AgentToolCall, tool: AgentToolDefinition): KwiltActionExecutionEnvelope;
+    store: ActionExecutionReceiptStore;
+    resolveTarget?: Parameters<typeof executeActionEnvelope>[0]['resolveTarget'];
+    createReceiptId(): string;
+    now(): string;
+  };
   now?: () => Date;
 }) {
   const staged: StagedUnifiedChatToolProposal[] = [];
@@ -177,7 +189,7 @@ export function createUnifiedChatToolProvider({
     return null;
   };
 
-  const execute = async (
+  const executeRaw = async (
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ): Promise<AgentToolExecutionResult> => {
@@ -1131,6 +1143,20 @@ export function createUnifiedChatToolProvider({
 
     return { status: 'unavailable', reason: `No provider is registered for ${call.toolId}.`, retryable: false };
   };
+
+  const execute = actionExecution
+    ? async (call: AgentToolCall, tool: AgentToolDefinition): Promise<AgentToolExecutionResult> => {
+      const receipt = await executeActionEnvelope({
+        envelope: actionExecution.envelope(call, tool),
+        store: actionExecution.store,
+        resolveTarget: actionExecution.resolveTarget,
+        createReceiptId: actionExecution.createReceiptId,
+        now: actionExecution.now,
+        execute: () => executeRaw(call, tool),
+      });
+      return toolResultFromActionReceipt(receipt);
+    }
+    : executeRaw;
 
   return {
     execute,

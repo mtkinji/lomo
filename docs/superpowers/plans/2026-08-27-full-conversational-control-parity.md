@@ -410,17 +410,17 @@ Expected: all 228 operations are declared and uniquely inventoried; provider rea
 - Modify: `src/features/unifiedChat/unifiedChatToolProvider.ts`
 - Modify: `supabase/functions/_shared/serverAgentTools.ts`
 - Modify: `supabase/functions/_shared/serviceAgentRunPersistence.ts`
-- Create: `supabase/migrations/20260827_conversational_action_handoffs.sql`
+- Create: `supabase/migrations/20260827181938_conversational_action_handoffs.sql`
 - Create: `supabase/functions/_shared/__tests__/conversationalActionHandoffs_deno_test.ts`
 
-- [ ] Write failing unit tests for direct completion, reviewed proposal, native handoff, provider handoff, needs-input, unavailable, refused, failed, retry, and duplicate request.
-- [ ] Add one execution envelope carrying actor, household, source, operation, request ID, target version, authorization decision, and confirmation state.
-- [ ] Persist owner-scoped device handoffs with state transitions `created -> claimed -> completed`, `created -> cancelled`, and `created -> expired`.
-- [ ] Enforce a unique `(actor_id, operation_id, request_id)` idempotency constraint for receipts and handoffs.
-- [ ] Reject target-version conflicts as `needs_input` with a fresh candidate summary; never apply stale proposals.
-- [ ] Store redacted arguments and stable result references, not raw secrets, financial credentials, Screen Time opaque tokens, photo bytes, or OAuth tokens.
-- [ ] Make mobile, server, Phone, and MCP return the same receipt schema.
-- [ ] Run:
+- [x] Write failing unit tests for direct completion, reviewed proposal, native handoff, provider handoff, needs-input, unavailable, refused, failed, retry, and duplicate request.
+- [x] Add one execution envelope carrying actor, household, source, operation, request ID, target version, authorization decision, and confirmation state.
+- [x] Persist owner-scoped device handoffs with state transitions `created -> claimed -> completed`, `created -> cancelled`, and `created -> expired`.
+- [x] Enforce a unique `(actor_id, operation_id, request_id)` idempotency constraint for receipts and handoffs.
+- [x] Reject target-version conflicts as `needs_input` with a fresh candidate summary; never apply stale proposals.
+- [x] Store redacted arguments and stable result references, not raw secrets, financial credentials, Screen Time opaque tokens, photo bytes, or OAuth tokens.
+- [x] Make mobile, server, Phone, and MCP return the same receipt schema.
+- [x] Run:
 
 ```bash
 npx jest packages/kwilt-agent-runtime/src/actionExecution.test.ts packages/kwilt-agent-runtime/src/deviceHandoffs.test.ts src/features/unifiedChat/mobileToolProviderRegistry.test.ts --runInBand
@@ -430,7 +430,7 @@ npm run lint:supabase-functions
 
 Expected: every result state and replay path passes; unauthorized cross-owner access is refused.
 
-- [ ] Commit the exact Task 3 files with message `feat(chat): add durable cross-channel action receipts`.
+- [x] Commit the exact Task 3 files with message `feat(chat): add durable cross-channel action receipts`.
 
 ### Task 4: Complete Household and device control
 

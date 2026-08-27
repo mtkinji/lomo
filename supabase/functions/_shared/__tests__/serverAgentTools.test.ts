@@ -157,11 +157,13 @@ test('captures a low-risk Activity through one receipt-safe service RPC', async 
     writeContext: { threadId: 'thread-1', runId: 'run-1', messageId: 'message-1' },
   })).resolves.toEqual({
     status: 'completed',
-    output: { receiptId: 'receipt-1', resultRefs: [{ kind: 'activity', id: 'activity-1' }] },
+    output: { receiptId: 'receipt-1', resultRefs: [{ kind: 'activity', id: 'activity-1' }], replayed: false },
     receipt: {
       receiptId: 'receipt-1', operationId: 'activities.capture', requestId: 'call-1',
       actorId: 'user-1', householdId: 'user-1', source: 'phone', status: 'completed',
       resultRefs: [{ kind: 'activity', id: 'activity-1' }], reversible: true,
+      targetVersion: null, provider: null, retryable: false, reason: null,
+      candidateSummary: null, replayed: false,
       createdAt: expect.any(String),
     },
   });

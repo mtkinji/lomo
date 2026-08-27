@@ -184,6 +184,12 @@ export function projectExternalMcpWriteResult(input: {
       structured: { ...base, summary: result.reason },
     };
   }
+  if (result.status === 'refused') {
+    return {
+      object_type: 'action', object_id: requestId, result_summary: result.reason,
+      structured: { ...base, status: 'refused', summary: result.reason },
+    };
+  }
   throw new Error(result.code || 'external_action_failed');
 }
 

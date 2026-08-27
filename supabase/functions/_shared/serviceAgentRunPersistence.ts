@@ -2,6 +2,10 @@ import type {
   AgentRunPersistence,
   EnqueuedAgentRun,
 } from './agentRunCoordinator.ts';
+import type { ActionExecutionReceiptStore } from '../../../packages/kwilt-agent-runtime/src/actionExecution.ts';
+import type { KwiltActionReceipt } from '../../../packages/kwilt-agent-runtime/src/types.ts';
+import type { DeviceActionHandoff } from '../../../packages/kwilt-agent-runtime/src/deviceHandoffs.ts';
+import { redactActionArguments } from '../../../packages/kwilt-agent-runtime/src/deviceHandoffs.ts';
 
 type RpcResult = { data: unknown; error: unknown };
 type HistoryResult = { data: unknown; error: unknown };
@@ -11,6 +15,8 @@ type HistoryQuery = {
   order: (...args: unknown[]) => HistoryQuery;
   limit: (...args: unknown[]) => PromiseLike<HistoryResult>;
   insert: (values: Record<string, unknown>) => PromiseLike<{ error: unknown }>;
+  upsert: (values: Record<string, unknown>, options?: Record<string, unknown>) => PromiseLike<{ error: unknown }>;
+  maybeSingle: () => PromiseLike<HistoryResult>;
 };
 type ServiceClient = {
   rpc: (name: string, args: Record<string, unknown>) => PromiseLike<RpcResult>;
@@ -19,6 +25,99 @@ type ServiceClient = {
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function actionReceiptFromRow(value: unknown): KwiltActionReceipt {
+  const row = record(value);
+  const source = row.source;
+  const status = row.status;
+  const provider = row.provider;
+  const allowedSources = new Set(['native_ui', 'mobile_chat', 'voice', 'phone', 'mcp', 'scheduled']);
+  const allowedStatuses = new Set([
+    'completed', 'proposed', 'pending_client_action', 'needs_input', 'unavailable', 'refused', 'failed',
+  ]);
+  const allowedProviders = new Set(['server', 'device', 'channel', 'connector']);
+  if (typeof row.id !== 'string' || typeof row.operation_id !== 'string' || typeof row.request_id !== 'string'
+    || typeof row.actor_id !== 'string' || typeof row.household_id !== 'string'
+    || typeof source !== 'string' || !allowedSources.has(source)
+    || typeof status !== 'string' || !allowedStatuses.has(status)
+    || (provider != null && (typeof provider !== 'string' || !allowedProviders.has(provider)))) {
+    throw new Error('conversational_action_receipt_malformed');
+  }
+  const resultRefs = Array.isArray(row.result_refs) ? row.result_refs.flatMap((value) => {
+    const item = record(value);
+    return typeof item.kind === 'string' && typeof item.id === 'string'
+      ? [{ kind: item.kind, id: item.id }]
+      : [];
+  }) : [];
+  return {
+    receiptId: row.id, operationId: row.operation_id, requestId: row.request_id,
+    actorId: row.actor_id, householdId: row.household_id,
+    source: source as KwiltActionReceipt['source'], status: status as KwiltActionReceipt['status'],
+    resultRefs, reversible: row.reversible === true,
+    targetVersion: typeof row.target_version === 'number' ? row.target_version : null,
+    provider: provider as KwiltActionReceipt['provider'], retryable: row.retryable === true,
+    reason: typeof row.reason === 'string' ? row.reason : null,
+    candidateSummary: typeof row.candidate_summary === 'string' ? row.candidate_summary : null,
+    replayed: row.replayed === true,
+    createdAt: typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
+  };
+}
+
+export function createServiceActionExecutionReceiptStore({
+  admin,
+}: {
+  admin: ServiceClient;
+}): ActionExecutionReceiptStore {
+  return {
+    load: async (key) => {
+      const { data, error } = await (admin.from('kwilt_conversational_action_receipts') as HistoryQuery)
+        .select('*').eq('actor_id', key.actorId).eq('operation_id', key.operationId)
+        .eq('request_id', key.requestId).maybeSingle();
+      if (error) throw new Error('conversational_action_receipt_load_failed');
+      return data ? actionReceiptFromRow(data) : null;
+    },
+    save: async (receipt) => {
+      const { error } = await (admin.from('kwilt_conversational_action_receipts') as HistoryQuery).upsert({
+        id: receipt.receiptId, actor_id: receipt.actorId, household_id: receipt.householdId,
+        operation_id: receipt.operationId, request_id: receipt.requestId, source: receipt.source,
+        status: receipt.status, target_version: receipt.targetVersion, provider: receipt.provider,
+        retryable: receipt.retryable, reason: receipt.reason, candidate_summary: receipt.candidateSummary,
+        result_refs: receipt.resultRefs, reversible: receipt.reversible,
+        created_at: receipt.createdAt, updated_at: receipt.createdAt,
+      }, { onConflict: 'actor_id,operation_id,request_id' });
+      if (error) throw new Error('conversational_action_receipt_save_failed');
+    },
+  };
+}
+
+export function createServiceDeviceHandoffPersistence({ admin }: { admin: ServiceClient }) {
+  return {
+    save: async (handoff: DeviceActionHandoff) => {
+      const { error } = await (admin.from('kwilt_conversational_action_handoffs') as HistoryQuery).upsert({
+        id: handoff.id, actor_id: handoff.actorId, household_id: handoff.householdId,
+        operation_id: handoff.operationId, request_id: handoff.requestId,
+        target_version: handoff.targetVersion, state: handoff.state, version: handoff.version,
+        redacted_arguments: redactActionArguments(handoff.redactedArguments), result_refs: handoff.resultRefs,
+        claimed_at: handoff.claimedAt, completed_at: handoff.completedAt,
+        cancelled_at: handoff.cancelledAt, expired_at: handoff.expiredAt,
+        expires_at: handoff.expiresAt, created_at: handoff.createdAt, updated_at: handoff.createdAt,
+      }, { onConflict: 'actor_id,operation_id,request_id', ignoreDuplicates: true });
+      if (error) throw new Error('conversational_action_handoff_save_failed');
+    },
+    transition: async (input: {
+      handoffId: string; from: DeviceActionHandoff['state']; to: DeviceActionHandoff['state'];
+      expectedVersion: number; resultRefs?: DeviceActionHandoff['resultRefs']; occurredAt: string;
+    }) => {
+      const { data, error } = await admin.rpc('transition_kwilt_conversational_action_handoff', {
+        p_handoff_id: input.handoffId, p_from_state: input.from, p_to_state: input.to,
+        p_expected_version: input.expectedVersion, p_result_refs: input.resultRefs ?? [],
+        p_occurred_at: input.occurredAt,
+      });
+      if (error || !data) throw new Error('conversational_action_handoff_transition_failed');
+      return data;
+    },
+  };
 }
 
 function mapEnqueued(value: unknown): EnqueuedAgentRun {

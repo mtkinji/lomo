@@ -82,6 +82,9 @@ export async function runOrderedAppControlPlan({
     if (result.status === 'unavailable') {
       return { outcome: { type: 'unsupported', reason: result.reason }, results };
     }
+    if (result.status === 'refused') {
+      return { outcome: { type: 'unsupported', reason: result.reason }, results };
+    }
     if (result.status === 'failed') {
       return { outcome: { type: 'unsupported', reason: result.message }, results };
     }

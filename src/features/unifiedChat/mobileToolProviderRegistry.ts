@@ -1,14 +1,25 @@
 import {
   createRuntimeToolProviderRegistry,
+  executeActionEnvelope,
+  toolResultFromActionReceipt,
+  type ActionExecutionReceiptStore,
   type AgentToolCall,
   type AgentToolDefinition,
   type AgentToolExecutionResult,
   type RuntimeToolProviderRegistry,
+  type KwiltActionExecutionEnvelope,
 } from '@kwilt/agent-runtime';
 import { MOBILE_TOOL_PROVIDER_REGISTRATIONS } from './mobileToolImplementations';
 
 export type MobileToolProviderContext = {
   execute(call: AgentToolCall, tool: AgentToolDefinition): Promise<AgentToolExecutionResult>;
+  actionExecution?: {
+    envelope(call: AgentToolCall, tool: AgentToolDefinition): KwiltActionExecutionEnvelope;
+    store: ActionExecutionReceiptStore;
+    resolveTarget?: Parameters<typeof executeActionEnvelope>[0]['resolveTarget'];
+    createReceiptId(): string;
+    now(): string;
+  };
 };
 
 export function createMobileToolProviderRegistry(
@@ -36,5 +47,14 @@ export async function executeMobileRegisteredTool({
   if (!provider) {
     return { status: 'unavailable', reason: 'mobile_provider_unavailable', retryable: false };
   }
-  return registry.execute(tool.id, provider, context, call);
+  if (!context.actionExecution) return registry.execute(tool.id, provider, context, call);
+  const receipt = await executeActionEnvelope({
+    envelope: context.actionExecution.envelope(call, tool),
+    store: context.actionExecution.store,
+    resolveTarget: context.actionExecution.resolveTarget,
+    createReceiptId: context.actionExecution.createReceiptId,
+    now: context.actionExecution.now,
+    execute: () => registry.execute(tool.id, provider, context, call),
+  });
+  return toolResultFromActionReceipt(receipt);
 }

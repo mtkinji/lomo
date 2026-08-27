@@ -551,6 +551,7 @@ function serverResultSummary(toolTitle: string, result: ServerAgentToolResult): 
   if (result.status === 'pending_client_action') return `${toolTitle} is ready to continue in Kwilt.`;
   if (result.status === 'needs_input') return result.prompt;
   if (result.status === 'unavailable') return result.reason;
+  if (result.status === 'refused') return result.reason;
   return result.message;
 }
 
@@ -593,7 +594,8 @@ async function executeCanonicalExternalTool(
       run,
       expectedVersion: activeVersion,
       body: serverResultSummary(externalTool.annotations.title, result),
-      status: result.status === 'failed' || result.status === 'unavailable' ? 'partial' : 'complete',
+      status: result.status === 'failed' || result.status === 'unavailable' || result.status === 'refused'
+        ? 'partial' : 'complete',
       participatingCapabilities: [tool.capabilityId],
       requestClass: 'capability_question',
     });
@@ -617,6 +619,7 @@ async function executeCanonicalExternalReadTool(
   });
   if (result.status === 'completed') return (asRecord(result.output) ?? {}) as JsonObject;
   if (result.status === 'unavailable') throw new Error(result.reason);
+  if (result.status === 'refused') throw new Error(result.reason);
   if (result.status === 'failed') throw new Error(result.code || 'external_read_failed');
   throw new Error('external_read_did_not_complete');
 }

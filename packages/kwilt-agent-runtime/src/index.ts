@@ -19,6 +19,8 @@ export {
 } from './capabilityManifest';
 export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
 export { createRuntimeToolProviderRegistry } from './providerRegistry';
+export { executeActionEnvelope, toolResultFromActionReceipt } from './actionExecution';
+export { createDeviceHandoff, redactActionArguments, transitionDeviceHandoff } from './deviceHandoffs';
 export {
   EXTERNAL_ACTION_REGISTRATIONS,
   projectExternalActionCatalog,
@@ -98,8 +100,12 @@ export type {
   KwiltActionReceipt,
   KwiltActionReceiptStatus,
   KwiltActionRequest,
+  KwiltActionAuthorization,
+  KwiltActionConfirmation,
   KwiltActionSource,
 } from './types';
+export type { ActionExecutionReceiptStore, KwiltActionExecutionEnvelope, ResolvedActionTarget } from './actionExecution';
+export type { DeviceActionHandoff, DeviceActionHandoffState } from './deviceHandoffs';
 export type { DiscoveredAgentTool } from './discovery';
 export type {
   KwiltCapabilityOperationId,

@@ -1,4 +1,4 @@
-import { KWILT_TOOL_CONTRACTS } from '@kwilt/agent-runtime';
+import { KWILT_TOOL_CONTRACTS, type KwiltActionReceipt } from '@kwilt/agent-runtime';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 import {
   createMobileToolProviderRegistry,
@@ -38,5 +38,46 @@ describe('mobile tool provider registry', () => {
     await expect(executeMobileRegisteredTool({ registry, context: { execute }, call, tool }))
       .resolves.toEqual(result);
     expect(execute).toHaveBeenCalledWith(call, tool);
+  });
+
+  test('uses the canonical receipt envelope and replays duplicate mobile requests', async () => {
+    const receipts: KwiltActionReceipt[] = [];
+    const execute = jest.fn(async () => ({
+      status: 'completed' as const,
+      output: { resultRefs: [{ kind: 'goal', id: 'goal-1' }] },
+      receipt: null,
+    }));
+    const registry = createMobileToolProviderRegistry(UNIFIED_CHAT_TOOL_CATALOG);
+    const tool = UNIFIED_CHAT_TOOL_CATALOG.find((candidate) => candidate.id === 'goals.read')!;
+    const call = { id: 'call-1', toolId: tool.id, arguments: {} };
+    const context = {
+      execute,
+      actionExecution: {
+        envelope: () => ({
+          actorId: 'actor-1', householdId: 'household-1', source: 'mobile_chat' as const,
+          operationId: tool.id, requestId: call.id, target: null,
+          authorization: { decision: 'authorized' as const, reason: null },
+          confirmation: { state: 'not_required' as const }, arguments: call.arguments,
+          reversible: tool.reversible,
+        }),
+        store: {
+          load: async ({ actorId, operationId, requestId }: { actorId: string; operationId: string; requestId: string }) =>
+            receipts.find((receipt) => receipt.actorId === actorId && receipt.operationId === operationId
+              && receipt.requestId === requestId) ?? null,
+          save: async (receipt: KwiltActionReceipt) => { receipts.splice(0, receipts.length, receipt); },
+        },
+        createReceiptId: () => 'receipt-1',
+        now: () => '2026-08-27T18:00:00.000Z',
+      },
+    };
+
+    await expect(executeMobileRegisteredTool({ registry, context, call, tool })).resolves.toMatchObject({
+      status: 'completed',
+      receipt: { receiptId: 'receipt-1', operationId: 'goals.read', source: 'mobile_chat' },
+    });
+    await expect(executeMobileRegisteredTool({ registry, context, call, tool })).resolves.toMatchObject({
+      status: 'completed', receipt: { replayed: true },
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 });

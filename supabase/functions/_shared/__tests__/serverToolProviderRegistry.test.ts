@@ -34,13 +34,22 @@ describe('server tool provider registry', () => {
       receiptId: 'receipt-1', operationId: 'activities.capture', requestId: 'request-1',
       actorId: 'actor-1', householdId: 'house-1', source: 'mobile_chat' as const,
       status: 'completed' as const, resultRefs: [{ kind: 'activity', id: 'activity-1' }],
-      reversible: true, createdAt: '2026-08-26T12:00:00.000Z',
+      reversible: true, targetVersion: null, provider: null, retryable: false,
+      reason: null, candidateSummary: null, replayed: false,
+      createdAt: '2026-08-26T12:00:00.000Z',
     };
     expect(serverToolResultFromActionReceipt(receipt)).toEqual({
-      status: 'completed', output: { receiptId: 'receipt-1', resultRefs: receipt.resultRefs }, receipt,
+      status: 'completed',
+      output: { receiptId: 'receipt-1', resultRefs: receipt.resultRefs, replayed: false }, receipt,
     });
     expect(serverToolResultFromActionReceipt({ ...receipt, status: 'pending_client_action' })).toMatchObject({
       status: 'pending_client_action', provider: 'device', request: { receiptId: 'receipt-1' },
     });
+    expect(serverToolResultFromActionReceipt({
+      ...receipt, status: 'pending_client_action', provider: 'connector',
+    })).toMatchObject({ status: 'pending_client_action', provider: 'connector' });
+    expect(serverToolResultFromActionReceipt({
+      ...receipt, status: 'refused', reason: 'wrong_household',
+    })).toEqual({ status: 'refused', reason: 'wrong_household' });
   });
 });

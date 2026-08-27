@@ -17,6 +17,15 @@ export type KwiltActionRequest<Input = unknown> = {
   input: Input;
 };
 
+export type KwiltActionAuthorization = {
+  decision: 'authorized' | 'refused';
+  reason: string | null;
+};
+
+export type KwiltActionConfirmation = {
+  state: 'not_required' | 'pending' | 'confirmed' | 'declined';
+};
+
 export type KwiltActionReceiptStatus =
   | 'completed'
   | 'proposed'
@@ -36,6 +45,12 @@ export type KwiltActionReceipt = {
   status: KwiltActionReceiptStatus;
   resultRefs: readonly { kind: string; id: string }[];
   reversible: boolean;
+  targetVersion: number | null;
+  provider: AgentToolProvider | null;
+  retryable: boolean;
+  reason: string | null;
+  candidateSummary: string | null;
+  replayed: boolean;
   createdAt: string;
 };
 
@@ -68,7 +83,7 @@ export type AgentToolExecutionResult =
     }
   | {
       status: 'pending_client_action';
-      provider: 'device';
+      provider: 'device' | 'connector';
       request: Record<string, unknown>;
     }
   | {
@@ -80,6 +95,10 @@ export type AgentToolExecutionResult =
       status: 'unavailable';
       reason: string;
       retryable: boolean;
+    }
+  | {
+      status: 'refused';
+      reason: string;
     }
   | {
       status: 'failed';
