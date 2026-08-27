@@ -22,8 +22,10 @@ const MOBILE_EXECUTABLE_TOOL_IDS = [
   'plan.schedule_chunks', 'profile.read', 'profile.update', 'recipes.create',
   'recipes.delete', 'recipes.read', 'recipes.update', 'relationships.correct',
   'relationships.forget', 'relationships.read', 'relationships.remember',
-  'screen_time.agreement.create', 'screen_time.configure', 'screen_time.device.release.open',
+  'screen_time.agreement.create', 'screen_time.agreement.deactivate', 'screen_time.agreement.update',
+  'screen_time.configure', 'screen_time.device.release.open',
   'screen_time.device.setup.open', 'screen_time.override.allow', 'screen_time.override.block',
+  'screen_time.override.cancel', 'screen_time.request.decide',
   'screen_time.personal.limit.open', 'screen_time.personal.setup.open', 'screen_time.read',
   'screen_time.selection.open',
 ] as const;

@@ -217,6 +217,10 @@ const SCREEN_TIME_PREREQUISITE_AGREEMENT_RULE_SCHEMA = {
   required: ['weekdays', 'startMinute', 'endMinute', 'dailyLimitMinutes', 'prerequisiteActivity'],
   additionalProperties: false,
 } as const;
+const SCREEN_TIME_MUTABLE_AGREEMENT_RULE_SCHEMA = {
+  ...SCREEN_TIME_PREREQUISITE_AGREEMENT_RULE_SCHEMA,
+  required: SCREEN_TIME_AGREEMENT_RULE_SCHEMA.required,
+} as const;
 const SCREEN_TIME_OVERRIDE_PROPERTIES = {
   targets: { type: 'array', minItems: 1, maxItems: 20, items: SCREEN_TIME_TARGET_SCHEMA },
   expiresAt: { type: 'string', format: 'date-time' },
@@ -423,26 +427,26 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.agreement.update', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage an exact update to one standing child Screen Time agreement using its current version.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
         childMembershipId: { type: 'string', minLength: 1 }, agreementId: { type: 'string', minLength: 1 },
         selectionId: { type: 'string', minLength: 1 }, expectedVersion: { type: 'integer', minimum: 1 },
-        rule: SCREEN_TIME_AGREEMENT_RULE_SCHEMA,
+        rule: SCREEN_TIME_MUTABLE_AGREEMENT_RULE_SCHEMA,
       }, required: ['childMembershipId', 'agreementId', 'selectionId', 'expectedVersion', 'rule'], additionalProperties: false,
     }, outputSchema: OBJECT_SCHEMA,
   },
   {
     id: 'screen_time.agreement.deactivate', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage deactivation of one standing child Screen Time agreement without claiming device cleanup has completed.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
         childMembershipId: { type: 'string', minLength: 1 }, agreementId: { type: 'string', minLength: 1 },
         selectionId: { type: 'string', minLength: 1 }, expectedVersion: { type: 'integer', minimum: 1 },
-        currentRule: SCREEN_TIME_AGREEMENT_RULE_SCHEMA,
+        currentRule: SCREEN_TIME_MUTABLE_AGREEMENT_RULE_SCHEMA,
       }, required: ['childMembershipId', 'agreementId', 'selectionId', 'expectedVersion', 'currentRule'], additionalProperties: false,
     }, outputSchema: OBJECT_SCHEMA,
   },
@@ -469,7 +473,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.override.cancel', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage cancellation of one active temporary Screen Time override and recompile remaining claims.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: false,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: false,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
@@ -481,7 +485,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.request.decide', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage approval or denial of one pending child request; approval creates the same bounded allow override as a caregiver command.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {

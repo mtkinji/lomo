@@ -15,7 +15,15 @@ const projection = {
         prerequisiteActivity: { selectionId: 'selection-reading', thresholdMinutes: 10, reset: 'daily', selectionRef: 'must-not-escape' },
         selectionRef: 'must-not-escape',
       },
-    }], activeOverrides: [], pendingRequests: [],
+    }], activeOverrides: [{
+      id: 'override-1', selectionId: 'selection-1', action: 'block', timeBasis: 'wall_clock',
+      startsAt: '2026-08-27T11:00:00.000Z', expiresAt: '2026-08-27T15:00:00.000Z',
+      usageMinutes: null, provenance: 'caregiver_direct', policyVersion: 7, status: 'active',
+    }], pendingRequests: [{
+      id: 'request-1', selectionId: 'selection-1', kind: 'more_time', requestedMinutes: 30,
+      message: null, status: 'pending', expiresAt: '2026-08-27T14:00:00.000Z',
+      createdAt: '2026-08-27T11:30:00.000Z',
+    }],
     devices: [{
       id: 'device-1', readiness: 'ready', authorizationStatus: 'authorized',
       lastSeenAt: null, releasedAt: null,
@@ -53,7 +61,15 @@ describe('executeServerScreenTimeTool', () => {
               dailyLimitMinutes: 30,
               prerequisiteActivity: { selectionId: 'selection-reading', thresholdMinutes: 10, reset: 'daily' },
             },
-          }], activeOverrides: [], pendingRequests: [],
+          }], activeOverrides: [{
+            id: 'override-1', selectionId: 'selection-1', action: 'block', timeBasis: 'wall_clock',
+            startsAt: '2026-08-27T11:00:00.000Z', expiresAt: '2026-08-27T15:00:00.000Z',
+            usageMinutes: null, provenance: 'caregiver_direct', policyVersion: 7, status: 'active',
+          }], pendingRequests: [{
+            id: 'request-1', selectionId: 'selection-1', kind: 'more_time', requestedMinutes: 30,
+            message: null, status: 'pending', expiresAt: '2026-08-27T14:00:00.000Z',
+            createdAt: '2026-08-27T11:30:00.000Z',
+          }],
           devices: [{
             readiness: 'ready', authorizationStatus: 'authorized',
             lastSeenAt: null, releasedAt: null,
@@ -184,5 +200,65 @@ describe('executeServerScreenTimeTool', () => {
         payload: expect.objectContaining({ childMembershipId: 'charlie', targetSelectionId: 'selection-games' }),
       }),
     }));
+  });
+
+  it.each([
+    ['screen_time.agreement.update', {
+      childMembershipId: 'charlie', agreementId: 'agreement-1', selectionId: 'selection-1', expectedVersion: 2,
+      rule: { weekdays: [1, 2, 3, 4, 5], startMinute: 900, endMinute: 1140, dailyLimitMinutes: 20 },
+    }, 'update_family_screen_time_agreement'],
+    ['screen_time.agreement.deactivate', {
+      childMembershipId: 'charlie', agreementId: 'agreement-1', selectionId: 'selection-1', expectedVersion: 2,
+      currentRule: {
+        weekdays: [1, 2, 3, 4, 5], startMinute: 960, endMinute: 1140, dailyLimitMinutes: 30,
+        prerequisiteActivity: { selectionId: 'selection-reading', thresholdMinutes: 10, reset: 'daily' },
+      },
+    }, 'deactivate_family_screen_time_agreement'],
+    ['screen_time.override.cancel', {
+      childMembershipId: 'charlie', overrideId: 'override-1', expectedVersion: 7,
+    }, 'cancel_family_screen_time_override'],
+    ['screen_time.request.decide', {
+      childMembershipId: 'charlie', requestId: 'request-1', decision: 'approved', allowMinutes: 30, expectedVersion: 7,
+    }, 'decide_family_screen_time_request'],
+  ])('stages %s as a reviewed authoritative proposal', async (toolId, args, operationType) => {
+    const rpc = jest.fn(async () => ({ data: projection, error: null }));
+    const stageProposal = jest.fn(async () => ({
+      id: 'proposal-next', status: 'pending' as const, version: 1, replayed: false,
+    }));
+    await expect(executeServerScreenTimeTool({
+      client: { rpc }, userId: 'user-1', stageProposal,
+      now: new Date('2026-08-27T12:00:00.000Z'),
+      call: { id: `call-${toolId}`, toolId, arguments: args },
+    })).resolves.toMatchObject({ status: 'proposed' });
+    expect(stageProposal).toHaveBeenCalledWith(expect.objectContaining({
+      capabilityId: 'screenTime', operation: expect.objectContaining({ type: operationType }),
+    }));
+  });
+
+  it('rejects an agreement update that requires its target selection before itself', async () => {
+    const selfReferentialProjection = {
+      children: [{
+        ...projection.children[0],
+        selections: [
+          ...projection.children[0].selections,
+          { id: 'selection-reading', label: 'Gospel Library', status: 'active' },
+        ],
+      }],
+    };
+    const rpc = jest.fn(async () => ({ data: selfReferentialProjection, error: null }));
+    const stageProposal = jest.fn();
+    await expect(executeServerScreenTimeTool({
+      client: { rpc }, userId: 'user-1', stageProposal,
+      call: {
+        id: 'update-stale-prerequisite', toolId: 'screen_time.agreement.update', arguments: {
+          childMembershipId: 'charlie', agreementId: 'agreement-1', selectionId: 'selection-1', expectedVersion: 2,
+          rule: {
+            weekdays: [1, 2, 3, 4, 5], startMinute: 900, endMinute: 1140, dailyLimitMinutes: 20,
+            prerequisiteActivity: { selectionId: 'selection-1', thresholdMinutes: 10, reset: 'daily' },
+          },
+        },
+      },
+    })).resolves.toMatchObject({ status: 'failed', code: 'screen_time_target_stale', retryable: true });
+    expect(stageProposal).not.toHaveBeenCalled();
   });
 });

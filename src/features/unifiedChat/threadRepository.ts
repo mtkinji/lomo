@@ -347,14 +347,18 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
     return { ...base, capabilityId: 'money', type: 'rename_money_category', targetId: row.target_id, payload } as UnifiedChatProposalOperation;
   }
   if (
-    row.capability_id === 'screenTime' && row.target_id == null &&
+    row.capability_id === 'screenTime' &&
     (row.operation_type === 'block_family_screen_time_selection' ||
       row.operation_type === 'allow_family_screen_time_selection' ||
-      row.operation_type === 'create_family_screen_time_prerequisite_agreement')
+      row.operation_type === 'create_family_screen_time_prerequisite_agreement' ||
+      row.operation_type === 'update_family_screen_time_agreement' ||
+      row.operation_type === 'deactivate_family_screen_time_agreement' ||
+      row.operation_type === 'cancel_family_screen_time_override' ||
+      row.operation_type === 'decide_family_screen_time_request')
   ) {
     const operation = parseStoredScreenTimeProposalOperation({
       type: row.operation_type,
-      targetId: null,
+      targetId: row.target_id,
       payload,
     });
     return operation ? { ...base, capabilityId: 'screenTime', ...operation } : null;
@@ -1052,8 +1056,12 @@ export function createUnifiedChatRepository(
           target_type: input.capabilityId === 'recipes' ? 'recipe'
             : input.capabilityId === 'screenTime'
             ? input.operation.type === 'create_family_screen_time_prerequisite_agreement'
+              || input.operation.type === 'update_family_screen_time_agreement'
+              || input.operation.type === 'deactivate_family_screen_time_agreement'
               ? 'family_screen_time_agreement'
-              : 'family_screen_time_override'
+              : input.operation.type === 'decide_family_screen_time_request'
+                ? 'family_screen_time_request'
+                : 'family_screen_time_override'
             : input.capabilityId === 'money' ? 'money_category'
             : input.capabilityId === 'arcs' ? 'arc'
             : input.capabilityId === 'goals' ? 'goal'

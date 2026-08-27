@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   applyTemporaryFamilyScreenTimeAccess,
   cancelTemporaryFamilyScreenTimeAccess,
+  decideFamilyScreenTimeAccessRequest,
+  setFamilyScreenTimeAgreement,
 } from './familyScreenTimeCommands';
 
 const now = new Date('2026-07-30T10:00:00.000Z');
@@ -133,5 +135,33 @@ describe('family Screen Time direct commands', () => {
     await expect(cancelTemporaryFamilyScreenTimeAccess(client, {
       childMembershipId: 'charlie', overrideId: 'override-1', expectedVersion: 8, operationId: 'op:cancel',
     })).resolves.toMatchObject({ desiredPolicyVersion: 9, deliveryState: 'applying' });
+  });
+
+  it('updates or deactivates an exact agreement version and reports device delivery separately', async () => {
+    const updated = {
+      agreementId: 'agreement-1', childMembershipId: 'charlie', selectionId: 'selection-charlie',
+      rule: { weekdays: [1, 2, 3, 4, 5], startMinute: 900, endMinute: 1140, dailyLimitMinutes: 20 },
+      active: true, version: 3, desiredPolicyVersion: 8, operationId: 'op:update',
+    };
+    const { client, rpc } = clientWithSequence([updated, snapshot('charlie', 8)]);
+    await expect(setFamilyScreenTimeAgreement(client, {
+      childMembershipId: 'charlie', agreementId: 'agreement-1', selectionId: 'selection-charlie',
+      expectedVersion: 2, rule: updated.rule, active: true, operationId: 'op:update',
+    })).resolves.toMatchObject({ version: 3, deliveryState: 'applying' });
+    expect(rpc).toHaveBeenNthCalledWith(1, 'set_kwilt_family_screen_time_agreement', expect.objectContaining({
+      p_agreement_id: 'agreement-1', p_expected_version: 2, p_active: true,
+    }));
+  });
+
+  it('decides one pending child request and keeps denial separate from device application', async () => {
+    const denied = {
+      requestId: 'request-1', childMembershipId: 'charlie', decision: 'denied', overrideId: null,
+      desiredPolicyVersion: 7, operationId: 'op:deny',
+    };
+    const { client } = clientWithSequence([denied, snapshot('charlie', 7, 7)]);
+    await expect(decideFamilyScreenTimeAccessRequest(client, {
+      childMembershipId: 'charlie', requestId: 'request-1', decision: 'denied',
+      allowMinutes: null, expectedVersion: 7, operationId: 'op:deny',
+    })).resolves.toMatchObject({ decision: 'denied', deliveryState: 'not_applicable' });
   });
 });

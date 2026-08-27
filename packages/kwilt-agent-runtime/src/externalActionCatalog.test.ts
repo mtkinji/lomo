@@ -138,7 +138,9 @@ describe('EXTERNAL_ACTION_REGISTRATIONS', () => {
       redactionPolicy: 'screen_time_summary',
     });
     for (const operationId of [
-      'screen_time.agreement.create', 'screen_time.override.block', 'screen_time.override.allow',
+      'screen_time.agreement.create', 'screen_time.agreement.update', 'screen_time.agreement.deactivate',
+      'screen_time.override.block', 'screen_time.override.allow', 'screen_time.override.cancel',
+      'screen_time.request.decide',
     ]) {
       expect(byOperation[operationId]).toMatchObject({
         requiredScopes: ['household.read', 'household.write'], confirmation: 'explicit',

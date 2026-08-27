@@ -26,8 +26,9 @@ const SERVER_EXECUTABLE_TOOL_IDS = [
   'plan.remove_activity', 'plan.reschedule_activity', 'plan.schedule_activity',
   'plan.schedule_chunks', 'profile.read', 'profile.update', 'relationships.correct',
   'relationships.forget', 'relationships.read', 'relationships.remember', 'screen_time.configure',
-  'screen_time.agreement.create', 'screen_time.override.allow', 'screen_time.override.block',
-  'screen_time.read',
+  'screen_time.agreement.create', 'screen_time.agreement.deactivate', 'screen_time.agreement.update',
+  'screen_time.override.allow', 'screen_time.override.block', 'screen_time.override.cancel',
+  'screen_time.read', 'screen_time.request.decide',
 ] as const;
 
 const contractById = new Map(KWILT_TOOL_CONTRACTS.map((tool) => [tool.id, tool]));

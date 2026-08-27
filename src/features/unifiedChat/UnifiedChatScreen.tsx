@@ -80,6 +80,7 @@ import { extractInspectableSourceUrls } from './webSearchResponse';
 import { executePlanProposalDecision } from './executePlanProposalDecision';
 import { executeGoalProposalDecision } from './executeGoalProposalDecision';
 import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
+import { recoverScreenTimeMutations } from './recoverScreenTimeMutations';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { applyApprovedPlanProposal } from './planProposalExecutor';
 import { executeProposalOutcomeBatch } from './executeProposalOutcomeBatch';
@@ -418,10 +419,13 @@ export function UnifiedChatScreen({
     const moneyRecovered = await recoverMoneyCategoryMutations({
       aggregate: chaptersRecovered, repository, moneyRepository,
     });
-    for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, moneyRecovered)) {
+    const screenTimeRecovered = await recoverScreenTimeMutations({
+      aggregate: moneyRecovered, repository, client: getSupabaseClient(),
+    });
+    for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, screenTimeRecovered)) {
       track(posthogClient, AnalyticsEvent.UnifiedChatReconciled, properties);
     }
-    return moneyRecovered;
+    return screenTimeRecovered;
   }, [moneyRepository, repository]);
 
   const postSnapshot = useCallback(

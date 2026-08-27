@@ -63,6 +63,18 @@ function normalizeAgreementRule(value: unknown): Record<string, unknown> | null 
   return output;
 }
 
+function describeAgreementRule(rule: Record<string, unknown>, prerequisiteLabel?: string): string {
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekdays = rule.weekdays as number[];
+  const days = weekdays.length === 7 ? 'daily' : weekdays.map((day) => dayNames[day]).join(', ');
+  const limit = typeof rule.dailyLimitMinutes === 'number' ? ` · ${rule.dailyLimitMinutes} minute daily limit` : '';
+  const prerequisite = record(rule.prerequisiteActivity);
+  const requirement = prerequisite && prerequisiteLabel
+    ? ` · requires ${prerequisiteLabel} for ${String(prerequisite.thresholdMinutes)} minutes first`
+    : '';
+  return `${days} · ${String(rule.startMinute)}–${String(rule.endMinute)}${limit}${requirement}`;
+}
+
 function mapArray(
   value: unknown,
   mapper: (item: Record<string, unknown>) => Record<string, unknown> | null,
@@ -245,6 +257,56 @@ function normalizeAgreementInput(call: ServerAgentToolCall): AgreementInput | nu
   };
 }
 
+type ExistingMutationInput =
+  | { kind: 'agreement'; action: 'update' | 'deactivate'; childMembershipId: string; agreementId: string; selectionId: string; expectedVersion: number; rule: Record<string, unknown> }
+  | { kind: 'cancel'; childMembershipId: string; overrideId: string; expectedVersion: number }
+  | { kind: 'request'; childMembershipId: string; requestId: string; decision: 'approved' | 'denied'; allowMinutes: number | null; expectedVersion: number };
+
+function normalizeExistingMutationInput(call: ServerAgentToolCall): ExistingMutationInput | null {
+  if (call.toolId === 'screen_time.agreement.update' || call.toolId === 'screen_time.agreement.deactivate') {
+    const ruleKey = call.toolId === 'screen_time.agreement.update' ? 'rule' : 'currentRule';
+    if (Object.keys(call.arguments).some((key) => ![
+      'childMembershipId', 'agreementId', 'selectionId', 'expectedVersion', ruleKey,
+    ].includes(key))) return null;
+    const childMembershipId = text(call.arguments.childMembershipId);
+    const agreementId = text(call.arguments.agreementId);
+    const selectionId = text(call.arguments.selectionId);
+    const expectedVersion = integerInRange(call.arguments.expectedVersion, 1, Number.MAX_SAFE_INTEGER);
+    const rule = normalizeAgreementRule(call.arguments[ruleKey]);
+    if (!childMembershipId || !agreementId || !selectionId || expectedVersion === null || !rule
+      || new Set(rule.weekdays as number[]).size !== (rule.weekdays as number[]).length
+      || Number(rule.endMinute) <= Number(rule.startMinute)) return null;
+    return {
+      kind: 'agreement', action: call.toolId === 'screen_time.agreement.update' ? 'update' : 'deactivate',
+      childMembershipId, agreementId, selectionId, expectedVersion, rule,
+    };
+  }
+  if (call.toolId === 'screen_time.override.cancel') {
+    if (Object.keys(call.arguments).some((key) => !['childMembershipId', 'overrideId', 'expectedVersion'].includes(key))) return null;
+    const childMembershipId = text(call.arguments.childMembershipId);
+    const overrideId = text(call.arguments.overrideId);
+    const expectedVersion = integerInRange(call.arguments.expectedVersion, 1, Number.MAX_SAFE_INTEGER);
+    return childMembershipId && overrideId && expectedVersion !== null
+      ? { kind: 'cancel', childMembershipId, overrideId, expectedVersion }
+      : null;
+  }
+  if (call.toolId === 'screen_time.request.decide') {
+    if (Object.keys(call.arguments).some((key) => ![
+      'childMembershipId', 'requestId', 'decision', 'allowMinutes', 'expectedVersion',
+    ].includes(key))) return null;
+    const childMembershipId = text(call.arguments.childMembershipId);
+    const requestId = text(call.arguments.requestId);
+    const decision = inSet(call.arguments.decision, ['approved', 'denied']) as 'approved' | 'denied' | null;
+    const expectedVersion = integerInRange(call.arguments.expectedVersion, 0, Number.MAX_SAFE_INTEGER);
+    const allowMinutes = call.arguments.allowMinutes === null ? null : integerInRange(call.arguments.allowMinutes, 1, 1440);
+    if (!childMembershipId || !requestId || !decision || expectedVersion === null
+      || (decision === 'approved' && allowMinutes === null)
+      || (decision === 'denied' && call.arguments.allowMinutes !== null)) return null;
+    return { kind: 'request', childMembershipId, requestId, decision, allowMinutes, expectedVersion };
+  }
+  return null;
+}
+
 function staleTargetResult(): ServerAgentToolResult {
   return {
     status: 'failed', code: 'screen_time_target_stale',
@@ -264,19 +326,25 @@ export async function executeServerScreenTimeTool({
 }): Promise<ServerAgentToolResult | null> {
   if (![
     'screen_time.read', 'screen_time.agreement.create',
+    'screen_time.agreement.update', 'screen_time.agreement.deactivate',
     'screen_time.override.block', 'screen_time.override.allow',
+    'screen_time.override.cancel', 'screen_time.request.decide',
   ].includes(call.toolId)) return null;
   if (!client.rpc) {
     return { status: 'unavailable', reason: 'server_screen_time_provider_unavailable', retryable: false };
   }
   const override = normalizeOverrideInput(call, now);
   const agreement = normalizeAgreementInput(call);
+  const mutation = normalizeExistingMutationInput(call);
   const isWrite = call.toolId !== 'screen_time.read';
-  if (isWrite && !override && !agreement) {
+  if (isWrite && !override && !agreement && !mutation) {
+    const invalidCode = call.toolId.startsWith('screen_time.agreement.')
+      ? 'invalid_screen_time_agreement'
+      : call.toolId === 'screen_time.request.decide'
+        ? 'invalid_screen_time_request_decision'
+        : 'invalid_screen_time_override';
     return {
-      status: 'failed', code: call.toolId === 'screen_time.agreement.create'
-        ? 'invalid_screen_time_agreement'
-        : 'invalid_screen_time_override',
+      status: 'failed', code: invalidCode,
       message: call.toolId === 'screen_time.agreement.create'
         ? 'Choose one child, one required app, one target app group, and a valid daily threshold.'
         : 'Choose a bounded wall-clock duration and at least one valid child target.',
@@ -285,7 +353,9 @@ export async function executeServerScreenTimeTool({
   }
   const childMembershipIds = call.toolId === 'screen_time.read'
     ? normalizeChildFilter(call.arguments.childMembershipIds)
-    : agreement ? [agreement.childMembershipId] : [...new Set(override!.targets.map((target) => target.childMembershipId))];
+    : agreement ? [agreement.childMembershipId]
+      : mutation ? [mutation.childMembershipId]
+        : [...new Set(override!.targets.map((target) => target.childMembershipId))];
   if (childMembershipIds === undefined) {
     return {
       status: 'failed', code: 'invalid_screen_time_children',
@@ -310,6 +380,69 @@ export async function executeServerScreenTimeTool({
   }
   if (call.toolId !== 'screen_time.read') {
     const children = output.children as Record<string, unknown>[];
+    if (mutation) {
+      const child = children.find((candidate) => candidate.membershipId === mutation.childMembershipId);
+      if (!child || !stageProposal) {
+        return child ? { status: 'unavailable', reason: 'server_proposal_persistence_unavailable', retryable: false } : staleTargetResult();
+      }
+      const selections = Array.isArray(child.selections) ? child.selections as Record<string, unknown>[] : [];
+      let title: string;
+      let body: string;
+      let type: string;
+      let targetId: string;
+      let targetType: string;
+      let payload: Record<string, unknown>;
+      if (mutation.kind === 'agreement') {
+        const agreements = Array.isArray(child.agreements) ? child.agreements as Record<string, unknown>[] : [];
+        const current = agreements.find((candidate) => candidate.id === mutation.agreementId && candidate.active === true);
+        const selection = selections.find((candidate) => candidate.id === mutation.selectionId && candidate.status === 'active');
+        const prerequisite = record(mutation.rule.prerequisiteActivity);
+        const prerequisiteSelection = prerequisite
+          ? selections.find((candidate) => candidate.id === prerequisite.selectionId && candidate.status === 'active')
+          : undefined;
+        const currentRuleMatches = mutation.action === 'update'
+          || JSON.stringify(current?.rule) === JSON.stringify(mutation.rule);
+        if (!current || !selection || current.selectionId !== mutation.selectionId
+          || (mutation.action === 'update' && prerequisite !== null
+            && (!prerequisiteSelection || prerequisite.selectionId === mutation.selectionId))
+          || current.version !== mutation.expectedVersion || !currentRuleMatches) return staleTargetResult();
+        title = mutation.action === 'update' ? `Update ${String(selection.label)} agreement` : `Turn off ${String(selection.label)} agreement`;
+        body = mutation.action === 'update'
+          ? `${String(child.displayName)} · ${describeAgreementRule(mutation.rule, prerequisiteSelection ? String(prerequisiteSelection.label) : undefined)}`
+          : `${String(child.displayName)} · stop this standing agreement`;
+        type = `${mutation.action}_family_screen_time_agreement`;
+        targetId = mutation.agreementId;
+        targetType = 'family_screen_time_agreement';
+        payload = { childMembershipId: mutation.childMembershipId, selectionId: mutation.selectionId, expectedVersion: mutation.expectedVersion, rule: mutation.rule };
+      } else if (mutation.kind === 'cancel') {
+        const overrides = Array.isArray(child.activeOverrides) ? child.activeOverrides as Record<string, unknown>[] : [];
+        const current = overrides.find((candidate) => candidate.id === mutation.overrideId && candidate.status === 'active');
+        const selection = selections.find((candidate) => candidate.id === current?.selectionId);
+        if (!current || !selection || child.desiredPolicyVersion !== mutation.expectedVersion) return staleTargetResult();
+        title = `Cancel ${String(selection.label)} ${String(current.action)}`;
+        body = `${String(child.displayName)} · recompile the remaining Kwilt family restrictions`;
+        type = 'cancel_family_screen_time_override'; targetId = mutation.overrideId; targetType = 'family_screen_time_override';
+        payload = { childMembershipId: mutation.childMembershipId, expectedVersion: mutation.expectedVersion };
+      } else {
+        const requests = Array.isArray(child.pendingRequests) ? child.pendingRequests as Record<string, unknown>[] : [];
+        const current = requests.find((candidate) => candidate.id === mutation.requestId && candidate.status === 'pending');
+        const selection = selections.find((candidate) => candidate.id === current?.selectionId);
+        if (!current || !selection || child.desiredPolicyVersion !== mutation.expectedVersion) return staleTargetResult();
+        title = `${mutation.decision === 'approved' ? 'Approve' : 'Deny'} ${String(selection.label)} request`;
+        body = mutation.decision === 'approved'
+          ? `${String(child.displayName)} · allow ${mutation.allowMinutes} minutes through Kwilt family restrictions`
+          : `${String(child.displayName)} · no temporary allowance`;
+        type = 'decide_family_screen_time_request'; targetId = mutation.requestId; targetType = 'family_screen_time_request';
+        payload = { childMembershipId: mutation.childMembershipId, decision: mutation.decision, allowMinutes: mutation.allowMinutes, expectedVersion: mutation.expectedVersion };
+      }
+      return {
+        status: 'proposed',
+        proposal: await stageProposal({
+          capabilityId: 'screenTime', title, body,
+          operation: { type, targetType, targetId, summary: title, payload },
+        }),
+      };
+    }
     if (agreement) {
       const child = children.find((candidate) => candidate.membershipId === agreement.childMembershipId);
       const selections = Array.isArray(child?.selections) ? child.selections as Record<string, unknown>[] : [];

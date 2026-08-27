@@ -105,19 +105,25 @@ describe('family Screen Time agent contracts', () => {
     expect(read?.channels.phone.state).toBe('live');
     expect(read?.returnBehavior).toBe('answer');
     for (const id of [
-      'screen_time.agreement.create', 'screen_time.override.block', 'screen_time.override.allow',
+      'screen_time.agreement.create', 'screen_time.agreement.update',
+      'screen_time.agreement.deactivate', 'screen_time.override.block',
+      'screen_time.override.allow', 'screen_time.override.cancel', 'screen_time.request.decide',
     ]) {
       const write = operation(id);
-      expect(write?.channels.mobile.state).toBe('live');
-      expect(write?.channels.phone.state).toBe('live');
+      expect(`${id}:${write?.channels.mobile.state}`).toBe(`${id}:live`);
+      expect(`${id}:${write?.channels.phone.state}`).toBe(`${id}:live`);
       expect(write?.returnBehavior).toBe('proposal_or_receipt');
     }
     for (const entry of KWILT_CAPABILITY_MANIFEST.filter((candidate) => (
       candidate.id.startsWith('screen_time.') &&
       candidate.id !== 'screen_time.read' &&
       candidate.id !== 'screen_time.agreement.create' &&
+      candidate.id !== 'screen_time.agreement.update' &&
+      candidate.id !== 'screen_time.agreement.deactivate' &&
       candidate.id !== 'screen_time.override.block' &&
       candidate.id !== 'screen_time.override.allow' &&
+      candidate.id !== 'screen_time.override.cancel' &&
+      candidate.id !== 'screen_time.request.decide' &&
       candidate.id !== 'screen_time.configure' &&
       candidate.id !== 'screen_time.personal.setup.open'
     ))) {

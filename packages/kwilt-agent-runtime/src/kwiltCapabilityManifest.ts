@@ -163,7 +163,9 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'relationships.read', 'relationships.remember', 'relationships.correct', 'relationships.forget',
   'household.read', 'household.invitation.preview',
   'screen_time.read',
-  'screen_time.agreement.create', 'screen_time.override.block', 'screen_time.override.allow',
+  'screen_time.agreement.create', 'screen_time.agreement.update', 'screen_time.agreement.deactivate',
+  'screen_time.override.block', 'screen_time.override.allow', 'screen_time.override.cancel',
+  'screen_time.request.decide',
   'plan.read_day_context', 'plan.recommend_day',
 ]);
 
@@ -372,6 +374,7 @@ const screenTimeReadProof = [
 const screenTimeWriteProof = [
   'src/features/unifiedChat/unifiedChatScreenTimeToolProvider.test.ts',
   'src/features/unifiedChat/screenTimeProposal.test.ts',
+  'src/features/unifiedChat/screenTimeProposalExecutor.test.ts',
   'src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts',
   'supabase/functions/_shared/__tests__/serverScreenTimeTools.test.ts',
   'supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts',
@@ -477,12 +480,12 @@ const CAPABILITY_ROWS = [
 
   live({ id: 'screen_time.read', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['screen_time.read'], sourceRefs: ['capability:screenTime'] }, screenTimeReadProof),
   live({ id: 'screen_time.agreement.create', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.create'], sourceRefs: [] }, screenTimeWriteProof),
-  bounded('pending_provider', { id: 'screen_time.agreement.update', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.update'], sourceRefs: [] }, 'The shared command exists, but Chat proposal staging and confirmation are not wired yet.'),
-  bounded('pending_provider', { id: 'screen_time.agreement.deactivate', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.deactivate'], sourceRefs: [] }, 'The shared command exists, but Chat proposal staging and confirmation are not wired yet.'),
+  live({ id: 'screen_time.agreement.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.update'], sourceRefs: [] }, screenTimeWriteProof),
+  live({ id: 'screen_time.agreement.deactivate', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.deactivate'], sourceRefs: [] }, screenTimeWriteProof),
   live({ id: 'screen_time.override.block', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.block'], sourceRefs: [] }, screenTimeWriteProof),
   live({ id: 'screen_time.override.allow', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.allow'], sourceRefs: [] }, screenTimeWriteProof),
-  bounded('pending_provider', { id: 'screen_time.override.cancel', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.cancel'], sourceRefs: [] }, 'Override cancellation exists, but Chat proposal staging and confirmation are not wired yet.'),
-  bounded('pending_provider', { id: 'screen_time.request.decide', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.request.decide'], sourceRefs: [] }, 'Child request provenance exists, but Chat approval proposals are not wired yet.'),
+  live({ id: 'screen_time.override.cancel', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.cancel'], sourceRefs: [] }, screenTimeWriteProof),
+  live({ id: 'screen_time.request.decide', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.request.decide'], sourceRefs: [] }, screenTimeWriteProof),
   bounded('confirmation_only', { id: 'screen_time.personal.setup.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.setup.open'], sourceRefs: ['capability:screenTime'] }, 'Chat resolves the signed-in person on the current device and opens the personal native setup flow. Apple authorization and app selection remain user-controlled.', deviceHandoffProof),
   bounded('pending_provider', { id: 'screen_time.personal.limit.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.limit.open'], sourceRefs: ['capability:screenTime'] }, 'Chat carries a bounded self, app-label, and daily allowance intent into native review. Apple authorization, token selection, persistence, and signed-device enforcement remain capability-owned.'),
   bounded('pending_provider', { id: 'screen_time.selection.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.selection.open'], sourceRefs: [] }, 'Chat now routes an exact authorized-child native handoff; production child-device selection, completion return, and signed proof remain pending.'),

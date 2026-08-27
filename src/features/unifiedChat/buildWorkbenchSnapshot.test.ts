@@ -820,6 +820,36 @@ describe('buildWorkbenchSnapshot', () => {
     })]);
   });
 
+  test('projects consequential Screen Time review details and a truthful denial receipt', () => {
+    const screenTimeProposal = {
+      id: 'proposal-screen-time', threadId: aggregate.thread.id, runId: 'run-screen-time', messageId: null,
+      capabilityId: 'screenTime' as const, title: 'Deny Games request', body: 'Charlie · no temporary allowance',
+      status: 'applied' as const, version: 4, createdAt: 'created', updatedAt: 'updated',
+      operation: {
+        id: 'operation-screen-time', proposalId: 'proposal-screen-time', capabilityId: 'screenTime' as const,
+        type: 'decide_family_screen_time_request' as const, targetId: 'request-1', summary: 'Deny Games request',
+        idempotencyKey: 'chat:screen-time:deny', sequence: 1,
+        payload: { childMembershipId: 'charlie', decision: 'denied' as const, allowMinutes: null, expectedVersion: 7 },
+      },
+    };
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      proposals: [screenTimeProposal],
+      receipts: [{
+        id: 'receipt-denial', proposalId: screenTimeProposal.id, operationId: screenTimeProposal.operation.id,
+        capabilityId: 'screenTime', idempotencyKey: screenTimeProposal.operation.idempotencyKey, status: 'applied',
+        resultingObjectType: 'family_screen_time_request', resultingObjectId: 'request-1',
+        resultState: { decision: 'denied', deviceState: 'not_applicable' }, returnTarget: null,
+        undoOperation: null, canUndo: false, appliedAt: '2026-08-27T14:00:00.000Z', undoneAt: null,
+      }],
+    });
+
+    expect(snapshot.proposals[0]?.operation.fields).toEqual({
+      decision: 'denied', allowMinutes: null, targetCount: 1,
+    });
+    expect(snapshot.receipts[0]?.summary).toBe('Saved · No child-device change needed');
+  });
+
   test('sanitizes assistant-visible text again at the outbound bridge', () => {
     const snapshot = buildWorkbenchSnapshot({
       ...aggregate,

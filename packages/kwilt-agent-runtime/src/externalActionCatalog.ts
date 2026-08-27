@@ -286,8 +286,12 @@ export const EXTERNAL_ACTION_REGISTRATIONS: readonly ExternalActionRegistration[
   canonicalRead('household.invitation.preview', 'household.invitation.preview', 'kwilt_household_invitation_preview', 'Preview Household Invitation', ['household.read'], 'household_summary'),
   canonicalRead('screen_time.read', 'screen_time.read', 'kwilt_screen_time_read', 'Read Screen Time', ['household.read'], 'screen_time_summary'),
   canonicalWrite('screen_time.agreement.create', 'screen_time.agreement.create', 'kwilt_screen_time_create_prerequisite_agreement', 'Create Screen Time Prerequisite', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('screen_time.agreement.update', 'screen_time.agreement.update', 'kwilt_screen_time_update_agreement', 'Update Screen Time Agreement', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('screen_time.agreement.deactivate', 'screen_time.agreement.deactivate', 'kwilt_screen_time_deactivate_agreement', 'Deactivate Screen Time Agreement', ['household.read', 'household.write'], 'consequential', 'explicit'),
   canonicalWrite('screen_time.override.block', 'screen_time.override.block', 'kwilt_screen_time_block', 'Block Saved Apps Temporarily', ['household.read', 'household.write'], 'consequential', 'explicit'),
   canonicalWrite('screen_time.override.allow', 'screen_time.override.allow', 'kwilt_screen_time_allow', 'Allow Saved Apps Temporarily', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('screen_time.override.cancel', 'screen_time.override.cancel', 'kwilt_screen_time_cancel_override', 'Cancel Screen Time Override', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('screen_time.request.decide', 'screen_time.request.decide', 'kwilt_screen_time_decide_request', 'Decide Screen Time Request', ['household.read', 'household.write'], 'consequential', 'explicit'),
 
   canonicalRead('chapters.list', 'chapters.read', 'kwilt_chapters_list', 'List Chapters', ['life.read'], 'chapter_summary'),
   canonicalRead('chapters.reflect', 'chapters.read', 'kwilt_chapters_reflect', 'Reflect on Chapters', ['life.read'], 'chapter_summary'),

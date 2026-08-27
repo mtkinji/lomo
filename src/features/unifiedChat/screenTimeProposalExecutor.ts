@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   applyTemporaryFamilyScreenTimeAccess,
+  cancelTemporaryFamilyScreenTimeAccess,
   createFamilyScreenTimePrerequisiteAgreement,
+  decideFamilyScreenTimeAccessRequest,
+  setFamilyScreenTimeAgreement,
 } from '../household/screenTime/familyScreenTimeCommands';
 import type { UnifiedChatProposal } from './types';
 
@@ -20,6 +23,35 @@ export function prepareApprovedScreenTimeProposal(proposal: ScreenTimeProposal) 
         thresholdMinutes: proposal.operation.payload.rule.prerequisiteActivity.thresholdMinutes,
         reset: proposal.operation.payload.rule.prerequisiteActivity.reset,
       },
+      returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
+      undoOperation: null,
+    };
+  }
+  if (proposal.operation.type === 'update_family_screen_time_agreement'
+    || proposal.operation.type === 'deactivate_family_screen_time_agreement') {
+    const active = proposal.operation.type === 'update_family_screen_time_agreement';
+    return {
+      resultingObjectType: 'family_screen_time_agreement',
+      resultingObjectId: proposal.operation.targetId,
+      resultState: { policyState: 'pending', deviceState: 'not_checked', active },
+      returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
+      undoOperation: null,
+    };
+  }
+  if (proposal.operation.type === 'cancel_family_screen_time_override') {
+    return {
+      resultingObjectType: 'family_screen_time_override',
+      resultingObjectId: proposal.operation.targetId,
+      resultState: { policyState: 'pending_cancellation', deviceState: 'not_checked' },
+      returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
+      undoOperation: null,
+    };
+  }
+  if (proposal.operation.type === 'decide_family_screen_time_request') {
+    return {
+      resultingObjectType: 'family_screen_time_request',
+      resultingObjectId: proposal.operation.targetId,
+      resultState: { decision: 'pending', deviceState: 'not_checked' },
       returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
       undoOperation: null,
     };
@@ -68,6 +100,65 @@ export async function applyApprovedScreenTimeProposal(input: {
         targetSelectionId: result.targetSelectionId,
         thresholdMinutes: result.rule.prerequisiteActivity.thresholdMinutes,
         reset: result.rule.prerequisiteActivity.reset,
+      },
+      returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
+      undoOperation: null,
+    };
+  }
+  if (proposal.operation.type === 'update_family_screen_time_agreement'
+    || proposal.operation.type === 'deactivate_family_screen_time_agreement') {
+    const active = proposal.operation.type === 'update_family_screen_time_agreement';
+    const result = await setFamilyScreenTimeAgreement(client, {
+      childMembershipId: proposal.operation.payload.childMembershipId,
+      agreementId: proposal.operation.targetId,
+      selectionId: proposal.operation.payload.selectionId,
+      expectedVersion: proposal.operation.payload.expectedVersion,
+      rule: proposal.operation.payload.rule,
+      active,
+      operationId: proposal.operation.idempotencyKey,
+    });
+    return {
+      resultingObjectType: 'family_screen_time_agreement',
+      resultingObjectId: result.agreementId,
+      resultState: {
+        policyState: 'saved', active: result.active, version: result.version,
+        desiredPolicyVersion: result.desiredPolicyVersion, deviceState: result.deliveryState,
+      },
+      returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
+      undoOperation: null,
+    };
+  }
+  if (proposal.operation.type === 'cancel_family_screen_time_override') {
+    const result = await cancelTemporaryFamilyScreenTimeAccess(client, {
+      childMembershipId: proposal.operation.payload.childMembershipId,
+      overrideId: proposal.operation.targetId,
+      expectedVersion: proposal.operation.payload.expectedVersion,
+      operationId: proposal.operation.idempotencyKey,
+    });
+    return {
+      resultingObjectType: 'family_screen_time_override', resultingObjectId: result.overrideId,
+      resultState: {
+        policyState: 'cancelled', desiredPolicyVersion: result.desiredPolicyVersion,
+        deviceState: result.deliveryState,
+      },
+      returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
+      undoOperation: null,
+    };
+  }
+  if (proposal.operation.type === 'decide_family_screen_time_request') {
+    const result = await decideFamilyScreenTimeAccessRequest(client, {
+      childMembershipId: proposal.operation.payload.childMembershipId,
+      requestId: proposal.operation.targetId,
+      decision: proposal.operation.payload.decision,
+      allowMinutes: proposal.operation.payload.allowMinutes,
+      expectedVersion: proposal.operation.payload.expectedVersion,
+      operationId: proposal.operation.idempotencyKey,
+    });
+    return {
+      resultingObjectType: 'family_screen_time_request', resultingObjectId: proposal.operation.targetId,
+      resultState: {
+        decision: result.decision, desiredPolicyVersion: result.desiredPolicyVersion,
+        deviceState: result.deliveryState,
       },
       returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
       undoOperation: null,

@@ -3,7 +3,9 @@ import {
   applyFamilyScreenTimeOverrideBatchRpc,
   cancelFamilyScreenTimeOverrideRpc,
   createFamilyScreenTimePrerequisiteAgreementRpc,
+  decideFamilyScreenTimeAccessRequestRpc,
   fetchFamilyScreenTimeSnapshot,
+  setFamilyScreenTimeAgreementRpc,
   type FamilyScreenTimeAction,
   type FamilyScreenTimeBasis,
   type FamilyScreenTimeSnapshot,
@@ -224,5 +226,81 @@ export async function createFamilyScreenTimePrerequisiteAgreement(client: Supaba
   return {
     ...result,
     deliveryState: deliveryState(snapshot, result.desiredPolicyVersion),
+  };
+}
+
+export async function setFamilyScreenTimeAgreement(client: SupabaseClient, input: {
+  childMembershipId: string;
+  agreementId: string;
+  selectionId: string;
+  expectedVersion: number;
+  rule: Record<string, unknown>;
+  active: boolean;
+  operationId: string;
+}) {
+  if (!input.childMembershipId || !input.agreementId || !input.selectionId || !input.operationId.trim()
+    || !Number.isInteger(input.expectedVersion) || input.expectedVersion < 1 || !isRecord(input.rule)) {
+    throw new Error('Invalid family Screen Time agreement update');
+  }
+  const raw = await setFamilyScreenTimeAgreementRpc(client, input);
+  if (!isRecord(raw) || raw.agreementId !== input.agreementId || raw.childMembershipId !== input.childMembershipId
+    || raw.selectionId !== input.selectionId || !isRecord(raw.rule) || raw.active !== input.active
+    || !isNumber(raw.version) || !isNumber(raw.desiredPolicyVersion) || raw.operationId !== input.operationId) {
+    throw new Error('Invalid family Screen Time agreement result');
+  }
+  const snapshot = await fetchFamilyScreenTimeSnapshot(client, input.childMembershipId);
+  if (snapshot.desiredPolicyVersion !== raw.desiredPolicyVersion) {
+    throw new Error('Family Screen Time policy version mismatch');
+  }
+  return {
+    agreementId: raw.agreementId as string,
+    childMembershipId: raw.childMembershipId as string,
+    selectionId: raw.selectionId as string,
+    rule: raw.rule,
+    active: raw.active,
+    version: raw.version,
+    desiredPolicyVersion: raw.desiredPolicyVersion,
+    operationId: raw.operationId as string,
+    deliveryState: deliveryState(snapshot, raw.desiredPolicyVersion),
+  };
+}
+
+export async function decideFamilyScreenTimeAccessRequest(client: SupabaseClient, input: {
+  childMembershipId: string;
+  requestId: string;
+  decision: 'approved' | 'denied';
+  allowMinutes: number | null;
+  expectedVersion: number;
+  operationId: string;
+}) {
+  if (!input.childMembershipId || !input.requestId || !input.operationId.trim()
+    || !Number.isInteger(input.expectedVersion) || input.expectedVersion < 0
+    || (input.decision === 'approved' && (!Number.isInteger(input.allowMinutes) || Number(input.allowMinutes) < 1 || Number(input.allowMinutes) > 1440))
+    || (input.decision === 'denied' && input.allowMinutes !== null)) {
+    throw new Error('Invalid family Screen Time request decision');
+  }
+  const raw = await decideFamilyScreenTimeAccessRequestRpc(client, input);
+  if (!isRecord(raw) || raw.requestId !== input.requestId || raw.childMembershipId !== input.childMembershipId
+    || raw.decision !== input.decision || !(raw.overrideId === null || isString(raw.overrideId))
+    || !isNumber(raw.desiredPolicyVersion) || raw.operationId !== input.operationId) {
+    throw new Error('Invalid family Screen Time request decision result');
+  }
+  if (input.decision === 'denied') {
+    return {
+      requestId: raw.requestId as string, childMembershipId: raw.childMembershipId as string,
+      decision: raw.decision as 'denied', overrideId: raw.overrideId as string | null,
+      desiredPolicyVersion: raw.desiredPolicyVersion, operationId: raw.operationId as string,
+      deliveryState: 'not_applicable' as const,
+    };
+  }
+  const snapshot = await fetchFamilyScreenTimeSnapshot(client, input.childMembershipId);
+  if (snapshot.desiredPolicyVersion !== raw.desiredPolicyVersion) {
+    throw new Error('Family Screen Time policy version mismatch');
+  }
+  return {
+    requestId: raw.requestId as string, childMembershipId: raw.childMembershipId as string,
+    decision: raw.decision as 'approved', overrideId: raw.overrideId as string | null,
+    desiredPolicyVersion: raw.desiredPolicyVersion, operationId: raw.operationId as string,
+    deliveryState: deliveryState(snapshot, raw.desiredPolicyVersion),
   };
 }

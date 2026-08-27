@@ -2440,6 +2440,252 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "destructiveHint": false,
       "openWorldHint": false,
       "readOnlyHint": false,
+      "title": "Update Screen Time Agreement",
+    },
+    "canonicalName": "kwilt_screen_time_update_agreement",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agreementId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "childMembershipId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "rule": {
+          "additionalProperties": false,
+          "properties": {
+            "dailyLimitMinutes": {
+              "maximum": 1440,
+              "minimum": 1,
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "endMinute": {
+              "maximum": 1440,
+              "minimum": 1,
+              "type": "integer",
+            },
+            "prerequisiteActivity": {
+              "additionalProperties": false,
+              "properties": {
+                "reset": {
+                  "enum": [
+                    "daily",
+                  ],
+                  "type": "string",
+                },
+                "selectionId": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "thresholdMinutes": {
+                  "maximum": 1440,
+                  "minimum": 1,
+                  "type": "integer",
+                },
+              },
+              "required": [
+                "selectionId",
+                "thresholdMinutes",
+                "reset",
+              ],
+              "type": "object",
+            },
+            "startMinute": {
+              "maximum": 1439,
+              "minimum": 0,
+              "type": "integer",
+            },
+            "weekdays": {
+              "items": {
+                "maximum": 6,
+                "minimum": 0,
+                "type": "integer",
+              },
+              "maxItems": 7,
+              "minItems": 1,
+              "type": "array",
+            },
+          },
+          "required": [
+            "weekdays",
+            "startMinute",
+            "endMinute",
+            "dailyLimitMinutes",
+          ],
+          "type": "object",
+        },
+        "selectionId": {
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "childMembershipId",
+        "agreementId",
+        "selectionId",
+        "expectedVersion",
+        "rule",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_update_agreement",
+    "operationId": "screen_time.agreement.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.agreement.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Deactivate Screen Time Agreement",
+    },
+    "canonicalName": "kwilt_screen_time_deactivate_agreement",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "agreementId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "childMembershipId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "currentRule": {
+          "additionalProperties": false,
+          "properties": {
+            "dailyLimitMinutes": {
+              "maximum": 1440,
+              "minimum": 1,
+              "type": [
+                "integer",
+                "null",
+              ],
+            },
+            "endMinute": {
+              "maximum": 1440,
+              "minimum": 1,
+              "type": "integer",
+            },
+            "prerequisiteActivity": {
+              "additionalProperties": false,
+              "properties": {
+                "reset": {
+                  "enum": [
+                    "daily",
+                  ],
+                  "type": "string",
+                },
+                "selectionId": {
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "thresholdMinutes": {
+                  "maximum": 1440,
+                  "minimum": 1,
+                  "type": "integer",
+                },
+              },
+              "required": [
+                "selectionId",
+                "thresholdMinutes",
+                "reset",
+              ],
+              "type": "object",
+            },
+            "startMinute": {
+              "maximum": 1439,
+              "minimum": 0,
+              "type": "integer",
+            },
+            "weekdays": {
+              "items": {
+                "maximum": 6,
+                "minimum": 0,
+                "type": "integer",
+              },
+              "maxItems": 7,
+              "minItems": 1,
+              "type": "array",
+            },
+          },
+          "required": [
+            "weekdays",
+            "startMinute",
+            "endMinute",
+            "dailyLimitMinutes",
+          ],
+          "type": "object",
+        },
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "selectionId": {
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "childMembershipId",
+        "agreementId",
+        "selectionId",
+        "expectedVersion",
+        "currentRule",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_deactivate_agreement",
+    "operationId": "screen_time.agreement.deactivate",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.agreement.deactivate",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
       "title": "Block Saved Apps Temporarily",
     },
     "canonicalName": "kwilt_screen_time_block",
@@ -2588,6 +2834,125 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "household.write",
     ],
     "toolId": "screen_time.override.allow",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Cancel Screen Time Override",
+    },
+    "canonicalName": "kwilt_screen_time_cancel_override",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "childMembershipId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedVersion": {
+          "minimum": 1,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "overrideId": {
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "childMembershipId",
+        "overrideId",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_cancel_override",
+    "operationId": "screen_time.override.cancel",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.override.cancel",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Decide Screen Time Request",
+    },
+    "canonicalName": "kwilt_screen_time_decide_request",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "allowMinutes": {
+          "maximum": 1440,
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null",
+          ],
+        },
+        "childMembershipId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "decision": {
+          "enum": [
+            "approved",
+            "denied",
+          ],
+          "type": "string",
+        },
+        "expectedVersion": {
+          "minimum": 0,
+          "type": "integer",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "requestId": {
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "childMembershipId",
+        "requestId",
+        "decision",
+        "allowMinutes",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_decide_request",
+    "operationId": "screen_time.request.decide",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.request.decide",
   },
   {
     "annotations": {

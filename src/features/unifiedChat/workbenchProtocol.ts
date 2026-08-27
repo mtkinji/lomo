@@ -113,7 +113,9 @@ export type AgentWorkbenchProposal = {
       'create_recipe' | 'update_recipe' | 'delete_recipe' |
       'remember_relationship' | 'correct_relationship' | 'forget_relationship' |
       'block_family_screen_time_selection' | 'allow_family_screen_time_selection' |
-      'create_family_screen_time_prerequisite_agreement';
+      'create_family_screen_time_prerequisite_agreement' |
+      'update_family_screen_time_agreement' | 'deactivate_family_screen_time_agreement' |
+      'cancel_family_screen_time_override' | 'decide_family_screen_time_request';
     targetId?: string;
     summary: string;
     fields: Record<string, unknown>;
