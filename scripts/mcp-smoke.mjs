@@ -30,6 +30,17 @@ Optional:
     Runs write tools against the authenticated user's account. The script deletes the smoke objects before exiting.
 `;
 
+const EXPECTED_CAPABILITY_SCOPES = [
+  'life.read',
+  'life.write',
+  'household.read',
+  'household.write',
+  'money.read',
+  'money.write',
+  'food.read',
+  'food.write',
+];
+
 function requiredEnv(name) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing ${name}. Run with --help for usage.`);
@@ -288,8 +299,9 @@ async function run() {
   if (metadata.resource_indicators_supported !== true) {
     throw new Error('metadata did not advertise resource_indicators_supported=true');
   }
-  if (!Array.isArray(metadata.scopes_supported) || !metadata.scopes_supported.includes('read') || !metadata.scopes_supported.includes('write')) {
-    throw new Error(`metadata scopes_supported must include read and write: ${JSON.stringify(metadata.scopes_supported)}`);
+  const missingScopes = EXPECTED_CAPABILITY_SCOPES.filter((scope) => !metadata.scopes_supported?.includes(scope));
+  if (missingScopes.length > 0) {
+    throw new Error(`metadata scopes_supported missing ${missingScopes.join(', ')}: ${JSON.stringify(metadata.scopes_supported)}`);
   }
 
   const protectedResource = await requestJson(`${baseUrl}/.well-known/oauth-protected-resource`);
@@ -304,7 +316,13 @@ async function run() {
     }
     const client = await registerClient(baseUrl, redirectUri);
     console.log(`registered client: ${client.client_id}`);
-    const tokenResponse = await approveAndExchange(baseUrl, client, redirectUri, userJwt, writeSmoke ? 'read write' : 'read');
+    const tokenResponse = await approveAndExchange(
+      baseUrl,
+      client,
+      redirectUri,
+      userJwt,
+      writeSmoke ? 'life.read life.write' : 'life.read',
+    );
     accessToken = tokenResponse.access_token;
     if (!accessToken) throw new Error(`Token response missing access_token: ${JSON.stringify(tokenResponse)}`);
     console.log(`token ok: expires_in=${tokenResponse.expires_in} scope=${tokenResponse.scope ?? 'unknown'}`);
@@ -340,7 +358,7 @@ async function run() {
   console.log(`list_arcs ok: ${JSON.stringify(listArcs.structuredContent ?? listArcs).slice(0, 500)}`);
 
   if (writeSmoke) {
-    if (!toolNames.includes('create_arc')) throw new Error('tools/list did not include write tools for read write scope');
+    if (!toolNames.includes('create_arc')) throw new Error('tools/list did not include write tools for life.read life.write scope');
     await runWriteSmoke(baseUrl, accessToken);
     await revokeToken(baseUrl, accessToken);
     await expectRevoked(baseUrl, accessToken);
