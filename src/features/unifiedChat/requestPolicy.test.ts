@@ -73,6 +73,8 @@ describe('classifyUnifiedChatRequest', () => {
     ['What name is on my profile?', 'capability_question', true, ['profile']],
     ['Call me Andy from now on.', 'capability_action', true, ['profile']],
     ['What do you remember about Lily?', 'capability_question', true, ['relationships']],
+    ['Who is in my Household?', 'capability_question', true, ['household']],
+    ['Preview Household invitation AB12CD.', 'capability_question', true, ['household']],
     ["Lily's birthday is October 12 and she likes dragons.", 'capability_action', true, ['relationships']],
     ["Actually, Lily's birthday is October 14.", 'capability_action', true, ['relationships']],
     ["Forget Lily's birthday.", 'capability_action', true, ['relationships']],

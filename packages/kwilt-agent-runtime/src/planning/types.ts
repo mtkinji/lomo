@@ -10,7 +10,7 @@ export type PortableUnifiedChatRequestClass =
 
 export type PortableUnifiedChatCapabilityId =
   | 'arcs' | 'goals' | 'todos' | 'plan' | 'chapters' | 'profile' | 'relationships'
-  | 'money' | 'screenTime' | 'notifications' | 'account' | 'navigation' | 'recipes'
+  | 'household' | 'money' | 'screenTime' | 'notifications' | 'account' | 'navigation' | 'recipes'
   | 'meal_planning' | 'chores';
 
 export type AgentJudgmentExecutionMode =

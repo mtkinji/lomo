@@ -66,6 +66,10 @@ const relationshipManagementMigration = readFileSync(
   new URL('../supabase/migrations/20260723194500_unified_chat_relationship_management.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
+const householdReadProviderMigration = readFileSync(
+  new URL('../supabase/migrations/20260827122633_unified_chat_household_read_provider.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
 const relationshipMemoryFunction = readFileSync(
   new URL('../supabase/functions/relationship-memory/index.ts', import.meta.url),
   'utf8',
@@ -119,6 +123,20 @@ test('projects only bounded native Profile fields for owner-scoped server-channe
   assert.match(agentProfileProjectionMigration, /kwilt_agent_profile_projections_owner_delete/);
   assert.match(agentProfileProjectionMigration, /\(select auth\.uid\(\)\) = user_id/);
   assert.doesNotMatch(tableDefinition, /\b(email|birthdate|identity_summary|coach_context|raw_profile)\b/);
+});
+
+test('keeps external Household reads user-bound and service-role only', () => {
+  assert.match(householdReadProviderMigration, /get_kwilt_agent_household_snapshot\(p_user_id uuid\)/);
+  assert.match(householdReadProviderMigration, /preview_kwilt_agent_household_invite\(\s*p_user_id uuid,\s*p_code text\s*\)/);
+  assert.match(householdReadProviderMigration, /binding\.user_id = p_user_id/);
+  assert.match(householdReadProviderMigration, /v_actor\.role = 'owner'/);
+  assert.match(householdReadProviderMigration, /v_actor\.id = activation\.child_membership_id/);
+  assert.match(householdReadProviderMigration, /grant_row\.caregiver_membership_id = v_actor\.id/);
+  assert.match(householdReadProviderMigration, /user_row\.id = p_user_id/);
+  assert.match(householdReadProviderMigration, /revoke all on function public\.get_kwilt_agent_household_snapshot\(uuid\) from public, anon, authenticated/);
+  assert.match(householdReadProviderMigration, /grant execute on function public\.get_kwilt_agent_household_snapshot\(uuid\) to service_role/);
+  assert.match(householdReadProviderMigration, /revoke all on function public\.preview_kwilt_agent_household_invite\(uuid, text\) from public, anon, authenticated/);
+  assert.match(householdReadProviderMigration, /grant execute on function public\.preview_kwilt_agent_household_invite\(uuid, text\) to service_role/);
 });
 
 test('applies explicit relationship memory atomically through existing owner-scoped records and trust receipts', () => {

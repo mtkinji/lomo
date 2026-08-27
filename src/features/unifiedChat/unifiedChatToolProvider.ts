@@ -102,11 +102,16 @@ export function createUnifiedChatToolProvider({
   snapshots,
   planConversationReferent,
   executeRelationshipTool,
+  executeHouseholdTool,
   now = () => new Date(),
 }: {
   snapshots: UnifiedChatCapabilitySnapshots;
   planConversationReferent?: PlanPlacementConversationReferent | null;
   executeRelationshipTool?: (
+    call: AgentToolCall,
+    tool: AgentToolDefinition,
+  ) => Promise<AgentToolExecutionResult | null>;
+  executeHouseholdTool?: (
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
@@ -154,6 +159,8 @@ export function createUnifiedChatToolProvider({
     }
     const relationshipResult = await executeRelationshipTool?.(call, tool);
     if (relationshipResult) return relationshipResult;
+    const householdResult = await executeHouseholdTool?.(call, tool);
+    if (householdResult) return householdResult;
     const deviceResult = await deviceProvider.execute(call, tool);
     if (deviceResult) return deviceResult;
     if (call.toolId === 'recipes.create') {

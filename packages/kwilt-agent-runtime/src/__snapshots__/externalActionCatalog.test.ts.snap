@@ -695,6 +695,32 @@ exports[`EXTERNAL_ACTION_REGISTRATIONS snapshots the compatibility surface and e
   },
   {
     "aliases": [],
+    "canonicalName": "kwilt_household_read",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "household.read",
+    "redaction": "household_summary",
+    "scopes": [
+      "household.read",
+    ],
+    "toolId": "household.read",
+  },
+  {
+    "aliases": [],
+    "canonicalName": "kwilt_household_invitation_preview",
+    "confirmation": "none",
+    "consequence": "low",
+    "exposure": "exposed",
+    "operationId": "household.invitation.preview",
+    "redaction": "household_summary",
+    "scopes": [
+      "household.read",
+    ],
+    "toolId": "household.invitation.preview",
+  },
+  {
+    "aliases": [],
     "canonicalName": "kwilt_chapters_list",
     "confirmation": "none",
     "consequence": "low",

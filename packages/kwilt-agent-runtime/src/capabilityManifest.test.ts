@@ -56,6 +56,14 @@ describe('canonical capability manifest', () => {
       .map(([owner]) => owner)).toEqual(['explore', 'games']);
   });
 
+  test('marks bounded Household reads live only after their server projection exists', () => {
+    for (const operationId of ['household.read', 'household.invitation.preview']) {
+      const operation = KWILT_CAPABILITY_MANIFEST.find((candidate) => candidate.id === operationId);
+      expect(operation?.channels.mobile.state).toBe('live');
+      expect(operation?.channels.phone).toMatchObject({ state: 'live', outcome: 'server_execution' });
+    }
+  });
+
   test('projects only tool providers backed by executable registrations', () => {
     const manifest = defineCapabilityManifest([inspectOperation({
       tools: [

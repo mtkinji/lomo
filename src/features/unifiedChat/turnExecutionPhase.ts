@@ -24,6 +24,7 @@ import type { UnifiedChatRepository } from './threadRepository';
 import { transitionRun } from './runStateMachine';
 import { createRelationshipMemoryToolProvider } from '../../services/relationshipMemoryToolProvider';
 import { createUnifiedChatToolProvider } from './unifiedChatToolProvider';
+import { createHouseholdChatToolProvider } from './householdChatToolProvider';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 import { inferredGoalTargetDate, directRecurringReminder } from './directAppControl';
 import { ACTIVITY_ACTION_RESPONSE_FORMAT, parseActivityActionResponse } from './activityProposal';
@@ -323,6 +324,10 @@ export type ExecuteUnifiedChatTurnPhaseInput = {
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
+  executeHouseholdTool?: (
+    call: AgentToolCall,
+    tool: AgentToolDefinition,
+  ) => Promise<AgentToolExecutionResult | null>;
   captureTelemetry: (
     event: AnalyticsEventName,
     properties?: UnifiedChatTelemetryProperties,
@@ -378,7 +383,7 @@ export async function executeUnifiedChatTurnPhase(
         capability === 'goals' || capability === 'profile' || capability === 'chapters' ||
         capability === 'screenTime' || capability === 'notifications' || capability === 'account' ||
         capability === 'navigation' || capability === 'relationships' || capability === 'money' ||
-        capability === 'recipes',
+        capability === 'recipes' || capability === 'household',
     );
   const relationshipProvider = input.executeRelationshipTool
     ? { execute: input.executeRelationshipTool }
@@ -389,10 +394,14 @@ export async function executeUnifiedChatTurnPhase(
           messageId: input.userMessage.id,
         },
       });
+  const householdProvider = input.executeHouseholdTool
+    ? { execute: input.executeHouseholdTool }
+    : createHouseholdChatToolProvider();
   const toolProvider = createUnifiedChatToolProvider({
     snapshots: input.snapshots,
     planConversationReferent: input.planConversationReferent,
     executeRelationshipTool: relationshipProvider.execute,
+    executeHouseholdTool: householdProvider.execute,
     now: input.now,
   });
   const coveredTargetIds = new Set<string>();

@@ -85,6 +85,22 @@ describe('routeUnifiedChatRequest', () => {
     expect(call[1].launchContextSummary).toContain('current plan-versus-income-limit answer');
   });
 
+  it('describes Household as the owner of roster, access, and invitation reads', async () => {
+    const sendCoachChat = jest.fn(async () => JSON.stringify({
+      requestClass: 'capability_question', participatingCapabilities: ['household'],
+      usePrivateContext: true, informationNeed: 'stable', confidence: 0.98,
+      reason: 'The user asked who can manage a child capability.',
+    }));
+
+    await routeUnifiedChatRequest({
+      prompt: 'Who can manage Screen Time for Charlie?', visibleContext: [], recentTurns: [],
+    }, { sendCoachChat: sendCoachChat as never });
+
+    const call = sendCoachChat.mock.calls[0] as unknown as [unknown, { launchContextSummary?: string }];
+    expect(call[1].launchContextSummary).toContain('household:');
+    expect(call[1].launchContextSummary).toContain('caregiver grants');
+  });
+
   it.each([
     ['malformed output', async () => 'not json'],
     ['transport failure', async () => { throw new Error('offline'); }],

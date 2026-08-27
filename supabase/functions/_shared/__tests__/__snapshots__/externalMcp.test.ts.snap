@@ -2226,6 +2226,67 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": true,
+      "title": "Read Household",
+    },
+    "canonicalName": "kwilt_household_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_household_read",
+    "operationId": "household.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+    ],
+    "toolId": "household.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Preview Household Invitation",
+    },
+    "canonicalName": "kwilt_household_invitation_preview",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "code",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_invitation_preview",
+    "operationId": "household.invitation.preview",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+    ],
+    "toolId": "household.invitation.preview",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
       "title": "List Chapters",
     },
     "canonicalName": "kwilt_chapters_list",

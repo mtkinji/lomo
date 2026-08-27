@@ -127,6 +127,12 @@ describe('EXTERNAL_ACTION_REGISTRATIONS', () => {
     expect(byOperation['relationships.remember']).toMatchObject({
       canonicalName: 'kwilt_relationships_remember', requiredScopes: ['household.read', 'household.write'],
     });
+    expect(byOperation['household.read']).toMatchObject({
+      canonicalName: 'kwilt_household_read', requiredScopes: ['household.read'],
+    });
+    expect(byOperation['household.invitation.preview']).toMatchObject({
+      canonicalName: 'kwilt_household_invitation_preview', requiredScopes: ['household.read'],
+    });
   });
 
   test('projects server-backed native handoffs instead of hiding device-owned actions', () => {

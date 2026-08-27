@@ -10,6 +10,7 @@ export type ExternalRedactionPolicy =
   | 'chapter_summary'
   | 'streak_summary'
   | 'relationship_summary'
+  | 'household_summary'
   | 'plan_summary'
   | 'mutation_receipt';
 
@@ -279,6 +280,9 @@ export const EXTERNAL_ACTION_REGISTRATIONS: readonly ExternalActionRegistration[
   canonicalWrite('relationships.remember', 'relationships.remember', 'kwilt_relationships_remember', 'Remember Relationship Detail', ['household.read', 'household.write'], 'low', 'none'),
   canonicalWrite('relationships.correct', 'relationships.correct', 'kwilt_relationships_correct', 'Correct Relationship Detail', ['household.read', 'household.write'], 'low', 'none'),
   canonicalWrite('relationships.forget', 'relationships.forget', 'kwilt_relationships_forget', 'Forget Relationship Detail', ['household.read', 'household.write'], 'low', 'none'),
+
+  canonicalRead('household.read', 'household.read', 'kwilt_household_read', 'Read Household', ['household.read'], 'household_summary'),
+  canonicalRead('household.invitation.preview', 'household.invitation.preview', 'kwilt_household_invitation_preview', 'Preview Household Invitation', ['household.read'], 'household_summary'),
 
   canonicalRead('chapters.list', 'chapters.read', 'kwilt_chapters_list', 'List Chapters', ['life.read'], 'chapter_summary'),
   canonicalRead('chapters.reflect', 'chapters.read', 'kwilt_chapters_reflect', 'Reflect on Chapters', ['life.read'], 'chapter_summary'),

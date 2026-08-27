@@ -18,18 +18,26 @@ describe('KWILT_OPERATION_REGISTRY', () => {
     expect(Object.isFrozen(KWILT_OPERATION_REGISTRY)).toBe(true);
   });
 
-  test('inventories core Household writes without overstating conversational coverage', () => {
-    const expected = [
-      ['household.read', 'none'],
+  test('keeps Household reads live while writes remain explicit pending-provider boundaries', () => {
+    const liveReads = ['household.read', 'household.invitation.preview'] as const;
+    const pendingWrites = [
       ['household.member.add_dependent', 'explicit'],
       ['household.invitation.create', 'explicit'],
-      ['household.invitation.preview', 'none'],
       ['household.invitation.accept', 'explicit'],
       ['household.child_capability.update', 'explicit'],
       ['household.caregiver_grant.update', 'explicit'],
     ] as const;
     const byId = new Map(KWILT_CAPABILITY_MANIFEST.map((operation) => [operation.id, operation]));
-    for (const [id, confirmation] of expected) {
+    for (const id of liveReads) {
+      expect(byId.get(id)).toMatchObject({
+        owner: 'household', confirmation: 'none',
+        channels: {
+          mobile: { state: 'live', outcome: 'answer' },
+          phone: { state: 'live', outcome: 'server_execution' },
+        },
+      });
+    }
+    for (const [id, confirmation] of pendingWrites) {
       expect(byId.get(id)).toMatchObject({
         owner: 'household', confirmation,
         channels: {

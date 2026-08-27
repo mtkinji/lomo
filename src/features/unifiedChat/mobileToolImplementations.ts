@@ -14,6 +14,7 @@ const MOBILE_EXECUTABLE_TOOL_IDS = [
   'activities.update', 'arcs.create', 'arcs.delete', 'arcs.read', 'arcs.update',
   'chapters.note.update', 'chapters.read', 'goals.check_in', 'goals.create',
   'goals.delete', 'goals.read', 'goals.share.open', 'goals.update',
+  'household.invitation.preview', 'household.read',
   'money.app_control.review', 'money.category.create', 'money.category.rename', 'money.read',
   'navigation.account_settings.open', 'navigation.search.open', 'notifications.configure',
   'plan.preferences.open', 'plan.read_day_context', 'plan.recommend_day',
