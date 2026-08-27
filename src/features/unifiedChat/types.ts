@@ -234,7 +234,7 @@ export type UnifiedChatMutationReceipt = {
   id: string;
   proposalId: string;
   operationId: string;
-  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'household' | 'screenTime' | 'money' | 'recipes';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'household' | 'screenTime' | 'money' | 'recipes' | 'chores';
   idempotencyKey: string;
   status: 'reserved' | 'applied' | 'failed' | 'undone';
   resultingObjectType: string | null;
@@ -276,7 +276,7 @@ export type TransitionUnifiedChatRunInput = {
 };
 
 export type PersistUnifiedChatMutationReceiptInput = {
-  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'household' | 'screenTime' | 'money' | 'recipes';
+  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'household' | 'screenTime' | 'money' | 'recipes' | 'chores';
   threadId: string;
   proposalId: string;
   operationId: string;
@@ -420,6 +420,7 @@ export type UnifiedChatProposalOperation = UnifiedChatProposalOperationBase & (
       payload: { name: string; expectedName: string };
     }
   | ({ capabilityId: 'money' } & import('./moneyToolProvider').MoneyProposalOperation)
+  | ({ capabilityId: 'chores' } & import('./choreToolProvider').ChoreProposalOperation)
   | ({ capabilityId: 'screenTime' } & ScreenTimeProposalOperation)
   | {
       capabilityId: 'relationships';
@@ -566,6 +567,10 @@ export type UnifiedChatProposal = UnifiedChatProposalBase & (
       operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'money' }>;
     }
   | {
+      capabilityId: 'chores';
+      operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'chores' }>;
+    }
+  | {
       capabilityId: 'screenTime';
       operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'screenTime' }>;
     }
@@ -641,6 +646,12 @@ export type CreateUnifiedChatProposalInput = CreateUnifiedChatProposalInputBase 
         | { type: 'rename_money_category'; targetId: string; payload: { name: string; expectedName: string } }
         | import('./moneyToolProvider').MoneyProposalOperation
       ) & { summary: string; idempotencyKey: string };
+    }
+  | {
+      capabilityId: 'chores';
+      operation: import('./choreToolProvider').ChoreProposalOperation & {
+        summary: string; idempotencyKey: string;
+      };
     }
   | {
       capabilityId: 'screenTime';

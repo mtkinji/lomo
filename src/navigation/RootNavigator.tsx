@@ -182,7 +182,7 @@ export type RootDrawerParamList = {
   Money: NavigatorScreenParams<MoneyStackParamList> | undefined;
   Explore: NavigatorScreenParams<ExploreStackParamList> | undefined;
   Games: NavigatorScreenParams<GamesStackParamList> | undefined;
-  Chores: undefined;
+  Chores: { occurrenceId?: string; openEvidencePicker?: boolean } | undefined;
   Food: NavigatorScreenParams<FoodStackParamList> | undefined;
   /**
    * Hidden (no nav surface entry). Kept to preserve `kwilt://agent` deep links and

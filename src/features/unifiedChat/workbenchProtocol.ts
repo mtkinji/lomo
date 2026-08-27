@@ -93,7 +93,7 @@ export type AgentWorkbenchProposal = {
   id: string;
   runId: string;
   messageId?: string;
-  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'household' | 'screenTime' | 'money' | 'recipes';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'household' | 'screenTime' | 'money' | 'recipes' | 'chores';
   title: string;
   body: string;
   status: 'pending' | 'edited' | 'rejected' | 'deferred' | 'approved' | 'applying' | 'applied' | 'failed' | 'undone';
@@ -124,7 +124,13 @@ export type AgentWorkbenchProposal = {
       'update_family_screen_time_agreement' | 'deactivate_family_screen_time_agreement' |
       'cancel_family_screen_time_override' | 'decide_family_screen_time_request' |
       'update_personal_screen_time_rule' | 'deactivate_personal_screen_time_rule' |
-      'delete_personal_screen_time_rule';
+      'delete_personal_screen_time_rule' |
+      'chores.definition.create' | 'chores.definition.update' | 'chores.definition.pause' |
+      'chores.definition.delete' | 'chores.occurrence.claim' | 'chores.occurrence.release' |
+      'chores.occurrence.complete' | 'chores.occurrence.reopen' | 'chores.occurrence.report_earlier' |
+      'chores.review.approve' | 'chores.review.return' | 'chores.review.leave_missed' |
+      'chores.reward.configure' | 'chores.reward.reserve' |
+      'chores.reward.cancel' | 'chores.reward.settle';
     targetId?: string;
     summary: string;
     fields: Record<string, unknown>;

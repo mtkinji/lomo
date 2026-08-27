@@ -65,7 +65,7 @@ baseline:
     not_applicable: 2
     excluded: 2
 target:
-  planned_canonical_operations: 228
+  planned_canonical_operations: 233
   unresolved_ui_gaps: 0
   mobile_pending_provider: 0
   phone_pending_provider: 0
@@ -102,10 +102,11 @@ verification:
       meaning: The command now fails until all UI gaps, providers, proof, and voice conformance are complete.
   operation_catalog_expansion:
     status: source_tested
-    canonical_operations: 228
+    canonical_operations: 233
     ordinary_language_intents: 122
     unresolved_ui_gaps: 0
-    newly_declared_operations: 83
+    newly_declared_operations: 88
+    inventory_correction: Task 7 split five independently useful Chores UI actions out of the earlier completion cluster.
     provider_policy: New declarations remain pending_provider until capability-owned handlers are registered.
     channel_checkpoint:
       mobile_pending_provider: 144

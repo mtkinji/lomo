@@ -66,10 +66,15 @@ chores.definition.create
 chores.definition.update
 chores.definition.pause
 chores.definition.delete
+chores.occurrence.claim
+chores.occurrence.release
 chores.occurrence.complete
+chores.occurrence.reopen
+chores.occurrence.report_earlier
 chores.evidence.add
 chores.review.approve
 chores.review.return
+chores.review.leave_missed
 chores.reward.read
 chores.reward.configure
 chores.reward.reserve
@@ -104,13 +109,13 @@ describe('KWILT_OPERATION_REGISTRY', () => {
     expect(Object.isFrozen(KWILT_OPERATION_REGISTRY)).toBe(true);
   });
 
-  test('declares the complete 228-operation conversational control catalog', () => {
+  test('declares the complete 233-operation conversational control catalog', () => {
     const ids = KWILT_OPERATION_REGISTRY.map(({ id }) => id);
 
-    expect(CONTROL_PARITY_OPERATION_IDS).toHaveLength(83);
-    expect(KWILT_OPERATION_REGISTRY).toHaveLength(228);
+    expect(CONTROL_PARITY_OPERATION_IDS).toHaveLength(88);
+    expect(KWILT_OPERATION_REGISTRY).toHaveLength(233);
     expect(ids).toEqual(expect.arrayContaining(CONTROL_PARITY_OPERATION_IDS));
-    expect(new Set(ids).size).toBe(228);
+    expect(new Set(ids).size).toBe(233);
   });
 
   test('keeps every Household operation live with explicit reviewed writes and truthful Phone outcomes', () => {

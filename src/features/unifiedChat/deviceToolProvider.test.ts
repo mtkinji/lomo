@@ -194,3 +194,12 @@ test('rejects a Screen Time handoff outside the authorized child snapshot', asyn
   });
   expect(provider.actions()).toEqual([]);
 });
+
+test('opens the native Activity-backed Chores surface without claiming a Chore changed', async () => {
+  const provider = createDeviceToolProvider({ snapshots });
+  await expect(provider.execute({ id: 'chores-open', toolId: 'chores.open', arguments: {} }, tool('chores.open')))
+    .resolves.toMatchObject({
+      status: 'pending_client_action', provider: 'device',
+      request: expect.objectContaining({ capabilityId: 'chores', actionType: 'open_chores' }),
+    });
+});

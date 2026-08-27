@@ -594,6 +594,12 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
     inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
   },
   {
+    id: 'chores.open', version: 1, capabilityId: 'chores',
+    purpose: 'Open the native Chores surface.', providers: ['device', 'server'], effect: 'write', consequence: 'low',
+    reversible: true, confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
+  },
+  {
     id: 'navigation.account_settings.open', version: 1, capabilityId: 'account',
     purpose: 'Open native account settings.', providers: ['device'], effect: 'write', consequence: 'low',
     reversible: true, confirmation: 'explicit', canDeferToClient: true,

@@ -119,21 +119,21 @@ describe('CHAT_CAPABILITY_COVERAGE', () => {
     expect(row?.toolIds).toEqual([]);
   });
 
-  it('keeps the local Chores learning slice outside conversational authority', () => {
+  it('opens only the production Activity-backed Chores surface through a reviewed handoff', () => {
     const row = CHAT_CAPABILITY_COVERAGE.find((candidate) => candidate.id === 'chores.open');
 
     expect(row).toEqual(expect.objectContaining({
       owner: 'chores',
-      toolIds: [],
+      toolIds: ['chores.open'],
       sourceRefs: ['capability:chores'],
     }));
     expect(row?.channels.mobile).toEqual(expect.objectContaining({
-      state: 'pending_provider',
-      outcome: 'honest_boundary',
+      state: 'confirmation_only',
+      outcome: 'native_review',
     }));
     expect(row?.channels.phone).toEqual(expect.objectContaining({
-      state: 'pending_provider',
-      outcome: 'honest_boundary',
+      state: 'confirmation_only',
+      outcome: 'device_handoff',
     }));
   });
 });

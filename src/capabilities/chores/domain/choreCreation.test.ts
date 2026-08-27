@@ -4,6 +4,7 @@ import {
   addChoreDraftToLearningRecord,
   applyChoreDraftEnrichment,
   buildChoreSeriesDeleteSnapshot,
+  choreDraftToControlFields,
   createChoreDraft,
   createChoreDraftFromSeries,
   deleteChoreSeriesFromLearningRecord,
@@ -13,6 +14,17 @@ import {
 
 describe('caregiver chore creation', () => {
   const record = createChoreLearningRecord();
+
+  it('projects the same trimmed reviewed fields for native and conversational creation', () => {
+    expect(choreDraftToControlFields({
+      title: '  Feed Scout  ', assignedMemberId: 'member-charlie', repeatRule: 'daily',
+      repeatBasis: 'scheduled', definitionOfDone: '  Food and water  ', photoPolicy: 'required',
+      reviewPolicy: 'caregiver_review', tokenValue: 2,
+    })).toMatchObject({
+      title: 'Feed Scout', assignedMembershipId: 'member-charlie', repeatRule: 'daily',
+      definitionOfDone: 'Food and water', photoPolicy: 'required', tokenValue: 2,
+    });
+  });
 
   it('starts with conservative household defaults and assigns only an exact child name', () => {
     expect(createChoreDraft('Wipe the table', record.members)).toMatchObject({

@@ -2,7 +2,7 @@ import type { UnifiedChatClientAction } from './types';
 
 export type ClientActionOpenInstruction =
   | { kind: 'search' }
-  | { kind: 'navigate'; name: 'MainTabs' | 'Settings' | 'Money'; params: Record<string, unknown> };
+  | { kind: 'navigate'; name: 'MainTabs' | 'Settings' | 'Money' | 'Chores'; params: Record<string, unknown> };
 
 export function resolveClientActionOpenInstruction(
   action: UnifiedChatClientAction,
@@ -93,6 +93,11 @@ export function resolveClientActionOpenInstruction(
       }
       return null;
     }
+    case 'open_chore_evidence_picker':
+      if (!action.targetId || action.targetType !== 'chore_occurrence') return null;
+      return { kind: 'navigate', name: 'Chores', params: { occurrenceId: action.targetId, openEvidencePicker: true } };
+    case 'open_chores':
+      return { kind: 'navigate', name: 'Chores', params: {} };
     case 'configure_screen_time':
       return {
         kind: 'navigate', name: 'Settings', params: {

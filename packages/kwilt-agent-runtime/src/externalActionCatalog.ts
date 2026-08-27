@@ -15,6 +15,7 @@ export type ExternalRedactionPolicy =
   | 'streak_summary'
   | 'relationship_summary'
   | 'household_summary'
+  | 'chore_summary'
   | 'screen_time_summary'
   | 'money_summary'
   | 'plan_summary'
@@ -305,6 +306,27 @@ export const EXTERNAL_ACTION_REGISTRATIONS: readonly ExternalActionRegistration[
   canonicalWrite('household.device.update', 'household.device.update', 'kwilt_household_device_update', 'Update Household Device', ['household.read', 'household.write'], 'low', 'explicit'),
   canonicalWrite('household.device.revoke', 'household.device.revoke', 'kwilt_household_device_revoke', 'Revoke Household Device', ['household.read', 'household.write'], 'consequential', 'explicit'),
   canonicalWrite('household.device.reconcile', 'household.device.reconcile', 'kwilt_household_device_reconcile', 'Reconcile Household Device', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalRead('chores.list', 'chores.list', 'kwilt_chores_list', 'List Chores', ['household.read'], 'chore_summary'),
+  canonicalWrite('chores.open', 'chores.open', 'kwilt_chores_open', 'Open Chores', ['household.read', 'household.write'], 'low', 'native'),
+  canonicalRead('chores.get', 'chores.get', 'kwilt_chores_get', 'Get Chore', ['household.read'], 'chore_summary'),
+  canonicalWrite('chores.definition.create', 'chores.definition.create', 'kwilt_chores_definition_create', 'Create Chore', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.definition.update', 'chores.definition.update', 'kwilt_chores_definition_update', 'Update Chore', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.definition.pause', 'chores.definition.pause', 'kwilt_chores_definition_pause', 'Pause Chore', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.definition.delete', 'chores.definition.delete', 'kwilt_chores_definition_delete', 'Delete Chore', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.occurrence.complete', 'chores.occurrence.complete', 'kwilt_chores_occurrence_complete', 'Complete Chore Occurrence', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.occurrence.claim', 'chores.occurrence.claim', 'kwilt_chores_occurrence_claim', 'Claim Chore Occurrence', ['household.read', 'household.write'], 'low', 'explicit'),
+  canonicalWrite('chores.occurrence.release', 'chores.occurrence.release', 'kwilt_chores_occurrence_release', 'Release Chore Occurrence', ['household.read', 'household.write'], 'low', 'explicit'),
+  canonicalWrite('chores.occurrence.reopen', 'chores.occurrence.reopen', 'kwilt_chores_occurrence_reopen', 'Reopen Chore Occurrence', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.occurrence.report_earlier', 'chores.occurrence.report_earlier', 'kwilt_chores_occurrence_report_earlier', 'Report Earlier Chore Occurrences', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.evidence.add', 'chores.evidence.add', 'kwilt_chores_evidence_add', 'Add Chore Photo', ['household.read', 'household.write'], 'low', 'native'),
+  canonicalWrite('chores.review.approve', 'chores.review.approve', 'kwilt_chores_review_approve', 'Approve Chore', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.review.return', 'chores.review.return', 'kwilt_chores_review_return', 'Return Chore', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.review.leave_missed', 'chores.review.leave_missed', 'kwilt_chores_review_leave_missed', 'Leave Chore Missed', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalRead('chores.reward.read', 'chores.reward.read', 'kwilt_chores_reward_read', 'Read Chore Rewards', ['household.read'], 'chore_summary'),
+  canonicalWrite('chores.reward.configure', 'chores.reward.configure', 'kwilt_chores_reward_configure', 'Configure Chore Rewards', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.reward.reserve', 'chores.reward.reserve', 'kwilt_chores_reward_reserve', 'Reserve Chore Tokens', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('chores.reward.cancel', 'chores.reward.cancel', 'kwilt_chores_reward_cancel', 'Cancel Chore Reward Reservation', ['household.read', 'household.write'], 'low', 'explicit'),
+  canonicalWrite('chores.reward.settle', 'chores.reward.settle', 'kwilt_chores_reward_settle', 'Record Chore Reward Payout', ['household.read', 'household.write'], 'consequential', 'explicit'),
   canonicalRead('screen_time.read', 'screen_time.read', 'kwilt_screen_time_read', 'Read Screen Time', ['household.read'], 'screen_time_summary'),
   canonicalWrite('screen_time.agreement.create', 'screen_time.agreement.create', 'kwilt_screen_time_create_prerequisite_agreement', 'Create Screen Time Prerequisite', ['household.read', 'household.write'], 'consequential', 'explicit'),
   canonicalWrite('screen_time.agreement.update', 'screen_time.agreement.update', 'kwilt_screen_time_update_agreement', 'Update Screen Time Agreement', ['household.read', 'household.write'], 'consequential', 'explicit'),

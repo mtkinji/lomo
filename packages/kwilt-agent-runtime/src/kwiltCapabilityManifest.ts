@@ -187,6 +187,7 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'screen_time.override.block', 'screen_time.override.allow', 'screen_time.override.cancel',
   'screen_time.request.decide',
   'plan.read_day_context', 'plan.recommend_day',
+  'chores.list', 'chores.get', 'chores.reward.read',
 ]);
 
 const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
@@ -204,6 +205,8 @@ const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'money.transaction.meaning.update', 'money.transaction.plan_treatment.update',
   'money.connection.disconnect', 'money.connection.repair.open',
   'money.transfer.list', 'money.transfer.get', 'money.transfer.review',
+  'chores.evidence.add',
+  'chores.open',
 ]);
 
 const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
@@ -218,6 +221,11 @@ const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
   'household.member.add_dependent', 'household.invitation.create', 'household.invitation.accept',
   'household.child_capability.update', 'household.caregiver_grant.update', 'household.member.remove',
   'activities.schedule', 'plan.schedule_activity', 'plan.schedule_chunks', 'plan.reschedule_activity', 'plan.remove_activity',
+  'chores.definition.create', 'chores.definition.update', 'chores.definition.pause', 'chores.definition.delete',
+  'chores.occurrence.complete', 'chores.review.approve', 'chores.review.return',
+  'chores.occurrence.claim', 'chores.occurrence.release', 'chores.occurrence.reopen',
+  'chores.occurrence.report_earlier', 'chores.review.leave_missed',
+  'chores.reward.configure', 'chores.reward.reserve', 'chores.reward.cancel', 'chores.reward.settle',
 ]);
 
 const MOBILE_AUTO_APPLY_OPERATION_IDS = new Set([
@@ -393,6 +401,14 @@ const moneyControlProof = [
   'supabase/functions/_shared/__tests__/serverMoneyTools.test.ts',
   'supabase/functions/disconnect-money-connection/__tests__/disconnectMoneyConnection_deno_test.ts',
 ] as const;
+const choreControlProof = [
+  'src/capabilities/chores/domain/choreActions.test.ts',
+  'src/capabilities/chores/data/choreRepository.test.ts',
+  'src/features/unifiedChat/choreToolProvider.test.ts',
+  'src/features/unifiedChat/executeChoreProposalDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverChoreTools_deno_test.ts',
+  'supabase/migrations/20260827_activity_backed_chore_profiles.sql',
+] as const;
 const relationshipProof = [
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
@@ -468,6 +484,16 @@ function controlParityCapabilityRow(
       toolIds: [contract.id],
       sourceRefs: contract.sourceRefs,
     }, moneyControlProof);
+  }
+  if (contract.owner === 'chores') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, choreControlProof);
   }
   return bounded('pending_provider', {
     id: contract.id,
@@ -557,7 +583,7 @@ const CAPABILITY_ROWS = [
 
   bounded('excluded', { id: 'explore.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:explore'] }, 'Explore and precise location-history control are explicitly outside this conversational-control program.'),
   bounded('excluded', { id: 'games.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:games'] }, 'Games, player seating, sessions, and game state are explicitly outside this conversational-control program.'),
-  bounded('pending_provider', { id: 'chores.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:chores'] }, 'Chores is available as a local Labs learning surface, but Chat cannot read, claim, complete, or award from simulated inventory. Conversational access waits for the Activity-backed Household authorization boundary.'),
+  bounded('confirmation_only', { id: 'chores.open', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['chores.open'], sourceRefs: ['capability:chores'] }, 'Chat opens the native Activity-backed Chores surface; any following change remains capability-owned and separately reviewed.', deviceHandoffProof),
 
   ...FOOD_OPERATION_CONTRACTS.map(foodCapabilityRow),
 
@@ -606,7 +632,7 @@ const SUPPORTED_BOUNDARY_OPERATION_IDS = new Set([
 const PROGRAM_EXCLUSION_OPERATION_IDS = new Set(['explore.open', 'games.open']);
 
 function scopesForOperation(owner: KwiltOperationOwner, effect: CapabilityManifestEntry['effect']): CapabilityOAuthScope[] {
-  if (owner === 'relationships' || owner === 'household' || owner === 'screenTime') {
+  if (owner === 'relationships' || owner === 'household' || owner === 'screenTime' || owner === 'chores') {
     return effect === 'read' ? ['household.read'] : ['household.read', 'household.write'];
   }
   if (owner === 'money') return effect === 'read' ? ['money.read'] : ['money.read', 'money.write'];

@@ -367,6 +367,23 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
       payload: operationPayload,
     } as UnifiedChatProposalOperation;
   }
+  if (row.capability_id === 'chores' && [
+    'chores.definition.create', 'chores.definition.update', 'chores.definition.pause',
+    'chores.definition.delete', 'chores.occurrence.complete', 'chores.review.approve',
+    'chores.occurrence.claim', 'chores.occurrence.release', 'chores.occurrence.reopen',
+    'chores.occurrence.report_earlier', 'chores.review.return', 'chores.review.leave_missed',
+    'chores.reward.configure', 'chores.reward.reserve',
+    'chores.reward.cancel', 'chores.reward.settle',
+  ].includes(String(row.operation_type))) {
+    const create = row.operation_type === 'chores.definition.create' || row.operation_type === 'chores.occurrence.report_earlier';
+    if (!create && row.operation_type !== 'chores.reward.configure' && typeof row.target_id !== 'string') return null;
+    const expectedUpdatedAt = typeof payload.expectedUpdatedAt === 'string' ? payload.expectedUpdatedAt : null;
+    if (!create && !expectedUpdatedAt) return null;
+    const { expectedUpdatedAt: _expectedUpdatedAt, ...operationPayload } = payload;
+    return { ...base, capabilityId: 'chores', type: row.operation_type,
+      targetId: typeof row.target_id === 'string' ? row.target_id : null,
+      expectedUpdatedAt, payload: operationPayload } as UnifiedChatProposalOperation;
+  }
   if (
     row.capability_id === 'screenTime' &&
     (row.operation_type === 'block_family_screen_time_selection' ||
@@ -1107,6 +1124,8 @@ export function createUnifiedChatRepository(
                 : 'family_screen_time_override'
             : input.capabilityId === 'household' ? 'household_subject'
             : input.capabilityId === 'money' ? 'money_category'
+            : input.capabilityId === 'chores' ? input.operation.type.includes('reward') ? 'chore_reward'
+              : input.operation.type.includes('occurrence') || input.operation.type.includes('review') ? 'chore_occurrence' : 'chore'
             : input.capabilityId === 'arcs' ? 'arc'
             : input.capabilityId === 'goals' ? 'goal'
               : input.capabilityId === 'profile' ? 'profile'

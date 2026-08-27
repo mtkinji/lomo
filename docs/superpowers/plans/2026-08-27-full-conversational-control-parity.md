@@ -51,12 +51,12 @@ The following are not capability exclusions. Conversation must prepare and expla
 
 ### Quantitative exit criteria
 
-The baseline on 2026-08-27 is 145 canonical operations, 33 unresolved native intent clusters, 61 mobile `pending_provider` rows, and 70 external `pending_provider` rows. This plan adds the 83 operations listed in section 3, making the planned catalog 228 operations before any separately reviewed manifest consolidation.
+The baseline on 2026-08-27 is 145 canonical operations, 33 unresolved native intent clusters, 61 mobile `pending_provider` rows, and 70 external `pending_provider` rows. The original inventory added 83 operations. Task 7's native Chores audit then found five independently useful UI actions that had been collapsed into completion, so section 3 now adds 88 operations and the corrected planned catalog contains 233 operations before any separately reviewed manifest consolidation.
 
 The program exits only when:
 
 - `UI_PARITY_SURFACES` contains zero unresolved gaps for included surfaces.
-- Every one of the 228 planned operations maps to exactly one audited native intent.
+- Every one of the 233 planned operations maps to exactly one audited native intent.
 - Mobile coverage contains zero `pending_provider` rows.
 - Phone/server coverage contains zero `pending_provider` rows.
 - External coverage contains zero `pending_provider` rows.
@@ -72,7 +72,7 @@ If implementation discovers that an operation must be split or combined, amend s
 
 ## 3. Exact operation expansion for the 33 gaps
 
-Add these 83 canonical operation IDs. Each ID receives a manifest entry, tool contract where applicable, capability owner, local/mobile provider, server or durable handoff provider, external exposure decision, proof paths, and an audited UI intent.
+Add these 88 canonical operation IDs. Each ID receives a manifest entry, tool contract where applicable, capability owner, local/mobile provider, server or durable handoff provider, external exposure decision, proof paths, and an audited UI intent.
 
 ### Household: 6
 
@@ -155,7 +155,7 @@ money.transfer.get
 money.transfer.review
 ```
 
-### Chores: 15
+### Chores: 20
 
 ```text
 chores.list
@@ -164,10 +164,15 @@ chores.definition.create
 chores.definition.update
 chores.definition.pause
 chores.definition.delete
+chores.occurrence.claim
+chores.occurrence.release
 chores.occurrence.complete
+chores.occurrence.reopen
+chores.occurrence.report_earlier
 chores.evidence.add
 chores.review.approve
 chores.review.return
+chores.review.leave_missed
 chores.reward.read
 chores.reward.configure
 chores.reward.reserve
@@ -378,12 +383,12 @@ Expected: tests pass; the parity command intentionally exits nonzero until the i
 - Modify: `src/capabilities/operations.test.ts`
 - Modify: `src/capabilities/uiParityInventory.ts`
 
-- [x] Write failing tests for all 83 IDs in section 3 and a final declared-operation count of 228.
+- [x] Write failing tests for all 83 IDs in the original section 3 and a final declared-operation count of 228. Task 7 amended this to 88 added IDs and 233 total after the Chores native-action audit.
 - [x] Add `settings` to `KwiltOperationOwner`, `KWILT_EXTERNAL_CONTROL_SCOPE`, and `ownerForOperation()` rather than misclassifying settings under `account`.
 - [x] Add `completionMode`, typed scopes, receipt requirements, and supported-boundary metadata to manifest entries.
 - [x] Define a tool contract for every direct, proposal, or handoff operation. Boundary operations without an executable final act still receive a preparation/handoff operation; they do not receive a tool that claims the prohibited act completed.
 - [x] Require `effect`, `consequence`, `reversible`, `confirmation`, `providers`, input schema, output schema, and version for every tool.
-- [x] Map the 33 inventory gaps to the 83 operations and remove each resolved gap entry.
+- [x] Map the 33 inventory gaps to the original 83 operations and remove each resolved gap entry; preserve the five later Chores audit corrections as distinct operations.
 - [x] Assert only `explore.open` and `games.open` use `completionMode: 'excluded'`.
 - [ ] Run:
 
@@ -393,7 +398,7 @@ npm run lint
 npm run lint:tests
 ```
 
-Expected: all 228 operations are declared and uniquely inventoried; provider readiness may remain incomplete.
+Expected: all 233 operations are declared and uniquely inventoried; provider readiness may remain incomplete.
 
 - [x] Commit the exact Task 2 files with message `feat(chat): declare complete Kwilt control catalog`.
 
@@ -544,18 +549,18 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: `supabase/functions/_shared/serverToolImplementations.ts`
 - Modify: `supabase/functions/_shared/externalMcp.ts`
 
-- [ ] Regression-first: prove the current learning store cannot truthfully support Household-authorized Chat reads or writes.
-- [ ] Keep Activity as the canonical series and dated Activity occurrence as the canonical completion unit. Add only Chore profile, policy, review, evidence reference, and reward-ledger data.
-- [ ] Implement list/get with actor-specific projections: caregiver inventory, child assigned work, open pool, review queue, and reward balance.
-- [ ] Implement definition create/update/pause/delete with exact recurrence behavior and “today” versus “this and future” scope where applicable.
-- [ ] Implement occurrence completion, photo-evidence handoff, approve, and “Needs another pass” return. A photo is evidence, not automated proof.
-- [ ] Implement reward read/configure/reserve/cancel/settle. Settlement records an outside-app payout; Kwilt never moves money.
-- [ ] Enforce child/caregiver roles, Household Mode actor context, offline outbox replay, occurrence idempotency, and one qualifying completion credit.
-- [ ] Route native Chores through `choreActions` before exposing Chat providers.
-- [ ] Expose external reads/writes only after the production repository and authorization tests pass; until then the catalog stays `pending_provider` rather than pretending the learning adapter is real data.
-- [ ] Add tests for recurrence, missed occurrences, photo-required completion, approval, return, duplicate completion, correction, token reservation rate, payout settlement, unauthorized child review, and offline replay.
-- [ ] Run focused Chores/Activity tests, Deno tests, migration contract checks, and `npm run verify:changed -- --run`.
-- [ ] Commit with message `feat(chores): add Activity-backed conversational control`.
+- [x] Regression-first: prove the current learning store cannot truthfully support Household-authorized Chat reads or writes.
+- [x] Keep Activity as the canonical series and dated Activity occurrence as the canonical completion unit. Add only Chore profile, policy, review, evidence reference, and reward-ledger data.
+- [x] Implement list/get with actor-specific projections: caregiver inventory, child assigned work, open pool, review queue, and reward balance.
+- [x] Implement definition create/update/pause/delete with exact recurrence behavior and “today” versus “this and future” scope where applicable.
+- [x] Implement occurrence completion, photo-evidence handoff, approve, and “Needs another pass” return. A photo is evidence, not automated proof.
+- [x] Implement reward read/configure/reserve/cancel/settle. Settlement records an outside-app payout; Kwilt never moves money.
+- [x] Enforce child/caregiver roles, Household Mode actor context, offline outbox replay, occurrence idempotency, and one qualifying completion credit.
+- [x] Route native Chores through `choreActions` before exposing Chat providers.
+- [x] Expose external reads/writes only after the production repository and authorization tests pass; until then the catalog stays `pending_provider` rather than pretending the learning adapter is real data.
+- [x] Add tests for recurrence, missed occurrences, photo-required completion, approval, return, duplicate completion, correction, token reservation rate, payout settlement, unauthorized child review, and offline replay.
+- [x] Run focused Chores/Activity tests, Deno tests, migration contract checks, and `npm run verify:changed -- --run`. The focused gate passed 25 Jest suites (235 tests), four Deno provider tests, four migration-contract tests, and both app/test typechecks. The diff-aware completion gate passed all 1,100 Jest suites (6,518 passed tests, 2 skipped), Supabase lint/tests, product and Chat delivery contracts, protocol conformance, code-health ratchets, generated code-map validation, and architecture lint. Native signed-in runtime and deployed Supabase proof remain separate release gates.
+- [x] Commit with message `feat(chores): add Activity-backed conversational control`.
 
 ### Task 8: Complete Recipes, Meal Plan, Groceries, and Savings providers
 
@@ -882,7 +887,7 @@ Stop the current execution task and ask Andrew before:
 ## 10. Plan self-review checklist
 
 - [x] Confirm every one of the 33 gap clusters is represented in section 3.
-- [x] Confirm the section 3 operation count is 83 and the planned total is 228.
+- [x] Confirm the amended section 3 operation count is 88 and the corrected planned total is 233.
 - [x] Confirm every current external pending-provider owner appears in Tasks 4-13: channels, chores, groceries, household, meal planning, Money, Recipes, Savings, and Screen Time.
 - [x] Confirm local Chat, voice/Phone, ChatGPT, receipts, authorization, idempotency, native handoffs, live validation, physical Screen Time proof, deployment, observability, and rollback each have an explicit task.
 - [x] Search the plan for placeholder markers, abbreviated implementation steps, and unresolved template brackets.

@@ -4,12 +4,12 @@
 
 | Measure | Value |
 | --- | --- |
-| Operations | 228 |
-| Mobile | {"ready":108,"excluded":7,"missing_provider":113} |
-| Phone | {"ready":99,"excluded":7,"missing_provider":122} |
-| External | {"boundary":7,"ready":97,"missing_provider":122,"excluded":2} |
-| Voice | {"missing_conformance":221,"excluded":7} |
-| Final parity errors | 711 |
+| Operations | 233 |
+| Mobile | {"ready":129,"excluded":7,"missing_provider":97} |
+| Phone | {"ready":120,"excluded":7,"missing_provider":106} |
+| External | {"boundary":7,"ready":118,"missing_provider":106,"excluded":2} |
+| Voice | {"missing_conformance":226,"excluded":7} |
+| Final parity errors | 652 |
 
 ## Operations
 
@@ -86,7 +86,7 @@
 | `money.connection.sync` | money | native_handoff | ready | missing_provider | missing_provider | missing_conformance |
 | `explore.open` | explore | excluded | excluded | excluded | excluded | excluded |
 | `games.open` | games | excluded | excluded | excluded | excluded | excluded |
-| `chores.open` | chores | native_handoff | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `chores.open` | chores | native_handoff | ready | ready | ready | missing_conformance |
 | `recipes.search` | recipes | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `recipes.read` | recipes | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `recipes.create` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
@@ -216,21 +216,26 @@
 | `money.transfer.list` | money | direct | ready | ready | ready | missing_conformance |
 | `money.transfer.get` | money | direct | ready | ready | ready | missing_conformance |
 | `money.transfer.review` | money | reviewed_proposal | ready | ready | ready | missing_conformance |
-| `chores.list` | chores | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.get` | chores | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.definition.create` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.definition.update` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.definition.pause` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.definition.delete` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.occurrence.complete` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.evidence.add` | chores | native_handoff | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.review.approve` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.review.return` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.reward.read` | chores | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.reward.configure` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.reward.reserve` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.reward.cancel` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `chores.reward.settle` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `chores.list` | chores | direct | ready | ready | ready | missing_conformance |
+| `chores.get` | chores | direct | ready | ready | ready | missing_conformance |
+| `chores.definition.create` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.definition.update` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.definition.pause` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.definition.delete` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.occurrence.claim` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.occurrence.release` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.occurrence.complete` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.occurrence.reopen` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.occurrence.report_earlier` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.evidence.add` | chores | native_handoff | ready | ready | ready | missing_conformance |
+| `chores.review.approve` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.review.return` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.review.leave_missed` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.reward.read` | chores | direct | ready | ready | ready | missing_conformance |
+| `chores.reward.configure` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.reward.reserve` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.reward.cancel` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `chores.reward.settle` | chores | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `recipes.favorite.update` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `recipes.visibility.update` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `meal_planning.preferences.read` | meal_planning | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
@@ -336,11 +341,7 @@
 - money.connection.sync phone is missing_provider
 - money.connection.sync external is missing_provider
 - money.connection.sync voice is missing_conformance
-- chores.open mobile is missing_provider
-- chores.open phone is missing_provider
-- chores.open external is missing_provider
 - chores.open voice is missing_conformance
-- chores.open has no proof paths
 - recipes.search mobile is missing_provider
 - recipes.search phone is missing_provider
 - recipes.search external is missing_provider
@@ -842,81 +843,26 @@
 - money.transfer.list voice is missing_conformance
 - money.transfer.get voice is missing_conformance
 - money.transfer.review voice is missing_conformance
-- chores.list mobile is missing_provider
-- chores.list phone is missing_provider
-- chores.list external is missing_provider
 - chores.list voice is missing_conformance
-- chores.list has no proof paths
-- chores.get mobile is missing_provider
-- chores.get phone is missing_provider
-- chores.get external is missing_provider
 - chores.get voice is missing_conformance
-- chores.get has no proof paths
-- chores.definition.create mobile is missing_provider
-- chores.definition.create phone is missing_provider
-- chores.definition.create external is missing_provider
 - chores.definition.create voice is missing_conformance
-- chores.definition.create has no proof paths
-- chores.definition.update mobile is missing_provider
-- chores.definition.update phone is missing_provider
-- chores.definition.update external is missing_provider
 - chores.definition.update voice is missing_conformance
-- chores.definition.update has no proof paths
-- chores.definition.pause mobile is missing_provider
-- chores.definition.pause phone is missing_provider
-- chores.definition.pause external is missing_provider
 - chores.definition.pause voice is missing_conformance
-- chores.definition.pause has no proof paths
-- chores.definition.delete mobile is missing_provider
-- chores.definition.delete phone is missing_provider
-- chores.definition.delete external is missing_provider
 - chores.definition.delete voice is missing_conformance
-- chores.definition.delete has no proof paths
-- chores.occurrence.complete mobile is missing_provider
-- chores.occurrence.complete phone is missing_provider
-- chores.occurrence.complete external is missing_provider
+- chores.occurrence.claim voice is missing_conformance
+- chores.occurrence.release voice is missing_conformance
 - chores.occurrence.complete voice is missing_conformance
-- chores.occurrence.complete has no proof paths
-- chores.evidence.add mobile is missing_provider
-- chores.evidence.add phone is missing_provider
-- chores.evidence.add external is missing_provider
+- chores.occurrence.reopen voice is missing_conformance
+- chores.occurrence.report_earlier voice is missing_conformance
 - chores.evidence.add voice is missing_conformance
-- chores.evidence.add has no proof paths
-- chores.review.approve mobile is missing_provider
-- chores.review.approve phone is missing_provider
-- chores.review.approve external is missing_provider
 - chores.review.approve voice is missing_conformance
-- chores.review.approve has no proof paths
-- chores.review.return mobile is missing_provider
-- chores.review.return phone is missing_provider
-- chores.review.return external is missing_provider
 - chores.review.return voice is missing_conformance
-- chores.review.return has no proof paths
-- chores.reward.read mobile is missing_provider
-- chores.reward.read phone is missing_provider
-- chores.reward.read external is missing_provider
+- chores.review.leave_missed voice is missing_conformance
 - chores.reward.read voice is missing_conformance
-- chores.reward.read has no proof paths
-- chores.reward.configure mobile is missing_provider
-- chores.reward.configure phone is missing_provider
-- chores.reward.configure external is missing_provider
 - chores.reward.configure voice is missing_conformance
-- chores.reward.configure has no proof paths
-- chores.reward.reserve mobile is missing_provider
-- chores.reward.reserve phone is missing_provider
-- chores.reward.reserve external is missing_provider
 - chores.reward.reserve voice is missing_conformance
-- chores.reward.reserve has no proof paths
-- chores.reward.cancel mobile is missing_provider
-- chores.reward.cancel phone is missing_provider
-- chores.reward.cancel external is missing_provider
 - chores.reward.cancel voice is missing_conformance
-- chores.reward.cancel has no proof paths
-- chores.reward.settle mobile is missing_provider
-- chores.reward.settle phone is missing_provider
-- chores.reward.settle external is missing_provider
 - chores.reward.settle voice is missing_conformance
-- chores.reward.settle has no proof paths
 - recipes.favorite.update mobile is missing_provider
 - recipes.favorite.update phone is missing_provider
 - recipes.favorite.update external is missing_provider

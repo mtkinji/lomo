@@ -9,6 +9,7 @@ import { executeServerRelationshipTool } from './serverRelationshipTools.ts';
 import { executeServerHouseholdTool } from './serverHouseholdTools.ts';
 import { executeServerScreenTimeTool } from './serverScreenTimeTools.ts';
 import { executeServerMoneyTool } from './serverMoneyTools.ts';
+import { executeServerChoreTool } from './serverChoreTools.ts';
 import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
 import {
   createServerToolProviderRegistry,
@@ -370,6 +371,10 @@ const DEVICE_ACTIONS: Record<string, ClientActionRequest> = {
     capabilityId: 'account', actionType: 'open_account_settings', targetType: null, targetId: null,
     title: 'Open account settings', consequenceSummary: 'Kwilt will open your native account settings.', payload: {},
   },
+  'chores.open': {
+    capabilityId: 'chores', actionType: 'open_chores', targetType: null, targetId: null,
+    title: 'Open Chores', consequenceSummary: 'Kwilt will open the native Chores surface.', payload: {},
+  },
   'account.subscription.open': {
     capabilityId: 'account', actionType: 'open_subscription_management', targetType: null, targetId: null,
     title: 'Review subscription',
@@ -428,6 +433,8 @@ async function executeServerAgentToolHandler({
   if (screenTimeResult) return screenTimeResult;
   const moneyResult = await executeServerMoneyTool({ client, userId, call, stageDeviceAction });
   if (moneyResult) return moneyResult;
+  const choreResult = await executeServerChoreTool({ client, userId, call, stageProposal, stageDeviceAction });
+  if (choreResult) return choreResult;
   if (tool.capabilityId === 'relationships') {
     const policy = evaluateToolPolicy(tool, {
       authorized: true,

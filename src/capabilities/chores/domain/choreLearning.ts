@@ -35,6 +35,10 @@ export type ChoreOccurrenceState =
   | 'completed';
 
 export type ChoreOccurrence = {
+  /** Production control-row identity. Absent only in the local learning fixture. */
+  controlId?: string;
+  /** Exact production version used for reviewed writes. */
+  updatedAt?: string;
   activityOccurrenceId: string;
   activitySeriesId: string;
   title: string;
@@ -62,6 +66,10 @@ export type ChoreOccurrence = {
 };
 
 export type ChoreSeries = {
+  /** Production Chore profile identity. Absent only in the local learning fixture. */
+  controlId?: string;
+  /** Exact production version used for reviewed writes. */
+  updatedAt?: string;
   activitySeriesId: string;
   title: string;
   definitionOfDone: string;

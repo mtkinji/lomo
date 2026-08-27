@@ -139,6 +139,9 @@ import { createMoneyControlActionBoundary } from '../../capabilities/money/actio
 import { executeRecipeProposalDecision } from './executeRecipeProposalDecision';
 import { executeHouseholdProposalDecision } from './executeHouseholdProposalDecision';
 import { createHouseholdActionBoundary } from '../household/data/householdActionBoundary';
+import { createChoreRepository } from '../../capabilities/chores/data/choreRepository';
+import { createChoreActions } from '../../capabilities/chores/domain/choreActions';
+import { executeChoreProposalDecision } from './executeChoreProposalDecision';
 import { createRecipeRepository } from '../../capabilities/recipes/data/recipeRepository';
 import { useRecipeStore } from '../../capabilities/recipes/runtime/useRecipeStore';
 import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
@@ -1230,6 +1233,9 @@ export function UnifiedChatScreen({
                   actions: createMoneyControlActions(createMoneyControlActionBoundary(moneyRepository)),
                 });
               }
+            } else if (proposal.capabilityId === 'chores') {
+              await executeChoreProposalDecision({ proposal, action: 'approve', repository,
+                actions: createChoreActions(createChoreRepository()) });
             } else if (proposal.capabilityId === 'screenTime') {
               await executeScreenTimeProposalDecision({
                 proposal, action: 'approve', repository, client: getSupabaseClient(),
@@ -1337,6 +1343,22 @@ export function UnifiedChatScreen({
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
             setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Money category.');
+          }
+          return;
+        }
+        if (proposal.capabilityId === 'chores') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Chore change.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeChoreProposalDecision({ proposal, action: command.action, repository,
+              actions: createChoreActions(createChoreRepository()) });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that Chore change.');
           }
           return;
         }

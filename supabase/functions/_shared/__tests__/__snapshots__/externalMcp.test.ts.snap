@@ -2911,6 +2911,1038 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": true,
+      "title": "List Chores",
+    },
+    "canonicalName": "kwilt_chores_list",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_chores_list",
+    "operationId": "chores.list",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+    ],
+    "toolId": "chores.list",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Open Chores",
+    },
+    "canonicalName": "kwilt_chores_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_open",
+    "operationId": "chores.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get Chore",
+    },
+    "canonicalName": "kwilt_chores_get",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "choreId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "occurrenceId": {
+          "maxLength": 200,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+      },
+      "required": [
+        "choreId",
+        "occurrenceId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_get",
+    "operationId": "chores.get",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+    ],
+    "toolId": "chores.get",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Create Chore",
+    },
+    "canonicalName": "kwilt_chores_definition_create",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string",
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null",
+                ],
+              },
+            },
+            "required": [
+              "key",
+              "value",
+            ],
+            "type": "object",
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "fields",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_definition_create",
+    "operationId": "chores.definition.create",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.definition.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Chore",
+    },
+    "canonicalName": "kwilt_chores_definition_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "choreId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "fields": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string",
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null",
+                ],
+              },
+            },
+            "required": [
+              "key",
+              "value",
+            ],
+            "type": "object",
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "scope": {
+          "enum": [
+            "today",
+            "this_and_future",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "choreId",
+        "expectedUpdatedAt",
+        "fields",
+        "scope",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_definition_update",
+    "operationId": "chores.definition.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.definition.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Pause Chore",
+    },
+    "canonicalName": "kwilt_chores_definition_pause",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "choreId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "choreId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_definition_pause",
+    "operationId": "chores.definition.pause",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.definition.pause",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Delete Chore",
+    },
+    "canonicalName": "kwilt_chores_definition_delete",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "choreId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "choreId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_definition_delete",
+    "operationId": "chores.definition.delete",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.definition.delete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Complete Chore Occurrence",
+    },
+    "canonicalName": "kwilt_chores_occurrence_complete",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "evidenceRefIds": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string",
+          },
+          "maxItems": 100,
+          "type": "array",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "occurrenceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "occurrenceId",
+        "expectedUpdatedAt",
+        "evidenceRefIds",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_occurrence_complete",
+    "operationId": "chores.occurrence.complete",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.occurrence.complete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Claim Chore Occurrence",
+    },
+    "canonicalName": "kwilt_chores_occurrence_claim",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "occurrenceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "occurrenceId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_occurrence_claim",
+    "operationId": "chores.occurrence.claim",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.occurrence.claim",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Release Chore Occurrence",
+    },
+    "canonicalName": "kwilt_chores_occurrence_release",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "occurrenceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "occurrenceId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_occurrence_release",
+    "operationId": "chores.occurrence.release",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.occurrence.release",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Reopen Chore Occurrence",
+    },
+    "canonicalName": "kwilt_chores_occurrence_reopen",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "occurrenceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "occurrenceId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_occurrence_reopen",
+    "operationId": "chores.occurrence.reopen",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.occurrence.reopen",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Report Earlier Chore Occurrences",
+    },
+    "canonicalName": "kwilt_chores_occurrence_report_earlier",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "items": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "expectedUpdatedAt": {
+                "format": "date-time",
+                "type": "string",
+              },
+              "occurrenceId": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string",
+              },
+            },
+            "required": [
+              "occurrenceId",
+              "expectedUpdatedAt",
+            ],
+            "type": "object",
+          },
+          "maxItems": 31,
+          "minItems": 1,
+          "type": "array",
+        },
+      },
+      "required": [
+        "items",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_occurrence_report_earlier",
+    "operationId": "chores.occurrence.report_earlier",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.occurrence.report_earlier",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Add Chore Photo",
+    },
+    "canonicalName": "kwilt_chores_evidence_add",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "occurrenceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "occurrenceId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_evidence_add",
+    "operationId": "chores.evidence.add",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.evidence.add",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Approve Chore",
+    },
+    "canonicalName": "kwilt_chores_review_approve",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "occurrenceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "occurrenceId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_review_approve",
+    "operationId": "chores.review.approve",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.review.approve",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Return Chore",
+    },
+    "canonicalName": "kwilt_chores_review_return",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "note": {
+          "maxLength": 500,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "occurrenceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "occurrenceId",
+        "expectedUpdatedAt",
+        "note",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_review_return",
+    "operationId": "chores.review.return",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.review.return",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Leave Chore Missed",
+    },
+    "canonicalName": "kwilt_chores_review_leave_missed",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "occurrenceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "occurrenceId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_review_leave_missed",
+    "operationId": "chores.review.leave_missed",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.review.leave_missed",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Read Chore Rewards",
+    },
+    "canonicalName": "kwilt_chores_reward_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "membershipId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "membershipId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_reward_read",
+    "operationId": "chores.reward.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+    ],
+    "toolId": "chores.reward.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Configure Chore Rewards",
+    },
+    "canonicalName": "kwilt_chores_reward_configure",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "centsPerToken": {
+          "maximum": 100000,
+          "minimum": 1,
+          "type": "integer",
+        },
+        "enabled": {
+          "type": "boolean",
+        },
+        "expectedVersion": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "expectedVersion",
+        "enabled",
+        "centsPerToken",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_reward_configure",
+    "operationId": "chores.reward.configure",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.reward.configure",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Reserve Chore Tokens",
+    },
+    "canonicalName": "kwilt_chores_reward_reserve",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedVersion": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "membershipId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "tokenCount": {
+          "minimum": 1,
+          "type": "integer",
+        },
+      },
+      "required": [
+        "membershipId",
+        "tokenCount",
+        "expectedVersion",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_reward_reserve",
+    "operationId": "chores.reward.reserve",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.reward.reserve",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Cancel Chore Reward Reservation",
+    },
+    "canonicalName": "kwilt_chores_reward_cancel",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "reservationId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "reservationId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_reward_cancel",
+    "operationId": "chores.reward.cancel",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.reward.cancel",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Record Chore Reward Payout",
+    },
+    "canonicalName": "kwilt_chores_reward_settle",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "reservationId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "reservationId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_chores_reward_settle",
+    "operationId": "chores.reward.settle",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "chores.reward.settle",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
       "title": "Read Screen Time",
     },
     "canonicalName": "kwilt_screen_time_read",

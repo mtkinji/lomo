@@ -45,6 +45,7 @@ import {
   type ChoreSeries,
 } from '../domain/choreLearning';
 import { useChoreLearningStore } from '../runtime/useChoreLearningStore';
+import { useActivityBackedChores } from '../runtime/useActivityBackedChores';
 import { getImagePickerMediaTypesImages } from '../../../utils/imagePickerMediaTypes';
 import { persistImageUri } from '../../../utils/persistImageUri';
 import { useToastStore } from '../../../store/useToastStore';
@@ -75,7 +76,10 @@ import { formatActivityRepeatLabel } from '../../../features/activities/activity
 import { localDateKey } from '../../../domain/activityRecurrence';
 import { HapticsService } from '../../../services/HapticsService';
 
-type ChoresScreenProps = { now?: () => Date };
+type ChoresScreenProps = {
+  now?: () => Date;
+  route?: { params?: { occurrenceId?: string; openEvidencePicker?: boolean } };
+};
 
 function tokenCount(value: number): string {
   return `${value} token${value === 1 ? '' : 's'}`;
@@ -433,12 +437,12 @@ function CaregiverInventoryControls({ filter, grouping, members, onFilterChange,
   );
 }
 
-export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
+export function ChoresScreen({ now = () => new Date(), route }: ChoresScreenProps) {
   const { openMenu, activeCapabilityId } = useCapabilityShell();
   const capabilityMenuOpen = useCapabilityMenuOpen();
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
-  const record = useChoreLearningStore((state) => state.record);
+  const learningRecord = useChoreLearningStore((state) => state.record);
   const selectMember = useChoreLearningStore((state) => state.selectMember);
   const take = useChoreLearningStore((state) => state.take);
   const release = useChoreLearningStore((state) => state.release);
@@ -459,6 +463,9 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const deleteChore = useChoreLearningStore((state) => state.deleteChore);
   const restoreChore = useChoreLearningStore((state) => state.restoreChore);
   const reconcileRecurrence = useChoreLearningStore((state) => state.reconcileRecurrence);
+  const productionMode = Boolean(authIdentity?.userId);
+  const production = useActivityBackedChores(productionMode);
+  const record = production.record ?? learningRecord;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [rewardsOpen, setRewardsOpen] = useState(false);
@@ -482,17 +489,43 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const quickAddInputRef = useRef<TextInput | null>(null);
   const touchedDraftFieldsRef = useRef(new Set<ChoreDraftField>());
   const enrichmentRunRef = useRef(0);
+  const evidenceHandoffRef = useRef<string | null>(null);
+  const reportedProductionErrorRef = useRef<string | null>(null);
   const projectionNow = now();
   const projectionDateKey = localDateKey(projectionNow);
   const reconciledRecurrenceDateRef = useRef<string | null>(null);
   useEffect(() => {
+    if (productionMode) return;
     if (reconciledRecurrenceDateRef.current === projectionDateKey) return;
     reconciledRecurrenceDateRef.current = projectionDateKey;
     reconcileRecurrence(projectionNow.toISOString());
-  }, [projectionDateKey, projectionNow, reconcileRecurrence]);
+  }, [productionMode, projectionDateKey, projectionNow, reconcileRecurrence]);
   const projection = projectChoreInventory(record, record.activeMemberId, projectionNow);
   const reviewQueue = useMemo(() => projectChoreReviewQueue(record, record.activeMemberId), [record]);
   const selectedOccurrence = record.occurrences.find((item) => item.activityOccurrenceId === selectedOccurrenceId) ?? null;
+  useEffect(() => {
+    if (!productionMode || !production.record || !production.error) {
+      if (!production.error) reportedProductionErrorRef.current = null;
+      return;
+    }
+    if (reportedProductionErrorRef.current === production.error) return;
+    reportedProductionErrorRef.current = production.error;
+    useToastStore.getState().showToast({
+      message: production.error,
+      variant: 'danger',
+      durationMs: 7000,
+      bottomOffset: RESTING_COMPOSER_HEIGHT_PX + spacing.md,
+    });
+  }, [production.error, production.record, productionMode]);
+  useEffect(() => {
+    if (!route?.params?.openEvidencePicker || !route.params.occurrenceId) return;
+    if (evidenceHandoffRef.current === route.params.occurrenceId) return;
+    const target = record.occurrences.find((item) => item.controlId === route.params?.occurrenceId);
+    if (target) {
+      evidenceHandoffRef.current = route.params.occurrenceId;
+      setSelectedOccurrenceId(target.activityOccurrenceId);
+    }
+  }, [record.occurrences, route?.params?.occurrenceId, route?.params?.openEvidencePicker]);
   const editingSeries = editingSeriesId
     ? record.series.find((series) => series.activitySeriesId === editingSeriesId) ?? null
     : null;
@@ -552,7 +585,11 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
       }]
       : memberGroups;
   }, [caregiverGrouping, caregiverOccurrences, record.members]);
-  const completeOccurrence = (id: string) => complete(id, now().toISOString());
+  const completeOccurrence = (id: string) => {
+    const occurrence = record.occurrences.find((item) => item.activityOccurrenceId === id);
+    if (productionMode && occurrence) void production.complete(occurrence);
+    else complete(id, now().toISOString());
+  };
   const closeChoreEditor = () => {
     enrichmentRunRef.current += 1;
     setEnrichingDraft(false);
@@ -609,7 +646,13 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
   const commitChoreDraft = () => {
     if (!choreDraft?.title.trim()) return;
     if (editingSeriesId) {
-      updateChore(editingSeriesId, choreDraft);
+      if (productionMode && editingSeries) void production.update(editingSeries, choreDraft);
+      else updateChore(editingSeriesId, choreDraft);
+      closeChoreEditor();
+      return;
+    }
+    if (productionMode) {
+      void production.create(choreDraft);
       closeChoreEditor();
       return;
     }
@@ -622,6 +665,11 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
     closeChoreEditor();
   };
   const returnOccurrenceToFamilyList = (id: string) => {
+    const occurrence = record.occurrences.find((item) => item.activityOccurrenceId === id);
+    if (productionMode && occurrence) {
+      void production.release(occurrence);
+      return;
+    }
     release(id);
     useToastStore.getState().showToast({
       message: 'Returned to the family list',
@@ -632,6 +680,11 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
     });
   };
   const deleteChoreSeries = (series: ChoreSeries) => {
+    if (productionMode) {
+      void HapticsService.trigger('canvas.destructive.confirm');
+      void production.remove(series);
+      return;
+    }
     const snapshot = buildChoreSeriesDeleteSnapshot(record, series.activitySeriesId);
     if (!snapshot) return;
     void HapticsService.trigger('canvas.destructive.confirm');
@@ -675,6 +728,10 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
       if (result.canceled) return;
       const uri = result.assets?.[0]?.uri;
       if (!uri) return;
+      if (productionMode) {
+        await production.addEvidence(occurrence, uri, result.assets?.[0]?.mimeType);
+        return;
+      }
       const stableUri = await persistImageUri({
         uri,
         subdir: 'chores/evidence',
@@ -685,6 +742,23 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
       Alert.alert('Unable to add photo', 'Something went wrong. Please try again.');
     }
   };
+
+  if (productionMode && !production.record) {
+    return (
+      <AppShell>
+        <PageHeader title="Chores" onPressMenu={openMenu} />
+        <View style={styles.productionState}>
+          <Heading variant="sm">{production.loading ? 'Loading household chores…' : 'Chores are unavailable'}</Heading>
+          {!production.loading ? (
+            <>
+              <Text tone="secondary">{production.error ?? 'Kwilt could not load the authorized Household Chores record.'}</Text>
+              <Button onPress={() => { void production.refresh(); }} variant="outline">Try again</Button>
+            </>
+          ) : null}
+        </View>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -704,9 +778,9 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         rightElement={(
           <MemberMenu
             member={projection.member}
-            members={record.members}
+            members={productionMode ? [projection.member] : record.members}
             caregiverAvatarUrl={caregiverAvatarUrl}
-            onSelect={selectMember}
+            onSelect={productionMode ? () => undefined : selectMember}
           />
         )}
       />
@@ -732,7 +806,9 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                   tokensEnabled={record.tokensEnabled}
                   onOpen={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
                   onAttemptComplete={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
-                  onReopen={() => reopen(occurrence.activityOccurrenceId)}
+                  onReopen={() => productionMode
+                    ? void production.reopen(occurrence)
+                    : reopen(occurrence.activityOccurrenceId)}
                   onReturnToFamilyList={() => returnOccurrenceToFamilyList(occurrence.activityOccurrenceId)}
                 />
               )) : <Text tone="secondary">Nothing is waiting for you right now.</Text>}
@@ -802,7 +878,9 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
                   occurrence={occurrence}
                   tokensEnabled={record.tokensEnabled}
                   onOpen={() => setSelectedOccurrenceId(occurrence.activityOccurrenceId)}
-                  onTake={() => take(occurrence.activityOccurrenceId)}
+                  onTake={() => productionMode
+                    ? void production.claim(occurrence)
+                    : take(occurrence.activityOccurrenceId)}
                 />
               )) : <Text tone="secondary">No household chores are open right now.</Text>}
             </View>
@@ -927,7 +1005,13 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         occurrence={correctionOpen ? null : selectedOccurrence}
         tokensEnabled={record.tokensEnabled}
         onClose={() => setSelectedOccurrenceId(null)}
-        onTake={() => { if (selectedOccurrence) take(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
+        onTake={() => {
+          if (selectedOccurrence) {
+            if (productionMode) void production.claim(selectedOccurrence);
+            else take(selectedOccurrence.activityOccurrenceId);
+          }
+          setSelectedOccurrenceId(null);
+        }}
         onComplete={() => { if (selectedOccurrence) completeOccurrence(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
         onReturnToFamilyList={() => { if (selectedOccurrence) returnOccurrenceToFamilyList(selectedOccurrence.activityOccurrenceId); setSelectedOccurrenceId(null); }}
         onTakePhoto={() => { if (selectedOccurrence) void addEvidencePhoto(selectedOccurrence, 'camera'); }}
@@ -942,6 +1026,16 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         member={projection.member}
         now={projectionNow}
         onSubmit={(ids) => {
+          if (productionMode) {
+            const occurrences = ids.flatMap((id) => {
+              const occurrence = record.occurrences.find((item) => item.activityOccurrenceId === id);
+              return occurrence ? [occurrence] : [];
+            });
+            void production.reportEarlier(occurrences);
+            setCorrectionOpen(false);
+            setSelectedOccurrenceId(null);
+            return;
+          }
           requestEarlierCompletions(ids, now().toISOString());
           setCorrectionOpen(false);
           setSelectedOccurrenceId(null);
@@ -960,6 +1054,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         rewards={rewards}
         isCaregiver={isCaregiver}
         onRequestRedemption={(tokenAmount) => {
+          if (productionMode) { void production.reserveReward(tokenAmount); return; }
           const requestedAt = now();
           requestRedemption(
             tokenAmount,
@@ -967,8 +1062,12 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
             `redemption-${requestedAt.getTime().toString(36)}`,
           );
         }}
-        onCancelRedemption={(payoutId) => cancelRedemption(payoutId, now().toISOString())}
-        onSettlePayouts={(payoutIds) => settlePayouts(payoutIds, now().toISOString())}
+        onCancelRedemption={(payoutId) => productionMode
+          ? void production.cancelReward(payoutId)
+          : cancelRedemption(payoutId, now().toISOString())}
+        onSettlePayouts={(payoutIds) => productionMode
+          ? void Promise.all(payoutIds.map((payoutId) => production.settleReward(payoutId)))
+          : settlePayouts(payoutIds, now().toISOString())}
         onClose={() => setRewardsOpen(false)}
       />
       <ChoreEditorDrawer
@@ -1005,17 +1104,33 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
         queue={reviewQueue}
         members={record.members}
         tokensEnabled={record.tokensEnabled}
-        onApprove={(id) => approve(id, now().toISOString())}
-        onAnotherPass={(id, note) => requestAnotherPass(id, now().toISOString(), note)}
-        onLeaveEarlierMissed={(id) => leaveEarlierCompletionMissed(id, now().toISOString())}
+        onApprove={(id) => {
+          const occurrence = record.occurrences.find((item) => item.activityOccurrenceId === id);
+          if (productionMode && occurrence) void production.approve(occurrence);
+          else approve(id, now().toISOString());
+        }}
+        onAnotherPass={(id, note) => {
+          const occurrence = record.occurrences.find((item) => item.activityOccurrenceId === id);
+          if (productionMode && occurrence) void production.returnForAnotherPass(occurrence, note);
+          else requestAnotherPass(id, now().toISOString(), note);
+        }}
+        onLeaveEarlierMissed={(id) => {
+          const occurrence = record.occurrences.find((item) => item.activityOccurrenceId === id);
+          if (productionMode && occurrence) void production.leaveMissed(occurrence);
+          else leaveEarlierCompletionMissed(id, now().toISOString());
+        }}
         onClose={() => setReviewOpen(false)}
       />
       <ChoreSettingsDrawer
         visible={settingsOpen}
         tokensEnabled={record.tokensEnabled}
         rewardExchangeRateCentsPerToken={record.rewardExchangeRateCentsPerToken}
-        onChangeTokens={setTokensEnabled}
-        onChangeRewardExchangeRate={setRewardExchangeRate}
+        onChangeTokens={(enabled) => productionMode
+          ? void production.configureReward({ enabled })
+          : setTokensEnabled(enabled)}
+        onChangeRewardExchangeRate={(centsPerToken) => productionMode
+          ? void production.configureReward({ centsPerToken })
+          : setRewardExchangeRate(centsPerToken)}
         onClose={() => setSettingsOpen(false)}
       />
       <UnifiedChatDrawer
@@ -1032,6 +1147,7 @@ export function ChoresScreen({ now = () => new Date() }: ChoresScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  productionState: { gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
   content: { gap: spacing['2xl'], paddingHorizontal: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.xl },
   memberControl: { height: 32, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radii.pill, backgroundColor: colors.gray100 },
   memberMenu: { minWidth: 220 },

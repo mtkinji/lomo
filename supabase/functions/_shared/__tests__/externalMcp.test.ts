@@ -47,7 +47,7 @@ describe('externalMcp helpers', () => {
       for (const child of Array.isArray(record.oneOf) ? record.oneOf : []) assertStrict(child);
     };
 
-    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(97);
+    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(118);
     for (const tool of EXTERNAL_MCP_ACTION_CATALOG) {
       assertStrict(tool.inputSchema);
       expect(tool.outputSchema).toEqual(expect.objectContaining({ type: 'object' }));
@@ -56,7 +56,7 @@ describe('externalMcp helpers', () => {
   });
 
   test('keeps every manifest operation in an explicit external-control state', () => {
-    expect(EXTERNAL_MCP_CONTROL_COVERAGE).toHaveLength(228);
+    expect(EXTERNAL_MCP_CONTROL_COVERAGE).toHaveLength(233);
     expect(EXTERNAL_MCP_CONTROL_COVERAGE.filter((row) => row.state === 'excluded')
       .every((row) => row.owner === 'games' || row.owner === 'explore')).toBe(true);
     expect(new Set(EXTERNAL_MCP_ACTION_CATALOG.map((tool) => tool.operationId)))

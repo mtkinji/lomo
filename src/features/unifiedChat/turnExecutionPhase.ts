@@ -382,7 +382,7 @@ export async function executeUnifiedChatTurnPhase(
         capability === 'goals' || capability === 'profile' || capability === 'chapters' ||
         capability === 'screenTime' || capability === 'notifications' || capability === 'account' ||
         capability === 'navigation' || capability === 'relationships' || capability === 'money' ||
-        capability === 'recipes' || capability === 'household',
+        capability === 'recipes' || capability === 'household' || capability === 'chores',
     );
   const relationshipProvider = input.executeRelationshipTool
     ? { execute: input.executeRelationshipTool }

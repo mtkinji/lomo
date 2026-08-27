@@ -18,6 +18,18 @@ test('Focus opens the native Activity sheet without auto-starting a session', ()
   });
 });
 
+test('Chores handoffs open either the inventory or one exact occurrence evidence review', () => {
+  expect(resolveClientActionOpenInstruction({ ...action('open_chores'), capabilityId: 'chores' })).toEqual({
+    kind: 'navigate', name: 'Chores', params: {},
+  });
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_chore_evidence_picker', 'occurrence-1'),
+    capabilityId: 'chores', targetType: 'chore_occurrence',
+  })).toEqual({
+    kind: 'navigate', name: 'Chores', params: { occurrenceId: 'occurrence-1', openEvidencePicker: true },
+  });
+});
+
 test('account deletion returns only to the native two-step confirmation flow', () => {
   expect(resolveClientActionOpenInstruction(action('open_account_deletion'))).toEqual({
     kind: 'navigate', name: 'Settings',

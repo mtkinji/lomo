@@ -43,10 +43,14 @@ import type { StagedHouseholdToolProposal } from './householdToolProvider';
 import { createMoneyControlActions } from '../../capabilities/money/actions/moneyControlActions';
 import { createMoneyControlActionBoundary } from '../../capabilities/money/actions/moneyControlActionBoundary';
 import { createMoneyToolProvider, type StagedMoneyToolProposal } from './moneyToolProvider';
+import { createChoreRepository } from '../../capabilities/chores/data/choreRepository';
+import { createChoreActions } from '../../capabilities/chores/domain/choreActions';
+import { createChoreToolProvider, type StagedChoreToolProposal } from './choreToolProvider';
 
 export type StagedUnifiedChatToolProposal =
   | StagedHouseholdToolProposal
   | StagedMoneyToolProposal
+  | StagedChoreToolProposal
   | {
       capabilityId: 'recipes';
       title: string;
@@ -186,6 +190,7 @@ export function createUnifiedChatToolProvider({
     privacyLocked: snapshots.moneyPrivacyLocked === true,
     actions: moneyActions ?? createMoneyControlActions(createMoneyControlActionBoundary()),
   });
+  const choreProvider = createChoreToolProvider({ actions: createChoreActions(createChoreRepository()) });
   const planReferentFailure = (activity: { id: string; title: string; updatedAt: string }) => {
     if (!planConversationReferent) return null;
     if (activity.id !== planConversationReferent.activityId) {
@@ -230,6 +235,8 @@ export function createUnifiedChatToolProvider({
     if (householdResult) return householdResult;
     const moneyResult = await moneyProvider.execute(call, tool);
     if (moneyResult) return moneyResult;
+    const choreResult = await choreProvider.execute(call, tool);
+    if (choreResult) return choreResult;
     const deviceResult = await deviceProvider.execute(call, tool);
     if (deviceResult) return deviceResult;
     if (call.toolId === 'screen_time.read') {
@@ -1212,8 +1219,9 @@ export function createUnifiedChatToolProvider({
     proposals: (): readonly StagedUnifiedChatToolProposal[] => [
       ...staged,
       ...moneyProvider.proposals(),
+      ...choreProvider.proposals(),
       ...(householdProposals?.() ?? []),
     ],
-    clientActions: () => [...deviceProvider.actions(), ...moneyProvider.actions()],
+    clientActions: () => [...deviceProvider.actions(), ...moneyProvider.actions(), ...choreProvider.actions()],
   };
 }

@@ -20,6 +20,7 @@ const DEVICE_TOOL_IDS = new Set([
   'navigation.account_settings.open', 'account.subscription.open', 'account.delete.open',
   'activities.open_focus', 'activities.location.update', 'activities.attachments.open',
   'activities.share.open', 'goals.share.open', 'goals.check_in', 'plan.preferences.open',
+  'chores.open',
 ]);
 
 export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChatCapabilitySnapshots }) {
@@ -229,6 +230,10 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
       'navigation.account_settings.open': {
         capabilityId: 'account', actionType: 'open_account_settings', targetType: null, targetId: null,
         title: 'Open account settings', consequenceSummary: 'Kwilt will open your native account settings.', payload: {},
+      },
+      'chores.open': {
+        capabilityId: 'chores', actionType: 'open_chores', targetType: null, targetId: null,
+        title: 'Open Chores', consequenceSummary: 'Kwilt will open the native Chores surface.', payload: {},
       },
       'account.subscription.open': {
         capabilityId: 'account', actionType: 'open_subscription_management', targetType: null, targetId: null,
