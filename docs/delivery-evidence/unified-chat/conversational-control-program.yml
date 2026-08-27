@@ -79,6 +79,27 @@ verification:
     result: passed
     suites: 1
     tests: 5
+  executable_parity_contract:
+    status: source_tested
+    generated_reports:
+      - docs/delivery-evidence/unified-chat/conversational-control-parity.md
+      - docs/delivery-evidence/unified-chat/conversational-control-parity.json
+    focused_commands:
+      - node --test scripts/conversational-control-parity.test.mjs
+      - npx jest src/capabilities/uiParityInventory.test.ts src/features/unifiedChat/conversationalParity.test.ts src/features/unifiedChat/chatCapabilityCoverage.test.ts --runInBand
+      - npm run lint
+      - npm run lint:tests
+    result:
+      node_tests: 3_passed
+      jest_suites: 3_passed
+      jest_tests: 17_passed
+      app_typecheck: passed
+      test_typecheck: passed
+    strict_final_gate:
+      command: npm run chat:control-parity -- --no-write
+      result: expected_failure
+      parity_errors: 454
+      meaning: The command now fails until all UI gaps, providers, proof, and voice conformance are complete.
 proof_boundaries:
   source_and_tests: baseline_only
   backend_deployment: not_run

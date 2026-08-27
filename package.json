@@ -60,7 +60,8 @@
     "visual:collect": "node scripts/visual-regression/collect.js",
     "visual:compare": "node scripts/visual-regression/compare.js",
     "visual:update": "node scripts/visual-regression/compare.js --update",
-    "chat:delivery-lint": "node scripts/chat-delivery-lint.mjs",
+    "chat:delivery-lint": "node scripts/chat-delivery-lint.mjs && npm run chat:control-parity -- --allow-incomplete --no-write",
+    "chat:control-parity": "node scripts/conversational-control-parity.mjs",
     "money:transaction-truth:evidence": "node scripts/money-transaction-truth-evidence-check.mjs",
     "test:money-transaction-truth:evidence": "node --test scripts/money-transaction-truth-evidence.test.mjs",
     "chat:protocol:conformance": "node scripts/unified-chat-protocol-conformance.mjs",
@@ -169,6 +170,7 @@
     "pngjs": "^7.0.0",
     "react-native-web": "0.21.2",
     "storybook": "10.5.6",
+    "tsx": "^4.23.12",
     "typescript": "~5.9.2",
     "vite": "8.2.0"
   },

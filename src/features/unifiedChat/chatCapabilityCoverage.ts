@@ -21,6 +21,7 @@ type ChannelCoverage<Outcome extends string> = {
 export type ChatCapabilityCoverageRow = {
   id: string;
   owner: string;
+  effect: CapabilityManifestEntry['effect'];
   providers: CapabilityManifestEntry['providerEligibility'];
   consequence: CapabilityManifestEntry['consequence'];
   confirmation: CapabilityManifestEntry['confirmation'];
@@ -76,6 +77,7 @@ export function buildChatCapabilityCoverage({
       return {
         id: declared.id,
         owner: declared.owner,
+        effect: 'read',
         providers: [],
         consequence: 'low',
         confirmation: 'none',
@@ -106,6 +108,7 @@ export function buildChatCapabilityCoverage({
     return {
       id: declared.id,
       owner: declared.owner,
+      effect: contract.effect,
       providers: contract.providerEligibility,
       consequence: contract.consequence,
       confirmation: contract.confirmation,

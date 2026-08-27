@@ -297,10 +297,10 @@ Run the full Jest suite only when shared Jest/runtime configuration or a broad s
 
 **Files:** None; inspection only.
 
-- [ ] Confirm the current branch, HEAD, and dirty paths with the commands in section 6.
-- [ ] Classify every dirty path by owner: this program, another active Kwilt effort, or user work.
-- [ ] Do not edit a path owned by another active effort until its changes are committed/merged or Andrew explicitly chooses how to reconcile it.
-- [ ] Confirm the current inventory tests pass independently:
+- [x] Confirm the current branch, HEAD, and dirty paths with the commands in section 6.
+- [x] Classify every dirty path by owner: this program, another active Kwilt effort, or user work.
+- [x] Do not edit a path owned by another active effort until its changes are committed/merged or Andrew explicitly chooses how to reconcile it.
+- [x] Confirm the current inventory tests pass independently:
 
 ```bash
 npx jest src/capabilities/uiParityInventory.test.ts --runInBand
@@ -308,8 +308,8 @@ npx jest src/capabilities/uiParityInventory.test.ts --runInBand
 
 Expected: all inventory tests pass. If the current Screen Time branch has an unrelated type error, record it as an integration-base blocker without changing that code from this plan.
 
-- [ ] Capture fresh baseline counts by importing the manifest, mobile coverage, and external coverage in a temporary read-only command. Record the counts in `docs/delivery-evidence/unified-chat/conversational-control-program.yml`.
-- [ ] Commit only the baseline evidence file:
+- [x] Capture fresh baseline counts by importing the manifest, mobile coverage, and external coverage in a temporary read-only command. Record the counts in `docs/delivery-evidence/unified-chat/conversational-control-program.yml`.
+- [x] Commit only the baseline evidence file:
 
 ```bash
 git add docs/delivery-evidence/unified-chat/conversational-control-program.yml
@@ -331,9 +331,9 @@ git commit -m "docs: establish conversational control baseline"
 - Modify: `package.json`
 - Create: `docs/delivery-evidence/unified-chat/conversational-control-program.yml`
 
-- [ ] Write a failing test that requires every included UI intent to have at least one canonical operation, every canonical operation to appear exactly once, and every included surface to have zero unresolved gaps at final mode.
-- [ ] Add a proof-state projection that joins UI intent, canonical operation, tool contract, mobile provider, server/device-handoff provider, external action, and proof references.
-- [ ] Use this exact acceptance shape:
+- [x] Write a failing test that requires every included UI intent to have at least one canonical operation, every canonical operation to appear exactly once, and every included surface to have zero unresolved gaps at final mode.
+- [x] Add a proof-state projection that joins UI intent, canonical operation, tool contract, mobile provider, server/device-handoff provider, external action, and proof references.
+- [x] Use this exact acceptance shape:
 
 ```ts
 type ConversationalParityRow = {
@@ -349,10 +349,10 @@ type ConversationalParityRow = {
 };
 ```
 
-- [ ] Make the report fail on duplicate mappings, missing mappings, unknown IDs, unsupported exclusions, missing proof paths, or a `ready` state without an executable provider.
-- [ ] Add `npm run chat:control-parity` and include it in `chat:delivery-lint`.
-- [ ] Generate both human-readable Markdown and machine-readable JSON from the same in-memory projection; do not hand-maintain count prose.
-- [ ] Run:
+- [x] Make the report fail on duplicate mappings, missing mappings, unknown IDs, unsupported exclusions, missing proof paths, or a `ready` state without an executable provider.
+- [x] Add `npm run chat:control-parity` and include it in `chat:delivery-lint`.
+- [x] Generate both human-readable Markdown and machine-readable JSON from the same in-memory projection; do not hand-maintain count prose.
+- [x] Run:
 
 ```bash
 node --test scripts/conversational-control-parity.test.mjs
@@ -362,7 +362,7 @@ npm run chat:control-parity
 
 Expected: tests pass; the parity command intentionally exits nonzero until the implementation waves remove all gaps. Support `--allow-incomplete` for baseline report generation and require no flag in the final gate.
 
-- [ ] Commit the exact Task 1 files with message `feat(chat): enforce conversational parity contract`.
+- [x] Commit the exact Task 1 files with message `feat(chat): enforce conversational parity contract`.
 
 ### Task 2: Expand the canonical operation and tool model
 
