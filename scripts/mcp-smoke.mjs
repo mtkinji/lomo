@@ -15,7 +15,7 @@ Modes:
 
      Exercises:
        metadata -> dynamic client registration -> authorize/approve -> token -> tools/list -> list_arcs
-       Add MCP_SMOKE_WRITE=1 to also create/update/delete a smoke Arc, Goal, and To-do, then revoke.
+       Add MCP_SMOKE_WRITE=1 to prove safe completion, idempotent replay, reviewed-write staging, then revoke.
 
   2. MCP bearer-token smoke:
      MCP_ACCESS_TOKEN=<issued MCP access token> npm run mcp:smoke
@@ -27,7 +27,8 @@ Optional:
   MCP_SMOKE_REDIRECT_URI
     Default: https://example.com/kwilt-mcp-smoke/callback
   MCP_SMOKE_WRITE=1
-    Runs write tools against the authenticated user's account. The script deletes the smoke objects before exiting.
+    Creates one clearly labeled smoke To-do, replays that exact request without duplicating it,
+    stages (but does not apply) a Goal proposal for review, then revokes the test token.
 `;
 
 const EXPECTED_CAPABILITY_SCOPES = [
@@ -209,76 +210,52 @@ async function runWriteSmoke(baseUrl, token) {
   const suffix = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
   const idempotencyPrefix = `mcp-smoke-${suffix}`;
 
-  const createArc = await mcpCall(baseUrl, token, 'tools/call', {
-    name: 'create_arc',
-    arguments: {
-      idempotency_key: `${idempotencyPrefix}:create_arc`,
-      name: `MCP smoke Arc ${suffix}`,
-      identity_statement: 'This is a temporary smoke-test Arc.',
-    },
-  }, 'create_arc');
-  const arcId = createArc.structuredContent?.arc_id;
-  if (!arcId) throw new Error(`create_arc missing arc_id: ${JSON.stringify(createArc)}`);
-  console.log(`create_arc ok: ${arcId}`);
+  const captureArgs = {
+    idempotency_key: `${idempotencyPrefix}:capture_activity`,
+    title: `MCP smoke To-do ${suffix} — safe to delete`,
+    notes: 'Controlled external action-contract validation.',
+    tags: ['smoke-test'],
+  };
+  const capture = await mcpCall(baseUrl, token, 'tools/call', {
+    name: 'capture_activity',
+    arguments: captureArgs,
+  }, 'capture_activity');
+  const captureResult = capture.structuredContent ?? capture.structured_content ?? capture;
+  const firstResult = captureResult.result_references?.[0]?.id;
+  if (captureResult.status !== 'completed' || !captureResult.receipt_id || !firstResult) {
+    throw new Error(`capture_activity did not complete safely: ${JSON.stringify(captureResult)}`);
+  }
+  console.log('capture_activity completed with a receipt');
 
-  const createGoal = await mcpCall(baseUrl, token, 'tools/call', {
+  const replay = await mcpCall(baseUrl, token, 'tools/call', {
+    name: 'capture_activity',
+    arguments: captureArgs,
+  }, 'capture_activity_replay');
+  const replayResult = replay.structuredContent ?? replay.structured_content ?? replay;
+  const replayReference = replayResult.result_references?.[0]?.id;
+  const same_result = replayReference === firstResult;
+  if (replayResult.status !== 'completed' || replayResult.idempotent_replay !== true || !same_result) {
+    throw new Error(`capture_activity replay was not idempotent: ${JSON.stringify(replayResult)}`);
+  }
+  console.log('capture_activity replay returned the same result without a duplicate');
+
+  const proposal = await mcpCall(baseUrl, token, 'tools/call', {
     name: 'create_goal',
     arguments: {
-      idempotency_key: `${idempotencyPrefix}:create_goal`,
-      arc_id: arcId,
-      title: `MCP smoke Goal ${suffix}`,
+      idempotency_key: `${idempotencyPrefix}:create_goal_proposal`,
+      title: `MCP smoke Goal ${suffix} — do not approve`,
+      description: 'Controlled proposal proving consequential external writes await Kwilt review.',
       status: 'planned',
     },
-  }, 'create_goal');
-  const goalId = createGoal.structuredContent?.goal_id;
-  if (!goalId) throw new Error(`create_goal missing goal_id: ${JSON.stringify(createGoal)}`);
-  console.log(`create_goal ok: ${goalId}`);
-
-  const createActivity = await mcpCall(baseUrl, token, 'tools/call', {
-    name: 'capture_activity',
-    arguments: {
-      idempotency_key: `${idempotencyPrefix}:capture_activity`,
-      goal_id: goalId,
-      title: `MCP smoke To-do ${suffix}`,
-      tags: ['smoke-test'],
-    },
-  }, 'capture_activity');
-  const activityId = createActivity.structuredContent?.activity_id;
-  if (!activityId) throw new Error(`capture_activity missing activity_id: ${JSON.stringify(createActivity)}`);
-  console.log(`capture_activity ok: ${activityId}`);
-
-  await mcpCall(baseUrl, token, 'tools/call', {
-    name: 'update_activity',
-    arguments: {
-      idempotency_key: `${idempotencyPrefix}:update_activity`,
-      activity_id: activityId,
-      notes: 'Updated by MCP smoke test.',
-    },
-  }, 'update_activity');
-  console.log('update_activity ok');
-
-  await mcpCall(baseUrl, token, 'tools/call', {
-    name: 'mark_activity_done',
-    arguments: {
-      idempotency_key: `${idempotencyPrefix}:mark_activity_done`,
-      activity_id: activityId,
-    },
-  }, 'mark_activity_done');
-  console.log('mark_activity_done ok');
-
-  await mcpCall(baseUrl, token, 'tools/call', {
-    name: 'delete_activity',
-    arguments: { idempotency_key: `${idempotencyPrefix}:delete_activity`, activity_id: activityId },
-  }, 'delete_activity');
-  await mcpCall(baseUrl, token, 'tools/call', {
-    name: 'delete_goal',
-    arguments: { idempotency_key: `${idempotencyPrefix}:delete_goal`, goal_id: goalId },
-  }, 'delete_goal');
-  await mcpCall(baseUrl, token, 'tools/call', {
-    name: 'delete_arc',
-    arguments: { idempotency_key: `${idempotencyPrefix}:delete_arc`, arc_id: arcId },
-  }, 'delete_arc');
-  console.log('delete smoke objects ok');
+  }, 'create_goal_proposal');
+  const proposalResult = proposal.structuredContent ?? proposal.structured_content ?? proposal;
+  if (proposalResult.status !== 'proposed' || proposalResult.confirmation?.state !== 'pending') {
+    throw new Error(`create_goal did not stop for review: ${JSON.stringify(proposalResult)}`);
+  }
+  if (proposalResult.receipt_id) {
+    throw new Error(`create_goal proposal unexpectedly included a completion receipt: ${JSON.stringify(proposalResult)}`);
+  }
+  console.log('create_goal staged a pending review without applying the Goal');
 }
 
 async function run() {
