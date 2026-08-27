@@ -46,6 +46,10 @@ function coverage(operationId = 'todos.read'): ChatCapabilityCoverageRow {
     toolIds: [operationId],
     sourceRefs: ['capability:todos'],
     returnBehavior: 'answer',
+    completionMode: 'direct',
+    requiredScopes: ['life.read'],
+    receipt: { required: true, resultRefKinds: ['todos'], reversible: true, undoOperationId: null },
+    supportedBoundary: { finalActOwner: 'kwilt', reason: null },
     toolCoverage: [{
       toolId: operationId,
       mobileHandler: true,
@@ -167,6 +171,7 @@ describe('conversational parity', () => {
       toolIds: [],
       toolCoverage: [],
       returnBehavior: 'honest_boundary',
+      completionMode: 'excluded',
       channels: {
         mobile: {
           state: 'excluded', outcome: 'honest_boundary', proofPaths: [SOURCE_PATH], boundaryReason: 'Excluded.',

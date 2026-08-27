@@ -8,7 +8,7 @@ Job-flow step: express, review, apply, and recover a practical action without su
 
 ## Outcome
 
-Kwilt now has a machine-readable inventory connecting its primary native surfaces and ordinary-language user intents to the canonical capability-operation manifest. The inventory is not a claim that every action works yet. It makes each action land in one truthful state: implemented, native-review-only, pending a provider, externally bounded, deliberately excluded, or explicitly recorded as a prioritized gap.
+Kwilt now has a machine-readable inventory connecting its primary native surfaces and ordinary-language user intents to the canonical capability-operation manifest. The inventory is not a claim that every action works yet. It makes each action land in one truthful state: implemented, native-review-only, pending a provider, externally bounded, or deliberately excluded.
 
 Canonical sources:
 
@@ -24,13 +24,9 @@ Canonical sources:
 | Audited surfaces | 23 |
 | Included surfaces | 20 |
 | Deliberately excluded surfaces | 3 |
-| Ordinary-language intent groups | 89 |
-| Canonical operations mapped exactly once | 145 |
-| Explicit native-intent gaps | 33 |
-| P0 gaps | 10 |
-| P1 gaps | 14 |
-| P2 gaps | 7 |
-| P3 gaps | 2 |
+| Ordinary-language intent groups | 122 |
+| Canonical operations mapped exactly once | 228 |
+| Explicit native-intent gaps | 0 |
 
 Channel truth at this checkpoint:
 
@@ -38,10 +34,14 @@ Channel truth at this checkpoint:
 | --- | --- | ---: |
 | Mobile Chat | Live | 58 |
 | Mobile Chat | Native confirmation only | 19 |
-| Mobile Chat | Pending provider | 61 |
+| Mobile Chat | Pending provider | 144 |
 | Mobile Chat | Excluded | 7 |
+| Phone | Live | 31 |
+| Phone | Native confirmation only | 36 |
+| Phone | Pending provider | 154 |
+| Phone | Excluded | 7 |
 | ChatGPT connector | Exposed | 66 |
-| ChatGPT connector | Pending provider | 70 |
+| ChatGPT connector | Pending provider | 153 |
 | ChatGPT connector | Explicit boundary | 5 |
 | ChatGPT connector | Not applicable | 2 |
 | ChatGPT connector | Excluded capability | 2 |
@@ -54,46 +54,31 @@ Voice currently inherits the same operation and safety policy as typed mobile Ch
 | --- | --- | ---: | ---: | ---: |
 | Chat and contextual answers | Included | 2 | 2 | 0 |
 | People and relationship memory | Included | 5 | 5 | 0 |
-| Household and family membership | Included | 6 | 7 | 3 |
+| Household and family membership | Included | 9 | 13 | 0 |
 | Profile | Included | 2 | 2 | 0 |
 | Arcs | Included | 4 | 5 | 0 |
 | Goals | Included | 6 | 7 | 0 |
 | To-dos and Focus | Included | 11 | 21 | 0 |
-| Plan and calendar placement | Included | 4 | 6 | 2 |
-| Chapters | Included | 2 | 4 | 2 |
-| Account and general settings | Included | 4 | 4 | 10 |
-| Money | Included | 6 | 9 | 4 |
+| Plan and calendar placement | Included | 6 | 10 | 0 |
+| Chapters | Included | 4 | 8 | 0 |
+| Account and general settings | Included | 14 | 36 | 0 |
+| Money | Included | 10 | 19 | 0 |
 | Explore | Excluded | 1 | 1 | 0 |
 | Games | Excluded | 1 | 1 | 0 |
-| Chores | Included | 1 | 1 | 5 |
-| Recipes and Cook Mode | Included | 7 | 18 | 2 |
-| Meal Plan | Included | 5 | 11 | 1 |
+| Chores | Included | 6 | 16 | 0 |
+| Recipes and Cook Mode | Included | 9 | 20 | 0 |
+| Meal Plan | Included | 6 | 13 | 0 |
 | Groceries, food stock, receipts, and handoff | Included | 8 | 19 | 0 |
 | Food budget and grocery savings | Included | 3 | 5 | 0 |
-| Screen Time | Included | 7 | 14 | 2 |
-| Notifications | Included | 1 | 1 | 1 |
-| Search and navigation | Included | 1 | 1 | 1 |
+| Screen Time | Included | 9 | 19 | 0 |
+| Notifications | Included | 2 | 3 | 0 |
+| Search and navigation | Included | 2 | 2 | 0 |
 | Phone and cross-channel continuation | Included | 1 | 1 | 0 |
 | Developer and diagnostic surfaces | Excluded | 1 | 0 | 0 |
 
-## P0 gap queue
+## Gap declaration checkpoint
 
-These are the first capability gaps to close because they are central native actions, not optional convenience settings.
-
-| Surface | Missing intent | Why it is P0 |
-| --- | --- | --- |
-| Household | Update a household member profile or relationship | A primary family-management action has no canonical Chat operation. |
-| Household | Remove or release a household member | Authority and dependent access need a reviewed, reversible operation. |
-| Money | Change the monthly budget plan | Budget editing is a core Money action. |
-| Money | Correct transaction meaning or planning treatment | Current Chat can only open native review, not stage the exact correction. |
-| Chores | List and inspect chores and review status | Chat lacks bounded evidence for the main Chores inventory. |
-| Chores | Create, edit, pause, or delete a chore | Chore-series management has no operation family. |
-| Chores | Complete a chore and attach required evidence | Occurrence completion and evidence policy are absent. |
-| Chores | Approve or return a completed chore | Caregiver review needs a consequential typed action. |
-| Screen Time | List and inspect personal Screen Time rules | Personal rule inventory is not available as structured Chat evidence. |
-| Screen Time | Pause or remove a personal Screen Time rule | Native rule lifecycle changes lack a canonical operation. |
-
-All P1-P3 gaps, their exact ids, and their reasons live in the machine-readable inventory so they cannot disappear from later implementation work.
+All 33 previously prioritized intent gaps now resolve to 83 canonical operations with typed tool contracts. This closes the declaration gap only: every new operation remains `pending_provider` until a capability-owned implementation, channel registration, authoritative receipt, and channel-specific proof exist.
 
 ## Exclusions and bounded actions
 
@@ -111,7 +96,6 @@ The focused inventory test fails when:
 3. The product registry and inventory operation sets diverge.
 4. A referenced source path no longer exists.
 5. An included surface lacks both mapped intents and explicit gaps.
-6. An unsupported native intent lacks a priority or reason.
-7. ChatGPT coverage is missing for any canonical operation.
+6. ChatGPT coverage is missing for any canonical operation.
 
-This is the acceptance plan for the remaining work: validate what is already green in live ChatGPT and signed native builds, then close gaps capability-by-capability without allowing UI, mobile Chat, voice, Phone, and connector truth to drift apart.
+This is the acceptance plan for the remaining work: implement providers capability-by-capability, then validate live ChatGPT and signed native builds without allowing UI, mobile Chat, voice, Phone, and connector truth to drift apart.

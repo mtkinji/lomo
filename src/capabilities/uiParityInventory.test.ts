@@ -39,13 +39,10 @@ describe('UI parity inventory', () => {
     expect(byId.get('developer-surfaces')).toMatchObject({ scope: 'excluded' });
   });
 
-  test('keeps unsupported native intents visible and prioritized', () => {
-    const gaps = UI_PARITY_SURFACES.flatMap((surface) => surface.gaps.map((gap) => ({
-      surfaceId: surface.id,
-      ...gap,
-    })));
+  test('maps every previously prioritized intent cluster to canonical operations', () => {
+    const intentIds = UI_PARITY_SURFACES.flatMap((surface) => surface.intents.map(({ id }) => id));
 
-    expect(gaps.map(({ id }) => id)).toEqual(expect.arrayContaining([
+    expect(intentIds).toEqual(expect.arrayContaining([
       'settings.appearance.update',
       'settings.ai_model.update',
       'settings.meals.update',
@@ -59,10 +56,12 @@ describe('UI parity inventory', () => {
       'settings.destinations.manage',
       'settings.activity_areas.manage',
     ]));
-    for (const gap of gaps) {
-      expect(gap.reason.trim()).not.toBe('');
-      expect(['p0', 'p1', 'p2', 'p3']).toContain(gap.priority);
-    }
+  });
+
+  test('has no unresolved included-surface gaps after the operation expansion', () => {
+    expect(UI_PARITY_SURFACES
+      .filter((surface) => surface.scope === 'included')
+      .flatMap((surface) => surface.gaps)).toEqual([]);
   });
 
   test('projects mobile, voice, and ChatGPT truth from the canonical manifest', () => {
@@ -115,8 +114,10 @@ describe('UI parity inventory', () => {
     });
     const errors = validateConversationalParity({ surfaces: UI_PARITY_SURFACES, rows });
 
+    expect(errors).not.toEqual(expect.arrayContaining([
+      expect.stringContaining('Unresolved UI gap'),
+    ]));
     expect(errors).toEqual(expect.arrayContaining([
-      expect.stringContaining('Unresolved UI gap household.member.update'),
       expect.stringContaining('recipes.create mobile is missing_provider'),
       expect.stringContaining('activities.capture voice is missing_conformance'),
     ]));

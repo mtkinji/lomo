@@ -1,7 +1,13 @@
 import type { AgentToolProvider } from './types.ts';
-import { defineCapabilityManifest, type CapabilityManifestEntry } from './capabilityManifest.ts';
+import {
+  defineCapabilityManifest,
+  type CapabilityManifestEntry,
+  type CapabilityOAuthScope,
+  type ConversationalCompletionMode,
+} from './capabilityManifest.ts';
 import { KWILT_TOOL_CONTRACTS } from './kwiltToolContracts.ts';
 import { FOOD_OPERATION_CONTRACTS } from './foodOperationContracts.ts';
+import { CONTROL_PARITY_OPERATION_CONTRACTS } from './controlParityOperationContracts.ts';
 
 export type KwiltOperationOwner =
   | 'general'
@@ -18,6 +24,7 @@ export type KwiltOperationOwner =
   | 'games'
   | 'chores'
   | 'account'
+  | 'settings'
   | 'screenTime'
   | 'notifications'
   | 'navigation'
@@ -49,6 +56,7 @@ export const KWILT_EXTERNAL_CONTROL_SCOPE = {
   games: 'excluded',
   chores: 'core',
   account: 'core',
+  settings: 'core',
   screenTime: 'core',
   notifications: 'supporting',
   navigation: 'supporting',
@@ -107,6 +115,7 @@ function ownerForOperation(id: string): KwiltOperationOwner {
   if (id.startsWith('activities.')) return 'todos';
   if (id.startsWith('screen_time.')) return 'screenTime';
   if (id.startsWith('search.')) return 'navigation';
+  if (id.startsWith('navigation.')) return 'navigation';
   if (id.startsWith('channel.')) return 'channels';
   if (id.startsWith('receipt.')) return 'groceries';
   if (id.startsWith('food_budget.')) return 'savings';
@@ -114,7 +123,7 @@ function ownerForOperation(id: string): KwiltOperationOwner {
   if (id.startsWith('cook_session.')) return 'recipes';
   const owner = id.split('.')[0];
   if (owner === 'general' || owner === 'relationships' || owner === 'household' || owner === 'profile' || owner === 'arcs' ||
-      owner === 'goals' || owner === 'plan' || owner === 'chapters' || owner === 'money' || owner === 'explore' || owner === 'games' || owner === 'chores' || owner === 'account' ||
+      owner === 'goals' || owner === 'plan' || owner === 'chapters' || owner === 'money' || owner === 'explore' || owner === 'games' || owner === 'chores' || owner === 'account' || owner === 'settings' ||
       owner === 'notifications' || owner === 'recipes' || owner === 'meal_planning' ||
       owner === 'groceries' || owner === 'savings') {
     return owner;
@@ -396,6 +405,19 @@ function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): C
   );
 }
 
+function controlParityCapabilityRow(
+  contract: typeof CONTROL_PARITY_OPERATION_CONTRACTS[number],
+): ChatCapabilityCoverageRow {
+  return bounded('pending_provider', {
+    id: contract.id,
+    providers: contract.providers,
+    consequence: contract.consequence,
+    confirmation: contract.confirmation,
+    toolIds: [contract.id],
+    sourceRefs: contract.sourceRefs,
+  }, `The ${contract.id} canonical contract is declared; capability-owned provider execution and channel proof remain pending.`);
+}
+
 const CAPABILITY_ROWS = [
   live({ id: 'general.answer', providers: ['server'], consequence: 'low', confirmation: 'none', toolIds: [], sourceRefs: [] }, readProof),
   live({ id: 'general.answer_with_context', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['goals.read', 'activities.read', 'plan.read_day_context', 'chapters.read'], sourceRefs: ['legacy:workspace_snapshots'] }, readProof),
@@ -472,8 +494,8 @@ const CAPABILITY_ROWS = [
   bounded('confirmation_only', { id: 'money.connection.connect', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Connecting a financial institution completes only in native Plaid Link after institution authentication and consent.', moneyConnectionProof),
   bounded('confirmation_only', { id: 'money.connection.sync', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Manual Plaid sync starts only from native Money; Phone and Chat do not receive client-side financial credentials.', moneyConnectionProof),
 
-  bounded('pending_provider', { id: 'explore.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:explore'] }, 'Explore is available from the native capability menu and kwilt://explore, but Chat does not yet receive or control precise location history.'),
-  bounded('pending_provider', { id: 'games.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:games'] }, 'Games is available from the native capability menu and kwilt://games, but Chat does not yet open sessions, seat players, or act on game state.'),
+  bounded('excluded', { id: 'explore.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:explore'] }, 'Explore and precise location-history control are explicitly outside this conversational-control program.'),
+  bounded('excluded', { id: 'games.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:games'] }, 'Games, player seating, sessions, and game state are explicitly outside this conversational-control program.'),
   bounded('pending_provider', { id: 'chores.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:chores'] }, 'Chores is available as a local Labs learning surface, but Chat cannot read, claim, complete, or award from simulated inventory. Conversational access waits for the Activity-backed Household authorization boundary.'),
 
   ...FOOD_OPERATION_CONTRACTS.map(foodCapabilityRow),
@@ -498,6 +520,8 @@ const CAPABILITY_ROWS = [
   bounded('confirmation_only', { id: 'account.subscription.manage', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['account.subscription.open'], sourceRefs: [] }, 'Chat stages a durable handoff; subscription management completes only in the native App Store or RevenueCat surface.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'account.delete', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['account.delete.open'], sourceRefs: [] }, 'Chat stages a durable handoff to the existing two-step native deletion confirmation and never deletes silently.', deviceHandoffProof),
   bounded('pending_provider', { id: 'channel.phone.continue_run', providers: ['channel', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['channel.phone.continue_run'], sourceRefs: [] }, 'The canonical queued coordinator is implemented, but migration, deployment, scheduler, and signed-provider runtime proof are still pending.'),
+
+  ...CONTROL_PARITY_OPERATION_CONTRACTS.map(controlParityCapabilityRow),
 ] as const satisfies readonly ChatCapabilityCoverageRow[];
 
 const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: false } as const;
@@ -508,6 +532,41 @@ const PURPOSE_BY_OPERATION: Readonly<Record<string, string>> = {
   'relationships.forget_person': 'Forget every retained record for one person only when the complete dependency set can be reviewed and restored safely.',
   'channel.phone.continue_run': 'Continue one authorized Phone Agent request through the canonical durable thread and run ledger.',
 };
+const CONTROL_PARITY_CONTRACT_BY_ID = new Map<string, (typeof CONTROL_PARITY_OPERATION_CONTRACTS)[number]>(
+  CONTROL_PARITY_OPERATION_CONTRACTS.map((contract) => [contract.id, contract] as const),
+);
+const SUPPORTED_BOUNDARY_OPERATION_IDS = new Set([
+  'relationships.forget_person',
+  'recipes.publication.attest_rights',
+  'groceries.checkout',
+  'groceries.payment',
+  'savings.coupon.apply_unsupported',
+]);
+const PROGRAM_EXCLUSION_OPERATION_IDS = new Set(['explore.open', 'games.open']);
+
+function scopesForOperation(owner: KwiltOperationOwner, effect: CapabilityManifestEntry['effect']): CapabilityOAuthScope[] {
+  if (owner === 'relationships' || owner === 'household' || owner === 'screenTime') {
+    return effect === 'read' ? ['household.read'] : ['household.read', 'household.write'];
+  }
+  if (owner === 'money') return effect === 'read' ? ['money.read'] : ['money.read', 'money.write'];
+  if (owner === 'recipes' || owner === 'meal_planning' || owner === 'groceries' || owner === 'savings') {
+    return effect === 'read' ? ['food.read'] : ['food.read', 'food.write'];
+  }
+  return effect === 'read' ? ['life.read'] : ['life.read', 'life.write'];
+}
+
+function completionModeForOperation(
+  row: ChatCapabilityCoverageRow,
+  effect: CapabilityManifestEntry['effect'],
+): ConversationalCompletionMode {
+  const declared = CONTROL_PARITY_CONTRACT_BY_ID.get(row.id)?.completionMode;
+  if (declared) return declared;
+  if (PROGRAM_EXCLUSION_OPERATION_IDS.has(row.id)) return 'excluded';
+  if (SUPPORTED_BOUNDARY_OPERATION_IDS.has(row.id)) return 'supported_boundary';
+  if (row.confirmation === 'native') return 'native_handoff';
+  if (effect === 'write' && row.confirmation === 'explicit') return 'reviewed_proposal';
+  return 'direct';
+}
 
 function toolsForRow(row: ChatCapabilityCoverageRow) {
   return row.toolIds.map((toolId) => {
@@ -526,13 +585,25 @@ function manifestEntry(row: ChatCapabilityCoverageRow): CapabilityManifestEntry 
       : row.channels.mobile.outcome === 'native_review' ? 'native_handoff'
         : row.channels.mobile.outcome === 'honest_boundary' ? 'honest_boundary'
           : 'answer';
+  const effect: CapabilityManifestEntry['effect'] = mutationTool ? 'write' : 'read';
+  const reversible = mutationTool?.reversible ?? (row.id !== 'relationships.forget_person');
+  const completionMode = completionModeForOperation(row, effect);
+  const finalActOwner: CapabilityManifestEntry['supportedBoundary']['finalActOwner'] =
+    completionMode === 'excluded' ? 'excluded'
+      : completionMode === 'provider_handoff' ? 'provider'
+        : completionMode === 'native_handoff' ? 'device'
+          : completionMode === 'supported_boundary'
+            ? row.id === 'relationships.forget_person' || row.id === 'recipes.publication.attest_rights'
+              ? 'person'
+              : 'provider'
+            : 'kwilt';
   return {
     id: row.id,
     owner: row.owner,
     purpose: PURPOSE_BY_OPERATION[row.id] ?? schemaTool?.purpose ?? `Serve the ${row.id} Kwilt operation.`,
-    effect: mutationTool ? 'write' : 'read',
+    effect,
     consequence: row.consequence,
-    reversible: mutationTool?.reversible ?? (row.id !== 'relationships.forget_person'),
+    reversible,
     confirmation: row.confirmation,
     providerEligibility: row.providers,
     inputSchema: schemaTool?.inputSchema ?? EMPTY_SCHEMA,
@@ -540,6 +611,20 @@ function manifestEntry(row: ChatCapabilityCoverageRow): CapabilityManifestEntry 
     tools,
     sourceRefs: row.sourceRefs,
     returnBehavior,
+    completionMode,
+    requiredScopes: scopesForOperation(row.owner, effect),
+    receipt: {
+      required: true,
+      resultRefKinds: [row.owner],
+      reversible,
+      undoOperationId: null,
+    },
+    supportedBoundary: {
+      finalActOwner,
+      reason: finalActOwner === 'kwilt'
+        ? null
+        : row.channels.mobile.boundaryReason ?? row.channels.phone.boundaryReason ?? `Final act remains owned by ${finalActOwner}.`,
+    },
     channels: row.channels,
   };
 }

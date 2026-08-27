@@ -1,14 +1,6 @@
-import type { ExternalControlCoverageRow } from '@kwilt/agent-runtime';
+import type { ConversationalCompletionMode, ExternalControlCoverageRow } from '@kwilt/agent-runtime';
 import type { UiParitySurface } from '../../capabilities/uiParityInventory';
 import type { ChatCapabilityCoverageRow } from './chatCapabilityCoverage';
-
-export type ConversationalCompletionMode =
-  | 'direct'
-  | 'reviewed_proposal'
-  | 'native_handoff'
-  | 'provider_handoff'
-  | 'supported_boundary'
-  | 'excluded';
 
 export type ConversationalParityRow = {
   operationId: string;
@@ -50,14 +42,9 @@ function unique(values: readonly string[]): string[] {
 function completionMode(
   row: ChatCapabilityCoverageRow,
   surface: UiParitySurface,
-  external: ExternalControlCoverageRow,
 ): ConversationalCompletionMode {
   if (surface.scope === 'excluded') return 'excluded';
-  if (external.state === 'explicit_boundary' || row.returnBehavior === 'honest_boundary') return 'supported_boundary';
-  if (row.returnBehavior === 'native_handoff' || row.channels.phone.outcome === 'device_handoff') return 'native_handoff';
-  if (row.channels.phone.outcome === 'mobile_proposal') return 'reviewed_proposal';
-  if (row.effect === 'write' && row.returnBehavior === 'proposal_or_receipt') return 'reviewed_proposal';
-  return 'direct';
+  return row.completionMode;
 }
 
 function localState(
@@ -123,7 +110,7 @@ export function buildConversationalParity({
       owner: row.owner,
       surfaceId: mapping.surface.id,
       intentId: mapping.intent.id,
-      completionMode: completionMode(row, mapping.surface, external),
+      completionMode: completionMode(row, mapping.surface),
       mobile,
       phone,
       external: externalState(external, row),

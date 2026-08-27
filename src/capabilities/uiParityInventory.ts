@@ -37,13 +37,6 @@ const intent = (
   ...operationIds: readonly KwiltCapabilityOperationId[]
 ): UiParityIntent => ({ id, label, operationIds });
 
-const gap = (
-  id: string,
-  label: string,
-  priority: UiParityGapPriority,
-  reason: string,
-): UiParityGap => ({ id, label, priority, reason });
-
 const included = (
   id: string,
   title: string,
@@ -106,10 +99,10 @@ export const UI_PARITY_SURFACES = [
     intent('household.accept_invitation', 'Accept a household invitation', 'household.invitation.accept'),
     intent('household.child_capabilities', 'Change a child capability grant', 'household.child_capability.update'),
     intent('household.caregiver_grants', 'Change caregiver authority', 'household.caregiver_grant.update'),
-  ], [
-    gap('household.member.update', 'Update a household member profile or relationship', 'p0', 'Native Household supports member editing, but no canonical Chat operation covers it.'),
-    gap('household.member.remove', 'Remove or release a household member', 'p0', 'Removal changes dependent authority and needs a reviewed, reversible Household operation.'),
-    gap('household.device.manage', 'Rename, revoke, or reconcile a household device', 'p1', 'Device management exists natively but only setup and release handoffs are currently classified.'),
+    intent('household.member.update', 'Update a household member profile or relationship', 'household.member.update'),
+    intent('household.member.remove', 'Remove or release a household member', 'household.member.remove'),
+    intent('household.device.manage', 'List, rename, revoke, or reconcile household devices',
+      'household.device.list', 'household.device.update', 'household.device.revoke', 'household.device.reconcile'),
   ]),
   included('profile-settings', 'Profile', ['SettingsProfile'], [
     'src/features/account/ProfileSettingsScreen.tsx',
@@ -166,9 +159,10 @@ export const UI_PARITY_SURFACES = [
     intent('plan.schedule', 'Schedule, reschedule, or remove a planned To-do',
       'plan.schedule_activity', 'plan.reschedule_activity', 'plan.remove_activity'),
     intent('plan.preferences', 'Open native availability and calendar preferences', 'plan.preferences.open'),
-  ], [
-    gap('plan.availability.update', 'Change working hours and availability directly', 'p1', 'Chat can open the native owner but cannot yet stage an exact availability diff.'),
-    gap('plan.calendars.update', 'Enable, disable, or choose calendars directly', 'p1', 'Calendar authorization and provider selection remain native-only settings.'),
+    intent('plan.availability.update', 'Read or change working hours and availability',
+      'plan.availability.read', 'plan.availability.update'),
+    intent('plan.calendars.update', 'Read, enable, disable, or choose calendars',
+      'plan.calendars.read', 'plan.calendars.update'),
   ]),
   included('chapters', 'Chapters', ['MoreChapters', 'MoreChapterDetail', 'MoreChapterAlign'], [
     'src/features/chapters/ChaptersScreen.tsx',
@@ -176,9 +170,10 @@ export const UI_PARITY_SURFACES = [
   ], [
     intent('chapters.read', 'List, inspect, or reflect on Chapters', 'chapters.list', 'chapters.get', 'chapters.reflect'),
     intent('chapters.note', 'Update the private note on a Chapter', 'chapters.note.update'),
-  ], [
-    gap('settings.weekly_chapters.update', 'Change weekly Chapter digest settings', 'p2', 'Digest cadence and delivery settings have no canonical operation yet.'),
-    gap('chapters.align', 'Apply a Chapter alignment recommendation', 'p1', 'The native alignment surface changes Activities and needs an explicit reviewed operation.'),
+    intent('settings.weekly_chapters.update', 'Read or change weekly Chapter digest settings',
+      'chapters.digest_settings.read', 'chapters.digest_settings.update'),
+    intent('chapters.align', 'Preview or apply a Chapter alignment recommendation',
+      'chapters.alignment.preview', 'chapters.alignment.apply'),
   ]),
   included('account-settings', 'Account and general settings', [
     'SettingsHome', 'SettingsAppearance', 'SettingsAiModel', 'SettingsPhoneAgent', 'SettingsConnectedTools',
@@ -192,17 +187,30 @@ export const UI_PARITY_SURFACES = [
     intent('account.settings', 'Open account settings', 'account.settings.open'),
     intent('account.subscription', 'Review or manage the subscription natively', 'account.subscription.manage'),
     intent('account.delete', 'Open the native account-deletion review', 'account.delete'),
-  ], [
-    gap('settings.appearance.update', 'Change appearance settings', 'p3', 'Theme and display preferences are device-local and need a bounded settings provider.'),
-    gap('settings.ai_model.update', 'Change the preferred AI model', 'p2', 'Model selection affects cost and behavior and has no canonical reviewed operation.'),
-    gap('settings.phone_agent.update', 'Configure Phone Agent', 'p1', 'Phone Agent enrollment and permissions have no direct conversational settings contract.'),
-    gap('settings.connected_tools.manage', 'Connect, inspect, or revoke connected tools', 'p1', 'OAuth connections require dedicated secure review and revocation operations.'),
-    gap('settings.sharing.manage', 'Manage sharing and friend connections', 'p1', 'The general sharing inventory is broader than Goal and To-do share handoffs.'),
-    gap('settings.haptics.update', 'Change haptic preferences', 'p3', 'This device-local preference has no canonical operation.'),
-    gap('settings.widgets.configure', 'Configure widgets', 'p2', 'Widget installation and placement remain OS-owned; Kwilt preferences still need a bounded handoff.'),
-    gap('settings.execution_targets.manage', 'Manage execution targets', 'p2', 'Execution targets can contain provider authority and need typed review.'),
-    gap('settings.destinations.manage', 'Create or edit destinations', 'p1', 'Destination definitions are user data with no canonical Chat operation.'),
-    gap('settings.activity_areas.manage', 'Manage Activity areas', 'p2', 'Activity-area editing exists natively but is not represented in the operation manifest.'),
+    intent('settings.appearance.update', 'Read or change appearance settings',
+      'settings.appearance.read', 'settings.appearance.update'),
+    intent('settings.ai_model.update', 'Read or change the preferred AI model',
+      'settings.ai_model.read', 'settings.ai_model.update'),
+    intent('settings.phone_agent.update', 'Read or configure Phone Agent',
+      'settings.phone_agent.read', 'settings.phone_agent.update'),
+    intent('settings.connected_tools.manage', 'Connect, inspect, or revoke connected tools',
+      'settings.connected_tools.list', 'settings.connected_tools.get',
+      'settings.connected_tools.connect.open', 'settings.connected_tools.revoke'),
+    intent('settings.sharing.manage', 'Manage sharing and friend connections',
+      'settings.sharing.list', 'settings.sharing.invitation.prepare', 'settings.sharing.connection.revoke'),
+    intent('settings.haptics.update', 'Read or change haptic preferences',
+      'settings.haptics.read', 'settings.haptics.update'),
+    intent('settings.widgets.configure', 'Read or configure widgets',
+      'settings.widgets.read', 'settings.widgets.configure'),
+    intent('settings.execution_targets.manage', 'List, inspect, create, update, or delete execution targets',
+      'settings.execution_targets.list', 'settings.execution_targets.get', 'settings.execution_targets.create',
+      'settings.execution_targets.update', 'settings.execution_targets.delete'),
+    intent('settings.destinations.manage', 'List, inspect, create, update, or delete destinations',
+      'settings.destinations.list', 'settings.destinations.get', 'settings.destinations.create',
+      'settings.destinations.update', 'settings.destinations.delete'),
+    intent('settings.activity_areas.manage', 'List, inspect, create, update, or delete Activity areas',
+      'settings.activity_areas.list', 'settings.activity_areas.get', 'settings.activity_areas.create',
+      'settings.activity_areas.update', 'settings.activity_areas.delete'),
   ]),
   included('money', 'Money', [
     'MoneySummary', 'MoneyTransactions', 'MoneyTransactionDetail', 'MoneyCategoryDetail',
@@ -219,11 +227,13 @@ export const UI_PARITY_SURFACES = [
     intent('money.app_control', 'Review a Money-linked Screen Time control', 'money.app_control.review'),
     intent('money.privacy', 'Configure Money privacy after native authentication', 'money.privacy.configure'),
     intent('money.connection', 'Connect or sync a financial institution', 'money.connection.connect', 'money.connection.sync'),
-  ], [
-    gap('money.budget.update', 'Change the monthly budget plan', 'p0', 'Budget edits are a main Money action but have no canonical reviewed operation.'),
-    gap('money.transaction.update', 'Correct transaction meaning or planning treatment', 'p0', 'The current boundary only opens native review; it cannot stage the exact change.'),
-    gap('money.connection.disconnect', 'Disconnect or repair a financial connection', 'p1', 'Connection removal and repair are absent from the operation manifest.'),
-    gap('money.transfer.review', 'Review transfers and linked transaction evidence', 'p1', 'Transfer semantics are visible in Money but not independently controllable from Chat.'),
+    intent('money.budget.update', 'Read or change the monthly budget plan', 'money.budget.read', 'money.budget.update'),
+    intent('money.transaction.update', 'Inspect or correct transaction meaning or planning treatment',
+      'money.transaction.get', 'money.transaction.meaning.update', 'money.transaction.plan_treatment.update'),
+    intent('money.connection.disconnect', 'Disconnect or repair a financial connection',
+      'money.connection.disconnect', 'money.connection.repair.open'),
+    intent('money.transfer.review', 'List, inspect, or review transfers and linked evidence',
+      'money.transfer.list', 'money.transfer.get', 'money.transfer.review'),
   ]),
   excluded('explore', 'Explore', 'Explore is explicitly outside this conversational-control program.', ['ExploreMap', 'SettingsExplore'], [
     'src/capabilities/explore/navigation/ExploreNavigator.tsx',
@@ -234,12 +244,18 @@ export const UI_PARITY_SURFACES = [
   included('chores', 'Chores', ['Chores'], [
     'src/capabilities/chores/screens/ChoresScreen.tsx',
     'src/capabilities/chores/FEATURE.md',
-  ], [intent('chores.open', 'Open Chores', 'chores.open')], [
-    gap('chores.read', 'List and inspect chores and review status', 'p0', 'The main Chores inventory is not available as bounded Chat evidence.'),
-    gap('chores.definition.manage', 'Create, edit, pause, or delete a chore', 'p0', 'Chore-series management has no canonical operations.'),
-    gap('chores.occurrence.complete', 'Complete a chore and attach required evidence', 'p0', 'Occurrence completion and evidence policy are absent from the Chat contract.'),
-    gap('chores.review.decide', 'Approve or return a completed chore', 'p0', 'Caregiver review is consequential and needs a typed reviewed operation.'),
-    gap('chores.reward.manage', 'Configure or redeem chore rewards', 'p1', 'Reward state is not represented in the operation manifest.'),
+  ], [
+    intent('chores.open', 'Open Chores', 'chores.open'),
+    intent('chores.read', 'List and inspect chores and review status', 'chores.list', 'chores.get'),
+    intent('chores.definition.manage', 'Create, edit, pause, or delete a chore',
+      'chores.definition.create', 'chores.definition.update', 'chores.definition.pause', 'chores.definition.delete'),
+    intent('chores.occurrence.complete', 'Complete a chore and attach required evidence',
+      'chores.occurrence.complete', 'chores.evidence.add'),
+    intent('chores.review.decide', 'Approve or return a completed chore',
+      'chores.review.approve', 'chores.review.return'),
+    intent('chores.reward.manage', 'Read, configure, reserve, cancel, or settle chore rewards',
+      'chores.reward.read', 'chores.reward.configure', 'chores.reward.reserve',
+      'chores.reward.cancel', 'chores.reward.settle'),
   ]),
   included('recipes', 'Recipes and Cook Mode', [
     'RecipeLibrary', 'RecipeHome', 'RecipeEdit', 'RecipeImportReview', 'RecipeReadiness', 'RecipeCookMode', 'RecipeCookComplete',
@@ -258,9 +274,8 @@ export const UI_PARITY_SURFACES = [
       'recipes.publication.prepare', 'recipes.publication.publish', 'recipes.publication.attest_rights'),
     intent('cook_session', 'Read, start, control, or complete Cook Mode',
       'cook_session.read', 'cook_session.start', 'cook_session.control', 'cook_session.complete'),
-  ], [
-    gap('recipes.favorite.update', 'Favorite or unfavorite a recipe', 'p1', 'Favorites are a main library action without a canonical operation.'),
-    gap('recipes.visibility.update', 'Hide or restore a recipe', 'p2', 'Recipe visibility preferences are not represented in the operation manifest.'),
+    intent('recipes.favorite.update', 'Favorite or unfavorite a recipe', 'recipes.favorite.update'),
+    intent('recipes.visibility.update', 'Hide or restore a recipe', 'recipes.visibility.update'),
   ]),
   included('meal-planning', 'Meal Plan', [
     'NextMeals', 'MealPlanEditor', 'MealChoiceInvite', 'MealChoiceResponse', 'MealPlanFinalize',
@@ -274,8 +289,8 @@ export const UI_PARITY_SURFACES = [
     intent('meal_plan.round', 'Open or close household meal voting', 'meal_planning.round.open', 'meal_planning.round.close'),
     intent('meal_plan.response', 'Submit or withdraw a meal response', 'meal_planning.response.submit', 'meal_planning.response.withdraw'),
     intent('meal_plan.finalize', 'Finalize or revise a meal plan', 'meal_planning.plan.finalize', 'meal_planning.plan.revise'),
-  ], [
-    gap('settings.meals.update', 'Change household meal preferences', 'p1', 'Meal settings and household preferences have no canonical Chat operation.'),
+    intent('settings.meals.update', 'Read or change household meal preferences',
+      'meal_planning.preferences.read', 'meal_planning.preferences.update'),
   ]),
   included('groceries', 'Groceries, food stock, receipts, and handoff', [
     'GroceryList', 'GroceryItemEdit', 'AlreadyHaveReview', 'GroceryHandoff', 'OnlineOrder',
@@ -324,20 +339,24 @@ export const UI_PARITY_SURFACES = [
     intent('screen_time.family_setup', 'Open app selection, child-device setup, or release',
       'screen_time.selection.open', 'screen_time.device.setup.open', 'screen_time.device.release.open'),
     intent('screen_time.configure', 'Open the relevant Screen Time configuration surface', 'screen_time.configure'),
-  ], [
-    gap('screen_time.personal_rule.read', 'List and inspect personal Screen Time rules', 'p0', 'Personal rule inventory is not yet projected as structured Chat evidence.'),
-    gap('screen_time.personal_rule.deactivate', 'Pause or remove a personal Screen Time rule', 'p0', 'The native editor supports rule lifecycle changes without an equivalent canonical operation.'),
+    intent('screen_time.personal_rule.read', 'List and inspect personal Screen Time rules',
+      'screen_time.personal_rule.list', 'screen_time.personal_rule.get'),
+    intent('screen_time.personal_rule.deactivate', 'Update, pause, or remove a personal Screen Time rule',
+      'screen_time.personal_rule.update', 'screen_time.personal_rule.deactivate', 'screen_time.personal_rule.delete'),
   ]),
   included('notifications', 'Notifications', ['SettingsNotifications'], [
     'src/features/account/NotificationsSettingsScreen.tsx',
-  ], [intent('notifications.configure', 'Open native notification configuration', 'notifications.configure')], [
-    gap('notifications.preferences.update', 'Change individual notification preferences directly', 'p2', 'Chat can open settings but cannot stage a typed preference diff.'),
+  ], [
+    intent('notifications.configure', 'Open native notification configuration', 'notifications.configure'),
+    intent('notifications.preferences.update', 'Read or change individual notification preferences',
+      'notifications.preferences.read', 'notifications.preferences.update'),
   ]),
   included('navigation', 'Search and navigation', ['Search', 'CapabilitySideSheet'], [
     'src/features/search/GlobalSearchDrawer.tsx',
     'src/navigation/CapabilitySideSheet.tsx',
-  ], [intent('search.open', 'Open native search', 'search.open')], [
-    gap('navigation.open_capability', 'Open any included capability or object by name', 'p1', 'Navigation handoffs exist piecemeal but are not one typed, discoverable contract.'),
+  ], [
+    intent('search.open', 'Open native search', 'search.open'),
+    intent('navigation.open_capability', 'Open any included capability or object by name', 'navigation.open_capability'),
   ]),
   included('channels', 'Phone and cross-channel continuation', ['SettingsPhoneAgent', 'UnifiedChat'], [
     'src/features/unifiedChat/UnifiedChatScreen.tsx',

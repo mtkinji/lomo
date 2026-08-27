@@ -15,6 +15,9 @@ function operation(overrides: Partial<CapabilityManifestEntry> = {}): Capability
     inputSchema: EMPTY_SCHEMA, outputSchema: EMPTY_SCHEMA,
     tools: [{ id: 'todos.read', version: 1, inputSchema: EMPTY_SCHEMA, outputSchema: EMPTY_SCHEMA, canDeferToClient: false }],
     sourceRefs: [], returnBehavior: 'answer',
+    completionMode: 'direct', requiredScopes: ['life.read'],
+    receipt: { required: true, resultRefKinds: ['todos'], reversible: true, undoOperationId: null },
+    supportedBoundary: { finalActOwner: 'kwilt', reason: null },
     channels: {
       mobile: { state: 'live', outcome: 'answer', proofPaths: [], boundaryReason: null },
       phone: { state: 'live', outcome: 'server_execution', proofPaths: [], boundaryReason: null },
@@ -78,6 +81,12 @@ describe('projectExternalActionCatalog', () => {
       manifest: [operation()], serverRegistrations: [{ toolId: 'todos.read' }],
       externalRegistrations: [{ ...registration, consequence: 'consequential' }], availableScopes: ['life.read'],
     })).toThrow('External consequence does not match operation todos.list');
+
+    expect(() => projectExternalActionCatalog({
+      manifest: [operation()], serverRegistrations: [{ toolId: 'todos.read' }],
+      externalRegistrations: [{ ...registration, requiredScopes: ['life.read', 'life.write'] }],
+      availableScopes: ['life.read', 'life.write'],
+    })).toThrow('External scopes do not match operation todos.list');
 
     expect(() => projectExternalActionCatalog({
       manifest: [operation()], serverRegistrations: [{ toolId: 'todos.read' }],

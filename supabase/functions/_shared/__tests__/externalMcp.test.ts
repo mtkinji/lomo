@@ -55,7 +55,7 @@ describe('externalMcp helpers', () => {
   });
 
   test('keeps every manifest operation in an explicit external-control state', () => {
-    expect(EXTERNAL_MCP_CONTROL_COVERAGE).toHaveLength(145);
+    expect(EXTERNAL_MCP_CONTROL_COVERAGE).toHaveLength(228);
     expect(EXTERNAL_MCP_CONTROL_COVERAGE.filter((row) => row.state === 'excluded')
       .every((row) => row.owner === 'games' || row.owner === 'explore')).toBe(true);
     expect(new Set(EXTERNAL_MCP_ACTION_CATALOG.map((tool) => tool.operationId)))

@@ -100,8 +100,31 @@ verification:
       result: expected_failure
       parity_errors: 454
       meaning: The command now fails until all UI gaps, providers, proof, and voice conformance are complete.
+  operation_catalog_expansion:
+    status: source_tested
+    canonical_operations: 228
+    ordinary_language_intents: 122
+    unresolved_ui_gaps: 0
+    newly_declared_operations: 83
+    provider_policy: New declarations remain pending_provider until capability-owned handlers are registered.
+    channel_checkpoint:
+      mobile_pending_provider: 144
+      phone_pending_provider: 154
+      external_pending_provider: 153
+      external_exposed: 66
+    focused_commands:
+      - npx jest src/capabilities/operations.test.ts src/capabilities/uiParityInventory.test.ts packages/kwilt-agent-runtime/src/capabilityManifest.test.ts packages/kwilt-agent-runtime/src/providerRegistry.test.ts packages/kwilt-agent-runtime/src/kwiltToolContracts.test.ts packages/kwilt-agent-runtime/src/toolNamespaces.test.ts packages/kwilt-agent-runtime/src/externalActionCatalog.test.ts packages/kwilt-agent-runtime/src/policy.test.ts packages/kwilt-agent-runtime/src/planning/resolveTurnPolicy.test.ts src/features/unifiedChat/chatCapabilityCoverage.test.ts src/features/unifiedChat/conversationalParity.test.ts --runInBand
+      - npm run lint
+      - npm run lint:tests
+      - npm run chat:control-parity -- --allow-incomplete
+    result:
+      jest_suites: 11_passed
+      jest_tests: 276_passed
+      app_typecheck: passed
+      test_typecheck: passed
+      generated_parity_errors: 836
 proof_boundaries:
-  source_and_tests: baseline_only
+  source_and_tests: task_2_catalog_complete
   backend_deployment: not_run
   simulator: not_run
   physical_device: not_run

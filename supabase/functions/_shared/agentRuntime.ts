@@ -162,7 +162,7 @@ export type ServerAgentToolDefinition = {
   effect: 'read' | 'write';
   consequence: 'low' | 'consequential';
   reversible: boolean;
-  confirmation: 'none' | 'explicit';
+  confirmation: 'none' | 'explicit' | 'native';
   canDeferToClient: boolean;
   inputSchema: Record<string, unknown>;
   outputSchema: Record<string, unknown>;

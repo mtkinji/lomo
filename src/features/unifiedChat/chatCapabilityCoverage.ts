@@ -28,6 +28,10 @@ export type ChatCapabilityCoverageRow = {
   toolIds: readonly string[];
   sourceRefs: readonly string[];
   returnBehavior: CapabilityManifestEntry['returnBehavior'];
+  completionMode: CapabilityManifestEntry['completionMode'];
+  requiredScopes: CapabilityManifestEntry['requiredScopes'];
+  receipt: CapabilityManifestEntry['receipt'];
+  supportedBoundary: CapabilityManifestEntry['supportedBoundary'];
   toolCoverage: readonly {
     toolId: string;
     mobileHandler: boolean;
@@ -84,6 +88,10 @@ export function buildChatCapabilityCoverage({
         toolIds: [],
         sourceRefs: [`capability:${declared.owner}`],
         returnBehavior: 'honest_boundary',
+        completionMode: 'direct',
+        requiredScopes: ['life.read'],
+        receipt: { required: true, resultRefKinds: [], reversible: true, undoOperationId: null },
+        supportedBoundary: { finalActOwner: 'kwilt', reason: null },
         toolCoverage: [],
         channels: {
           mobile: { state: 'pending_provider', outcome: 'honest_boundary', proofPaths: [], boundaryReason },
@@ -115,6 +123,10 @@ export function buildChatCapabilityCoverage({
       toolIds,
       sourceRefs: contract.sourceRefs,
       returnBehavior: contract.returnBehavior,
+      completionMode: contract.completionMode,
+      requiredScopes: contract.requiredScopes,
+      receipt: contract.receipt,
+      supportedBoundary: contract.supportedBoundary,
       toolCoverage: toolIds.map((toolId) => ({
         toolId,
         mobileHandler: mobileHandlers.has(toolId),

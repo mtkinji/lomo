@@ -3,6 +3,7 @@ import {
   createRuntimeToolProviderRegistry,
   type RuntimeToolProviderRegistration,
 } from './providerRegistry';
+import { KWILT_TOOL_CONTRACTS } from './kwiltToolContracts';
 
 const inspectTool: AgentToolDefinition = {
   id: 'test.inspect', version: 1, capabilityId: 'test', purpose: 'Inspect a test record.',
@@ -76,5 +77,14 @@ describe('runtime tool provider registry', () => {
       { actorId: 'actor-1' },
       { id: 'call-1', toolId: 'test.other', arguments: {} },
     )).rejects.toThrow('Tool call identity mismatch: test.inspect:test.other');
+  });
+
+  test('does not advertise a newly declared control tool before its providers register', () => {
+    const tool = KWILT_TOOL_CONTRACTS.find(({ id }) => id === 'household.member.update');
+
+    expect(tool).toBeDefined();
+    expect(() => createRuntimeToolProviderRegistry({
+      tools: [tool!], registrations: [],
+    })).toThrow('Advertised provider has no handler: household.member.update:device');
   });
 });

@@ -1,4 +1,8 @@
-import type { CapabilityConfirmation, CapabilityManifestEntry } from './capabilityManifest.ts';
+import type {
+  CapabilityConfirmation,
+  CapabilityManifestEntry,
+  CapabilityOAuthScope,
+} from './capabilityManifest.ts';
 
 export type ExternalExposureState = 'exposed' | 'status_only' | 'hidden';
 export type ExternalRedactionPolicy =
@@ -26,7 +30,7 @@ export type ExternalActionRegistration = {
   canonicalName: string;
   title: string;
   exposure: ExternalExposureState;
-  requiredScopes: readonly string[];
+  requiredScopes: readonly CapabilityOAuthScope[];
   consequence: CapabilityManifestEntry['consequence'];
   confirmation: CapabilityConfirmation;
   redactionPolicy: ExternalRedactionPolicy;
@@ -106,6 +110,11 @@ export function projectExternalActionCatalog(input: {
     }
     if (registration.confirmation !== operation.confirmation) {
       throw new Error(`External confirmation does not match operation ${operation.id}`);
+    }
+    const operationScopes = new Set(operation.requiredScopes);
+    if (registration.requiredScopes.length !== operationScopes.size
+      || registration.requiredScopes.some((scope) => !operationScopes.has(scope))) {
+      throw new Error(`External scopes do not match operation ${operation.id}`);
     }
     if (operation.effect === 'write' && !registration.requiredScopes.some((scope) => scope.endsWith('.write'))) {
       throw new Error(`External write requires write scope: ${operation.id}`);
@@ -213,7 +222,7 @@ const canonicalRead = (
   toolId: string,
   canonicalName: string,
   title: string,
-  requiredScopes: readonly string[],
+  requiredScopes: readonly CapabilityOAuthScope[],
   redactionPolicy: Exclude<ExternalRedactionPolicy, 'mutation_receipt'>,
 ): ExternalActionRegistration => ({
   operationId, toolId, canonicalName, title, exposure: 'exposed', requiredScopes,
@@ -225,7 +234,7 @@ const canonicalWrite = (
   toolId: string,
   canonicalName: string,
   title: string,
-  requiredScopes: readonly string[],
+  requiredScopes: readonly CapabilityOAuthScope[],
   consequence: ExternalActionRegistration['consequence'],
   confirmation: CapabilityConfirmation,
 ): ExternalActionRegistration => ({

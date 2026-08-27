@@ -378,13 +378,13 @@ Expected: tests pass; the parity command intentionally exits nonzero until the i
 - Modify: `src/capabilities/operations.test.ts`
 - Modify: `src/capabilities/uiParityInventory.ts`
 
-- [ ] Write failing tests for all 83 IDs in section 3 and a final declared-operation count of 228.
-- [ ] Add `settings` to `KwiltOperationOwner`, `KWILT_EXTERNAL_CONTROL_SCOPE`, and `ownerForOperation()` rather than misclassifying settings under `account`.
-- [ ] Add `completionMode`, typed scopes, receipt requirements, and supported-boundary metadata to manifest entries.
-- [ ] Define a tool contract for every direct, proposal, or handoff operation. Boundary operations without an executable final act still receive a preparation/handoff operation; they do not receive a tool that claims the prohibited act completed.
-- [ ] Require `effect`, `consequence`, `reversible`, `confirmation`, `providers`, input schema, output schema, and version for every tool.
-- [ ] Map the 33 inventory gaps to the 83 operations and remove each resolved gap entry.
-- [ ] Assert only `explore.open` and `games.open` use `completionMode: 'excluded'`.
+- [x] Write failing tests for all 83 IDs in section 3 and a final declared-operation count of 228.
+- [x] Add `settings` to `KwiltOperationOwner`, `KWILT_EXTERNAL_CONTROL_SCOPE`, and `ownerForOperation()` rather than misclassifying settings under `account`.
+- [x] Add `completionMode`, typed scopes, receipt requirements, and supported-boundary metadata to manifest entries.
+- [x] Define a tool contract for every direct, proposal, or handoff operation. Boundary operations without an executable final act still receive a preparation/handoff operation; they do not receive a tool that claims the prohibited act completed.
+- [x] Require `effect`, `consequence`, `reversible`, `confirmation`, `providers`, input schema, output schema, and version for every tool.
+- [x] Map the 33 inventory gaps to the 83 operations and remove each resolved gap entry.
+- [x] Assert only `explore.open` and `games.open` use `completionMode: 'excluded'`.
 - [ ] Run:
 
 ```bash
@@ -395,7 +395,7 @@ npm run lint:tests
 
 Expected: all 228 operations are declared and uniquely inventoried; provider readiness may remain incomplete.
 
-- [ ] Commit the exact Task 2 files with message `feat(chat): declare complete Kwilt control catalog`.
+- [x] Commit the exact Task 2 files with message `feat(chat): declare complete Kwilt control catalog`.
 
 ### Task 3: Standardize authorization, idempotency, handoffs, and receipts
 
