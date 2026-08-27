@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 describe('Family Screen Time agreement prerequisite guard migration', () => {
   const migration = readFileSync(resolve(
     process.cwd(),
-    'supabase/migrations/20260827145048_enforce_family_screen_time_agreement_prerequisite_selection.sql',
+    'supabase/migrations/20260827151514_enforce_family_screen_time_agreement_prerequisite_selection.sql',
   ), 'utf8').toLowerCase();
 
   it('atomically restricts a prerequisite to an active selection for the same child subject', () => {
