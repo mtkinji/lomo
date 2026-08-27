@@ -1,0 +1,88 @@
+program: full-conversational-control-parity
+plan: docs/superpowers/plans/2026-08-27-full-conversational-control-parity.md
+captured_at: 2026-08-27T11:32:06-06:00
+checkout:
+  path: /Users/andrewwatanabe/Kwilt
+  branch: codex/chat-enhancements-next
+  head: c72551c51c8d8b18b9fedf0d5541aeb37dd45939
+  state: dirty
+  provenance: Counts were projected from the working tree, including the uncommitted UI parity inventory and canonical manifest corrections listed below.
+working_tree_ownership:
+  conversational_control_program:
+    - docs/delivery-evidence/unified-chat/2026-08-27-ui-parity-inventory.md
+    - docs/feature-briefs/external-ai-connector.md
+    - docs/feature-briefs/unified-chat.md
+    - packages/kwilt-agent-runtime/src/index.ts
+    - packages/kwilt-agent-runtime/src/kwiltCapabilityManifest.ts
+    - src/capabilities/uiParityInventory.test.ts
+    - src/capabilities/uiParityInventory.ts
+  preserved_other_active_work:
+    - docs/agent-code-map.md
+    - docs/design-explorations/home-screen-intent-launcher/
+    - docs/feature-briefs/home-screen-intent-launcher.md
+    - docs/superpowers/plans/2026-08-27-home-screen-intent-launcher.md
+    - plugins/withAppleEcosystemIntegrations.js
+    - plugins/appleEcosystem/launcherWidgetSwift.js
+    - scripts/apple-widget-generator-contract.test.mjs
+    - scripts/screen-time-shield-colors.test.mjs
+    - src/capabilities/money/navigation/
+    - src/capabilities/money/screens/
+    - src/features/account/ScreenTimeProtectionSettingsScreen.tsx
+    - src/features/account/ScreenTimeProtectionSettingsScreen.test.tsx
+    - src/features/account/WidgetsSettingsScreen.tsx
+    - src/features/activities/
+    - src/features/screen-time/rule-builder/
+    - src/navigation/RootNavigator.tsx
+    - src/navigation/linkingConfig.test.ts
+    - src/services/appleEcosystem/
+baseline:
+  canonical_operations: 145
+  audited_surfaces:
+    total: 23
+    included: 20
+    excluded: 3
+  ui_intents: 89
+  unresolved_ui_gaps:
+    total: 33
+    p0: 10
+    p1: 14
+    p2: 7
+    p3: 2
+  mobile:
+    live: 58
+    confirmation_only: 19
+    pending_provider: 61
+    excluded: 7
+  phone:
+    live: 31
+    confirmation_only: 36
+    pending_provider: 71
+    excluded: 7
+  external:
+    exposed: 66
+    pending_provider: 70
+    explicit_boundary: 5
+    not_applicable: 2
+    excluded: 2
+target:
+  planned_canonical_operations: 228
+  unresolved_ui_gaps: 0
+  mobile_pending_provider: 0
+  phone_pending_provider: 0
+  external_pending_provider: 0
+  program_level_exclusions:
+    - explore.open
+    - games.open
+verification:
+  ui_parity_inventory:
+    command: npx jest src/capabilities/uiParityInventory.test.ts --runInBand
+    result: passed
+    suites: 1
+    tests: 5
+proof_boundaries:
+  source_and_tests: baseline_only
+  backend_deployment: not_run
+  simulator: not_run
+  physical_device: not_run
+  testflight: not_run
+  production: not_run
