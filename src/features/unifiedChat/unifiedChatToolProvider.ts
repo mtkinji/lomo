@@ -30,6 +30,7 @@ import {
   parseScreenTimeOverrideCancellationProposal,
   parseScreenTimePrerequisiteAgreementProposal,
   parseScreenTimeRequestDecisionProposal,
+  parsePersonalScreenTimeRuleProposal,
   type ScreenTimeProposalOperation,
 } from './screenTimeProposal';
 import {
@@ -271,6 +272,37 @@ export function createUnifiedChatToolProvider({
           })),
         },
       };
+    }
+    if (call.toolId === 'screen_time.personal_rule.list') {
+      return { status: 'completed', receipt: null, output: { rules: snapshots.screenTime?.self?.personalRules ?? [] } };
+    }
+    if (call.toolId === 'screen_time.personal_rule.get') {
+      const ruleId = typeof call.arguments.ruleId === 'string' ? call.arguments.ruleId.trim() : '';
+      const rule = (snapshots.screenTime?.self?.personalRules ?? []).find((candidate) => candidate.id === ruleId);
+      return rule
+        ? { status: 'completed', receipt: null, output: { rule } }
+        : failed('screen_time_rule_not_found', 'That personal Screen Time rule is no longer available.');
+    }
+    if (call.toolId === 'screen_time.personal_rule.update'
+      || call.toolId === 'screen_time.personal_rule.deactivate'
+      || call.toolId === 'screen_time.personal_rule.delete') {
+      const operation = parsePersonalScreenTimeRuleProposal(call.toolId, call.arguments);
+      if (!operation) return failed('invalid_personal_screen_time_rule_change', 'Choose a current personal rule and its exact updated timestamp.');
+      const rule = (snapshots.screenTime?.self?.personalRules ?? []).find((candidate) => candidate.id === operation.targetId);
+      if (!rule || rule.updatedAt !== operation.payload.expectedUpdatedAt) {
+        return { status: 'failed', code: 'screen_time_rule_stale', message: 'That personal Screen Time rule changed. Refresh before continuing.', retryable: true };
+      }
+      const verb = operation.type === 'delete_personal_screen_time_rule' ? 'Delete'
+        : operation.type === 'deactivate_personal_screen_time_rule' ? 'Turn off' : 'Update';
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'screenTime', title: `${verb} ${rule.targetLabels.join(', ') || 'Screen Time rule'}`,
+        body: operation.type === 'delete_personal_screen_time_rule'
+          ? 'This removes the rule and its native enforcement after explicit approval.'
+          : 'This updates native enforcement on this device after explicit approval.',
+        operation,
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal: proposal as unknown as Record<string, unknown> };
     }
     if (call.toolId === 'recipes.create') {
       const reviewedData = buildReviewedRecipeCreate(call.arguments.recipe);

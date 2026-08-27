@@ -93,6 +93,16 @@ export function resolveClientActionOpenInstruction(
         },
       };
     }
+    case 'open_personal_screen_time_rules':
+      return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsScreenTimeProtection' } };
+    case 'open_personal_screen_time_rule': {
+      if (!action.targetId) return null;
+      return {
+        kind: 'navigate', name: 'Settings', params: {
+          screen: 'SettingsScreenTimeRuleBuilder', params: { entry: 'inventory', ruleId: action.targetId },
+        },
+      };
+    }
     case 'open_family_screen_time_setup': {
       const childDisplayName = typeof action.payload.childDisplayName === 'string'
         ? action.payload.childDisplayName.trim()

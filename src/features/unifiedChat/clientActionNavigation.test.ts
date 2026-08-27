@@ -79,6 +79,17 @@ test('personal Screen Time limit opens the canonical builder with typed intent',
   });
 });
 
+test('an external personal rule handoff opens the exact native rule editor', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_personal_screen_time_rule', 'rule-1'),
+    capabilityId: 'screenTime', targetType: 'personal_screen_time_rule',
+  })).toEqual({
+    kind: 'navigate', name: 'Settings', params: {
+      screen: 'SettingsScreenTimeRuleBuilder', params: { entry: 'inventory', ruleId: 'rule-1' },
+    },
+  });
+});
+
 test('Money-owned self control opens the exact category app-control editor', () => {
   expect(resolveClientActionOpenInstruction({
     ...action('review_money_app_control', 'shopping'),

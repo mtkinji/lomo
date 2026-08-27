@@ -9,9 +9,9 @@ import type { SettingsStackParamList } from '../../../navigation/RootNavigator';
 import { navigateWhenReady } from '../../../navigation/rootNavigationRef';
 import { useAppStore } from '../../../store/useAppStore';
 import {
-  addPersonalScreenTimeRule,
   createPersonalScreenTimeRule,
   getAvailablePersonalScreenTimeRuleKinds,
+  getPersonalScreenTimeRuleById,
   normalizeScreenTimeProtectionSettings,
   type PersonalScreenTimeRuleKind,
   type ScreenTimeToken,
@@ -21,7 +21,6 @@ import {
   requestScreenTimeAuthorization,
 } from '../../../services/appleEcosystem/screenTimeProtection';
 import {
-  activatePersonalScreenTimeRule,
   reconcileScreenTimeRestrictions,
 } from '../../../services/screenTimeProtectionRuntime';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
@@ -37,6 +36,11 @@ import {
   personalRuleBehaviorLabel,
   personalRuleSentence,
 } from './personalRuleBuilderModel';
+import {
+  deletePersonalScreenTimeRule,
+  savePersonalScreenTimeRule,
+} from '../domain/personalScreenTimeRuleActions';
+import { createPersonalScreenTimeRuleActionBoundary } from '../runtime/personalScreenTimeRuleActionBoundary';
 import type { PersonalScreenTimeRuleBuilderParams } from './personalRuleBuilderLaunch';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
@@ -77,23 +81,32 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
   const settings = useAppStore((state) => state.screenTimeProtection);
   const setSettings = useAppStore((state) => state.setScreenTimeProtection);
   const normalized = useMemo(() => normalizeScreenTimeProtectionSettings(settings), [settings]);
+  const existingRule = useMemo(
+    () => props.params.ruleId ? getPersonalScreenTimeRuleById(normalized, props.params.ruleId) : null,
+    [normalized, props.params.ruleId],
+  );
   const availableKinds = useMemo(
     () => getAvailablePersonalScreenTimeRuleKinds(normalized),
     [normalized],
   );
   const entry = props.params.entry;
   const suggestedKind = props.params.suggestedKind;
-  const suggestedLimitMinutes = Number.isInteger(props.params.suggestedLimitMinutes)
-    && Number(props.params.suggestedLimitMinutes) >= 1
-    && Number(props.params.suggestedLimitMinutes) <= 1440
-    ? Number(props.params.suggestedLimitMinutes)
-    : 10;
-  const [draftRuleId] = useState(() => `personal_rule_${Crypto.randomUUID()}`);
+  const suggestedLimitMinutes = existingRule?.kind === 'daily_limit'
+    ? existingRule.limitMinutes
+    : Number.isInteger(props.params.suggestedLimitMinutes)
+      && Number(props.params.suggestedLimitMinutes) >= 1
+      && Number(props.params.suggestedLimitMinutes) <= 1440
+      ? Number(props.params.suggestedLimitMinutes)
+      : 10;
+  const [draftRuleId] = useState(() => existingRule?.id ?? `personal_rule_${Crypto.randomUUID()}`);
   const [kind, setKind] = useState<PersonalScreenTimeRuleKind | null>(() => (
-    suggestedKind && availableKinds.includes(suggestedKind) ? suggestedKind : null
+    existingRule?.kind ?? (suggestedKind && availableKinds.includes(suggestedKind) ? suggestedKind : null)
   ));
-  const [targets, setTargets] = useState<RuleTargets>({ selectedApps: [], selectedCategories: [] });
-  const [appsConfirmed, setAppsConfirmed] = useState(false);
+  const [targets, setTargets] = useState<RuleTargets>(() => ({
+    selectedApps: existingRule?.selectedApps ?? [],
+    selectedCategories: existingRule?.selectedCategories ?? [],
+  }));
+  const [appsConfirmed, setAppsConfirmed] = useState(Boolean(existingRule));
   const [choosingApps, setChoosingApps] = useState(false);
   const [saving, setSaving] = useState(false);
   const count = targets.selectedApps.length + targets.selectedCategories.length;
@@ -153,25 +166,18 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
       kind,
       selectedApps: targets.selectedApps,
       selectedCategories: targets.selectedCategories,
-      enabled: true,
+      enabled: existingRule?.enabled ?? true,
       setupCompleted: true,
       limitMinutes: kind === 'daily_limit' ? suggestedLimitMinutes : undefined,
       nowIso,
     });
-    const result = addPersonalScreenTimeRule(
-      normalizeScreenTimeProtectionSettings(useAppStore.getState().screenTimeProtection),
-      nextRule,
-    );
-    if (result.status === 'duplicate_rule') {
-      setSaving(false);
-      Alert.alert('Rule already exists', 'The same apps and condition are already saved.');
-      return;
-    }
-    const enforced = await activatePersonalScreenTimeRule({
-      rule: nextRule,
-      focusSessionActive: false,
-    });
-    if (!enforced) {
+    try {
+      await savePersonalScreenTimeRule({
+        rule: nextRule,
+        expectedUpdatedAt: existingRule ? existingRule.lastUpdated ?? 'unversioned' : null,
+        confirmed: true,
+      }, createPersonalScreenTimeRuleActionBoundary());
+    } catch (error) {
       setSaving(false);
       if (!Device.isDevice && kind === 'daily_limit') {
         Alert.alert(
@@ -181,12 +187,13 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
         return;
       }
       Alert.alert(
-        'Couldn’t turn on this rule',
-        'Kwilt did not receive confirmation from Screen Time. Try again before leaving setup.',
+        existingRule ? 'Couldn’t update this rule' : 'Couldn’t turn on this rule',
+        error instanceof Error && error.message === 'duplicate_personal_screen_time_rule'
+          ? 'The same apps and condition are already saved.'
+          : 'Kwilt did not receive confirmation from Screen Time. Try again before leaving setup.',
       );
       return;
     }
-    setSettings(result.settings);
     capture(AnalyticsEvent.ScreenTimeSetupCompleted, {
       setup_intent: props.params.setupIntent ?? 'settings_discovery',
       surface: props.params.entrySurface ?? 'settings',
@@ -207,17 +214,53 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
     });
   };
 
+  const deleteRule = () => {
+    if (!existingRule || saving) return;
+    Alert.alert('Delete this rule?', 'These apps will no longer be controlled by this rule.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete rule',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setSaving(true);
+            try {
+              await deletePersonalScreenTimeRule({
+                ruleId: existingRule.id,
+                expectedUpdatedAt: existingRule.lastUpdated ?? 'unversioned',
+                confirmed: true,
+              }, createPersonalScreenTimeRuleActionBoundary());
+              await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
+              props.onClose();
+            } catch {
+              setSaving(false);
+              Alert.alert(
+                'Couldn’t delete this rule',
+                'Kwilt could not turn off its Screen Time restriction. Nothing was changed.',
+              );
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
   const addRuleAction = step === 'review' ? (
     <View style={styles.footer}>
+      {existingRule ? (
+        <Button variant="destructive" size="lg" fullWidth disabled={saving} onPress={deleteRule}>
+          Delete rule
+        </Button>
+      ) : null}
       <Button
         variant="inverse"
         size="lg"
         fullWidth
         loading={saving}
-        loadingLabel="Adding…"
+        loadingLabel={existingRule ? 'Saving…' : 'Adding…'}
         onPress={() => void saveRule()}
       >
-        Add rule
+        {existingRule ? 'Save changes' : 'Add rule'}
       </Button>
     </View>
   ) : undefined;

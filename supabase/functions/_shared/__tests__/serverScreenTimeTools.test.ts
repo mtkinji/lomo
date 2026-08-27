@@ -34,6 +34,23 @@ const projection = {
 };
 
 describe('executeServerScreenTimeTool', () => {
+  it('stages personal rule control as a redacted device-owned handoff', async () => {
+    const stageDeviceAction = jest.fn(async () => undefined);
+    await expect(executeServerScreenTimeTool({
+      client: {}, userId: 'user-1', stageDeviceAction,
+      call: {
+        id: 'personal-update', toolId: 'screen_time.personal_rule.update', arguments: {
+          ruleId: 'rule-1', expectedUpdatedAt: '2026-08-27T12:00:00.000Z',
+          fields: { limitMinutes: 20 },
+        },
+      },
+    })).resolves.toMatchObject({
+      status: 'pending_client_action', provider: 'device',
+      request: { actionType: 'open_personal_screen_time_rule', targetId: 'rule-1' },
+    });
+    expect(JSON.stringify(stageDeviceAction.mock.calls)).not.toMatch(/token|selectionRef/i);
+  });
+
   it('reads only explicitly authorized child policy projections', async () => {
     const rpc = jest.fn(async () => ({ data: projection, error: null }));
     const result = await executeServerScreenTimeTool({

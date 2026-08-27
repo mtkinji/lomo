@@ -354,7 +354,10 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
       row.operation_type === 'update_family_screen_time_agreement' ||
       row.operation_type === 'deactivate_family_screen_time_agreement' ||
       row.operation_type === 'cancel_family_screen_time_override' ||
-      row.operation_type === 'decide_family_screen_time_request')
+      row.operation_type === 'decide_family_screen_time_request' ||
+      row.operation_type === 'update_personal_screen_time_rule' ||
+      row.operation_type === 'deactivate_personal_screen_time_rule' ||
+      row.operation_type === 'delete_personal_screen_time_rule')
   ) {
     const operation = parseStoredScreenTimeProposalOperation({
       type: row.operation_type,

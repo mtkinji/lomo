@@ -81,6 +81,7 @@ import { extractInspectableSourceUrls } from './webSearchResponse';
 import { executePlanProposalDecision } from './executePlanProposalDecision';
 import { executeGoalProposalDecision } from './executeGoalProposalDecision';
 import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
+import { createPersonalScreenTimeRuleActionBoundary } from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
 import { recoverScreenTimeMutations } from './recoverScreenTimeMutations';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { applyApprovedPlanProposal } from './planProposalExecutor';
@@ -410,6 +411,7 @@ export function UnifiedChatScreen({
     });
     const screenTimeRecovered = await recoverScreenTimeMutations({
       aggregate: moneyRecovered, repository, client: getSupabaseClient(),
+      personalBoundary: createPersonalScreenTimeRuleActionBoundary(),
     });
     for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, screenTimeRecovered)) {
       track(posthogClient, AnalyticsEvent.UnifiedChatReconciled, properties);
@@ -1202,6 +1204,7 @@ export function UnifiedChatScreen({
             } else if (proposal.capabilityId === 'screenTime') {
               await executeScreenTimeProposalDecision({
                 proposal, action: 'approve', repository, client: getSupabaseClient(),
+                personalBoundary: createPersonalScreenTimeRuleActionBoundary(),
               });
             } else if (proposal.capabilityId === 'plan') {
               await executePlanProposalDecision({
@@ -1312,6 +1315,7 @@ export function UnifiedChatScreen({
           try {
             await executeScreenTimeProposalDecision({
               proposal, action: command.action, repository, client: getSupabaseClient(),
+              personalBoundary: createPersonalScreenTimeRuleActionBoundary(),
             });
             track(posthogClient, AnalyticsEvent.FamilyScreenTimeChatPolicyOutcome,
               buildFamilyScreenTimeDecisionTelemetry(
@@ -1497,6 +1501,9 @@ export function UnifiedChatScreen({
                 : undefined,
               householdBoundary: receipt.capabilityId === 'household'
                 ? createHouseholdActionBoundary(getSupabaseClient())
+                : undefined,
+              personalScreenTimeBoundary: receipt.capabilityId === 'screenTime'
+                ? createPersonalScreenTimeRuleActionBoundary()
                 : undefined,
               moneyRepository,
             });

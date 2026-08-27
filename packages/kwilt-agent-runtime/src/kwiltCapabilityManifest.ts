@@ -193,6 +193,11 @@ const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'goals.check_in', 'goals.share',
   'activities.focus.open', 'activities.location.update', 'activities.attachments.update', 'activities.share',
   'plan.preferences.open',
+  'screen_time.personal_rule.list', 'screen_time.personal_rule.get',
+  'screen_time.personal_rule.update', 'screen_time.personal_rule.deactivate',
+  'screen_time.personal_rule.delete', 'screen_time.personal.setup.open',
+  'screen_time.personal.limit.open', 'screen_time.selection.open',
+  'screen_time.device.setup.open', 'screen_time.device.release.open', 'screen_time.configure',
   'notifications.configure', 'search.open',
   'account.settings.open', 'account.subscription.manage', 'account.delete',
 ]);
@@ -431,6 +436,16 @@ function controlParityCapabilityRow(
       sourceRefs: contract.sourceRefs,
     }, householdManagementProof);
   }
+  if (contract.id.startsWith('screen_time.personal_rule.')) {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, screenTimeWriteProof);
+  }
   return bounded('pending_provider', {
     id: contract.id,
     providers: contract.providers,
@@ -531,12 +546,12 @@ const CAPABILITY_ROWS = [
   live({ id: 'screen_time.override.allow', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.allow'], sourceRefs: [] }, screenTimeWriteProof),
   live({ id: 'screen_time.override.cancel', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.cancel'], sourceRefs: [] }, screenTimeWriteProof),
   live({ id: 'screen_time.request.decide', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.request.decide'], sourceRefs: [] }, screenTimeWriteProof),
-  bounded('confirmation_only', { id: 'screen_time.personal.setup.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.setup.open'], sourceRefs: ['capability:screenTime'] }, 'Chat resolves the signed-in person on the current device and opens the personal native setup flow. Apple authorization and app selection remain user-controlled.', deviceHandoffProof),
-  bounded('pending_provider', { id: 'screen_time.personal.limit.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.limit.open'], sourceRefs: ['capability:screenTime'] }, 'Chat carries a bounded self, app-label, and daily allowance intent into native review. Apple authorization, token selection, persistence, and signed-device enforcement remain capability-owned.'),
-  bounded('pending_provider', { id: 'screen_time.selection.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.selection.open'], sourceRefs: [] }, 'Chat now routes an exact authorized-child native handoff; production child-device selection, completion return, and signed proof remain pending.'),
-  bounded('pending_provider', { id: 'screen_time.device.setup.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.device.setup.open'], sourceRefs: [] }, 'Chat now routes an exact authorized-child native handoff; production child-device authorization, completion return, and signed proof remain pending.'),
-  bounded('pending_provider', { id: 'screen_time.device.release.open', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.device.release.open'], sourceRefs: [] }, 'Chat now routes an exact authorized-child native handoff; production cleanup, completion return, and signed proof remain pending.'),
-  bounded('pending_provider', { id: 'screen_time.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Cross-device child controls are not implemented. Current Screen Time Protection manages only selected apps on this device; Chat must report that boundary without opening the wrong settings surface.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.personal.setup.open', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.setup.open'], sourceRefs: ['capability:screenTime'] }, 'Chat resolves the signed-in person on the current device and opens the personal native setup flow. Apple authorization and app selection remain user-controlled.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.personal.limit.open', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.limit.open'], sourceRefs: ['capability:screenTime'] }, 'Chat carries a bounded self, app-label, and daily allowance intent into native review. Apple authorization, token selection, persistence, and signed-device enforcement remain capability-owned.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.selection.open', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.selection.open'], sourceRefs: [] }, 'Chat routes an exact authorized-child native selection handoff. Completion remains device-receipt based.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.device.setup.open', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.device.setup.open'], sourceRefs: [] }, 'Chat routes an exact authorized-child native device setup handoff. Completion remains device-receipt based.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.device.release.open', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.device.release.open'], sourceRefs: [] }, 'Chat routes an exact authorized-child native release handoff. Cleanup remains device-receipt based.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.configure', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Chat resolves the exact authorized child and carries the app label and allow-or-block intent into native Apple selection review. Completion remains device-receipt based.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'notifications.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['notifications.configure'], sourceRefs: [] }, 'Chat stages a durable handoff; notification permission and scheduling remain device-owned.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'search.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['navigation.search.open'], sourceRefs: [] }, 'Chat stages and opens the native search surface; the user completes the search there.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'account.settings.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['navigation.account_settings.open'], sourceRefs: [] }, 'Chat stages and opens native account settings; changes remain user-driven.', deviceHandoffProof),

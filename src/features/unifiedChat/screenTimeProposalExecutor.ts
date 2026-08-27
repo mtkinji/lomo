@@ -11,6 +11,11 @@ import type { UnifiedChatProposal } from './types';
 type ScreenTimeProposal = Extract<UnifiedChatProposal, { capabilityId: 'screenTime' }>;
 
 export function prepareApprovedScreenTimeProposal(proposal: ScreenTimeProposal) {
+  if (proposal.operation.type === 'update_personal_screen_time_rule'
+    || proposal.operation.type === 'deactivate_personal_screen_time_rule'
+    || proposal.operation.type === 'delete_personal_screen_time_rule') {
+    throw new Error('Personal Screen Time proposals use the device action boundary.');
+  }
   if (proposal.operation.type === 'create_family_screen_time_prerequisite_agreement') {
     return {
       resultingObjectType: 'family_screen_time_agreement',
@@ -56,6 +61,10 @@ export function prepareApprovedScreenTimeProposal(proposal: ScreenTimeProposal) 
       undoOperation: null,
     };
   }
+  if (proposal.operation.type !== 'block_family_screen_time_selection'
+    && proposal.operation.type !== 'allow_family_screen_time_selection') {
+    throw new Error(`Unsupported Screen Time proposal: ${proposal.operation.type}`);
+  }
   const action = proposal.operation.type === 'block_family_screen_time_selection' ? 'block' : 'allow';
   return {
     resultingObjectType: 'family_screen_time_override_batch',
@@ -80,6 +89,11 @@ export async function applyApprovedScreenTimeProposal(input: {
 }) {
   const { proposal, client } = input;
   const now = input.now ?? new Date();
+  if (proposal.operation.type === 'update_personal_screen_time_rule'
+    || proposal.operation.type === 'deactivate_personal_screen_time_rule'
+    || proposal.operation.type === 'delete_personal_screen_time_rule') {
+    throw new Error('Personal Screen Time proposals use the device action boundary.');
+  }
   if (proposal.operation.type === 'create_family_screen_time_prerequisite_agreement') {
     const result = await createFamilyScreenTimePrerequisiteAgreement(client, {
       childMembershipId: proposal.operation.payload.childMembershipId,
@@ -163,6 +177,10 @@ export async function applyApprovedScreenTimeProposal(input: {
       returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
       undoOperation: null,
     };
+  }
+  if (proposal.operation.type !== 'block_family_screen_time_selection'
+    && proposal.operation.type !== 'allow_family_screen_time_selection') {
+    throw new Error(`Unsupported Screen Time proposal: ${proposal.operation.type}`);
   }
   const action = proposal.operation.type === 'block_family_screen_time_selection' ? 'block' : 'allow';
   const result = await applyTemporaryFamilyScreenTimeAccess(client, {

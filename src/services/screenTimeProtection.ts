@@ -563,6 +563,24 @@ export function replacePersonalScreenTimeRule(
   });
 }
 
+export function removePersonalScreenTimeRule(
+  settings: ScreenTimeProtectionSettings,
+  ruleId: string,
+): ScreenTimeProtectionSettings {
+  const rule = getPersonalScreenTimeRuleById(settings, ruleId);
+  if (!rule) return normalizeScreenTimeProtectionSettings(settings);
+  return normalizeScreenTimeProtectionSettings({
+    ...settings,
+    personalRules: settings.personalRules.filter((candidate) => candidate.id !== ruleId),
+    ...(rule.kind === 'focus' ? {
+      focusProtection: { ...settings.focusProtection, enabled: false, setupCompleted: false },
+    } : rule.kind === 'real_step' ? {
+      meaningfulFirst: { ...settings.meaningfulFirst, enabled: false, setupCompleted: false },
+    } : {}),
+    lastUpdated: new Date().toISOString(),
+  });
+}
+
 export function createPersonalScreenTimeRule(params: {
   id?: string;
   selectionId?: string;

@@ -1,5 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { applyApprovedScreenTimeProposal } from './screenTimeProposalExecutor';
+import {
+  applyPersonalScreenTimeProposal,
+  isPersonalScreenTimeProposal,
+} from './executeScreenTimeProposalDecision';
+import {
+  getPersonalScreenTimeRule,
+  PersonalScreenTimeRuleNotFoundError,
+  type PersonalScreenTimeRuleActionBoundary,
+} from '../screen-time/domain/personalScreenTimeRuleActions';
 import type { UnifiedChatRepository } from './threadRepository';
 import type { UnifiedChatThreadAggregate } from './types';
 
@@ -8,10 +17,11 @@ type Repository = Pick<
   'finalizeMutationReceipt' | 'transitionProposalStatus' | 'loadThread'
 >;
 
-export async function recoverScreenTimeMutations({ aggregate, repository, client }: {
+export async function recoverScreenTimeMutations({ aggregate, repository, client, personalBoundary }: {
   aggregate: UnifiedChatThreadAggregate;
   repository: Repository;
   client: SupabaseClient;
+  personalBoundary?: PersonalScreenTimeRuleActionBoundary;
 }): Promise<UnifiedChatThreadAggregate> {
   let changed = false;
   for (const proposal of aggregate.proposals ?? []) {
@@ -26,14 +36,41 @@ export async function recoverScreenTimeMutations({ aggregate, repository, client
         // Every Screen Time write RPC is keyed by the proposal operation ID, so replay
         // confirms the authoritative result without applying the policy twice.
         const appliedAt = receipt.appliedAt ?? new Date().toISOString();
-        const result = await applyApprovedScreenTimeProposal({ proposal, client, now: new Date(appliedAt) });
+        let result;
+        if (isPersonalScreenTimeProposal(proposal)) {
+          if (!personalBoundary) throw new Error('Personal Screen Time control is unavailable on this device.');
+          try {
+            const current = getPersonalScreenTimeRule({ ruleId: proposal.operation.targetId }, personalBoundary).result;
+            result = current.updatedAt === appliedAt
+              ? {
+                  resultingObjectType: 'personal_screen_time_rule',
+                  resultingObjectId: current.id,
+                  resultState: { enforcementState: 'applied', rule: current },
+                  returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
+                  undoOperation: receipt.undoOperation,
+                }
+              : await applyPersonalScreenTimeProposal(proposal, personalBoundary, appliedAt);
+          } catch (error) {
+            if (!(error instanceof PersonalScreenTimeRuleNotFoundError)
+              || proposal.operation.type !== 'delete_personal_screen_time_rule') throw error;
+            result = {
+              resultingObjectType: 'personal_screen_time_rule',
+              resultingObjectId: proposal.operation.targetId,
+              resultState: { enforcementState: 'removed' },
+              returnTarget: { capabilityId: 'screenTime', route: 'ScreenTimeProtectionSettings' },
+              undoOperation: null,
+            };
+          }
+        } else {
+          result = await applyApprovedScreenTimeProposal({ proposal, client, now: new Date(appliedAt) });
+        }
         await repository.finalizeMutationReceipt(receipt.id, {
           capabilityId: 'screenTime',
           resultingObjectType: result.resultingObjectType,
           resultingObjectId: result.resultingObjectId,
           resultState: result.resultState,
           returnTarget: result.returnTarget,
-          undoOperation: null,
+          undoOperation: result.undoOperation,
           appliedAt,
         });
       }

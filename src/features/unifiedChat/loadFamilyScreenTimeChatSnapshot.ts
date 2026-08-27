@@ -4,6 +4,8 @@ import { createHouseholdActionBoundary } from '../household/data/householdAction
 import { fetchFamilyScreenTimeSnapshot } from '../household/screenTime/data/familyScreenTime';
 import type { ScreenTimeChatSnapshot } from './capabilityAdapters';
 import type { ScreenTimeAuthorizationStatus } from '../../services/screenTimeProtection';
+import { listPersonalScreenTimeRules } from '../screen-time/domain/personalScreenTimeRuleActions';
+import { useAppStore } from '../../store/useAppStore';
 
 export async function loadFamilyScreenTimeChatSnapshot(
   client: SupabaseClient,
@@ -14,6 +16,12 @@ export async function loadFamilyScreenTimeChatSnapshot(
   const self: NonNullable<ScreenTimeChatSnapshot['self']> = {
     kind: 'self', deviceScope: 'current_device',
     authorizationStatus: await getSelfAuthorizationStatus(),
+    personalRules: listPersonalScreenTimeRules({
+      readSettings: () => useAppStore.getState().screenTimeProtection,
+      persistSettings: () => undefined,
+      activateRule: async () => false,
+      deactivateRule: async () => false,
+    }).result,
   };
   const household = (await readHousehold(createHouseholdActionBoundary(client))).result;
   const actor = household.members.find((member) => member.id === household.currentMembershipId);

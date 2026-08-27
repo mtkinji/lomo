@@ -31,7 +31,9 @@ const MOBILE_EXECUTABLE_TOOL_IDS = [
   'screen_time.device.setup.open', 'screen_time.override.allow', 'screen_time.override.block',
   'screen_time.override.cancel', 'screen_time.request.decide',
   'screen_time.personal.limit.open', 'screen_time.personal.setup.open', 'screen_time.read',
-  'screen_time.selection.open',
+  'screen_time.personal_rule.list', 'screen_time.personal_rule.get',
+  'screen_time.personal_rule.update', 'screen_time.personal_rule.deactivate',
+  'screen_time.personal_rule.delete', 'screen_time.selection.open',
 ] as const;
 
 const contractById = new Map(KWILT_TOOL_CONTRACTS.map((tool) => [tool.id, tool]));

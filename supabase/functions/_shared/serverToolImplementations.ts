@@ -33,6 +33,11 @@ const SERVER_EXECUTABLE_TOOL_IDS = [
   'screen_time.agreement.create', 'screen_time.agreement.deactivate', 'screen_time.agreement.update',
   'screen_time.override.allow', 'screen_time.override.block', 'screen_time.override.cancel',
   'screen_time.read', 'screen_time.request.decide',
+  'screen_time.personal.setup.open', 'screen_time.personal.limit.open',
+  'screen_time.personal_rule.list', 'screen_time.personal_rule.get',
+  'screen_time.personal_rule.update', 'screen_time.personal_rule.deactivate',
+  'screen_time.personal_rule.delete', 'screen_time.selection.open',
+  'screen_time.device.setup.open', 'screen_time.device.release.open',
 ] as const;
 
 const contractById = new Map(KWILT_TOOL_CONTRACTS.map((tool) => [tool.id, tool]));

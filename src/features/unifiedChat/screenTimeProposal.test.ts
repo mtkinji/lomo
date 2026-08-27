@@ -2,6 +2,7 @@ import {
   parseStoredScreenTimeProposalOperation,
   parseScreenTimeOverrideProposal,
   parseScreenTimePrerequisiteAgreementProposal,
+  parsePersonalScreenTimeRuleProposal,
 } from './screenTimeProposal';
 
 describe('parseScreenTimeOverrideProposal', () => {
@@ -50,6 +51,23 @@ describe('parseScreenTimeOverrideProposal', () => {
       action: 'block', childName: 'Charlie', appName: 'Brawl Stars', targets,
       timeBasis: 'wall_clock', expiresAt: '2026-07-30T13:00:00.000Z',
     }, now)).toBeNull();
+  });
+});
+
+describe('parsePersonalScreenTimeRuleProposal', () => {
+  const updatedAt = '2026-08-27T10:00:00.000Z';
+
+  it('accepts only redacted versioned personal rule mutations', () => {
+    expect(parsePersonalScreenTimeRuleProposal('screen_time.personal_rule.update', {
+      ruleId: 'rule-1', expectedUpdatedAt: updatedAt,
+      fields: { kind: 'daily_limit', limitMinutes: 30, enabled: true },
+    })).toMatchObject({ type: 'update_personal_screen_time_rule', targetId: 'rule-1' });
+    expect(parsePersonalScreenTimeRuleProposal('screen_time.personal_rule.deactivate', {
+      ruleId: 'rule-1', expectedUpdatedAt: updatedAt,
+    })).toMatchObject({ type: 'deactivate_personal_screen_time_rule' });
+    expect(parsePersonalScreenTimeRuleProposal('screen_time.personal_rule.delete', {
+      ruleId: 'rule-1', expectedUpdatedAt: updatedAt, selectionToken: 'secret',
+    })).toBeNull();
   });
 });
 

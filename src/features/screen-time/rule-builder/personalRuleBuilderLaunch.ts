@@ -7,6 +7,7 @@ import type {
 
 export type PersonalScreenTimeRuleBuilderParams = {
   entry: 'inventory' | 'contextual';
+  ruleId?: string;
   suggestedKind?: PersonalScreenTimeRuleKind;
   suggestedLimitMinutes?: number;
   suggestedAppLabel?: string;

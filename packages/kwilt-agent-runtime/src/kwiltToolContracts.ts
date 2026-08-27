@@ -501,7 +501,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.personal.setup.open', version: 1, capabilityId: 'screenTime',
     purpose: 'Open Screen Time setup for the signed-in person on the current device without substituting a managed child.',
-    providers: ['device'], effect: 'write', consequence: 'low', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'low', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
@@ -515,7 +515,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.personal.limit.open', version: 1, capabilityId: 'screenTime',
     purpose: 'Open native review for a reusable daily usage limit on user-selected apps for the signed-in person on this device.',
-    providers: ['device'], effect: 'write', consequence: 'low', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'low', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object',
@@ -536,7 +536,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.selection.open', version: 1, capabilityId: 'screenTime',
     purpose: 'Open the native Apple app-selection flow for one child when a caregiver label has no saved selection.',
-    providers: ['device'], effect: 'write', consequence: 'low', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'low', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
@@ -547,7 +547,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.device.setup.open', version: 1, capabilityId: 'screenTime',
     purpose: 'Open native child-device setup and Apple authorization without claiming the device is ready.',
-    providers: ['device'], effect: 'write', consequence: 'low', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'low', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: { childMembershipId: { type: 'string', minLength: 1 } },
@@ -557,7 +557,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.device.release.open', version: 1, capabilityId: 'screenTime',
     purpose: 'Open native child-device release review without claiming shields have been removed.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: false,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: false,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: { childMembershipId: { type: 'string', minLength: 1 } },
@@ -567,7 +567,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.configure', version: 1, capabilityId: 'screenTime',
     purpose: 'Interpret one child, app, and allow-or-block intent, then report the cross-device capability boundary without opening same-device settings or claiming enforcement.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object',

@@ -410,25 +410,6 @@ async function executeServerAgentToolHandler({
   if (call.toolId !== tool.id) {
     return { status: 'failed', code: 'tool_mismatch', message: 'The discovered tool does not match this call.', retryable: false };
   }
-  if (call.toolId === 'screen_time.configure') {
-    const childName = typeof call.arguments.childName === 'string' ? call.arguments.childName.trim() : '';
-    const appName = typeof call.arguments.appName === 'string' ? call.arguments.appName.trim() : '';
-    const desiredAccess = call.arguments.desiredAccess === 'allow' || call.arguments.desiredAccess === 'block'
-      ? call.arguments.desiredAccess
-      : null;
-    if (!childName || !appName || !desiredAccess) {
-      return {
-        status: 'needs_input',
-        prompt: 'Which child, app, and access change should Kwilt prepare for Screen Time review?',
-        fields: ['childName', 'appName', 'desiredAccess'],
-      };
-    }
-    return {
-      status: 'unavailable',
-      reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
-      retryable: false,
-    };
-  }
   const deviceAction = DEVICE_ACTIONS[call.toolId];
   if (deviceAction) {
     await stageDeviceAction(deviceAction);
@@ -442,7 +423,7 @@ async function executeServerAgentToolHandler({
     client, userId, call, stageProposal, stageDeviceAction,
   });
   if (householdResult) return householdResult;
-  const screenTimeResult = await executeServerScreenTimeTool({ client, userId, call, stageProposal });
+  const screenTimeResult = await executeServerScreenTimeTool({ client, userId, call, stageProposal, stageDeviceAction });
   if (screenTimeResult) return screenTimeResult;
   if (tool.capabilityId === 'relationships') {
     const policy = evaluateToolPolicy(tool, {

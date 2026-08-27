@@ -9,6 +9,7 @@ import {
   type ScreenTimeToken,
   type ScreenTimeProtectionSettings,
 } from '../../../services/screenTimeProtection';
+import type { PersonalScreenTimeRuleSummary } from './personalScreenTimeRuleActions';
 
 export type ScreenTimeRuleInventoryRow = {
   id: string;
@@ -52,18 +53,29 @@ function moneyRuleDetail(
 
 export function buildMyScreenTimeRuleInventory(params: {
   personalSettings: Pick<ScreenTimeProtectionSettings, 'personalRules'>;
+  personalRules?: readonly PersonalScreenTimeRuleSummary[];
   moneySettings: MoneyAppControlSettings;
 }): ScreenTimeRuleInventoryRow[] {
-  const personal = params.personalSettings.personalRules
-    .filter(hasPersonalRuleTargets)
+  const summaries = params.personalRules ?? params.personalSettings.personalRules
+    .filter(hasPersonalRuleTargets).map((rule): PersonalScreenTimeRuleSummary => ({
+      id: rule.id, kind: rule.kind,
+      targetLabels: [...rule.selectedApps, ...rule.selectedCategories].map((target) => target.label?.trim() || 'Selected app'),
+      appCount: rule.selectedApps.length, categoryCount: rule.selectedCategories.length,
+      enabled: rule.enabled, limitMinutes: rule.kind === 'daily_limit' ? rule.limitMinutes : null,
+      updatedAt: rule.lastUpdated ?? '',
+    }));
+  const personal = summaries
+    .filter((rule) => rule.appCount + rule.categoryCount > 0)
     .map((rule): ScreenTimeRuleInventoryRow => {
-      const targetCount = rule.selectedApps.length + rule.selectedCategories.length;
+      const targetCount = rule.appCount + rule.categoryCount;
       const focus = rule.kind === 'focus';
       const dailyLimit = rule.kind === 'daily_limit';
       return {
         id: rule.id,
         domain: 'personal',
-        title: targetSummary(rule.selectedApps, rule.selectedCategories),
+        title: rule.targetLabels.length === 1
+          ? rule.targetLabels[0]
+          : rule.targetLabels[0] ? `${rule.targetLabels[0]} + ${rule.targetLabels.length - 1}` : targetLabel(targetCount),
         detail: focus
           ? 'Pause while Focus is running.'
           : dailyLimit

@@ -31,7 +31,7 @@ describe('Household device participation contract', () => {
     expect(parseHouseholdDevices([{
       id: 'device-1', householdId: 'house-1', kind: 'personal_child', childMembershipId: 'child-1',
       assignedCaregiverMembershipId: null, installId: 'install-1', label: "Charlie's iPhone",
-      platform: 'ios', status: 'ready', memberIds: [],
+      platform: 'ios', status: 'ready', memberIds: [], updatedAt: '2026-08-27T00:00:00Z',
     }])).toHaveLength(1);
   });
 

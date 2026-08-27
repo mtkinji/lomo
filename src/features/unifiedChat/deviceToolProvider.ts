@@ -153,11 +153,31 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
           fields: ['childName', 'appName', 'desiredAccess'],
         };
       }
-      return {
-        status: 'unavailable',
-        retryable: false,
-        reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
-      };
+      const matches = snapshots.screenTime?.children.filter((candidate) => (
+        candidate.canManage && candidate.householdId
+        && candidate.displayName.localeCompare(childName, undefined, { sensitivity: 'base' }) === 0
+      )) ?? [];
+      if (matches.length !== 1) {
+        return {
+          status: 'failed', code: matches.length === 0 ? 'screen_time_child_not_found' : 'screen_time_child_ambiguous',
+          message: matches.length === 0
+            ? 'That child is not available in your authorized Screen Time household.'
+            : 'More than one authorized child has that name. Choose the exact child first.',
+          retryable: true,
+        };
+      }
+      const child = matches[0];
+      return stage({
+        capabilityId: 'screenTime', actionType: 'open_family_screen_time_setup',
+        targetType: 'family_screen_time_child', targetId: child.membershipId,
+        title: `Review ${desiredAccess} for ${appName}`,
+        consequenceSummary: `Kwilt will open ${child.displayName}'s native app-selection review. Nothing changes until Apple authorization, selection, and device confirmation complete there.`,
+        payload: {
+          householdId: child.householdId, childDisplayName: child.displayName,
+          setupStep: 'selection', suggestedLabel: appName, desiredAccess,
+          expectedPolicyVersion: child.policy.desiredPolicyVersion,
+        },
+      });
     }
     if (call.toolId === 'screen_time.selection.open' || call.toolId === 'screen_time.device.setup.open'
       || call.toolId === 'screen_time.device.release.open') {

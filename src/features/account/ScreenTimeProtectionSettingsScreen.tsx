@@ -50,6 +50,11 @@ import {
   type ScreenTimeRuleInventoryRow,
 } from '../screen-time/domain/screenTimeRuleInventory';
 import { openPersonalScreenTimeRuleBuilder } from '../screen-time/rule-builder/usePersonalRuleBuilderDrawerStore';
+import {
+  listPersonalScreenTimeRules,
+  savePersonalScreenTimeRule,
+} from '../screen-time/domain/personalScreenTimeRuleActions';
+import { createPersonalScreenTimeRuleActionBoundary } from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
@@ -216,6 +221,10 @@ export function ScreenTimeProtectionSettingsScreen() {
   const startedKeyRef = useRef<string | null>(null);
 
   const normalized = useMemo(() => normalizeScreenTimeProtectionSettings(settings), [settings]);
+  const personalRuleSummaries = useMemo(
+    () => listPersonalScreenTimeRules(createPersonalScreenTimeRuleActionBoundary()).result,
+    [normalized],
+  );
   const setupIntent = route.params?.setupIntent ?? 'settings_discovery';
   const entrySurface = route.params?.entrySurface ?? 'settings';
   const returnToActivityId = route.params?.returnToActivityId;
@@ -452,29 +461,35 @@ export function ScreenTimeProtectionSettingsScreen() {
     setSetupPhase('done');
   };
 
-  const handleToggleRule = (ruleId: string, enabled: boolean) => {
+  const handleToggleRule = async (ruleId: string, enabled: boolean) => {
     const nowIso = new Date().toISOString();
-    const ruleKind = getPersonalScreenTimeRuleById(
+    const existing = getPersonalScreenTimeRuleById(
       normalizeScreenTimeProtectionSettings(useAppStore.getState().screenTimeProtection),
       ruleId,
-    )?.kind;
-    setSettings((current) => {
-      const existing = getPersonalScreenTimeRuleById(current, ruleId);
-      if (!existing) return current;
-      return replacePersonalScreenTimeRule(current, {
+    );
+    if (!existing) return;
+    try {
+      await savePersonalScreenTimeRule({
+        rule: {
         ...existing,
         enabled,
         setupCompleted: true,
         lastUpdated: nowIso,
-      });
-    });
-    if (enabled && ruleKind) {
+        },
+        expectedUpdatedAt: existing.lastUpdated ?? 'unversioned',
+        confirmed: true,
+      }, createPersonalScreenTimeRuleActionBoundary());
+    } catch {
+      Alert.alert('Couldn’t update this rule', 'Kwilt did not receive confirmation from Screen Time. Nothing was changed.');
+      return;
+    }
+    if (enabled) {
       capture(AnalyticsEvent.ScreenTimeSetupCompleted, {
         setup_intent: setupIntent,
         surface: entrySurface,
-        rule: ruleKind === 'focus'
+        rule: existing.kind === 'focus'
           ? 'focus_session'
-          : ruleKind === 'daily_limit'
+          : existing.kind === 'daily_limit'
             ? 'daily_limit'
             : 'real_step',
       });
@@ -557,6 +572,7 @@ export function ScreenTimeProtectionSettingsScreen() {
   const familyRows = buildFamilyScreenTimeOverviewRows(householdSnapshot);
   const myRuleRows = buildMyScreenTimeRuleInventory({
     personalSettings: normalized,
+    personalRules: personalRuleSummaries,
     moneySettings: moneyAppControls.settings,
   });
   const openRule = (row: ScreenTimeRuleInventoryRow) => {
@@ -567,7 +583,10 @@ export function ScreenTimeProtectionSettingsScreen() {
       });
       return;
     }
-    void handleChooseRuleTargets(row.destination.ruleId);
+    navigation.navigate('SettingsScreenTimeRuleBuilder', {
+      entry: 'inventory',
+      ruleId: row.destination.ruleId,
+    });
   };
 
   const toggleInventoryRule = (row: ScreenTimeRuleInventoryRow) => {
@@ -575,7 +594,7 @@ export function ScreenTimeProtectionSettingsScreen() {
       openRule(row);
       return;
     }
-    handleToggleRule(row.destination.ruleId, !row.enabled);
+    void handleToggleRule(row.destination.ruleId, !row.enabled);
   };
 
   const openHouseholdRuleBuilder = () => {

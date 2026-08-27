@@ -57,6 +57,8 @@ jest.mock('../../services/appleEcosystem/screenTimeProtection', () => ({
 }));
 
 jest.mock('../../services/screenTimeProtectionRuntime', () => ({
+  activatePersonalScreenTimeRule: jest.fn(async () => true),
+  deactivatePersonalScreenTimeRule: jest.fn(async () => true),
   reconcileScreenTimeRestrictions: jest.fn(async () => []),
 }));
 
@@ -350,7 +352,7 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
     });
   });
 
-  it('keeps Add available and toggles one repeated rule by identity', () => {
+  it('keeps Add available and toggles one repeated rule by identity', async () => {
     useAppStore.setState({
       screenTimeProtection: {
         ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
@@ -395,8 +397,10 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
 
     fireEvent.press(screen.getByLabelText('YouTube on'));
 
-    const rules = useAppStore.getState().screenTimeProtection.personalRules;
-    expect(rules.find((rule) => rule.id === 'focus-social')?.enabled).toBe(true);
-    expect(rules.find((rule) => rule.id === 'focus-video')?.enabled).toBe(false);
+    await waitFor(() => {
+      const rules = useAppStore.getState().screenTimeProtection.personalRules;
+      expect(rules.find((rule) => rule.id === 'focus-social')?.enabled).toBe(true);
+      expect(rules.find((rule) => rule.id === 'focus-video')?.enabled).toBe(false);
+    });
   });
 });

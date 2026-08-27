@@ -14,6 +14,7 @@ import { formatMoney, type MoneySnapshot } from '../../capabilities/money/data/m
 import { formatMoneyPlanLimitAnswer } from '../../capabilities/money/domain/moneyPlanLimitAnswer';
 import type { FamilyScreenTimeSnapshot } from '../household/screenTime/data/familyScreenTime';
 import type { ScreenTimeAuthorizationStatus } from '../../services/screenTimeProtection';
+import type { PersonalScreenTimeRuleSummary } from '../screen-time/domain/personalScreenTimeRuleActions';
 import type { RecipeProjection } from '../../capabilities/recipes/data/recipeCache';
 
 export type GoalsChatSnapshot = { goals: readonly Goal[]; arcIds?: readonly string[] };
@@ -40,6 +41,7 @@ export type ScreenTimeChatSnapshot = {
     kind: 'self';
     deviceScope: 'current_device';
     authorizationStatus: ScreenTimeAuthorizationStatus;
+    personalRules?: readonly PersonalScreenTimeRuleSummary[];
   };
   children: ReadonlyArray<{
     householdId?: string;

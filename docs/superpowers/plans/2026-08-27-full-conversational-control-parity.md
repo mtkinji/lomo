@@ -480,16 +480,16 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: `supabase/functions/_shared/__tests__/serverScreenTimeTools.test.ts`
 - Modify: `plugins/withAppleEcosystemIntegrations.js`
 
-- [ ] Regression-first: prove Chat cannot list, inspect, update, deactivate, or delete a personal rule through the canonical boundary.
-- [ ] Move native list/detail/update/deactivate/delete behavior onto `personalScreenTimeRuleActions`.
-- [ ] Return opaque rule IDs and human-readable app labels; never expose FamilyControls tokens to model context, logs, external tools, or receipts.
-- [ ] Keep app/category selection and initial FamilyControls authorization native. Chat and ChatGPT create an exact handoff and resume with the completed rule receipt.
-- [ ] Complete server/device handoff providers for personal setup, personal limit, child selection, child device setup, device release, and family configuration.
-- [ ] Preserve caregiver/member authorization and expected-version checks for agreements, overrides, requests, and child device actions.
-- [ ] Add tests for no entitlement, denied authorization, expired handoff, rule not found, stale rule, repeated request, child-scope violation, and successful resume.
-- [ ] Run focused Jest, plugin-generation contract tests, Deno Screen Time tests, and `npm run verify:changed -- --run`.
+- [x] Regression-first: prove Chat cannot list, inspect, update, deactivate, or delete a personal rule through the canonical boundary.
+- [x] Move native list/detail/update/deactivate/delete behavior onto `personalScreenTimeRuleActions`.
+- [x] Return opaque rule IDs and human-readable app labels; never expose FamilyControls tokens to model context, logs, external tools, or receipts.
+- [x] Keep app/category selection and initial FamilyControls authorization native. Chat and ChatGPT create an exact handoff and resume with the completed rule receipt.
+- [x] Complete server/device handoff providers for personal setup, personal limit, child selection, child device setup, device release, and family configuration.
+- [x] Preserve caregiver/member authorization and expected-version checks for agreements, overrides, requests, and child device actions.
+- [x] Add tests for no entitlement, denied authorization, expired handoff, rule not found, stale rule, repeated request, child-scope violation, and successful resume.
+- [x] Run focused Jest, plugin-generation contract tests, Deno Screen Time tests, and `npm run verify:changed -- --run`. Focused Screen Time tests, app/test typechecks, plugin contracts, Deno checks, and code-health passed. The final completion run passed all 1,086 Jest suites (6,438 passed tests, 2 skipped), product/chat delivery lint, protocol conformance, generated code-map validation, and architecture lint.
 - [ ] On an entitlement-enabled physical build, prove rule creation, update, deactivation, deletion, `DeviceActivityCenter.startMonitoring`, shield activation, app unblock, and child-device receipt. Record each result separately in the program evidence file.
-- [ ] Commit with message `feat(screen-time): complete conversational rule control`.
+- [x] Commit with message `feat(screen-time): complete conversational rule control`.
 
 ### Task 6: Complete Money control without weakening Money truth
 

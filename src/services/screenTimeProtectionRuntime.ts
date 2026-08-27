@@ -51,6 +51,13 @@ export async function activatePersonalScreenTimeRule(params: {
   }).catch(() => false);
 }
 
+export async function deactivatePersonalScreenTimeRule(rule: PersonalScreenTimeRule): Promise<boolean> {
+  if (rule.kind === 'daily_limit') {
+    return clearPersonalScreenTimeUsageLimit(rule.id).catch(() => false);
+  }
+  return clearScreenTimeRestrictionsForSelection(rule.selectionId).catch(() => false);
+}
+
 type ScreenTimeProtectionBridge = {
   apply: (params: {
     settings: Pick<ScreenTimeProtectionSettings, 'selectedApps' | 'selectedCategories'>;

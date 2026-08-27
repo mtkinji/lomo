@@ -132,14 +132,13 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
     providers: ['device', 'server'], consequence: 'low', reversible: true,
     confirmation: 'explicit', completionMode: 'reviewed_proposal',
     inputSchema: {
-      type: 'object', additionalProperties: false,
+      type: 'object', minProperties: 4, additionalProperties: false,
       properties: {
         deviceId: STRING_ID, expectedUpdatedAt: UPDATED_AT, householdId: STRING_ID,
         displayName: { type: 'string', minLength: 1, maxLength: 80 },
         memberIds: { type: 'array', maxItems: 50, uniqueItems: true, items: STRING_ID },
       },
       required: ['deviceId', 'expectedUpdatedAt', 'householdId'],
-      anyOf: [{ required: ['displayName'] }, { required: ['memberIds'] }],
     }, sourceRefs: householdRefs,
   }),
   write({
@@ -284,11 +283,18 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
   read({ id: 'meal_planning.preferences.read', owner: 'meal_planning', purpose: 'Read bounded household meal preferences and constraints.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: mealRefs }),
   write({ id: 'meal_planning.preferences.update', owner: 'meal_planning', purpose: 'Update explicitly reviewed household meal preferences and constraints.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ expectedVersion: VERSION, fields: FIELDS }), sourceRefs: mealRefs }),
 
-  read({ id: 'screen_time.personal_rule.list', owner: 'screenTime', purpose: 'List personal Screen Time rules using opaque rule IDs and human-readable labels.', providers: ['device'], inputSchema: EMPTY_SCHEMA, sourceRefs: screenTimeRefs }),
-  read({ id: 'screen_time.personal_rule.get', owner: 'screenTime', purpose: 'Inspect one personal Screen Time rule without exposing FamilyControls tokens.', providers: ['device'], inputSchema: targetSchema('ruleId'), sourceRefs: screenTimeRefs }),
-  write({ id: 'screen_time.personal_rule.update', owner: 'screenTime', purpose: 'Update one personal Screen Time rule while keeping Apple selection device-owned.', providers: ['device'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('ruleId', { fields: FIELDS }), sourceRefs: screenTimeRefs }),
-  write({ id: 'screen_time.personal_rule.deactivate', owner: 'screenTime', purpose: 'Deactivate one personal Screen Time rule and remove its active enforcement.', providers: ['device'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('ruleId'), sourceRefs: screenTimeRefs }),
-  write({ id: 'screen_time.personal_rule.delete', owner: 'screenTime', purpose: 'Delete one personal Screen Time rule after native enforcement cleanup.', providers: ['device'], consequence: 'consequential', reversible: false, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: versionedTargetSchema('ruleId'), sourceRefs: screenTimeRefs }),
+  read({ id: 'screen_time.personal_rule.list', owner: 'screenTime', purpose: 'List personal Screen Time rules using opaque rule IDs and human-readable labels.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: screenTimeRefs }),
+  read({ id: 'screen_time.personal_rule.get', owner: 'screenTime', purpose: 'Inspect one personal Screen Time rule without exposing FamilyControls tokens.', providers: ['device', 'server'], inputSchema: targetSchema('ruleId'), sourceRefs: screenTimeRefs }),
+  write({ id: 'screen_time.personal_rule.update', owner: 'screenTime', purpose: 'Update one personal Screen Time rule while keeping Apple selection device-owned.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: timestampedTargetSchema('ruleId', { fields: {
+    type: 'object', minProperties: 1, additionalProperties: false,
+    properties: {
+      enabled: { type: 'boolean' },
+      kind: { type: 'string', enum: ['real_step', 'focus', 'daily_limit'] },
+      limitMinutes: { type: 'integer', minimum: 1, maximum: 1440 },
+    },
+  } }), sourceRefs: screenTimeRefs }),
+  write({ id: 'screen_time.personal_rule.deactivate', owner: 'screenTime', purpose: 'Deactivate one personal Screen Time rule and remove its active enforcement.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: timestampedTargetSchema('ruleId'), sourceRefs: screenTimeRefs }),
+  write({ id: 'screen_time.personal_rule.delete', owner: 'screenTime', purpose: 'Delete one personal Screen Time rule after native enforcement cleanup.', providers: ['device', 'server'], consequence: 'consequential', reversible: false, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: timestampedTargetSchema('ruleId'), sourceRefs: screenTimeRefs }),
 
   read({ id: 'notifications.preferences.read', owner: 'notifications', purpose: 'Read individual Kwilt notification preferences without changing OS permission.', providers: ['device'], inputSchema: EMPTY_SCHEMA, sourceRefs: notificationRefs }),
   write({ id: 'notifications.preferences.update', owner: 'notifications', purpose: 'Update individual Kwilt notification preferences; OS permission remains native-owned.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ fields: FIELDS }), sourceRefs: notificationRefs }),

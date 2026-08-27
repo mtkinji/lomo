@@ -2741,18 +2741,7 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
     "compatibilityAlias": null,
     "inputSchema": {
       "additionalProperties": false,
-      "anyOf": [
-        {
-          "required": [
-            "displayName",
-          ],
-        },
-        {
-          "required": [
-            "memberIds",
-          ],
-        },
-      ],
+      "minProperties": 4,
       "properties": {
         "deviceId": {
           "maxLength": 200,
@@ -3588,6 +3577,488 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "household.write",
     ],
     "toolId": "screen_time.request.decide",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List My Screen Time Rules",
+    },
+    "canonicalName": "kwilt_screen_time_personal_rules_list",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_personal_rules_list",
+    "operationId": "screen_time.personal_rule.list",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+    ],
+    "toolId": "screen_time.personal_rule.list",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Get My Screen Time Rule",
+    },
+    "canonicalName": "kwilt_screen_time_personal_rule_get",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "ruleId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "ruleId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_personal_rule_get",
+    "operationId": "screen_time.personal_rule.get",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+    ],
+    "toolId": "screen_time.personal_rule.get",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update My Screen Time Rule",
+    },
+    "canonicalName": "kwilt_screen_time_personal_rule_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "fields": {
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+            },
+            "kind": {
+              "enum": [
+                "real_step",
+                "focus",
+                "daily_limit",
+              ],
+              "type": "string",
+            },
+            "limitMinutes": {
+              "maximum": 1440,
+              "minimum": 1,
+              "type": "integer",
+            },
+          },
+          "type": "object",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "ruleId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "ruleId",
+        "expectedUpdatedAt",
+        "fields",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_personal_rule_update",
+    "operationId": "screen_time.personal_rule.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.personal_rule.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Deactivate My Screen Time Rule",
+    },
+    "canonicalName": "kwilt_screen_time_personal_rule_deactivate",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "ruleId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "ruleId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_personal_rule_deactivate",
+    "operationId": "screen_time.personal_rule.deactivate",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.personal_rule.deactivate",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Delete My Screen Time Rule",
+    },
+    "canonicalName": "kwilt_screen_time_personal_rule_delete",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "ruleId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "ruleId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_personal_rule_delete",
+    "operationId": "screen_time.personal_rule.delete",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.personal_rule.delete",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Set Up My Screen Time",
+    },
+    "canonicalName": "kwilt_screen_time_personal_setup_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "subject": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "self",
+              ],
+              "type": "string",
+            },
+          },
+          "required": [
+            "kind",
+          ],
+          "type": "object",
+        },
+      },
+      "required": [
+        "subject",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_personal_setup_open",
+    "operationId": "screen_time.personal.setup.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.personal.setup.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review My App Limit",
+    },
+    "canonicalName": "kwilt_screen_time_personal_limit_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "limitMinutes": {
+          "maximum": 1440,
+          "minimum": 1,
+          "type": "integer",
+        },
+        "reset": {
+          "enum": [
+            "daily",
+          ],
+          "type": "string",
+        },
+        "subject": {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "self",
+              ],
+              "type": "string",
+            },
+          },
+          "required": [
+            "kind",
+          ],
+          "type": "object",
+        },
+        "suggestedAppLabel": {
+          "maxLength": 80,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+      },
+      "required": [
+        "subject",
+        "suggestedAppLabel",
+        "limitMinutes",
+        "reset",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_personal_limit_open",
+    "operationId": "screen_time.personal.limit.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.personal.limit.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Choose Child Apps",
+    },
+    "canonicalName": "kwilt_screen_time_selection_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "childMembershipId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "suggestedLabel": {
+          "maxLength": 80,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+      },
+      "required": [
+        "childMembershipId",
+        "suggestedLabel",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_selection_open",
+    "operationId": "screen_time.selection.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.selection.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Set Up Child Device",
+    },
+    "canonicalName": "kwilt_screen_time_device_setup_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "childMembershipId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "childMembershipId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_device_setup_open",
+    "operationId": "screen_time.device.setup.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.device.setup.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Release Child Device",
+    },
+    "canonicalName": "kwilt_screen_time_device_release_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "childMembershipId": {
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "childMembershipId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_screen_time_device_release_open",
+    "operationId": "screen_time.device.release.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "screen_time.device.release.open",
   },
   {
     "annotations": {

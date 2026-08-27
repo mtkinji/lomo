@@ -11,9 +11,9 @@ function clientFor(role: 'owner' | 'caregiver' | 'child') {
     if (name === 'get_kwilt_household_snapshot') return { data: {
       household: { id: 'household-1', name: 'Family' }, currentMembershipId: 'actor',
       members: [
-        { id: 'actor', personId: 'person-actor', displayName: 'Actor', kind: role === 'child' ? 'dependent' : 'adult', role },
-        { id: 'charlie', personId: 'person-charlie', displayName: 'Charlie', kind: 'dependent', role: 'child' },
-        { id: 'grant', personId: 'person-grant', displayName: 'Grant', kind: 'dependent', role: 'child' },
+        { id: 'actor', personId: 'person-actor', displayName: 'Actor', kind: role === 'child' ? 'dependent' : 'adult', role, updatedAt: '2026-08-27T00:00:00Z' },
+        { id: 'charlie', personId: 'person-charlie', displayName: 'Charlie', kind: 'dependent', role: 'child', updatedAt: '2026-08-27T00:00:00Z' },
+        { id: 'grant', personId: 'person-grant', displayName: 'Grant', kind: 'dependent', role: 'child', updatedAt: '2026-08-27T00:00:00Z' },
       ],
       activations: [
         { childMembershipId: 'charlie', capabilityId: 'screen-time', state: 'active' },
@@ -51,7 +51,7 @@ describe('loadFamilyScreenTimeChatSnapshot', () => {
   it('does not expose family controls to a child account', async () => {
     const { client, rpc } = clientFor('child');
     await expect(loadFamilyScreenTimeChatSnapshot(client, async () => 'notDetermined')).resolves.toEqual({
-      self: { kind: 'self', deviceScope: 'current_device', authorizationStatus: 'notDetermined' },
+      self: { kind: 'self', deviceScope: 'current_device', authorizationStatus: 'notDetermined', personalRules: [] },
       children: [],
     });
     expect(rpc).toHaveBeenCalledTimes(1);

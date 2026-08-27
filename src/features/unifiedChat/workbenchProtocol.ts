@@ -119,7 +119,9 @@ export type AgentWorkbenchProposal = {
       'block_family_screen_time_selection' | 'allow_family_screen_time_selection' |
       'create_family_screen_time_prerequisite_agreement' |
       'update_family_screen_time_agreement' | 'deactivate_family_screen_time_agreement' |
-      'cancel_family_screen_time_override' | 'decide_family_screen_time_request';
+      'cancel_family_screen_time_override' | 'decide_family_screen_time_request' |
+      'update_personal_screen_time_rule' | 'deactivate_personal_screen_time_rule' |
+      'delete_personal_screen_time_rule';
     targetId?: string;
     summary: string;
     fields: Record<string, unknown>;
