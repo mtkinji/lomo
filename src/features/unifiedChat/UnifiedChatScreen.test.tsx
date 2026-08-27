@@ -3,6 +3,10 @@ import path from 'node:path';
 
 const featureDir = path.resolve(__dirname);
 const screenSource = readFileSync(path.join(featureDir, 'UnifiedChatScreen.tsx'), 'utf8');
+const screenPresentationSource = readFileSync(
+  path.join(featureDir, 'UnifiedChatScreenPresentation.tsx'),
+  'utf8',
+);
 const realtimeRequestSource = readFileSync(path.join(featureDir, 'runDurableRealtimeRequest.ts'), 'utf8');
 const drawerHeaderSource = readFileSync(path.join(featureDir, 'UnifiedChatDrawerHeader.tsx'), 'utf8');
 const screenPropsSource = readFileSync(path.join(featureDir, 'UnifiedChatScreenProps.ts'), 'utf8');
@@ -75,8 +79,8 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('actions={<Button variant="primary" onPress={retrySurface}>Try again</Button>}');
     expect(screenSource).toContain("require('../../../assets/illustrations/recovery-broken-chain.png')");
     expect(screenSource).toContain('surfaceLoadFailed ? (');
-    expect(screenSource).toContain('<Button variant="primary" onPress={onAction}>');
-    expect(screenSource).not.toContain('style={styles.primaryButton}');
+    expect(screenPresentationSource).toContain('<Button variant="primary" onPress={onAction}>');
+    expect(`${screenSource}\n${screenPresentationSource}`).not.toContain('style={styles.primaryButton}');
   });
 
   test('handles workbench feedback through the native repository', () => {

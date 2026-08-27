@@ -28,6 +28,14 @@ export type MobileChannelContextInput = {
   };
 };
 
+export type FinalizedConversationUtterance = Omit<
+  NonNullable<MobileChannelContextInput['voice']>,
+  'utteranceId' | 'confidence'
+> & {
+  id: string;
+  text: string;
+};
+
 export function buildMobileChannelContext(input: MobileChannelContextInput): KwiltChannelContextPacket {
   return buildKwiltChannelContext({
     ...input,
