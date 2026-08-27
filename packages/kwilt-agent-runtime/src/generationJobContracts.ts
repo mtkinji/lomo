@@ -8,6 +8,7 @@ export const KWILT_GENERATION_JOB_IDS = [
   'lightweight_helper',
   'story_game',
   'agent_judgment',
+  'unified_chat_agent',
   'current_information',
   'unified_chat_attachment',
   'default_chat',
@@ -24,6 +25,12 @@ export type KwiltCloudTier = 'economy' | 'advanced';
 export type KwiltCloudFallbackPolicy = 'allowed' | 'allowed_with_reduced_context' | 'forbidden';
 export type KwiltLocalPromotion = 'disabled' | 'challenger' | 'default';
 export type KwiltGenerationPrivacyClass = 'ordinary_text' | 'private_text' | 'external_content';
+
+export type KwiltResponsesGenerationContract = Readonly<{
+  store: false;
+  maximumOutputTokens: number;
+  parallelToolCalls: false;
+}>;
 
 export type KwiltLocalGenerationContract = Readonly<{
   promotion: KwiltLocalPromotion;
@@ -42,6 +49,7 @@ export type KwiltGenerationJobContract = Readonly<{
   cloudTier: KwiltCloudTier;
   cloudModel: string;
   local: KwiltLocalGenerationContract | null;
+  responses: KwiltResponsesGenerationContract | null;
 }>;
 
 const local = (
@@ -59,8 +67,14 @@ const local = (
 });
 
 const contract = (
-  value: Omit<KwiltGenerationJobContract, 'version'>,
-): KwiltGenerationJobContract => Object.freeze({ ...value, version: 1 as const });
+  value: Omit<KwiltGenerationJobContract, 'version' | 'responses'> & {
+    responses?: KwiltResponsesGenerationContract;
+  },
+): KwiltGenerationJobContract => Object.freeze({
+  ...value,
+  version: 1 as const,
+  responses: value.responses ?? null,
+});
 
 export const KWILT_GENERATION_JOB_CONTRACTS: Readonly<
   Record<KwiltGenerationJobId, KwiltGenerationJobContract>
@@ -74,6 +88,11 @@ export const KWILT_GENERATION_JOB_CONTRACTS: Readonly<
   lightweight_helper: contract({ id: 'lightweight_helper', owner: 'ai-runtime', privacyClass: 'ordinary_text', cloudFallbackPolicy: 'allowed', cloudTier: 'economy', cloudModel: 'gpt-4o-mini', local: null }),
   story_game: contract({ id: 'story_game', owner: 'games', privacyClass: 'ordinary_text', cloudFallbackPolicy: 'allowed', cloudTier: 'economy', cloudModel: 'gpt-4o-mini', local: null }),
   agent_judgment: contract({ id: 'agent_judgment', owner: 'agent-runtime', privacyClass: 'private_text', cloudFallbackPolicy: 'allowed', cloudTier: 'advanced', cloudModel: 'gpt-5.6-luna', local: null }),
+  unified_chat_agent: contract({
+    id: 'unified_chat_agent', owner: 'agent-runtime', privacyClass: 'private_text',
+    cloudFallbackPolicy: 'allowed', cloudTier: 'advanced', cloudModel: 'gpt-5.6-terra', local: null,
+    responses: { store: false, maximumOutputTokens: 1_200, parallelToolCalls: false },
+  }),
   current_information: contract({ id: 'current_information', owner: 'ai-runtime', privacyClass: 'external_content', cloudFallbackPolicy: 'allowed', cloudTier: 'advanced', cloudModel: 'gpt-5.2', local: null }),
   unified_chat_attachment: contract({ id: 'unified_chat_attachment', owner: 'chat', privacyClass: 'external_content', cloudFallbackPolicy: 'allowed', cloudTier: 'advanced', cloudModel: 'gpt-5-mini', local: null }),
   default_chat: contract({ id: 'default_chat', owner: 'chat', privacyClass: 'private_text', cloudFallbackPolicy: 'allowed', cloudTier: 'economy', cloudModel: 'gpt-4o-mini', local: null }),

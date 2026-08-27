@@ -25,7 +25,6 @@ import {
 import type { BusyInterval } from '../../services/scheduling/schedulingEngine';
 import { createDefaultSlotDraft, type PlanSlotDraft } from './planSlotDraft';
 import {
-  createCalendarEvent,
   getOrInitCalendarPreferences,
   listCalendars,
   listCalendarsWithErrors,
@@ -61,9 +60,11 @@ import { deleteManagedEvent } from '../../services/calendar/managedEvents';
 import {
   getCalendarCommitAlertForError,
   hasBindableCalendarEventRef,
-  resolveCalendarEventRefBeforeCreate,
-  resolveCalendarEventRefAfterCreate,
 } from '../../services/plan/calendarEventCommit';
+import {
+  PlanActionUnconfirmedError,
+  schedulePlanCalendarSession,
+} from '../../capabilities/plan/actions/planActions';
 import { usePlanRecommendationsQuickAdd } from './usePlanRecommendationsQuickAdd';
 import { usePlanSlotCapture } from './usePlanSlotCapture';
 import { usePlanRecommendationFunnel } from './usePlanRecommendationFunnel';
@@ -862,73 +863,35 @@ export function PlanPager({
     try {
       setCommittingActivityId(activityId);
       await ensureSignedInWithPrompt('plan');
-      const existing = await resolveCalendarEventRefBeforeCreate({
-        block: proposal,
-        writeRef,
+      const receipt = await schedulePlanCalendarSession({
+        operationId: 'plan.schedule_activity',
+        title: proposal.title,
+        startDate: proposal.startDate,
+        endDate: proposal.endDate,
+        writeCalendarRef: writeRef,
+        confirmed: true,
       });
-      if (existing?.status === 'linked') {
-        applyLocalCommit({ activityId, proposal, eventRef: existing.eventRef });
-        showCommitSuccessFeedback();
-        return true;
-      }
-
-      let createResult: unknown = null;
-      try {
-        createResult = await createCalendarEvent({
-          title: proposal.title,
-          start: proposal.startDate,
-          end: proposal.endDate,
-          writeCalendarRef: writeRef,
-        });
-      } catch (err) {
-        // Sometimes the calendar side-effect succeeds but the network response fails
-        // (timeouts, HTML error bodies, etc.). Best-effort verify via busy intervals.
-        const recovered = await resolveCalendarEventRefAfterCreate({
-          createResult: null,
-          block: proposal,
-          writeRef,
-        });
-        if (recovered.status === 'linked') {
-          applyLocalCommit({ activityId, proposal, eventRef: recovered.eventRef });
-          showCommitSuccessFeedback();
-          return true;
-        }
-        if (recovered.status === 'unlinked') {
-          Alert.alert(
-            'Check your calendar',
-            'We may have added this time block, but we couldn’t safely link it for future moves/unschedule. Please check your calendar before trying again.',
-          );
-          return false;
-        }
-        const alert = getCalendarCommitAlertForError(err);
-        if (alert) Alert.alert(alert.title, alert.message);
-        return false;
-      }
-
-      // Even if we didn't get an eventRef payload (e.g. non-JSON body), we still treat
-      // this as a successful commit only if we can recover an eventRef; otherwise we avoid
-      // setting `scheduledAt` without a binding (Scheduled = manageable).
-      const resolved = await resolveCalendarEventRefAfterCreate({
-        createResult,
-        block: proposal,
-        writeRef,
-      });
-      if (resolved.status === 'unconfirmed') {
-        Alert.alert('Check your calendar', 'We may have added this time block, but we couldn’t confirm it. Please check your calendar.');
-        return false;
-      }
-      if (resolved.status === 'unlinked') {
+      applyLocalCommit({ activityId, proposal, eventRef: receipt.result.eventRef });
+      showCommitSuccessFeedback();
+      return true;
+    } catch (err) {
+      if (err instanceof PlanActionUnconfirmedError && err.recoveryStatus === 'unlinked') {
         Alert.alert(
           'Check your calendar',
           'We may have added this time block, but we couldn’t safely link it for future moves/unschedule. Please check your calendar before trying again.',
         );
         return false;
       }
-      applyLocalCommit({ activityId, proposal, eventRef: resolved.eventRef });
-      showCommitSuccessFeedback();
-      return true;
-    } catch (err) {
-      const alert = getCalendarCommitAlertForError(err);
+      if (err instanceof PlanActionUnconfirmedError && err.originalError == null) {
+        Alert.alert(
+          'Check your calendar',
+          'We may have added this time block, but we couldn’t confirm it. Please check your calendar.',
+        );
+        return false;
+      }
+      const alert = getCalendarCommitAlertForError(
+        err instanceof PlanActionUnconfirmedError ? err.originalError ?? err : err,
+      );
       if (alert) Alert.alert(alert.title, alert.message);
       return false;
     } finally {

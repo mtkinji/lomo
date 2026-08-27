@@ -113,6 +113,9 @@ Stop/go question:
 
 Enroll one physical child device under the Household using Apple's guardian-authorized Family Controls path. Do not depend on chores.
 
+Implementation follows the canonical
+[child-device enrollment and reconciliation contract](../../architecture/family-screen-time-device-enrollment-and-reconciliation.md).
+
 Exit evidence:
 
 - Profile/device binding, capability report, authorization state, and caregiver-authenticated release.

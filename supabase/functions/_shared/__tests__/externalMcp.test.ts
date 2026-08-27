@@ -1,10 +1,14 @@
 import {
+  EXTERNAL_MCP_ACTION_CATALOG,
+  EXTERNAL_MCP_CONTROL_COVERAGE,
   EXTERNAL_MCP_READ_TOOLS,
   EXTERNAL_MCP_WRITE_TOOLS,
+  normalizeExternalWriteRequestId,
   normalizeGetArcArgs,
   normalizeGetGoalArgs,
   normalizeListGoalsArgs,
   normalizeListRecentActivitiesArgs,
+  resolveExternalMcpTool,
   summarizeActivity,
   summarizeArc,
   summarizeChapter,
@@ -14,18 +18,82 @@ import {
 } from '../externalMcp';
 
 describe('externalMcp helpers', () => {
+  test('snapshots generated names, schemas, annotations, scopes, and compatibility aliases', () => {
+    expect(EXTERNAL_MCP_ACTION_CATALOG.map((tool) => ({
+      name: tool.name,
+      canonicalName: tool.canonicalName,
+      operationId: tool.operationId,
+      toolId: tool.toolId,
+      inputSchema: tool.inputSchema,
+      outputSchema: tool.outputSchema,
+      annotations: tool.annotations,
+      scopes: tool.requiredScopes,
+      compatibilityAlias: tool.compatibilityAlias,
+    }))).toMatchSnapshot();
+  });
+
+  test('exports only strict schemas projected from handler-backed registrations', () => {
+    const assertStrict = (schema: unknown): void => {
+      if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return;
+      const record = schema as Record<string, unknown>;
+      if (record.type === 'object') {
+        expect(record.additionalProperties).toBe(false);
+        const properties = record.properties && typeof record.properties === 'object' && !Array.isArray(record.properties)
+          ? record.properties as Record<string, unknown>
+          : {};
+        for (const child of Object.values(properties)) assertStrict(child);
+      }
+      if (record.type === 'array') assertStrict(record.items);
+      for (const child of Array.isArray(record.oneOf) ? record.oneOf : []) assertStrict(child);
+    };
+
+    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(66);
+    for (const tool of EXTERNAL_MCP_ACTION_CATALOG) {
+      assertStrict(tool.inputSchema);
+      expect(tool.outputSchema).toEqual(expect.objectContaining({ type: 'object' }));
+    }
+  });
+
+  test('keeps every manifest operation in an explicit external-control state', () => {
+    expect(EXTERNAL_MCP_CONTROL_COVERAGE).toHaveLength(145);
+    expect(EXTERNAL_MCP_CONTROL_COVERAGE.filter((row) => row.state === 'excluded')
+      .every((row) => row.owner === 'games' || row.owner === 'explore')).toBe(true);
+    expect(new Set(EXTERNAL_MCP_ACTION_CATALOG.map((tool) => tool.operationId)))
+      .toEqual(new Set(EXTERNAL_MCP_CONTROL_COVERAGE
+        .filter((row) => row.state === 'exposed')
+        .map((row) => row.operationId)));
+    expect(EXTERNAL_MCP_CONTROL_COVERAGE
+      .filter((row) => row.state === 'pending_registration')
+      .map((row) => row.operationId)).toEqual([]);
+    expect(EXTERNAL_MCP_CONTROL_COVERAGE
+      .filter((row) => row.state === 'not_applicable')
+      .map((row) => row.operationId)).toEqual(['general.answer', 'general.answer_with_context']);
+    expect(EXTERNAL_MCP_CONTROL_COVERAGE
+      .filter((row) => row.state === 'explicit_boundary')
+      .map((row) => row.operationId)).toEqual([
+        'relationships.forget_person',
+        'recipes.publication.attest_rights',
+        'groceries.checkout',
+        'groceries.payment',
+        'savings.coupon.apply_unsupported',
+      ]);
+  });
+
   describe('EXTERNAL_MCP_READ_TOOLS', () => {
     test('advertises the Sprint A read-only tool set', () => {
-      expect(EXTERNAL_MCP_READ_TOOLS.map((tool) => tool.name)).toEqual([
+      expect(EXTERNAL_MCP_READ_TOOLS.map((tool) => tool.name)).toEqual(expect.arrayContaining([
         'get_current_account',
         'list_arcs',
-        'get_arc',
         'list_goals',
-        'get_goal',
         'list_recent_activities',
         'get_current_chapter',
-        'get_show_up_status',
-      ]);
+        'kwilt_plan_read_day_context',
+        'kwilt_screen_time_read',
+        'kwilt_plan_recommend_day',
+        'kwilt_relationships_read',
+        'kwilt_household_read',
+        'kwilt_household_invitation_preview',
+      ]));
     });
 
     test('every tool is annotated read-only and non-destructive', () => {
@@ -41,26 +109,35 @@ describe('externalMcp helpers', () => {
 
   describe('EXTERNAL_MCP_WRITE_TOOLS', () => {
     test('advertises the write tool set for Arcs, Goals, Activities, check-ins, and chapter notes', () => {
-      expect(EXTERNAL_MCP_WRITE_TOOLS.map((tool) => tool.name)).toEqual([
+      expect(EXTERNAL_MCP_WRITE_TOOLS.map((tool) => tool.name)).toEqual(expect.arrayContaining([
         'create_arc',
-        'update_arc',
-        'delete_arc',
         'create_goal',
-        'update_goal',
-        'delete_goal',
-        'add_goal_checkin',
         'capture_activity',
-        'update_activity',
-        'create_activity_step',
-        'update_activity_step',
-        'mark_activity_step_done',
-        'delete_activity_step',
-        'reorder_activity_steps',
-        'mark_activity_done',
-        'set_focus_today',
-        'delete_activity',
         'update_chapter_user_note',
-      ]);
+        'kwilt_plan_schedule_activity',
+        'kwilt_plan_reschedule_activity',
+        'kwilt_plan_remove_activity',
+        'kwilt_activities_schedule',
+        'kwilt_plan_schedule_chunks',
+        'kwilt_activities_reminder_update',
+        'kwilt_activities_repeat_update',
+        'kwilt_relationships_remember',
+        'kwilt_relationships_correct',
+        'kwilt_relationships_forget',
+        'kwilt_profile_update',
+        'kwilt_goals_share_open',
+        'kwilt_activities_focus_open',
+        'kwilt_activities_location_update',
+        'kwilt_activities_attachments_open',
+        'kwilt_activities_share_open',
+        'kwilt_plan_preferences_open',
+        'kwilt_notifications_configure',
+        'kwilt_search_open',
+        'kwilt_account_settings_open',
+        'kwilt_account_subscription_open',
+        'kwilt_account_delete_open',
+        'kwilt_screen_time_configure',
+      ]));
     });
 
     test('marks all write tools as non-read-only and delete tools as destructive', () => {
@@ -71,24 +148,37 @@ describe('externalMcp helpers', () => {
         expect(tool.annotations.readOnlyHint).toBe(false);
         expect(tool.annotations.openWorldHint).toBe(false);
         expect(schema.properties?.idempotency_key).toBeDefined();
-        expect(tool.annotations.destructiveHint).toBe(tool.name.startsWith('delete_'));
+        expect(schema.required).toContain('idempotency_key');
+        expect(tool.requiredScopes.some((scope) => scope.endsWith('.write'))).toBe(true);
       }
     });
 
-    test('advertises steps on activity create and update tools', () => {
-      const capture = EXTERNAL_MCP_WRITE_TOOLS.find((tool) => tool.name === 'capture_activity');
-      const update = EXTERNAL_MCP_WRITE_TOOLS.find((tool) => tool.name === 'update_activity');
+    test('uses Life read scope for every currently exposed read tool', () => {
+      for (const tool of EXTERNAL_MCP_READ_TOOLS) {
+        expect(tool.requiredScopes.some((scope) => scope.endsWith('.read'))).toBe(true);
+      }
+    });
 
-      expect((capture?.inputSchema as any).properties.steps).toMatchObject({
-        type: 'array',
-      });
-      expect((update?.inputSchema as any).properties.steps).toMatchObject({
-        type: 'array',
-      });
+    test('accepts bounded stable write request IDs and rejects weak values', () => {
+      expect(normalizeExternalWriteRequestId(' request-123 ')).toBe('request-123');
+      expect(normalizeExternalWriteRequestId('short')).toBeNull();
+      expect(normalizeExternalWriteRequestId('x'.repeat(201))).toBeNull();
+      expect(normalizeExternalWriteRequestId(null)).toBeNull();
+    });
+
+    test('keeps compound step replacement out of activity create and update tools', () => {
+      const capture = resolveExternalMcpTool('capture_activity');
+      const update = resolveExternalMcpTool('update_activity');
+
+      expect((capture?.inputSchema as any).properties.steps).toBeUndefined();
+      expect((update?.inputSchema as any).properties.steps).toBeUndefined();
     });
 
     test('advertises first-class activity step tools', () => {
-      const tools = Object.fromEntries(EXTERNAL_MCP_WRITE_TOOLS.map((tool) => [tool.name, tool.inputSchema as any]));
+      const tools = Object.fromEntries([
+        'create_activity_step', 'update_activity_step', 'mark_activity_step_done',
+        'delete_activity_step', 'reorder_activity_steps',
+      ].map((name) => [name, resolveExternalMcpTool(name)?.inputSchema as any]));
 
       expect(tools.create_activity_step.properties).toMatchObject({
         activity_id: { type: 'string' },

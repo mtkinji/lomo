@@ -1,4 +1,5 @@
 import {
+  parseStoredScreenTimeProposalOperation,
   parseScreenTimeOverrideProposal,
   parseScreenTimePrerequisiteAgreementProposal,
 } from './screenTimeProposal';
@@ -100,5 +101,34 @@ describe('parseScreenTimePrerequisiteAgreementProposal', () => {
       childMembershipId: 'charlie', targetSelectionId: 'selection-games', expectedPolicyVersion: 7,
       childName: 'Charlie', rule,
     })).toBeNull();
+  });
+});
+
+describe('parseStoredScreenTimeProposalOperation', () => {
+  it.each([
+    ['update_family_screen_time_agreement', 'agreement-1'],
+    ['deactivate_family_screen_time_agreement', 'agreement-1'],
+  ] as const)('round-trips %s without widening the rule payload', (type, targetId) => {
+    expect(parseStoredScreenTimeProposalOperation({
+      type, targetId,
+      payload: {
+        childMembershipId: 'charlie', selectionId: 'selection-games', expectedVersion: 2,
+        rule: {
+          weekdays: [1, 2, 3, 4, 5], startMinute: 900, endMinute: 1140, dailyLimitMinutes: 20,
+          prerequisiteActivity: { selectionId: 'selection-reading', thresholdMinutes: 10, reset: 'daily' },
+        },
+      },
+    })).toMatchObject({ type, targetId });
+  });
+
+  it('round-trips override cancellation and strict request decisions', () => {
+    expect(parseStoredScreenTimeProposalOperation({
+      type: 'cancel_family_screen_time_override', targetId: 'override-1',
+      payload: { childMembershipId: 'charlie', expectedVersion: 7 },
+    })).toMatchObject({ type: 'cancel_family_screen_time_override', targetId: 'override-1' });
+    expect(parseStoredScreenTimeProposalOperation({
+      type: 'decide_family_screen_time_request', targetId: 'request-1',
+      payload: { childMembershipId: 'charlie', decision: 'denied', allowMinutes: null, expectedVersion: 7 },
+    })).toMatchObject({ type: 'decide_family_screen_time_request', targetId: 'request-1' });
   });
 });

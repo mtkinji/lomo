@@ -456,8 +456,9 @@ ${PREREQUISITE_HELPERS_SWIFT}
     ])
   }
 
-  @objc(requestAuthorization:rejecter:)
+  @objc(requestAuthorization:resolver:rejecter:)
   func requestAuthorization(
+    _ member: String,
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
@@ -465,7 +466,8 @@ ${PREREQUISITE_HELPERS_SWIFT}
     if #available(iOS 16.0, *) {
       Task {
         do {
-          try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+          let requestedMember: FamilyControlsMember = member == "child" ? .child : .individual
+          try await AuthorizationCenter.shared.requestAuthorization(for: requestedMember)
           DispatchQueue.main.async { resolve(Self.statusString()) }
         } catch {
           DispatchQueue.main.async { resolve("unavailable") }
@@ -678,7 +680,8 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
-  requestAuthorization:(RCTPromiseResolveBlock)resolve
+  requestAuthorization:(NSString *)member
+  resolver:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
 )
 

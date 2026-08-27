@@ -4,7 +4,7 @@ import path from 'path';
 describe('transaction plan-role override migration', () => {
   const migration = readFileSync(path.join(
     process.cwd(),
-    'supabase/migrations/20260804150409_add_money_transaction_plan_role_override.sql',
+    'supabase/migrations/20260804151537_add_money_transaction_plan_role_override.sql',
   ), 'utf8');
 
   it('adds a bounded nullable override for categorized outflows', () => {

@@ -280,6 +280,22 @@ describe('navigationPersistence', () => {
     });
   });
 
+  test.each([
+    ['SettingsHouseholdDeviceSetup', {
+      householdId: 'house-1', childMembershipId: 'child-1', childDisplayName: 'Riley',
+    }],
+    ['SettingsHouseholdDevices', { householdId: 'house-1' }],
+  ])('restores the %s Household-device route', async (screen, params) => {
+    const settings = nestedState('stack', screen, [
+      route('SettingsHome'), route('SettingsHousehold'), route(screen, undefined, params),
+    ]);
+    const root = nestedState('drawer', 'Settings', [route('MainTabs'), route('Settings', settings)]);
+
+    const restored = (await restore(root)) as unknown as TestState;
+    const restoredSettings = restored.routes[restored.index].state!;
+    expect(restoredSettings.routes[restoredSettings.index]).toMatchObject({ name: screen, params });
+  });
+
   test('rejects dev-only DevTools state in production', () => {
     expect(
       shouldRestoreNavigationState(rootState(['MainTabs', 'Agent', 'ArcsStack', 'DevTools', 'Settings']), {

@@ -21,8 +21,11 @@ import { parseChapterNotePatch, type ChapterProposalOperation } from './chapterP
 import { createDeviceToolProvider } from './deviceToolProvider';
 import type { PlanPlacementConversationReferent } from './planConversationReferent';
 import {
+  parseScreenTimeAgreementMutationProposal,
   parseScreenTimeOverrideProposal,
+  parseScreenTimeOverrideCancellationProposal,
   parseScreenTimePrerequisiteAgreementProposal,
+  parseScreenTimeRequestDecisionProposal,
   type ScreenTimeProposalOperation,
 } from './screenTimeProposal';
 import {
@@ -94,6 +97,42 @@ export type StagedUnifiedChatToolProposal =
       operation: ScreenTimeProposalOperation;
     };
 
+function projectScreenTimeAgreementRule(rule: Record<string, unknown>): Record<string, unknown> {
+  const projected: Record<string, unknown> = {
+    weekdays: rule.weekdays,
+    startMinute: rule.startMinute,
+    endMinute: rule.endMinute,
+    dailyLimitMinutes: rule.dailyLimitMinutes,
+  };
+  const prerequisite = rule.prerequisiteActivity;
+  if (prerequisite && typeof prerequisite === 'object' && !Array.isArray(prerequisite)) {
+    const input = prerequisite as Record<string, unknown>;
+    projected.prerequisiteActivity = {
+      selectionId: input.selectionId,
+      thresholdMinutes: input.thresholdMinutes,
+      reset: input.reset,
+    };
+  }
+  return projected;
+}
+
+function describeScreenTimeAgreementRule(
+  rule: Record<string, unknown>,
+  prerequisiteLabel?: string,
+): string {
+  const weekdays = Array.isArray(rule.weekdays) ? rule.weekdays as number[] : [];
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const days = weekdays.length === 7 ? 'daily' : weekdays.map((day) => dayNames[day]).filter(Boolean).join(', ');
+  const minutes = typeof rule.dailyLimitMinutes === 'number' ? ` · ${rule.dailyLimitMinutes} minute daily limit` : '';
+  const prerequisite = rule.prerequisiteActivity && typeof rule.prerequisiteActivity === 'object'
+    ? rule.prerequisiteActivity as Record<string, unknown>
+    : null;
+  const requirement = prerequisite && prerequisiteLabel
+    ? ` · requires ${prerequisiteLabel} for ${String(prerequisite.thresholdMinutes)} minutes first`
+    : '';
+  return `${days || 'selected days'} · ${String(rule.startMinute)}–${String(rule.endMinute)}${minutes}${requirement}`;
+}
+
 const failed = (code: string, message: string): AgentToolExecutionResult => ({
   status: 'failed', code, message, retryable: false,
 });
@@ -102,11 +141,16 @@ export function createUnifiedChatToolProvider({
   snapshots,
   planConversationReferent,
   executeRelationshipTool,
+  executeHouseholdTool,
   now = () => new Date(),
 }: {
   snapshots: UnifiedChatCapabilitySnapshots;
   planConversationReferent?: PlanPlacementConversationReferent | null;
   executeRelationshipTool?: (
+    call: AgentToolCall,
+    tool: AgentToolDefinition,
+  ) => Promise<AgentToolExecutionResult | null>;
+  executeHouseholdTool?: (
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
@@ -154,8 +198,64 @@ export function createUnifiedChatToolProvider({
     }
     const relationshipResult = await executeRelationshipTool?.(call, tool);
     if (relationshipResult) return relationshipResult;
+    const householdResult = await executeHouseholdTool?.(call, tool);
+    if (householdResult) return householdResult;
     const deviceResult = await deviceProvider.execute(call, tool);
     if (deviceResult) return deviceResult;
+    if (call.toolId === 'screen_time.read') {
+      const requested = call.arguments.childMembershipIds;
+      if (requested !== undefined && (
+        !Array.isArray(requested) || requested.length > 20 ||
+        requested.some((value) => typeof value !== 'string' || !value.trim())
+      )) {
+        return failed('invalid_screen_time_children', 'Choose up to 20 valid children to read.');
+      }
+      const requestedIds = requested === undefined
+        ? null
+        : [...new Set((requested as string[]).map((value) => value.trim()))];
+      const authorized = snapshots.screenTime?.children.filter((child) => child.canManage) ?? [];
+      if (requestedIds?.some((id) => !authorized.some((child) => child.membershipId === id))) {
+        return failed(
+          'screen_time_child_not_authorized',
+          'One or more children are not available for Screen Time management.',
+        );
+      }
+      const selected = requestedIds
+        ? requestedIds.map((id) => authorized.find((child) => child.membershipId === id)!)
+        : authorized;
+      return {
+        status: 'completed', receipt: null,
+        output: {
+          children: selected.map((child) => ({
+            membershipId: child.membershipId,
+            displayName: child.displayName,
+            desiredPolicyVersion: child.policy.desiredPolicyVersion,
+            selections: child.policy.selections.map(({ id, label, status }) => ({ id, label, status })),
+            agreements: child.policy.agreements.map((agreement) => ({
+              id: agreement.id,
+              selectionId: agreement.selectionId,
+              rule: projectScreenTimeAgreementRule(agreement.rule),
+              active: agreement.active,
+              version: agreement.version,
+              updatedAt: agreement.updatedAt,
+            })),
+            activeOverrides: child.policy.activeOverrides,
+            pendingRequests: child.policy.pendingRequests,
+            devices: child.policy.devices.map(({ readiness, authorizationStatus, lastSeenAt, releasedAt }) => ({
+              readiness, authorizationStatus, lastSeenAt, releasedAt,
+            })),
+            latestDeviceReceipt: child.policy.latestDeviceReceipt
+              ? {
+                  policyVersion: child.policy.latestDeviceReceipt.policyVersion,
+                  outcome: child.policy.latestDeviceReceipt.outcome,
+                  failureCode: child.policy.latestDeviceReceipt.failureCode,
+                  occurredAt: child.policy.latestDeviceReceipt.occurredAt,
+                }
+              : null,
+          })),
+        },
+      };
+    }
     if (call.toolId === 'recipes.create') {
       const reviewedData = buildReviewedRecipeCreate(call.arguments.recipe);
       if (!reviewedData) {
@@ -320,6 +420,100 @@ export function createUnifiedChatToolProvider({
       };
       staged.push(proposal);
       return { status: 'proposed', proposal };
+    }
+
+    if (call.toolId === 'screen_time.agreement.update' || call.toolId === 'screen_time.agreement.deactivate') {
+      const operation = parseScreenTimeAgreementMutationProposal(call.toolId, call.arguments);
+      if (!operation) return failed('invalid_screen_time_agreement', 'Choose one current agreement and a valid bounded rule.');
+      const child = snapshots.screenTime?.children.find((candidate) => (
+        candidate.canManage && candidate.membershipId === operation.payload.childMembershipId
+      ));
+      const agreement = child?.policy.agreements.find((candidate) => (
+        candidate.id === operation.targetId && candidate.active
+      ));
+      const selection = child?.policy.selections.find((candidate) => (
+        candidate.id === operation.payload.selectionId && candidate.status === 'active'
+      ));
+      const prerequisiteId = operation.payload.rule.prerequisiteActivity?.selectionId;
+      const prerequisiteSelection = prerequisiteId
+        ? child?.policy.selections.find((candidate) => (
+            candidate.id === prerequisiteId && candidate.status === 'active'
+          ))
+        : undefined;
+      const currentRuleMatches = operation.type !== 'deactivate_family_screen_time_agreement'
+        || JSON.stringify(projectScreenTimeAgreementRule(agreement?.rule ?? {})) === JSON.stringify(operation.payload.rule);
+      if (!child || !agreement || !selection || agreement.selectionId !== selection.id
+        || (operation.type === 'update_family_screen_time_agreement'
+          && prerequisiteId !== undefined
+          && (!prerequisiteSelection || prerequisiteId === operation.payload.selectionId))
+        || agreement.version !== operation.payload.expectedVersion || !currentRuleMatches) {
+        return {
+          status: 'failed', code: 'screen_time_target_stale',
+          message: 'The child, agreement, saved selection, or version changed. Refresh before continuing.', retryable: true,
+        };
+      }
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'screenTime',
+        title: operation.type === 'update_family_screen_time_agreement'
+          ? `Update ${selection.label} agreement`
+          : `Turn off ${selection.label} agreement`,
+        body: operation.type === 'update_family_screen_time_agreement'
+          ? `${child.displayName} · ${describeScreenTimeAgreementRule(operation.payload.rule, prerequisiteSelection?.label)}`
+          : `${child.displayName} · stop this standing agreement`,
+        operation,
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal: proposal as unknown as Record<string, unknown> };
+    }
+
+    if (call.toolId === 'screen_time.override.cancel') {
+      const operation = parseScreenTimeOverrideCancellationProposal(call.arguments);
+      if (!operation) return failed('invalid_screen_time_override', 'Choose one current temporary Screen Time override.');
+      const child = snapshots.screenTime?.children.find((candidate) => (
+        candidate.canManage && candidate.membershipId === operation.payload.childMembershipId
+      ));
+      const override = child?.policy.activeOverrides.find((candidate) => candidate.id === operation.targetId);
+      const selection = child?.policy.selections.find((candidate) => candidate.id === override?.selectionId);
+      if (!child || !override || !selection || child.policy.desiredPolicyVersion !== operation.payload.expectedVersion) {
+        return {
+          status: 'failed', code: 'screen_time_target_stale',
+          message: 'The child, temporary control, or Screen Time version changed. Refresh before continuing.', retryable: true,
+        };
+      }
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'screenTime', title: `Cancel ${selection.label} ${override.action}`,
+        body: `${child.displayName} · recompile the remaining Kwilt family restrictions`, operation,
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal: proposal as unknown as Record<string, unknown> };
+    }
+
+    if (call.toolId === 'screen_time.request.decide') {
+      const operation = parseScreenTimeRequestDecisionProposal(call.arguments);
+      if (!operation) return failed('invalid_screen_time_request_decision', 'Choose approve with bounded minutes, or deny without an allowance.');
+      const child = snapshots.screenTime?.children.find((candidate) => (
+        candidate.canManage && candidate.membershipId === operation.payload.childMembershipId
+      ));
+      const request = child?.policy.pendingRequests.find((candidate) => (
+        candidate.id === operation.targetId && candidate.status === 'pending' && new Date(candidate.expiresAt) > now()
+      ));
+      const selection = child?.policy.selections.find((candidate) => candidate.id === request?.selectionId);
+      if (!child || !request || !selection || child.policy.desiredPolicyVersion !== operation.payload.expectedVersion) {
+        return {
+          status: 'failed', code: 'screen_time_target_stale',
+          message: 'The child request or Screen Time version changed. Refresh before continuing.', retryable: true,
+        };
+      }
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'screenTime',
+        title: `${operation.payload.decision === 'approved' ? 'Approve' : 'Deny'} ${selection.label} request`,
+        body: operation.payload.decision === 'approved'
+          ? `${child.displayName} · allow ${operation.payload.allowMinutes} minutes through Kwilt family restrictions`
+          : `${child.displayName} · no temporary allowance`,
+        operation,
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal: proposal as unknown as Record<string, unknown> };
     }
 
     if (call.toolId === 'screen_time.override.block' || call.toolId === 'screen_time.override.allow') {

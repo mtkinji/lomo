@@ -1,5 +1,9 @@
 import { parseSmsCommand } from './phoneAgent.ts';
 import { normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
+import {
+  normalizeKwiltChannelContext,
+  type KwiltChannelContextPacket,
+} from '../../../packages/kwilt-agent-runtime/src/channelContext.ts';
 
 export type AgentRunChannel = 'mobile' | 'sms' | 'phone' | 'desktop' | 'external';
 export type AgentRunInitiator = 'user' | 'system';
@@ -25,7 +29,7 @@ export type CanonicalAgentRunRequest = {
     externalMessageId?: string;
     disclosureAcknowledged?: boolean;
     timeZone?: string;
-  };
+  } & Partial<KwiltChannelContextPacket>;
 };
 
 type PhoneLinkPolicy = {
@@ -74,6 +78,8 @@ export function normalizeAgentRunRequest(raw: unknown): CanonicalAgentRunRequest
   if (parentRunId && !UUID_PATTERN.test(parentRunId)) throw new Error('invalid_parent_run_id');
   const rawContext = record(input.channelContext);
   const channelContext: CanonicalAgentRunRequest['channelContext'] = {};
+  const mobileContext = normalizeKwiltChannelContext(rawContext);
+  if (channel === 'mobile' && mobileContext) Object.assign(channelContext, mobileContext);
   if (typeof rawContext.phoneLinkId === 'string' && rawContext.phoneLinkId.trim()) {
     channelContext.phoneLinkId = rawContext.phoneLinkId.trim().slice(0, 200);
   }
@@ -83,6 +89,7 @@ export function normalizeAgentRunRequest(raw: unknown): CanonicalAgentRunRequest
   if (rawContext.disclosureAcknowledged === true) channelContext.disclosureAcknowledged = true;
   const timeZone = normalizeIanaTimeZone(rawContext.timeZone);
   if (timeZone) channelContext.timeZone = timeZone;
+  else delete channelContext.timeZone;
   return {
     channel: channel as AgentRunChannel,
     requestId,
@@ -163,6 +170,8 @@ export type ServerAgentToolDefinition = {
 
 export type ServerAgentToolCall = {
   id: string;
+  /** Provider correlation only. Never use this value as a Kwilt idempotency key. */
+  providerCallId?: string;
   toolId: string;
   arguments: Record<string, unknown>;
 };
@@ -200,7 +209,24 @@ export type ServerAgentLoopMessage =
   | { role: 'assistant'; content: string | null; toolCalls?: readonly ServerAgentToolCall[] }
   | { role: 'tool'; toolCallId: string; toolId: string; content: string };
 
-export type ServerAgentModelStep = { content: string | null; toolCalls: ServerAgentToolCall[] };
+export type ServerAgentModelMetadata = {
+  responseId: string;
+  routedModel: string;
+  promptVersion: string;
+  toolCatalogHash: string;
+  latencyMs: number;
+  usage: {
+    inputTokens: number | null;
+    outputTokens: number | null;
+    totalTokens: number | null;
+  };
+};
+
+export type ServerAgentModelStep = {
+  content: string | null;
+  toolCalls: ServerAgentToolCall[];
+  metadata?: ServerAgentModelMetadata;
+};
 
 function stableValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stableValue);
@@ -214,6 +240,7 @@ function stableValue(value: unknown): unknown {
 
 export async function runBoundedServerAgentToolLoop({
   tools,
+  modelTools = tools,
   initialMessages,
   modelStep,
   executeTool,
@@ -222,6 +249,7 @@ export async function runBoundedServerAgentToolLoop({
   maxToolCalls = 12,
 }: {
   tools: readonly ServerAgentToolDefinition[];
+  modelTools?: readonly ServerAgentToolDefinition[];
   initialMessages: readonly ServerAgentLoopMessage[];
   modelStep: (input: {
     messages: readonly ServerAgentLoopMessage[];
@@ -247,8 +275,11 @@ export async function runBoundedServerAgentToolLoop({
 
   for (let round = 1; round <= maxRounds; round += 1) {
     if (signal?.aborted) return stopped(round);
-    const step = await modelStep({ messages, tools, round, ...(signal ? { signal } : {}) });
-    events.push({ sequence: ++eventSequence, type: 'model_step', round });
+    const step = await modelStep({ messages, tools: modelTools, round, ...(signal ? { signal } : {}) });
+    events.push({
+      sequence: ++eventSequence, type: 'model_step', round,
+      ...(step.metadata ? { metadata: step.metadata } : {}),
+    });
     if (step.toolCalls.length === 0) {
       const content = step.content?.trim();
       if (!content) return { status: 'failed' as const, content: null, errorCode: 'missing_final_content', messages, events };

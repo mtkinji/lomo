@@ -1,4 +1,4 @@
-import type { AgentJudgment } from './agentJudgment';
+import { resolveTurnPolicy, type AgentJudgment } from '@kwilt/agent-runtime';
 import {
   buildAgentJudgmentGrounding,
   buildActionTargetGrounding,
@@ -65,14 +65,15 @@ test('self-directed Screen Time requests cannot receive child-control tools', ()
     screenTimeTools,
     'Set up Screen Time controls for me.',
   ).map((tool) => tool.id)).toEqual(expect.arrayContaining([
-    'screen_time.read',
     'screen_time.personal.setup.open',
     'money.app_control.review',
   ]));
-  expect(selectSubjectSafeRuntimeTools(
+  const selfDirectedTools = selectSubjectSafeRuntimeTools(
     screenTimeTools,
     'Set up Screen Time controls for me.',
-  ).map((tool) => tool.id)).not.toEqual(expect.arrayContaining([
+  ).map((tool) => tool.id);
+  expect(selfDirectedTools).not.toContain('screen_time.read');
+  expect(selfDirectedTools).not.toEqual(expect.arrayContaining([
     'screen_time.configure',
     'screen_time.override.allow',
   ]));
@@ -80,7 +81,6 @@ test('self-directed Screen Time requests cannot receive child-control tools', ()
   const screenshotPrompt = 'Set a screen time rule that allows me to use Instagram for 10 minutes before I have to turn it off.';
   const screenshotTools = selectSubjectSafeRuntimeTools(screenTimeTools, screenshotPrompt).map((tool) => tool.id);
   expect(screenshotTools).toEqual(expect.arrayContaining([
-    'screen_time.read',
     'screen_time.personal.limit.open',
   ]));
   expect(screenshotTools).not.toEqual(expect.arrayContaining([
@@ -138,4 +138,23 @@ test('keeps create-plus-calendar intent as an explicit post-create continuation'
     stagedCreate: false,
     stagedPlanPlacement: true,
   })).toBeNull();
+});
+
+test('treats judgment-selected write tools as advisory until deterministic authority resolves', () => {
+  const policy = resolveTurnPolicy({
+    prompt: 'My fitness goal has a different title now.',
+    tools: UNIFIED_CHAT_TOOL_CATALOG,
+    advisoryToolIds: ['goals.update'],
+    unresolvedReferences: [],
+    actorPermissions: {
+      canRead: true,
+      canWrite: true,
+      allowedToolIds: UNIFIED_CHAT_TOOL_CATALOG.map((tool) => tool.id),
+    },
+    executionProvider: 'device',
+    acceptedPriorSuggestion: false,
+  });
+
+  expect(policy.authorization).toEqual({ kind: 'none', reason: 'write_not_explicit' });
+  expect(policy.allowedToolIds).toEqual([]);
 });

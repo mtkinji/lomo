@@ -65,6 +65,7 @@ describe('activityScheduleSlots', () => {
         startDate: start.toISOString(),
         endDate: new Date(2026, 5, 22, 11, 0).toISOString(),
       },
+      advisories: [],
     });
   });
 
@@ -130,7 +131,7 @@ describe('activityScheduleSlots', () => {
     });
   });
 
-  it('rejects slots outside availability or overlapping busy intervals', () => {
+  it('allows intentional placement outside availability with an advisory', () => {
     const outsideWindow = resolveManualScheduleSlot({
       activity: activity(),
       activityAreas: [],
@@ -143,11 +144,16 @@ describe('activityScheduleSlots', () => {
     });
 
     expect(outsideWindow).toEqual({
-      ok: false,
-      reason: 'outside-window',
-      toast: { message: 'That time is outside your availability.', durationMs: 2400 },
+      ok: true,
+      slot: {
+        startDate: new Date(2026, 5, 22, 13, 0).toISOString(),
+        endDate: new Date(2026, 5, 22, 13, 30).toISOString(),
+      },
+      advisories: ['outside-window'],
     });
+  });
 
+  it('allows intentional placement over busy time with an advisory', () => {
     const busy = resolveManualScheduleSlot({
       activity: activity(),
       activityAreas: [],
@@ -160,9 +166,12 @@ describe('activityScheduleSlots', () => {
     });
 
     expect(busy).toEqual({
-      ok: false,
-      reason: 'busy',
-      toast: { message: 'That time is busy.', durationMs: 2200 },
+      ok: true,
+      slot: {
+        startDate: new Date(2026, 5, 22, 10, 30).toISOString(),
+        endDate: new Date(2026, 5, 22, 11, 0).toISOString(),
+      },
+      advisories: ['busy'],
     });
   });
 });

@@ -11,7 +11,11 @@ import {
 import { Badge } from '../../ui/Badge';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { menuItemTextProps, menuStyles } from '../../ui/menuStyles';
-import { useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
+import { getGoalActionStoreBoundary, useAppStore, defaultForceLevels, getCanonicalForce } from '../../store/useAppStore';
+import {
+  deleteGoal as performGoalDelete,
+  updateGoal as performGoalUpdate,
+} from '../../capabilities/life-structure/actions/goalActions';
 import { useCelebrationStore } from '../../store/useCelebrationStore';
 import { useToastStore } from '../../store/useToastStore';
 import type { GoalDetailRouteParams } from '../../navigation/routeParams';
@@ -193,6 +197,18 @@ const FORCE_ORDER: Array<string> = [
 
 const FIRST_GOAL_ILLUSTRATION = require('../../../assets/illustrations/goal-set.png');
 
+const updateGoalThroughAction = (goalId: string, updater: (goal: Goal) => Goal) => {
+  const store = getGoalActionStoreBoundary();
+  const current = store.getGoals().find((goal) => goal.id === goalId);
+  return performGoalUpdate({ goalId, expectedUpdatedAt: current?.updatedAt, update: updater }, store);
+};
+
+const removeGoalThroughAction = (goalId: string) => {
+  const store = getGoalActionStoreBoundary();
+  const current = store.getGoals().find((goal) => goal.id === goalId);
+  return performGoalDelete({ goalId, expectedUpdatedAt: current?.updatedAt }, store);
+};
+
 export function GoalDetailScreen() {
   const route = useRoute<GoalDetailRouteProp>();
   const navigation = useNavigation();
@@ -247,10 +263,10 @@ export function GoalDetailScreen() {
   const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
   const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
-  const removeGoal = useAppStore((state) => state.removeGoal);
+  const removeGoal = removeGoalThroughAction;
   const removeActivity = useAppStore((state) => state.removeActivity);
   const restoreRemovedActivity = useAppStore((state) => state.restoreRemovedActivity);
-  const updateGoal = useAppStore((state) => state.updateGoal);
+  const updateGoal = updateGoalThroughAction;
   const visuals = useAppStore((state) => state.userProfile?.visuals);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);

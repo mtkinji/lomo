@@ -193,6 +193,11 @@ Do not include Apple opaque app/category tokens in routes or analytics.
 
 ## Workflow 1: First caregiver setup
 
+The canonical implementation protocol for this workflow is
+[`family-screen-time-device-enrollment-and-reconciliation.md`](../../architecture/family-screen-time-device-enrollment-and-reconciliation.md).
+This exploration remains the experience source; the architecture contract owns token,
+device credential, API, receipt, readiness, recovery, and release semantics.
+
 ```text
 Side sheet -> Screen Time
   -> Family Screen Time empty state

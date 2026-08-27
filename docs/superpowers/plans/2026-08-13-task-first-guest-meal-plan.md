@@ -53,7 +53,7 @@
 ### Task 3: Align the database and native organizer projection
 
 **Files:**
-- Modify: `/Users/andrewwatanabe/Kwilt/supabase/migrations/20260813020931_unify_guest_plan_reactions.sql`
+- Modify: `/Users/andrewwatanabe/Kwilt/supabase/pending-migrations/20260813020931_unify_guest_plan_reactions.sql`
 - Modify: `/Users/andrewwatanabe/Kwilt/src/capabilities/meal-planning/domain/guestMealFeedbackMigration.test.ts`
 - Modify: `/Users/andrewwatanabe/Kwilt/docs/feature-briefs/guest-meal-plan-feedback.md`
 - Modify: `/Users/andrewwatanabe/Kwilt/docs/design-explorations/guest-meal-plan-feedback/03-converge.md`

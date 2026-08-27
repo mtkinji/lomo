@@ -1,4 +1,5 @@
 import type { AgentToolDefinition, AgentToolProvider } from './types.ts';
+import type { RuntimeToolProviderRegistration } from './providerRegistry.ts';
 
 export type CapabilityConfirmation = 'none' | 'explicit' | 'native';
 export type CapabilityCoverageState = 'live' | 'pending_provider' | 'confirmation_only' | 'excluded';
@@ -45,6 +46,7 @@ export type CapabilityManifestEntry = {
   };
 };
 
+/** @deprecated Migrate callers to executable RuntimeToolProviderRegistration values. */
 export type RuntimeToolImplementation = {
   runtime: 'mobile' | 'server';
   toolId: string;
@@ -82,12 +84,10 @@ export function defineCapabilityManifest<const Entries extends readonly Capabili
   return entries;
 }
 
-export function projectAgentToolCatalog(
+export function projectAgentToolCatalog<Context = unknown>(
   manifest: readonly CapabilityManifestEntry[],
-  input: {
-    runtime: RuntimeToolImplementation['runtime'];
-    implementations: readonly RuntimeToolImplementation[];
-  },
+  input: { runtime: RuntimeToolImplementation['runtime']; registrations: readonly RuntimeToolProviderRegistration<Context>[] }
+    | { runtime: RuntimeToolImplementation['runtime']; implementations: readonly RuntimeToolImplementation[] },
 ): AgentToolDefinition[] {
   const operationByTool = new Map<string, {
     operation: CapabilityManifestEntry;
@@ -98,42 +98,58 @@ export function projectAgentToolCatalog(
       if (!operationByTool.has(contract.id)) operationByTool.set(contract.id, { operation, contract });
     }
   }
-  const seen = new Set<string>();
-  return input.implementations
-    .filter((implementation) => implementation.runtime === input.runtime)
-    .map((implementation) => {
-      if (seen.has(implementation.toolId)) {
+  const providerPairs: { toolId: string; provider: AgentToolProvider }[] = [];
+  if ('registrations' in input) {
+    providerPairs.push(...input.registrations.map(({ toolId, provider }) => ({ toolId, provider })));
+  } else {
+    const seenLegacyTools = new Set<string>();
+    for (const implementation of input.implementations) {
+      if (implementation.runtime !== input.runtime) continue;
+      if (seenLegacyTools.has(implementation.toolId)) {
         throw new Error(`Duplicate runtime tool implementation: ${input.runtime}:${implementation.toolId}`);
       }
-      seen.add(implementation.toolId);
-      const match = operationByTool.get(implementation.toolId);
-      if (!match) throw new Error(`Runtime implements unknown canonical tool: ${implementation.toolId}`);
-      const { operation, contract } = match;
-      const ineligible = implementation.providers.filter(
-        (provider) => !operation.providerEligibility.includes(provider),
-      );
-      if (ineligible.length > 0) {
-        throw new Error(
-          `Runtime implementation uses ineligible provider for ${contract.id}: ${ineligible.join(', ')}`,
-        );
-      }
-      return {
+      seenLegacyTools.add(implementation.toolId);
+      providerPairs.push(...implementation.providers.map((provider) => ({
+        toolId: implementation.toolId, provider,
+      })));
+    }
+  }
+
+  const seenPairs = new Set<string>();
+  const providersByTool = new Map<string, AgentToolProvider[]>();
+  for (const pair of providerPairs) {
+    const key = `${pair.toolId}:${pair.provider}`;
+    if (seenPairs.has(key)) throw new Error(`Duplicate tool/provider registration: ${key}`);
+    seenPairs.add(key);
+    const match = operationByTool.get(pair.toolId);
+    if (!match) throw new Error(`Runtime registers unknown canonical tool: ${pair.toolId}`);
+    if (!match.operation.providerEligibility.includes(pair.provider)) {
+      throw new Error(`Runtime registration uses ineligible provider for ${pair.toolId}: ${pair.provider}`);
+    }
+    providersByTool.set(pair.toolId, [...(providersByTool.get(pair.toolId) ?? []), pair.provider]);
+  }
+
+  return [...providersByTool.entries()].map(([toolId, providers]) => {
+    const match = operationByTool.get(toolId);
+    if (!match) throw new Error(`Runtime registers unknown canonical tool: ${toolId}`);
+    const { operation, contract } = match;
+    return {
         id: contract.id,
         version: contract.version,
         capabilityId: contract.capabilityId ?? operation.owner,
         purpose: contract.purpose ?? operation.purpose,
-        providers: implementation.providers,
+        providers,
         effect: operation.effect,
         consequence: operation.consequence,
         reversible: operation.reversible,
         confirmation: operation.confirmation === 'none' ? 'none' : 'explicit',
-        canDeferToClient: input.runtime === 'server' && implementation.providers.includes('server')
+        canDeferToClient: input.runtime === 'server' && providers.includes('server')
           ? false
           : contract.canDeferToClient,
         inputSchema: contract.inputSchema,
         outputSchema: contract.outputSchema,
-      } satisfies AgentToolDefinition;
-    });
+    } satisfies AgentToolDefinition;
+  });
 }
 
 export function projectOperationCoverage(

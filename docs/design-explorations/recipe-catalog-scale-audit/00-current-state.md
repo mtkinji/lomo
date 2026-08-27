@@ -169,7 +169,7 @@ The desired coverage statement is therefore:
 `src/capabilities/recipes/data/recipeRepository.ts` queries
 `kwilt_recipe_equipment_requirements` and calls
 `save_kwilt_recipe_with_equipment`. The repository contains migration
-`20260817034820_persist_recipe_equipment_requirements.sql`, but the linked Kwilt
+`20260820202140_persist_recipe_equipment_requirements.sql`, but the linked Kwilt
 Supabase project has neither the migration history entry nor the table.
 
 This can break personal Recipe refresh/save and, because personal Recipe and

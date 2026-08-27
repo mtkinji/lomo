@@ -10,6 +10,13 @@ describe('Screen Time prerequisite native generation', () => {
     'plugins/appleEcosystem/screenTimePrerequisiteBridge.js',
   ].map((file) => readFileSync(resolve(process.cwd(), file), 'utf8')).join('\n');
   const appConfig = readFileSync(resolve(process.cwd(), 'app.config.ts'), 'utf8');
+  const generatedBridgeParts = require(resolve(
+    process.cwd(), 'plugins/appleEcosystem/screenTimePrerequisiteBridge.js',
+  )) as { PREREQUISITE_HELPERS_SWIFT: string; PREREQUISITE_METHODS_SWIFT: string };
+  const generatedBridge = [
+    generatedBridgeParts.PREREQUISITE_HELPERS_SWIFT,
+    generatedBridgeParts.PREREQUISITE_METHODS_SWIFT,
+  ].join('\n');
 
   it('registers a signed Device Activity monitor extension', () => {
     expect(extensionPlugin).toContain("name: 'KwiltDeviceActivityMonitor'");
@@ -36,6 +43,13 @@ describe('Screen Time prerequisite native generation', () => {
     expect(bridgePlugin).not.toContain('Gospel Library');
   });
 
+  it('requires callers to choose individual or child authorization explicitly', () => {
+    expect(bridgePlugin).toContain('let requestedMember: FamilyControlsMember');
+    expect(bridgePlugin).toContain('member == "child" ? .child : .individual');
+    expect(bridgePlugin).toContain('requestAuthorization(for: requestedMember)');
+    expect(bridgePlugin).not.toContain('requestAuthorization(for: .individual)');
+  });
+
   it('starts a separate personal daily-limit monitor that shields only after threshold', () => {
     expect(bridgePlugin).toContain('applyPersonalUsageLimit');
     expect(bridgePlugin).toContain('clearPersonalUsageLimit');
@@ -43,6 +57,16 @@ describe('Screen Time prerequisite native generation', () => {
     expect(extensionPlugin).toContain('personal_usage_limit_reached');
     expect(extensionPlugin).toContain('applyPersonalUsageLimitShield');
     expect(bridgePlugin).toContain('includesPastActivity: true');
+  });
+
+  it('preserves rule-specific Swift interpolation in generated personal-limit identifiers', () => {
+    expect(bridgePlugin).toContain('"kwilt.personal.limit.\\\\(safeIdentifier(ruleId))"');
+    expect(bridgePlugin).toContain('forKey: "\\\\(personalUsageLimitConfigPrefix)\\\\(activity.rawValue)"');
+    expect(bridgePlugin).toContain('id: "personal_limit.\\\\(ruleId)"');
+    expect(generatedBridge).toContain('"kwilt.personal.limit.\\(safeIdentifier(ruleId))"');
+    expect(generatedBridge).toContain('forKey: "\\(personalUsageLimitConfigPrefix)\\(activity.rawValue)"');
+    expect(generatedBridge).toContain('id: "personal_limit.\\(ruleId)"');
+    expect(generatedBridge).not.toContain('"kwilt.personal.limit.(safeIdentifier(ruleId))"');
   });
 
   it('describes overlapping restrictions without implying an unlock order', () => {

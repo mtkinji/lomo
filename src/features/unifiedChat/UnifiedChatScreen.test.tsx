@@ -3,6 +3,11 @@ import path from 'node:path';
 
 const featureDir = path.resolve(__dirname);
 const screenSource = readFileSync(path.join(featureDir, 'UnifiedChatScreen.tsx'), 'utf8');
+const screenPresentationSource = readFileSync(
+  path.join(featureDir, 'UnifiedChatScreenPresentation.tsx'),
+  'utf8',
+);
+const realtimeRequestSource = readFileSync(path.join(featureDir, 'runDurableRealtimeRequest.ts'), 'utf8');
 const drawerHeaderSource = readFileSync(path.join(featureDir, 'UnifiedChatDrawerHeader.tsx'), 'utf8');
 const screenPropsSource = readFileSync(path.join(featureDir, 'UnifiedChatScreenProps.ts'), 'utf8');
 const contextualPresentationSource = readFileSync(
@@ -74,8 +79,8 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('actions={<Button variant="primary" onPress={retrySurface}>Try again</Button>}');
     expect(screenSource).toContain("require('../../../assets/illustrations/recovery-broken-chain.png')");
     expect(screenSource).toContain('surfaceLoadFailed ? (');
-    expect(screenSource).toContain('<Button variant="primary" onPress={onAction}>');
-    expect(screenSource).not.toContain('style={styles.primaryButton}');
+    expect(screenPresentationSource).toContain('<Button variant="primary" onPress={onAction}>');
+    expect(`${screenSource}\n${screenPresentationSource}`).not.toContain('style={styles.primaryButton}');
   });
 
   test('handles workbench feedback through the native repository', () => {
@@ -183,6 +188,16 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('signal: controller.signal');
   });
 
+  test('hands eligible text follow-ups to a server-owned run that survives app backgrounding', () => {
+    expect(screenSource).toContain('isDurableMobileChatEligible({');
+    expect(screenSource).toContain('runDurableMobileChatTurn({');
+    expect(screenSource).toContain("owner: 'local' as 'local' | 'server'");
+    expect(screenSource).toContain("run.originChannel === 'mobile'");
+    expect(screenSource).toContain("nextState !== 'active'");
+    expect(screenSource).toContain('transitionServerOwnedRun');
+    expect(screenSource).toContain('const refreshTimer = setTimeout');
+  });
+
   test('keeps microphone recording and authenticated transcription in the native host', () => {
     expect(screenSource).toContain("command.type === 'voice.toggle'");
     expect(screenSource).toContain('startUnifiedChatVoiceRecording');
@@ -279,8 +294,20 @@ describe('Unified Chat coexistence contract', () => {
 
   test('surfaces an interrupted realtime connection as a retryable error instead of fake reconnection', () => {
     expect(screenSource).not.toContain("message: 'Reconnecting…'");
-    expect(screenSource).toContain("message = 'Check your microphone or connection, then try again.'");
+    expect(screenSource).toContain("message = 'Conversation connection ended. Try again.'");
+    expect(screenSource).not.toContain('Check your microphone or connection');
     expect(screenSource).toContain("setVoice({ state: 'error'");
+  });
+
+  test('routes the single Realtime tool through the existing durable Chat request', () => {
+    expect(screenSource).toContain('onDurableRun: (request) => durableRealtimeRunRef.current(request)');
+    expect(realtimeRequestSource).toContain('buildFinalizedConversationRunMessage({');
+    expect(realtimeRequestSource).toContain('candidate.triggerId === message.requestId');
+    expect(realtimeRequestSource).toContain('request.channelContextVersion !== KWILT_CHANNEL_CONTEXT_SCHEMA_VERSION');
+    expect(screenSource).toContain('liveConversation.current?.cancelResponse()');
+    expect(screenSource).toContain('liveConversation.current?.usesRealtimeSpeech');
+    expect(realtimeRequestSource).toContain('isDurableRealtimeStopUtterance(request.transcript)');
+    expect(screenSource).toContain("transitionServerOwnedRun(runId, { type: 'stop' })");
   });
 
   test('offers a local full-chat copy from the conversation options menu', () => {

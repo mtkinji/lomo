@@ -1,9 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { KWILT_CAPABILITY_MANIFEST, projectOperationCoverage } from '@kwilt/agent-runtime';
+import { KWILT_CAPABILITY_MANIFEST } from '@kwilt/agent-runtime';
 import { KWILT_OPERATION_REGISTRY } from '../../capabilities/operations';
 import { CAPABILITY_REGISTRY } from '../../capabilities/registry';
-import { assertCompleteConversationalCoverage, CHAT_CAPABILITY_COVERAGE } from './chatCapabilityCoverage';
+import {
+  assertCompleteConversationalCoverage,
+  buildChatCapabilityCoverage,
+  CHAT_CAPABILITY_COVERAGE,
+} from './chatCapabilityCoverage';
 import { LEGACY_AGENT_CAPABILITY_INVENTORY } from './legacyAgentCapabilityInventory';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 
@@ -20,8 +24,35 @@ function externalMcpToolNames(): string[] {
 }
 
 describe('CHAT_CAPABILITY_COVERAGE', () => {
-  it('is mechanically projected from the canonical capability manifest', () => {
-    expect(CHAT_CAPABILITY_COVERAGE).toEqual(projectOperationCoverage(KWILT_CAPABILITY_MANIFEST));
+  it('keeps a declared UI operation pending when its manifest tool has no handler', () => {
+    const manifestEntry = {
+      ...KWILT_CAPABILITY_MANIFEST.find((operation) => operation.tools.length > 0)!,
+      id: 'test.ui_action',
+      owner: 'test',
+      tools: [{
+        id: 'test.ui_action', version: 1, inputSchema: {}, outputSchema: {}, canDeferToClient: false,
+      }],
+      channels: {
+        mobile: { state: 'live' as const, outcome: 'answer', proofPaths: ['ui.ts'], boundaryReason: null },
+        phone: { state: 'live' as const, outcome: 'server_execution', proofPaths: ['server.ts'], boundaryReason: null },
+      },
+    };
+    const [row] = buildChatCapabilityCoverage({
+      operations: [{ id: 'test.ui_action', owner: 'test' }],
+      manifest: [manifestEntry],
+      mobileRegistrations: [],
+      serverRegistrations: [],
+    });
+
+    expect(row.id).toBe('test.ui_action');
+    expect(row.channels.mobile).toEqual(expect.objectContaining({
+      state: 'pending_provider', outcome: 'honest_boundary',
+      boundaryReason: 'Missing executable mobile handler: test.ui_action',
+    }));
+    expect(row.channels.phone).toEqual(expect.objectContaining({
+      state: 'pending_provider', outcome: 'honest_boundary',
+      boundaryReason: 'Missing executable server handler: test.ui_action',
+    }));
   });
 
   it('fails registration with the exact operation id when conversational coverage is missing', () => {

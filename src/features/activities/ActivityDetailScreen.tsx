@@ -8,7 +8,8 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { PortalHost } from '../../ui/Portal';
 import { FullWindowOverlay } from 'react-native-screens';
 import { colors, spacing, typography, fonts } from '../../theme';
-import { useAppStore } from '../../store/useAppStore';
+import { getTodoActionStoreBoundary, useAppStore } from '../../store/useAppStore';
+import { deleteTodo, setTodoCompletion } from '../../capabilities/todos/actions/todoActions';
 import { useActivityEnrichmentStore } from '../../store/useActivityEnrichmentStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useCanUseProTools } from '../../store/proToolsAccess';
@@ -1272,7 +1273,7 @@ export function ActivityDetailScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            removeActivity(activity.id);
+            deleteTodo({ activityId: activity.id, expectedUpdatedAt: activity.updatedAt }, getTodoActionStoreBoundary());
             handleBackToActivities();
           },
         },
@@ -1902,15 +1903,12 @@ export function ActivityDetailScreen() {
       const wasCompleted = isCompleted;
       const undoSnapshot = wasCompleted ? null : buildActivityCompletionUndoSnapshot(activity);
       void HapticsService.trigger(wasCompleted ? 'canvas.primary.confirm' : 'outcome.bigSuccess');
-      updateActivity(activity.id, (prev) => {
-        const nextIsDone = prev.status !== 'done';
-        return {
-          ...prev,
-          status: nextIsDone ? 'done' : 'planned',
-          completedAt: nextIsDone ? timestamp : null,
-          updatedAt: timestamp,
-        };
-      });
+      setTodoCompletion({
+        activityId: activity.id,
+        completed: !wasCompleted,
+        timestamp,
+        expectedUpdatedAt: activity.updatedAt,
+      }, getTodoActionStoreBoundary());
       if (!wasCompleted) {
         // Toggling from not-done to done counts as "showing up" for the day.
         recordActivityCompletionShowUp(activity.id, timestamp);

@@ -20,20 +20,24 @@ import {
 import { Text } from '../../ui/primitives';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import {
-  acceptHouseholdMemberInvite,
-  addDependentChild,
+  acceptHouseholdInvitation,
+  addDependentHouseholdMember,
+  createHouseholdInvitation,
+  previewHouseholdInvitation,
+  readHousehold,
+  setHouseholdCaregiverGrant,
+  setHouseholdChildCapability,
+  type HouseholdActionReceipt,
+} from '../../capabilities/relationships/actions/relationshipActions';
+import {
   buildHouseholdInviteUrl,
-  createHouseholdMemberInvite,
-  getHouseholdSnapshot,
-  previewHouseholdInvite,
-  setCaregiverCapabilityGrant,
-  setChildCapabilityActivation,
   type ChildCapabilityId,
   type ChildCapabilityState,
   type HouseholdInvitation,
   type HouseholdInvitationPreview,
   type HouseholdSnapshot,
 } from './data/household';
+import { createHouseholdActionBoundary } from './data/householdActionBoundary';
 import { resolveHouseholdAvatars, type HouseholdAvatarMap } from './data/householdAvatars';
 
 const CAREGIVER_MANAGED_CAPABILITIES: readonly { id: ChildCapabilityId; name: string }[] = [
@@ -128,6 +132,9 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   const reviewedLinkedInvite = useRef<string | null>(null);
 
   const client = useMemo(() => (authIdentity ? getSupabaseClient() : null), [authIdentity]);
+  const householdActions = useMemo(() => (
+    client ? createHouseholdActionBoundary(client) : null
+  ), [client]);
   const currentMember = snapshot?.members.find((member) => member.id === snapshot.currentMembershipId);
   const children = snapshot?.members.filter((member) => member.role === 'child') ?? [];
   const caregivers = snapshot?.members.filter((member) => member.role === 'caregiver') ?? [];
@@ -148,10 +155,10 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   }, [enteredFromMealPlan, navigation]);
 
   const load = useCallback(async () => {
-    if (!client) return;
+    if (!householdActions) return;
     setLoading(true);
     try {
-      const base = await getHouseholdSnapshot(client);
+      const base = (await readHousehold(householdActions)).result;
       const avatars = await resolveHouseholdAvatars().catch((): HouseholdAvatarMap => ({}));
       setSnapshot({
         ...base,
@@ -162,15 +169,18 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
     } finally {
       setLoading(false);
     }
-  }, [client]);
+  }, [householdActions]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const runMutation = async (key: string, action: () => Promise<HouseholdSnapshot>): Promise<boolean> => {
+  const runMutation = async (
+    key: string,
+    action: () => Promise<HouseholdActionReceipt<HouseholdSnapshot>>,
+  ): Promise<boolean> => {
     if (mutationKey) return false;
     setMutationKey(key);
     try {
-      setSnapshot(await action());
+      setSnapshot((await action()).result);
       return true;
     } catch (error) {
       Alert.alert('Household change did not save', error instanceof Error ? error.message : 'Please try again.');
@@ -181,13 +191,14 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   };
 
   const addChild = async () => {
-    if (!client || !childName.trim()) return;
+    if (!householdActions || !childName.trim()) return;
     const name = childName.trim();
-    const saved = await runMutation('add-child', () => addDependentChild(client, {
+    const saved = await runMutation('add-child', () => addDependentHouseholdMember({
       householdId: snapshot?.household?.id ?? null,
       displayName: name,
       ownerDisplayName: authIdentity?.name || 'Kwilter',
-    }));
+      confirmed: true,
+    }, householdActions));
     if (saved) {
       setChildName('');
       setEntryMode(null);
@@ -195,15 +206,16 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   };
 
   const createInvite = async () => {
-    if (!client || mutationKey) return;
+    if (!householdActions || mutationKey) return;
     setMutationKey('invite');
     try {
-      const invite = await createHouseholdMemberInvite(client, {
+      const invite = (await createHouseholdInvitation({
         householdId: snapshot?.household?.id ?? null,
         role: 'caregiver',
         invitedEmail: inviteEmail,
         ownerDisplayName: authIdentity?.name || 'Kwilter',
-      });
+        confirmed: true,
+      }, householdActions)).result;
       setInviteReceipt(invite);
       setInviteEmail('');
       await load();
@@ -216,15 +228,16 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   };
 
   const createChildAccountInvite = async () => {
-    if (!client || mutationKey || !childEmail.trim()) return;
+    if (!householdActions || mutationKey || !childEmail.trim()) return;
     setMutationKey('child-invite');
     try {
-      const invite = await createHouseholdMemberInvite(client, {
+      const invite = (await createHouseholdInvitation({
         householdId: snapshot?.household?.id ?? null,
         role: 'child',
         invitedEmail: childEmail,
         ownerDisplayName: authIdentity?.name || 'Kwilter',
-      });
+        confirmed: true,
+      }, householdActions)).result;
       setInviteReceipt(invite);
       setChildEmail('');
       await load();
@@ -237,10 +250,10 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   };
 
   const reviewInvitation = async () => {
-    if (!client || mutationKey || !joinCode.trim()) return;
+    if (!householdActions || mutationKey || !joinCode.trim()) return;
     setMutationKey('preview-invite');
     try {
-      setInvitePreview(await previewHouseholdInvite(client, joinCode));
+      setInvitePreview((await previewHouseholdInvitation(joinCode, householdActions)).result);
     } catch (error) {
       Alert.alert('Unable to review invitation', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -249,18 +262,18 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   };
 
   useEffect(() => {
-    if (!client || !linkedInviteCode || reviewedLinkedInvite.current === linkedInviteCode) return;
+    if (!householdActions || !linkedInviteCode || reviewedLinkedInvite.current === linkedInviteCode) return;
     reviewedLinkedInvite.current = linkedInviteCode;
     setJoinCode(linkedInviteCode);
     setEntryMode('join');
     setMutationKey('preview-invite');
-    void previewHouseholdInvite(client, linkedInviteCode)
-      .then(setInvitePreview)
+    void previewHouseholdInvitation(linkedInviteCode, householdActions)
+      .then((receipt) => setInvitePreview(receipt.result))
       .catch((error) => {
         Alert.alert('Unable to review invitation', error instanceof Error ? error.message : 'Please try again.');
       })
       .finally(() => setMutationKey(null));
-  }, [client, linkedInviteCode]);
+  }, [householdActions, linkedInviteCode]);
 
   const shareInvitation = async () => {
     if (!inviteReceipt) return;
@@ -274,12 +287,13 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
   };
 
   const joinHousehold = async () => {
-    if (!client || !joinCode.trim()) return;
+    if (!householdActions || !joinCode.trim()) return;
     if (!invitePreview) return;
-    const saved = await runMutation('join', () => acceptHouseholdMemberInvite(client, {
+    const saved = await runMutation('join', () => acceptHouseholdInvitation({
       code: joinCode,
       displayName: authIdentity?.name || (invitePreview.role === 'child' ? 'Child' : 'Caregiver'),
-    }));
+      confirmed: true,
+    }, householdActions));
     if (saved) {
       setJoinCode('');
       setInvitePreview(null);
@@ -508,6 +522,17 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
         </SettingsGroup>
       ) : null}
 
+      {snapshot?.household ? (
+        <SettingsGroup footer="Set up shared iPads separately from a child's personal device." title="Devices">
+          <SettingsRow
+            onPress={() => navigation.navigate('SettingsHouseholdDevices', {
+              householdId: snapshot.household!.id,
+            })}
+            title="Household devices"
+          />
+        </SettingsGroup>
+      ) : null}
+
       {!loading ? (
         <View style={styles.entrySection}>
           {entryMode ? entryForm : actionList}
@@ -544,21 +569,23 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
                   disabled={Boolean(mutationKey) || !isOwner}
                   enabled={state ? enabledStates.has(state) : false}
                   onPress={() => {
-                    if (!client) return;
-                    void runMutation(key, () => setChildCapabilityActivation(client, {
+                    if (!householdActions) return;
+                    void runMutation(key, () => setHouseholdChildCapability({
                       childMembershipId: child.id,
                       capabilityId: capability.id,
                       enabled: !(state && enabledStates.has(state)),
-                    }));
+                      confirmed: true,
+                    }, householdActions));
                   }}
                   title={capability.name}
+                  value={mutationKey === key ? 'Saving…' : stateDescription(state)}
                 />
-                <Text style={{ paddingHorizontal: 16, paddingBottom: 10 }}>{mutationKey === key ? 'Saving…' : stateDescription(state)}</Text>
                 {capability.id === 'screen-time' && state && enabledStates.has(state) ? (
                   <>
                     <SettingsDivider />
                     <SettingsRow
                       onPress={() => navigation.navigate('SettingsFamilyScreenTime', {
+                        householdId: snapshot.household!.id,
                         childMembershipId: child.id,
                         childDisplayName: child.displayName,
                       })}
@@ -594,13 +621,14 @@ export function HouseholdSettingsScreen({ navigation, route }: NativeStackScreen
                   disabled={Boolean(mutationKey)}
                   enabled={granted}
                   onPress={() => {
-                    if (!client) return;
-                    void runMutation(key, () => setCaregiverCapabilityGrant(client, {
+                    if (!householdActions) return;
+                    void runMutation(key, () => setHouseholdCaregiverGrant({
                       caregiverMembershipId: caregiver.id,
                       childMembershipId: child.id,
                       capabilityId: capability.id,
                       granted: !granted,
-                    }));
+                      confirmed: true,
+                    }, householdActions));
                   }}
                   title={`Manage ${child.displayName}'s ${capability.name}`}
                 />

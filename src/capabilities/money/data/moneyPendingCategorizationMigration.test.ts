@@ -3,7 +3,7 @@ import path from 'node:path';
 
 describe('pending transaction categorization migration', () => {
   const migration = readFileSync(
-    path.join(process.cwd(), 'supabase/migrations/20260817184447_pending_transaction_categorization.sql'),
+    path.join(process.cwd(), 'supabase/pending-migrations/20260817184447_pending_transaction_categorization.sql'),
     'utf8',
   );
 

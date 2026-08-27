@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const migration = fs.readFileSync(
-  path.join(process.cwd(), 'supabase/migrations/20260822185837_inferred_meal_plan_household_attention.sql'),
+  path.join(process.cwd(), 'supabase/pending-migrations/20260822185837_inferred_meal_plan_household_attention.sql'),
   'utf8',
 );
 

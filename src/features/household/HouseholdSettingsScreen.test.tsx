@@ -213,7 +213,7 @@ describe('HouseholdSettingsScreen', () => {
     fireEvent.press(getByText('Join household'));
 
     await waitFor(() => expect(mockAcceptHouseholdMemberInvite).toHaveBeenCalledWith(expect.anything(), {
-      code: 'child12',
+      code: 'CHILD12',
       displayName: 'Andrew',
     }));
   });
@@ -264,6 +264,16 @@ describe('HouseholdSettingsScreen', () => {
     });
   });
 
+  it('keeps a durable Household devices destination after initial setup', async () => {
+    mockGetHouseholdSnapshot.mockResolvedValue(familySnapshot);
+    const { getByText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
+    await waitFor(() => expect(getByText('Household devices')).toBeTruthy());
+    fireEvent.press(getByText('Household devices'));
+    expect(screenProps.navigation.navigate).toHaveBeenCalledWith('SettingsHouseholdDevices', {
+      householdId: 'household-1',
+    });
+  });
+
   it('opens the selected child Screen Time setup after activation', async () => {
     mockGetHouseholdSnapshot.mockResolvedValue({
       ...familySnapshot,
@@ -280,6 +290,7 @@ describe('HouseholdSettingsScreen', () => {
     fireEvent.press(getByText("Riley's Screen Time"));
 
     expect(screenProps.navigation.navigate).toHaveBeenCalledWith('SettingsFamilyScreenTime', {
+      householdId: 'household-1',
       childMembershipId: 'child-1',
       childDisplayName: 'Riley',
     });

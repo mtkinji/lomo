@@ -84,6 +84,14 @@ export function createServiceAgentRunPersistence({
         p_parent_run_id: request.parentRunId ?? null,
         p_user_id: userId,
       });
+      if (error) {
+        const failure = record(error);
+        console.warn('[agent-run] Enqueue RPC failed', {
+          code: typeof failure.code === 'string' ? failure.code : 'unknown',
+          message: typeof failure.message === 'string' ? failure.message : 'unknown',
+          hint: typeof failure.hint === 'string' ? failure.hint : null,
+        });
+      }
       if (error || !data) throw new Error('run_enqueue_failed');
       return mapEnqueued(data);
     },
@@ -159,6 +167,36 @@ export function createServiceAgentRunPersistence({
       });
       if (error || !data) throw new Error('proposal_batch_stage_failed');
       return mapProposals(data);
+    },
+    recordModelStep: async ({ run, round, metadata }) => {
+      const { error } = await admin.rpc('append_kwilt_agent_model_step_event', {
+        p_user_id: userId,
+        p_run_id: run.runId,
+        p_round: round,
+        p_response_id: metadata.responseId,
+        p_routed_model: metadata.routedModel,
+        p_prompt_version: metadata.promptVersion,
+        p_tool_catalog_hash: metadata.toolCatalogHash,
+        p_latency_ms: metadata.latencyMs,
+        p_input_tokens: metadata.usage.inputTokens,
+        p_output_tokens: metadata.usage.outputTokens,
+        p_total_tokens: metadata.usage.totalTokens,
+      });
+      if (error) throw new Error('model_step_event_write_failed');
+    },
+    recordTurnPlanning: async ({ run, plan }) => {
+      const { error } = await admin.rpc('append_kwilt_agent_turn_planning_events', {
+        p_user_id: userId,
+        p_run_id: run.runId,
+        p_selected_namespaces: plan.judgment.selectedNamespaces,
+        p_planner_confidence: plan.judgment.confidence,
+        p_planner_reason: plan.judgment.reason,
+        p_authorization: plan.policy.authorization,
+        p_allowed_effects: plan.policy.allowedEffects,
+        p_allowed_tool_ids: plan.policy.allowedToolIds,
+        p_unresolved_references: plan.policy.unresolvedReferences,
+      });
+      if (error) throw new Error('turn_planning_event_write_failed');
     },
     complete: async (input) => {
       const { data, error } = await admin.rpc('complete_kwilt_agent_run_with_message', {

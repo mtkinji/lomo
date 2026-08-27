@@ -12,6 +12,7 @@ describe('getUnifiedChatProgressCopy', () => {
     ['todos', 'Checking your to-dos'],
     ['goals', 'Checking your goals'],
     ['plan', 'Checking your plan'],
+    ['household', 'Checking your Household'],
     ['money', 'Checking your money'],
   ] as const)('names one relevant capability while checking %s', (capability, expected) => {
     expect(getUnifiedChatProgressCopy({

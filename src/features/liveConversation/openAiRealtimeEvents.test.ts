@@ -1,23 +1,6 @@
-import { buildLiveConversationSessionUpdate, parseOpenAiRealtimeEvent } from './openAiRealtimeEvents';
+import { parseOpenAiRealtimeEvent } from './openAiRealtimeEvents';
 
 describe('OpenAI Realtime event normalization', () => {
-  it('uses semantic turn detection to leave room for a thinking pause', () => {
-    expect(buildLiveConversationSessionUpdate()).toEqual({
-      type: 'session.update',
-      session: {
-        type: 'transcription',
-        audio: {
-          input: {
-            turn_detection: {
-              type: 'semantic_vad',
-              eagerness: 'medium',
-            },
-          },
-        },
-      },
-    });
-  });
-
   it('normalizes provisional and final input transcripts', () => {
     expect(parseOpenAiRealtimeEvent(JSON.stringify({
       type: 'input_audio_buffer.speech_started', item_id: 'item-1',
@@ -36,5 +19,43 @@ describe('OpenAI Realtime event normalization', () => {
   it('ignores malformed and unrelated provider events', () => {
     expect(parseOpenAiRealtimeEvent('not json')).toBeNull();
     expect(parseOpenAiRealtimeEvent(JSON.stringify({ type: 'session.updated' }))).toBeNull();
+  });
+
+  it('normalizes completed kwilt.run function arguments without interpreting them', () => {
+    expect(parseOpenAiRealtimeEvent(JSON.stringify({
+      type: 'response.function_call_arguments.done',
+      call_id: 'call-1',
+      name: 'kwilt.run',
+      arguments: '{"realtimeItemId":"item-1","channelContextVersion":1}',
+    }))).toEqual({
+      type: 'tool_call',
+      callId: 'call-1',
+      name: 'kwilt.run',
+      argumentsJson: '{"realtimeItemId":"item-1","channelContextVersion":1}',
+    });
+  });
+
+  it('normalizes the function call from the terminal Realtime response envelope', () => {
+    expect(parseOpenAiRealtimeEvent(JSON.stringify({
+      type: 'response.done',
+      response: {
+        output: [{
+          type: 'function_call', call_id: 'call-2', name: 'kwilt.run',
+          arguments: '{"realtimeItemId":"item-2","channelContextVersion":1}',
+        }],
+      },
+    }))).toEqual({
+      type: 'tool_call', callId: 'call-2', name: 'kwilt.run',
+      argumentsJson: '{"realtimeItemId":"item-2","channelContextVersion":1}',
+    });
+  });
+
+  it('normalizes WebRTC audio playback lifecycle events', () => {
+    expect(parseOpenAiRealtimeEvent(JSON.stringify({
+      type: 'output_audio_buffer.started', response_id: 'response-1',
+    }))).toEqual({ type: 'assistant_audio_started', responseId: 'response-1' });
+    expect(parseOpenAiRealtimeEvent(JSON.stringify({
+      type: 'output_audio_buffer.stopped', response_id: 'response-1',
+    }))).toEqual({ type: 'assistant_audio_stopped', responseId: 'response-1' });
   });
 });

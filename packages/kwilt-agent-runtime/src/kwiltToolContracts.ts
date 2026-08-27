@@ -90,6 +90,14 @@ const PROFILE_FIELD_PROPERTIES = {
     enum: ['under-18', '18-24', '25-34', '35-44', '45-54', '55-64', '65-plus', 'prefer-not-to-say', null],
   },
 } as const;
+const HOUSEHOLD_ID = { type: ['string', 'null'], minLength: 1, maxLength: 200 } as const;
+const HOUSEHOLD_MEMBER_ID = { type: 'string', minLength: 1, maxLength: 200 } as const;
+const HOUSEHOLD_CAPABILITY_ID = {
+  type: 'string', enum: ['todos', 'screen-time', 'meal-planning'],
+} as const;
+const HOUSEHOLD_ROLE = { type: 'string', enum: ['caregiver', 'child'] } as const;
+const HOUSEHOLD_INVITE_CODE = { type: 'string', minLength: 1, maxLength: 200 } as const;
+const HOUSEHOLD_DISPLAY_NAME = { type: 'string', minLength: 1, maxLength: 160 } as const;
 const RELATIONSHIP_MEMORY_SCHEMA = {
   type: 'object',
   properties: {
@@ -209,6 +217,10 @@ const SCREEN_TIME_PREREQUISITE_AGREEMENT_RULE_SCHEMA = {
   required: ['weekdays', 'startMinute', 'endMinute', 'dailyLimitMinutes', 'prerequisiteActivity'],
   additionalProperties: false,
 } as const;
+const SCREEN_TIME_MUTABLE_AGREEMENT_RULE_SCHEMA = {
+  ...SCREEN_TIME_PREREQUISITE_AGREEMENT_RULE_SCHEMA,
+  required: SCREEN_TIME_AGREEMENT_RULE_SCHEMA.required,
+} as const;
 const SCREEN_TIME_OVERRIDE_PROPERTIES = {
   targets: { type: 'array', minItems: 1, maxItems: 20, items: SCREEN_TIME_TARGET_SCHEMA },
   expiresAt: { type: 'string', format: 'date-time' },
@@ -312,9 +324,85 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
     confirmation: 'none', canDeferToClient: false, inputSchema: RELATIONSHIP_FORGET_SCHEMA, outputSchema: OBJECT_SCHEMA,
   },
   {
+    id: 'household.read', version: 1, capabilityId: 'household',
+    purpose: 'Read the authenticated actor’s bounded Household roster, roles, child capability states, and explicit caregiver grants.',
+    providers: ['device', 'server'], effect: 'read', consequence: 'low', reversible: true,
+    confirmation: 'none', canDeferToClient: false, inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.member.add_dependent', version: 1, capabilityId: 'household',
+    purpose: 'Create one dependent child membership after explicit Household review.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: false,
+    confirmation: 'explicit', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { householdId: HOUSEHOLD_ID, displayName: HOUSEHOLD_DISPLAY_NAME, ownerDisplayName: HOUSEHOLD_DISPLAY_NAME },
+      required: ['householdId', 'displayName', 'ownerDisplayName'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.invitation.create', version: 1, capabilityId: 'household',
+    purpose: 'Create one short-lived Household invitation for a reviewed caregiver or child role.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: false,
+    confirmation: 'explicit', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        householdId: HOUSEHOLD_ID, role: HOUSEHOLD_ROLE,
+        invitedEmail: { type: ['string', 'null'], maxLength: 320 },
+        ownerDisplayName: HOUSEHOLD_DISPLAY_NAME,
+      }, required: ['householdId', 'role', 'invitedEmail', 'ownerDisplayName'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.invitation.preview', version: 1, capabilityId: 'household',
+    purpose: 'Preview the bounded inviter, Household, role, and expiry for one invitation code before acceptance.',
+    providers: ['device', 'server'], effect: 'read', consequence: 'low', reversible: true,
+    confirmation: 'none', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { code: HOUSEHOLD_INVITE_CODE }, required: ['code'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.invitation.accept', version: 1, capabilityId: 'household',
+    purpose: 'Accept one reviewed Household invitation as the authenticated person.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: false,
+    confirmation: 'explicit', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { code: HOUSEHOLD_INVITE_CODE, displayName: HOUSEHOLD_DISPLAY_NAME },
+      required: ['code', 'displayName'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.child_capability.update', version: 1, capabilityId: 'household',
+    purpose: 'Enable or disable one named capability for one exact child membership after explicit authority review.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: { childMembershipId: HOUSEHOLD_MEMBER_ID, capabilityId: HOUSEHOLD_CAPABILITY_ID, enabled: { type: 'boolean' } },
+      required: ['childMembershipId', 'capabilityId', 'enabled'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'household.caregiver_grant.update', version: 1, capabilityId: 'household',
+    purpose: 'Grant or revoke one caregiver’s authority over one child capability after explicit review.',
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: false,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        caregiverMembershipId: HOUSEHOLD_MEMBER_ID, childMembershipId: HOUSEHOLD_MEMBER_ID,
+        capabilityId: HOUSEHOLD_CAPABILITY_ID, granted: { type: 'boolean' },
+      }, required: ['caregiverMembershipId', 'childMembershipId', 'capabilityId', 'granted'],
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
     id: 'screen_time.read', version: 1, capabilityId: 'screenTime',
     purpose: 'Read authorized child Screen Time agreements, saved selection labels, active overrides, requests, and delivery state without usage history or Apple tokens.',
-    providers: ['device'], effect: 'read', consequence: 'low', reversible: true,
+    providers: ['device', 'server'], effect: 'read', consequence: 'low', reversible: true,
     confirmation: 'none', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
@@ -325,7 +413,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.agreement.create', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage a reviewed standing agreement that requires foreground use of one saved child app selection before another saved selection becomes available.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
@@ -339,33 +427,33 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.agreement.update', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage an exact update to one standing child Screen Time agreement using its current version.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
         childMembershipId: { type: 'string', minLength: 1 }, agreementId: { type: 'string', minLength: 1 },
         selectionId: { type: 'string', minLength: 1 }, expectedVersion: { type: 'integer', minimum: 1 },
-        rule: SCREEN_TIME_AGREEMENT_RULE_SCHEMA,
+        rule: SCREEN_TIME_MUTABLE_AGREEMENT_RULE_SCHEMA,
       }, required: ['childMembershipId', 'agreementId', 'selectionId', 'expectedVersion', 'rule'], additionalProperties: false,
     }, outputSchema: OBJECT_SCHEMA,
   },
   {
     id: 'screen_time.agreement.deactivate', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage deactivation of one standing child Screen Time agreement without claiming device cleanup has completed.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
         childMembershipId: { type: 'string', minLength: 1 }, agreementId: { type: 'string', minLength: 1 },
         selectionId: { type: 'string', minLength: 1 }, expectedVersion: { type: 'integer', minimum: 1 },
-        currentRule: SCREEN_TIME_AGREEMENT_RULE_SCHEMA,
+        currentRule: SCREEN_TIME_MUTABLE_AGREEMENT_RULE_SCHEMA,
       }, required: ['childMembershipId', 'agreementId', 'selectionId', 'expectedVersion', 'currentRule'], additionalProperties: false,
     }, outputSchema: OBJECT_SCHEMA,
   },
   {
     id: 'screen_time.override.block', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage one atomic wall-clock block for saved selections on one or more authorized child devices.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: SCREEN_TIME_OVERRIDE_PROPERTIES,
@@ -375,7 +463,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.override.allow', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage one atomic wall-clock allowance through named Kwilt family restrictions for saved selections on one or more children.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: SCREEN_TIME_OVERRIDE_PROPERTIES,
@@ -385,7 +473,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.override.cancel', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage cancellation of one active temporary Screen Time override and recompile remaining claims.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: false,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: false,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
@@ -397,7 +485,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.request.decide', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage approval or denial of one pending child request; approval creates the same bounded allow override as a caregiver command.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {

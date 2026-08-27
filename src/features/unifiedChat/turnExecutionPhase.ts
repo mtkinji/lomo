@@ -24,6 +24,7 @@ import type { UnifiedChatRepository } from './threadRepository';
 import { transitionRun } from './runStateMachine';
 import { createRelationshipMemoryToolProvider } from '../../services/relationshipMemoryToolProvider';
 import { createUnifiedChatToolProvider } from './unifiedChatToolProvider';
+import { createHouseholdChatToolProvider } from './householdChatToolProvider';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 import { inferredGoalTargetDate, directRecurringReminder } from './directAppControl';
 import { ACTIVITY_ACTION_RESPONSE_FORMAT, parseActivityActionResponse } from './activityProposal';
@@ -112,7 +113,6 @@ export function selectSubjectSafeRuntimeTools(
   if (!SELF_DIRECTED_DEVICE_PATTERN.test(prompt)) return [...tools];
   return tools.filter((tool) =>
     tool.capabilityId !== 'screenTime' ||
-    tool.id === 'screen_time.read' ||
     tool.id === 'screen_time.personal.setup.open' ||
     tool.id === 'screen_time.personal.limit.open');
 }
@@ -224,7 +224,7 @@ function groundingSummary(
     }
     if (participatingCapabilities.includes('screenTime')) {
       parts.push(
-        'For a self-directed daily app allowance, use screen_time.personal.limit.open with subject self, the named app label, the requested minutes, and daily reset. Use screen_time.personal.setup.open only for generic personal setup without a concrete allowance. Never substitute a child for the signed-in person. For direct family Screen Time controls, resolve the child and saved selection only from the authorized machine references below. Use screen_time.override.block or screen_time.override.allow with an exact future expiresAt and all resolved targets in one proposal. For a standing prerequisite such as using Gospel Library before Games, use screen_time.agreement.create with one resolved prerequisite selection, one resolved target selection, the current desired policy version, and daily reset. If any named app has no saved selection for that child, call screen_time.selection.open for that exact child instead of guessing. Use screen_time.device.setup.open when the user asks to connect a child device. Never use screen_time.configure for a direct app request. An allow affects only Kwilt family restrictions and may not override Apple or other controls. Never claim the child device changed until a device receipt says applied.',
+        'For a self-directed daily app allowance, use screen_time.personal.limit.open with subject self, the named app label, the requested minutes, and daily reset. Use screen_time.personal.setup.open only for generic personal setup without a concrete allowance. Never substitute a child for the signed-in person. For direct family Screen Time controls, resolve the child and saved selection only from the authorized machine references below. Use screen_time.override.block or screen_time.override.allow with an exact future expiresAt and all resolved targets in one proposal. Use screen_time.override.cancel only for an active override and its current policy version. For a standing prerequisite such as using Gospel Library before Games, use screen_time.agreement.create with one resolved prerequisite selection, one resolved target selection, the current desired policy version, and daily reset. Use screen_time.agreement.update or screen_time.agreement.deactivate only with the exact current agreement, selection, rule, and agreement version. Use screen_time.request.decide only for a pending child request; approval requires explicit bounded minutes and denial requires allowMinutes null. If any named app has no saved selection for that child, call screen_time.selection.open for that exact child instead of guessing. Use screen_time.device.setup.open when the user asks to connect a child device. Never use screen_time.configure for a direct app request. An allow affects only Kwilt family restrictions and may not override Apple or other controls. Never claim the child device changed until a device receipt says applied.',
       );
     }
     if (participatingCapabilities.includes('recipes')) {
@@ -323,6 +323,10 @@ export type ExecuteUnifiedChatTurnPhaseInput = {
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
+  executeHouseholdTool?: (
+    call: AgentToolCall,
+    tool: AgentToolDefinition,
+  ) => Promise<AgentToolExecutionResult | null>;
   captureTelemetry: (
     event: AnalyticsEventName,
     properties?: UnifiedChatTelemetryProperties,
@@ -378,7 +382,7 @@ export async function executeUnifiedChatTurnPhase(
         capability === 'goals' || capability === 'profile' || capability === 'chapters' ||
         capability === 'screenTime' || capability === 'notifications' || capability === 'account' ||
         capability === 'navigation' || capability === 'relationships' || capability === 'money' ||
-        capability === 'recipes',
+        capability === 'recipes' || capability === 'household',
     );
   const relationshipProvider = input.executeRelationshipTool
     ? { execute: input.executeRelationshipTool }
@@ -389,10 +393,14 @@ export async function executeUnifiedChatTurnPhase(
           messageId: input.userMessage.id,
         },
       });
+  const householdProvider = input.executeHouseholdTool
+    ? { execute: input.executeHouseholdTool }
+    : createHouseholdChatToolProvider();
   const toolProvider = createUnifiedChatToolProvider({
     snapshots: input.snapshots,
     planConversationReferent: input.planConversationReferent,
     executeRelationshipTool: relationshipProvider.execute,
+    executeHouseholdTool: householdProvider.execute,
     now: input.now,
   });
   const coveredTargetIds = new Set<string>();

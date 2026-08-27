@@ -79,7 +79,7 @@ Route Phone Agent through the durable runtime for ordinary reasoning and server-
 
 ### Release 4: Capability coverage expansion
 
-Add capability-owned providers against the use-case landscape, prioritizing frequent, reversible jobs before financial, household, shared, or enforcement-sensitive actions. Track explicit exclusions so “all app functions” is a measurable coverage program rather than a prompt claim.
+Add capability-owned providers against the use-case landscape until Household and Relationships, Arcs, Goals, To-dos, Plan and Focus, Chapters, Money, Recipes, Meal Plan, Groceries and Savings, Chores, Screen Time, and relevant Account actions all resolve to authoritative execution, a review proposal, a native/device handoff, or an explicit temporary boundary in both Kwilt Chat and external ChatGPT/MCP. Navigation and notifications are supporting controls. Games and Explore are explicit exclusions. Prioritize frequent reversible jobs first, but keep financial, household, shared, and enforcement-sensitive operations in the ledger so “everything controllable within reason” is measurable rather than a prompt claim.
 
 ## Ship gate
 

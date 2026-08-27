@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const migration = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260808133000_progressive_meal_commitment.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260808132340_progressive_meal_commitment.sql'),
   'utf8',
 ).toLowerCase();
 

@@ -55,6 +55,15 @@ describe('SettingsSurface', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps a toggle state value inside the switch row', () => {
+    const { getByRole, getByText } = render(
+      <SettingsToggleRow title="To-dos" value="On" enabled onPress={jest.fn()} />,
+    );
+
+    expect(getByText('On')).toBeTruthy();
+    expect(getByRole('switch').props.accessibilityValue).toEqual({ text: 'On' });
+  });
+
   it('uses neutral radio rows for mutually exclusive settings', () => {
     const onPress = jest.fn();
     const { getByLabelText, getByTestId, queryByTestId } = render(

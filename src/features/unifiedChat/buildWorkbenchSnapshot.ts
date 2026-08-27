@@ -551,11 +551,36 @@ export function buildWorkbenchSnapshot(
               reset: proposal.operation.payload.rule.prerequisiteActivity.reset,
               targetCount: 1,
             }
-          : {
+          : proposal.operation.type === 'block_family_screen_time_selection'
+            || proposal.operation.type === 'allow_family_screen_time_selection'
+          ? {
               expiresAt: proposal.operation.payload.expiresAt,
               timeBasis: proposal.operation.payload.timeBasis,
               targetCount: proposal.operation.payload.targets.length,
             }
+          : proposal.operation.type === 'update_family_screen_time_agreement'
+            || proposal.operation.type === 'deactivate_family_screen_time_agreement'
+          ? {
+              weekdays: proposal.operation.payload.rule.weekdays,
+              startMinute: proposal.operation.payload.rule.startMinute,
+              endMinute: proposal.operation.payload.rule.endMinute,
+              dailyLimitMinutes: proposal.operation.payload.rule.dailyLimitMinutes,
+              ...(proposal.operation.payload.rule.prerequisiteActivity ? {
+                prerequisiteSelectionId: proposal.operation.payload.rule.prerequisiteActivity.selectionId,
+                thresholdMinutes: proposal.operation.payload.rule.prerequisiteActivity.thresholdMinutes,
+                reset: proposal.operation.payload.rule.prerequisiteActivity.reset,
+              } : {}),
+              targetCount: 1,
+            }
+          : proposal.operation.type === 'decide_family_screen_time_request'
+          ? {
+              decision: proposal.operation.payload.decision,
+              allowMinutes: proposal.operation.payload.allowMinutes,
+              targetCount: 1,
+            }
+          : proposal.operation.type === 'cancel_family_screen_time_override'
+          ? { cancellationTarget: proposal.operation.targetId, targetCount: 1 }
+          : { targetCount: 1 }
         : proposal.capabilityId !== 'plan'
         ? proposal.operation.type === 'update_activity' && currentTargetLabel
           ? { ...fields, currentTitle: currentTargetLabel }
@@ -641,6 +666,8 @@ export function buildWorkbenchSnapshot(
         summary: receipt.capabilityId === 'screenTime' && receipt.status === 'applied'
           ? receipt.resultState.deviceState === 'applied'
             ? 'Saved · Applied on the child device'
+            : receipt.resultState.deviceState === 'not_applicable'
+              ? 'Saved · No child-device change needed'
             : receipt.resultState.deviceState === 'device_required'
               ? 'Saved · Child device setup needed'
               : receipt.resultState.deviceState === 'failed'

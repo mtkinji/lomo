@@ -25,8 +25,11 @@ its assistant text is spoken through the shared Marin voice. Long-lived provider
 credentials and raw audio are never stored on device.
 
 Current proof: session request policy, safety identifier, event normalization,
-and state reduction have automated coverage. A new native build and signed-device
-audio/latency verification are still required.
+state reduction, exactly-once finalized-utterance dispatch, and durable typed/
+spoken run parity have automated coverage. The durable channel context retains
+bounded session, utterance, finalization-source, locale, interruption, and timing
+provenance without persisting interim transcript deltas. A new native build and
+signed-device audio/latency verification are still required.
 
 Adds a reusable realtime spoken-conversation channel over Kwilt's shared Agent
 Runtime. Cook Mode is the first proving surface; capability-owned tools,

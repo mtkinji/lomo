@@ -11,7 +11,7 @@ import { EmptyState } from '../../ui/EmptyState';
 import { Icon } from '../../ui/Icon';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Text } from '../../ui/Typography';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, spacing } from '../../theme';
 import { buildFreshWorkbenchSnapshot, buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
 import { createFreshEntryThreadGate } from './freshEntryThread';
 import { createUnifiedChatRepository } from './threadRepository';
@@ -23,6 +23,15 @@ import type {
   UnifiedChatThread,
   UnifiedChatThreadAggregate,
 } from './types';
+import {
+  isDurableMobileChatEligible,
+  runDurableMobileChatTurn,
+  transitionDurableMobileChatRun,
+} from './durableMobileChatTurn';
+import {
+  buildMobileTurnChannelContext,
+  type FinalizedConversationUtterance,
+} from './channelContext';
 import { getUnifiedChatConfig } from './unifiedChatConfig';
 import { makeAgentWorkbenchHostMessage, parseAgentWorkbenchSurfaceMessage } from './workbenchProtocol';
 import {
@@ -72,6 +81,7 @@ import { extractInspectableSourceUrls } from './webSearchResponse';
 import { executePlanProposalDecision } from './executePlanProposalDecision';
 import { executeGoalProposalDecision } from './executeGoalProposalDecision';
 import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
+import { recoverScreenTimeMutations } from './recoverScreenTimeMutations';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { applyApprovedPlanProposal } from './planProposalExecutor';
 import { executeProposalOutcomeBatch } from './executeProposalOutcomeBatch';
@@ -101,11 +111,20 @@ import {
 import { appendUnifiedChatVoiceLevel } from './unifiedChatVoiceMetering';
 import { startLiveConversationSession, type LiveConversationConnection } from '../liveConversation/liveConversationSessionClient';
 import { sweepLegacyCookVoiceCacheOnce } from '../../capabilities/recipes/voice/cookVoiceCacheCleanup';
-import { conversationProgressSpeech, liveConversationSpeech } from '../liveConversation/conversationSpeechRuntime';
+import { conversationProgressSpeech, liveConversationSpeechFallback } from '../liveConversation/conversationSpeechRuntime';
 import { conversationActivationFeedback } from '../liveConversation/conversationActivationFeedbackRuntime';
 import type { ConversationProgressCueId } from '../liveConversation/conversationProgressCue';
 import { createConversationLatencyTracker, type ActiveConversationLatency } from '../liveConversation/conversationLatency';
 import { createConversationTurnFinalizer } from '../liveConversation/conversationTurnFinalizer';
+import type {
+  DurableRealtimeRunRequest,
+  DurableRealtimeToolResult,
+} from '../liveConversation/durableRealtimeTool';
+import { runDurableRealtimeRequest } from './runDurableRealtimeRequest';
+import {
+  UnifiedChatCenteredState as CenteredState,
+  unifiedChatScreenStyles as styles,
+} from './UnifiedChatScreenPresentation';
 import {
   insertUnifiedChatTranscriptAtSelection,
   type UnifiedChatVoiceInsertion,
@@ -232,6 +251,7 @@ export function UnifiedChatScreen({
   } | null>(null);
   const activeTurn = useRef<{
     runId: string | null;
+    owner: 'local' | 'server';
     controller: AbortController;
     disposition: { type: 'stop' } | { type: 'steer'; prompt: string; requestId: string };
   } | null>(null);
@@ -243,6 +263,15 @@ export function UnifiedChatScreen({
   const conversationLatencyRef = useRef<ActiveConversationLatency | null>(null);
   const conversationProgressHistoryRef = useRef<ConversationProgressCueId[]>([]);
   const conversationResponseGenerationRef = useRef(0);
+  const conversationAssistantSpeechActiveRef = useRef(false);
+  const conversationInterruptedRef = useRef(false);
+  const conversationSpeechStoppedAtRef = useRef('');
+  const finalizedConversationUtteranceRef = useRef<FinalizedConversationUtterance | null>(null);
+  const durableRealtimeRunRef = useRef<(
+    request: DurableRealtimeRunRequest,
+  ) => Promise<DurableRealtimeToolResult>>(async () => ({
+    status: 'needs_input', message: 'Kwilt Chat is not ready yet.',
+  }));
   const [threads, setThreads] = useState<UnifiedChatThread[]>([]);
   const [aggregate, setAggregate] = useState<UnifiedChatThreadAggregate | null>(null);
   const [streamingResponse, setStreamingResponse] = useState<{ runId: string; text: string } | null>(null);
@@ -264,7 +293,7 @@ export function UnifiedChatScreen({
     elapsedSeconds: number;
     levels: number[];
     provisionalTranscript?: string;
-    finalizedUtterance?: { id: string; text: string };
+    finalizedUtterance?: FinalizedConversationUtterance;
     message?: string;
   }>({ state: 'idle', elapsedSeconds: 0, levels: [] });
   const conversationTurnFinalizerRef = useRef<ReturnType<typeof createConversationTurnFinalizer> | null>(null);
@@ -279,8 +308,21 @@ export function UnifiedChatScreen({
         }
         conversationAssistantCountRef.current = aggregateRef.current?.messages
           .filter((item) => item.role === 'assistant').length ?? 0;
+        const finalizedUtterance = {
+            id: itemId,
+            text: transcript,
+            sessionId: liveConversation.current?.sessionId ?? 'live-unavailable',
+            source,
+            locale: Intl.DateTimeFormat().resolvedOptions().locale || 'en-US',
+            interrupted: conversationInterruptedRef.current,
+            speechStoppedAt: conversationSpeechStoppedAtRef.current,
+            finalizedAt: new Date().toISOString(),
+          } as const;
+        finalizedConversationUtteranceRef.current = finalizedUtterance;
         setVoice((current) => ({ ...current, state: 'thinking', provisionalTranscript: '',
-          finalizedUtterance: { id: itemId, text: transcript }, message: 'Thinking…' }));
+          finalizedUtterance,
+          message: 'Thinking…',
+        }));
       },
     });
   }
@@ -364,10 +406,13 @@ export function UnifiedChatScreen({
     const moneyRecovered = await recoverMoneyCategoryMutations({
       aggregate: chaptersRecovered, repository, moneyRepository,
     });
-    for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, moneyRecovered)) {
+    const screenTimeRecovered = await recoverScreenTimeMutations({
+      aggregate: moneyRecovered, repository, client: getSupabaseClient(),
+    });
+    for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, screenTimeRecovered)) {
       track(posthogClient, AnalyticsEvent.UnifiedChatReconciled, properties);
     }
-    return moneyRecovered;
+    return screenTimeRecovered;
   }, [moneyRepository, repository]);
 
   const postSnapshot = useCallback(
@@ -527,7 +572,7 @@ export function UnifiedChatScreen({
     conversationTurnFinalizerRef.current?.reset();
     conversationActivationFeedback.cancel();
     conversationProgressSpeech.stop();
-    void liveConversationSpeech.stop();
+    void liveConversationSpeechFallback.stop();
   }, [clearVoiceTimer]);
 
   const stopConversation = useCallback(async () => {
@@ -540,18 +585,18 @@ export function UnifiedChatScreen({
     conversationProgressHistoryRef.current = [];
     conversationProgressSpeech.stop();
     publishConversationLatency('interrupted', true);
-    await Promise.all([current?.stop(), liveConversationSpeech.stop()]);
+    await Promise.all([current?.stop(), liveConversationSpeechFallback.stop()]);
     setVoice({ state: 'idle', elapsedSeconds: 0, levels: [] });
   }, [clearVoiceTimer, publishConversationLatency]);
 
-  const failConversation = useCallback((message = 'Check your microphone or connection, then try again.') => {
+  const failConversation = useCallback((message = 'Conversation connection ended. Try again.') => {
     const failedConnection = liveConversation.current;
     liveConversation.current = null;
     clearVoiceTimer();
     conversationTurnFinalizerRef.current?.reset();
     conversationActivationFeedback.fail();
     conversationProgressSpeech.stop();
-    void Promise.all([failedConnection?.stop(), liveConversationSpeech.stop()]);
+    void Promise.all([failedConnection?.stop(), liveConversationSpeechFallback.stop()]);
     setVoice({ state: 'error', elapsedSeconds: 0, levels: [], message });
   }, [clearVoiceTimer]);
 
@@ -561,11 +606,16 @@ export function UnifiedChatScreen({
     await cancelUnifiedChatVoiceRecording();
     await sweepLegacyCookVoiceCacheOnce();
     conversationProgressHistoryRef.current = [];
+    conversationAssistantSpeechActiveRef.current = false;
+    conversationInterruptedRef.current = false;
+    conversationSpeechStoppedAtRef.current = '';
+    finalizedConversationUtteranceRef.current = null;
     conversationTurnFinalizerRef.current?.reset();
     clearVoiceTimer();
     setVoice({ state: 'connecting', elapsedSeconds: 0, levels: [], message: 'Connecting…' });
     try {
       const connection = await startLiveConversationSession({
+        onDurableRun: (request) => durableRealtimeRunRef.current(request),
         onConnected: (connection) => {
           liveConversation.current = connection;
           setVoice((current) => ({ ...current, state: 'listening', message: 'Listening' }));
@@ -579,14 +629,19 @@ export function UnifiedChatScreen({
         onEvent: (event) => {
           conversationTurnFinalizerRef.current?.handle(event);
           if (event.type === 'speech_started') {
+            const interruptedAssistantSpeech = conversationAssistantSpeechActiveRef.current;
+            if (interruptedAssistantSpeech) liveConversation.current?.cancelResponse();
+            conversationInterruptedRef.current = interruptedAssistantSpeech;
+            conversationAssistantSpeechActiveRef.current = false;
             conversationResponseGenerationRef.current += 1;
             conversationProgressSpeech.stop();
-            void liveConversationSpeech.stop();
+            void liveConversationSpeechFallback.stop();
             conversationActivationFeedback.listening();
             publishConversationLatency('interrupted', true);
             setVoice((current) => ({ ...current, state: 'listening', provisionalTranscript: '',
               finalizedUtterance: undefined, message: 'Listening' }));
           } else if (event.type === 'speech_stopped') {
+            conversationSpeechStoppedAtRef.current = new Date().toISOString();
             conversationResponseGenerationRef.current += 1;
             conversationActivationFeedback.thinking();
             const tracker = createConversationLatencyTracker();
@@ -604,11 +659,26 @@ export function UnifiedChatScreen({
               state: current.state === 'thinking' ? 'thinking' : 'listening',
               provisionalTranscript: `${current.provisionalTranscript ?? ''}${event.delta}` }));
           } else if (event.type === 'transcript_final') {
+          } else if (event.type === 'tool_call') {
+          } else if (event.type === 'assistant_audio_started') {
+            conversationAssistantSpeechActiveRef.current = true;
+            conversationLatencyRef.current?.tracker.mark('playback_started');
+            conversationActivationFeedback.speaking();
+            setVoice((current) => ({ ...current, state: 'speaking', message: 'Speaking' }));
+            publishConversationLatency('completed', false);
+          } else if (event.type === 'assistant_audio_stopped') {
+            conversationAssistantSpeechActiveRef.current = false;
+            if (liveConversation.current) conversationActivationFeedback.listening();
+            setVoice((current) => liveConversation.current
+              ? { ...current, state: 'listening', finalizedUtterance: undefined, message: 'Listening' }
+              : current);
           } else if (event.type === 'provider_error') {
+            console.warn('[live-conversation] Provider event failed', { message: event.message });
             failConversation();
           }
         },
-        onFailure: () => {
+        onFailure: (error) => {
+          console.warn('[live-conversation] Connection failed', { message: error.message });
           failConversation();
         },
       });
@@ -628,6 +698,7 @@ export function UnifiedChatScreen({
 
   useEffect(() => {
     if (voice.state !== 'thinking' || !aggregate) return;
+    if (liveConversation.current?.usesRealtimeSpeech) return;
     const assistantMessages = aggregate.messages.filter((item) => item.role === 'assistant');
     if (assistantMessages.length <= conversationAssistantCountRef.current) return;
     const responseMessage = assistantMessages.at(-1);
@@ -641,11 +712,12 @@ export function UnifiedChatScreen({
     void (async () => {
       await conversationProgressSpeech.finishBeforeFinalAnswer();
       if (responseGeneration !== conversationResponseGenerationRef.current || !liveConversation.current) return;
-      await liveConversationSpeech.speakMessage(responseMessage, {
+      await liveConversationSpeechFallback.speakMessage(responseMessage, {
       onFallback: () => {
         if (conversationLatencyRef.current) conversationLatencyRef.current.fallbackUsed = true;
       },
       onStart: () => {
+        conversationAssistantSpeechActiveRef.current = true;
         conversationLatencyRef.current?.tracker.mark('playback_started');
         conversationActivationFeedback.speaking();
         setVoice((current) => ({ ...current, state: 'speaking', message: 'Speaking' }));
@@ -655,6 +727,7 @@ export function UnifiedChatScreen({
     })().catch(() => {
       publishConversationLatency('failed', false);
     }).finally(() => {
+      conversationAssistantSpeechActiveRef.current = false;
       if (liveConversation.current) conversationActivationFeedback.listening();
       setVoice((current) => liveConversation.current
         ? { ...current, state: 'listening', message: 'Listening' }
@@ -688,13 +761,34 @@ export function UnifiedChatScreen({
       const hasResumableAction = (aggregate.clientActions ?? []).some(
         (item) => item.status === 'pending_client_action' || item.status === 'presenting',
       );
-      if (!hasResumableAction) return;
+      const hasServerOwnedRun = aggregate.runs.some((run) =>
+        run.originChannel === 'mobile' && (run.status === 'queued' || run.status === 'active'));
+      if (!hasResumableAction && !hasServerOwnedRun) return;
       const threadId = aggregate.thread.id;
       void loadThreadWithRecovery(threadId).then((next) => {
         setAggregate((current) => current?.thread.id === threadId ? next : current);
-      }).catch(() => setError('Kwilt could not refresh the pending device review.'));
+      }).catch(() => setError(hasServerOwnedRun
+        ? 'Kwilt could not refresh the response yet.'
+        : 'Kwilt could not refresh the pending device review.'));
     });
     return () => subscription.remove();
+  }, [aggregate, loadThreadWithRecovery]);
+
+  useEffect(() => {
+    const threadId = aggregate?.thread.id;
+    const hasServerOwnedRun = aggregate?.runs.some((run) =>
+      run.originChannel === 'mobile' && (run.status === 'queued' || run.status === 'active'));
+    if (!threadId || !hasServerOwnedRun) return undefined;
+    let cancelled = false;
+    const refreshTimer = setTimeout(() => {
+      void loadThreadWithRecovery(threadId).then((next) => {
+        if (!cancelled) setAggregate((current) => current?.thread.id === threadId ? next : current);
+      }).catch(() => undefined);
+    }, 1_000);
+    return () => {
+      cancelled = true;
+      clearTimeout(refreshTimer);
+    };
   }, [aggregate, loadThreadWithRecovery]);
 
   useEffect(() => {
@@ -841,6 +935,18 @@ export function UnifiedChatScreen({
       setClientActionInFlight(false);
     }
   }, [aggregate, clientActionInFlight, loadThreadWithRecovery, openNativeClientAction, repository]);
+
+  const transitionServerOwnedRun = useCallback(async (
+    runId: string,
+    disposition: { type: 'stop' } | { type: 'steer'; prompt: string },
+  ): Promise<UnifiedChatThreadAggregate | null> => {
+    const threadId = aggregateRef.current?.thread.id;
+    if (!threadId) return null;
+    return transitionDurableMobileChatRun({
+      threadId, runId, disposition, loadThread: loadThreadWithRecovery,
+      transitionRunStatus: repository.transitionRunStatus,
+    });
+  }, [loadThreadWithRecovery, repository]);
 
   const handleSurfaceMessage = useCallback(
     async (event: WebViewMessageEvent) => {
@@ -1390,8 +1496,20 @@ export function UnifiedChatScreen({
         const run = aggregate.runs.find((item) => item.id === command.runId);
         if (!run || (run.status !== 'active' && run.status !== 'queued')) return;
         if (activeTurn.current?.runId === command.runId) {
-          activeTurn.current.disposition = { type: 'stop' };
-          activeTurn.current.controller.abort();
+          const current = activeTurn.current;
+          current.disposition = { type: 'stop' };
+          if (current.owner === 'server') {
+            try {
+              const next = await transitionServerOwnedRun(command.runId, { type: 'stop' });
+              if (next) setAggregate(next);
+              current.controller.abort();
+            } catch (stopError) {
+              setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+              setError(stopError instanceof Error ? stopError.message : 'Kwilt could not stop that response.');
+            }
+          } else {
+            activeTurn.current.controller.abort();
+          }
         }
         return;
       }
@@ -1400,7 +1518,19 @@ export function UnifiedChatScreen({
         const current = activeTurn.current;
         if (!run || (run.status !== 'active' && run.status !== 'queued') || current?.runId !== run.id) return;
         current.disposition = { type: 'steer', prompt: command.prompt.trim(), requestId: message.requestId };
-        current.controller.abort();
+        if (current.owner === 'server') {
+          try {
+            const next = await transitionServerOwnedRun(run.id, { type: 'steer', prompt: command.prompt.trim() });
+            if (next) setAggregate(next);
+            current.controller.abort();
+          } catch (steerError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(steerError instanceof Error ? steerError.message : 'Kwilt could not update that response.');
+            return;
+          }
+        } else {
+          current.controller.abort();
+        }
         setPrompt('');
         return;
       }
@@ -1425,6 +1555,7 @@ export function UnifiedChatScreen({
             created.thread,
             ...current.filter((thread) => thread.id !== created.thread.id),
           ]);
+          aggregateRef.current = created;
           setAggregate(created);
           freshEntrySentRef.current = true;
           track(
@@ -1470,13 +1601,15 @@ export function UnifiedChatScreen({
       let turnPrompt = command.type === 'run.send' ? command.prompt : retryMessage?.body ?? '';
       let turnRequestId = message.requestId;
       let retryRunId = retryRun?.id;
-      let turnAttachments = command.type === 'run.send' ? attachments : [];
+      let turnAttachments = command.type === 'run.send' ? attachments : retryMessage?.attachments ?? [];
+      let parentRunId: string | null = retryRunId ?? null;
       while (turnPrompt.trim()) {
         setStreamingResponse(null);
         setProcessingNotice(null);
         const controller = new AbortController();
         const turnState = {
           runId: null as string | null,
+          owner: 'local' as 'local' | 'server',
           controller,
           disposition: { type: 'stop' as const } as
             | { type: 'stop' }
@@ -1490,7 +1623,47 @@ export function UnifiedChatScreen({
           // short answer attached to the assistant question that prompted it.
           turnAggregate = await loadThreadWithRecovery(turnAggregate.thread.id);
           const isConversationTurn = liveConversation.current !== null;
-          refreshedAggregate = await runUnifiedChatTurn({
+          const useDurableMobileRun = isDurableMobileChatEligible({
+            aggregate: turnAggregate,
+            attachmentCount: turnAttachments.length,
+            interactionMode: isConversationTurn ? 'conversation' : 'text',
+            isRetry: Boolean(retryRunId),
+          });
+          if (useDurableMobileRun) {
+            turnState.owner = 'server';
+            refreshedAggregate = await runDurableMobileChatTurn({
+              threadId: turnAggregate.thread.id,
+              prompt: turnPrompt,
+              requestId: turnRequestId,
+              channelContext: buildMobileTurnChannelContext({
+                aggregate: turnAggregate, attachments: turnAttachments,
+                locale: Intl.DateTimeFormat().resolvedOptions().locale || 'en-US', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+                appState: AppState.currentState,
+                action: retryRunId ? 'run.retry' : parentRunId ? 'run.steer' : 'run.send',
+                ...(isConversationTurn && finalizedConversationUtteranceRef.current ? {
+                  voice: {
+                    sessionId: finalizedConversationUtteranceRef.current.sessionId,
+                    utteranceId: finalizedConversationUtteranceRef.current.id,
+                    source: finalizedConversationUtteranceRef.current.source,
+                    locale: finalizedConversationUtteranceRef.current.locale,
+                    interrupted: finalizedConversationUtteranceRef.current.interrupted,
+                    speechStoppedAt: finalizedConversationUtteranceRef.current.speechStoppedAt,
+                    finalizedAt: finalizedConversationUtteranceRef.current.finalizedAt,
+                  },
+                } : {}),
+              }),
+              parentRunId,
+              invoke: (functionName, options) => getSupabaseClient().functions.invoke(functionName, options),
+              loadThread: loadThreadWithRecovery,
+              signal: controller.signal,
+              onProgress: (progressAggregate, runId) => {
+                turnState.runId = runId;
+                setAggregate(progressAggregate);
+                setAttachments([]);
+              },
+            });
+          } else {
+            refreshedAggregate = await runUnifiedChatTurn({
             aggregate: turnAggregate,
             prompt: turnPrompt,
             interactionMode: isConversationTurn ? 'conversation' : 'text',
@@ -1545,7 +1718,8 @@ export function UnifiedChatScreen({
               setThreads((current) => current.map((thread) =>
                 thread.id === updatedThread.id ? updatedThread : thread));
             },
-          });
+            });
+          }
           const completedRunId = refreshedAggregate.runs.at(-1)?.id;
           const autoApplyProposal = completedRunId
             ? findAutoApplyCreateProposal(refreshedAggregate, completedRunId)
@@ -1589,11 +1763,13 @@ export function UnifiedChatScreen({
             });
             refreshedAggregate = await loadThreadWithRecovery(turnAggregate.thread.id);
           }
+          aggregateRef.current = refreshedAggregate;
           setAggregate(refreshedAggregate);
           setThreads(await repository.listThreads());
         } catch (turnError) {
           try {
             refreshedAggregate = await loadThreadWithRecovery(turnAggregate.thread.id);
+            aggregateRef.current = refreshedAggregate;
             setAggregate(refreshedAggregate);
             setError(null);
           } catch {
@@ -1607,6 +1783,7 @@ export function UnifiedChatScreen({
 
         if (controller.signal.aborted && turnState.disposition.type === 'steer' && refreshedAggregate) {
           turnAggregate = refreshedAggregate;
+          parentRunId = turnState.owner === 'server' ? turnState.runId : null;
           turnPrompt = turnState.disposition.prompt;
           turnRequestId = turnState.disposition.requestId;
           retryRunId = undefined;
@@ -1616,8 +1793,19 @@ export function UnifiedChatScreen({
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, freshWorkbenchContext, isDrawer, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, onComposerFocusChange, onThreadIdChange, postFreshSnapshot, postSnapshot, repository, startConversation, stopConversation, transitionServerOwnedRun, voice.state],
   );
+
+  durableRealtimeRunRef.current = async (request) => {
+    return runDurableRealtimeRequest({
+      request, activeRun: activeTurn.current,
+      send: (payload) => handleSurfaceMessage({ nativeEvent: { data: payload } } as WebViewMessageEvent),
+      getThreadId: () => aggregateRef.current?.thread.id,
+      loadThread: loadThreadWithRecovery,
+      stopRun: (runId) => transitionServerOwnedRun(runId, { type: 'stop' }),
+      onLoaded: (latest) => { aggregateRef.current = latest; },
+    });
+  };
 
   const pendingClientAction = useMemo(
     () => (aggregate?.clientActions ?? []).find(
@@ -1857,105 +2045,3 @@ export function UnifiedChatScreen({
     ? <View style={styles.drawerRoot}>{chatContent}</View>
     : <AppShell fullBleedCanvas>{chatContent}</AppShell>;
 }
-
-function CenteredState({
-  title,
-  body,
-  actionLabel,
-  onAction,
-}: {
-  title: string;
-  body?: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}) {
-  return (
-    <View style={styles.centeredState}>
-      <Text style={styles.stateTitle}>{title}</Text>
-      {body ? <Text style={styles.stateBody}>{body}</Text> : null}
-      {actionLabel && onAction ? (
-        <Button variant="primary" onPress={onAction}>{actionLabel}</Button>
-      ) : null}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  drawerRoot: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-  },
-  iconButton: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.pill,
-  },
-  webViewContainer: { flex: 1, backgroundColor: colors.canvas },
-  webView: { backgroundColor: colors.canvas },
-  errorBar: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.scheduleYellow },
-  errorText: { ...typography.bodySm, color: colors.textPrimary },
-  processingNoticeBar: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.infoSurface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  processingNoticeText: { ...typography.bodySm, color: colors.textSecondary },
-  centeredState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing['2xl'], gap: spacing.md },
-  recoveryState: { flex: 1, justifyContent: 'center', marginTop: 0, padding: spacing['2xl'] },
-  stateTitle: { ...typography.titleMd, color: colors.textPrimary, textAlign: 'center' },
-  stateBody: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
-  picker: { flex: 1, backgroundColor: colors.canvas },
-  pickerHeader: { minHeight: 58, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  contextPickerTitle: { ...typography.titleSm, color: colors.textPrimary },
-  contextPickerSubtitle: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
-  contextChoice: {
-    minHeight: 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  contextChoiceText: { flex: 1, paddingVertical: spacing.sm },
-  threadList: { padding: spacing.md, gap: spacing.xs },
-  threadTitle: { ...typography.body, color: colors.textPrimary },
-  threadDate: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
-  emptyListText: { ...typography.body, color: colors.textSecondary, textAlign: 'center', paddingTop: spacing['2xl'] },
-  clientActionScrim: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.scrimStrong,
-  },
-  clientActionSheet: {
-    backgroundColor: colors.canvas,
-    borderTopLeftRadius: radii.sheet,
-    borderTopRightRadius: radii.sheet,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing['2xl'],
-  },
-  clientActionEyebrow: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.xs },
-  clientActionTitle: { ...typography.titleMd, color: colors.textPrimary },
-  clientActionSummary: { ...typography.body, color: colors.textSecondary, marginTop: spacing.sm },
-  clientActionButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm, marginTop: spacing.lg },
-  clientActionSecondaryButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-  },
-  clientActionPrimaryButton: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.pill,
-    backgroundColor: colors.accent,
-  },
-  clientActionSecondaryLabel: { ...typography.label, color: colors.textSecondary },
-  clientActionPrimaryLabel: { ...typography.label, color: colors.primaryForeground },
-  buttonPressed: { opacity: 0.72 },
-});

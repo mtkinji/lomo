@@ -43,6 +43,15 @@ describe('Kwilt generation job contracts', () => {
       cloudFallbackPolicy: 'allowed',
       cloudTier: 'advanced',
     }));
+    expect(getKwiltGenerationJobContract('unified_chat_agent')).toEqual(expect.objectContaining({
+      owner: 'agent-runtime',
+      cloudModel: 'gpt-5.6-terra',
+      responses: {
+        store: false,
+        maximumOutputTokens: 1_200,
+        parallelToolCalls: false,
+      },
+    }));
   });
 
   test('gives every local cohort observational first-output and total targets', () => {

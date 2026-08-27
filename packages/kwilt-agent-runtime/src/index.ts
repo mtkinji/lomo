@@ -13,7 +13,50 @@ export {
   projectOperationCoverage,
 } from './capabilityManifest';
 export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
+export { createRuntimeToolProviderRegistry } from './providerRegistry';
+export {
+  EXTERNAL_ACTION_REGISTRATIONS,
+  projectExternalActionCatalog,
+} from './externalActionCatalog';
+export { normalizeStrictToolArguments, toStrictToolInputSchema } from './strictToolSchema';
+export { resolveTurnPolicy } from './planning/resolveTurnPolicy';
+export {
+  isKwiltToolNamespaceId,
+  KWILT_TOOL_NAMESPACE_IDS,
+  KWILT_TOOL_NAMESPACES,
+  namespaceForCapability,
+  namespaceForTool,
+} from './toolNamespaces';
+export type { KwiltToolNamespaceId } from './toolNamespaces';
+export type {
+  ExternalActionAnnotations,
+  ExternalActionCatalogEntry,
+  ExternalActionRegistration,
+  ExternalCompatibilityAlias,
+  ExternalExposureState,
+  ExternalRedactionPolicy,
+} from './externalActionCatalog';
+export type {
+  RuntimeToolHandler,
+  RuntimeToolProviderRegistration,
+  RuntimeToolProviderRegistry,
+} from './providerRegistry';
 export { calendarDateInTimeZone, normalizeIanaTimeZone } from './timeContext';
+export {
+  buildKwiltChannelContext,
+  KWILT_CHANNEL_CONTEXT_SCHEMA_VERSION,
+  normalizeKwiltChannelContext,
+} from './channelContext';
+export type { KwiltChannelContextPacket } from './channelContext';
+export {
+  RELIABILITY_CORPUS,
+  RELIABILITY_CORPUS_VERSION,
+  validateReliabilityCorpus,
+} from './reliabilityCorpus';
+export type {
+  ReliabilityExpectedOutcome,
+  ReliabilityScenario,
+} from './reliabilityCorpus';
 export {
   getKwiltGenerationJobContract,
   KWILT_GENERATION_JOB_CONTRACTS,
@@ -25,6 +68,7 @@ export type {
   KwiltGenerationJobContract,
   KwiltGenerationJobId,
   KwiltGenerationPrivacyClass,
+  KwiltResponsesGenerationContract,
   KwiltLocalGenerationContract,
   KwiltLocalPromotion,
 } from './generationJobContracts';
@@ -44,6 +88,10 @@ export type {
   AppControlPlanResult,
   AppControlResultReference,
   AppControlStep,
+  KwiltActionReceipt,
+  KwiltActionReceiptStatus,
+  KwiltActionRequest,
+  KwiltActionSource,
 } from './types';
 export type { DiscoveredAgentTool } from './discovery';
 export type {
@@ -66,3 +114,22 @@ export type {
   OperationCoverageProjection,
   RuntimeToolImplementation,
 } from './capabilityManifest';
+export type {
+  AgentJudgment,
+  AgentJudgmentAuthorization,
+  AgentJudgmentConstraint,
+  AgentJudgmentEvidenceScope,
+  AgentJudgmentExecutionMode,
+  AgentJudgmentResponseContract,
+  AgentJudgmentStep,
+  PortableUnifiedChatCapabilityId,
+  PortableUnifiedChatRequestClass,
+  ResolvedTurnPolicy,
+  ResolvedUnifiedChatTurnContract,
+  ResolveTurnPolicyInput,
+  TurnActorPermissions,
+  TurnAuthorization,
+  UnifiedChatTurnActionContract,
+  UnifiedChatTurnContract,
+  UnifiedChatTurnReferenceKind,
+} from './planning/types';

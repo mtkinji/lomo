@@ -13,7 +13,7 @@ const goal: Goal = {
 const snapshots = {
   goals: { goals: [goal] }, todos: { activities: [activity], goals: [goal] }, chapters: { chapters: [] },
   screenTime: { children: [{
-    membershipId: 'child-charlie', displayName: 'Charlie', canManage: true,
+    householdId: 'household-1', membershipId: 'child-charlie', displayName: 'Charlie', canManage: true,
     policy: {
       childMembershipId: 'child-charlie', subjectId: 'subject-charlie', desiredPolicyVersion: 1,
       selections: [], agreements: [], activeOverrides: [], pendingRequests: [], devices: [], latestDeviceReceipt: null,
@@ -172,7 +172,9 @@ test.each([
       status: 'pending_client_action', provider: 'device',
       request: expect.objectContaining({
         actionType: 'open_family_screen_time_setup', targetId: 'child-charlie',
-        payload: expect.objectContaining({ childDisplayName: 'Charlie', setupStep }),
+        payload: expect.objectContaining({
+          householdId: 'household-1', childDisplayName: 'Charlie', setupStep,
+        }),
       }),
     });
   expect(provider.actions()[0].consequenceSummary).toContain('still happens');

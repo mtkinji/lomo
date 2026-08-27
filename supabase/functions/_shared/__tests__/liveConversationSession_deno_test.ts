@@ -1,6 +1,6 @@
 import {
   buildLiveConversationSafetyIdentifier,
-  buildOpenAiLiveTranscriptionClientSecretRequest,
+  buildOpenAiLiveConversationClientSecretRequest,
   extractEphemeralClientSecret,
   parseLiveConversationSessionRequest,
   summarizeOpenAiError,
@@ -12,14 +12,26 @@ Deno.test('live conversation request is bounded to Chat', () => {
   if (parseLiveConversationSessionRequest({ channel: 'chat', locale: '../bad' })) throw new Error('invalid locale accepted');
 });
 
-Deno.test('OpenAI session uses dedicated live transcription so Chat remains authoritative', () => {
-  const request = buildOpenAiLiveTranscriptionClientSecretRequest({ model: 'gpt-live-transcribe', locale: 'en-US' });
-  if (request.session.type !== 'transcription') throw new Error('session can create competing responses');
-  if (request.session.audio.input.transcription.model !== 'gpt-live-transcribe') throw new Error('expensive realtime model retained');
+Deno.test('OpenAI Realtime session exposes one durable Kwilt tool', () => {
+  const request = buildOpenAiLiveConversationClientSecretRequest({
+    model: 'gpt-realtime-2.1', transcriptionModel: 'gpt-live-transcribe', locale: 'en-US',
+  });
+  if (request.session.type !== 'realtime') throw new Error('speech-to-speech session omitted');
+  if (request.session.model !== 'gpt-realtime-2.1') throw new Error('routed realtime model changed');
+  if (request.session.audio.input.transcription.model !== 'gpt-live-transcribe') throw new Error('transcription model changed');
   const transcription = request.session.audio.input.transcription as Record<string, unknown>;
   if ((transcription.languages as string[] | undefined)?.[0] !== 'en') throw new Error('locale not normalized');
   if ('language' in transcription) throw new Error('unsupported singular language retained');
-  if ('turn_detection' in request.session.audio.input) throw new Error('connection-only setting sent to client-secret endpoint');
+  const turnDetection = request.session.audio.input.turn_detection as Record<string, unknown> | undefined;
+  if (turnDetection?.type !== 'server_vad') throw new Error('reliable turn detection omitted from minted session');
+  const tools = request.session.tools as Array<Record<string, unknown>>;
+  if (tools.length !== 1 || tools[0].name !== 'kwilt.run') throw new Error('session tool boundary widened');
+  if (request.session.tool_choice !== 'required') throw new Error('a user utterance may bypass durable Chat');
+  const parameters = tools[0].parameters as Record<string, unknown>;
+  const properties = parameters.properties as Record<string, unknown>;
+  if (parameters.additionalProperties !== false) throw new Error('tool input is not strict');
+  if (!properties.realtimeItemId || !properties.channelContextVersion) throw new Error('durable correlation fields omitted');
+  if ('transcript' in properties) throw new Error('model-authored transcript accepted');
 });
 
 Deno.test('ephemeral response exposes only the bounded client credential', () => {

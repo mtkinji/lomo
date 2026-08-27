@@ -6,6 +6,16 @@ import { executeServerPlanTool } from './serverPlanTools.ts';
 import { executeServerDeviceHandoff, type ServerDeviceActionRequest } from './serverDeviceHandoffs.ts';
 import { executeServerProfileTool } from './serverProfileTools.ts';
 import { executeServerRelationshipTool } from './serverRelationshipTools.ts';
+import { executeServerHouseholdTool } from './serverHouseholdTools.ts';
+import { executeServerScreenTimeTool } from './serverScreenTimeTools.ts';
+import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
+import {
+  createServerToolProviderRegistry,
+  executeServerRegisteredTool,
+  serverToolResultFromActionReceipt,
+} from './serverToolProviderRegistry.ts';
+import { dispatchServerAction } from './serverActionDispatcher.ts';
+import type { KwiltActionSource } from '../../../packages/kwilt-agent-runtime/src/types.ts';
 import { calendarDateInTimeZone, normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 import { evaluateToolPolicy } from '../../../packages/kwilt-agent-runtime/src/policy.ts';
 type ClientActionRequest = ServerDeviceActionRequest;
@@ -19,6 +29,19 @@ type ReadResult = { data: unknown; error: unknown }; type ReadQuery = {
 };
 type ServerDataClient = { from: (table: string) => unknown;
   rpc?: (name: string, args: Record<string, unknown>) => PromiseLike<ReadResult> };
+type ExecuteServerAgentToolArgs = {
+  client: ServerDataClient;
+  userId: string;
+  call: ServerAgentToolCall;
+  tool: ServerAgentToolDefinition;
+  stageDeviceAction: (request: ClientActionRequest) => Promise<void>;
+  stageProposal?: (request: ServerAgentProposalRequest) => Promise<ServerAgentProposalRecord>;
+  stageProposals?: (requests: ServerAgentProposalRequest[]) => Promise<ServerAgentProposalRecord[]>;
+  writeContext?: { threadId: string; runId: string; messageId: string };
+  actionSource?: KwiltActionSource;
+  timeZone?: string;
+};
+const SERVER_TOOL_PROVIDER_REGISTRY = createServerToolProviderRegistry(SERVER_AGENT_TOOL_CATALOG);
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -360,7 +383,7 @@ function withUpdatedAt(row: Record<string, unknown>): Record<string, unknown> {
   return { ...data, id: row.id, updated_at: row.updated_at };
 }
 
-export async function executeServerAgentTool({
+async function executeServerAgentToolHandler({
   client,
   userId,
   call,
@@ -369,18 +392,9 @@ export async function executeServerAgentTool({
   stageProposal,
   stageProposals,
   writeContext,
+  actionSource,
   timeZone,
-}: {
-  client: ServerDataClient;
-  userId: string;
-  call: ServerAgentToolCall;
-  tool: ServerAgentToolDefinition;
-  stageDeviceAction: (request: ClientActionRequest) => Promise<void>;
-  stageProposal?: (request: ServerAgentProposalRequest) => Promise<ServerAgentProposalRecord>;
-  stageProposals?: (requests: ServerAgentProposalRequest[]) => Promise<ServerAgentProposalRecord[]>;
-  writeContext?: { threadId: string; runId: string; messageId: string };
-  timeZone?: string;
-}): Promise<ServerAgentToolResult> {
+}: ExecuteServerAgentToolArgs): Promise<ServerAgentToolResult> {
   if (call.toolId !== tool.id) {
     return { status: 'failed', code: 'tool_mismatch', message: 'The discovered tool does not match this call.', retryable: false };
   }
@@ -412,6 +426,10 @@ export async function executeServerAgentTool({
   if (deviceHandoff) return deviceHandoff;
   const profileResult = await executeServerProfileTool({ client, userId, call, stageProposal });
   if (profileResult) return profileResult;
+  const householdResult = await executeServerHouseholdTool({ client, userId, call });
+  if (householdResult) return householdResult;
+  const screenTimeResult = await executeServerScreenTimeTool({ client, userId, call, stageProposal });
+  if (screenTimeResult) return screenTimeResult;
   if (tool.capabilityId === 'relationships') {
     const policy = evaluateToolPolicy(tool, {
       authorized: true,
@@ -783,21 +801,39 @@ export async function executeServerAgentTool({
     if (!writeContext || !client.rpc) {
       return { status: 'unavailable', reason: 'server_write_context_unavailable', retryable: false };
     }
-    const { data, error } = await client.rpc('capture_kwilt_agent_activity', {
-      p_user_id: userId, p_thread_id: writeContext.threadId, p_run_id: writeContext.runId,
-      p_message_id: writeContext.messageId, p_call_id: call.id, p_payload: payload,
+    const actionReceipt = await dispatchServerAction({
+      request: {
+        operationId: call.toolId,
+        requestId: call.id,
+        actorId: userId,
+        householdId: userId,
+        source: actionSource ?? 'mobile_chat',
+        input: payload,
+      },
+      authorize: (request) => request.actorId === userId && request.operationId === 'activities.capture',
+      // The RPC owns the durable idempotency lookup and mutation transaction.
+      findMutationReceipt: async () => null,
+      execute: async () => {
+        const { data, error } = await client.rpc!('capture_kwilt_agent_activity', {
+          p_user_id: userId, p_thread_id: writeContext.threadId, p_run_id: writeContext.runId,
+          p_message_id: writeContext.messageId, p_call_id: call.id, p_payload: payload,
+        });
+        const result = asRecord(data);
+        const activityId = typeof result.activityId === 'string' ? result.activityId : '';
+        const receiptId = typeof result.receiptId === 'string' ? result.receiptId : '';
+        if (error || result.status !== 'applied' || !activityId || !receiptId) {
+          throw new Error('activity_capture_failed');
+        }
+        return {
+          id: receiptId,
+          status: String(result.status),
+          resulting_object_type: 'activity',
+          resulting_object_id: activityId,
+          can_undo: true,
+        };
+      },
     });
-    const result = asRecord(data);
-    const activityId = typeof result.activityId === 'string' ? result.activityId : '';
-    const receiptId = typeof result.receiptId === 'string' ? result.receiptId : '';
-    if (error || result.status !== 'applied' || !activityId || !receiptId) {
-      return { status: 'failed', code: 'activity_capture_failed', message: 'Kwilt could not capture this To-do.', retryable: true };
-    }
-    return {
-      status: 'completed',
-      output: { activityId, title: payload.title, replayed: result.replayed === true },
-      receipt: { id: receiptId, status: 'applied', resultingObjectType: 'activity', resultingObjectId: activityId },
-    };
+    return serverToolResultFromActionReceipt(actionReceipt);
   }
   if (tool.effect !== 'read' || !tool.providers.includes('server')) {
     return { status: 'unavailable', reason: 'server_provider_unavailable', retryable: false };
@@ -852,4 +888,17 @@ export async function executeServerAgentTool({
     return { status: 'completed', output: { showUp: summarizeShowUpStatus(data ?? {}) }, receipt: null };
   }
   return { status: 'unavailable', reason: 'unknown_server_tool', retryable: false };
+}
+
+export async function executeServerAgentTool(
+  args: ExecuteServerAgentToolArgs,
+): Promise<ServerAgentToolResult> {
+  return executeServerRegisteredTool({
+    registry: SERVER_TOOL_PROVIDER_REGISTRY,
+    context: {
+      dispatch: (call) => executeServerAgentToolHandler({ ...args, call, tool: args.tool }),
+    },
+    call: args.call,
+    tool: args.tool,
+  });
 }

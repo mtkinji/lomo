@@ -1,15 +1,15 @@
 import type { Activity, ActivityCalendarBinding } from '../../domain/types';
 import {
-  createCalendarEvent,
   type CalendarEventRef,
-  type CalendarRef,
 } from '../../services/plan/calendarApi';
 import {
-  resolveCalendarEventRefAfterCreate,
-  resolveCalendarEventRefBeforeCreate,
-  type CalendarEventCommitRecoveryResult,
-} from '../../services/plan/calendarEventCommit';
-import { deleteManagedEvent, moveManagedEvent } from '../../services/calendar/managedEvents';
+  DEFAULT_PLAN_CALENDAR_ACTION_BOUNDARY,
+  PlanActionUnconfirmedError,
+  removePlanCalendarSession,
+  reschedulePlanCalendarSession,
+  schedulePlanCalendarSession,
+  type PlanCalendarActionBoundary,
+} from '../../capabilities/plan/actions/planActions';
 import type { UnifiedChatMutationReceipt, UnifiedChatProposal } from './types';
 
 type PlanProposal = Extract<UnifiedChatProposal, { capabilityId: 'plan' }>;
@@ -21,28 +21,9 @@ export type PlanStoreBoundary = {
   removeDailyPlanCommitment: (dateKey: string, activityId: string) => void;
 };
 
-export type PlanCalendarBoundary = {
-  resolveBeforeCreate: (args: {
-    block: { startDate: string; endDate: string };
-    writeRef: CalendarRef;
-  }) => Promise<{ status: 'linked'; eventRef: CalendarEventRef } | null>;
-  createEvent: typeof createCalendarEvent;
-  resolveAfterCreate: (args: {
-    createResult: unknown;
-    block: { startDate: string; endDate: string };
-    writeRef: CalendarRef;
-  }) => Promise<CalendarEventCommitRecoveryResult>;
-  moveEvent: (args: { binding: ActivityCalendarBinding; start: Date; end: Date }) => Promise<void>;
-  deleteEvent: (binding: ActivityCalendarBinding) => Promise<void>;
-};
+export type PlanCalendarBoundary = PlanCalendarActionBoundary;
 
-const DEFAULT_CALENDAR: PlanCalendarBoundary = {
-  resolveBeforeCreate: resolveCalendarEventRefBeforeCreate,
-  createEvent: createCalendarEvent,
-  resolveAfterCreate: resolveCalendarEventRefAfterCreate,
-  moveEvent: moveManagedEvent,
-  deleteEvent: deleteManagedEvent,
-};
+const DEFAULT_CALENDAR = DEFAULT_PLAN_CALENDAR_ACTION_BOUNDARY;
 
 export type PlanUndoOperation =
   | {
@@ -179,8 +160,6 @@ export async function applyApprovedPlanProposal({
     if (!alreadyLinked && current.updatedAt !== payload.expectedUpdatedAt && !followsOwnGroup) {
       throw new PlanMutationConflictError('This Activity changed while its calendar chunks were being prepared.');
     }
-    const block = { startDate: payload.startDate, endDate: payload.endDate };
-    const writeRef = payload.writeCalendarRef;
     let eventRef = alreadyLinked
       ? {
           provider: alreadyLinked.binding.provider,
@@ -188,22 +167,21 @@ export async function applyApprovedPlanProposal({
           calendarId: alreadyLinked.binding.calendarId,
           eventId: alreadyLinked.binding.eventId,
         }
-      : (await calendar.resolveBeforeCreate({ block, writeRef }))?.eventRef ?? null;
+      : null;
     if (!eventRef) {
-      let createResult: unknown = null;
       try {
-        createResult = await calendar.createEvent({
-          title: payload.title, start: payload.startDate, end: payload.endDate,
-          writeCalendarRef: writeRef,
-        });
+        const receipt = await schedulePlanCalendarSession({
+          operationId: 'plan.schedule_chunks',
+          title: payload.title,
+          startDate: payload.startDate,
+          endDate: payload.endDate,
+          writeCalendarRef: payload.writeCalendarRef,
+          confirmed: true,
+        }, calendar);
+        eventRef = receipt.result.eventRef;
       } catch {
-        createResult = null;
-      }
-      const recovered = await calendar.resolveAfterCreate({ createResult, block, writeRef });
-      if (recovered.status !== 'linked') {
         throw new PlanMutationUnconfirmedError('Kwilt could not confirm this calendar chunk.');
       }
-      eventRef = recovered.eventRef;
     }
     const appliedAt = alreadyLinked ? current.updatedAt : now();
     if (!alreadyLinked) {
@@ -250,7 +228,12 @@ export async function applyApprovedPlanProposal({
     if (!binding) throw new PlanMutationConflictError('This calendar block is no longer managed by Kwilt.');
     if (!alreadyMoved) {
       try {
-        await calendar.moveEvent({ binding, start: new Date(payload.startDate), end: new Date(payload.endDate) });
+        await reschedulePlanCalendarSession({
+          binding,
+          startDate: payload.startDate,
+          endDate: payload.endDate,
+          confirmed: true,
+        }, calendar);
       } catch {
         throw new PlanMutationUnconfirmedError('Kwilt could not confirm the calendar move.');
       }
@@ -302,7 +285,7 @@ export async function applyApprovedPlanProposal({
     }
     if (!alreadyRemoved) {
       try {
-        await calendar.deleteEvent(binding);
+        await removePlanCalendarSession({ binding, confirmed: true }, calendar);
       } catch {
         throw new PlanMutationUnconfirmedError('Kwilt could not confirm calendar removal.');
       }
@@ -350,36 +333,32 @@ export async function applyApprovedPlanProposal({
     throw new PlanMutationConflictError('This Activity changed after the recommendation was prepared.');
   }
 
-  const block = { startDate: payload.startDate, endDate: payload.endDate };
   const writeRef = payload.writeCalendarRef;
   let eventRef: CalendarEventRef | null = alreadyLinked
     ? {
         ...writeRef,
         eventId: current.scheduledProviderEventId!,
       }
-    : (await calendar.resolveBeforeCreate({ block, writeRef }))?.eventRef ?? null;
+    : null;
 
   if (!eventRef) {
-    let createResult: unknown = null;
     try {
-      createResult = await calendar.createEvent({
+      const receipt = await schedulePlanCalendarSession({
+        operationId: 'plan.schedule_activity',
         title: current.title,
-        start: payload.startDate,
-        end: payload.endDate,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
         writeCalendarRef: writeRef,
-      });
-    } catch {
-      createResult = null;
-    }
-    const recovered = await calendar.resolveAfterCreate({ createResult, block, writeRef });
-    if (recovered.status !== 'linked') {
+        confirmed: true,
+      }, calendar);
+      eventRef = receipt.result.eventRef;
+    } catch (error) {
       throw new PlanMutationUnconfirmedError(
-        recovered.status === 'unlinked'
+        error instanceof PlanActionUnconfirmedError && error.recoveryStatus === 'unlinked'
           ? 'The calendar block may exist, but Kwilt could not link it safely.'
           : 'Kwilt could not confirm the calendar block.',
       );
     }
-    eventRef = recovered.eventRef;
   }
 
   const appliedAt = now();
@@ -455,7 +434,10 @@ export async function undoAppliedPlanProposal({
     if (!target || !latest || latest.activityUpdatedAt !== current.updatedAt) {
       throw new PlanMutationConflictError('The Activity changed after chunk scheduling, so Kwilt will not overwrite it during undo.');
     }
-    await calendar.deleteEvent({ kind: 'provider', ...undo.eventRef, createdBy: 'plan' });
+    await removePlanCalendarSession({
+      binding: { kind: 'provider', ...undo.eventRef, createdBy: 'plan' },
+      confirmed: true,
+    }, calendar);
     const undoneAt = now();
     const remaining = bindings.filter((candidate) => candidate !== target);
     const nextBindings = remaining.map((candidate, index) => index === remaining.length - 1
@@ -474,18 +456,21 @@ export async function undoAppliedPlanProposal({
   }
   const undoneAt = now();
   if (undo.type === 'delete_created_plan_event') {
-    await calendar.deleteEvent({
-      kind: 'provider', ...undo.eventRef, createdBy: 'plan',
-    });
+    await removePlanCalendarSession({
+      binding: { kind: 'provider', ...undo.eventRef, createdBy: 'plan' },
+      confirmed: true,
+    }, calendar);
     store.updateActivity(current.id, () => ({ ...undo.previousActivity, updatedAt: undoneAt }));
     store.removeDailyPlanCommitment(undo.targetDateKey, current.id);
     return { undoneAt };
   }
   if (undo.type === 'restore_moved_plan_event') {
-    await calendar.moveEvent({
+    await reschedulePlanCalendarSession({
       binding: undo.binding,
-      start: new Date(undo.previousStartDate), end: new Date(undo.previousEndDate),
-    });
+      startDate: undo.previousStartDate,
+      endDate: undo.previousEndDate,
+      confirmed: true,
+    }, calendar);
     store.updateActivity(current.id, () => ({ ...undo.previousActivity, updatedAt: undoneAt }));
     if (undo.targetDateKey !== undo.previousTargetDateKey) {
       store.removeDailyPlanCommitment(undo.targetDateKey, current.id);
@@ -499,35 +484,28 @@ export async function undoAppliedPlanProposal({
     accountId: undo.binding.accountId,
     calendarId: undo.binding.calendarId,
   } as const;
-  let createResult: unknown = null;
   try {
-    createResult = await calendar.createEvent({
+    const actionReceipt = await schedulePlanCalendarSession({
+      operationId: 'plan.schedule_activity',
       title: undo.previousActivity.title,
-      start: undo.previousStartDate,
-      end: undo.previousEndDate,
+      startDate: undo.previousStartDate,
+      endDate: undo.previousEndDate,
       writeCalendarRef: writeRef,
-    });
+      confirmed: true,
+    }, calendar);
+    const eventRef = actionReceipt.result.eventRef;
+    store.updateActivity(current.id, () => ({
+      ...undo.previousActivity,
+      calendarBinding: { kind: 'provider', ...eventRef, createdBy: 'plan' },
+      scheduledProvider: eventRef.provider,
+      scheduledProviderAccountId: eventRef.accountId,
+      scheduledProviderCalendarId: eventRef.calendarId,
+      scheduledProviderEventId: eventRef.eventId,
+      updatedAt: undoneAt,
+    }));
   } catch {
-    createResult = null;
-  }
-  const recovered = await calendar.resolveAfterCreate({
-    createResult,
-    block: { startDate: undo.previousStartDate, endDate: undo.previousEndDate },
-    writeRef,
-  });
-  if (recovered.status !== 'linked') {
     throw new PlanMutationUnconfirmedError('Kwilt could not confirm recreation of the removed calendar block.');
   }
-  const eventRef = recovered.eventRef;
-  store.updateActivity(current.id, () => ({
-    ...undo.previousActivity,
-    calendarBinding: { kind: 'provider', ...eventRef, createdBy: 'plan' },
-    scheduledProvider: eventRef.provider,
-    scheduledProviderAccountId: eventRef.accountId,
-    scheduledProviderCalendarId: eventRef.calendarId,
-    scheduledProviderEventId: eventRef.eventId,
-    updatedAt: undoneAt,
-  }));
   store.addDailyPlanCommitment(undo.previousTargetDateKey, current.id);
   return { undoneAt };
 }

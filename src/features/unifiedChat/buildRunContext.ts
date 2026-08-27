@@ -108,7 +108,14 @@ export function buildRunContext({
     policy.requestClass === 'capability_action' &&
     actionContract?.targetScope === 'all_matching';
   const isBroadReview = evidenceScope === 'broad' && !isAllMatching;
-  const participatingSources = sources.filter((source) => participating.has(source.capabilityId));
+  const participatingSources = [...new Map(
+    sources
+      .filter((source) => participating.has(source.capabilityId))
+      .map((source) => [
+        `${source.capabilityId}:${source.object.type}:${source.object.id}`,
+        source,
+      ] as const),
+  ).values()];
   const targetQueryTokens = tokens(actionContract?.targetQuery ?? prompt);
   const typeOverlap = new Map<string, number>();
   for (const source of participatingSources) {

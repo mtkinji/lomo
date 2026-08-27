@@ -8,7 +8,8 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { menuItemTextProps } from '../../ui/menuStyles';
-import { useAppStore } from '../../store/useAppStore';
+import { getArcActionStoreBoundary, useAppStore } from '../../store/useAppStore';
+import { createArc } from '../../capabilities/life-structure/actions/arcActions';
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { useToastStore } from '../../store/useToastStore';
 import { Card } from '../../ui/Card';
@@ -949,7 +950,6 @@ function NewArcModal({
   prefilledName,
   chapterRecommendation,
 }: NewArcModalProps) {
-  const addArc = useAppStore((state) => state.addArc);
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const userProfile = useAppStore((state) => state.userProfile);
@@ -1035,7 +1035,7 @@ function NewArcModal({
     };
 
     // Note: Creating arcs no longer counts as "showing up" for streaks.
-    addArc(arc);
+    createArc({ arc }, getArcActionStoreBoundary());
     showToast({ message: 'Arc created', variant: 'success', durationMs: 2200 });
     void HapticsService.trigger('outcome.success');
     capture(AnalyticsEvent.ArcCreated, {
@@ -1130,7 +1130,7 @@ function NewArcModal({
               };
 
               // Note: Creating arcs no longer counts as "showing up" for streaks.
-              addArc(arc);
+              createArc({ arc }, getArcActionStoreBoundary());
               showToast({ message: 'Arc created', variant: 'success', durationMs: 2200 });
               void HapticsService.trigger('outcome.success');
               capture(AnalyticsEvent.ArcCreated, {

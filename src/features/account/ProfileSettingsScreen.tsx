@@ -7,7 +7,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, cardSurfaceStyle } from '../../theme';
-import { resetUserSpecificState, useAppStore } from '../../store/useAppStore';
+import { getProfileActionStoreBoundary, resetUserSpecificState, useAppStore } from '../../store/useAppStore';
+import { updateProfile } from '../../capabilities/life-structure/actions/profileActions';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { HStack, Input, KeyboardAwareScrollView, Text, VStack } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
@@ -25,7 +26,6 @@ export function ProfileSettingsScreen() {
   const route = useRoute<RouteProp<SettingsStackParamList, 'SettingsProfile'>>();
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
-  const updateUserProfile = useAppStore((state) => state.updateUserProfile);
 
   const [fullName, setFullName] = useState(userProfile?.fullName ?? '');
   const [email, setEmail] = useState(userProfile?.email ?? '');
@@ -68,12 +68,19 @@ export function ProfileSettingsScreen() {
       return;
     }
 
-    updateUserProfile((current) => ({
-      ...current,
-      fullName: nextName,
-      email: nextEmail,
-      birthdate: nextBirthdate,
-    }));
+    if (!userProfile) return;
+    const updatedAt = new Date().toISOString();
+    updateProfile({
+      profileId: userProfile.id,
+      expectedUpdatedAt: userProfile.updatedAt,
+      updatedAt,
+      update: (current) => ({
+        ...current,
+        fullName: nextName,
+        email: nextEmail,
+        birthdate: nextBirthdate,
+      }),
+    }, getProfileActionStoreBoundary());
   };
 
   useEffect(() => {

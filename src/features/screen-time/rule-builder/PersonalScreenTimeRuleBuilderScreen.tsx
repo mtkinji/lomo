@@ -2,9 +2,11 @@ import { Pressable } from '@/src/ui/HapticPressable';
 import { useMemo, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
+import * as Device from 'expo-device';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../../../navigation/RootNavigator';
+import { navigateWhenReady } from '../../../navigation/rootNavigationRef';
 import { useAppStore } from '../../../store/useAppStore';
 import {
   addPersonalScreenTimeRule,
@@ -96,6 +98,12 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
   const [saving, setSaving] = useState(false);
   const count = targets.selectedApps.length + targets.selectedCategories.length;
   const targetsLabel = targetLabel(targets);
+  const suggestedAppLabels = useMemo(
+    () => [...targets.selectedApps, ...targets.selectedCategories]
+      .map((target) => target.label?.trim())
+      .filter((label): label is string => Boolean(label)),
+    [targets],
+  );
   const step = getPersonalRuleBuilderStep({ kind, targetCount: count, appsConfirmed });
   const copy = getPersonalRuleBuilderCopy({
     entry,
@@ -165,6 +173,13 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
     });
     if (!enforced) {
       setSaving(false);
+      if (!Device.isDevice && kind === 'daily_limit') {
+        Alert.alert(
+          'A physical device is required',
+          'The Simulator can preview this setup, but Apple Screen Time can only turn on a daily limit in an entitlement-enabled build on a physical iPhone.',
+        );
+        return;
+      }
       Alert.alert(
         'Couldn’t turn on this rule',
         'Kwilt did not receive confirmation from Screen Time. Try again before leaving setup.',
@@ -181,10 +196,21 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
     props.onClose();
   };
 
+  const openBudgetControls = () => {
+    props.onClose();
+    navigateWhenReady('Money', {
+      screen: 'MoneySummary',
+      params: {
+        entryIntent: 'app-control-onboarding',
+        ...(suggestedAppLabels.length ? { suggestedAppLabels } : {}),
+      },
+    });
+  };
+
   const addRuleAction = step === 'review' ? (
     <View style={styles.footer}>
       <Button
-        variant="primary"
+        variant="inverse"
         size="lg"
         fullWidth
         loading={saving}
@@ -200,12 +226,14 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
     <BottomDrawer
       visible
       onClose={props.onClose}
-      snapPoints={['82%']}
+      snapPoints={['100%']}
       presentation="modal"
       dismissable
       dismissOnBackdropPress
       enableContentPanningGesture
       bottomAccessory={addRuleAction}
+      sheetStyle={styles.sheet}
+      handleStyle={styles.handle}
     >
         <View style={styles.header}>
           <View
@@ -227,7 +255,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
             onPress={props.onClose}
             style={({ pressed }) => [styles.closeButton, pressed ? styles.pressed : null]}
           >
-            <Icon name="close" size={20} color={colors.textPrimary} />
+            <Icon name="close" size={20} color={colors.parchment} />
           </Pressable>
         </View>
 
@@ -281,6 +309,13 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: {
                   onPress={() => setKind('daily_limit')}
                 />
               ) : null}
+              <GuidedChoice
+                accessibilityHint="Choose a Money budget, then decide which budget signal pauses these apps."
+                icon="wallet"
+                label="Based on a budget"
+                description="Review first, when spending is hot, near its limit, over, or needs review."
+                onPress={openBudgetControls}
+              />
             </View>
           ) : null}
 
@@ -321,6 +356,7 @@ function GuidedChoice(props: {
   accessibilityHint: string;
   icon: IconName;
   label: string;
+  description?: string;
   disabled?: boolean;
   onPress: () => void;
 }) {
@@ -344,12 +380,13 @@ function GuidedChoice(props: {
         importantForAccessibility="no-hide-descendants"
         style={styles.choiceIcon}
       >
-        <Icon name={props.icon} size={24} color={colors.textPrimary} />
+        <Icon name={props.icon} size={24} color={colors.parchment} />
       </View>
       <View style={styles.choiceCopy}>
         <Text style={styles.choiceLabel}>{props.label}</Text>
+        {props.description ? <Text style={styles.choiceDescription}>{props.description}</Text> : null}
       </View>
-      <Icon name="chevronRight" size={20} color={colors.textSecondary} />
+      <Icon name="chevronRight" size={20} color={colors.parchment} />
     </Pressable>
   );
 }
@@ -366,7 +403,7 @@ function AnswerSummary(props: {
         <Text style={styles.answerLabel}>{props.label}</Text>
         <Text style={styles.answerValue}>{props.value}</Text>
       </View>
-      {props.onPress ? <Icon name="chevronRight" size={18} color={colors.textSecondary} /> : null}
+      {props.onPress ? <Icon name="chevronRight" size={18} color={colors.parchment} /> : null}
     </>
   );
 
@@ -387,6 +424,12 @@ function AnswerSummary(props: {
 }
 
 const styles = StyleSheet.create({
+  sheet: {
+    backgroundColor: colors.pine700, // @kwilt-brand-moment: immersive Screen Time setup matches its canonical introduction flow.
+  },
+  handle: {
+    backgroundColor: 'rgba(250, 247, 237, 0.42)',
+  },
   header: {
     minHeight: 52,
     flexDirection: 'row',
@@ -398,13 +441,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     borderRadius: 999,
-    backgroundColor: colors.border,
+    backgroundColor: 'rgba(250, 247, 237, 0.22)',
     overflow: 'hidden',
   },
   progressFill: {
     height: 6,
     borderRadius: 999,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.parchment,
   },
   closeButton: {
     width: 44,
@@ -425,11 +468,12 @@ const styles = StyleSheet.create({
   },
   question: {
     ...typography.titleMd,
-    color: colors.textPrimary,
+    color: colors.parchment,
   },
   support: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.parchment,
+    opacity: 0.78,
   },
   choiceStack: {
     rowGap: spacing.sm,
@@ -443,9 +487,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: 'rgba(250, 247, 237, 0.24)',
     borderRadius: 20,
-    backgroundColor: colors.card,
+    backgroundColor: 'rgba(250, 247, 237, 0.08)',
   },
   choiceCopy: {
     flex: 1,
@@ -459,10 +503,16 @@ const styles = StyleSheet.create({
   },
   choiceLabel: {
     ...typography.titleSm,
-    color: colors.textPrimary,
+    color: colors.parchment,
+  },
+  choiceDescription: {
+    ...typography.bodySm,
+    color: colors.parchment,
+    opacity: 0.72,
+    marginTop: spacing.xs,
   },
   choiceCardPressed: {
-    backgroundColor: colors.shellAlt,
+    backgroundColor: 'rgba(250, 247, 237, 0.14)',
     transform: [{ scale: 0.985 }],
   },
   pressed: {
@@ -474,21 +524,22 @@ const styles = StyleSheet.create({
   receipt: {
     marginTop: spacing['2xl'],
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: 'rgba(250, 247, 237, 0.24)',
     borderRadius: 20,
-    backgroundColor: colors.cardMuted,
+    backgroundColor: 'rgba(250, 247, 237, 0.08)',
     padding: spacing.lg,
   },
   receiptSentence: {
     ...typography.titleSm,
-    color: colors.textPrimary,
+    color: colors.parchment,
   },
   answerSection: {
     marginTop: spacing['2xl'],
   },
   answerSectionLabel: {
     ...typography.label,
-    color: colors.textSecondary,
+    color: colors.parchment,
+    opacity: 0.68,
     paddingBottom: spacing.xs,
   },
   answerRow: {
@@ -497,7 +548,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     columnGap: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    borderTopColor: 'rgba(250, 247, 237, 0.22)',
     paddingVertical: spacing.sm,
   },
   answerCopy: {
@@ -507,14 +558,15 @@ const styles = StyleSheet.create({
   },
   answerLabel: {
     ...typography.label,
-    color: colors.textSecondary,
+    color: colors.parchment,
+    opacity: 0.68,
   },
   answerValue: {
     ...typography.body,
-    color: colors.textPrimary,
+    color: colors.parchment,
   },
   footer: {
     paddingTop: spacing.sm,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.pine700, // @kwilt-brand-moment: the fixed action continues the immersive Screen Time setup canvas.
   },
 });

@@ -7,7 +7,7 @@ const migrationPath = resolve(
 );
 const migration = readFileSync(migrationPath, 'utf8').toLowerCase();
 const contentMigration = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260805143622_shared_home_goal_checkin_items.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260805145148_shared_home_goal_checkin_items.sql'),
   'utf8',
 ).toLowerCase();
 

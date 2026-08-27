@@ -60,13 +60,13 @@ const PREREQUISITE_HELPERS_SWIFT = `
   @available(iOS 16.0, *)
   private func personalUsageLimitStore(for ruleId: String) -> ManagedSettingsStore {
     ManagedSettingsStore(named: ManagedSettingsStore.Name(
-      "kwilt.personal.limit.\(safeIdentifier(ruleId))"
+      "kwilt.personal.limit.\\(safeIdentifier(ruleId))"
     ))
   }
 
   @available(iOS 16.0, *)
   private func personalUsageLimitActivityName(for ruleId: String) -> DeviceActivityName {
-    DeviceActivityName("kwilt.personal.limit.\(safeIdentifier(ruleId))")
+    DeviceActivityName("kwilt.personal.limit.\\(safeIdentifier(ruleId))")
   }
 
   @available(iOS 16.0, *)
@@ -271,9 +271,9 @@ const PREREQUISITE_METHODS_SWIFT = `
         resolve(false)
         return
       }
-      shared.set(data, forKey: "\(personalUsageLimitConfigPrefix)\(activity.rawValue)")
+      shared.set(data, forKey: "\\(personalUsageLimitConfigPrefix)\\(activity.rawValue)")
       personalUsageLimitStore(for: ruleId).clearAllSettings()
-      KwiltRestrictionLedger.remove(id: "personal_limit.\(ruleId)")
+      KwiltRestrictionLedger.remove(id: "personal_limit.\\(ruleId)")
       let schedule = DeviceActivitySchedule(
         intervalStart: DateComponents(hour: 0, minute: 0),
         intervalEnd: DateComponents(hour: 23, minute: 59),
@@ -306,7 +306,7 @@ const PREREQUISITE_METHODS_SWIFT = `
         )
         resolve(true)
       } catch {
-        shared.removeObject(forKey: "\(personalUsageLimitConfigPrefix)\(activity.rawValue)")
+        shared.removeObject(forKey: "\\(personalUsageLimitConfigPrefix)\\(activity.rawValue)")
         resolve(false)
       }
       return
@@ -331,9 +331,9 @@ const PREREQUISITE_METHODS_SWIFT = `
       let activity = personalUsageLimitActivityName(for: ruleId)
       DeviceActivityCenter().stopMonitoring([activity])
       personalUsageLimitStore(for: ruleId).clearAllSettings()
-      KwiltRestrictionLedger.remove(id: "personal_limit.\(ruleId)")
+      KwiltRestrictionLedger.remove(id: "personal_limit.\\(ruleId)")
       UserDefaults(suiteName: appGroupIdentifier)?.removeObject(
-        forKey: "\(personalUsageLimitConfigPrefix)\(activity.rawValue)"
+        forKey: "\\(personalUsageLimitConfigPrefix)\\(activity.rawValue)"
       )
       resolve(true)
       return

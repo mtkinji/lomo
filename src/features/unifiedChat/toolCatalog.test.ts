@@ -3,14 +3,14 @@ import {
   KWILT_CAPABILITY_MANIFEST,
   projectAgentToolCatalog,
 } from '@kwilt/agent-runtime';
-import { MOBILE_TOOL_IMPLEMENTATIONS } from './mobileToolImplementations';
+import { MOBILE_TOOL_PROVIDER_REGISTRATIONS } from './mobileToolImplementations';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 
 describe('UNIFIED_CHAT_TOOL_CATALOG', () => {
-  test('is mechanically projected from the canonical manifest and mobile implementations', () => {
+  test('is projected only from executable mobile registrations', () => {
     expect(UNIFIED_CHAT_TOOL_CATALOG).toEqual(projectAgentToolCatalog(
       KWILT_CAPABILITY_MANIFEST,
-      { runtime: 'mobile', implementations: MOBILE_TOOL_IMPLEMENTATIONS },
+      { runtime: 'mobile', registrations: MOBILE_TOOL_PROVIDER_REGISTRATIONS },
     ));
   });
 

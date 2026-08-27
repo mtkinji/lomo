@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { LogBox, StyleSheet, View } from 'react-native';
+import { AppState, Linking, LogBox, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Device from 'expo-device';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -88,6 +88,12 @@ import { getAuthRuntimeDiagnostics } from './src/utils/getEnv';
 import { developmentNotificationLogFilters } from './src/services/notifications/developmentNotificationLogFilters';
 import { markAppStarted } from './src/services/performance/startupTelemetry';
 import { useCapabilityOnboardingStore } from './src/features/capability-onboarding/useCapabilityOnboardingStore';
+import { HouseholdModeHost } from './src/features/household/sharedDevice/HouseholdModeHost';
+import { useHouseholdModeStore } from './src/features/household/sharedDevice/useHouseholdModeStore';
+import { ManagedChildDeviceHost } from './src/features/household/personalDevice/ManagedChildDeviceHost';
+import { restoreManagedChildAccess } from './src/features/household/personalDevice/managedChildAccess';
+import { useManagedChildAccessStore } from './src/features/household/personalDevice/useManagedChildAccessStore';
+import { parseHouseholdDeviceSetupToken } from './src/features/household/data/householdDeviceParticipation';
 
 LogBox.ignoreLogs(developmentNotificationLogFilters({
   isDev: __DEV__,
@@ -130,6 +136,15 @@ export default function App() {
   const setAuthIdentity = useAppStore((state) => state.setAuthIdentity);
   const clearAuthIdentity = useAppStore((state) => state.clearAuthIdentity);
   const authIdentity = useAppStore((state) => state.authIdentity);
+  const householdModeSession = useHouseholdModeStore((state) => state.session);
+  const householdModeHydrated = useHouseholdModeStore((state) => state.hydrated);
+  const managedChildAccess = useManagedChildAccessStore((state) => state.access);
+  const managedChildAccessHydrated = useManagedChildAccessStore((state) => state.hydrated);
+  const managedChildPendingSetup = useManagedChildAccessStore((state) => state.pendingSetup);
+  const managedChildManualEntryOpen = useManagedChildAccessStore((state) => state.manualEntryOpen);
+  const hydrateManagedChildAccess = useManagedChildAccessStore((state) => state.hydrate);
+  const receiveManagedChildSetupLink = useManagedChildAccessStore((state) => state.receiveLink);
+  const openManagedChildManualEntry = useManagedChildAccessStore((state) => state.openManualEntry);
   const selectedCapabilityOnboardingPathId = useCapabilityOnboardingStore((state) =>
     authIdentity?.userId
       ? state.recordsByUserId[authIdentity.userId]?.selectedPathId ?? null
@@ -163,6 +178,31 @@ export default function App() {
   useEffect(() => {
     void loadMoneyPrivacyLockSettings();
   }, []);
+
+  useEffect(() => {
+    void restoreManagedChildAccess().then(hydrateManagedChildAccess).catch(() => hydrateManagedChildAccess(null));
+  }, [hydrateManagedChildAccess]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !useManagedChildAccessStore.getState().access) return;
+      void restoreManagedChildAccess()
+        .then(hydrateManagedChildAccess)
+        .catch(() => undefined);
+    });
+    return () => subscription.remove();
+  }, [hydrateManagedChildAccess]);
+
+  useEffect(() => {
+    const receive = (url: string | null | undefined) => {
+      if (!url) return;
+      const token = parseHouseholdDeviceSetupToken(url);
+      if (token) receiveManagedChildSetupLink(token);
+    };
+    void Linking.getInitialURL().then(receive).catch(() => undefined);
+    const subscription = Linking.addEventListener('url', ({ url }) => receive(url));
+    return () => subscription.remove();
+  }, [receiveManagedChildSetupLink]);
 
   useEffect(() => {
     let supabase: ReturnType<typeof getSupabaseClient> | null = null;
@@ -612,7 +652,7 @@ export default function App() {
 
   // Always render app surfaces under SafeAreaProvider so any top-level interstitials
   // (sign-in, returning-user flows, etc.) can safely call `useSafeAreaInsets()`.
-  const content = !authHydrated ? (
+  const content = !authHydrated || !householdModeHydrated || !managedChildAccessHydrated ? (
     <View style={styles.authHydrationScreen}>
       <Logo size={64} />
       <Text style={styles.authHydrationText}>Restoring your session…</Text>
@@ -626,10 +666,17 @@ export default function App() {
     <View style={styles.authHydrationScreen}>
       <Logo size={64} />
     </View>
+  ) : managedChildAccess || managedChildPendingSetup || managedChildManualEntryOpen ? (
+    <ManagedChildDeviceHost />
   ) : authStartupState === 'signedOut' || !authIdentity ? (
     // Require sign-in for all users (including legacy users who onboarded before auth was required).
     // Their local data will automatically sync to their account once they authenticate.
-    <SignInInterstitial onSignInComplete={handleSignInComplete} />
+    <SignInInterstitial
+      onSetUpChildDevice={openManagedChildManualEntry}
+      onSignInComplete={handleSignInComplete}
+    />
+  ) : householdModeSession ? (
+    <HouseholdModeHost />
   ) : showReturningUserFlow ? (
     // Returning user permissions flow (for users who reinstall with existing data)
     <ReturningUserPermissionsFlow

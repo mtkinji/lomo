@@ -1,607 +1,200 @@
+import type { ServerAgentToolCall, ServerAgentToolResult } from './agentRuntime.ts';
+import type { ExternalMcpToolDefinition } from './externalMcp.ts';
+
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type JsonObject = { [key: string]: JsonValue };
-type DomainTable = 'kwilt_arcs' | 'kwilt_goals' | 'kwilt_activities';
-type ObjectType = 'arc' | 'goal' | 'activity' | 'goal_checkin' | 'chapter_note';
 
 export type ExternalWriteResult = {
-  object_type: ObjectType;
+  object_type: string;
   object_id: string;
   result_summary: string;
   structured: JsonObject;
 };
 
-const DEFAULT_FORCE_LEVELS = {
-  'force-activity': 0,
-  'force-connection': 0,
-  'force-mastery': 0,
-  'force-spirituality': 0,
+export function externalMcpIdempotencyMaterial(tool: ExternalMcpToolDefinition, idempotencyKey: string): string {
+  return `${tool.operationId}:${idempotencyKey}`;
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function compact(entries: Array<[string, unknown]>): Record<string, unknown> {
+  return Object.fromEntries(entries.filter(([, value]) => value !== undefined));
+}
+
+function fields(args: Record<string, unknown>, mapping: ReadonlyArray<readonly [string, string]>): Record<string, unknown> {
+  return compact(mapping.map(([external, canonical]) => [canonical, args[external]]));
+}
+
+function assertCompatibilityArguments(tool: ExternalMcpToolDefinition, args: Record<string, unknown>): void {
+  const properties = record(tool.inputSchema.properties);
+  const unknown = Object.keys(args).find((name) => !(name in properties));
+  if (unknown) throw new Error(`unsupported_external_argument:${unknown}`);
+}
+
+const PRESET_TEXT: Readonly<Record<string, string>> = {
+  made_progress: 'Made progress.',
+  struggled_today: 'Struggled today.',
+  need_encouragement: 'I need encouragement.',
+  just_checking_in: 'Just checking in.',
 };
 
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
+/** Translate the v1 snake-case MCP envelope into the canonical Chat tool contract. */
+export function prepareExternalMcpAction(
+  tool: ExternalMcpToolDefinition,
+  rawArgs: unknown,
+  requestId: string,
+): ServerAgentToolCall {
+  if (tool.scope !== 'write') throw new Error('external_tool_is_not_write');
+  const args = record(rawArgs);
+  assertCompatibilityArguments(tool, args);
+  let canonicalArgs: Record<string, unknown>;
 
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function asNullableString(value: unknown): string | null | undefined {
-  if (value === null) return null;
-  return typeof value === 'string' ? value.trim() || null : undefined;
-}
-
-function asStringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  return Array.from(new Set(value.map(asString).filter((item): item is string => !!item)));
-}
-
-function asOptionalBoolean(value: unknown): boolean | undefined {
-  if (typeof value === 'boolean') return value;
-  return undefined;
-}
-
-function asOptionalNumber(value: unknown): number | undefined {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
-  return value;
-}
-
-function asPriority(value: unknown): 1 | 2 | 3 | undefined {
-  const numberValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  return numberValue === 1 || numberValue === 2 || numberValue === 3 ? numberValue : undefined;
-}
-
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
-function createId(prefix: string): string {
-  return `${prefix}_${crypto.randomUUID()}`;
-}
-
-function pickStatus(value: unknown, allowed: readonly string[], fallback: string): string {
-  const status = asString(value);
-  return status && allowed.includes(status) ? status : fallback;
-}
-
-function mergeDefined(base: Record<string, JsonValue>, patch: Record<string, JsonValue | undefined>): JsonObject {
-  const next: Record<string, JsonValue> = { ...base };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value !== undefined) next[key] = value;
+  switch (tool.name) {
+    case 'create_arc':
+      canonicalArgs = fields(args, [
+        ['name', 'name'], ['narrative', 'narrative'], ['identity_statement', 'identityStatement'], ['status', 'status'],
+      ]);
+      break;
+    case 'update_arc':
+      canonicalArgs = { arcId: args.arc_id, fields: fields(args, [
+        ['name', 'name'], ['narrative', 'narrative'], ['identity_statement', 'identityStatement'], ['status', 'status'],
+      ]) };
+      break;
+    case 'delete_arc': canonicalArgs = { arcId: args.arc_id }; break;
+    case 'create_goal':
+      canonicalArgs = fields(args, [
+        ['title', 'title'], ['description', 'description'], ['arc_id', 'arcId'], ['status', 'status'],
+        ['priority', 'priority'], ['target_date', 'targetDate'],
+      ]);
+      break;
+    case 'update_goal':
+      canonicalArgs = { goalId: args.goal_id, fields: fields(args, [
+        ['title', 'title'], ['description', 'description'], ['arc_id', 'arcId'], ['status', 'status'],
+        ['priority', 'priority'], ['target_date', 'targetDate'],
+      ]) };
+      break;
+    case 'delete_goal': canonicalArgs = { goalId: args.goal_id }; break;
+    case 'add_goal_checkin': {
+      const text = typeof args.text === 'string' && args.text.trim()
+        ? args.text.trim()
+        : typeof args.preset === 'string' ? PRESET_TEXT[args.preset] : undefined;
+      canonicalArgs = { goalId: args.goal_id, text: text ?? 'Just checking in.' };
+      break;
+    }
+    case 'capture_activity':
+      canonicalArgs = fields(args, [
+        ['goal_id', 'goalId'], ['title', 'title'], ['notes', 'notes'], ['type', 'type'], ['status', 'status'],
+        ['tags', 'tags'], ['priority', 'priority'], ['scheduled_date', 'scheduledDate'],
+      ]);
+      break;
+    case 'update_activity':
+      canonicalArgs = { activityId: args.activity_id, fields: fields(args, [
+        ['goal_id', 'goalId'], ['title', 'title'], ['notes', 'notes'], ['type', 'type'], ['status', 'status'],
+        ['tags', 'tags'], ['priority', 'priority'], ['scheduled_date', 'scheduledDate'],
+      ]) };
+      break;
+    case 'create_activity_step':
+      canonicalArgs = compact([['activityId', args.activity_id], ['title', args.title], ['optional', args.is_optional]]);
+      break;
+    case 'update_activity_step':
+      canonicalArgs = compact([
+        ['activityId', args.activity_id], ['stepId', args.step_id], ['title', args.title], ['optional', args.is_optional],
+      ]);
+      break;
+    case 'mark_activity_step_done':
+      canonicalArgs = { activityId: args.activity_id, stepId: args.step_id, completed: true };
+      break;
+    case 'delete_activity_step': canonicalArgs = { activityId: args.activity_id, stepId: args.step_id }; break;
+    case 'reorder_activity_steps': canonicalArgs = { activityId: args.activity_id, stepIds: args.step_ids }; break;
+    case 'mark_activity_done': canonicalArgs = { activityId: args.activity_id, fields: { status: 'done' } }; break;
+    case 'set_focus_today': canonicalArgs = { activityId: args.activity_id }; break;
+    case 'delete_activity': canonicalArgs = { activityId: args.activity_id }; break;
+    case 'update_chapter_user_note': canonicalArgs = { chapterId: args.chapter_id, note: args.note }; break;
+    default:
+      if (tool.name !== tool.canonicalName) throw new Error('unknown_external_write_tool');
+      canonicalArgs = Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'idempotency_key'));
   }
-  return next;
+
+  return { id: requestId, toolId: tool.toolId, arguments: canonicalArgs };
 }
 
-function dataFromRow(row: unknown): Record<string, JsonValue> {
-  return asRecord(asRecord(row).data) as Record<string, JsonValue>;
+function resultReferences(value: unknown): JsonObject[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const ref = record(item);
+    return typeof ref.kind === 'string' && typeof ref.id === 'string' ? [{ kind: ref.kind, id: ref.id }] : [];
+  });
 }
 
-function normalizeActivityStepsForExternalWrite(value: unknown, activityId: string): JsonObject[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const steps: JsonObject[] = [];
-  const seenIds = new Set<string>();
+export function projectExternalMcpWriteResult(input: {
+  tool: ExternalMcpToolDefinition;
+  requestId: string;
+  result: ServerAgentToolResult;
+}): ExternalWriteResult {
+  const { tool, requestId, result } = input;
+  const base: JsonObject = {
+    receipt_id: null, operation: tool.operationId, status: result.status,
+    result_references: [], confirmation: null, handoff: null,
+  };
 
-  value.forEach((raw, index) => {
-    const step = asRecord(raw);
-    const title = asString(step.title);
-    if (!title) return;
-
-    const providedId = asString(step.id);
-    const fallbackId = `step-${activityId}-${index}`;
-    const id = providedId && !seenIds.has(providedId) ? providedId : fallbackId;
-    seenIds.add(id);
-    const completedAt =
-      'completed_at' in step
-        ? asNullableString(step.completed_at)
-        : 'completedAt' in step
-          ? asNullableString(step.completedAt)
-          : undefined;
-
-    const normalized = mergeDefined(
-      {
-        id,
-        title,
-        orderIndex: index,
+  if (result.status === 'completed') {
+    const receipt = record(result.receipt);
+    const refs = resultReferences(receipt.resultRefs);
+    const receiptId = typeof receipt.receiptId === 'string' ? receipt.receiptId : null;
+    const first = refs[0] ?? {};
+    const summary = refs.length > 0 ? `Completed ${tool.annotations.title}.` : `${tool.annotations.title} completed.`;
+    return {
+      object_type: typeof first.kind === 'string' ? first.kind : 'action',
+      object_id: typeof first.id === 'string' ? first.id : receiptId ?? requestId,
+      result_summary: summary,
+      structured: { ...base, receipt_id: receiptId, result_references: refs, summary },
+    };
+  }
+  if (result.status === 'proposed') {
+    const proposal = record(result.proposal);
+    const proposalId = typeof proposal.id === 'string' ? proposal.id : requestId;
+    const summary = `${tool.annotations.title} is ready for review in Kwilt.`;
+    return {
+      object_type: 'proposal', object_id: proposalId, result_summary: summary,
+      structured: { ...base, confirmation: { required: true, state: 'pending', proposal_id: proposalId }, summary },
+    };
+  }
+  if (result.status === 'pending_client_action') {
+    const summary = `${tool.annotations.title} is ready to continue in Kwilt.`;
+    return {
+      object_type: 'client_action', object_id: requestId, result_summary: summary,
+      structured: {
+        ...base, handoff: { required: true, provider: result.provider, request: result.request as JsonObject }, summary,
       },
-      {
-        completedAt,
-        isOptional: asOptionalBoolean(step.is_optional) ?? asOptionalBoolean(step.isOptional),
-        orderIndex: asOptionalNumber(step.order_index) ?? asOptionalNumber(step.orderIndex),
+    };
+  }
+  if (result.status === 'needs_input') {
+    return {
+      object_type: 'action', object_id: requestId, result_summary: result.prompt,
+      structured: {
+        ...base, confirmation: { required: true, state: 'needs_input', fields: result.fields }, summary: result.prompt,
       },
-    );
-    steps.push(normalized);
-  });
-
-  return steps;
-}
-
-function normalizeExistingActivitySteps(value: unknown, activityId: string): JsonObject[] {
-  return normalizeActivityStepsForExternalWrite(Array.isArray(value) ? value : [], activityId) ?? [];
-}
-
-function nextStepOrderIndex(steps: JsonObject[]): number {
-  const max = steps.reduce((highest, step, index) => {
-    const value = asOptionalNumber(step.orderIndex) ?? index;
-    return Math.max(highest, value);
-  }, -1);
-  return max + 1;
-}
-
-function makeActivityStepFromArgs(args: Record<string, unknown>, activityId: string, fallbackOrderIndex: number): JsonObject {
-  const title = asString(args.title);
-  if (!title) throw new Error('missing_step_title');
-  const id = asString(args.id) ?? asString(args.step_id) ?? `step-${activityId}-${crypto.randomUUID()}`;
-  return mergeDefined(
-    {
-      id,
-      title,
-      orderIndex: fallbackOrderIndex,
-    },
-    {
-      completedAt: 'completed_at' in args
-        ? asNullableString(args.completed_at)
-        : 'completedAt' in args
-          ? asNullableString(args.completedAt)
-          : undefined,
-      isOptional: asOptionalBoolean(args.is_optional) ?? asOptionalBoolean(args.isOptional),
-      orderIndex: asOptionalNumber(args.order_index) ?? asOptionalNumber(args.orderIndex) ?? fallbackOrderIndex,
-    },
-  );
-}
-
-function renumberActivitySteps(steps: JsonObject[]): JsonObject[] {
-  return steps.map((step, index) => ({ ...step, orderIndex: index }));
-}
-
-async function writeActivityStepsForUser(
-  admin: any,
-  userId: string,
-  activityId: string,
-  current: Record<string, JsonValue>,
-  steps: JsonObject[],
-): Promise<void> {
-  await upsertDomainObject(admin, 'kwilt_activities', userId, activityId, {
-    ...current,
-    steps,
-    updatedAt: nowIso(),
-  });
-}
-
-async function getDomainRow(admin: any, table: DomainTable, userId: string, id: string): Promise<any | null> {
-  const { data, error } = await admin
-    .from(table)
-    .select('id,data,is_deleted,updated_at')
-    .eq('user_id', userId)
-    .eq('id', id)
-    .maybeSingle();
-  if (error) throw new Error(`${table}_read_failed`);
-  if (!data || (data as any).is_deleted) return null;
-  return data as any;
-}
-
-async function upsertDomainObject(admin: any, table: DomainTable, userId: string, id: string, data: JsonObject) {
-  const timestamp = asString(data.updatedAt) ?? nowIso();
-  const { error } = await admin.from(table).upsert(
-    {
-      user_id: userId,
-      id,
-      data,
-      created_at: asString(data.createdAt) ?? timestamp,
-      updated_at: timestamp,
-      is_deleted: false,
-      deleted_at: null,
-    },
-    { onConflict: 'user_id,id' },
-  );
-  if (error) throw new Error(`${table}_upsert_failed`);
-}
-
-async function recordExternalShowUpEvent(admin: any, userId: string, activityId: string): Promise<void> {
-  const occurredAt = nowIso();
-  const localDate = occurredAt.slice(0, 10);
-  try {
-    await admin.from('kwilt_streak_events').upsert(
-      {
-        user_id: userId,
-        client_event_id: `${userId}:external_mcp_show_up:${activityId}:${localDate}`,
-        event_type: 'show_up',
-        local_date: localDate,
-        payload: { source: 'external_mcp', activityId },
-        occurred_at: occurredAt,
-      },
-      { onConflict: 'user_id,client_event_id', ignoreDuplicates: true },
-    );
-  } catch {
-    // Streak attribution should never block the user's write.
+    };
   }
-}
-
-export async function softDeleteObjectForUser(admin: any, userId: string, table: DomainTable, id: string): Promise<void> {
-  const existing = await getDomainRow(admin, table, userId, id);
-  if (!existing) throw new Error('object_not_found');
-  const timestamp = nowIso();
-  const { error } = await admin.from(table).upsert(
-    {
-      user_id: userId,
-      id,
-      data: {},
-      updated_at: timestamp,
-      is_deleted: true,
-      deleted_at: timestamp,
-    },
-    { onConflict: 'user_id,id' },
-  );
-  if (error) throw new Error(`${table}_delete_failed`);
-}
-
-export async function createArcForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const name = asString(args.name);
-  if (!name) throw new Error('missing_name');
-  const timestamp = nowIso();
-  const id = createId('arc');
-  const identityStatement = asString(args.identity_statement);
-  const data = mergeDefined(
-    {
-      id,
-      name,
-      status: pickStatus(args.status, ['active', 'paused', 'archived'], 'active'),
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    {
-      narrative: asNullableString(args.narrative),
-      identity: identityStatement ? { statement: identityStatement, centralInsight: identityStatement } : undefined,
-    },
-  );
-  await upsertDomainObject(admin, 'kwilt_arcs', userId, id, data);
-  return { object_type: 'arc', object_id: id, result_summary: `Created Arc "${name}".`, structured: { arc_id: id, name } };
-}
-
-export async function updateArcForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const id = asString(args.arc_id);
-  if (!id) throw new Error('missing_arc_id');
-  const existing = await getDomainRow(admin, 'kwilt_arcs', userId, id);
-  if (!existing) throw new Error('arc_not_found');
-  const current = dataFromRow(existing);
-  const identityStatement = asNullableString(args.identity_statement);
-  const currentIdentity = asRecord(current.identity);
-  const data = mergeDefined(current, {
-    name: asString(args.name) ?? undefined,
-    narrative: asNullableString(args.narrative),
-    status: asString(args.status) ? pickStatus(args.status, ['active', 'paused', 'archived'], asString(current.status) ?? 'active') : undefined,
-    identity: identityStatement === undefined
-      ? undefined
-      : identityStatement
-        ? ({ ...currentIdentity, statement: identityStatement, centralInsight: asString(currentIdentity.centralInsight) ?? identityStatement } as JsonObject)
-        : null,
-    updatedAt: nowIso(),
-  });
-  await upsertDomainObject(admin, 'kwilt_arcs', userId, id, data);
-  return { object_type: 'arc', object_id: id, result_summary: `Updated Arc "${asString(data.name) ?? id}".`, structured: { arc_id: id } };
-}
-
-export async function deleteArcForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const id = asString(asRecord(raw).arc_id);
-  if (!id) throw new Error('missing_arc_id');
-  await softDeleteObjectForUser(admin, userId, 'kwilt_arcs', id);
-  return { object_type: 'arc', object_id: id, result_summary: 'Deleted Arc.', structured: { arc_id: id, deleted: true } };
-}
-
-export async function createGoalForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const title = asString(args.title);
-  if (!title) throw new Error('missing_title');
-  const arcId = asNullableString(args.arc_id);
-  if (arcId) {
-    const arc = await getDomainRow(admin, 'kwilt_arcs', userId, arcId);
-    if (!arc) throw new Error('arc_not_found');
+  if (result.status === 'unavailable') {
+    return {
+      object_type: 'action', object_id: requestId, result_summary: result.reason,
+      structured: { ...base, summary: result.reason },
+    };
   }
-  const timestamp = nowIso();
-  const id = createId('goal');
-  const data = mergeDefined(
-    {
-      id,
-      arcId: arcId ?? null,
-      title,
-      status: pickStatus(args.status, ['planned', 'in_progress', 'completed', 'archived'], 'planned'),
-      forceIntent: DEFAULT_FORCE_LEVELS,
-      metrics: [],
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    {
-      description: asNullableString(args.description),
-      priority: asPriority(args.priority),
-      targetDate: asNullableString(args.target_date),
-    },
-  );
-  await upsertDomainObject(admin, 'kwilt_goals', userId, id, data);
-  return { object_type: 'goal', object_id: id, result_summary: `Created Goal "${title}".`, structured: { goal_id: id, title } };
+  throw new Error(result.code || 'external_action_failed');
 }
 
-export async function updateGoalForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const id = asString(args.goal_id);
-  if (!id) throw new Error('missing_goal_id');
-  const existing = await getDomainRow(admin, 'kwilt_goals', userId, id);
-  if (!existing) throw new Error('goal_not_found');
-  const current = dataFromRow(existing);
-  const arcId = asNullableString(args.arc_id);
-  if (arcId) {
-    const arc = await getDomainRow(admin, 'kwilt_arcs', userId, arcId);
-    if (!arc) throw new Error('arc_not_found');
-  }
-  const data = mergeDefined(current, {
-    title: asString(args.title) ?? undefined,
-    description: asNullableString(args.description),
-    arcId,
-    status: asString(args.status) ? pickStatus(args.status, ['planned', 'in_progress', 'completed', 'archived'], asString(current.status) ?? 'planned') : undefined,
-    priority: asPriority(args.priority),
-    targetDate: asNullableString(args.target_date),
-    updatedAt: nowIso(),
+export async function executeExternalMcpWrite(input: {
+  tool: ExternalMcpToolDefinition;
+  args: unknown;
+  requestId: string;
+  execute(call: ServerAgentToolCall): Promise<ServerAgentToolResult>;
+}): Promise<ExternalWriteResult> {
+  const call = prepareExternalMcpAction(input.tool, input.args, input.requestId);
+  return projectExternalMcpWriteResult({
+    tool: input.tool, requestId: input.requestId, result: await input.execute(call),
   });
-  await upsertDomainObject(admin, 'kwilt_goals', userId, id, data);
-  return { object_type: 'goal', object_id: id, result_summary: `Updated Goal "${asString(data.title) ?? id}".`, structured: { goal_id: id } };
-}
-
-export async function deleteGoalForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const id = asString(asRecord(raw).goal_id);
-  if (!id) throw new Error('missing_goal_id');
-  await softDeleteObjectForUser(admin, userId, 'kwilt_goals', id);
-  return { object_type: 'goal', object_id: id, result_summary: 'Deleted Goal.', structured: { goal_id: id, deleted: true } };
-}
-
-export async function createActivityForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const title = asString(args.title);
-  if (!title) throw new Error('missing_title');
-  const goalId = asNullableString(args.goal_id);
-  if (goalId) {
-    const goal = await getDomainRow(admin, 'kwilt_goals', userId, goalId);
-    if (!goal) throw new Error('goal_not_found');
-  }
-  const timestamp = nowIso();
-  const id = createId('activity');
-  const status = pickStatus(args.status, ['planned', 'in_progress', 'done', 'skipped', 'cancelled'], 'planned');
-  const data = mergeDefined(
-    {
-      id,
-      goalId: goalId ?? null,
-      title,
-      type: asString(args.type) ?? 'task',
-      tags: asStringArray(args.tags) ?? [],
-      status,
-      forceActual: DEFAULT_FORCE_LEVELS,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    {
-      notes: asNullableString(args.notes),
-      priority: asPriority(args.priority),
-      scheduledDate: asNullableString(args.scheduled_date),
-      completedAt: status === 'done' ? timestamp : undefined,
-      steps: normalizeActivityStepsForExternalWrite(args.steps, id),
-    },
-  );
-  await upsertDomainObject(admin, 'kwilt_activities', userId, id, data);
-  await recordExternalShowUpEvent(admin, userId, id);
-  return { object_type: 'activity', object_id: id, result_summary: `Created To-do "${title}".`, structured: { activity_id: id, title } };
-}
-
-export async function updateActivityForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const id = asString(args.activity_id);
-  if (!id) throw new Error('missing_activity_id');
-  const existing = await getDomainRow(admin, 'kwilt_activities', userId, id);
-  if (!existing) throw new Error('activity_not_found');
-  const current = dataFromRow(existing);
-  const goalId = asNullableString(args.goal_id);
-  if (goalId) {
-    const goal = await getDomainRow(admin, 'kwilt_goals', userId, goalId);
-    if (!goal) throw new Error('goal_not_found');
-  }
-  const status = asString(args.status)
-    ? pickStatus(args.status, ['planned', 'in_progress', 'done', 'skipped', 'cancelled'], asString(current.status) ?? 'planned')
-    : undefined;
-  const timestamp = nowIso();
-  const data = mergeDefined(current, {
-    goalId,
-    title: asString(args.title) ?? undefined,
-    notes: asNullableString(args.notes),
-    type: asString(args.type) ?? undefined,
-    status,
-    tags: asStringArray(args.tags) as JsonValue | undefined,
-    priority: asPriority(args.priority),
-    scheduledDate: asNullableString(args.scheduled_date),
-    completedAt: status === 'done' ? (asString(args.completed_at) ?? timestamp) : status && status !== 'done' ? null : undefined,
-    steps: normalizeActivityStepsForExternalWrite(args.steps, id) as JsonValue | undefined,
-    updatedAt: timestamp,
-  });
-  await upsertDomainObject(admin, 'kwilt_activities', userId, id, data);
-  if (status === 'done') await recordExternalShowUpEvent(admin, userId, id);
-  return { object_type: 'activity', object_id: id, result_summary: `Updated To-do "${asString(data.title) ?? id}".`, structured: { activity_id: id } };
-}
-
-export async function createActivityStepForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const activityId = asString(args.activity_id);
-  if (!activityId) throw new Error('missing_activity_id');
-  const existing = await getDomainRow(admin, 'kwilt_activities', userId, activityId);
-  if (!existing) throw new Error('activity_not_found');
-  const current = dataFromRow(existing);
-  const steps = normalizeExistingActivitySteps(current.steps, activityId);
-  const step = makeActivityStepFromArgs(args, activityId, nextStepOrderIndex(steps));
-  if (steps.some((existingStep) => existingStep.id === step.id)) throw new Error('step_id_conflict');
-  const nextSteps = [...steps, step];
-  await writeActivityStepsForUser(admin, userId, activityId, current, nextSteps);
-  const stepId = asString(step.id) ?? '';
-  return {
-    object_type: 'activity',
-    object_id: activityId,
-    result_summary: `Added step "${asString(step.title) ?? stepId}".`,
-    structured: { activity_id: activityId, step_id: stepId, steps: nextSteps },
-  };
-}
-
-export async function updateActivityStepForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const activityId = asString(args.activity_id);
-  const stepId = asString(args.step_id);
-  if (!activityId) throw new Error('missing_activity_id');
-  if (!stepId) throw new Error('missing_step_id');
-  const existing = await getDomainRow(admin, 'kwilt_activities', userId, activityId);
-  if (!existing) throw new Error('activity_not_found');
-  const current = dataFromRow(existing);
-  const steps = normalizeExistingActivitySteps(current.steps, activityId);
-  let found = false;
-  const nextSteps = steps.map((step) => {
-    if (step.id !== stepId) return step;
-    found = true;
-    return mergeDefined(step, {
-      title: asString(args.title) ?? undefined,
-      completedAt: 'completed_at' in args
-        ? asNullableString(args.completed_at)
-        : 'completedAt' in args
-          ? asNullableString(args.completedAt)
-          : undefined,
-      isOptional: asOptionalBoolean(args.is_optional) ?? asOptionalBoolean(args.isOptional),
-      orderIndex: asOptionalNumber(args.order_index) ?? asOptionalNumber(args.orderIndex),
-    });
-  });
-  if (!found) throw new Error('step_not_found');
-  await writeActivityStepsForUser(admin, userId, activityId, current, nextSteps);
-  return {
-    object_type: 'activity',
-    object_id: activityId,
-    result_summary: 'Updated To-do step.',
-    structured: { activity_id: activityId, step_id: stepId, steps: nextSteps },
-  };
-}
-
-export async function markActivityStepDoneForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  return updateActivityStepForUser(admin, userId, {
-    ...args,
-    completed_at: asString(args.completed_at) ?? nowIso(),
-  });
-}
-
-export async function deleteActivityStepForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const activityId = asString(args.activity_id);
-  const stepId = asString(args.step_id);
-  if (!activityId) throw new Error('missing_activity_id');
-  if (!stepId) throw new Error('missing_step_id');
-  const existing = await getDomainRow(admin, 'kwilt_activities', userId, activityId);
-  if (!existing) throw new Error('activity_not_found');
-  const current = dataFromRow(existing);
-  const steps = normalizeExistingActivitySteps(current.steps, activityId);
-  if (!steps.some((step) => step.id === stepId)) throw new Error('step_not_found');
-  const nextSteps = renumberActivitySteps(steps.filter((step) => step.id !== stepId));
-  await writeActivityStepsForUser(admin, userId, activityId, current, nextSteps);
-  return {
-    object_type: 'activity',
-    object_id: activityId,
-    result_summary: 'Deleted To-do step.',
-    structured: { activity_id: activityId, step_id: stepId, deleted: true, steps: nextSteps },
-  };
-}
-
-export async function reorderActivityStepsForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const activityId = asString(args.activity_id);
-  if (!activityId) throw new Error('missing_activity_id');
-  const requestedIds = asStringArray(args.step_ids) ?? [];
-  if (requestedIds.length === 0) throw new Error('missing_step_ids');
-  const existing = await getDomainRow(admin, 'kwilt_activities', userId, activityId);
-  if (!existing) throw new Error('activity_not_found');
-  const current = dataFromRow(existing);
-  const steps = normalizeExistingActivitySteps(current.steps, activityId);
-  const byId = new Map(steps.map((step) => [asString(step.id) ?? '', step]));
-  const missingId = requestedIds.find((id) => !byId.has(id));
-  if (missingId) throw new Error('step_not_found');
-  const requested = requestedIds.map((id) => byId.get(id)).filter((step): step is JsonObject => !!step);
-  const remaining = steps.filter((step) => !requestedIds.includes(asString(step.id) ?? ''));
-  const nextSteps = renumberActivitySteps([...requested, ...remaining]);
-  await writeActivityStepsForUser(admin, userId, activityId, current, nextSteps);
-  return {
-    object_type: 'activity',
-    object_id: activityId,
-    result_summary: 'Reordered To-do steps.',
-    structured: { activity_id: activityId, steps: nextSteps },
-  };
-}
-
-export async function markActivityDoneForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const completedAt = asString(args.completed_at) ?? nowIso();
-  return updateActivityForUser(admin, userId, { ...args, status: 'done', completed_at: completedAt });
-}
-
-export async function setFocusTodayForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const date = asString(args.date) ?? new Date().toISOString().slice(0, 10);
-  return updateActivityForUser(admin, userId, { ...args, scheduled_date: date });
-}
-
-export async function deleteActivityForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const id = asString(asRecord(raw).activity_id);
-  if (!id) throw new Error('missing_activity_id');
-  await softDeleteObjectForUser(admin, userId, 'kwilt_activities', id);
-  return { object_type: 'activity', object_id: id, result_summary: 'Deleted To-do.', structured: { activity_id: id, deleted: true } };
-}
-
-export async function addGoalCheckinForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const goalId = asString(args.goal_id);
-  if (!goalId) throw new Error('missing_goal_id');
-  const goal = await getDomainRow(admin, 'kwilt_goals', userId, goalId);
-  if (!goal) throw new Error('goal_not_found');
-  const preset = pickStatus(args.preset, ['made_progress', 'struggled_today', 'need_encouragement', 'just_checking_in'], '');
-  const { data, error } = await admin
-    .from('goal_checkins')
-    .insert({
-      goal_id: goalId,
-      user_id: userId,
-      preset: preset || null,
-      text: asNullableString(args.text) ?? null,
-    })
-    .select('id')
-    .single();
-  if (error) throw new Error('goal_checkin_failed');
-  const id = String((data as any).id);
-  try {
-    await admin.from('kwilt_feed_events').insert({
-      entity_type: 'goal',
-      entity_id: goalId,
-      actor_id: userId,
-      type: 'checkin_submitted',
-      payload: { checkinId: id, preset: preset || null, hasText: Boolean(asString(args.text)) },
-    });
-  } catch {
-    // Feed events are best-effort, matching the app service.
-  }
-  return { object_type: 'goal_checkin', object_id: id, result_summary: 'Added Goal check-in.', structured: { checkin_id: id, goal_id: goalId } };
-}
-
-export async function updateChapterUserNoteForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
-  const args = asRecord(raw);
-  const chapterId = asString(args.chapter_id);
-  if (!chapterId) throw new Error('missing_chapter_id');
-  const note = asString(args.note) ?? '';
-  const { data, error } = await admin
-    .from('kwilt_chapters')
-    .update({
-      user_note: note.trim() ? note.trim() : null,
-      user_note_updated_at: note.trim() ? nowIso() : null,
-      updated_at: nowIso(),
-    })
-    .eq('id', chapterId)
-    .eq('user_id', userId)
-    .select('id')
-    .maybeSingle();
-  if (error) throw new Error('chapter_note_update_failed');
-  if (!data) throw new Error('chapter_not_found');
-  return { object_type: 'chapter_note', object_id: chapterId, result_summary: 'Updated Chapter note.', structured: { chapter_id: chapterId } };
 }

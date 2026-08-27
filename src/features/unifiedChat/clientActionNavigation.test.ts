@@ -41,15 +41,25 @@ test('family Screen Time setup opens the exact child and requested native step',
   expect(resolveClientActionOpenInstruction({
     ...action('open_family_screen_time_setup', 'child-charlie'),
     capabilityId: 'screenTime', targetType: 'family_screen_time_child',
-    payload: { childDisplayName: 'Charlie', setupStep: 'selection', suggestedLabel: 'YouTube' },
+    payload: {
+      householdId: 'household-1', childDisplayName: 'Charlie', setupStep: 'selection', suggestedLabel: 'YouTube',
+    },
   })).toEqual({
     kind: 'navigate', name: 'Settings', params: {
       screen: 'SettingsFamilyScreenTime', params: {
-        childMembershipId: 'child-charlie', childDisplayName: 'Charlie',
+        householdId: 'household-1', childMembershipId: 'child-charlie', childDisplayName: 'Charlie',
         setupStep: 'selection', suggestedLabel: 'YouTube', clientActionId: 'action-1',
       },
     },
   });
+});
+
+test('family Screen Time setup refuses a handoff without exact Household context', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_family_screen_time_setup', 'child-charlie'),
+    capabilityId: 'screenTime', targetType: 'family_screen_time_child',
+    payload: { childDisplayName: 'Charlie', setupStep: 'device' },
+  })).toBeNull();
 });
 
 test('personal Screen Time limit opens the canonical builder with typed intent', () => {

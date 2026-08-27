@@ -1,6 +1,7 @@
 import type { UserProfile } from '../../domain/types';
 import type { UnifiedChatMutationReceipt, UnifiedChatProposal } from './types';
 import { parseProfileMutationPatch } from './profileProposal';
+import { updateProfile } from '../../capabilities/life-structure/actions/profileActions';
 
 type ProfileProposal = Extract<UnifiedChatProposal, { capabilityId: 'profile' }>;
 
@@ -83,7 +84,12 @@ export function applyApprovedProfileProposal({ proposal, store, now = () => new 
 }): ProfileMutationReceipt {
   const appliedAt = now();
   const { current, next } = computeProfileMutation(proposal, store, appliedAt);
-  store.updateProfileAt(() => next, appliedAt);
+  updateProfile({
+    profileId: current.id,
+    expectedUpdatedAt: current.updatedAt,
+    updatedAt: appliedAt,
+    update: () => next,
+  }, store);
   return receiptFor(proposal as ProfileProposal, current, next, appliedAt);
 }
 
@@ -96,7 +102,12 @@ export function undoAppliedProfileProposal({ receipt, store, now = () => new Dat
     throw new ProfileMutationConflictError('The Profile changed after apply, so Kwilt will not overwrite it during undo.');
   }
   const undoneAt = now();
-  store.updateProfileAt(() => ({ ...receipt.undoOperation.profile, updatedAt: undoneAt }), undoneAt);
+  updateProfile({
+    profileId: current.id,
+    expectedUpdatedAt: current.updatedAt,
+    updatedAt: undoneAt,
+    update: () => ({ ...receipt.undoOperation.profile, updatedAt: undoneAt }),
+  }, store);
   return { undoneAt };
 }
 

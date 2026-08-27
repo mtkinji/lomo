@@ -10,7 +10,7 @@ export type UnifiedChatRequestClass =
 
 export const UNIFIED_CHAT_CAPABILITY_IDS = [
   'arcs', 'goals', 'todos', 'plan', 'chapters', 'profile', 'relationships',
-  'money', 'screenTime', 'notifications', 'account', 'navigation', 'recipes', 'meal_planning',
+  'household', 'money', 'screenTime', 'notifications', 'account', 'navigation', 'recipes', 'meal_planning',
   'chores',
 ] as const;
 export type UnifiedChatCapabilityId = typeof UNIFIED_CHAT_CAPABILITY_IDS[number];
@@ -169,6 +169,11 @@ function explicitCapabilities(prompt: string): UnifiedChatCapabilityId[] {
     capabilities.push('profile');
   }
   if (isRelationshipMemoryRequest(prompt)) capabilities.push('relationships');
+  if (
+    /\b(?:who is|who's|members? of|in)\s+(?:my|our|the)?\s*household\b|\bhousehold\s+(?:members?|roster|caregivers?|children|child|invitation|invite|access|permissions?|capabilities?)\b|\b(?:invitation|invite)\s+code\b/i.test(prompt)
+  ) {
+    capabilities.push('household');
+  }
   if (/\bremind me\b/i.test(prompt) && !capabilities.includes('todos')) {
     capabilities.push('todos');
   }

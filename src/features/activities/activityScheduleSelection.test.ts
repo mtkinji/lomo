@@ -1,4 +1,5 @@
 import {
+  activityScheduleSlotToDraft,
   formatScheduleSlotTimeRange,
   resolveSelectedScheduleSlot,
 } from './activityScheduleSelection';
@@ -40,6 +41,22 @@ describe('activityScheduleSelection', () => {
       manualScheduleSlot: null,
       scheduleSlots: [firstSlot],
       selectedSlotIndex: -1,
+    })).toBeNull();
+  });
+
+  it('converts a selected schedule slot into the editable Plan draft contract', () => {
+    const draft = activityScheduleSlotToDraft(firstSlot);
+
+    expect(draft).toEqual({
+      start: new Date(firstSlot.startDate),
+      end: new Date(firstSlot.endDate),
+    });
+  });
+
+  it('returns null when a schedule slot cannot form a valid draft', () => {
+    expect(activityScheduleSlotToDraft({
+      startDate: 'not-a-date',
+      endDate: secondSlot.endDate,
     })).toBeNull();
   });
 

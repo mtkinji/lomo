@@ -9,6 +9,7 @@ type RecordedCall = {
   onConflict?: string;
   filters: Array<[string, unknown]>;
   inFilters?: Array<[string, unknown[]]>;
+  orders: Array<[string, { ascending?: boolean } | undefined]>;
   ranges: Array<[number, number]>;
 };
 
@@ -21,7 +22,7 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; 
       getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }),
     },
     from(table: string) {
-      const call: RecordedCall = { table, filters: [], ranges: [] };
+      const call: RecordedCall = { table, filters: [], orders: [], ranges: [] };
       calls.push(call);
       const query = {
         select: (columns: string) => {
@@ -46,7 +47,10 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; 
           call.inFilters = [...(call.inFilters ?? []), [column, values]];
           return query;
         },
-        order: () => query,
+        order: (column: string, orderOptions?: { ascending?: boolean }) => {
+          call.orders.push([column, orderOptions]);
+          return query;
+        },
         limit: () => query,
         maybeSingle: () => Promise.resolve({ data: null, error: null }),
         range: (from: number, to: number) => {
@@ -153,8 +157,16 @@ describe('createMoneyRepository transaction review', () => {
     expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_governed');
     expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('plan_role_override');
     expect(calls.find((call) => call.table === 'budget_transactions')?.ranges).toEqual([[0, 999]]);
+    expect(calls.find((call) => call.table === 'budget_transactions')?.orders).toEqual([
+      ['date', { ascending: false }],
+      ['id', { ascending: false }],
+    ]);
     expect(calls.find((call) => call.table === 'budget_transaction_allocations')?.selected)
       .toBe('transaction_id,budget_id,amount_cents');
+    expect(calls.find((call) => call.table === 'budget_transaction_allocations')?.orders).toEqual([
+      ['transaction_id', { ascending: true }],
+      ['budget_id', { ascending: true }],
+    ]);
   });
 
   it('requests governed reconciliation through the authenticated server boundary', async () => {

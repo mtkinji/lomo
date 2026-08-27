@@ -16,7 +16,7 @@ related_briefs:
   - brief-background-agents-weekly-planning
   - brief-kwilt-text-coach
 owner: andrew
-last_updated: 2026-05-13
+last_updated: 2026-08-26
 ---
 
 ## Context
@@ -52,6 +52,8 @@ Locked in the design phase — record here so they don't drift during implementa
 | Free-tier feature limits | Surface as structured tool errors with a paywall deep-link carrying the existing `PaywallReason` enum (e.g. `?source=claude&reason=goal_limit`) | Reuses the in-app paywall; no new monetization surface. The agent surfaces the error in a calm, factual way; the user clicks through to the contextual paywall. |
 | In-app connection management | Settings → Apps & connections uses one compact, logo-led row per supported destination. Each row shows its connection count and last use when connected; tapping it starts setup or opens connection management. Access, recent activity, and disconnect live on each connection's detail screen. | Makes app discovery and current state legible in one place without duplicating connected apps in a second section. The raw URL remains an explained manual fallback, not the primary setup affordance. |
 | Connection identity | Show the OAuth client's verified name; do not offer renaming in the initial release. | The name identifies the app that actually has access. A user nickname may be added later only as secondary metadata that never replaces the verified identity. |
+| OAuth access | Capability-and-effect scopes: `life`, `household`, `money`, and `food`, each with separate `.read` and `.write` grants. | Consent stays least-privilege as Kwilt grows. Destructive review remains action policy, never a broad super-scope. |
+| Legacy scope removal | Existing `read`/`write` grants map only to the already-exposed Life surface through 2026-11-30; new grants cannot request them. | Compatibility cannot silently authorize later Household, Money, or Food capabilities. |
 
 Open questions remaining are listed in the [Open questions](#open-questions) section.
 
@@ -68,7 +70,7 @@ Stand up the MCP server at `auth.kwilt.app/functions/v1/mcp` as a hosted Remote 
 1. User clicks "Add to Claude" on `kwilt.app/connect/claude` (or browses the Claude directory and finds Kwilt).
 2. Claude opens its install dialog with name + URL prefilled (per [Anthropic's directory connector pattern](https://claude.com/docs/connectors/building/directory-vs-custom)).
 3. Claude redirects to `auth.kwilt.app` — same login UX as the mobile app (Sign in with Apple, Google, or email).
-4. OAuth handshake completes. Claude shows "Kwilt connected." A first-run system message in the conversation: *"I can now read your Arcs and capture Activities to Kwilt. Try: 'What Arcs am I in?' or 'Add a 30-min walk Saturday morning to my Health Arc.'"*
+4. The consent screen names the current Household, requested scope identifiers, data categories, and write effects. After approval, Claude shows "Kwilt connected." A first-run system message can accurately describe only the capabilities granted and currently exposed.
 
 The ChatGPT path is identical except the directory and dialog are OpenAI's.
 
@@ -76,7 +78,7 @@ The ChatGPT path is identical except the directory and dialog are OpenAI's.
 
 - The user says natural-language things; Claude/ChatGPT calls Kwilt tools to fulfill them.
 - Every successful write tool call returns a confirmation snippet that is **calm, identity-anchored, and never gamified** (see anti-pattern guardrails below). Example: `capture_activity` returns *"Logged 'Walk with Mara, 30m' to Family Arc — Saturday 9am. Showed up today."* — never *"Crushed it!"* or *"+1 streak day!"*
-- Agent actions are direct after the user approves OAuth write scope. Creating, editing, or deleting Arcs, Goals, and Activities through MCP produces the same domain rows and recovery behavior as doing it in the Kwilt app. Origin stays in the connection/action audit log, not as a badge on the object.
+- OAuth write access makes a tool eligible; it does not replace action authority or review. Explicit low-risk instructions may execute through the canonical server dispatcher. Consequential or insufficiently explicit instructions persist a review proposal, while device-owned operations return a native handoff. Every completed write returns the same canonical receipt shape used by Kwilt Chat. Origin stays in the connection/action audit log, not as a badge on the object.
 
 **Inside Kwilt:**
 
@@ -90,30 +92,47 @@ The ChatGPT path is identical except the directory and dialog are OpenAI's.
 
 Designed against [Anthropic's review criteria](https://claude.com/docs/connectors/building/review-criteria): separate read and write tools (no catch-all method-param tools), narrow descriptions, accurate hint annotations, names ≤ 64 chars.
 
-**Reads (`readOnlyHint: true`, `openWorldHint: false`):**
+**Initial compatibility reads (`readOnlyHint: true`, `openWorldHint: false`):**
 
 | Tool | Returns | Privacy posture |
 |---|---|---|
-| `list_arcs` | id, name, force_intent vector | No narrative or recent activity unless asked |
-| `get_arc` | Full Arc detail incl. recent goals (last 5) | User-scoped only |
-| `list_goals` | id, title, arc_id, status, kind | Filterable by arc/status |
-| `get_goal` | Full Goal incl. last 10 activities | User-scoped only |
+| `get_current_account` | Authenticated account identity | No raw auth or provider credentials |
+| `list_arcs` | Compact Arc identity summaries | No narrative or recent activity |
+| `get_arc` | One Arc summary plus recent Goals | User-scoped only |
+| `list_goals` | Compact Goal summaries | Filterable by Arc/status |
+| `get_goal` | One Goal summary plus recent Activities | User-scoped only |
 | `list_recent_activities` | Last N days (default 7, max 90) | Lean by default — title + when + arc/goal anchors only. Notes/attachments/voice transcripts gated behind an explicit `include_rich: true` flag. Chapter-substitution and privacy mitigation. |
-| `search_kwilt` | Semantic search across activities, goals, chapters | Top-K with scores; no raw embeddings |
 | `get_current_chapter` | Latest published Chapter narrative | Lookback only — never future |
 | `get_show_up_status` | Current streak, repair-window state, today's show-up boolean | No protected/repair-window mechanics in description copy that could be exploited |
 
-**Writes:**
+**Initial compatibility writes (`life.read life.write`):**
 
 | Tool | Hints | Notes |
 |---|---|---|
-| `capture_activity` | `readOnlyHint: false`, `destructiveHint: false`, `openWorldHint: false` | Primary write. Anchors are optional (capture-first). Counts as show-up. |
-| `mark_activity_done` | `destructiveHint: false` | Idempotent. |
-| `set_focus_today` | `destructiveHint: false` | Soft signal — not a hard schedule. |
-| `create_goal` | `destructiveHint: false` | Returns a `kwilt://confirm` link; goal enters `pending_confirmation` state until user confirms in-app. |
-| `propose_arc` | `destructiveHint: false` | **Never** silently creates an Arc. Always proposes; confirmation required in-app. Honors the "auto-anchoring without confirmation" anti-pattern explicitly. |
+| `capture_activity`, `mark_activity_done`, `set_focus_today` | `readOnlyHint: false`, `destructiveHint: false`, `openWorldHint: false` | Low-risk Life writes; capture remains capture-first. |
+| `create_*`, `update_*`, Activity step tools, Chapter-note update | `readOnlyHint: false` | Use canonical server actions and their confirmation policy. |
+| `delete_arc`, `delete_goal`, `delete_activity`, `delete_activity_step` | `destructiveHint: true` | Recoverable where the capability supports recovery and always subject to consequential review policy. |
 
-Notably absent (deliberate, by anti-pattern): no `delete_*`, no `set_streak`, no tool that returns a composite "growth score," no tool that lets the agent author Chapters.
+Every write schema requires an `idempotency_key`: a stable request ID that the caller reuses only when retrying the same intended operation. Compatibility tool names remain aliases for one contract version; the generated catalog binds every alias to a canonical operation, registered server handler, exact scopes, consequence, confirmation, and redaction policy. Canonical tools extend this surface without multiplying legacy aliases. Device-owned writes are advertised only when the server can durably stage the exact native handoff; their result is pending native action, never remote completion.
+
+Implementation checkpoint (2026-08-26): the generated MCP catalog exposes 56 scoped tools. In addition to the compatibility slice above, it covers Plan reads and reviewed scheduling, Relationship memory, To-do get/search/schedule/chunks/reminder/repeat, Chapter list/reflect, Profile update, Goal and To-do sharing handoffs, Focus, Plan preferences, notifications, search, relevant Account surfaces, and the truthful Screen Time cross-device boundary. The generated 145-operation ledger currently classifies 56 as externally exposed, 80 as pending a provider, two as deliberately excluded capabilities, five as explicit safety boundaries, and two internal answer/synthesis operations as non-applicable because ChatGPT performs its own synthesis over callable tools.
+
+Notably absent: no `set_streak`, no tool that returns a composite "growth score," and no tool that lets the agent author Chapters.
+
+### Core capability coverage contract
+
+The Life tools above are the proven first slice, not the finished connector. The product requirement is that every meaningful user operation in Kwilt's core capabilities has one canonical manifest entry and resolves externally to one of four truthful outcomes: authoritative execution, a review proposal, a pending native/device handoff, or an explicit temporary boundary.
+
+Core coverage obligations are Household and Relationships, Arcs, Goals, To-dos, Plan and Focus, Chapters, Money, Recipes, Meal Plan, Groceries and Savings, Chores, Screen Time, and relevant Account actions. Navigation and notification actions are supporting controls. Games and Explore are explicitly excluded from external conversational control for this program; their absence must not be confused with an accidental catalog gap. AI can never attest publishing rights, complete retailer checkout or payment without provider authority, bypass native device authorization, or silently perform destructive/shared/financial actions.
+
+The generated manifest and CI coverage projection are the ledger. Adding a core UI action without a canonical operation, policy metadata, provider state, and external-control classification is a contract failure. A granted OAuth scope makes eligible actions discoverable; it does not turn pending or device-owned behavior into server authority.
+
+### Authorization and review contract
+
+- Supported scopes are `life.read`, `life.write`, `household.read`, `household.write`, `money.read`, `money.write`, `food.read`, and `food.write`. A capability write grant implies only its matching read grant.
+- The server advertises and accepts only tools whose complete required-scope set is present on the token. A scope may exist before a safe server tool is exposed; it never causes a manifest-only or device-only action to appear.
+- Questions, suggestions, hypotheticals, and ambiguous requests do not become writes because a token has write access. The canonical action policy either answers, persists a review proposal, executes, or returns a native handoff.
+- Legacy broad grants are explicitly policy version 1, expire on 2026-11-30, and map only to `life.read` or `life.read life.write`. They never inherit Household, Money, or Food access.
 
 ### Relationship to Phone Agent action tools
 
@@ -146,7 +165,8 @@ auth.kwilt.app/functions/v1/mcp  ── Supabase Edge Function (Deno)
     │     /authorize  ── 302 → kwilt-site /oauth/consent
     │     /token, /revoke
     │
-    ├── MCP tool handlers (one Postgres RPC per tool, RLS-scoped)
+    ├── MCP protocol + compatibility adapters
+    │     generated external-safe catalog → canonical server dispatcher
     │
     └── Writes to kwilt_external_capture_log
             │
@@ -166,12 +186,12 @@ kwilt-site (Vercel / Next.js) ── only the user-facing UI surfaces:
 
 Key choices:
 
-- **MCP server lives in Supabase Edge.** Auth context is native (the function gets the user JWT and instantiates a Supabase client with it; RLS does the rest), every tool is one RPC away from Postgres, secrets/logs/deploys all live in the same place as the existing `email-drip` / `chapters-generate` / `pro-codes` functions. No JWT bridging, no double-serialize.
+- **MCP server lives in Supabase Edge.** The function validates its own short-lived OAuth bearer tokens, resolves the user and client with the service credential, and passes that actor context into the canonical server action runtime. Credentials, logs, and deploys stay beside the existing Edge Functions.
 - **Reuse the existing `auth.kwilt.app` Supabase Custom Domain.** Already DNS/TLS-verified per `docs/auth-custom-domain.md`. The "trustworthy domain" property the iOS auth prompt depends on carries over: when Claude shows the OAuth login screen, it reads `auth.kwilt.app` — exactly what users see signing into the mobile app. No new domain to provision.
 - **Vercel only owns user-facing UI surfaces.** The OAuth consent screen, the marketing landing pages, and the universal-link confirmation pages. Claude/ChatGPT never talk to Vercel during a tool call.
 - **Published as Kwilt (the business entity).** Identity verification in the OpenAI Platform Dashboard uses the business entity. Both Anthropic's directory card and OpenAI's listing show "Kwilt" as publisher.
-- **Reuse existing Supabase Auth identity.** No new user table, no new sign-in flow. The MCP OAuth provider issues short-lived MCP access tokens that wrap a Supabase JWT for the same user; revoking a connection just invalidates the wrapped token.
-- **No new business logic in the MCP layer.** Every tool is a thin call to a Postgres RPC. Mobile + desktop + connector all hit the same RPCs. Drift is impossible by construction.
+- **Reuse existing Supabase Auth identity.** No new user table and no new sign-in flow. The OAuth provider binds revocable connector tokens to the same Supabase user identity without exposing a Supabase session to the MCP client.
+- **No second business-action implementation in MCP.** Protocol parsing, OAuth, compatibility names, idempotency, and audit are adapters. Actual writes run through the same capability-owned server dispatcher and durable proposal/receipt contracts used by Kwilt Chat.
 - **Audit log as first-class data.** New `kwilt_external_capture_log` table records every tool call (user_id, surface, tool, input hash, success, timestamp). This is what powers the surface-origin badge in-app, the per-surface analytics, and the per-source revoke.
 
 ### Anti-pattern guardrails (instant-fail in code review)

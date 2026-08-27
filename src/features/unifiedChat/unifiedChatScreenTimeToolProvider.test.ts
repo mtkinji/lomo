@@ -14,12 +14,103 @@ const snapshots = {
         { id: 'selection-games', label: 'Games', selectionRef: 'opaque-games', status: 'active' as const },
         { id: 'selection-gospel', label: 'Gospel Library', selectionRef: 'opaque-gospel', status: 'active' as const },
       ],
-      agreements: [], activeOverrides: [], pendingRequests: [], devices: [], latestDeviceReceipt: null,
+      agreements: [{
+        id: 'agreement-1', selectionId: 'selection-games', active: true, version: 2,
+        updatedAt: '2026-07-30T09:00:00.000Z',
+        rule: {
+          weekdays: [1, 2, 3, 4, 5], startMinute: 960, endMinute: 1140,
+          dailyLimitMinutes: 30,
+          prerequisiteActivity: {
+            selectionId: 'selection-gospel', thresholdMinutes: 10, reset: 'daily',
+            selectionRef: 'nested-opaque-ref',
+          },
+          selectionRef: 'agreement-opaque-ref',
+        },
+      }], activeOverrides: [{
+        id: 'override-1', selectionId: 'selection-charlie', action: 'block' as const,
+        timeBasis: 'wall_clock' as const, startsAt: '2026-07-30T09:00:00.000Z',
+        expiresAt: '2026-07-30T13:00:00.000Z', usageMinutes: null,
+        provenance: 'caregiver_direct' as const, policyVersion: 7, status: 'active' as const,
+      }], pendingRequests: [{
+        id: 'request-1', selectionId: 'selection-charlie', kind: 'more_time' as const,
+        requestedMinutes: 30, message: 'Homework is done', status: 'pending' as const,
+        expiresAt: '2026-07-30T12:00:00.000Z', createdAt: '2026-07-30T09:45:00.000Z',
+      }],
+      devices: [{
+        id: 'device-1', readiness: 'ready' as const, authorizationStatus: 'authorized' as const,
+        lastSeenAt: null, releasedAt: null,
+      }],
+      latestDeviceReceipt: {
+        policyVersion: 7, outcome: 'applied' as const, failureCode: null,
+        occurredAt: '2026-07-30T09:30:00.000Z', deviceId: 'device-1',
+      },
     },
   }] },
 };
 
 describe('Unified Chat family Screen Time provider', () => {
+  it('reads authorized Screen Time policy state without exposing Apple selection references', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    const result = await provider.execute({
+      id: 'read-1', toolId: 'screen_time.read', arguments: { childMembershipIds: ['charlie'] },
+    }, tool('screen_time.read'));
+
+    expect(result).toEqual({
+      status: 'completed',
+      receipt: null,
+      output: {
+        children: [{
+          membershipId: 'charlie', displayName: 'Charlie', desiredPolicyVersion: 7,
+          selections: [
+            { id: 'selection-charlie', label: 'Brawl Stars', status: 'active' },
+            { id: 'selection-games', label: 'Games', status: 'active' },
+            { id: 'selection-gospel', label: 'Gospel Library', status: 'active' },
+          ],
+          agreements: [{
+            id: 'agreement-1', selectionId: 'selection-games', active: true, version: 2,
+            updatedAt: '2026-07-30T09:00:00.000Z',
+            rule: {
+              weekdays: [1, 2, 3, 4, 5], startMinute: 960, endMinute: 1140,
+              dailyLimitMinutes: 30,
+              prerequisiteActivity: {
+                selectionId: 'selection-gospel', thresholdMinutes: 10, reset: 'daily',
+              },
+            },
+          }], activeOverrides: [{
+            id: 'override-1', selectionId: 'selection-charlie', action: 'block',
+            timeBasis: 'wall_clock', startsAt: '2026-07-30T09:00:00.000Z',
+            expiresAt: '2026-07-30T13:00:00.000Z', usageMinutes: null,
+            provenance: 'caregiver_direct', policyVersion: 7, status: 'active',
+          }], pendingRequests: [{
+            id: 'request-1', selectionId: 'selection-charlie', kind: 'more_time',
+            requestedMinutes: 30, message: 'Homework is done', status: 'pending',
+            expiresAt: '2026-07-30T12:00:00.000Z', createdAt: '2026-07-30T09:45:00.000Z',
+          }],
+          devices: [{
+            readiness: 'ready', authorizationStatus: 'authorized', lastSeenAt: null, releasedAt: null,
+          }],
+          latestDeviceReceipt: {
+            policyVersion: 7, outcome: 'applied', failureCode: null,
+            occurredAt: '2026-07-30T09:30:00.000Z',
+          },
+        }],
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain('opaque-ref');
+    expect(JSON.stringify(result)).not.toContain('subject-charlie');
+    expect(JSON.stringify(result)).not.toContain('device-1');
+  });
+
+  it('rejects a Screen Time read for children outside the authorized snapshot', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    await expect(provider.execute({
+      id: 'read-2', toolId: 'screen_time.read', arguments: { childMembershipIds: ['not-authorized'] },
+    }, tool('screen_time.read'))).resolves.toEqual({
+      status: 'failed', code: 'screen_time_child_not_authorized',
+      message: 'One or more children are not available for Screen Time management.', retryable: false,
+    });
+  });
+
   it('stages a compact explicit-review block proposal from stable authorized targets', async () => {
     const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
     const result = await provider.execute({
@@ -108,5 +199,63 @@ describe('Unified Chat family Screen Time provider', () => {
       status: 'failed', code: 'screen_time_target_stale', retryable: true,
     });
     expect(provider.proposals()).toEqual([]);
+  });
+
+  it('stages an exact agreement update and deactivation from the current authorized version', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    await expect(provider.execute({
+      id: 'update-1', toolId: 'screen_time.agreement.update', arguments: {
+        childMembershipId: 'charlie', agreementId: 'agreement-1', selectionId: 'selection-games',
+        expectedVersion: 2,
+        rule: { weekdays: [1, 2, 3, 4, 5], startMinute: 900, endMinute: 1140, dailyLimitMinutes: 20 },
+      },
+    }, tool('screen_time.agreement.update'))).resolves.toMatchObject({ status: 'proposed' });
+    await expect(provider.execute({
+      id: 'deactivate-1', toolId: 'screen_time.agreement.deactivate', arguments: {
+        childMembershipId: 'charlie', agreementId: 'agreement-1', selectionId: 'selection-games',
+        expectedVersion: 2, currentRule: {
+          weekdays: [1, 2, 3, 4, 5], startMinute: 960, endMinute: 1140, dailyLimitMinutes: 30,
+          prerequisiteActivity: { selectionId: 'selection-gospel', thresholdMinutes: 10, reset: 'daily' },
+        },
+      },
+    }, tool('screen_time.agreement.deactivate'))).resolves.toMatchObject({ status: 'proposed' });
+    expect(provider.proposals().map((proposal) => proposal.operation.type)).toEqual([
+      'update_family_screen_time_agreement', 'deactivate_family_screen_time_agreement',
+    ]);
+  });
+
+  it('rejects an agreement update that requires its target selection before itself', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    await expect(provider.execute({
+      id: 'update-stale-prerequisite', toolId: 'screen_time.agreement.update', arguments: {
+        childMembershipId: 'charlie', agreementId: 'agreement-1', selectionId: 'selection-games',
+        expectedVersion: 2,
+        rule: {
+          weekdays: [1, 2, 3, 4, 5], startMinute: 900, endMinute: 1140, dailyLimitMinutes: 20,
+          prerequisiteActivity: { selectionId: 'selection-games', thresholdMinutes: 10, reset: 'daily' },
+        },
+      },
+    }, tool('screen_time.agreement.update'))).resolves.toMatchObject({
+      status: 'failed', code: 'screen_time_target_stale', retryable: true,
+    });
+    expect(provider.proposals()).toEqual([]);
+  });
+
+  it('stages cancellation and child-request decisions only from current authorized state', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    await expect(provider.execute({
+      id: 'cancel-1', toolId: 'screen_time.override.cancel', arguments: {
+        childMembershipId: 'charlie', overrideId: 'override-1', expectedVersion: 7,
+      },
+    }, tool('screen_time.override.cancel'))).resolves.toMatchObject({ status: 'proposed' });
+    await expect(provider.execute({
+      id: 'decide-1', toolId: 'screen_time.request.decide', arguments: {
+        childMembershipId: 'charlie', requestId: 'request-1', decision: 'approved',
+        allowMinutes: 30, expectedVersion: 7,
+      },
+    }, tool('screen_time.request.decide'))).resolves.toMatchObject({ status: 'proposed' });
+    expect(provider.proposals().map((proposal) => proposal.operation.type)).toEqual([
+      'cancel_family_screen_time_override', 'decide_family_screen_time_request',
+    ]);
   });
 });

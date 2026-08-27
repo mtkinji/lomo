@@ -9,11 +9,11 @@ const migrationPath = resolve(
 );
 const digestRepairMigrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260807043600_fix_private_recipe_digest_schema.sql',
+  'supabase/migrations/20260807043758_fix_private_recipe_digest_schema.sql',
 );
 const equipmentMigrationPath = resolve(
   process.cwd(),
-  'supabase/migrations/20260817034820_persist_recipe_equipment_requirements.sql',
+  'supabase/migrations/20260820202140_persist_recipe_equipment_requirements.sql',
 );
 
 describe('private Recipe persistence contract', () => {

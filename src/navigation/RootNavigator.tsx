@@ -43,6 +43,8 @@ import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { MealsSettingsScreen } from '../features/account/MealsSettingsScreen';
 import { HouseholdSettingsScreen } from '../features/household/HouseholdSettingsScreen';
 import { HouseholdMemberDetailScreen } from '../features/household/HouseholdMemberDetailScreen';
+import { HouseholdDeviceSetupScreen } from '../features/household/HouseholdDeviceSetupScreen';
+import { HouseholdDevicesScreen } from '../features/household/HouseholdDevicesScreen';
 import { FamilyScreenTimeLearningScreen } from '../features/household/screenTime/FamilyScreenTimeLearningScreen';
 import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
 import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
@@ -375,7 +377,14 @@ export type SettingsStackParamList = {
   SettingsScreenTimeRuleBuilder: PersonalScreenTimeRuleBuilderParams;
   SettingsHousehold: { inviteCode?: string; entrySurface?: 'meal-plan' } | undefined;
   SettingsHouseholdMember: { membershipId: string };
+  SettingsHouseholdDeviceSetup: {
+    householdId: string;
+    childMembershipId: string;
+    childDisplayName: string;
+  };
+  SettingsHouseholdDevices: { householdId: string };
   SettingsFamilyScreenTime: {
+    householdId: string;
     childMembershipId: string;
     childDisplayName: string;
     setupStep?: 'device' | 'selection' | 'release';
@@ -1112,6 +1121,8 @@ function SettingsStackNavigator() {
       />
       <SettingsStack.Screen name="SettingsHousehold" component={HouseholdSettingsScreen} />
       <SettingsStack.Screen name="SettingsHouseholdMember" component={HouseholdMemberDetailScreen} />
+      <SettingsStack.Screen name="SettingsHouseholdDeviceSetup" component={HouseholdDeviceSetupScreen} />
+      <SettingsStack.Screen name="SettingsHouseholdDevices" component={HouseholdDevicesScreen} />
       <SettingsStack.Screen
         name="SettingsFamilyScreenTime"
         component={FamilyScreenTimeLearningScreen}

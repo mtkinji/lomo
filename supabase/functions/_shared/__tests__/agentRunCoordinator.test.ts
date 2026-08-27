@@ -1,4 +1,11 @@
-import { buildAgentSystemPrompt, executeCanonicalAgentRun, type AgentRunPersistence } from '../agentRunCoordinator';
+import {
+  buildAgentChannelContextPrompt,
+  buildAgentSystemPrompt,
+  enqueueCanonicalAgentRun,
+  executeCanonicalAgentRun,
+  executeEnqueuedCanonicalAgentRun,
+  type AgentRunPersistence,
+} from '../agentRunCoordinator';
 import type { CanonicalAgentRunRequest, ServerAgentModelStep } from '../agentRuntime';
 
 const request: CanonicalAgentRunRequest = {
@@ -32,6 +39,26 @@ test('requires explicit relationship facts instead of inferred sensitive memory'
   expect(buildAgentSystemPrompt(request)).toContain('Never infer sensitive relationship facts');
 });
 
+test('grounds the server turn in bounded selected UI context without attachment contents', () => {
+  const context = buildAgentChannelContextPrompt({
+    ...request,
+    channel: 'mobile',
+    channelContext: {
+      schemaVersion: 1, locale: 'en-US', timeZone: 'America/Denver', appState: 'foreground',
+      origin: { screen: 'UnifiedChat', action: 'run.retry' },
+      selectedEntities: [{ capabilityId: 'todos', objectType: 'activity', objectId: 'a-1', label: 'School pickup' }],
+      attachments: [{ attachmentId: 'file-1', name: 'schedule.png', mimeType: 'image/png', sizeBytes: 10, objectPath: null }],
+      pendingWork: { proposalIds: ['p-1'], clientActionIds: ['c-1'] },
+      availableDeviceProviders: ['native_navigation'],
+    },
+  });
+
+  expect(context).toContain('Selected entity: todos/activity/a-1 (School pickup)');
+  expect(context).toContain('Attachment reference: file-1 (schedule.png, image/png, 10 bytes; object unavailable)');
+  expect(context).toContain('Pending proposal IDs: p-1');
+  expect(context).not.toContain('content');
+});
+
 function persistence(order: string[]): AgentRunPersistence {
   return {
     enqueue: jest.fn(async () => { order.push('enqueue'); return run; }),
@@ -44,6 +71,8 @@ function persistence(order: string[]): AgentRunPersistence {
       order.push('proposals');
       return proposals.map((_, index) => ({ id: `proposal-${index + 1}`, status: 'pending', version: 1, replayed: false }));
     }),
+    recordModelStep: jest.fn(async () => undefined),
+    recordTurnPlanning: jest.fn(async () => undefined),
     complete: jest.fn(async (input) => { order.push('complete'); return { id: input.run.runId, status: input.status }; }),
     fail: jest.fn(async () => { order.push('fail'); }),
   };
@@ -73,6 +102,20 @@ test('persists causal run state around the shared bounded loop', async () => {
   }));
 });
 
+test('persists bounded Responses metadata for every model step', async () => {
+  const store = persistence([]);
+  const metadata = {
+    responseId: 'resp-1', routedModel: 'gpt-5.6-terra',
+    promptVersion: 'unified-chat-agent-v1', toolCatalogHash: 'fnv1a:12345678', latencyMs: 45,
+    usage: { inputTokens: 20, outputTokens: 8, totalTokens: 28 },
+  };
+  await executeCanonicalAgentRun({
+    request, userId: 'user-1', persistence: store, dataClient: { from: jest.fn() },
+    modelStep: async () => ({ content: 'Done.', toolCalls: [], metadata }),
+  });
+  expect(store.recordModelStep).toHaveBeenCalledWith({ run, round: 1, metadata });
+});
+
 test('returns an idempotent replay without invoking the model', async () => {
   const order: string[] = [];
   const store = persistence(order);
@@ -84,6 +127,47 @@ test('returns an idempotent replay without invoking the model', async () => {
   })).resolves.toMatchObject({ state: 'complete', replayed: true, answer: 'Persisted answer' });
   expect(modelStep).not.toHaveBeenCalled();
   expect(order).toEqual(['replay']);
+});
+
+test('executes an already-enqueued run without inserting the user turn twice', async () => {
+  const order: string[] = [];
+  const store = persistence(order);
+  const enqueued = await enqueueCanonicalAgentRun({ request, persistence: store });
+  await expect(executeEnqueuedCanonicalAgentRun({
+    request,
+    enqueued,
+    userId: 'user-1',
+    persistence: store,
+    dataClient: { from: jest.fn() },
+    modelStep: async () => ({ content: 'Persisted after acceptance.', toolCalls: [] }),
+  })).resolves.toMatchObject({
+    state: 'complete', replayed: false, answer: 'Persisted after acceptance.',
+  });
+  expect(store.enqueue).toHaveBeenCalledTimes(1);
+  expect(order).toEqual(['enqueue', 'start', 'history', 'complete']);
+});
+
+test('does not invoke the model when another recovery worker already claimed the queued run', async () => {
+  const order: string[] = [];
+  const store = persistence(order);
+  (store.start as jest.Mock).mockRejectedValue(new Error('run_start_failed'));
+  const modelStep = jest.fn();
+
+  await expect(executeEnqueuedCanonicalAgentRun({
+    request,
+    enqueued: { ...run, replayed: true },
+    userId: 'user-1',
+    persistence: store,
+    dataClient: { from: jest.fn() },
+    modelStep,
+  })).rejects.toThrow('run_start_failed');
+
+  expect(modelStep).not.toHaveBeenCalled();
+  expect(store.loadHistory).not.toHaveBeenCalled();
+  expect(store.fail).toHaveBeenCalledWith(expect.objectContaining({
+    expectedVersion: run.version,
+    code: 'run_start_failed',
+  }));
 });
 
 test('records a durable failure after an active run throws', async () => {
@@ -107,8 +191,9 @@ test('returns a tool-level denial when channel permission rejects a discovered w
     request, userId: 'user-1', persistence: store, dataClient: { from: jest.fn() }, modelStep,
     authorizeTool: (candidate) => candidate.id !== 'activities.capture',
   });
+  expect(modelStep.mock.calls[0][0].tools).not.toContainEqual(expect.objectContaining({ id: 'activities.capture' }));
   expect(modelStep.mock.calls[1][0].messages).toContainEqual(expect.objectContaining({
-    role: 'tool', content: expect.stringContaining('tool_not_permitted'),
+    role: 'tool', content: expect.stringContaining('unknown_tool'),
   }));
 });
 

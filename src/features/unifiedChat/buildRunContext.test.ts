@@ -37,6 +37,30 @@ const sources: CapabilityEvidenceSource[] = [
 ];
 
 describe('buildRunContext', () => {
+  test('collapses duplicate evidence identities before selecting persisted context', () => {
+    const duplicate: CapabilityEvidenceSource = {
+      capabilityId: 'money',
+      object: { type: 'money_transaction', id: 'transaction-1', label: 'Grocery store' },
+      searchableText: 'money spending annual monthly grocery',
+      summary: 'A grocery transaction.',
+      authority: 'authoritative',
+      observedAt: '2026-08-25T22:00:00.000Z',
+    };
+
+    const result = buildRunContext({
+      prompt: 'What do my annual spending patterns suggest monthly?',
+      policy: {
+        requestClass: 'capability_question', participatingCapabilities: ['money'],
+        usePrivateContext: true, clarification: null, policyReason: 'test',
+      },
+      sources: [duplicate, { ...duplicate }],
+      now: new Date('2026-08-25T23:00:00.000Z'),
+    });
+
+    expect(result.evidence).toHaveLength(1);
+    expect(result.coverage).toMatchObject({ consideredCount: 1, includedCount: 1, omittedCount: 0 });
+  });
+
   test('does not inspect personal sources for an ordinary general question', () => {
     expect(
       buildRunContext({

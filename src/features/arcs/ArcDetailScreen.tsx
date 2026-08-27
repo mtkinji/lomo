@@ -19,12 +19,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppShell } from '../../ui/layout/AppShell';
 import { cardSurfaceStyle, colors, spacing, typography, fonts } from '../../theme';
 import { menuItemTextProps, menuStyles } from '../../ui/menuStyles';
-import { useAppStore } from '../../store/useAppStore';
+import { getArcActionStoreBoundary, getGoalActionStoreBoundary, useAppStore } from '../../store/useAppStore';
 import { useCanUseProTools } from '../../store/proToolsAccess';
 import { useToastStore } from '../../store/useToastStore';
 import { initHeroImageUpload, uploadHeroImageToSignedUrl } from '../../services/heroImages';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
-import type { ThumbnailStyle } from '../../domain/types';
+import type { Arc, Goal, ThumbnailStyle } from '../../domain/types';
+import {
+  deleteArc as performArcDelete,
+  updateArc as performArcUpdate,
+} from '../../capabilities/life-structure/actions/arcActions';
+import { createGoal as performGoalCreate } from '../../capabilities/life-structure/actions/goalActions';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/Icon';
@@ -90,6 +95,23 @@ const logArcDetailDebug = (event: string, payload?: Record<string, unknown>) => 
   }
 };
 
+const updateArcThroughAction = (arcId: string, updater: (arc: Arc) => Arc) => {
+  const store = getArcActionStoreBoundary();
+  const current = store.getArcs().find((arc) => arc.id === arcId);
+  return performArcUpdate({ arcId, expectedUpdatedAt: current?.updatedAt, update: updater }, store);
+};
+
+const removeArcThroughAction = (arcId: string) => {
+  const store = getArcActionStoreBoundary();
+  const current = store.getArcs().find((arc) => arc.id === arcId);
+  return performArcDelete({ arcId, expectedUpdatedAt: current?.updatedAt }, store);
+};
+
+const addGoalThroughAction = (goal: Goal) => performGoalCreate(
+  { goal },
+  getGoalActionStoreBoundary(),
+);
+
 type ArcDetailRouteProp = RouteProp<ArcsStackParamList, 'ArcDetail'>;
 type ArcDetailNavigationProp = NativeStackNavigationProp<ArcsStackParamList, 'ArcDetail'>;
 
@@ -123,10 +145,10 @@ export function ArcDetailScreen() {
   const goals = useAppStore((state) => state.goals);
   const activities = useAppStore((state) => state.activities);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
-  const removeArc = useAppStore((state) => state.removeArc);
-  const updateArc = useAppStore((state) => state.updateArc);
+  const removeArc = removeArcThroughAction;
+  const updateArc = updateArcThroughAction;
   const showToast = useToastStore((state) => state.showToast);
-  const addGoal = useAppStore((state) => state.addGoal);
+  const addGoal = addGoalThroughAction;
   const lastOnboardingArcId = useAppStore((state) => state.lastOnboardingArcId);
   const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);

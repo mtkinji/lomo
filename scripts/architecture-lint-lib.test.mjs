@@ -6,6 +6,7 @@ import {
   findBottomDockGeometryOverrides,
   findBrandGreenUsageIncrease,
   findRawInteractiveControlImports,
+  findActionRuntimeBoundaryViolations,
 } from './architecture-lint-lib.mjs';
 
 test('counts product green tokens but ignores neutral color roles', () => {
@@ -99,4 +100,48 @@ test('rejects drawer action geometry escape hatches in feature code', () => {
       'src/features/example/ExampleDrawer.tsx: BottomDrawerFooter geometry is canonical; remove padding overrides',
     ],
   );
+});
+
+const actionBoundary = {
+  version: 1,
+  operations: [{
+    id: 'activities.capture',
+    actionModule: 'src/capabilities/todos/actions/todoActions.ts',
+    protectedFiles: [{
+      path: 'src/features/activities/ExampleScreen.tsx',
+      forbiddenPatterns: [
+        { pattern: 'state\\.addActivity', message: 'route activities.capture through its capability action' },
+      ],
+    }, {
+      path: 'src/features/unifiedChat/exampleProvider.ts',
+      forbiddenPatterns: [
+        { pattern: 'store\\.addActivity\\(', message: 'do not duplicate the To-do create mutation in Chat' },
+      ],
+    }],
+  }],
+};
+
+test('rejects a migrated screen selecting a raw repository mutation', () => {
+  assert.deepEqual(findActionRuntimeBoundaryViolations(
+    'src/features/activities/ExampleScreen.tsx',
+    'const addActivity = useAppStore((state) => state.addActivity);',
+    actionBoundary,
+  ), [
+    'src/features/activities/ExampleScreen.tsx: activities.capture: route activities.capture through its capability action',
+  ]);
+});
+
+test('rejects Chat mutation duplication while allowing the capability action module', () => {
+  assert.deepEqual(findActionRuntimeBoundaryViolations(
+    'src/features/unifiedChat/exampleProvider.ts',
+    'store.addActivity(activity);',
+    actionBoundary,
+  ), [
+    'src/features/unifiedChat/exampleProvider.ts: activities.capture: do not duplicate the To-do create mutation in Chat',
+  ]);
+  assert.deepEqual(findActionRuntimeBoundaryViolations(
+    'src/capabilities/todos/actions/todoActions.ts',
+    'store.addActivity(activity);',
+    actionBoundary,
+  ), []);
 });

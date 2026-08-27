@@ -8,12 +8,15 @@ import {
   resolveAgentChannelAdmission,
 } from '../_shared/agentRuntime.ts';
 import { SERVER_AGENT_TOOL_CATALOG } from '../_shared/serverAgentCatalog.ts';
-import { requestServerAgentModel } from '../_shared/serverAgentModel.ts';
+import { requestServerAgentModel, requestServerTurnJudgment } from '../_shared/serverAgentModel.ts';
 import { resolveServerProEntitlement } from '../_shared/serverAgentEntitlement.ts';
 import {
   executeCanonicalAgentRun,
+  executeEnqueuedCanonicalAgentRun,
 } from '../_shared/agentRunCoordinator.ts';
 import { createServiceAgentRunPersistence } from '../_shared/serviceAgentRunPersistence.ts';
+import { acceptMobileAgentRun } from '../_shared/mobileAgentRunBackground.ts';
+import { calendarDateInTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -33,6 +36,16 @@ function json(status: number, body: JsonValue) {
 function bearerToken(req: Request): string | null {
   const match = /^bearer\s+(.+)$/i.exec((req.headers.get('authorization') ?? '').trim());
   return match?.[1]?.trim() ?? null;
+}
+
+function runBackground(task: Promise<unknown>): void {
+  const guarded = task.catch((error) => {
+    console.warn('[agent-run] Background mobile run failed', String(error));
+  });
+  const edgeRuntime = (globalThis as typeof globalThis & {
+    EdgeRuntime?: { waitUntil?: (pending: Promise<unknown>) => void };
+  }).EdgeRuntime;
+  if (typeof edgeRuntime?.waitUntil === 'function') edgeRuntime.waitUntil(guarded);
 }
 
 serve(async (req) => {
@@ -102,22 +115,63 @@ serve(async (req) => {
   });
 
   try {
-    const isPro = await resolveServerProEntitlement(admin, authData.user.id);
-    const result = await executeCanonicalAgentRun({
-      request, userId: authData.user.id, persistence, dataClient: admin,
-      modelStep: ({ messages }) => requestServerAgentModel({
-        supabaseUrl: url, anonKey, token, quotaIdentity: authData.user.id,
-        isPro, messages, tools: SERVER_AGENT_TOOL_CATALOG,
-      }),
-      authorizeTool: (tool) => (
+    const executeRun = async (enqueued?: Parameters<typeof executeEnqueuedCanonicalAgentRun>[0]['enqueued']) => {
+      const isPro = await resolveServerProEntitlement(admin, authData.user.id);
+      const dependencies = {
+        request, userId: authData.user.id, persistence, dataClient: admin,
+        modelStep: ({ messages, tools, resolvedTools, toolSearchNamespaces }: {
+          messages: Parameters<typeof requestServerAgentModel>[0]['messages'];
+          tools: Parameters<typeof requestServerAgentModel>[0]['tools'];
+          resolvedTools: Parameters<typeof requestServerAgentModel>[0]['resolvedTools'];
+          toolSearchNamespaces: Parameters<typeof requestServerAgentModel>[0]['toolSearchNamespaces'];
+        }) => requestServerAgentModel({
+          supabaseUrl: url, anonKey, serviceRoleToken: serviceRole, quotaIdentity: authData.user.id,
+          isPro, messages, tools, resolvedTools, toolSearchNamespaces,
+          policyContext: {
+            currentDate: calendarDateInTimeZone(new Date(), request.channelContext.timeZone ?? 'UTC'),
+            timeZone: request.channelContext.timeZone ?? 'UTC',
+          },
+        }),
+        requestJudgment: ({ prompt, namespaces }: {
+          prompt: string;
+          namespaces: Parameters<typeof requestServerTurnJudgment>[0]['namespaces'];
+        }) =>
+          requestServerTurnJudgment({
+            supabaseUrl: url, anonKey, serviceRoleToken: serviceRole,
+            quotaIdentity: authData.user.id, isPro, prompt, namespaces,
+          }),
+        authorizeTool: (tool: (typeof SERVER_AGENT_TOOL_CATALOG)[number]) => (
         (request.channel !== 'sms' && request.channel !== 'phone')
         || (
           (tool.id !== 'activities.capture' || phoneLink?.permissions.create_activities === true)
           && (!['relationships.remember', 'relationships.correct', 'relationships.forget'].includes(tool.id)
             || phoneLink?.permissions.remember_relationships === true)
         )
-      ),
-    });
+        ),
+      };
+      return enqueued
+        ? executeEnqueuedCanonicalAgentRun({ ...dependencies, enqueued })
+        : executeCanonicalAgentRun(dependencies);
+    };
+
+    if (request.channel === 'mobile') {
+      const accepted = await acceptMobileAgentRun({
+        request,
+        persistence,
+        execute: (run) => executeRun(run),
+        schedule: runBackground,
+      });
+      return json(accepted.state === 'accepted' ? 202 : 200, {
+        ok: true,
+        state: accepted.state,
+        replayed: accepted.replayed,
+        run: accepted.run as unknown as JsonValue,
+        ...('answer' in accepted ? { answer: accepted.answer } : {}),
+        providerAvailability: providerAvailabilityForChannel(request.channel),
+      });
+    }
+
+    const result = await executeRun();
     return json(200, {
       ok: true, state: result.state, replayed: result.replayed,
       run: result.run as unknown as JsonValue,

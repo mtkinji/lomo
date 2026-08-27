@@ -205,6 +205,24 @@ describe('createUnifiedChatToolProvider', () => {
     );
   });
 
+  it('delegates Household reads to the authenticated native provider', async () => {
+    const executeHouseholdTool = jest.fn(async () => ({
+      status: 'completed' as const,
+      output: { household: { members: [] } },
+      receipt: null,
+    }));
+    const provider = createUnifiedChatToolProvider({ snapshots, executeHouseholdTool });
+
+    await expect(provider.execute(
+      { id: 'household-read', toolId: 'household.read', arguments: {} },
+      tool('household.read'),
+    )).resolves.toMatchObject({ status: 'completed' });
+    expect(executeHouseholdTool).toHaveBeenCalledWith(
+      { id: 'household-read', toolId: 'household.read', arguments: {} },
+      tool('household.read'),
+    );
+  });
+
   it('applies shared consequence policy before a direct relationship provider can mutate', async () => {
     const executeRelationshipTool = jest.fn(async () => ({
       status: 'completed' as const, output: {}, receipt: null,

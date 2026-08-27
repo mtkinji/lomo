@@ -2,7 +2,7 @@
 
 Status: canonical product and engineering contract
 Owner: Andrew
-Last updated: 2026-08-11
+Last updated: 2026-08-26
 
 ## Purpose
 
@@ -54,6 +54,53 @@ Every deterministic lock must be listed in the executable invariant allow-list a
 The planner chooses only tools projected from the canonical capability manifest. It may choose multiple read tools when a job crosses capabilities. It should choose the smallest graph that can materially improve the outcome and preserve explicit dependencies.
 
 Capabilities continue to own data semantics, ranking kernels, validation, consequence level, confirmation, mutation, authoritative receipts, recovery, undo, and exact native return. Chat must not recreate those rules in prompts.
+
+Arc writes now make that ownership executable. Native UI and Chat both call the
+capability action in `src/capabilities/life-structure/actions/arcActions.ts` for
+create, update, and delete. It enforces optimistic versions and Arc limits,
+returns normalized reversible receipts, and reports cascaded Goal/Activity
+effects. The app store remains the persistence adapter; it is not a second
+business-action implementation. Architecture lint rejects a return to direct
+Arc mutations in the migrated entry points.
+
+Goal writes use the neighboring `goalActions.ts` boundary across the native
+Goals surfaces and Chat proposal execution. It validates Goal-to-Arc links and
+optimistic versions, returns the same normalized receipts to every caller, and
+includes dependent Activities in delete evidence. Goal deletion remains an
+explicitly reviewed action because the persistence operation cascades to those
+Activities.
+
+Chapter note edits use `chapterActions.ts` from both the native Chapter detail
+surface and Chat. The action checks the authoritative server timestamp before
+writing and returns the same reversible result shape; Chapter content
+generation and feedback remain separate capability operations.
+
+Profile edits use `profileActions.ts` across native Settings and Chat. The
+action requires the exact profile id and last-updated timestamp, writes through
+the same persistence adapter, and returns a reversible normalized receipt.
+
+### External AI authorization
+
+ChatGPT, Claude, Codex, and other MCP clients enter through the hosted Supabase
+Edge Function, but they do not receive a separate action model. The generated
+external-safe catalog projects only canonical operations with a registered
+server handler, explicit external exposure, satisfiable OAuth scopes, and a
+declared redaction policy.
+
+OAuth scopes separate capability from effect: `life.read`, `life.write`,
+`household.read`, `household.write`, `money.read`, `money.write`, `food.read`,
+and `food.write`. A write grant implies only the matching capability read grant.
+Destructive or consequential review is action policy, not an OAuth super-scope.
+Existing broad `read`/`write` tokens are policy-versioned compatibility grants:
+through 2026-11-30 they map only to the pre-existing Life surface and never gain
+Household, Money, or Food access.
+
+Every external write requires a caller-supplied stable `idempotency_key`. The
+same key reused for the same canonical operation returns the prior durable
+outcome instead of duplicating it, including when a compatibility alias was
+used. OAuth write eligibility never proves instruction authority: ambiguous or
+consequential work persists a review proposal, device-owned work returns a
+native handoff, and completed work returns the canonical receipt.
 
 ## Evidence sufficiency
 
@@ -107,3 +154,160 @@ Source and test proof do not establish runtime quality. Promotion requires separ
 - evidence disclosure, proposal clarity, exact native return, receipts, and undo.
 
 The `Express intent in ordinary language` job-flow score remains below 5 until held-out live-model, signed Simulator, and physical-device evidence all pass. A new incident is triaged as a contract violation first; the repair targets the failed abstraction and proves neighboring variants before the delivery ledger changes.
+
+## Generated action coverage table
+
+This checked-in table is generated from the independent product operation declarations, canonical tool contracts, and executable mobile/server registrations. External MCP publication additionally requires explicit exposure metadata, a registered server handler, and satisfiable capability scopes. A `no` is a visible delivery gap, not an implied implementation.
+
+| Operation | Tool | Mobile handler | Server handler | External exposure | Confirmation | Outcome class |
+|---|---|---:|---:|---:|---|---|
+| `general.answer` | — | no | no | no | none | answer |
+| `general.answer_with_context` | `goals.read` | yes | yes | no | none | answer |
+| `general.answer_with_context` | `activities.read` | yes | yes | no | none | answer |
+| `general.answer_with_context` | `plan.read_day_context` | yes | yes | no | none | answer |
+| `general.answer_with_context` | `chapters.read` | yes | yes | no | none | answer |
+| `relationships.read` | `relationships.read` | yes | yes | no | none | answer |
+| `relationships.remember` | `relationships.remember` | yes | yes | no | none | proposal_or_receipt |
+| `relationships.correct` | `relationships.read` | yes | yes | no | none | proposal_or_receipt |
+| `relationships.correct` | `relationships.correct` | yes | yes | no | none | proposal_or_receipt |
+| `relationships.forget` | `relationships.read` | yes | yes | no | none | proposal_or_receipt |
+| `relationships.forget` | `relationships.forget` | yes | yes | no | none | proposal_or_receipt |
+| `relationships.forget_person` | — | no | no | no | native | honest_boundary |
+| `household.read` | `household.read` | no | no | no | none | honest_boundary |
+| `household.member.add_dependent` | `household.member.add_dependent` | no | no | no | explicit | honest_boundary |
+| `household.invitation.create` | `household.invitation.create` | no | no | no | explicit | honest_boundary |
+| `household.invitation.preview` | `household.invitation.preview` | no | no | no | none | honest_boundary |
+| `household.invitation.accept` | `household.invitation.accept` | no | no | no | explicit | honest_boundary |
+| `household.child_capability.update` | `household.child_capability.update` | no | no | no | explicit | honest_boundary |
+| `household.caregiver_grant.update` | `household.caregiver_grant.update` | no | no | no | explicit | honest_boundary |
+| `profile.read` | `profile.read` | yes | yes | yes | none | answer |
+| `profile.update` | `profile.update` | yes | yes | no | explicit | proposal_or_receipt |
+| `arcs.list` | `arcs.read` | yes | yes | yes | none | answer |
+| `arcs.get` | `arcs.read` | yes | yes | yes | none | answer |
+| `arcs.create` | `arcs.create` | yes | yes | yes | explicit | proposal_or_receipt |
+| `arcs.update` | `arcs.update` | yes | yes | yes | explicit | proposal_or_receipt |
+| `arcs.delete` | `arcs.delete` | yes | yes | yes | explicit | proposal_or_receipt |
+| `goals.list` | `goals.read` | yes | yes | yes | none | answer |
+| `goals.get` | `goals.read` | yes | yes | yes | none | answer |
+| `goals.create` | `goals.create` | yes | yes | yes | explicit | proposal_or_receipt |
+| `goals.update` | `goals.update` | yes | yes | yes | explicit | proposal_or_receipt |
+| `goals.delete` | `goals.delete` | yes | yes | yes | explicit | proposal_or_receipt |
+| `goals.check_in` | `goals.check_in` | yes | yes | yes | native | native_handoff |
+| `goals.share` | `goals.share.open` | yes | yes | no | native | native_handoff |
+| `activities.list` | `activities.read` | yes | yes | yes | none | answer |
+| `activities.get` | `activities.read` | yes | yes | no | none | answer |
+| `activities.search` | `activities.read` | yes | yes | no | none | answer |
+| `activities.capture` | `activities.capture` | yes | yes | yes | none | proposal_or_receipt |
+| `activities.update` | `activities.update` | yes | yes | yes | explicit | proposal_or_receipt |
+| `activities.complete` | `activities.update` | yes | yes | yes | explicit | proposal_or_receipt |
+| `activities.delete` | `activities.delete` | yes | yes | yes | explicit | proposal_or_receipt |
+| `activities.steps.create` | `activities.steps.create` | yes | yes | yes | explicit | proposal_or_receipt |
+| `activities.steps.update` | `activities.steps.update` | yes | yes | yes | explicit | proposal_or_receipt |
+| `activities.steps.complete` | `activities.steps.complete` | yes | yes | yes | explicit | proposal_or_receipt |
+| `activities.steps.delete` | `activities.steps.delete` | yes | yes | yes | explicit | proposal_or_receipt |
+| `activities.steps.reorder` | `activities.steps.reorder` | yes | yes | yes | explicit | proposal_or_receipt |
+| `activities.focus.open` | `activities.open_focus` | yes | yes | no | native | native_handoff |
+| `activities.focus_today` | `activities.focus_today` | yes | yes | yes | explicit | proposal_or_receipt |
+| `activities.schedule` | `plan.schedule_activity` | yes | yes | no | explicit | proposal_or_receipt |
+| `plan.schedule_chunks` | `plan.schedule_chunks` | yes | yes | no | explicit | proposal_or_receipt |
+| `activities.reminder.update` | `activities.reminder.update` | yes | yes | no | explicit | proposal_or_receipt |
+| `activities.repeat.update` | `activities.repeat.update` | yes | yes | no | explicit | proposal_or_receipt |
+| `activities.location.update` | `activities.location.update` | yes | yes | no | native | native_handoff |
+| `activities.attachments.update` | `activities.attachments.open` | yes | yes | no | native | native_handoff |
+| `activities.share` | `activities.share.open` | yes | yes | no | native | native_handoff |
+| `plan.read_day_context` | `plan.read_day_context` | yes | yes | no | none | answer |
+| `plan.recommend_day` | `plan.recommend_day` | yes | yes | no | none | answer |
+| `plan.schedule_activity` | `plan.schedule_activity` | yes | yes | no | explicit | proposal_or_receipt |
+| `plan.reschedule_activity` | `plan.reschedule_activity` | yes | yes | no | explicit | proposal_or_receipt |
+| `plan.remove_activity` | `plan.remove_activity` | yes | yes | no | explicit | proposal_or_receipt |
+| `plan.preferences.open` | `plan.preferences.open` | yes | yes | no | native | native_handoff |
+| `chapters.list` | `chapters.read` | yes | yes | no | none | answer |
+| `chapters.get` | `chapters.read` | yes | yes | yes | none | answer |
+| `chapters.reflect` | `chapters.read` | yes | yes | no | none | answer |
+| `chapters.note.update` | `chapters.note.update` | yes | yes | yes | explicit | proposal_or_receipt |
+| `account.show_up_status` | `account.show_up_status` | yes | yes | yes | none | answer |
+| `money.read` | `money.read` | yes | no | no | none | answer |
+| `money.review_transaction` | — | no | no | no | native | native_handoff |
+| `money.category.create` | `money.category.create` | yes | no | no | explicit | proposal_or_receipt |
+| `money.category.rename` | `money.category.rename` | yes | no | no | explicit | proposal_or_receipt |
+| `money.app_control.review` | `money.app_control.review` | yes | no | no | native | native_handoff |
+| `money.category.update` | — | no | no | no | native | native_handoff |
+| `money.privacy.configure` | — | no | no | no | native | native_handoff |
+| `money.connection.connect` | — | no | no | no | native | native_handoff |
+| `money.connection.sync` | — | no | no | no | native | native_handoff |
+| `explore.open` | — | no | no | no | native | honest_boundary |
+| `games.open` | — | no | no | no | native | honest_boundary |
+| `chores.open` | — | no | no | no | native | honest_boundary |
+| `recipes.search` | `recipes.search` | no | no | no | none | honest_boundary |
+| `recipes.read` | `recipes.read` | yes | no | no | none | honest_boundary |
+| `recipes.create` | `recipes.create` | yes | no | no | explicit | honest_boundary |
+| `recipes.import.prepare` | `recipes.import.prepare` | no | no | no | none | honest_boundary |
+| `recipes.import.approve` | `recipes.import.approve` | no | no | no | explicit | honest_boundary |
+| `recipes.update` | `recipes.update` | yes | no | no | explicit | honest_boundary |
+| `recipes.scale.preview` | `recipes.scale.preview` | no | no | no | none | honest_boundary |
+| `recipes.fork` | `recipes.fork` | no | no | no | explicit | honest_boundary |
+| `recipes.share_copy.prepare` | `recipes.share_copy.prepare` | no | no | no | explicit | honest_boundary |
+| `recipes.collaborator.invite` | `recipes.collaborator.invite` | no | no | no | explicit | honest_boundary |
+| `recipes.publication.prepare` | `recipes.publication.prepare` | no | no | no | explicit | honest_boundary |
+| `recipes.publication.publish` | `recipes.publication.publish` | no | no | no | explicit | honest_boundary |
+| `recipes.publication.attest_rights` | — | no | no | no | native | honest_boundary |
+| `recipes.delete` | `recipes.delete` | yes | no | no | explicit | honest_boundary |
+| `meal_planning.plan.create` | `meal_planning.plan.create` | no | no | no | explicit | honest_boundary |
+| `meal_planning.plan.update` | `meal_planning.plan.update` | no | no | no | explicit | honest_boundary |
+| `meal_planning.candidate.add` | `meal_planning.candidate.add` | no | no | no | explicit | honest_boundary |
+| `meal_planning.candidate.remove` | `meal_planning.candidate.remove` | no | no | no | explicit | honest_boundary |
+| `meal_planning.round.open` | `meal_planning.round.open` | no | no | no | explicit | honest_boundary |
+| `meal_planning.round.close` | `meal_planning.round.close` | no | no | no | explicit | honest_boundary |
+| `meal_planning.response.submit` | `meal_planning.response.submit` | no | no | no | explicit | honest_boundary |
+| `meal_planning.response.withdraw` | `meal_planning.response.withdraw` | no | no | no | explicit | honest_boundary |
+| `meal_planning.plan.finalize` | `meal_planning.plan.finalize` | no | no | no | explicit | honest_boundary |
+| `meal_planning.plan.revise` | `meal_planning.plan.revise` | no | no | no | explicit | honest_boundary |
+| `meal_planning.candidates.prepare` | `meal_planning.candidates.prepare` | no | no | no | none | honest_boundary |
+| `food_budget.read` | `food_budget.read` | no | no | no | none | honest_boundary |
+| `food_stock.read` | `food_stock.read` | no | no | no | none | honest_boundary |
+| `food_stock.observe` | `food_stock.observe` | no | no | no | explicit | honest_boundary |
+| `food_stock.deplete` | `food_stock.deplete` | no | no | no | explicit | honest_boundary |
+| `groceries.compile` | `groceries.compile` | no | no | no | explicit | honest_boundary |
+| `groceries.item.add` | `groceries.item.add` | no | no | no | explicit | honest_boundary |
+| `groceries.item.update` | `groceries.item.update` | no | no | no | explicit | honest_boundary |
+| `groceries.item.set_state` | `groceries.item.set_state` | no | no | no | explicit | honest_boundary |
+| `groceries.list.review` | `groceries.list.review` | no | no | no | none | honest_boundary |
+| `groceries.product_match.prepare` | `groceries.product_match.prepare` | no | no | no | none | honest_boundary |
+| `groceries.product_match.confirm` | `groceries.product_match.confirm` | no | no | no | explicit | honest_boundary |
+| `groceries.handoff.prepare` | `groceries.handoff.prepare` | no | no | no | explicit | honest_boundary |
+| `groceries.handoff.open` | `groceries.handoff.open` | no | no | no | native | honest_boundary |
+| `groceries.checkout` | — | no | no | no | native | honest_boundary |
+| `groceries.payment` | — | no | no | no | native | honest_boundary |
+| `store_opportunity.capture` | `store_opportunity.capture` | no | no | no | explicit | honest_boundary |
+| `food_scenario.prepare` | `food_scenario.prepare` | no | no | no | none | honest_boundary |
+| `food_scenario.accept` | `food_scenario.accept` | no | no | no | explicit | honest_boundary |
+| `savings.review` | `savings.review` | no | no | no | none | honest_boundary |
+| `savings.accept` | `savings.accept` | no | no | no | explicit | honest_boundary |
+| `savings.coupon.apply_unsupported` | — | no | no | no | native | honest_boundary |
+| `savings.coupon.open` | `savings.coupon.open` | no | no | no | native | honest_boundary |
+| `receipt.extract` | `receipt.extract` | no | no | no | none | honest_boundary |
+| `receipt.reconcile` | `receipt.reconcile` | no | no | no | explicit | honest_boundary |
+| `cook_session.read` | `cook_session.read` | no | no | no | none | honest_boundary |
+| `cook_session.start` | `cook_session.start` | no | no | no | explicit | honest_boundary |
+| `cook_session.control` | `cook_session.control` | no | no | no | none | honest_boundary |
+| `cook_session.complete` | `cook_session.complete` | no | no | no | explicit | honest_boundary |
+| `screen_time.read` | `screen_time.read` | no | no | no | none | honest_boundary |
+| `screen_time.agreement.create` | `screen_time.agreement.create` | yes | no | no | explicit | honest_boundary |
+| `screen_time.agreement.update` | `screen_time.agreement.update` | no | no | no | explicit | honest_boundary |
+| `screen_time.agreement.deactivate` | `screen_time.agreement.deactivate` | no | no | no | explicit | honest_boundary |
+| `screen_time.override.block` | `screen_time.override.block` | yes | no | no | explicit | honest_boundary |
+| `screen_time.override.allow` | `screen_time.override.allow` | yes | no | no | explicit | honest_boundary |
+| `screen_time.override.cancel` | `screen_time.override.cancel` | no | no | no | explicit | honest_boundary |
+| `screen_time.request.decide` | `screen_time.request.decide` | no | no | no | explicit | honest_boundary |
+| `screen_time.personal.setup.open` | `screen_time.personal.setup.open` | yes | no | no | native | native_handoff |
+| `screen_time.personal.limit.open` | `screen_time.personal.limit.open` | yes | no | no | native | honest_boundary |
+| `screen_time.selection.open` | `screen_time.selection.open` | yes | no | no | native | honest_boundary |
+| `screen_time.device.setup.open` | `screen_time.device.setup.open` | yes | no | no | native | honest_boundary |
+| `screen_time.device.release.open` | `screen_time.device.release.open` | yes | no | no | native | honest_boundary |
+| `screen_time.configure` | `screen_time.configure` | yes | yes | no | native | honest_boundary |
+| `notifications.configure` | `notifications.configure` | yes | yes | no | native | native_handoff |
+| `search.open` | `navigation.search.open` | yes | yes | no | native | native_handoff |
+| `account.settings.open` | `navigation.account_settings.open` | yes | yes | no | native | native_handoff |
+| `account.subscription.manage` | `account.subscription.open` | yes | yes | no | native | native_handoff |
+| `account.delete` | `account.delete.open` | yes | yes | no | native | native_handoff |
+| `channel.phone.continue_run` | `channel.phone.continue_run` | no | no | no | none | honest_boundary |

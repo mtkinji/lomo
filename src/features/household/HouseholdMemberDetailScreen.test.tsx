@@ -1,4 +1,5 @@
-import { fireEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
 import { useAppStore } from '../../store/useAppStore';
@@ -9,6 +10,8 @@ const mockResolve = jest.fn();
 const mockRemove = jest.fn();
 const mockUpload = jest.fn();
 const mockLaunchImageLibrary = jest.fn();
+const mockListDevices = jest.fn();
+const mockRevokeDevice = jest.fn();
 
 jest.mock('expo-image-picker', () => ({
   requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
@@ -25,6 +28,10 @@ jest.mock('./data/householdAvatars', () => ({
   uploadAvatar: (...args: unknown[]) => mockUpload(...args),
   removeAvatar: (...args: unknown[]) => mockRemove(...args),
 }));
+jest.mock('./data/householdDeviceParticipation', () => ({
+  listHouseholdDevices: (...args: unknown[]) => mockListDevices(...args),
+  revokeHouseholdDevice: (...args: unknown[]) => mockRevokeDevice(...args),
+}));
 
 const baseSnapshot = {
   household: { id: 'household-1', name: 'My household' },
@@ -37,7 +44,7 @@ const baseSnapshot = {
 };
 
 const props = {
-  navigation: { goBack: jest.fn() },
+  navigation: { goBack: jest.fn(), navigate: jest.fn() },
   route: { key: 'member', name: 'SettingsHouseholdMember', params: { membershipId: 'child-1' } },
 } as any;
 
@@ -50,14 +57,44 @@ describe('HouseholdMemberDetailScreen', () => {
     mockRemove.mockReset().mockResolvedValue({ avatarSource: 'initials', avatarUrl: null });
     mockUpload.mockReset();
     mockLaunchImageLibrary.mockReset();
+    mockListDevices.mockReset().mockResolvedValue([]);
+    mockRevokeDevice.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('lets the owner explicitly confirm revoking a connected personal device', async () => {
+    mockListDevices.mockResolvedValue([{
+      id: 'device-1', householdId: 'household-1', kind: 'personal_child', childMembershipId: 'child-1',
+      assignedCaregiverMembershipId: null, installId: 'install-123', label: "Riley's iPhone",
+      platform: 'ios', status: 'ready', memberIds: [],
+    }]);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { getByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
+    await waitFor(() => expect(getByText("Riley's iPhone")).toBeTruthy());
+
+    fireEvent.press(getByText("Riley's iPhone"));
+    expect(mockRevokeDevice).not.toHaveBeenCalled();
+    const buttons = alert.mock.calls[0]?.[2] ?? [];
+    act(() => buttons.find((button) => button.style === 'destructive')?.onPress?.());
+    await waitFor(() => expect(mockRevokeDevice).toHaveBeenCalledWith(expect.anything(), 'device-1'));
+    alert.mockRestore();
   });
 
   it('lets the owner add a photo to an accountless child', async () => {
-    const { getByLabelText, getByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
-    await waitFor(() => expect(getByText('Add photo')).toBeTruthy());
-    expect(getByLabelText('Update Riley photo')).toBeTruthy();
-    fireEvent.press(getByText('Add photo'));
+    const { getByLabelText, getByText, queryByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
+    await waitFor(() => expect(getByLabelText('Update Riley photo')).toBeTruthy());
+    expect(queryByText('Add photo')).toBeNull();
+    fireEvent.press(getByLabelText('Update Riley photo'));
     expect(getByText('Choose from library')).toBeTruthy();
+  });
+
+  it('offers optional personal-device setup without requiring a child account', async () => {
+    const { getByText, queryByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
+    await waitFor(() => expect(getByText('No device connected')).toBeTruthy());
+    expect(queryByText('Riley can still participate in your household without one.')).toBeNull();
+    fireEvent.press(getByText("Connect Riley's device"));
+    expect(props.navigation.navigate).toHaveBeenCalledWith('SettingsHouseholdDeviceSetup', {
+      childMembershipId: 'child-1', childDisplayName: 'Riley', householdId: 'household-1',
+    });
   });
 
   it('uses a connected child account photo without caregiver editing', async () => {
@@ -77,8 +114,8 @@ describe('HouseholdMemberDetailScreen', () => {
     });
     mockUpload.mockResolvedValue({ avatarSource: 'dependent', avatarUrl: 'https://signed.test/riley-new' });
     const { getByLabelText, getByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
-    await waitFor(() => expect(getByText('Add photo')).toBeTruthy());
-    fireEvent.press(getByText('Add photo'));
+    await waitFor(() => expect(getByLabelText('Update Riley photo')).toBeTruthy());
+    fireEvent.press(getByLabelText('Update Riley photo'));
     fireEvent.press(getByText('Choose from library'));
 
     await waitFor(() => expect(mockUpload).toHaveBeenCalledWith({

@@ -1,5 +1,6 @@
 import { canCreateArc } from '../../domain/limits';
 import type { Activity, Arc, Goal, GoalDraft } from '../../domain/types';
+import { createArc, deleteArc, updateArc } from '../../capabilities/life-structure/actions/arcActions';
 import type { UnifiedChatMutationReceipt, UnifiedChatProposal } from './types';
 
 type ArcProposal = Extract<UnifiedChatProposal, { capabilityId: 'arcs' }>;
@@ -171,16 +172,23 @@ export function applyApprovedArcProposal({ proposal, store, now = () => new Date
   const appliedAt = now();
   if (proposal.operation.type === 'create_arc') {
     const result = creation(proposal, store, appliedAt);
-    store.addArc(result.arc);
+    createArc({ arc: result.arc }, store);
     return result.receipt;
   }
   if (proposal.operation.type === 'update_arc') {
     const result = update(proposal, store, appliedAt);
-    store.updateArc(result.arc.id, () => result.arc);
+    updateArc({
+      arcId: result.arc.id,
+      expectedUpdatedAt: proposal.operation.payload.expectedUpdatedAt,
+      update: () => result.arc,
+    }, store);
     return result.receipt;
   }
   const receipt = deletion(proposal, store, appliedAt);
-  store.removeArc(receipt.resultingObjectId);
+  deleteArc({
+    arcId: receipt.resultingObjectId,
+    expectedUpdatedAt: proposal.operation.payload.expectedUpdatedAt,
+  }, store);
   return receipt;
 }
 
@@ -210,10 +218,14 @@ export function undoAppliedArcProposal({ receipt, store, now = () => new Date().
     if (store.getGoals().some((goal) => goal.arcId === current.id)) {
       throw new ArcMutationConflictError('This Arc now has Goals, so Kwilt will not cascade-delete them during undo.');
     }
-    store.removeArc(current.id);
+    deleteArc({ arcId: current.id, expectedUpdatedAt: current.updatedAt }, store);
   } else {
     const prior = receipt.undoOperation.arc;
-    store.updateArc(current.id, () => ({ ...prior, updatedAt: undoneAt }));
+    updateArc({
+      arcId: current.id,
+      expectedUpdatedAt: current.updatedAt,
+      update: () => ({ ...prior, updatedAt: undoneAt }),
+    }, store);
   }
   return { undoneAt };
 }

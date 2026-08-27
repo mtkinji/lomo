@@ -6,6 +6,7 @@ import { FOOD_OPERATION_CONTRACTS } from './foodOperationContracts.ts';
 export type KwiltOperationOwner =
   | 'general'
   | 'relationships'
+  | 'household'
   | 'profile'
   | 'arcs'
   | 'goals'
@@ -25,6 +26,38 @@ export type KwiltOperationOwner =
   | 'meal_planning'
   | 'groceries'
   | 'savings';
+
+export type ExternalControlScope = 'core' | 'supporting' | 'excluded';
+
+/**
+ * Product scope for conversational control outside the Kwilt app. Core owners are a
+ * coverage obligation, supporting owners keep the operator usable, and exclusions are
+ * deliberate product boundaries rather than silent catalog gaps.
+ */
+export const KWILT_EXTERNAL_CONTROL_SCOPE = {
+  general: 'supporting',
+  relationships: 'core',
+  household: 'core',
+  profile: 'core',
+  arcs: 'core',
+  goals: 'core',
+  todos: 'core',
+  plan: 'core',
+  chapters: 'core',
+  money: 'core',
+  explore: 'excluded',
+  games: 'excluded',
+  chores: 'core',
+  account: 'core',
+  screenTime: 'core',
+  notifications: 'supporting',
+  navigation: 'supporting',
+  channels: 'supporting',
+  recipes: 'core',
+  meal_planning: 'core',
+  groceries: 'core',
+  savings: 'core',
+} as const satisfies Record<KwiltOperationOwner, ExternalControlScope>;
 
 export type ChatCapabilityCoverageState =
   | 'live'
@@ -80,7 +113,7 @@ function ownerForOperation(id: string): KwiltOperationOwner {
   if (id.startsWith('food_stock.') || id.startsWith('store_opportunity.') || id.startsWith('food_scenario.')) return 'groceries';
   if (id.startsWith('cook_session.')) return 'recipes';
   const owner = id.split('.')[0];
-  if (owner === 'general' || owner === 'relationships' || owner === 'profile' || owner === 'arcs' ||
+  if (owner === 'general' || owner === 'relationships' || owner === 'household' || owner === 'profile' || owner === 'arcs' ||
       owner === 'goals' || owner === 'plan' || owner === 'chapters' || owner === 'money' || owner === 'explore' || owner === 'games' || owner === 'chores' || owner === 'account' ||
       owner === 'notifications' || owner === 'recipes' || owner === 'meal_planning' ||
       owner === 'groceries' || owner === 'savings') {
@@ -128,6 +161,11 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'account.show_up_status',
   'profile.read',
   'relationships.read', 'relationships.remember', 'relationships.correct', 'relationships.forget',
+  'household.read', 'household.invitation.preview',
+  'screen_time.read',
+  'screen_time.agreement.create', 'screen_time.agreement.update', 'screen_time.agreement.deactivate',
+  'screen_time.override.block', 'screen_time.override.allow', 'screen_time.override.cancel',
+  'screen_time.request.decide',
   'plan.read_day_context', 'plan.recommend_day',
 ]);
 
@@ -322,6 +360,25 @@ const relationshipProof = [
   'supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts',
   'scripts/unified-chat-migration-contract.test.mjs',
 ] as const;
+const householdReadProof = [
+  'supabase/functions/_shared/__tests__/serverHouseholdTools.test.ts',
+  'scripts/unified-chat-migration-contract.test.mjs',
+] as const;
+const screenTimeReadProof = [
+  'src/features/unifiedChat/unifiedChatScreenTimeToolProvider.test.ts',
+  'src/features/unifiedChat/loadFamilyScreenTimeChatSnapshot.test.ts',
+  'src/features/unifiedChat/familyScreenTimeChatEvidence.test.ts',
+  'supabase/functions/_shared/__tests__/serverScreenTimeTools.test.ts',
+  'scripts/unified-chat-migration-contract.test.mjs',
+] as const;
+const screenTimeWriteProof = [
+  'src/features/unifiedChat/unifiedChatScreenTimeToolProvider.test.ts',
+  'src/features/unifiedChat/screenTimeProposal.test.ts',
+  'src/features/unifiedChat/screenTimeProposalExecutor.test.ts',
+  'src/features/unifiedChat/executeScreenTimeProposalDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverScreenTimeTools.test.ts',
+  'supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts',
+] as const;
 
 function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): ChatCapabilityCoverageRow {
   const row = {
@@ -347,6 +404,13 @@ const CAPABILITY_ROWS = [
   live({ id: 'relationships.correct', providers: ['server', 'channel'], consequence: 'low', confirmation: 'none', toolIds: ['relationships.read', 'relationships.correct'], sourceRefs: ['service:phone_agent_relationship_memory'] }, relationshipProof),
   live({ id: 'relationships.forget', providers: ['server', 'channel'], consequence: 'low', confirmation: 'none', toolIds: ['relationships.read', 'relationships.forget'], sourceRefs: ['service:phone_agent_relationship_memory'] }, relationshipProof),
   bounded('excluded', { id: 'relationships.forget_person', providers: ['server', 'channel'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Whole-person forgetting is withheld until Kwilt can review and restore every dependent relationship record safely.'),
+  live({ id: 'household.read', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['household.read'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdReadProof),
+  bounded('pending_provider', { id: 'household.member.add_dependent', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.member.add_dependent'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Dependent creation now uses the canonical Household action, but Chat review and provider execution remain pending.'),
+  bounded('pending_provider', { id: 'household.invitation.create', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.create'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Invitation creation now uses the canonical Household action, but Chat review and secure delivery remain pending.'),
+  live({ id: 'household.invitation.preview', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['household.invitation.preview'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdReadProof),
+  bounded('pending_provider', { id: 'household.invitation.accept', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.accept'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Invitation acceptance now uses the canonical Household action, but Chat review and provider execution remain pending.'),
+  bounded('pending_provider', { id: 'household.child_capability.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.child_capability.update'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Child capability authority now uses the canonical Household action, but Chat review and provider execution remain pending.'),
+  bounded('pending_provider', { id: 'household.caregiver_grant.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.caregiver_grant.update'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Caregiver authority now uses the canonical Household action, but Chat review and provider execution remain pending.'),
   live({ id: 'profile.read', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['profile.read'], sourceRefs: ['mcp:get_current_account', 'legacy:get_user_profile'] }, profileProof),
   live({ id: 'profile.update', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['profile.update'], sourceRefs: ['legacy:set_user_profile'] }, profileProof),
 
@@ -378,8 +442,8 @@ const CAPABILITY_ROWS = [
   live({ id: 'activities.steps.reorder', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['activities.steps.reorder'], sourceRefs: ['mcp:reorder_activity_steps'] }, activityStepProof),
   bounded('confirmation_only', { id: 'activities.focus.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['activities.open_focus'], sourceRefs: ['legacy:enter_focus_mode'] }, 'Chat stages a durable handoff; opening Focus is not proof a session started.', deviceHandoffProof),
   live({ id: 'activities.focus_today', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['activities.focus_today'], sourceRefs: ['mcp:set_focus_today'] }, activityProof),
-  live({ id: 'activities.schedule', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_activity'], sourceRefs: ['legacy:schedule_activity_on_calendar'] }, planProof),
-  live({ id: 'plan.schedule_chunks', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_chunks'], sourceRefs: ['legacy:schedule_activity_chunks_on_calendar'] }, planProof),
+  live({ id: 'activities.schedule', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_activity'], sourceRefs: ['legacy:schedule_activity_on_calendar', 'action:planActions'] }, planProof),
+  live({ id: 'plan.schedule_chunks', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_chunks'], sourceRefs: ['legacy:schedule_activity_chunks_on_calendar', 'action:planActions'] }, planProof),
   live({ id: 'activities.reminder.update', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['activities.reminder.update'], sourceRefs: ['service:NotificationService'] }, activityScheduleProof),
   live({ id: 'activities.repeat.update', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['activities.repeat.update'], sourceRefs: ['domain:activityRecurrence'] }, activityScheduleProof),
   bounded('confirmation_only', { id: 'activities.location.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['activities.location.update'], sourceRefs: [] }, 'Chat stages a durable handoff; location triggers complete only after native permission and consequence review.', deviceHandoffProof),
@@ -388,9 +452,9 @@ const CAPABILITY_ROWS = [
 
   live({ id: 'plan.read_day_context', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['plan.read_day_context'], sourceRefs: ['capability:plan'] }, readProof),
   live({ id: 'plan.recommend_day', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['plan.recommend_day'], sourceRefs: [] }, readProof),
-  live({ id: 'plan.schedule_activity', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_activity'], sourceRefs: [] }, planProof),
-  live({ id: 'plan.reschedule_activity', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.reschedule_activity'], sourceRefs: [] }, planProof),
-  live({ id: 'plan.remove_activity', providers: ['connector', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['plan.remove_activity'], sourceRefs: [] }, planProof),
+  live({ id: 'plan.schedule_activity', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.schedule_activity'], sourceRefs: ['action:planActions'] }, planProof),
+  live({ id: 'plan.reschedule_activity', providers: ['connector', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['plan.reschedule_activity'], sourceRefs: ['action:planActions'] }, planProof),
+  live({ id: 'plan.remove_activity', providers: ['connector', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['plan.remove_activity'], sourceRefs: ['action:planActions'] }, planProof),
   bounded('confirmation_only', { id: 'plan.preferences.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['plan.preferences.open'], sourceRefs: [] }, 'Chat stages a durable handoff; availability and calendar changes remain native settings actions.', deviceHandoffProof),
 
   live({ id: 'chapters.list', providers: ['server'], consequence: 'low', confirmation: 'none', toolIds: ['chapters.read'], sourceRefs: ['capability:chapters'] }, readProof),
@@ -414,14 +478,14 @@ const CAPABILITY_ROWS = [
 
   ...FOOD_OPERATION_CONTRACTS.map(foodCapabilityRow),
 
-  bounded('pending_provider', { id: 'screen_time.read', providers: ['device'], consequence: 'low', confirmation: 'none', toolIds: ['screen_time.read'], sourceRefs: ['capability:screenTime'] }, 'Authorized Household evidence is projected into Chat, but the explicit read tool response and signed-device proof remain pending.'),
-  bounded('pending_provider', { id: 'screen_time.agreement.create', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.create'], sourceRefs: [] }, 'The shared command exists, but Chat proposal staging and confirmation are not wired yet.'),
-  bounded('pending_provider', { id: 'screen_time.agreement.update', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.update'], sourceRefs: [] }, 'The shared command exists, but Chat proposal staging and confirmation are not wired yet.'),
-  bounded('pending_provider', { id: 'screen_time.agreement.deactivate', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.deactivate'], sourceRefs: [] }, 'The shared command exists, but Chat proposal staging and confirmation are not wired yet.'),
-  bounded('pending_provider', { id: 'screen_time.override.block', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.block'], sourceRefs: [] }, 'Mobile Chat resolution, proposal, confirmation, and saved-policy receipts are wired in source; backend deployment and signed child-device application proof remain pending.'),
-  bounded('pending_provider', { id: 'screen_time.override.allow', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.allow'], sourceRefs: [] }, 'Mobile Chat resolution, proposal, confirmation, and saved-policy receipts are wired in source; backend deployment and signed child-device application proof remain pending.'),
-  bounded('pending_provider', { id: 'screen_time.override.cancel', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.cancel'], sourceRefs: [] }, 'Override cancellation exists, but Chat proposal staging and confirmation are not wired yet.'),
-  bounded('pending_provider', { id: 'screen_time.request.decide', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.request.decide'], sourceRefs: [] }, 'Child request provenance exists, but Chat approval proposals are not wired yet.'),
+  live({ id: 'screen_time.read', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['screen_time.read'], sourceRefs: ['capability:screenTime'] }, screenTimeReadProof),
+  live({ id: 'screen_time.agreement.create', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.create'], sourceRefs: [] }, screenTimeWriteProof),
+  live({ id: 'screen_time.agreement.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.update'], sourceRefs: [] }, screenTimeWriteProof),
+  live({ id: 'screen_time.agreement.deactivate', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.agreement.deactivate'], sourceRefs: [] }, screenTimeWriteProof),
+  live({ id: 'screen_time.override.block', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.block'], sourceRefs: [] }, screenTimeWriteProof),
+  live({ id: 'screen_time.override.allow', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.allow'], sourceRefs: [] }, screenTimeWriteProof),
+  live({ id: 'screen_time.override.cancel', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.cancel'], sourceRefs: [] }, screenTimeWriteProof),
+  live({ id: 'screen_time.request.decide', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.request.decide'], sourceRefs: [] }, screenTimeWriteProof),
   bounded('confirmation_only', { id: 'screen_time.personal.setup.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.setup.open'], sourceRefs: ['capability:screenTime'] }, 'Chat resolves the signed-in person on the current device and opens the personal native setup flow. Apple authorization and app selection remain user-controlled.', deviceHandoffProof),
   bounded('pending_provider', { id: 'screen_time.personal.limit.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.limit.open'], sourceRefs: ['capability:screenTime'] }, 'Chat carries a bounded self, app-label, and daily allowance intent into native review. Apple authorization, token selection, persistence, and signed-device enforcement remain capability-owned.'),
   bounded('pending_provider', { id: 'screen_time.selection.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.selection.open'], sourceRefs: [] }, 'Chat now routes an exact authorized-child native handoff; production child-device selection, completion return, and signed proof remain pending.'),

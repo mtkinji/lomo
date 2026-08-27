@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 import type { Activity } from '../../domain/types';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
-import { moveManagedEvent } from '../../services/calendar/managedEvents';
+import { reschedulePlanCalendarSession } from '../../capabilities/plan/actions/planActions';
 import { moveActivityScheduleSession } from '../../services/plan/activityScheduleSessions';
 import { startCalendarConnect } from '../../services/plan/calendarApi';
 import type { KwiltCalendarBlock } from '../../services/plan/kwiltCalendarBlocks';
@@ -110,7 +110,12 @@ export function usePlanSessionEditor({
     const binding = block.binding;
     try {
       await ensureSignedInWithPrompt('plan');
-      await moveManagedEvent({ binding, start, end });
+      await reschedulePlanCalendarSession({
+        binding,
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        confirmed: true,
+      });
       const timestamp = new Date().toISOString();
       updateActivity(activityId, (activity) => ({
         ...moveActivityScheduleSession(activity, sessionId, {

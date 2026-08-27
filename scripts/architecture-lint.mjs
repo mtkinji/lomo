@@ -8,11 +8,20 @@ import {
   findBottomDockGeometryOverrides,
   findBrandGreenUsageIncrease,
   findRawInteractiveControlImports,
+  findActionRuntimeBoundaryViolations,
 } from './architecture-lint-lib.mjs';
 
 const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const errors = [];
 const warnings = [];
+
+const actionBoundaryPath = path.join(repoRoot, 'scripts', 'action-runtime-boundary.json');
+let actionBoundary = { operations: [] };
+try {
+  actionBoundary = JSON.parse(fs.readFileSync(actionBoundaryPath, 'utf8'));
+} catch (error) {
+  errors.push(`scripts/action-runtime-boundary.json: unable to load action boundary manifest (${error instanceof Error ? error.message : 'unknown error'})`);
+}
 
 const baselinePath = path.join(repoRoot, 'scripts', 'architecture-lint-baseline.json');
 const baseline = fs.existsSync(baselinePath)
@@ -115,6 +124,7 @@ const brandGreenBaselineRef = resolveBrandGreenBaselineRef();
 for (const file of sourceFiles) {
   const text = fs.readFileSync(file, 'utf8');
   const relativeFile = rel(file);
+  errors.push(...findActionRuntimeBoundaryViolations(relativeFile, text, actionBoundary));
   errors.push(...findBottomDockGeometryOverrides(relativeFile, text));
   if (
     isProductUiImplementation(relativeFile)

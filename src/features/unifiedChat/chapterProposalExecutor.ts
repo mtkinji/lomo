@@ -1,4 +1,5 @@
 import type { ChapterRow } from '../../services/chapters';
+import { chapterUpdatedAt, updateChapterNote } from '../../capabilities/life-structure/actions/chapterActions';
 import type { UnifiedChatMutationReceipt, UnifiedChatProposal } from './types';
 
 type ChapterProposal = Extract<UnifiedChatProposal, { capabilityId: 'chapters' }>;
@@ -24,7 +25,7 @@ export type ChapterMutationReceipt = {
 
 export class ChapterMutationConflictError extends Error {}
 
-const chapterVersion = (chapter: ChapterRow): string => chapter.user_note_updated_at ?? chapter.updated_at;
+const chapterVersion = chapterUpdatedAt;
 
 function validateProposal(proposal: UnifiedChatProposal): asserts proposal is ChapterProposal {
   if (proposal.capabilityId !== 'chapters' || proposal.operation.type !== 'update_chapter_note' ||
@@ -90,8 +91,11 @@ export async function applyApprovedChapterProposal({ proposal, store }: {
   if (!current || chapterVersion(current) !== proposal.operation.payload.expectedUpdatedAt) {
     throw new ChapterMutationConflictError('The Chapter changed after this proposal was prepared.');
   }
-  const updated = await store.updateNote(current.id, proposal.operation.payload.note);
-  if (!updated) throw new Error('Kwilt could not save that Chapter note.');
+  const updated = (await updateChapterNote({
+    chapterId: current.id,
+    note: proposal.operation.payload.note,
+    expectedUpdatedAt: proposal.operation.payload.expectedUpdatedAt,
+  }, store)).result;
   return receiptFor(proposal, current, updated);
 }
 
@@ -103,8 +107,11 @@ export async function undoAppliedChapterProposal({ receipt, store }: {
       chapterVersion(current) !== receipt.undoOperation.expectedUpdatedAt) {
     throw new ChapterMutationConflictError('The Chapter changed after apply, so Kwilt will not overwrite it during undo.');
   }
-  const restored = await store.updateNote(current.id, receipt.undoOperation.note);
-  if (!restored) throw new Error('Kwilt could not restore that Chapter note.');
+  const restored = (await updateChapterNote({
+    chapterId: current.id,
+    note: receipt.undoOperation.note,
+    expectedUpdatedAt: receipt.undoOperation.expectedUpdatedAt,
+  }, store)).result;
   return { undoneAt: chapterVersion(restored) };
 }
 

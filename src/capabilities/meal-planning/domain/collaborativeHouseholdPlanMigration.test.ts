@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const sql = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260812012700_collaborative_household_recipe_plan.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260812023544_collaborative_household_recipe_plan.sql'),
   'utf8',
 ).toLowerCase();
 const contributorReactionSql = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260812025828_allow_plan_contributor_reaction_reversal.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260812030204_allow_plan_contributor_reaction_reversal.sql'),
   'utf8',
 ).toLowerCase();
 const positiveReactionSql = readFileSync(
@@ -18,7 +18,7 @@ const visibleDownvoteSql = readFileSync(
   'utf8',
 ).toLowerCase();
 const hardPassSql = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260812170120_plan_hard_pass_reactions.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260812214921_plan_hard_pass_reactions.sql'),
   'utf8',
 ).toLowerCase();
 

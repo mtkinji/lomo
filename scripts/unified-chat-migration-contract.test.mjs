@@ -30,6 +30,10 @@ const channelRunMigration = readFileSync(
   new URL('../supabase/migrations/20260723164223_canonical_agent_run_channels.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
+const channelRunTriggerRepairMigration = readFileSync(
+  new URL('../supabase/migrations/20260826012026_repair_channel_run_trigger_enqueue.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
 const channelJobMigration = readFileSync(
   new URL('../supabase/migrations/20260723170039_agent_channel_job_queue.sql', import.meta.url),
   'utf8',
@@ -62,6 +66,14 @@ const relationshipManagementMigration = readFileSync(
   new URL('../supabase/migrations/20260723194500_unified_chat_relationship_management.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
+const householdReadProviderMigration = readFileSync(
+  new URL('../supabase/migrations/20260827125904_unified_chat_household_read_provider.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
+const screenTimeReadProviderMigration = readFileSync(
+  new URL('../supabase/migrations/20260827131101_unified_chat_screen_time_read_provider.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
 const relationshipMemoryFunction = readFileSync(
   new URL('../supabase/functions/relationship-memory/index.ts', import.meta.url),
   'utf8',
@@ -77,6 +89,18 @@ const phoneAgentLinkFunction = readFileSync(
 const channelTickFunction = readFileSync(
   new URL('../supabase/functions/agent-channel-tick/index.ts', import.meta.url),
   'utf8',
+);
+const nativeOperationsSource = readFileSync(
+  new URL('../src/capabilities/operations.ts', import.meta.url), 'utf8',
+);
+const chatCoverageSource = readFileSync(
+  new URL('../src/features/unifiedChat/chatCapabilityCoverage.ts', import.meta.url), 'utf8',
+);
+const mobileRegistrationSource = readFileSync(
+  new URL('../src/features/unifiedChat/mobileToolImplementations.ts', import.meta.url), 'utf8',
+);
+const serverRegistrationSource = readFileSync(
+  new URL('../supabase/functions/_shared/serverToolImplementations.ts', import.meta.url), 'utf8',
 );
 
 test('persists bounded phone-link timezone context for relative Plan dates', () => {
@@ -103,6 +127,35 @@ test('projects only bounded native Profile fields for owner-scoped server-channe
   assert.match(agentProfileProjectionMigration, /kwilt_agent_profile_projections_owner_delete/);
   assert.match(agentProfileProjectionMigration, /\(select auth\.uid\(\)\) = user_id/);
   assert.doesNotMatch(tableDefinition, /\b(email|birthdate|identity_summary|coach_context|raw_profile)\b/);
+});
+
+test('keeps external Household reads user-bound and service-role only', () => {
+  assert.match(householdReadProviderMigration, /get_kwilt_agent_household_snapshot\(p_user_id uuid\)/);
+  assert.match(householdReadProviderMigration, /preview_kwilt_agent_household_invite\(\s*p_user_id uuid,\s*p_code text\s*\)/);
+  assert.match(householdReadProviderMigration, /binding\.user_id = p_user_id/);
+  assert.match(householdReadProviderMigration, /v_actor\.role = 'owner'/);
+  assert.match(householdReadProviderMigration, /v_actor\.id = activation\.child_membership_id/);
+  assert.match(householdReadProviderMigration, /grant_row\.caregiver_membership_id = v_actor\.id/);
+  assert.match(householdReadProviderMigration, /user_row\.id = p_user_id/);
+  assert.match(householdReadProviderMigration, /revoke all on function public\.get_kwilt_agent_household_snapshot\(uuid\) from public, anon, authenticated/);
+  assert.match(householdReadProviderMigration, /grant execute on function public\.get_kwilt_agent_household_snapshot\(uuid\) to service_role/);
+  assert.match(householdReadProviderMigration, /revoke all on function public\.preview_kwilt_agent_household_invite\(uuid, text\) from public, anon, authenticated/);
+  assert.match(householdReadProviderMigration, /grant execute on function public\.preview_kwilt_agent_household_invite\(uuid, text\) to service_role/);
+});
+
+test('keeps external Screen Time reads caregiver-authorized, semantic, and service-role only', () => {
+  assert.match(screenTimeReadProviderMigration, /get_kwilt_agent_screen_time_snapshot\(\s*p_user_id uuid,\s*p_child_membership_ids uuid\[\] default null\s*\)/);
+  assert.match(screenTimeReadProviderMigration, /binding\.user_id = p_user_id/);
+  assert.match(screenTimeReadProviderMigration, /v_actor\.role = 'owner'/);
+  assert.match(screenTimeReadProviderMigration, /grant_row\.caregiver_membership_id = v_actor\.id/);
+  assert.match(screenTimeReadProviderMigration, /activation\.capability_id = 'screen-time'/);
+  assert.match(screenTimeReadProviderMigration, /screen_time_child_not_authorized/);
+  assert.match(screenTimeReadProviderMigration, /'displayname', person\.display_name/);
+  assert.doesNotMatch(screenTimeReadProviderMigration, /'selectionref'/);
+  assert.doesNotMatch(screenTimeReadProviderMigration, /'installid'/);
+  assert.doesNotMatch(screenTimeReadProviderMigration, /'deviceid'/);
+  assert.match(screenTimeReadProviderMigration, /revoke all on function public\.get_kwilt_agent_screen_time_snapshot\(uuid, uuid\[\]\) from public, anon, authenticated/);
+  assert.match(screenTimeReadProviderMigration, /grant execute on function public\.get_kwilt_agent_screen_time_snapshot\(uuid, uuid\[\]\) to service_role/);
 });
 
 test('applies explicit relationship memory atomically through existing owner-scoped records and trust receipts', () => {
@@ -343,6 +396,12 @@ test('enqueues a cross-channel run atomically and idempotently under the authent
   assert.match(channelRunMigration, /grant execute on function public\.transition_kwilt_agent_channel_run[^;]+to service_role/);
 });
 
+test('supplies a non-null trigger identity on the initial channel-run insert', () => {
+  assert.match(channelRunTriggerRepairMigration, /create or replace function public\.enqueue_kwilt_agent_run/);
+  assert.match(channelRunTriggerRepairMigration, /initiator, trigger_kind, trigger_id/);
+  assert.match(channelRunTriggerRepairMigration, /'user', 'user_message', btrim\(p_client_request_id\)/);
+});
+
 test('queues channel work idempotently and claims it with bounded crash recovery', () => {
   assert.match(channelJobMigration, /create table public\.kwilt_agent_channel_bindings/);
   assert.match(channelJobMigration, /create table public\.kwilt_agent_channel_jobs/);
@@ -431,4 +490,16 @@ test('keeps compliance commands deterministic while ordinary SMS enters the dura
   assert.match(channelTickFunction, /processAgentChannelJob/);
   assert.match(channelTickFunction, /executeCanonicalAgentRun/);
   assert.match(channelTickFunction, /createServiceAgentRunPersistence/);
+});
+
+test('derives conversational coverage from independent operations and executable handlers', () => {
+  assert.doesNotMatch(nativeOperationsSource, /KWILT_CAPABILITY_MANIFEST\.map/);
+  assert.doesNotMatch(chatCoverageSource, /projectOperationCoverage\s*\(/);
+  assert.match(chatCoverageSource, /MOBILE_TOOL_PROVIDER_REGISTRATIONS/);
+  assert.match(chatCoverageSource, /SERVER_TOOL_PROVIDER_REGISTRATIONS/);
+  assert.match(chatCoverageSource, /Missing executable \$\{channel\} handler/);
+  assert.match(mobileRegistrationSource, /MOBILE_EXECUTABLE_TOOL_IDS/);
+  assert.match(serverRegistrationSource, /SERVER_EXECUTABLE_TOOL_IDS/);
+  assert.doesNotMatch(mobileRegistrationSource, /KWILT_TOOL_CONTRACTS\s*\.filter/);
+  assert.doesNotMatch(serverRegistrationSource, /KWILT_TOOL_CONTRACTS\s*\.filter/);
 });

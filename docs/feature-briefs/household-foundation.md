@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-family-screen-time-controls, brief-shared-household-device-profiles]
 owner: andrew
-last_updated: 2026-08-17
+last_updated: 2026-08-26
 ---
 
 # Household Foundation
@@ -117,9 +117,43 @@ Chat, Chapters, Money, and every other capability remain unavailable until each 
 
 See [Caregiver-anchored Household Mode](shared-household-device-profiles.md) for the complete interaction and release boundary.
 
+### Devices and guardian-managed child access
+
+A dependent profile is a complete Household member even when the child has no Kwilt
+account and no device. Device participation is optional infrastructure for the moments
+when Charlie needs to use Kwilt directly.
+
+Charlie's member page owns a neutral **Devices** section. With no personal device it
+shows **No device connected** and offers a secondary **Connect Charlie's device**
+action. That action immediately
+creates a short-lived setup session for Charlie's exact membership and presents its QR
+code and six-digit manual-code fallback; there is no second invitation or generic **Continue**.
+The code carries that
+guardian-approved context to Charlie's device. Claiming it creates narrow,
+device-bound child access without requiring a conventional child login.
+
+The caregiver surface is a live pairing receipt rather than a menu. Native Share lives
+in the header; leaving through Back cancels the active session; and account attachment
+is offered on the receiving device, where identity can be reviewed. While the receipt
+is visible, Kwilt checks the existing manager-authorized device-list RPC every three
+seconds and automatically replaces the QR/code with **Charlie's device is connected**
+when the exact personal-device claim appears. This receipt confirms Kwilt attachment
+only; it does not imply Apple Screen Time authorization or applied policy.
+
+A caregiver-signed-in shared iPad follows a separate path: designate the current iPad
+once for the Household, select eligible members and capabilities, then use bounded
+member sessions. It is not paired to each child and is not listed as Charlie's personal
+device.
+
+See [Household device participation](../architecture/household-device-participation.md)
+for the canonical identity, setup, security, and lifecycle contract.
+
 ### Connecting a child who already uses Kwilt
 
-**Add a child** must distinguish between a child who already has a Kwilt account and a child who needs a dependent profile. If Charlie already uses Kwilt, Andrew invites Charlie's authenticated account into the Household as a child; Kwilt does not create a second, disconnected Charlie.
+**Add a child** creates or selects Charlie's exact Household membership first. If
+Charlie already has a Kwilt account, Andrew may explicitly attach that authenticated
+account to the membership; Kwilt does not create a second, disconnected Charlie. This
+is a secondary path, not a prerequisite for setting up a guardian-managed device.
 
 The account invitation may be delivered in several ways, but every method creates the same short-lived server invitation and requires Charlie to review and accept while signed in:
 
@@ -128,11 +162,15 @@ The account invitation may be delivered in several ways, but every method create
 | **Find nearby Kwilt devices** | Andrew and Charlie have both phones together | Both people explicitly turn on discovery; QR and short code remain available |
 | **Scan a QR code** | The phones are together but nearby discovery is unavailable or unwanted | Short code remains available for camera or permission failure |
 | **Send an invitation** | Andrew and Charlie are apart | Native share sheet supports Messages, email, and other apps; the link survives sign-in or account creation |
-| **Create a child profile** | Charlie does not yet have a Kwilt account | The profile may later use **Connect Charlie's account**; linking is never inferred by matching names or email addresses |
+| **Create a child profile** | Charlie does not yet have a Kwilt account | The profile can receive guardian-managed device access now and may attach an account later; linking is never inferred by matching names or email addresses |
 
 Nearby discovery is a user-controlled setup mode, not ambient people discovery. Both devices must be foregrounded and deliberately enter **Find nearby Kwilt devices**. Kwilt advertises only an ephemeral pairing session, shows a matching human-readable confirmation phrase on both devices, and requires confirmation on both phones before presenting the Household invitation. It does not publish a browsable child profile, precise distance, email address, household roster, or background presence. Discovery stops when the setup surface closes or times out.
 
-Nearby, QR, code, email, and shared links are invitation transports only. Discovery or possession of a link never proves identity, creates membership, activates a child capability, binds a managed device, or supplies Apple guardian authorization. The accepting Kwilt account and server-authorized acceptance create the durable auth binding and child membership.
+Account-invitation transports and device-setup transports must not be conflated. An
+account invitation is accepted by an authenticated person and creates an optional auth
+binding. A device setup QR or code represents a short-lived guardian authorization for
+one existing child membership and can create device-bound managed access. Neither
+transport activates a capability or supplies Apple guardian authorization.
 
 Charlie sees who invited him, the proposed child role, what Household membership shares, what remains private, and that Screen Time device authorization is a separate later step. He may decline. Kwilt does not reveal to Andrew whether an entered email already has an account, and it does not silently merge an authenticated account with a same-named dependent profile.
 
@@ -142,13 +180,23 @@ Kwilt does not create an empty Household during ordinary onboarding. The owner s
 
 Add or invite first person → household and owner membership are created → invited person accepts with an independent account or dependent profile becomes available → grant named capability authority → optionally bind devices.
 
-A shared iPad may be designated from a secondary **Set up for your household** welcome action, from **Settings > Household > Household devices**, or contextually after a dependent or household-facing capability is added. Designation assigns the current caregiver account as the protected adult account beneath Household Mode; it does not create a new family login.
+A shared iPad may be designated after the caregiver signs in and chooses **Set up this
+iPad for your household**, from **Settings > Household > Household devices**, or
+contextually after a dependent or household-facing capability is added. Designation
+assigns the current caregiver account as the protected adult account beneath Household
+Mode; it does not create a new family login and does not require QR pairing for each
+child.
 
 For a dependent child, profile creation is followed by an explicit capability choice. Creating the profile alone does not activate To-dos, Screen Time, Agent, Money, Games, Stories, or future capabilities.
 
 Accepting an invitation joins the inviter's existing Household. Apple Family Sharing never silently creates or populates a Kwilt Household; the systems have different identity, consent, authority, and data-access meanings.
 
-For Screen Time, Apple Family Sharing is still the required platform trust anchor for child-device authorization. After Charlie's Kwilt account joins the Household, the enrolled child device requests Apple's `.child` Family Controls authorization and a parent or guardian in the same Apple family approves it. Apple authorization does not replace the Kwilt invitation, and the Kwilt invitation does not replace Apple authorization.
+For Screen Time, Apple Family Sharing is still the required platform trust anchor for
+child-device authorization. After Charlie's personal device claims guardian-managed
+Kwilt access, that device requests Apple's `.child` Family Controls authorization and a
+parent or guardian in the same Apple family approves it. Apple authorization does not
+replace the Kwilt device claim, and the Kwilt device claim does not replace Apple
+authorization or the applied policy receipt.
 
 Removal and household deletion require explicit dependent-data and managed-device cleanup. Authority-changing operations require a server round trip; offline clients may display last-known state but not claim a role change succeeded.
 

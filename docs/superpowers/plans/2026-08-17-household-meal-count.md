@@ -15,7 +15,7 @@
 ### Task 1: Add the server authority field
 
 **Files:**
-- Modify: `supabase/migrations/20260817180341_add_usual_diner_count.sql`
+- Modify: `supabase/pending-migrations/20260817180341_add_usual_diner_count.sql`
 - Test: `src/features/household/data/householdMigration.test.ts`
 
 - [x] Add failing migration-contract assertions for `usual_diner_count`, its 1–20 check, deterministic backfill, RPC parameter, count-versus-ID validation, and execute grants.

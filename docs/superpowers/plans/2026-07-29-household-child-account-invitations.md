@@ -12,7 +12,7 @@
 
 ## File structure
 
-- Create `supabase/migrations/20260729183000_household_child_account_invites.sql`: extend invited roles, add preview/create/accept RPCs, enforce invited email, preserve legacy caregiver wrappers, and audit child invitation lifecycle.
+- Create `supabase/migrations/20260730042845_household_child_account_invites.sql`: extend invited roles, add preview/create/accept RPCs, enforce invited email, preserve legacy caregiver wrappers, and audit child invitation lifecycle.
 - Create `src/features/household/data/householdChildInvitesMigration.test.ts`: static migration security and authority contract.
 - Modify `src/features/household/data/household.ts`: role-aware invitation types and RPC adapters.
 - Modify `src/features/household/data/household.test.ts`: exact RPC payload, normalization, preview parsing, and malformed-response tests.
@@ -24,7 +24,7 @@
 
 **Files:**
 - Create: `src/features/household/data/householdChildInvitesMigration.test.ts`
-- Create: `supabase/migrations/20260729183000_household_child_account_invites.sql`
+- Create: `supabase/migrations/20260730042845_household_child_account_invites.sql`
 
 - [x] **Step 1: Write the failing migration contract test**
 
@@ -46,7 +46,7 @@ Also require `security definer`, `set search_path = ''`, authenticated grants, p
 
 Run: `npm test -- --runInBand src/features/household/data/householdChildInvitesMigration.test.ts`
 
-Expected: FAIL because `20260729183000_household_child_account_invites.sql` does not exist.
+Expected: FAIL because `20260730042845_household_child_account_invites.sql` does not exist.
 
 - [x] **Step 3: Implement the migration**
 

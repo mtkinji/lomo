@@ -6,7 +6,7 @@ const workspacePath = (...parts: string[]) => path.join(process.cwd(), ...parts)
 describe('Games host integration contract', () => {
   it('allows authenticated room members to send both presence and broadcast messages', () => {
     const migration = fs.readFileSync(
-      workspacePath('supabase', 'migrations', '20260729001009_kwilt_games_full_parity.sql'),
+      workspacePath('supabase', 'pending-migrations', '20260729001009_kwilt_games_full_parity.sql'),
       'utf8',
     );
 

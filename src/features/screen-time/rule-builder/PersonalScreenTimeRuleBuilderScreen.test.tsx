@@ -16,6 +16,8 @@ import { PersonalScreenTimeRuleBuilderScreen } from './PersonalScreenTimeRuleBui
 import { activatePersonalScreenTimeRule } from '../../../services/screenTimeProtectionRuntime';
 
 const mockGoBack = jest.fn();
+const mockNavigateWhenReady = jest.fn();
+let mockIsDevice = true;
 let mockRouteParams: Record<string, unknown> = { entry: 'inventory' };
 const mockBottomDrawerProps: Array<Record<string, unknown>> = [];
 
@@ -63,10 +65,22 @@ jest.mock('../../../services/analytics/useAnalytics', () => ({
   useAnalytics: () => ({ capture: jest.fn() }),
 }));
 
+jest.mock('../../../navigation/rootNavigationRef', () => ({
+  navigateWhenReady: (...args: unknown[]) => mockNavigateWhenReady(...args),
+}));
+
+jest.mock('expo-device', () => ({
+  get isDevice() {
+    return mockIsDevice;
+  },
+}));
+
 describe('PersonalScreenTimeRuleBuilderScreen', () => {
   beforeEach(() => {
     resetAllStores();
     mockGoBack.mockReset();
+    mockNavigateWhenReady.mockReset();
+    mockIsDevice = true;
     mockBottomDrawerProps.length = 0;
     mockRouteParams = { entry: 'inventory' };
     (presentScreenTimeActivityPicker as jest.Mock).mockReset().mockResolvedValue(null);
@@ -80,15 +94,18 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     });
   });
 
-  it('starts in a dismissable progressive drawer with one touch target', () => {
+  it('starts in a dismissable full-height immersive drawer with one touch target', () => {
     const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
 
     expect(mockBottomDrawerProps.at(-1)).toMatchObject({
       visible: true,
-      snapPoints: ['82%'],
+      snapPoints: ['100%'],
       presentation: 'modal',
       dismissable: true,
       dismissOnBackdropPress: true,
+    });
+    expect(StyleSheet.flatten(mockBottomDrawerProps.at(-1)?.sheetStyle)).toMatchObject({
+      backgroundColor: colors.pine700,
     });
 
     const question = screen.getByText('Which apps should this rule manage?');
@@ -96,7 +113,7 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
       fontFamily: typography.titleMd.fontFamily,
       fontSize: typography.titleMd.fontSize,
       lineHeight: typography.titleMd.lineHeight,
-      color: colors.textPrimary,
+      color: colors.parchment,
     });
     expect(screen.getByText('Apps and categories')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Apps and categories' })).toBeTruthy();
@@ -189,6 +206,7 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     expect(await screen.findByText('When should Games be available?')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'After a to-do, progress update, or Focus' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'After Focus ends' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Based on a budget' })).toBeTruthy();
     expect(screen.getByTestId('rule-choice-icon-checklist', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.getByTestId('rule-choice-icon-focus', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByText('Apps unlock when you complete any one of these in Kwilt.')).toBeNull();
@@ -198,6 +216,26 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     expect(screen.getByLabelText('Rule setup progress').props.accessibilityValue)
       .toEqual({ min: 1, max: 3, now: 2 });
     expect(screen.queryByRole('button', { name: 'Add rule' })).toBeNull();
+  });
+
+  it('hands budget-based controls to Money with the selected app labels', async () => {
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [{ token: 'games', label: 'Games' }],
+      selectedCategories: [{ token: 'social', label: 'Social' }],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    fireEvent.press(await screen.findByRole('button', { name: 'Based on a budget' }));
+
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+    expect(mockNavigateWhenReady).toHaveBeenCalledWith('Money', {
+      screen: 'MoneySummary',
+      params: {
+        entryIntent: 'app-control-onboarding',
+        suggestedAppLabels: ['Games', 'Social'],
+      },
+    });
   });
 
   it('creates the selected rule only after review', async () => {
@@ -239,6 +277,28 @@ describe('PersonalScreenTimeRuleBuilderScreen', () => {
     await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(
       'Couldn’t turn on this rule',
       'Kwilt did not receive confirmation from Screen Time. Try again before leaving setup.',
+    ));
+    expect(useAppStore.getState().screenTimeProtection.personalRules).toEqual([]);
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it('explains that Simulator cannot activate a daily Screen Time limit', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockIsDevice = false;
+    (activatePersonalScreenTimeRule as jest.Mock).mockResolvedValueOnce(false);
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [{ token: 'news', label: 'News' }],
+      selectedCategories: [],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    fireEvent.press(await screen.findByText('After a daily time limit'));
+    fireEvent.press(screen.getByRole('button', { name: 'Add rule' }));
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith(
+      'A physical device is required',
+      'The Simulator can preview this setup, but Apple Screen Time can only turn on a daily limit in an entitlement-enabled build on a physical iPhone.',
     ));
     expect(useAppStore.getState().screenTimeProtection.personalRules).toEqual([]);
     expect(mockGoBack).not.toHaveBeenCalled();

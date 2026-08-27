@@ -51,6 +51,105 @@ function validateAgentJudgmentRequest(parsed: Record<string, unknown>): Validati
   return { ok: true };
 }
 
+const STRICT_SCHEMA_KEYS = new Set([
+  'type', 'properties', 'required', 'additionalProperties', 'items', 'enum', 'const',
+  'description', 'title', 'format', 'pattern', 'minimum', 'maximum', 'exclusiveMinimum',
+  'exclusiveMaximum', 'multipleOf', 'minLength', 'maxLength', 'minItems', 'maxItems',
+  'uniqueItems', 'minProperties', 'maxProperties',
+]);
+
+function isStrictSchema(schema: unknown, root = false): boolean {
+  if (!isRecord(schema) || Object.keys(schema).some((key) => !STRICT_SCHEMA_KEYS.has(key))) return false;
+  const types = typeof schema.type === 'string'
+    ? [schema.type]
+    : Array.isArray(schema.type) && schema.type.every((type) => typeof type === 'string')
+      ? schema.type
+      : [];
+  if (types.length === 0 || (root && (types.length !== 1 || types[0] !== 'object'))) return false;
+  if (types.includes('object')) {
+    const required = schema.required;
+    if (!isRecord(schema.properties) || schema.additionalProperties !== false || !Array.isArray(required)) {
+      return false;
+    }
+    const propertyNames = Object.keys(schema.properties);
+    if (required.length !== propertyNames.length ||
+      !propertyNames.every((name) => required.includes(name)) ||
+      !Object.values(schema.properties).every((property) => isStrictSchema(property))) return false;
+  }
+  if (types.includes('array') && !isStrictSchema(schema.items)) return false;
+  return true;
+}
+
+function validUnifiedChatInputItem(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.role === 'user' || value.role === 'assistant') {
+    return Object.keys(value).every((key) => key === 'role' || key === 'content') &&
+      typeof value.content === 'string' && value.content.length <= 20_000;
+  }
+  if (value.type === 'function_call') {
+    return Object.keys(value).every((key) => ['type', 'call_id', 'name', 'arguments'].includes(key)) &&
+      typeof value.call_id === 'string' && value.call_id.length > 0 && value.call_id.length <= 160 &&
+      typeof value.name === 'string' && /^[a-z][a-z0-9_.-]{0,119}$/.test(value.name) &&
+      typeof value.arguments === 'string' && value.arguments.length <= 40_000;
+  }
+  if (value.type === 'function_call_output') {
+    return Object.keys(value).every((key) => ['type', 'call_id', 'output'].includes(key)) &&
+      typeof value.call_id === 'string' && value.call_id.length > 0 && value.call_id.length <= 160 &&
+      typeof value.output === 'string' && value.output.length <= 40_000;
+  }
+  return false;
+}
+
+function validUnifiedChatTool(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.type === 'tool_search') {
+    return Object.keys(value).every((key) => key === 'type' || key === 'execution') &&
+      value.execution === 'server';
+  }
+  return value.type === 'function' &&
+    Object.keys(value).every((key) =>
+      ['type', 'name', 'description', 'parameters', 'strict', 'defer_loading'].includes(key)) &&
+    typeof value.name === 'string' && /^[a-z][a-z0-9_.-]{0,119}$/.test(value.name) &&
+    typeof value.description === 'string' && value.description.length > 0 && value.description.length <= 1_000 &&
+    value.strict === true && (value.defer_loading === undefined || value.defer_loading === true) &&
+    isStrictSchema(value.parameters, true);
+}
+
+function validateUnifiedChatAgentRequest(parsed: Record<string, unknown>): ValidationResult {
+  const allowedKeys = new Set([
+    'store', 'max_output_tokens', 'parallel_tool_calls', 'input', 'tools', 'policy_context',
+  ]);
+  if (Object.keys(parsed).some((key) => !allowedKeys.has(key))) {
+    return invalid('unified chat agent contains unsupported request fields');
+  }
+  if (parsed.store !== false || parsed.parallel_tool_calls !== false) {
+    return invalid('unified chat agent requires ephemeral sequential execution');
+  }
+  if (!Number.isInteger(parsed.max_output_tokens) ||
+    (parsed.max_output_tokens as number) < 1 || (parsed.max_output_tokens as number) > 1_200) {
+    return invalid('unified chat agent output budget is invalid');
+  }
+  if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > 80 ||
+    !parsed.input.every(validUnifiedChatInputItem)) {
+    return invalid('unified chat agent input item is invalid');
+  }
+  if (parsed.tools != null) {
+    if (!Array.isArray(parsed.tools) || parsed.tools.length < 1 || parsed.tools.length > 128 ||
+      !parsed.tools.every(validUnifiedChatTool)) {
+      return invalid('unified chat agent tools are invalid');
+    }
+  }
+  const policyContext = parsed.policy_context;
+  if (!isRecord(policyContext) ||
+    Object.keys(policyContext).some((key) => key !== 'currentDate' && key !== 'timeZone') ||
+    typeof policyContext.currentDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(policyContext.currentDate) ||
+    typeof policyContext.timeZone !== 'string' || policyContext.timeZone.length < 1 ||
+    policyContext.timeZone.length > 100) {
+    return invalid('unified chat agent policy context is invalid');
+  }
+  return { ok: true };
+}
+
 export function validateKwiltAiRequestShape(
   route: string,
   parsed: unknown,
@@ -75,13 +174,15 @@ export function validateKwiltAiRequestShape(
   }
 
   if (route === '/v1/responses') {
-    if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > 40) {
+    const maxInputItems = aiJob === 'unified_chat_agent' ? 80 : 40;
+    if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > maxInputItems) {
       return invalid('input must be a bounded non-empty array');
     }
     if (parsed.store === true || parsed.background === true) {
       return invalid('stored and background responses are not allowed');
     }
     if (aiJob === 'agent_judgment') return validateAgentJudgmentRequest(parsed);
+    if (aiJob === 'unified_chat_agent') return validateUnifiedChatAgentRequest(parsed);
     if (aiJob === 'current_information') {
       if (!Array.isArray(parsed.tools) || parsed.tools.length !== 1 || !isRecord(parsed.tools[0]) ||
         parsed.tools[0].type !== 'web_search') {

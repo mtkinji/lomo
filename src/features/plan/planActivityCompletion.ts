@@ -1,5 +1,10 @@
 import type { Activity } from '../../domain/types';
 import { deriveStatusFromSteps } from '../activities/activityStepStatus';
+import {
+  updateTodo,
+  type TodoActionReceipt,
+  type TodoUpdateStoreBoundary,
+} from '../../capabilities/todos/actions/todoActions';
 
 export type PlanActivityCompletionAction = {
   label: string;
@@ -94,4 +99,22 @@ export function applyPlanActivityCompletionAction(activity: Activity, timestamp:
     completedAt: nextCompletedAt,
     updatedAt: timestamp,
   };
+}
+
+export function performPlanActivityCompletionAction({
+  activityId,
+  expectedUpdatedAt,
+  timestamp,
+  store,
+}: {
+  activityId: string;
+  expectedUpdatedAt: string;
+  timestamp: string;
+  store: TodoUpdateStoreBoundary;
+}): TodoActionReceipt {
+  return updateTodo({
+    activityId,
+    expectedUpdatedAt,
+    update: (activity) => applyPlanActivityCompletionAction(activity, timestamp),
+  }, store);
 }

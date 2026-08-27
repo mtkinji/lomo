@@ -1,7 +1,7 @@
 ---
 id: brief-todo-schedule-sessions
 title: To-do Schedule Sessions
-status: draft
+status: accepted
 audiences: [audience-burned-out-productivity-power-users]
 personas: [Marcus]
 hero_jtbd: jtbd-move-the-few-things-that-matter
@@ -9,7 +9,7 @@ job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-move-the-few-things-that-matter, jtbd-carry-intentions-into-action, jtbd-capture-and-find-meaning, jtbd-trust-this-app-with-my-life]
 related_briefs: [auto-schedule, calendar-export-ics, dynamic-next-best-action, plan-capture-and-place]
 owner: andrew
-last_updated: 2026-07-08
+last_updated: 2026-08-26
 ---
 
 # To-do Schedule Sessions
@@ -83,6 +83,8 @@ Rules:
 
 No sessions:
 - Schedule opens the existing scheduling sheet.
+- After calendar availability loads, Kwilt stages the earliest suitable slot as a provisional block and scrolls that block into view.
+- The provisional block is not a calendar write. It can be moved or resized directly and is committed only when the user taps the Schedule action.
 - Committing a slot creates the first session and sets the derived next-session fields.
 
 One or more sessions:
@@ -102,6 +104,21 @@ Avoid:
 - Session dashboards.
 - Recurrence language.
 - Productivity framing like optimize, streak, or catch up.
+
+### Draft-first direct placement
+
+The scheduling sheet treats recommendations as a starting point, not a boundary:
+
+- The earliest suitable recommendation is selected automatically and rendered through Plan's existing editable slot-draft interaction, including move and start/end resize affordances.
+- The timeline scrolls to frame a newly staged or newly selected slot, including when the sheet has no overlapping bottom overlay.
+- Suggested times collapse into a single quiet `Good fits` rail above the calendar.
+- The user can choose any future date through the week strip or native date picker, then tap any time in the day.
+- Availability and busy intervals govern automatic recommendations. A manual placement outside usual availability or over a busy interval remains selectable and produces a calm advisory.
+- The commit action changes to `Schedule anyway` when advisories are present so an intentional override is explicit.
+- Invalid dates, a start in the past, and blocks that cross the selected day remain hard stops.
+- Once the user manually places or adjusts the block, background recommendation refreshes must not replace that draft.
+
+This is assistive placement, not background auto-scheduling: opening the sheet may stage a draft, but nothing is written to a provider calendar before confirmation.
 
 ### Plan UX
 
@@ -150,6 +167,9 @@ Required tests:
 - Unscheduling one session updates derived next-session fields correctly.
 - Provider response recovery links existing event instead of reporting false failure.
 - Plan renders more than one session for the same Activity without duplicating the Activity object.
+- Manual placement returns advisories rather than rejection for availability and busy-time conflicts.
+- The selected recommendation converts into the editable Plan slot-draft contract.
+- A newly staged draft can be focused in a timeline without requiring a bottom overlay.
 
 Manual QA:
 - Schedule first session from Activity Detail.
@@ -190,6 +210,10 @@ Acceptance criteria:
 - Existing single-session surfaces continue to work through a derived next session.
 - Due date, reminder, repeat, Focus, and Screen Time semantics remain unchanged.
 - Provider uncertainty does not create duplicate same-time events on retry.
+- Opening Schedule stages and visibly frames the next suitable slot without writing a calendar event.
+- The staged block can be moved and resized in 15-minute increments using the existing Plan affordances.
+- Manual busy-time and outside-availability placement remains possible with an explicit advisory and `Schedule anyway` confirmation.
+- Any future date remains reachable without changing availability settings.
 - Product lint passes after the brief is referenced from relevant feature manifests.
 - `npm run verify:changed -- --run` passes before implementation is handed back.
 

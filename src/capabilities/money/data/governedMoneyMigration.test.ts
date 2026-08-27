@@ -26,7 +26,7 @@ const neutralPaymentRepairMigration = readFileSync(
   'utf8',
 );
 const restoreDefaultsMigration = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260822023044_restore_default_budget_categories.sql'),
+  resolve(process.cwd(), 'supabase/pending-migrations/20260822023044_restore_default_budget_categories.sql'),
   'utf8',
 );
 

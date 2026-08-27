@@ -139,6 +139,10 @@ export type RunUnifiedChatTurnDependencies = {
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
+  executeHouseholdTool?: (
+    call: AgentToolCall,
+    tool: AgentToolDefinition,
+  ) => Promise<AgentToolExecutionResult | null>;
   captureTelemetry?: (event: AnalyticsEventName, properties?: UnifiedChatTelemetryProperties) => void;
   now?: () => Date;
   timeZone?: () => string;
@@ -467,6 +471,7 @@ export async function runUnifiedChatTurn(
       runtimeToolsEnabled,
       signal: input.signal,
       executeRelationshipTool: dependencies?.executeRelationshipTool,
+      executeHouseholdTool: dependencies?.executeHouseholdTool,
       captureTelemetry,
       onResponseProgress: input.onResponseProgress,
       onProviderFallback: input.onProviderFallback,

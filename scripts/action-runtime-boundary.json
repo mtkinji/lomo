@@ -1,0 +1,325 @@
+{
+  "version": 1,
+  "operations": [
+    {
+      "id": "activities.capture",
+      "actionModule": "src/capabilities/todos/actions/todoActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/activities/useQuickAddDockController.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "addActivity\\(activity\\)",
+              "message": "native Quick Add must call createTodo through commitQuickAddTodo"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/activityProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.addActivity\\(",
+              "message": "Chat create must call the To-do capability action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "activities.update.completion",
+      "actionModule": "src/capabilities/todos/actions/todoActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/plan/ActivityEventPeek.tsx",
+          "forbiddenPatterns": [
+            {
+              "pattern": "applyPlanActivityCompletionAction\\(prev",
+              "message": "Plan completion must call performPlanActivityCompletionAction"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/activityProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.updateActivity\\(",
+              "message": "Chat updates must call the To-do capability action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "activities.delete",
+      "actionModule": "src/capabilities/todos/actions/todoActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/activities/ActivityDetailScreen.tsx",
+          "forbiddenPatterns": [
+            {
+              "pattern": "removeActivity\\(activity\\.id\\)",
+              "message": "reviewed native delete must call deleteTodo"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/activityProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.removeActivity\\(",
+              "message": "Chat delete must call the To-do capability action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arcs.create",
+      "actionModule": "src/capabilities/life-structure/actions/arcActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/arcs/ArcsScreen.tsx",
+          "forbiddenPatterns": [
+            {
+              "pattern": "useAppStore\\(\\(state\\) => state\\.addArc\\)",
+              "message": "native Arc creation must call createArc"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/arcProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.addArc\\(",
+              "message": "Chat Arc creation must call the Arc capability action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arcs.update",
+      "actionModule": "src/capabilities/life-structure/actions/arcActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/arcs/ArcDetailScreen.tsx",
+          "forbiddenPatterns": [
+            {
+              "pattern": "useAppStore\\(\\(state\\) => state\\.updateArc\\)",
+              "message": "native Arc updates must call updateArc"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/arcProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.updateArc\\(",
+              "message": "Chat Arc updates must call the Arc capability action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arcs.delete",
+      "actionModule": "src/capabilities/life-structure/actions/arcActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/arcs/ArcDetailScreen.tsx",
+          "forbiddenPatterns": [
+            {
+              "pattern": "useAppStore\\(\\(state\\) => state\\.removeArc\\)",
+              "message": "reviewed native Arc delete must call deleteArc"
+            }
+          ]
+        },
+        {
+          "path": "src/features/unifiedChat/arcProposalExecutor.ts",
+          "forbiddenPatterns": [
+            {
+              "pattern": "store\\.removeArc\\(",
+              "message": "Chat Arc delete must call the Arc capability action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "goals.create",
+      "actionModule": "src/capabilities/life-structure/actions/goalActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/goals/GoalsScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "useAppStore\\(\\(state\\) => state\\.addGoal\\)", "message": "native Goal creation must call createGoal" }]
+        },
+        {
+          "path": "src/features/unifiedChat/goalProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "store\\.addGoal\\(", "message": "Chat Goal creation must call the Goal capability action" }]
+        }
+      ]
+    },
+    {
+      "id": "goals.update",
+      "actionModule": "src/capabilities/life-structure/actions/goalActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/arcs/GoalDetailScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "useAppStore\\(\\(state\\) => state\\.updateGoal\\)", "message": "native Goal updates must call updateGoal" }]
+        },
+        {
+          "path": "src/features/unifiedChat/goalProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "store\\.updateGoal\\(", "message": "Chat Goal updates must call the Goal capability action" }]
+        }
+      ]
+    },
+    {
+      "id": "goals.delete",
+      "actionModule": "src/capabilities/life-structure/actions/goalActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/arcs/GoalDetailScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "useAppStore\\(\\(state\\) => state\\.removeGoal\\)", "message": "reviewed native Goal delete must call deleteGoal" }]
+        },
+        {
+          "path": "src/features/unifiedChat/goalProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "store\\.removeGoal\\(", "message": "Chat Goal delete must call the Goal capability action" }]
+        }
+      ]
+    },
+    {
+      "id": "chapters.note.update",
+      "actionModule": "src/capabilities/life-structure/actions/chapterActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/chapters/ChapterDetailScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "await updateChapterUserNote\\(\\{", "message": "native Chapter note updates must call updateChapterNote" }]
+        },
+        {
+          "path": "src/features/unifiedChat/chapterProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "store\\.updateNote\\(", "message": "Chat Chapter updates must call the Chapter capability action" }]
+        }
+      ]
+    },
+    {
+      "id": "profile.update",
+      "actionModule": "src/capabilities/life-structure/actions/profileActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/account/ProfileSettingsScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "useAppStore\\(\\(state\\) => state\\.updateUserProfile\\)", "message": "native Profile updates must call updateProfile" }]
+        },
+        {
+          "path": "src/features/unifiedChat/profileProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "store\\.updateProfileAt\\(", "message": "Chat Profile updates must call the Profile capability action" }]
+        }
+      ]
+    },
+    {
+      "id": "household.read",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/household/HouseholdSettingsScreen.tsx",
+          "forbiddenPatterns": [{ "pattern": "getHouseholdSnapshot\\(", "message": "native Household reads must call readHousehold" }]
+        },
+        {
+          "path": "src/features/unifiedChat/loadFamilyScreenTimeChatSnapshot.ts",
+          "forbiddenPatterns": [{ "pattern": "getHouseholdSnapshot\\(", "message": "Chat Household evidence must call readHousehold" }]
+        }
+      ]
+    },
+    {
+      "id": "household.member.add_dependent",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "addDependentChild\\(", "message": "native dependent creation must call addDependentHouseholdMember" }]
+      }]
+    },
+    {
+      "id": "household.invitation.create",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "createHouseholdMemberInvite\\(", "message": "native Household invitations must call createHouseholdInvitation" }]
+      }]
+    },
+    {
+      "id": "household.invitation.preview",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "previewHouseholdInvite\\(", "message": "native invitation review must call previewHouseholdInvitation" }]
+      }]
+    },
+    {
+      "id": "household.invitation.accept",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "acceptHouseholdMemberInvite\\(", "message": "native Household acceptance must call acceptHouseholdInvitation" }]
+      }]
+    },
+    {
+      "id": "household.child_capability.update",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "setChildCapabilityActivation\\(", "message": "native child capability changes must call setHouseholdChildCapability" }]
+      }]
+    },
+    {
+      "id": "household.caregiver_grant.update",
+      "actionModule": "src/capabilities/relationships/actions/relationshipActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/household/HouseholdSettingsScreen.tsx",
+        "forbiddenPatterns": [{ "pattern": "setCaregiverCapabilityGrant\\(", "message": "native caregiver authority changes must call setHouseholdCaregiverGrant" }]
+      }]
+    },
+    {
+      "id": "plan.schedule_activity",
+      "actionModule": "src/capabilities/plan/actions/planActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/plan/PlanPager.tsx",
+          "forbiddenPatterns": [{ "pattern": "createCalendarEvent\\(", "message": "native Plan scheduling must call schedulePlanCalendarSession" }]
+        },
+        {
+          "path": "src/features/unifiedChat/planProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "calendar\\.createEvent\\(", "message": "Chat Plan scheduling must call schedulePlanCalendarSession" }]
+        }
+      ]
+    },
+    {
+      "id": "plan.schedule_chunks",
+      "actionModule": "src/capabilities/plan/actions/planActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/unifiedChat/planProposalExecutor.ts",
+        "forbiddenPatterns": [{ "pattern": "calendar\\.resolveAfterCreate\\(", "message": "Chat Plan chunk scheduling must call schedulePlanCalendarSession" }]
+      }]
+    },
+    {
+      "id": "plan.reschedule_activity",
+      "actionModule": "src/capabilities/plan/actions/planActions.ts",
+      "protectedFiles": [
+        {
+          "path": "src/features/plan/usePlanSessionEditor.ts",
+          "forbiddenPatterns": [{ "pattern": "moveManagedEvent\\(", "message": "native Plan moves must call reschedulePlanCalendarSession" }]
+        },
+        {
+          "path": "src/features/unifiedChat/planProposalExecutor.ts",
+          "forbiddenPatterns": [{ "pattern": "calendar\\.moveEvent\\(", "message": "Chat Plan moves must call reschedulePlanCalendarSession" }]
+        }
+      ]
+    },
+    {
+      "id": "plan.remove_activity",
+      "actionModule": "src/capabilities/plan/actions/planActions.ts",
+      "protectedFiles": [{
+        "path": "src/features/unifiedChat/planProposalExecutor.ts",
+        "forbiddenPatterns": [{ "pattern": "calendar\\.deleteEvent\\(", "message": "Chat Plan removals must call removePlanCalendarSession" }]
+      }]
+    }
+  ]
+}

@@ -8,6 +8,12 @@ Kwilt has one Screen Time product capability built on one control plane. Goals, 
 
 This document is the canonical system and navigation contract for Screen Time across Kwilt. It supersedes the global-navigation proposal in [`family-screen-time/navigation-and-workflows.md`](../design-explorations/family-screen-time/navigation-and-workflows.md). The family rule, child explanation, caregiver authority, and device-delivery decisions in that exploration remain valid.
 
+Personal child-device identity and shared Household-device designation are owned by
+[Household device participation](household-device-participation.md). Family Screen Time
+consumes a guardian-managed personal-device binding; it does not require or create a
+conventional child account, and it does not treat a shared Household iPad as Charlie's
+personal Screen Time device.
+
 ## Decision
 
 > Screen Time is a shared control platform, not a global place of work.
@@ -340,6 +346,7 @@ Each step should be independently verifiable and avoid a bulk rewrite of existin
 
 ## Related Product Documents
 
+- [`family-screen-time-device-enrollment-and-reconciliation.md`](family-screen-time-device-enrollment-and-reconciliation.md) — canonical child-device enrollment, device-channel, receipt, snapshot, readiness, recovery, and release contract.
 - [`screen-time-controls-contextual-setup.md`](../feature-briefs/screen-time-controls-contextual-setup.md) — personal Focus and meaningful-first agreements.
 - [`screen-time-controls.md`](../feature-briefs/screen-time-controls.md) — Money-originated Screen Time reasoning from the standalone source.
 - [`family-screen-time-controls.md`](../feature-briefs/family-screen-time-controls.md) — caregiver/child agreements and delivery truth.

@@ -17,7 +17,7 @@
 - Create: `src/capabilities/meal-planning/domain/sharedMealCart.test.ts`
 - Create: `src/capabilities/meal-planning/domain/sharedMealCartMigration.test.ts`
 - Modify: `src/capabilities/meal-planning/domain/mealPlanValidation.test.ts`
-- Modify: `supabase/migrations/20260808032242_shared_meal_cart.sql`
+- Modify: `supabase/migrations/20260808034339_shared_meal_cart.sql`
 
 - [ ] **Step 1: Write failing domain tests** for projection parsing, insertion-order preservation, `canWithdraw`/`canReact`/`canSettle`, implicit contributor support, and organizer selection that never derives from reaction count.
 - [ ] **Step 2: Run the red tests:** `npx jest src/capabilities/meal-planning/domain/sharedMealCart.test.ts --runInBand`; expect missing-module failure.
@@ -98,8 +98,8 @@
 ### Task 7: Deploy additive migrations to production Supabase
 
 **Files:**
-- Read: `supabase/migrations/20260807172852_support_recipe_scoped_grocery_lists.sql`
-- Deploy in order: `20260807172852_support_recipe_scoped_grocery_lists.sql`, then `20260808032242_shared_meal_cart.sql` if both remain absent remotely.
+- Read: `supabase/migrations/20260808034329_support_recipe_scoped_grocery_lists.sql`
+- Deploy in order: `20260808034329_support_recipe_scoped_grocery_lists.sql`, then `20260808034339_shared_meal_cart.sql` if both remain absent remotely.
 
 - [ ] **Step 1: Re-list local and production migration histories** and verify checksums/content for every common version; stop on divergence.
 - [ ] **Step 2: Run pre-deploy production probes** for project `sqxwjtorodqjdfnuvprf`: current advisors, active-plan multiplicity, ownership uniqueness, and dependent function signatures.

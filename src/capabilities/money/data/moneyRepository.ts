@@ -183,6 +183,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
           .from('budget_transaction_allocations')
           .select('transaction_id,budget_id,amount_cents')
           .order('transaction_id', { ascending: true })
+          .order('budget_id', { ascending: true })
           .range(from, to)),
       ),
       collectAllPages<MoneyTransactionRow>((from, to) =>
@@ -217,6 +218,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 budget_financial_connections!inner(environment)
             `), 'budget_financial_connections.environment')
             .order('date', { ascending: false })
+            .order('id', { ascending: false })
             .range(from, to)),
       ),
     ]);

@@ -68,6 +68,10 @@ import {
   type QuickAddAiActionPreference,
 } from './uiPreferences';
 import { resetCapabilityOnboardingForUser } from '../features/capability-onboarding/useCapabilityOnboardingStore';
+import type { TodoActionStoreBoundary } from '../capabilities/todos/actions/todoActions';
+import type { ArcActionStoreBoundary } from '../capabilities/life-structure/actions/arcActions';
+import type { GoalActionStoreBoundary } from '../capabilities/life-structure/actions/goalActions';
+import type { ProfileActionStoreBoundary } from '../capabilities/life-structure/actions/profileActions';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 export type { QuickAddAiActionPreference } from './uiPreferences';
@@ -4132,6 +4136,50 @@ useAppStore.subscribe(
     }
   },
 );
+
+/** Persistence adapter shared by native UI and mobile Chat To-do actions. */
+export function getTodoActionStoreBoundary(): TodoActionStoreBoundary {
+  return {
+    getActivities: () => useAppStore.getState().activities,
+    addActivity: (activity) => useAppStore.getState().addActivity(activity),
+    updateActivity: (activityId, updater) => useAppStore.getState().updateActivity(activityId, updater),
+    removeActivity: (activityId) => useAppStore.getState().removeActivity(activityId),
+  };
+}
+
+/** Persistence adapter shared by native UI and mobile Chat Arc actions. */
+export function getArcActionStoreBoundary(): ArcActionStoreBoundary {
+  return {
+    getArcs: () => useAppStore.getState().arcs,
+    getGoals: () => useAppStore.getState().goals,
+    getActivities: () => useAppStore.getState().activities,
+    getGoalRecommendations: (arcId) => useAppStore.getState().goalRecommendations[arcId] ?? [],
+    getIsPro: () => useEntitlementsStore.getState().isPro,
+    addArc: (arc) => useAppStore.getState().addArc(arc),
+    updateArc: (arcId, updater) => useAppStore.getState().updateArc(arcId, updater),
+    removeArc: (arcId) => useAppStore.getState().removeArc(arcId),
+  };
+}
+
+/** Persistence adapter shared by native UI and mobile Chat Goal actions. */
+export function getGoalActionStoreBoundary(): GoalActionStoreBoundary {
+  return {
+    getGoals: () => useAppStore.getState().goals,
+    getActivities: () => useAppStore.getState().activities,
+    getArcIds: () => useAppStore.getState().arcs.map((arc) => arc.id),
+    addGoal: (goal) => useAppStore.getState().addGoal(goal),
+    updateGoal: (goalId, updater) => useAppStore.getState().updateGoal(goalId, updater),
+    removeGoal: (goalId) => useAppStore.getState().removeGoal(goalId),
+  };
+}
+
+/** Persistence adapter shared by native UI and mobile Chat Profile actions. */
+export function getProfileActionStoreBoundary(): ProfileActionStoreBoundary {
+  return {
+    getProfile: () => useAppStore.getState().userProfile,
+    updateProfileAt: (updater, updatedAt) => useAppStore.getState().updateUserProfileAt(updater, updatedAt),
+  };
+}
 
 // Reliability: flush domain snapshot when the app backgrounds so users don't lose newly
 // created objects if the process is killed before the debounce fires.

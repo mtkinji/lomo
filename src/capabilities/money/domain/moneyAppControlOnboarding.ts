@@ -18,10 +18,12 @@ export function getMoneyCategoryDestination({
   categoryId,
   entryIntent,
   monthOffset,
+  suggestedAppLabels,
 }: {
   categoryId: string;
   entryIntent?: MoneySummaryEntryIntent;
   monthOffset: number;
+  suggestedAppLabels?: string[];
 }):
   | {
       screen: 'MoneyCategoryDetail';
@@ -29,12 +31,20 @@ export function getMoneyCategoryDestination({
     }
   | {
       screen: 'MoneyAppControl';
-      params: { categoryId: string; source: 'capability-onboarding' };
+      params: {
+        categoryId: string;
+        source: 'capability-onboarding';
+        suggestedAppLabels?: string[];
+      };
     } {
   if (entryIntent === 'app-control-onboarding' && monthOffset === 0) {
     return {
       screen: 'MoneyAppControl',
-      params: { categoryId, source: 'capability-onboarding' },
+      params: {
+        categoryId,
+        source: 'capability-onboarding',
+        ...(suggestedAppLabels?.length ? { suggestedAppLabels } : {}),
+      },
     };
   }
   return {

@@ -42,6 +42,7 @@ export type ScreenTimeChatSnapshot = {
     authorizationStatus: ScreenTimeAuthorizationStatus;
   };
   children: ReadonlyArray<{
+    householdId?: string;
     membershipId: string;
     displayName: string;
     canManage: boolean;
@@ -619,8 +620,8 @@ export const screenTimeChatAdapter: CapabilityChatAdapter<ScreenTimeChatSnapshot
       route: {
         name: 'Settings',
         params: {
-          screen: 'SettingsFamilyScreenTime',
-          params: { childMembershipId: object.id, childDisplayName: object.label.replace(/'s Screen Time$/, '') },
+          screen: 'SettingsHouseholdMember',
+          params: { membershipId: object.id },
         },
       },
     }),

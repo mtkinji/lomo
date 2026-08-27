@@ -21,11 +21,17 @@ export function resolveKwiltAiModel(params: {
 }): string | null {
   if (params.route === '/v1/images/generations') return 'gpt-image-1';
   if (params.route === '/v1/responses') {
-    return params.job === 'current_information' || params.job === 'unified_chat_attachment' || params.job === 'agent_judgment'
-      ? getKwiltGenerationJobContract(params.job).cloudModel
+    const job = typeof params.job === 'string' && params.job in KWILT_GENERATION_JOB_CONTRACTS
+      ? params.job as KwiltGenerationJobId
+      : null;
+    if (!job) return null;
+    const contract = getKwiltGenerationJobContract(job);
+    return contract.responses || job === 'current_information' || job === 'unified_chat_attachment' || job === 'agent_judgment'
+      ? contract.cloudModel
       : null;
   }
   if (params.route !== '/v1/chat/completions') return params.requestedModel ?? null;
 
-  return getKwiltGenerationJobContract(normalizeKwiltAiJob(params.job)).cloudModel;
+  const contract = getKwiltGenerationJobContract(normalizeKwiltAiJob(params.job));
+  return contract.responses ? null : contract.cloudModel;
 }

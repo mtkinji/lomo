@@ -7,7 +7,8 @@ import {
   type CapabilityManifestEntry,
   type RuntimeToolImplementation,
 } from './capabilityManifest';
-import { KWILT_CAPABILITY_MANIFEST } from './kwiltCapabilityManifest';
+import { KWILT_CAPABILITY_MANIFEST, KWILT_EXTERNAL_CONTROL_SCOPE } from './kwiltCapabilityManifest';
+import type { RuntimeToolProviderRegistration } from './providerRegistry';
 
 const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: false } as const;
 
@@ -47,6 +48,42 @@ function inspectOperation(
 }
 
 describe('canonical capability manifest', () => {
+  test('classifies every operation owner and excludes only Games and Explore from external control', () => {
+    const owners = new Set(KWILT_CAPABILITY_MANIFEST.map((operation) => operation.owner));
+    for (const owner of owners) expect(KWILT_EXTERNAL_CONTROL_SCOPE[owner as keyof typeof KWILT_EXTERNAL_CONTROL_SCOPE]).toBeDefined();
+    expect(Object.entries(KWILT_EXTERNAL_CONTROL_SCOPE)
+      .filter(([, scope]) => scope === 'excluded')
+      .map(([owner]) => owner)).toEqual(['explore', 'games']);
+  });
+
+  test('marks bounded Household reads live only after their server projection exists', () => {
+    for (const operationId of ['household.read', 'household.invitation.preview']) {
+      const operation = KWILT_CAPABILITY_MANIFEST.find((candidate) => candidate.id === operationId);
+      expect(operation?.channels.mobile.state).toBe('live');
+      expect(operation?.channels.phone).toMatchObject({ state: 'live', outcome: 'server_execution' });
+    }
+  });
+
+  test('projects only tool providers backed by executable registrations', () => {
+    const manifest = defineCapabilityManifest([inspectOperation({
+      tools: [
+        inspectOperation().tools[0],
+        { ...inspectOperation().tools[0], id: 'test.unregistered' },
+      ],
+    })]);
+    const registrations: RuntimeToolProviderRegistration<Record<string, never>>[] = [{
+      toolId: 'test.inspect',
+      provider: 'device',
+      execute: async () => ({ status: 'completed', output: {}, receipt: null }),
+    }];
+
+    expect(projectAgentToolCatalog(manifest, {
+      runtime: 'mobile', registrations,
+    }).map((tool) => ({ id: tool.id, providers: tool.providers }))).toEqual([
+      { id: 'test.inspect', providers: ['device'] },
+    ]);
+  });
+
   test('registering one operation projects the same tool contract into eligible runtimes', () => {
     const manifest = defineCapabilityManifest([inspectOperation()]);
     const implementations: RuntimeToolImplementation[] = [

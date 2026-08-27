@@ -20,7 +20,10 @@ import {
 } from '../../services/plan/calendarEventCommit';
 import { getKwiltCalendarBlocksForDay } from '../../services/plan/kwiltCalendarBlocks';
 import { proposeSlotsForActivity } from '../../services/plan/planScheduling';
-import { resolveManualScheduleSlot } from './activityScheduleSlots';
+import {
+  resolveManualScheduleSlot,
+  type ManualScheduleSlotAdvisory,
+} from './activityScheduleSlots';
 import {
   formatScheduleSlotTimeRange,
   getScheduleDurationOptions,
@@ -28,7 +31,9 @@ import {
 } from './activityScheduleDisplay';
 import { resolveActivityScheduleSheetDraft } from './activityScheduleSheetDraft';
 import {
+  activityScheduleSlotToDraft,
   resolveSelectedScheduleSlot,
+  type ActivityScheduleDraft,
   type ActivityScheduleSlot,
 } from './activityScheduleSelection';
 
@@ -73,8 +78,11 @@ export type ActivityScheduleSheetController = {
   writeRef: CalendarRef | null;
   slots: ActivityScheduleSlot[];
   selectedSlot: ActivityScheduleSlot | null;
+  selectedSlotDraft: ActivityScheduleDraft | null;
+  selectedSlotAdvisories: ManualScheduleSlotAdvisory[];
   selectedSlotIndex: number;
   selectedSlotLabel: string | null;
+  slotFocusRequestId: number;
   horizonExhausted: boolean;
   kwiltBlocks: ReturnType<typeof getKwiltCalendarBlocksForDay>;
   calendarColorByRefKey: Record<string, string>;
@@ -85,6 +93,7 @@ export type ActivityScheduleSheetController = {
   selectSuggestedSlot: (index: number) => void;
   selectTargetDate: (date: Date) => void;
   selectManualTime: (params: { date: Date }) => void;
+  selectSlotDraft: (draft: ActivityScheduleDraft) => void;
   confirmSelectedSlot: (slotIndex?: number) => Promise<void>;
 };
 
@@ -140,6 +149,7 @@ export function useActivityScheduleSheetController({
   const [durationExpanded, setDurationExpanded] = useState(false);
   const [targetDate, setTargetDate] = useState(initialDraft.targetDate);
   const initialTargetDateRef = useRef(initialDraft.targetDate);
+  const shouldScanHorizonRef = useRef(true);
   const horizonCacheRef = useRef<ScheduleHorizonCache | null>(null);
   const [fetchNonce, setFetchNonce] = useState(0);
   const [busyIntervals, setBusyIntervals] = useState<Array<{ start: Date; end: Date }>>([]);
@@ -149,6 +159,9 @@ export function useActivityScheduleSheetController({
   const [horizonExhausted, setHorizonExhausted] = useState(false);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState(0);
   const [manualScheduleSlot, setManualScheduleSlot] = useState<ActivityScheduleSlot | null>(null);
+  const manualScheduleSlotRef = useRef<ActivityScheduleSlot | null>(null);
+  const [selectedSlotAdvisories, setSelectedSlotAdvisories] = useState<ManualScheduleSlotAdvisory[]>([]);
+  const [slotFocusRequestId, setSlotFocusRequestId] = useState(0);
   const [isCommitting, setIsCommitting] = useState(false);
 
   const durationMinutes = useMemo(
@@ -158,6 +171,8 @@ export function useActivityScheduleSheetController({
     }),
     [activity?.estimateMinutes, durationDraft],
   );
+  const durationMinutesRef = useRef(durationMinutes);
+  durationMinutesRef.current = durationMinutes;
   const durationOptions = useMemo(() => getScheduleDurationOptions(), []);
   const bindingHealth = useMemo(
     () => inferCalendarBindingHealth({
@@ -185,6 +200,7 @@ export function useActivityScheduleSheetController({
     scheduleSlots: slots,
     selectedSlotIndex,
   });
+  const selectedSlotDraft = activityScheduleSlotToDraft(selectedSlot);
   const selectedSlotLabel = selectedSlot
     ? formatScheduleSlotTimeRange(selectedSlot)
     : null;
@@ -212,10 +228,14 @@ export function useActivityScheduleSheetController({
     setDurationDraft(draft.durationDraft);
     setDurationExpanded(false);
     initialTargetDateRef.current = new Date(draft.targetDate);
+    shouldScanHorizonRef.current = true;
     horizonCacheRef.current = null;
     setTargetDate(new Date(draft.targetDate));
     setSelectedSlotIndex(0);
     setManualScheduleSlot(null);
+    manualScheduleSlotRef.current = null;
+    setSelectedSlotAdvisories([]);
+    setSlotFocusRequestId((current) => current + 1);
     setHorizonExhausted(false);
     setFetchNonce((current) => current + 1);
     onOpen();
@@ -228,7 +248,7 @@ export function useActivityScheduleSheetController({
       try {
         setLoading(true);
         setHorizonExhausted(false);
-        setManualScheduleSlot(null);
+        const retainedManualSlot = manualScheduleSlotRef.current;
         const preferences = await getOrInitCalendarPreferences();
         if (cancelled) return;
         const nextWriteRef = preferences.writeCalendarRef ?? null;
@@ -263,13 +283,45 @@ export function useActivityScheduleSheetController({
         const allEvents = eventsResult.events ?? [];
         horizonCacheRef.current = { start: horizonStart, end: horizonEnd, busyAll: allBusy, eventsAll: allEvents };
 
+        if (retainedManualSlot) {
+          const retainedDate = new Date(retainedManualSlot.startDate);
+          const retainedBusy = sliceBusyForDay(allBusy, retainedDate);
+          setTargetDate(retainedDate);
+          setBusyIntervals(retainedBusy);
+          setExternalEvents(sliceEventsForDay(allEvents, retainedDate));
+          const retainedStart = new Date(retainedManualSlot.startDate);
+          const retainedEnd = new Date(retainedManualSlot.endDate);
+          const retainedResolution = resolveManualScheduleSlot({
+            activity,
+            activityAreas,
+            goals,
+            userProfile,
+            date: retainedStart,
+            durationMinutes: Math.max(1, Math.round((retainedEnd.getTime() - retainedStart.getTime()) / 60_000)),
+            busyIntervals: retainedBusy,
+          });
+          if (retainedResolution.ok) setSelectedSlotAdvisories(retainedResolution.advisories);
+          return;
+        }
+
+        if (!shouldScanHorizonRef.current) {
+          setTargetDate(horizonStart);
+          setBusyIntervals(sliceBusyForDay(allBusy, horizonStart));
+          setExternalEvents(sliceEventsForDay(allEvents, horizonStart));
+          setSelectedSlotIndex(0);
+          setSelectedSlotAdvisories([]);
+          setHorizonExhausted(false);
+          setSlotFocusRequestId((current) => current + 1);
+          return;
+        }
+
         let resolvedDate: Date | null = null;
         for (let offset = 0; offset <= 14; offset += 1) {
           const day = new Date(horizonStart);
           day.setDate(day.getDate() + offset);
           const dayBusy = sliceBusyForDay(allBusy, day);
           const proposed = proposeSlotsForActivity({
-            activity: { ...activity, estimateMinutes: durationMinutes },
+            activity: { ...activity, estimateMinutes: durationMinutesRef.current },
             goals,
             userProfile,
             targetDate: day,
@@ -284,6 +336,8 @@ export function useActivityScheduleSheetController({
           setBusyIntervals(dayBusy);
           setExternalEvents(sliceEventsForDay(allEvents, day));
           setSelectedSlotIndex(0);
+          setSelectedSlotAdvisories([]);
+          setSlotFocusRequestId((current) => current + 1);
           break;
         }
 
@@ -292,6 +346,7 @@ export function useActivityScheduleSheetController({
           setBusyIntervals(sliceBusyForDay(allBusy, horizonStart));
           setExternalEvents(sliceEventsForDay(allEvents, horizonStart));
           setSelectedSlotIndex(0);
+          setSelectedSlotAdvisories([]);
           setHorizonExhausted(true);
         }
       } catch {
@@ -306,20 +361,17 @@ export function useActivityScheduleSheetController({
     return () => {
       cancelled = true;
     };
-  }, [activity, activityAreas, durationMinutes, fetchNonce, goals, userProfile, visible]);
-
-  useEffect(() => {
-    if (!visible) return;
-    setManualScheduleSlot(null);
-    setSelectedSlotIndex(0);
-  }, [durationMinutes, visible]);
+  }, [activity, activityAreas, fetchNonce, goals, userProfile, visible]);
 
   const selectTargetDate = useCallback((date: Date) => {
     const nextDate = new Date(date);
     if (Number.isNaN(nextDate.getTime())) return;
     nextDate.setHours(12, 0, 0, 0);
     setManualScheduleSlot(null);
+    manualScheduleSlotRef.current = null;
+    setSelectedSlotAdvisories([]);
     setSelectedSlotIndex(0);
+    setSlotFocusRequestId((current) => current + 1);
     setHorizonExhausted(false);
     const cache = horizonCacheRef.current;
     if (cache && nextDate >= cache.start && nextDate < cache.end) {
@@ -329,27 +381,25 @@ export function useActivityScheduleSheetController({
       return;
     }
     initialTargetDateRef.current = nextDate;
+    shouldScanHorizonRef.current = false;
     horizonCacheRef.current = null;
     setTargetDate(nextDate);
     setFetchNonce((current) => current + 1);
   }, []);
 
-  const selectManualTime = useCallback(({ date }: { date: Date }) => {
+  const applyManualDraft = useCallback((draft: ActivityScheduleDraft) => {
     if (!activity) return;
-    if (!writeRef?.calendarId) {
-      showToast({ message: 'Set a Plan write calendar to schedule.', variant: 'default', durationMs: 2200 });
-      return;
-    }
-    const start = new Date(date);
-    if (Number.isNaN(start.getTime())) return;
-    start.setSeconds(0, 0);
+    const start = new Date(draft.start);
+    const end = new Date(draft.end);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return;
+    const draftDurationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60_000));
     const resolved = resolveManualScheduleSlot({
       activity,
       activityAreas,
       goals,
       userProfile,
       date: start,
-      durationMinutes,
+      durationMinutes: draftDurationMinutes,
       busyIntervals,
     });
     if (!resolved.ok) {
@@ -357,8 +407,43 @@ export function useActivityScheduleSheetController({
       return;
     }
     setManualScheduleSlot(resolved.slot);
+    manualScheduleSlotRef.current = resolved.slot;
+    setSelectedSlotAdvisories(resolved.advisories);
     setSelectedSlotIndex(-1);
-  }, [activity, activityAreas, busyIntervals, durationMinutes, goals, showToast, userProfile, writeRef?.calendarId]);
+    setDurationDraft(String(draftDurationMinutes));
+  }, [activity, activityAreas, busyIntervals, goals, showToast, userProfile]);
+
+  const selectManualTime = useCallback(({ date }: { date: Date }) => {
+    if (!writeRef?.calendarId) {
+      showToast({ message: 'Set a Plan write calendar to schedule.', variant: 'default', durationMs: 2200 });
+      return;
+    }
+    const start = new Date(date);
+    if (Number.isNaN(start.getTime())) return;
+    start.setSeconds(0, 0);
+    applyManualDraft({
+      start,
+      end: new Date(start.getTime() + durationMinutes * 60_000),
+    });
+    setSlotFocusRequestId((current) => current + 1);
+  }, [applyManualDraft, durationMinutes, showToast, writeRef?.calendarId]);
+
+  const updateDurationMinutes = useCallback((minutes: number) => {
+    const nextMinutes = Math.max(1, Math.round(minutes));
+    const manualSlot = manualScheduleSlotRef.current;
+    if (!manualSlot) {
+      setDurationDraft(String(nextMinutes));
+      setSelectedSlotAdvisories([]);
+      setSelectedSlotIndex(0);
+      setSlotFocusRequestId((current) => current + 1);
+      return;
+    }
+    const start = new Date(manualSlot.startDate);
+    applyManualDraft({
+      start,
+      end: new Date(start.getTime() + nextMinutes * 60_000),
+    });
+  }, [applyManualDraft]);
 
   const confirmSelectedSlot = useCallback(async (slotIndex?: number) => {
     if (!activity) return;
@@ -445,21 +530,28 @@ export function useActivityScheduleSheetController({
     writeRef,
     slots,
     selectedSlot,
+    selectedSlotDraft,
+    selectedSlotAdvisories,
     selectedSlotIndex,
     selectedSlotLabel,
+    slotFocusRequestId,
     horizonExhausted,
     kwiltBlocks,
     calendarColorByRefKey: {},
     open,
     close: onClose,
     setDurationExpanded,
-    setDurationMinutes: (minutes) => setDurationDraft(String(minutes)),
+    setDurationMinutes: updateDurationMinutes,
     selectSuggestedSlot: (index) => {
       setManualScheduleSlot(null);
+      manualScheduleSlotRef.current = null;
+      setSelectedSlotAdvisories([]);
       setSelectedSlotIndex(index);
+      setSlotFocusRequestId((current) => current + 1);
     },
     selectTargetDate,
     selectManualTime,
+    selectSlotDraft: applyManualDraft,
     confirmSelectedSlot,
   };
 }

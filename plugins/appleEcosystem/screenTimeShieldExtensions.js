@@ -303,9 +303,9 @@ private enum KwiltShieldArtwork {
 }
 
 final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
-  private let detailColor = UIColor(white: 1.0, alpha: 0.84)
-  private let pine = UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
-  private let primaryAction = UIColor(red: 0.110, green: 0.102, blue: 0.098, alpha: 1.0)
+  private let parchment = UIColor(red: 0.980, green: 0.969, blue: 0.929, alpha: 1.0)
+  private let sumi = UIColor(red: 0.110, green: 0.102, blue: 0.098, alpha: 1.0)
+  private let detailColor = UIColor(red: 0.110, green: 0.102, blue: 0.098, alpha: 0.72)
 
   private func configuration(
     appName: String,
@@ -332,12 +332,12 @@ final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
     }
     return ShieldConfiguration(
       backgroundBlurStyle: nil,
-      backgroundColor: pine,
+      backgroundColor: parchment,
       icon: KwiltShieldArtwork.icon(appName: appName),
-      title: ShieldConfiguration.Label(text: title, color: UIColor.white),
+      title: ShieldConfiguration.Label(text: title, color: sumi),
       subtitle: ShieldConfiguration.Label(text: subtitle, color: detailColor),
       primaryButtonLabel: ShieldConfiguration.Label(text: KwiltShieldCopy.buttonLabel(for: reason), color: UIColor.white),
-      primaryButtonBackgroundColor: primaryAction,
+      primaryButtonBackgroundColor: sumi,
       secondaryButtonLabel: nil
     )
   }

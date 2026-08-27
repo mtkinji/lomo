@@ -8,10 +8,12 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   EXTERNAL_MCP_READ_TOOLS,
   EXTERNAL_MCP_WRITE_TOOLS,
+  normalizeExternalWriteRequestId,
   normalizeGetArcArgs,
   normalizeGetGoalArgs,
   normalizeListGoalsArgs,
   normalizeListRecentActivitiesArgs,
+  resolveExternalMcpTool,
   summarizeActivity,
   summarizeArc,
   summarizeChapter,
@@ -20,33 +22,22 @@ import {
   summarizeShowUpStatus,
 } from '../_shared/externalMcp.ts';
 import {
-  addGoalCheckinForUser,
-  createActivityStepForUser,
-  createActivityForUser,
-  createArcForUser,
-  createGoalForUser,
-  deleteActivityForUser,
-  deleteActivityStepForUser,
-  deleteArcForUser,
-  deleteGoalForUser,
-  markActivityStepDoneForUser,
-  markActivityDoneForUser,
-  reorderActivityStepsForUser,
-  setFocusTodayForUser,
-  updateActivityStepForUser,
-  updateActivityForUser,
-  updateArcForUser,
-  updateChapterUserNoteForUser,
-  updateGoalForUser,
+  executeExternalMcpWrite,
+  externalMcpIdempotencyMaterial,
   type ExternalWriteResult,
 } from '../_shared/externalMcpWrite.ts';
+import { SERVER_AGENT_TOOL_CATALOG } from '../_shared/serverAgentCatalog.ts';
+import { executeServerAgentTool } from '../_shared/serverAgentTools.ts';
+import { createServiceAgentRunPersistence } from '../_shared/serviceAgentRunPersistence.ts';
+import type { ServerAgentToolCall, ServerAgentToolResult } from '../_shared/agentRuntime.ts';
 import {
   buildAuthorizationServerMetadata,
   buildClientRegistrationResponse,
   buildProtectedResourceMetadata,
   normalizeClientRegistration,
-  normalizeOAuthScope,
+  normalizeRequestedOAuthScope,
   normalizeResourceIndicator,
+  normalizeStoredOAuthScope,
   verifyPkceChallenge,
 } from '../_shared/externalMcpOAuth.ts';
 
@@ -67,6 +58,7 @@ type ExternalTokenContext = {
   scope: string;
   tokenId: string;
 };
+type ExternalServiceClient = Parameters<typeof createServiceAgentRunPersistence>[0]['admin'];
 
 const MCP_PROTOCOL_VERSION = '2024-11-05';
 const ALL_EXTERNAL_MCP_TOOLS = [...EXTERNAL_MCP_READ_TOOLS, ...EXTERNAL_MCP_WRITE_TOOLS];
@@ -174,17 +166,20 @@ function scopeSet(scope: string): Set<string> {
   return new Set(scope.split(/\s+/).filter(Boolean));
 }
 
-function hasScope(context: ExternalTokenContext, scope: 'read' | 'write'): boolean {
+function hasScope(context: ExternalTokenContext, scope: string): boolean {
   return scopeSet(context.scope).has(scope);
 }
 
-function getToolScope(name: string): 'read' | 'write' | null {
-  const tool = ALL_EXTERNAL_MCP_TOOLS.find((candidate) => candidate.name === name);
-  return tool?.scope === 'write' ? 'write' : tool ? 'read' : null;
+function hasRequiredScopes(context: ExternalTokenContext, scopes: readonly string[]): boolean {
+  return scopes.every((scope) => hasScope(context, scope));
+}
+
+function getExternalTool(name: string) {
+  return resolveExternalMcpTool(name);
 }
 
 function getIdempotencyKey(args: unknown): string | null {
-  return asString(asRecord(args)?.idempotency_key);
+  return normalizeExternalWriteRequestId(asRecord(args)?.idempotency_key);
 }
 
 function base64Url(bytes: Uint8Array): string {
@@ -242,7 +237,7 @@ async function requireExternalToken(req: Request): Promise<
   const tokenHash = await sha256Hex(token);
   const { data, error } = await admin
     .from('kwilt_external_oauth_tokens')
-    .select('id,user_id,client_id,scope,expires_at,revoked_at,kwilt_external_oauth_clients(surface,revoked_at)')
+    .select('id,user_id,client_id,scope,scope_policy_version,legacy_scope_expires_at,expires_at,revoked_at,kwilt_external_oauth_clients(surface,revoked_at)')
     .eq('token_hash', tokenHash)
     .maybeSingle();
 
@@ -253,7 +248,10 @@ async function requireExternalToken(req: Request): Promise<
   if (error || !row || row.revoked_at || client?.revoked_at || new Date(String(row.expires_at)).getTime() <= Date.now()) {
     return { ok: false, response: json(401, { error: { message: 'Unauthorized', code: 'unauthorized' } }) };
   }
-  const scope = normalizeOAuthScope(row.scope);
+  const scope = normalizeStoredOAuthScope(row.scope, {
+    policyVersion: row.scope_policy_version,
+    legacyScopeExpiresAt: row.legacy_scope_expires_at,
+  });
   if (!scope) return { ok: false, response: json(403, { error: { message: 'Invalid scope', code: 'insufficient_scope' } }) };
 
   try {
@@ -295,7 +293,7 @@ async function auditToolCall(
   params: {
     toolName: string;
     toolKind: 'read' | 'write';
-    scopeUsed: 'read' | 'write';
+    scopeUsed: string;
     args: unknown;
     success: boolean;
     errorCode?: string | null;
@@ -510,7 +508,12 @@ async function handleReadTool(admin: any, context: ExternalTokenContext, name: s
   throw new Error('unknown_tool');
 }
 
-async function findIdempotentWrite(admin: any, context: ExternalTokenContext, idempotencyKeyHash: string): Promise<JsonObject | null> {
+async function findIdempotentWrite(
+  admin: any,
+  context: ExternalTokenContext,
+  tool: (typeof ALL_EXTERNAL_MCP_TOOLS)[number],
+  idempotencyKeyHash: string,
+): Promise<JsonObject | null> {
   const { data } = await admin
     .from('kwilt_external_capture_log')
     .select('object_type,object_id,result_summary,result_status')
@@ -521,55 +524,116 @@ async function findIdempotentWrite(admin: any, context: ExternalTokenContext, id
     .maybeSingle();
   const row = data as any;
   if (!row?.object_type || !row?.object_id) return null;
+  const objectType = String(row.object_type);
+  const objectId = String(row.object_id);
+  const status = objectType === 'proposal' ? 'proposed'
+    : objectType === 'client_action' ? 'pending_client_action'
+      : 'completed';
+  const summary = asString(row.result_summary) ?? 'Already completed.';
   return {
+    receipt_id: null,
+    operation: tool.operationId,
+    status,
+    result_references: status === 'completed' ? [{ kind: objectType, id: objectId }] : [],
+    confirmation: status === 'proposed' ? { required: true, state: 'pending', proposal_id: objectId } : null,
+    handoff: status === 'pending_client_action' ? { required: true, provider: 'device' } : null,
+    summary,
     idempotent_replay: true,
-    object_type: String(row.object_type),
-    object_id: String(row.object_id),
-    result_summary: asString(row.result_summary) ?? 'Already completed.',
+    object_type: objectType,
+    object_id: objectId,
+    result_summary: summary,
   };
 }
 
-async function handleWriteTool(admin: any, context: ExternalTokenContext, name: string, args: unknown): Promise<ExternalWriteResult> {
-  switch (name) {
-    case 'create_arc':
-      return createArcForUser(admin, context.userId, args);
-    case 'update_arc':
-      return updateArcForUser(admin, context.userId, args);
-    case 'delete_arc':
-      return deleteArcForUser(admin, context.userId, args);
-    case 'create_goal':
-      return createGoalForUser(admin, context.userId, args);
-    case 'update_goal':
-      return updateGoalForUser(admin, context.userId, args);
-    case 'delete_goal':
-      return deleteGoalForUser(admin, context.userId, args);
-    case 'add_goal_checkin':
-      return addGoalCheckinForUser(admin, context.userId, args);
-    case 'capture_activity':
-      return createActivityForUser(admin, context.userId, args);
-    case 'update_activity':
-      return updateActivityForUser(admin, context.userId, args);
-    case 'create_activity_step':
-      return createActivityStepForUser(admin, context.userId, args);
-    case 'update_activity_step':
-      return updateActivityStepForUser(admin, context.userId, args);
-    case 'mark_activity_step_done':
-      return markActivityStepDoneForUser(admin, context.userId, args);
-    case 'delete_activity_step':
-      return deleteActivityStepForUser(admin, context.userId, args);
-    case 'reorder_activity_steps':
-      return reorderActivityStepsForUser(admin, context.userId, args);
-    case 'mark_activity_done':
-      return markActivityDoneForUser(admin, context.userId, args);
-    case 'set_focus_today':
-      return setFocusTodayForUser(admin, context.userId, args);
-    case 'delete_activity':
-      return deleteActivityForUser(admin, context.userId, args);
-    case 'update_chapter_user_note':
-      return updateChapterUserNoteForUser(admin, context.userId, args);
-    default:
-      throw new Error('unknown_tool');
+function serverResultSummary(toolTitle: string, result: ServerAgentToolResult): string {
+  if (result.status === 'completed') return `${toolTitle} completed.`;
+  if (result.status === 'proposed') return `${toolTitle} is ready for review in Kwilt.`;
+  if (result.status === 'pending_client_action') return `${toolTitle} is ready to continue in Kwilt.`;
+  if (result.status === 'needs_input') return result.prompt;
+  if (result.status === 'unavailable') return result.reason;
+  return result.message;
+}
+
+async function executeCanonicalExternalTool(
+  admin: ExternalServiceClient,
+  context: ExternalTokenContext,
+  externalTool: (typeof ALL_EXTERNAL_MCP_TOOLS)[number],
+  call: ServerAgentToolCall,
+): Promise<ServerAgentToolResult> {
+  const tool = SERVER_AGENT_TOOL_CATALOG.find((candidate) => candidate.id === call.toolId);
+  if (!tool) throw new Error('canonical_server_tool_unavailable');
+  const persistence = createServiceAgentRunPersistence({ admin, userId: context.userId });
+  const request = {
+    channel: 'external' as const,
+    requestId: call.id,
+    prompt: `External connector requested ${externalTool.operationId}.`,
+    threadId: null,
+    initiator: 'user' as const,
+    triggerKind: 'user_message' as const,
+    triggerId: call.id,
+    channelContext: { externalMessageId: call.id },
+  };
+  const run = await persistence.enqueue(request);
+  if (run.replayed) throw new Error('external_action_in_progress_or_completed');
+  const activeVersion = await persistence.start(run, request);
+  try {
+    const result = await executeServerAgentTool({
+      client: admin,
+      userId: context.userId,
+      call,
+      tool,
+      writeContext: { threadId: run.threadId, runId: run.runId, messageId: run.messageId },
+      actionSource: 'mcp',
+      stageDeviceAction: (action) => persistence.stageClientAction({ run, callId: call.id, action }),
+      stageProposal: (proposal) => persistence.stageProposal({ run, callId: call.id, proposal }),
+      stageProposals: (proposals) => persistence.stageProposals({ run, callId: call.id, proposals }),
+      timeZone: 'UTC',
+    });
+    await persistence.complete({
+      run,
+      expectedVersion: activeVersion,
+      body: serverResultSummary(externalTool.annotations.title, result),
+      status: result.status === 'failed' || result.status === 'unavailable' ? 'partial' : 'complete',
+      participatingCapabilities: [tool.capabilityId],
+      requestClass: 'capability_question',
+    });
+    return result;
+  } catch (error) {
+    await persistence.fail({ run, expectedVersion: activeVersion, code: 'external_action_failed', request });
+    throw error;
   }
+}
+
+async function executeCanonicalExternalReadTool(
+  admin: ExternalServiceClient,
+  context: ExternalTokenContext,
+  externalTool: (typeof ALL_EXTERNAL_MCP_TOOLS)[number],
+  args: unknown,
+): Promise<JsonObject> {
+  const result = await executeCanonicalExternalTool(admin, context, externalTool, {
+    id: `mcp-read-${crypto.randomUUID()}`,
+    toolId: externalTool.toolId,
+    arguments: asRecord(args) ?? {},
+  });
+  if (result.status === 'completed') return (asRecord(result.output) ?? {}) as JsonObject;
+  if (result.status === 'unavailable') throw new Error(result.reason);
+  if (result.status === 'failed') throw new Error(result.code || 'external_read_failed');
+  throw new Error('external_read_did_not_complete');
+}
+
+async function handleWriteTool(
+  admin: any,
+  context: ExternalTokenContext,
+  tool: (typeof ALL_EXTERNAL_MCP_TOOLS)[number],
+  args: unknown,
+  requestId: string,
+): Promise<ExternalWriteResult> {
+  return executeExternalMcpWrite({
+    tool,
+    args,
+    requestId,
+    execute: (call) => executeCanonicalExternalTool(admin, context, tool, call),
+  });
 }
 
 async function handleRegister(req: Request) {
@@ -691,7 +755,7 @@ async function handleAuthorizeApprove(req: Request) {
     return json(200, { redirect_to: destination.toString() });
   }
 
-  const scope = normalizeOAuthScope(body.scope);
+  const scope = normalizeRequestedOAuthScope(body.scope);
   if (!scope) return json(400, { error: 'invalid_scope' });
 
   const code = randomToken('kwilt_code', 32);
@@ -732,7 +796,10 @@ async function handleToken(req: Request) {
   }
 
   let userId: string | null = null;
-  let scope = 'read';
+  let scope = 'life.read';
+  let storedScope = scope;
+  let scopePolicyVersion = 2;
+  let legacyScopeExpiresAt: string | null = null;
   let previousRefreshTokenRowId: string | null = null;
   if (grantType === 'authorization_code') {
     const code = asString(body.code);
@@ -768,9 +835,15 @@ async function handleToken(req: Request) {
       .maybeSingle();
     if (!claimed) return json(400, { error: 'invalid_grant' });
     userId = String(row.user_id);
-    const normalizedScope = normalizeOAuthScope(row.scope);
+    const normalizedScope = normalizeStoredOAuthScope(row.scope, {
+      policyVersion: row.scope_policy_version,
+      legacyScopeExpiresAt: row.legacy_scope_expires_at,
+    });
     if (!normalizedScope) return json(400, { error: 'invalid_grant' });
     scope = normalizedScope;
+    scopePolicyVersion = Number(row.scope_policy_version);
+    legacyScopeExpiresAt = row.legacy_scope_expires_at ? String(row.legacy_scope_expires_at) : null;
+    storedScope = scopePolicyVersion === 1 ? String(row.scope) : scope;
   } else if (grantType === 'refresh_token') {
     const refreshToken = asString(body.refresh_token);
     if (!refreshToken) return json(400, { error: 'invalid_grant' });
@@ -783,9 +856,15 @@ async function handleToken(req: Request) {
     if (!row || row.client_id !== clientId || row.revoked_at) return json(400, { error: 'invalid_grant' });
     userId = String(row.user_id);
     previousRefreshTokenRowId = String(row.id);
-    const normalizedScope = normalizeOAuthScope(row.scope);
+    const normalizedScope = normalizeStoredOAuthScope(row.scope, {
+      policyVersion: row.scope_policy_version,
+      legacyScopeExpiresAt: row.legacy_scope_expires_at,
+    });
     if (!normalizedScope) return json(400, { error: 'invalid_grant' });
     scope = normalizedScope;
+    scopePolicyVersion = Number(row.scope_policy_version);
+    legacyScopeExpiresAt = row.legacy_scope_expires_at ? String(row.legacy_scope_expires_at) : null;
+    storedScope = scopePolicyVersion === 1 ? String(row.scope) : scope;
   } else {
     return json(400, { error: 'unsupported_grant_type' });
   }
@@ -798,7 +877,9 @@ async function handleToken(req: Request) {
     refresh_token_hash: await sha256Hex(refreshToken),
     client_id: clientId,
     user_id: userId,
-    scope,
+    scope: storedScope,
+    scope_policy_version: scopePolicyVersion,
+    legacy_scope_expires_at: legacyScopeExpiresAt,
     expires_at: expiresAt.toISOString(),
   });
   if (error) return json(500, { error: 'token_issue_failed' });
@@ -867,7 +948,7 @@ async function handleMcp(req: Request) {
   }
 
   if (method === 'tools/list') {
-    const tools = hasScope(auth.context, 'write') ? ALL_EXTERNAL_MCP_TOOLS : EXTERNAL_MCP_READ_TOOLS;
+    const tools = ALL_EXTERNAL_MCP_TOOLS.filter((tool) => hasRequiredScopes(auth.context, tool.requiredScopes));
     return json(200, rpcResult(id, { tools } as JsonObject));
   }
 
@@ -876,22 +957,42 @@ async function handleMcp(req: Request) {
   const name = asString(params.name);
   const args = params.arguments ?? {};
   if (!name) return json(200, rpcError(id, -32602, 'Missing tool name'));
-  const toolScope = getToolScope(name);
-  if (!toolScope) return json(200, rpcError(id, -32601, `Unknown tool: ${name}`));
-  if (!hasScope(auth.context, toolScope)) return json(200, rpcError(id, -32000, `${toolScope} scope required`));
+  const externalTool = getExternalTool(name);
+  const toolScope = externalTool?.scope ?? null;
+  if (!externalTool || !toolScope) return json(200, rpcError(id, -32601, `Unknown tool: ${name}`));
+  if (!hasRequiredScopes(auth.context, externalTool.requiredScopes)) {
+    return json(200, rpcError(id, -32000, `${externalTool.requiredScopes.join(' and ')} scope required`));
+  }
 
   try {
     const idempotencyKey = toolScope === 'write' ? getIdempotencyKey(args) : null;
-    const idempotencyKeyHash = idempotencyKey ? await sha256Hex(`${name}:${idempotencyKey}`) : null;
-    const replay = idempotencyKeyHash ? await findIdempotentWrite(auth.admin, auth.context, idempotencyKeyHash) : null;
-    const writeResult = toolScope === 'write' && !replay
-      ? await handleWriteTool(auth.admin, auth.context, name, args)
+    if (toolScope === 'write' && !idempotencyKey) {
+      return json(200, rpcError(id, -32602, 'Writes require a stable idempotency_key request ID'));
+    }
+    const idempotencyKeyHash = idempotencyKey
+      ? await sha256Hex(externalMcpIdempotencyMaterial(externalTool, idempotencyKey))
       : null;
-    const finalResult = replay ?? (writeResult ? writeResult.structured : await handleReadTool(auth.admin, auth.context, name, args));
+    const replay = idempotencyKeyHash
+      ? await findIdempotentWrite(auth.admin, auth.context, externalTool, idempotencyKeyHash)
+      : null;
+    const writeResult = toolScope === 'write' && !replay
+      ? await handleWriteTool(
+        auth.admin,
+        auth.context,
+        externalTool,
+        args,
+        idempotencyKeyHash ? `mcp-${idempotencyKeyHash.slice(0, 64)}` : `mcp-${crypto.randomUUID()}`,
+      )
+      : null;
+    const finalResult = replay ?? (writeResult
+      ? writeResult.structured
+      : externalTool.compatibilityAlias
+        ? await handleReadTool(auth.admin, auth.context, name, args)
+        : await executeCanonicalExternalReadTool(auth.admin, auth.context, externalTool, args));
     await auditToolCall(auth.admin, auth.context, {
-      toolName: name,
+      toolName: externalTool.canonicalName,
       toolKind: toolScope,
-      scopeUsed: toolScope,
+      scopeUsed: externalTool.requiredScopes.join(' '),
       args,
       success: true,
       requestId: typeof id === 'string' || typeof id === 'number' ? String(id) : null,
@@ -907,9 +1008,11 @@ async function handleMcp(req: Request) {
       event: 'ExternalToolCalled',
       properties: {
         surface: auth.context.surface,
-        tool_name: name,
+        tool_name: externalTool.canonicalName,
+        compatibility_alias: name,
+        operation: externalTool.operationId,
         tool_kind: toolScope,
-        scope_used: toolScope,
+        scope_used: externalTool.requiredScopes.join(' '),
         success: true,
       },
     });
@@ -917,9 +1020,9 @@ async function handleMcp(req: Request) {
   } catch (error) {
     const errorCode = error instanceof Error ? error.message : 'tool_failed';
     await auditToolCall(auth.admin, auth.context, {
-      toolName: name,
+      toolName: externalTool.canonicalName,
       toolKind: toolScope,
-      scopeUsed: toolScope,
+      scopeUsed: externalTool.requiredScopes.join(' '),
       args,
       success: false,
       errorCode,
@@ -932,14 +1035,18 @@ async function handleMcp(req: Request) {
       event: 'ExternalToolCalled',
       properties: {
         surface: auth.context.surface,
-        tool_name: name,
+        tool_name: externalTool.canonicalName,
+        compatibility_alias: name,
+        operation: externalTool.operationId,
         tool_kind: toolScope,
         scope_used: toolScope,
         success: false,
         error_code: errorCode,
       },
     });
-    return json(200, rpcError(id, errorCode.startsWith('missing_') ? -32602 : -32000, errorCode));
+    const invalidArguments = errorCode.startsWith('missing_') || errorCode.startsWith('unsupported_external_argument:')
+      || errorCode === 'activity_steps_require_step_tools' || errorCode === 'use_specific_activity_step_tool';
+    return json(200, rpcError(id, invalidArguments ? -32602 : -32000, errorCode));
   }
 }
 

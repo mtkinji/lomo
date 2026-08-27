@@ -2,13 +2,13 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const migration = [
-  'supabase/migrations/20260728051325_merchant_rules_apply_all_transactions.sql',
-  'supabase/migrations/20260728052054_ensure_merchant_rule_backfill_on_rule_write.sql',
-  'supabase/migrations/20260816135619_optimize_merchant_rule_save.sql',
+  'supabase/migrations/20260728051739_merchant_rules_apply_all_transactions.sql',
+  'supabase/migrations/20260728052413_ensure_merchant_rule_backfill_on_rule_write.sql',
+  'supabase/migrations/20260816135842_optimize_merchant_rule_save.sql',
 ].map((path) => readFileSync(resolve(process.cwd(), path), 'utf8')).join('\n').toLowerCase();
 
 const optimizedMigration = readFileSync(
-  resolve(process.cwd(), 'supabase/migrations/20260816135619_optimize_merchant_rule_save.sql'),
+  resolve(process.cwd(), 'supabase/migrations/20260816135842_optimize_merchant_rule_save.sql'),
   'utf8',
 ).toLowerCase();
 

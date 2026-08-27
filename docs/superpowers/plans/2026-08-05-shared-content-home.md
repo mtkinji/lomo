@@ -21,7 +21,7 @@
 - `supabase/functions/_shared/sharedHomeDelivery.ts` — bounded, idempotent Goal-check-in item builder.
 - `supabase/functions/shared-home-publish-goal-checkin/index.ts` — authenticated source/audience verification and fan-out.
 - `src/services/checkins.ts` — best-effort projection request after authoritative check-in creation.
-- `supabase/migrations/20260805143622_shared_home_goal_checkin_items.sql` — additive closed-contract expansion.
+- `supabase/migrations/20260805145148_shared_home_goal_checkin_items.sql` — additive closed-contract expansion.
 - Existing focused test files plus a new publisher Deno test provide regression coverage.
 
 ### Task 1: Extend the shared-item contract
@@ -92,7 +92,7 @@
 
 **Files:**
 
-- Modify: `supabase/migrations/20260805143622_shared_home_goal_checkin_items.sql`
+- Modify: `supabase/migrations/20260805145148_shared_home_goal_checkin_items.sql`
 - Modify: `src/features/shared-home/sharedHomeMigration.test.ts`
 - Modify: `supabase/tests/shared_home_deliveries.sql`
 

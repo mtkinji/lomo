@@ -1,112 +1,127 @@
-import type {
-  ServerAgentLoopMessage,
-  ServerAgentToolCall,
-  ServerAgentToolDefinition,
-} from './agentRuntime.ts';
+import type { KwiltToolNamespaceId } from '../../../packages/kwilt-agent-runtime/src/toolNamespaces.ts';
+import type { ServerTurnJudgment } from './serverTurnPlanning.ts';
 
-export function toServerModelToolName(toolId: string): string {
-  return toolId.replace(/\./g, '__');
-}
+// Compatibility entrypoint for deployed callers. The server agent now uses the
+// Responses API exclusively; Chat Completions translation intentionally no
+// longer exists here.
+export {
+  parseServerAgentResponse,
+  requestServerAgentResponse as requestServerAgentModel,
+  serverResponsesToolCatalogHash,
+  toServerResponsesInput,
+  toServerResponsesTools,
+} from './serverAgentResponses.ts';
 
-export function toServerOpenAiTools(tools: readonly ServerAgentToolDefinition[]) {
-  return tools.map((tool) => ({
-    type: 'function',
-    function: {
-      name: toServerModelToolName(tool.id),
-      description: tool.purpose,
-      parameters: tool.inputSchema,
-      strict: false,
+const SERVER_TURN_JUDGMENT_FORMAT = {
+  type: 'json_schema',
+  name: 'kwilt_agent_judgment',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['selectedNamespaces', 'confidence', 'reason'],
+    properties: {
+      selectedNamespaces: {
+        type: 'array', minItems: 1, maxItems: 3,
+        items: {
+          type: 'string',
+          enum: [
+            'life_structure', 'tasks_plan', 'household', 'money', 'food',
+            'device_wellbeing', 'account_navigation',
+          ],
+        },
+      },
+      confidence: { type: 'number', minimum: 0, maximum: 1 },
+      reason: { type: 'string', minLength: 1, maxLength: 240 },
     },
-  }));
+  },
+} as const;
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
 
-export function toServerOpenAiMessages(messages: readonly ServerAgentLoopMessage[]) {
-  return messages.map((message) => {
-    if (message.role === 'assistant' && message.toolCalls) {
-      return {
-        role: 'assistant', content: message.content,
-        tool_calls: message.toolCalls.map((call) => ({
-          id: call.id, type: 'function',
-          function: { name: toServerModelToolName(call.toolId), arguments: JSON.stringify(call.arguments) },
-        })),
-      };
-    }
-    if (message.role === 'tool') {
-      return {
-        role: 'tool', tool_call_id: message.toolCallId,
-        name: toServerModelToolName(message.toolId), content: message.content,
-      };
-    }
-    return { role: message.role, content: message.content };
-  });
+function parseJudgmentOutput(raw: unknown): ServerTurnJudgment | null {
+  const body = record(raw);
+  if (!Array.isArray(body.output)) return null;
+  const outputText = body.output.flatMap((item) => {
+    const message = record(item);
+    return Array.isArray(message.content)
+      ? message.content.flatMap((part) => {
+        const content = record(part);
+        return content.type === 'output_text' && typeof content.text === 'string' ? [content.text] : [];
+      })
+      : [];
+  }).join('');
+  let parsed: Record<string, unknown>;
+  try { parsed = record(JSON.parse(outputText)); } catch { return null; }
+  const selectedNamespaces = Array.isArray(parsed.selectedNamespaces)
+    ? parsed.selectedNamespaces.filter((value): value is KwiltToolNamespaceId =>
+      typeof value === 'string' && SERVER_TURN_JUDGMENT_FORMAT.schema.properties
+        .selectedNamespaces.items.enum.includes(value as KwiltToolNamespaceId))
+    : [];
+  if (selectedNamespaces.length < 1 || selectedNamespaces.length > 3 ||
+    typeof parsed.confidence !== 'number' || typeof parsed.reason !== 'string') return null;
+  return {
+    selectedNamespaces: [...new Set(selectedNamespaces)],
+    confidence: parsed.confidence,
+    reason: parsed.reason,
+  };
 }
 
-export function parseServerAgentModelStep(raw: unknown, tools: readonly ServerAgentToolDefinition[]) {
-  const asRecord = (value: unknown): Record<string, unknown> =>
-    value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  const body = asRecord(raw);
-  const choice = Array.isArray(body.choices) ? asRecord(body.choices[0]) : {};
-  const message = asRecord(choice.message);
-  if (Object.keys(message).length === 0) throw new Error('model_response_malformed');
-  const toolByName = new Map(tools.map((tool) => [toServerModelToolName(tool.id), tool.id]));
-  const calls: ServerAgentToolCall[] = [];
-  if (message.tool_calls != null) {
-    if (!Array.isArray(message.tool_calls)) throw new Error('model_tool_calls_malformed');
-    for (const rawCallValue of message.tool_calls) {
-      const rawCall = asRecord(rawCallValue);
-      const functionCall = asRecord(rawCall.function);
-      const id = typeof rawCall.id === 'string' ? rawCall.id : '';
-      const name = typeof functionCall.name === 'string' ? functionCall.name : '';
-      const argsText = typeof functionCall.arguments === 'string' ? functionCall.arguments : '';
-      if (!id || !name || !argsText) throw new Error('model_tool_call_malformed');
-      let args;
-      try { args = JSON.parse(argsText); } catch { throw new Error('model_tool_arguments_malformed'); }
-      if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('model_tool_arguments_malformed');
-      calls.push({ id, toolId: toolByName.get(name) ?? name, arguments: args });
-    }
-  }
-  return { content: typeof message.content === 'string' ? message.content : null, toolCalls: calls };
-}
-
-export async function requestServerAgentModel({
+export async function requestServerTurnJudgment({
   supabaseUrl,
   anonKey,
-  token,
+  serviceRoleToken,
   quotaIdentity,
   isPro,
-  messages,
-  tools,
+  prompt,
+  namespaces,
   fetcher = fetch,
 }: {
   supabaseUrl: string;
   anonKey: string;
-  token: string;
+  serviceRoleToken: string;
   quotaIdentity: string;
   isPro: boolean;
-  messages: readonly ServerAgentLoopMessage[];
-  tools: readonly ServerAgentToolDefinition[];
+  prompt: string;
+  namespaces: readonly { id: KwiltToolNamespaceId; description: string }[];
   fetcher?: typeof fetch;
-}) {
-  const response = await fetcher(`${supabaseUrl}/functions/v1/ai-chat/v1/chat/completions`, {
+}): Promise<ServerTurnJudgment | null> {
+  const namespaceSummary = namespaces
+    .map((namespace) => `- ${namespace.id}: ${namespace.description}`)
+    .join('\n');
+  const response = await fetcher(`${supabaseUrl}/functions/v1/ai-chat/v1/responses`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json', apikey: anonKey, Authorization: `Bearer ${token}`,
-      'x-kwilt-install-id': `agent:${quotaIdentity}`,
+      'Content-Type': 'application/json', apikey: anonKey,
+      Authorization: `Bearer ${serviceRoleToken}`,
+      'x-kwilt-install-id': `agent-plan:${quotaIdentity}`,
       'x-kwilt-is-pro': String(isPro),
       'x-kwilt-client': 'kwilt-agent-run',
-      'x-kwilt-ai-job': 'unified_chat_agent',
+      'x-kwilt-ai-job': 'agent_judgment',
     },
     body: JSON.stringify({
-      model: 'gpt-5-mini',
-      messages: toServerOpenAiMessages(messages),
-      tools: toServerOpenAiTools(tools),
-      tool_choice: 'auto',
-      temperature: 0.2,
+      model: 'gpt-5.6-luna',
+      store: false,
+      reasoning: { effort: 'low' },
+      max_output_tokens: 400,
+      input: [{
+        role: 'user',
+        content: [
+          'Choose one to three Kwilt tool namespaces relevant to this request.',
+          'This is advisory planning only and grants no action authority.',
+          `Request: ${prompt.trim().slice(0, 1_500)}`,
+          `Namespaces:\n${namespaceSummary}`,
+        ].join('\n\n'),
+      }],
+      text: { format: SERVER_TURN_JUDGMENT_FORMAT },
     }),
   });
-  const text = await response.text();
-  if (!response.ok) throw new Error(`model_request_failed:${response.status}:${text.slice(0, 300)}`);
-  let data;
-  try { data = JSON.parse(text); } catch { throw new Error('model_response_malformed'); }
-  return parseServerAgentModelStep(data, tools);
+  if (!response.ok) throw new Error(`turn_judgment_failed:${response.status}`);
+  let data: unknown;
+  try { data = JSON.parse(await response.text()); } catch { return null; }
+  return parseJudgmentOutput(data);
 }

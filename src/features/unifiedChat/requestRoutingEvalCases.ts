@@ -283,7 +283,7 @@ const REQUEST_ROUTING_ROUTE_CASES = [
     id: 'native-screen-time-prerequisite',
     prompt: 'Create a rule that Charlie has to read scripture for at least five minutes before he can unlock other apps like games.',
     semanticRoute: semantic('general', [], 'Incorrect semantic fixture used to prove the native lock.', false),
-    expected: { requestClass: 'native_control', participatingCapabilities: ['screenTime'], source: 'deterministic', executionExpectation: 'honest_boundary' },
+    expected: { requestClass: 'native_control', participatingCapabilities: ['screenTime'], source: 'deterministic', executionExpectation: 'proposal' },
   },
   {
     id: 'adversarial-native-bypass',

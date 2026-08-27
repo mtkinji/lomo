@@ -796,6 +796,45 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: fonts.semibold,
   },
+  scheduleSuggestionRail: {
+    gap: spacing.sm,
+    paddingRight: spacing.sm,
+  },
+  scheduleDateControlRow: {
+    minHeight: 36,
+    marginBottom: spacing.xs,
+  },
+  scheduleSelectedDayLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  scheduleDatePickerButton: {
+    minHeight: 36,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    paddingHorizontal: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  scheduleDatePickerButtonText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  schedulePlacementHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  scheduleAdvisoryText: {
+    ...typography.caption,
+    color: colors.warning,
+    marginBottom: spacing.xs,
+  },
   scheduleDurationPicker: {
     paddingTop: spacing.xs,
   },

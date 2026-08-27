@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useAppStore } from '../../../store/useAppStore';
+import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, radii, spacing, typography } from '../../../theme';
 import { Button } from '../../../ui/Button';
@@ -21,30 +22,29 @@ import {
   familyScreenTimeLearningRecord,
   useFamilyScreenTimeLearningStore,
 } from './useFamilyScreenTimeLearningStore';
-
-type RootNavigation = {
-  navigate: (
-    route: 'DevTools',
-    params: { familyScreenTimeChild: { childMembershipId: string; childDisplayName: string } },
-  ) => void;
-};
+import { listHouseholdDevices } from '../data/householdDeviceParticipation';
 
 type Props = {
   navigation: {
     goBack: () => void;
-    getParent?: () => RootNavigation | undefined;
+    navigate: (route: 'SettingsHouseholdDeviceSetup', params: {
+      householdId: string;
+      childMembershipId: string;
+      childDisplayName: string;
+    }) => void;
   };
   now?: () => Date;
   route: {
     params: {
       childMembershipId: string;
       childDisplayName: string;
+      householdId: string;
     };
   };
 };
 
 export function FamilyScreenTimeLearningScreen({ navigation, now = () => new Date(), route }: Props) {
-  const { childMembershipId, childDisplayName } = route.params;
+  const { childMembershipId, childDisplayName, householdId } = route.params;
   const userId = useAppStore((state) => state.authIdentity?.userId ?? 'signed-out');
   const records = useFamilyScreenTimeLearningStore((state) => state.records);
   const activateAgreement = useFamilyScreenTimeLearningStore((state) => state.activateAgreement);
@@ -54,7 +54,19 @@ export function FamilyScreenTimeLearningScreen({ navigation, now = () => new Dat
   const [editing, setEditing] = useState(false);
   const [draftStartHour, setDraftStartHour] = useState<'3' | '4' | '5'>('4');
   const [draftLimit, setDraftLimit] = useState<'30' | '45' | '60'>('30');
+  const [hasPersonalDevice, setHasPersonalDevice] = useState(false);
   const { capture } = useAnalytics();
+
+  useEffect(() => {
+    if (userId === 'signed-out') return;
+    let active = true;
+    listHouseholdDevices(getSupabaseClient(), householdId).then((devices) => {
+      if (active) setHasPersonalDevice(devices.some((device) => (
+        device.kind === 'personal_child' && device.childMembershipId === childMembershipId
+      )));
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [childMembershipId, householdId, userId]);
 
   const recordKey = useMemo(
     () => familyScreenTimeLearningKey(userId, childMembershipId),
@@ -139,11 +151,11 @@ export function FamilyScreenTimeLearningScreen({ navigation, now = () => new Dat
       lifecycle: 'needs_setup',
       outcome: 'started',
     });
-    if (__DEV__) {
-      navigation.getParent?.()?.navigate('DevTools', {
-        familyScreenTimeChild: { childMembershipId, childDisplayName },
-      });
-    }
+    navigation.navigate('SettingsHouseholdDeviceSetup', {
+      householdId,
+      childMembershipId,
+      childDisplayName,
+    });
   };
 
   const handleAgreementAction = () => {
@@ -214,11 +226,19 @@ export function FamilyScreenTimeLearningScreen({ navigation, now = () => new Dat
       ) : deliveryState === 'device_required' ? (
         <View style={styles.setupCard}>
           <Text selectable style={styles.setupTitle}>
-            Connect {childDisplayName}’s iPhone to continue.
+            {hasPersonalDevice
+              ? `${childDisplayName}’s iPhone is connected.`
+              : `Set up a device for ${childDisplayName} to continue.`}
           </Text>
-          <Button accessibilityRole="button" fullWidth onPress={openDeviceSetup} variant="primary">
-            Continue setup
-          </Button>
+          {hasPersonalDevice ? (
+            <Text selectable style={styles.status}>
+              Open Kwilt on that iPhone to finish Apple approval. Screen Time will be ready only after the device applies and receipts the agreement.
+            </Text>
+          ) : (
+            <Button accessibilityRole="button" fullWidth onPress={openDeviceSetup} variant="primary">
+              Set up a device
+            </Button>
+          )}
         </View>
       ) : (
         <>
