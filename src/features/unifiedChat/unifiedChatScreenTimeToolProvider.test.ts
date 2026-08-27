@@ -14,12 +14,85 @@ const snapshots = {
         { id: 'selection-games', label: 'Games', selectionRef: 'opaque-games', status: 'active' as const },
         { id: 'selection-gospel', label: 'Gospel Library', selectionRef: 'opaque-gospel', status: 'active' as const },
       ],
-      agreements: [], activeOverrides: [], pendingRequests: [], devices: [], latestDeviceReceipt: null,
+      agreements: [{
+        id: 'agreement-1', selectionId: 'selection-games', active: true, version: 2,
+        updatedAt: '2026-07-30T09:00:00.000Z',
+        rule: {
+          weekdays: [1, 2, 3, 4, 5], startMinute: 960, endMinute: 1140,
+          dailyLimitMinutes: 30,
+          prerequisiteActivity: {
+            selectionId: 'selection-gospel', thresholdMinutes: 10, reset: 'daily',
+            selectionRef: 'nested-opaque-ref',
+          },
+          selectionRef: 'agreement-opaque-ref',
+        },
+      }], activeOverrides: [], pendingRequests: [],
+      devices: [{
+        id: 'device-1', readiness: 'ready' as const, authorizationStatus: 'authorized' as const,
+        lastSeenAt: null, releasedAt: null,
+      }],
+      latestDeviceReceipt: {
+        policyVersion: 7, outcome: 'applied' as const, failureCode: null,
+        occurredAt: '2026-07-30T09:30:00.000Z', deviceId: 'device-1',
+      },
     },
   }] },
 };
 
 describe('Unified Chat family Screen Time provider', () => {
+  it('reads authorized Screen Time policy state without exposing Apple selection references', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    const result = await provider.execute({
+      id: 'read-1', toolId: 'screen_time.read', arguments: { childMembershipIds: ['charlie'] },
+    }, tool('screen_time.read'));
+
+    expect(result).toEqual({
+      status: 'completed',
+      receipt: null,
+      output: {
+        children: [{
+          membershipId: 'charlie', displayName: 'Charlie', desiredPolicyVersion: 7,
+          selections: [
+            { id: 'selection-charlie', label: 'Brawl Stars', status: 'active' },
+            { id: 'selection-games', label: 'Games', status: 'active' },
+            { id: 'selection-gospel', label: 'Gospel Library', status: 'active' },
+          ],
+          agreements: [{
+            id: 'agreement-1', selectionId: 'selection-games', active: true, version: 2,
+            updatedAt: '2026-07-30T09:00:00.000Z',
+            rule: {
+              weekdays: [1, 2, 3, 4, 5], startMinute: 960, endMinute: 1140,
+              dailyLimitMinutes: 30,
+              prerequisiteActivity: {
+                selectionId: 'selection-gospel', thresholdMinutes: 10, reset: 'daily',
+              },
+            },
+          }], activeOverrides: [], pendingRequests: [],
+          devices: [{
+            readiness: 'ready', authorizationStatus: 'authorized', lastSeenAt: null, releasedAt: null,
+          }],
+          latestDeviceReceipt: {
+            policyVersion: 7, outcome: 'applied', failureCode: null,
+            occurredAt: '2026-07-30T09:30:00.000Z',
+          },
+        }],
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain('opaque-ref');
+    expect(JSON.stringify(result)).not.toContain('subject-charlie');
+    expect(JSON.stringify(result)).not.toContain('device-1');
+  });
+
+  it('rejects a Screen Time read for children outside the authorized snapshot', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    await expect(provider.execute({
+      id: 'read-2', toolId: 'screen_time.read', arguments: { childMembershipIds: ['not-authorized'] },
+    }, tool('screen_time.read'))).resolves.toEqual({
+      status: 'failed', code: 'screen_time_child_not_authorized',
+      message: 'One or more children are not available for Screen Time management.', retryable: false,
+    });
+  });
+
   it('stages a compact explicit-review block proposal from stable authorized targets', async () => {
     const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
     const result = await provider.execute({

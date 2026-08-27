@@ -398,7 +398,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.read', version: 1, capabilityId: 'screenTime',
     purpose: 'Read authorized child Screen Time agreements, saved selection labels, active overrides, requests, and delivery state without usage history or Apple tokens.',
-    providers: ['device'], effect: 'read', consequence: 'low', reversible: true,
+    providers: ['device', 'server'], effect: 'read', consequence: 'low', reversible: true,
     confirmation: 'none', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
@@ -409,7 +409,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.agreement.create', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage a reviewed standing agreement that requires foreground use of one saved child app selection before another saved selection becomes available.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: {
@@ -449,7 +449,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.override.block', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage one atomic wall-clock block for saved selections on one or more authorized child devices.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: SCREEN_TIME_OVERRIDE_PROPERTIES,
@@ -459,7 +459,7 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'screen_time.override.allow', version: 1, capabilityId: 'screenTime',
     purpose: 'Stage one atomic wall-clock allowance through named Kwilt family restrictions for saved selections on one or more children.',
-    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
       type: 'object', properties: SCREEN_TIME_OVERRIDE_PROPERTIES,

@@ -99,9 +99,25 @@ describe('family Screen Time agent contracts', () => {
     expect(JSON.stringify(schema)).not.toContain('appName');
   });
 
-  it('does not claim mobile or Phone execution before providers are wired and proven', () => {
+  it('claims bounded reads and reviewed writes where providers are wired', () => {
+    const read = operation('screen_time.read');
+    expect(read?.channels.mobile.state).toBe('live');
+    expect(read?.channels.phone.state).toBe('live');
+    expect(read?.returnBehavior).toBe('answer');
+    for (const id of [
+      'screen_time.agreement.create', 'screen_time.override.block', 'screen_time.override.allow',
+    ]) {
+      const write = operation(id);
+      expect(write?.channels.mobile.state).toBe('live');
+      expect(write?.channels.phone.state).toBe('live');
+      expect(write?.returnBehavior).toBe('proposal_or_receipt');
+    }
     for (const entry of KWILT_CAPABILITY_MANIFEST.filter((candidate) => (
       candidate.id.startsWith('screen_time.') &&
+      candidate.id !== 'screen_time.read' &&
+      candidate.id !== 'screen_time.agreement.create' &&
+      candidate.id !== 'screen_time.override.block' &&
+      candidate.id !== 'screen_time.override.allow' &&
       candidate.id !== 'screen_time.configure' &&
       candidate.id !== 'screen_time.personal.setup.open'
     ))) {

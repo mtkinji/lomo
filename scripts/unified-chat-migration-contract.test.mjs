@@ -67,7 +67,11 @@ const relationshipManagementMigration = readFileSync(
   'utf8',
 ).toLowerCase();
 const householdReadProviderMigration = readFileSync(
-  new URL('../supabase/migrations/20260827122633_unified_chat_household_read_provider.sql', import.meta.url),
+  new URL('../supabase/migrations/20260827125904_unified_chat_household_read_provider.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
+const screenTimeReadProviderMigration = readFileSync(
+  new URL('../supabase/migrations/20260827131101_unified_chat_screen_time_read_provider.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
 const relationshipMemoryFunction = readFileSync(
@@ -137,6 +141,21 @@ test('keeps external Household reads user-bound and service-role only', () => {
   assert.match(householdReadProviderMigration, /grant execute on function public\.get_kwilt_agent_household_snapshot\(uuid\) to service_role/);
   assert.match(householdReadProviderMigration, /revoke all on function public\.preview_kwilt_agent_household_invite\(uuid, text\) from public, anon, authenticated/);
   assert.match(householdReadProviderMigration, /grant execute on function public\.preview_kwilt_agent_household_invite\(uuid, text\) to service_role/);
+});
+
+test('keeps external Screen Time reads caregiver-authorized, semantic, and service-role only', () => {
+  assert.match(screenTimeReadProviderMigration, /get_kwilt_agent_screen_time_snapshot\(\s*p_user_id uuid,\s*p_child_membership_ids uuid\[\] default null\s*\)/);
+  assert.match(screenTimeReadProviderMigration, /binding\.user_id = p_user_id/);
+  assert.match(screenTimeReadProviderMigration, /v_actor\.role = 'owner'/);
+  assert.match(screenTimeReadProviderMigration, /grant_row\.caregiver_membership_id = v_actor\.id/);
+  assert.match(screenTimeReadProviderMigration, /activation\.capability_id = 'screen-time'/);
+  assert.match(screenTimeReadProviderMigration, /screen_time_child_not_authorized/);
+  assert.match(screenTimeReadProviderMigration, /'displayname', person\.display_name/);
+  assert.doesNotMatch(screenTimeReadProviderMigration, /'selectionref'/);
+  assert.doesNotMatch(screenTimeReadProviderMigration, /'installid'/);
+  assert.doesNotMatch(screenTimeReadProviderMigration, /'deviceid'/);
+  assert.match(screenTimeReadProviderMigration, /revoke all on function public\.get_kwilt_agent_screen_time_snapshot\(uuid, uuid\[\]\) from public, anon, authenticated/);
+  assert.match(screenTimeReadProviderMigration, /grant execute on function public\.get_kwilt_agent_screen_time_snapshot\(uuid, uuid\[\]\) to service_role/);
 });
 
 test('applies explicit relationship memory atomically through existing owner-scoped records and trust receipts', () => {

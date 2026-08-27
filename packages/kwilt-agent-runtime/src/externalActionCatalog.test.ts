@@ -133,6 +133,18 @@ describe('EXTERNAL_ACTION_REGISTRATIONS', () => {
     expect(byOperation['household.invitation.preview']).toMatchObject({
       canonicalName: 'kwilt_household_invitation_preview', requiredScopes: ['household.read'],
     });
+    expect(byOperation['screen_time.read']).toMatchObject({
+      canonicalName: 'kwilt_screen_time_read', requiredScopes: ['household.read'],
+      redactionPolicy: 'screen_time_summary',
+    });
+    for (const operationId of [
+      'screen_time.agreement.create', 'screen_time.override.block', 'screen_time.override.allow',
+    ]) {
+      expect(byOperation[operationId]).toMatchObject({
+        requiredScopes: ['household.read', 'household.write'], confirmation: 'explicit',
+        consequence: 'consequential', redactionPolicy: 'mutation_receipt',
+      });
+    }
   });
 
   test('projects server-backed native handoffs instead of hiding device-owned actions', () => {

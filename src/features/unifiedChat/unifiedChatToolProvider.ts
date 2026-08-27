@@ -94,6 +94,25 @@ export type StagedUnifiedChatToolProposal =
       operation: ScreenTimeProposalOperation;
     };
 
+function projectScreenTimeAgreementRule(rule: Record<string, unknown>): Record<string, unknown> {
+  const projected: Record<string, unknown> = {
+    weekdays: rule.weekdays,
+    startMinute: rule.startMinute,
+    endMinute: rule.endMinute,
+    dailyLimitMinutes: rule.dailyLimitMinutes,
+  };
+  const prerequisite = rule.prerequisiteActivity;
+  if (prerequisite && typeof prerequisite === 'object' && !Array.isArray(prerequisite)) {
+    const input = prerequisite as Record<string, unknown>;
+    projected.prerequisiteActivity = {
+      selectionId: input.selectionId,
+      thresholdMinutes: input.thresholdMinutes,
+      reset: input.reset,
+    };
+  }
+  return projected;
+}
+
 const failed = (code: string, message: string): AgentToolExecutionResult => ({
   status: 'failed', code, message, retryable: false,
 });
@@ -163,6 +182,60 @@ export function createUnifiedChatToolProvider({
     if (householdResult) return householdResult;
     const deviceResult = await deviceProvider.execute(call, tool);
     if (deviceResult) return deviceResult;
+    if (call.toolId === 'screen_time.read') {
+      const requested = call.arguments.childMembershipIds;
+      if (requested !== undefined && (
+        !Array.isArray(requested) || requested.length > 20 ||
+        requested.some((value) => typeof value !== 'string' || !value.trim())
+      )) {
+        return failed('invalid_screen_time_children', 'Choose up to 20 valid children to read.');
+      }
+      const requestedIds = requested === undefined
+        ? null
+        : [...new Set((requested as string[]).map((value) => value.trim()))];
+      const authorized = snapshots.screenTime?.children.filter((child) => child.canManage) ?? [];
+      if (requestedIds?.some((id) => !authorized.some((child) => child.membershipId === id))) {
+        return failed(
+          'screen_time_child_not_authorized',
+          'One or more children are not available for Screen Time management.',
+        );
+      }
+      const selected = requestedIds
+        ? requestedIds.map((id) => authorized.find((child) => child.membershipId === id)!)
+        : authorized;
+      return {
+        status: 'completed', receipt: null,
+        output: {
+          children: selected.map((child) => ({
+            membershipId: child.membershipId,
+            displayName: child.displayName,
+            desiredPolicyVersion: child.policy.desiredPolicyVersion,
+            selections: child.policy.selections.map(({ id, label, status }) => ({ id, label, status })),
+            agreements: child.policy.agreements.map((agreement) => ({
+              id: agreement.id,
+              selectionId: agreement.selectionId,
+              rule: projectScreenTimeAgreementRule(agreement.rule),
+              active: agreement.active,
+              version: agreement.version,
+              updatedAt: agreement.updatedAt,
+            })),
+            activeOverrides: child.policy.activeOverrides,
+            pendingRequests: child.policy.pendingRequests,
+            devices: child.policy.devices.map(({ readiness, authorizationStatus, lastSeenAt, releasedAt }) => ({
+              readiness, authorizationStatus, lastSeenAt, releasedAt,
+            })),
+            latestDeviceReceipt: child.policy.latestDeviceReceipt
+              ? {
+                  policyVersion: child.policy.latestDeviceReceipt.policyVersion,
+                  outcome: child.policy.latestDeviceReceipt.outcome,
+                  failureCode: child.policy.latestDeviceReceipt.failureCode,
+                  occurredAt: child.policy.latestDeviceReceipt.occurredAt,
+                }
+              : null,
+          })),
+        },
+      };
+    }
     if (call.toolId === 'recipes.create') {
       const reviewedData = buildReviewedRecipeCreate(call.arguments.recipe);
       if (!reviewedData) {

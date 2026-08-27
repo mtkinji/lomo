@@ -68,11 +68,12 @@ test('self-directed Screen Time requests cannot receive child-control tools', ()
     'screen_time.personal.setup.open',
     'money.app_control.review',
   ]));
-  expect(screenTimeTools.map((tool) => tool.id)).not.toContain('screen_time.read');
-  expect(selectSubjectSafeRuntimeTools(
+  const selfDirectedTools = selectSubjectSafeRuntimeTools(
     screenTimeTools,
     'Set up Screen Time controls for me.',
-  ).map((tool) => tool.id)).not.toEqual(expect.arrayContaining([
+  ).map((tool) => tool.id);
+  expect(selfDirectedTools).not.toContain('screen_time.read');
+  expect(selfDirectedTools).not.toEqual(expect.arrayContaining([
     'screen_time.configure',
     'screen_time.override.allow',
   ]));

@@ -113,7 +113,6 @@ export function selectSubjectSafeRuntimeTools(
   if (!SELF_DIRECTED_DEVICE_PATTERN.test(prompt)) return [...tools];
   return tools.filter((tool) =>
     tool.capabilityId !== 'screenTime' ||
-    tool.id === 'screen_time.read' ||
     tool.id === 'screen_time.personal.setup.open' ||
     tool.id === 'screen_time.personal.limit.open');
 }

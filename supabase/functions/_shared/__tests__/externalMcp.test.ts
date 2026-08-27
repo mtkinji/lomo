@@ -47,7 +47,7 @@ describe('externalMcp helpers', () => {
       for (const child of Array.isArray(record.oneOf) ? record.oneOf : []) assertStrict(child);
     };
 
-    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(58);
+    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(62);
     for (const tool of EXTERNAL_MCP_ACTION_CATALOG) {
       assertStrict(tool.inputSchema);
       expect(tool.outputSchema).toEqual(expect.objectContaining({ type: 'object' }));
@@ -88,6 +88,7 @@ describe('externalMcp helpers', () => {
         'list_recent_activities',
         'get_current_chapter',
         'kwilt_plan_read_day_context',
+        'kwilt_screen_time_read',
         'kwilt_plan_recommend_day',
         'kwilt_relationships_read',
         'kwilt_household_read',

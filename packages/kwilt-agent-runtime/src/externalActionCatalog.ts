@@ -11,6 +11,7 @@ export type ExternalRedactionPolicy =
   | 'streak_summary'
   | 'relationship_summary'
   | 'household_summary'
+  | 'screen_time_summary'
   | 'plan_summary'
   | 'mutation_receipt';
 
@@ -283,6 +284,10 @@ export const EXTERNAL_ACTION_REGISTRATIONS: readonly ExternalActionRegistration[
 
   canonicalRead('household.read', 'household.read', 'kwilt_household_read', 'Read Household', ['household.read'], 'household_summary'),
   canonicalRead('household.invitation.preview', 'household.invitation.preview', 'kwilt_household_invitation_preview', 'Preview Household Invitation', ['household.read'], 'household_summary'),
+  canonicalRead('screen_time.read', 'screen_time.read', 'kwilt_screen_time_read', 'Read Screen Time', ['household.read'], 'screen_time_summary'),
+  canonicalWrite('screen_time.agreement.create', 'screen_time.agreement.create', 'kwilt_screen_time_create_prerequisite_agreement', 'Create Screen Time Prerequisite', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('screen_time.override.block', 'screen_time.override.block', 'kwilt_screen_time_block', 'Block Saved Apps Temporarily', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('screen_time.override.allow', 'screen_time.override.allow', 'kwilt_screen_time_allow', 'Allow Saved Apps Temporarily', ['household.read', 'household.write'], 'consequential', 'explicit'),
 
   canonicalRead('chapters.list', 'chapters.read', 'kwilt_chapters_list', 'List Chapters', ['life.read'], 'chapter_summary'),
   canonicalRead('chapters.reflect', 'chapters.read', 'kwilt_chapters_reflect', 'Reflect on Chapters', ['life.read'], 'chapter_summary'),
