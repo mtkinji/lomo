@@ -142,6 +142,21 @@ describe('EXTERNAL_ACTION_REGISTRATIONS', () => {
     expect(byOperation['household.invitation.preview']).toMatchObject({
       canonicalName: 'kwilt_household_invitation_preview', requiredScopes: ['household.read'],
     });
+    for (const operationId of [
+      'household.member.add_dependent', 'household.invitation.create', 'household.invitation.accept',
+      'household.child_capability.update', 'household.caregiver_grant.update', 'household.member.update',
+      'household.member.remove', 'household.device.update', 'household.device.revoke',
+      'household.device.reconcile',
+    ]) {
+      expect(byOperation[operationId]).toMatchObject({
+        requiredScopes: ['household.read', 'household.write'], confirmation: 'explicit',
+        redactionPolicy: 'mutation_receipt',
+      });
+    }
+    expect(byOperation['household.device.list']).toMatchObject({
+      canonicalName: 'kwilt_household_devices_list', requiredScopes: ['household.read'],
+      redactionPolicy: 'household_summary',
+    });
     expect(byOperation['screen_time.read']).toMatchObject({
       canonicalName: 'kwilt_screen_time_read', requiredScopes: ['household.read'],
       redactionPolicy: 'screen_time_summary',

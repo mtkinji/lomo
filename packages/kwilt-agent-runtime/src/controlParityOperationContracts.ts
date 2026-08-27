@@ -7,6 +7,7 @@ import type {
 
 const STRING_ID = { type: 'string', minLength: 1, maxLength: 200 } as const;
 const VERSION = { type: 'integer', minimum: 0 } as const;
+const UPDATED_AT = { type: 'string', format: 'date-time' } as const;
 const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: false } as const;
 
 function objectSchema(
@@ -22,6 +23,10 @@ function targetSchema(idName: string): Record<string, unknown> {
 
 function versionedTargetSchema(idName: string, properties: Record<string, unknown> = {}): Record<string, unknown> {
   return objectSchema({ [idName]: STRING_ID, expectedVersion: VERSION, ...properties });
+}
+
+function timestampedTargetSchema(idName: string, properties: Record<string, unknown> = {}): Record<string, unknown> {
+  return objectSchema({ [idName]: STRING_ID, expectedUpdatedAt: UPDATED_AT, ...properties });
 }
 
 const FIELDS = {
@@ -98,42 +103,58 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
     purpose: 'Update explicitly reviewed fields on one household membership.',
     providers: ['device', 'server'], consequence: 'consequential', reversible: true,
     confirmation: 'explicit', completionMode: 'reviewed_proposal',
-    inputSchema: versionedTargetSchema('membershipId', { fields: FIELDS }), sourceRefs: householdRefs,
+    inputSchema: timestampedTargetSchema('membershipId', {
+      householdId: STRING_ID,
+      fields: {
+        type: 'object', minProperties: 1, additionalProperties: false,
+        properties: {
+          displayName: { type: 'string', minLength: 1, maxLength: 80 },
+          role: { type: 'string', enum: ['caregiver', 'child'] },
+        },
+      },
+    }), sourceRefs: householdRefs,
   }),
   write({
     id: 'household.member.remove', owner: 'household',
     purpose: 'Remove one household member only after reviewing affected authority, devices, and shared records.',
-    providers: ['device', 'server'], consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], consequence: 'consequential', reversible: false,
     confirmation: 'explicit', completionMode: 'reviewed_proposal',
-    inputSchema: versionedTargetSchema('membershipId'), sourceRefs: householdRefs,
+    inputSchema: timestampedTargetSchema('membershipId', { householdId: STRING_ID }), sourceRefs: householdRefs,
   }),
   read({
     id: 'household.device.list', owner: 'household',
     purpose: 'List devices participating in the current household and their bounded status.',
-    providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: householdRefs,
+    providers: ['device', 'server'], inputSchema: objectSchema({ householdId: STRING_ID }), sourceRefs: householdRefs,
   }),
   write({
     id: 'household.device.update', owner: 'household',
     purpose: 'Update the user-visible name or bounded settings of one household device.',
     providers: ['device', 'server'], consequence: 'low', reversible: true,
     confirmation: 'explicit', completionMode: 'reviewed_proposal',
-    inputSchema: versionedTargetSchema('deviceId', {
-      displayName: { type: 'string', minLength: 1, maxLength: 120 },
-    }), sourceRefs: householdRefs,
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        deviceId: STRING_ID, expectedUpdatedAt: UPDATED_AT, householdId: STRING_ID,
+        displayName: { type: 'string', minLength: 1, maxLength: 80 },
+        memberIds: { type: 'array', maxItems: 50, uniqueItems: true, items: STRING_ID },
+      },
+      required: ['deviceId', 'expectedUpdatedAt', 'householdId'],
+      anyOf: [{ required: ['displayName'] }, { required: ['memberIds'] }],
+    }, sourceRefs: householdRefs,
   }),
   write({
     id: 'household.device.revoke', owner: 'household',
     purpose: 'Revoke one household device after reviewing its actor and capability participation.',
     providers: ['device', 'server'], consequence: 'consequential', reversible: false,
     confirmation: 'explicit', completionMode: 'reviewed_proposal',
-    inputSchema: versionedTargetSchema('deviceId'), sourceRefs: householdRefs,
+    inputSchema: timestampedTargetSchema('deviceId', { householdId: STRING_ID }), sourceRefs: householdRefs,
   }),
   write({
     id: 'household.device.reconcile', owner: 'household',
     purpose: 'Reconcile one device participation record with its current authoritative household assignment.',
-    providers: ['device', 'server'], consequence: 'consequential', reversible: true,
+    providers: ['device', 'server'], consequence: 'consequential', reversible: false,
     confirmation: 'explicit', completionMode: 'reviewed_proposal',
-    inputSchema: versionedTargetSchema('deviceId'), sourceRefs: householdRefs,
+    inputSchema: timestampedTargetSchema('deviceId', { householdId: STRING_ID }), sourceRefs: householdRefs,
   }),
 
   read({

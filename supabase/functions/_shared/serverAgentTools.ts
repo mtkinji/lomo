@@ -438,7 +438,9 @@ async function executeServerAgentToolHandler({
   if (deviceHandoff) return deviceHandoff;
   const profileResult = await executeServerProfileTool({ client, userId, call, stageProposal });
   if (profileResult) return profileResult;
-  const householdResult = await executeServerHouseholdTool({ client, userId, call });
+  const householdResult = await executeServerHouseholdTool({
+    client, userId, call, stageProposal, stageDeviceAction,
+  });
   if (householdResult) return householdResult;
   const screenTimeResult = await executeServerScreenTimeTool({ client, userId, call, stageProposal });
   if (screenTimeResult) return screenTimeResult;

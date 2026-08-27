@@ -38,8 +38,10 @@ import {
   recipePatchFieldLabels,
   type RecipeProposalOperation,
 } from './recipeProposal';
+import type { StagedHouseholdToolProposal } from './householdToolProvider';
 
 export type StagedUnifiedChatToolProposal =
+  | StagedHouseholdToolProposal
   | {
       capabilityId: 'recipes';
       title: string;
@@ -146,6 +148,7 @@ export function createUnifiedChatToolProvider({
   planConversationReferent,
   executeRelationshipTool,
   executeHouseholdTool,
+  householdProposals,
   actionExecution,
   now = () => new Date(),
 }: {
@@ -159,6 +162,7 @@ export function createUnifiedChatToolProvider({
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
+  householdProposals?: () => readonly StagedHouseholdToolProposal[];
   actionExecution?: {
     envelope(call: AgentToolCall, tool: AgentToolDefinition): KwiltActionExecutionEnvelope;
     store: ActionExecutionReceiptStore;
@@ -1160,7 +1164,10 @@ export function createUnifiedChatToolProvider({
 
   return {
     execute,
-    proposals: (): readonly StagedUnifiedChatToolProposal[] => [...staged],
+    proposals: (): readonly StagedUnifiedChatToolProposal[] => [
+      ...staged,
+      ...(householdProposals?.() ?? []),
+    ],
     clientActions: deviceProvider.actions,
   };
 }

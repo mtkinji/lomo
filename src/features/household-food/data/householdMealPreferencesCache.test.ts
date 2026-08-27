@@ -14,7 +14,7 @@ describe('household meal preferences cache', () => {
       usualDinerPersonIds: ['adult', 'child'],
       setupState: 'completed' as const,
       foodNeeds: [{ id: 'need', personId: 'child', kind: 'must_avoid' as const, ingredientConcept: 'peanut', displayLabel: 'Peanuts' }],
-      members: [{ id: 'member-adult', personId: 'adult', displayName: 'Blair', kind: 'adult' as const, role: 'owner' as const }],
+      members: [{ id: 'member-adult', personId: 'adult', displayName: 'Blair', kind: 'adult' as const, role: 'owner' as const, updatedAt: 'version' }],
     };
 
     expect(householdMealPreferencesCacheKey('user-a')).toBe('kwilt.meal-preferences.v1.user-a');

@@ -9,9 +9,9 @@ const household: HouseholdSnapshot = {
   household: { id: 'household-1', name: 'My household' },
   currentMembershipId: 'owner-1',
   members: [
-    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner' },
-    { id: 'child-charlie', personId: 'person-2', displayName: 'Charlie', kind: 'dependent', role: 'child' },
-    { id: 'child-riley', personId: 'person-3', displayName: 'Riley', kind: 'dependent', role: 'child' },
+    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner', updatedAt: 'version' },
+    { id: 'child-charlie', personId: 'person-2', displayName: 'Charlie', kind: 'dependent', role: 'child', updatedAt: 'version' },
+    { id: 'child-riley', personId: 'person-3', displayName: 'Riley', kind: 'dependent', role: 'child', updatedAt: 'version' },
   ],
   activations: [
     { childMembershipId: 'child-charlie', capabilityId: 'screen-time', state: 'pending_setup' },

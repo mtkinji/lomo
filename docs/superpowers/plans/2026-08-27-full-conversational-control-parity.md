@@ -451,16 +451,16 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: `supabase/functions/_shared/serverToolImplementations.ts`
 - Modify: `supabase/functions/_shared/externalMcp.ts`
 
-- [ ] Regression-first: prove native member update and device actions currently bypass or lack a canonical action, then move native UI onto `householdManagementActions`.
-- [ ] Implement member update with exact membership ID, editable fields, expected version, caregiver authority, and a receipt.
-- [ ] Implement member removal as a reviewed operation that previews dependent capability grants, device assignments, shared objects, and recovery behavior before apply.
-- [ ] Implement device list, rename/update, revoke, and reconcile. Revoke must preserve audit history and make current participation status explicit.
-- [ ] Keep invitation create/accept, dependent add, child capability update, and caregiver grant update in this vertical slice; remove their existing mobile/server pending-provider states.
-- [ ] Add mobile proposals for member/authority mutations and direct reads for household/device inventory.
-- [ ] Add server execution only where RLS plus action-level Household authority can prove the actor may act. Device-local cleanup returns `pending_client_action`.
-- [ ] Expose the same operations externally under `household.read` and `household.write` scopes.
-- [ ] Add tests for self, caregiver, child, removed member, wrong household, stale version, replay, and native-handoff completion.
-- [ ] Run focused Jest and Deno Household tests, then `npm run verify:changed -- --run` once.
+- [x] Regression-first: prove native member update and device actions currently bypass or lack a canonical action, then move native UI onto `householdManagementActions`.
+- [x] Implement member update with exact membership ID, editable fields, expected version, caregiver authority, and a receipt.
+- [x] Implement member removal as a reviewed operation that previews dependent capability grants, device assignments, shared objects, and recovery behavior before apply.
+- [x] Implement device list, rename/update, revoke, and reconcile. Revoke must preserve audit history and make current participation status explicit.
+- [x] Keep invitation create/accept, dependent add, child capability update, and caregiver grant update in this vertical slice; remove their existing mobile/server pending-provider states.
+- [x] Add mobile proposals for member/authority mutations and direct reads for household/device inventory.
+- [x] Add server execution only where RLS plus action-level Household authority can prove the actor may act. Device-local cleanup returns `pending_client_action`.
+- [x] Expose the same operations externally under `household.read` and `household.write` scopes.
+- [x] Add tests for self, caregiver, child, removed member, wrong household, stale version, replay, and native-handoff completion.
+- [x] Run focused Jest and Deno Household tests, then `npm run verify:changed -- --run` once. The completion gate reached test typechecking and stopped only on concurrent Money test edits outside this slice; Household focused tests, app typecheck, migration contracts, and Supabase typecheck passed.
 - [ ] Commit with message `feat(household): complete conversational member and device control`.
 
 ### Task 5: Complete personal and family Screen Time control

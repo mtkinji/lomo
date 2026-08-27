@@ -374,6 +374,25 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
       targetId: row.target_id, payload,
     };
   }
+  if (
+    row.capability_id === 'household' &&
+    [
+      'household.member.add_dependent', 'household.invitation.create',
+      'household.invitation.accept', 'household.child_capability.update',
+      'household.caregiver_grant.update', 'household.member.update',
+      'household.member.remove', 'household.device.update',
+      'household.device.revoke', 'household.device.reconcile',
+    ].includes(String(row.operation_type)) &&
+    (row.target_id === null || typeof row.target_id === 'string')
+  ) {
+    return {
+      ...base,
+      capabilityId: 'household',
+      type: row.operation_type as import('./householdToolProvider').HouseholdProposalOperationType,
+      targetId: row.target_id,
+      payload,
+    };
+  }
   if (row.capability_id === 'chapters' && row.operation_type === 'update_chapter_note' &&
       typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string' &&
       (payload.note === null || typeof payload.note === 'string')) {
@@ -1062,6 +1081,7 @@ export function createUnifiedChatRepository(
               : input.operation.type === 'decide_family_screen_time_request'
                 ? 'family_screen_time_request'
                 : 'family_screen_time_override'
+            : input.capabilityId === 'household' ? 'household_subject'
             : input.capabilityId === 'money' ? 'money_category'
             : input.capabilityId === 'arcs' ? 'arc'
             : input.capabilityId === 'goals' ? 'goal'

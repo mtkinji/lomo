@@ -269,6 +269,16 @@ export async function materializeUnifiedChatOutcomePhase(
           idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
         },
       });
+    } else if (proposal.capabilityId === 'household') {
+      await persistProposal({
+        ...common,
+        capabilityId: 'household',
+        operation: {
+          ...proposal.operation,
+          summary: proposal.title,
+          idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
+        },
+      });
     } else if (proposal.capabilityId === 'money') {
       await persistProposal({
         ...common,

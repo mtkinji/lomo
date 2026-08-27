@@ -72,7 +72,7 @@ export type ExternalControlCoverageRow = {
 };
 
 function isDestructive(operationId: string): boolean {
-  return /(^|\.)(delete|forget|remove|deactivate)(\.|$)/.test(operationId);
+  return /(^|\.)(delete|forget|remove|revoke|deactivate)(\.|$)/.test(operationId);
 }
 
 function assertUniqueExternalNames(registrations: readonly ExternalActionRegistration[]): void {
@@ -292,7 +292,18 @@ export const EXTERNAL_ACTION_REGISTRATIONS: readonly ExternalActionRegistration[
   canonicalWrite('relationships.forget', 'relationships.forget', 'kwilt_relationships_forget', 'Forget Relationship Detail', ['household.read', 'household.write'], 'low', 'none'),
 
   canonicalRead('household.read', 'household.read', 'kwilt_household_read', 'Read Household', ['household.read'], 'household_summary'),
+  canonicalWrite('household.member.add_dependent', 'household.member.add_dependent', 'kwilt_household_member_add_dependent', 'Add Household Dependent', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('household.invitation.create', 'household.invitation.create', 'kwilt_household_invitation_create', 'Create Household Invitation', ['household.read', 'household.write'], 'consequential', 'explicit'),
   canonicalRead('household.invitation.preview', 'household.invitation.preview', 'kwilt_household_invitation_preview', 'Preview Household Invitation', ['household.read'], 'household_summary'),
+  canonicalWrite('household.invitation.accept', 'household.invitation.accept', 'kwilt_household_invitation_accept', 'Accept Household Invitation', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('household.child_capability.update', 'household.child_capability.update', 'kwilt_household_child_capability_update', 'Update Child Capability', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('household.caregiver_grant.update', 'household.caregiver_grant.update', 'kwilt_household_caregiver_grant_update', 'Update Caregiver Authority', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('household.member.update', 'household.member.update', 'kwilt_household_member_update', 'Update Household Member', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('household.member.remove', 'household.member.remove', 'kwilt_household_member_remove', 'Remove Household Member', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalRead('household.device.list', 'household.device.list', 'kwilt_household_devices_list', 'List Household Devices', ['household.read'], 'household_summary'),
+  canonicalWrite('household.device.update', 'household.device.update', 'kwilt_household_device_update', 'Update Household Device', ['household.read', 'household.write'], 'low', 'explicit'),
+  canonicalWrite('household.device.revoke', 'household.device.revoke', 'kwilt_household_device_revoke', 'Revoke Household Device', ['household.read', 'household.write'], 'consequential', 'explicit'),
+  canonicalWrite('household.device.reconcile', 'household.device.reconcile', 'kwilt_household_device_reconcile', 'Reconcile Household Device', ['household.read', 'household.write'], 'consequential', 'explicit'),
   canonicalRead('screen_time.read', 'screen_time.read', 'kwilt_screen_time_read', 'Read Screen Time', ['household.read'], 'screen_time_summary'),
   canonicalWrite('screen_time.agreement.create', 'screen_time.agreement.create', 'kwilt_screen_time_create_prerequisite_agreement', 'Create Screen Time Prerequisite', ['household.read', 'household.write'], 'consequential', 'explicit'),
   canonicalWrite('screen_time.agreement.update', 'screen_time.agreement.update', 'kwilt_screen_time_update_agreement', 'Update Screen Time Agreement', ['household.read', 'household.write'], 'consequential', 'explicit'),

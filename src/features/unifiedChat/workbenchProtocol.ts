@@ -93,7 +93,7 @@ export type AgentWorkbenchProposal = {
   id: string;
   runId: string;
   messageId?: string;
-  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'screenTime' | 'money' | 'recipes';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'household' | 'screenTime' | 'money' | 'recipes';
   title: string;
   body: string;
   status: 'pending' | 'edited' | 'rejected' | 'deferred' | 'approved' | 'applying' | 'applied' | 'failed' | 'undone';
@@ -112,6 +112,10 @@ export type AgentWorkbenchProposal = {
       'create_money_category' | 'rename_money_category' |
       'create_recipe' | 'update_recipe' | 'delete_recipe' |
       'remember_relationship' | 'correct_relationship' | 'forget_relationship' |
+      'household.member.add_dependent' | 'household.invitation.create' | 'household.invitation.accept' |
+      'household.child_capability.update' | 'household.caregiver_grant.update' |
+      'household.member.update' | 'household.member.remove' | 'household.device.update' |
+      'household.device.revoke' | 'household.device.reconcile' |
       'block_family_screen_time_selection' | 'allow_family_screen_time_selection' |
       'create_family_screen_time_prerequisite_agreement' |
       'update_family_screen_time_agreement' | 'deactivate_family_screen_time_agreement' |

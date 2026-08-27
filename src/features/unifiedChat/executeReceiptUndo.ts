@@ -34,6 +34,8 @@ import {
 import type { RelationshipReceiptUndoResult } from '../../services/relationshipMemoryToolProvider';
 import type { MoneyRepository } from '../../capabilities/money/data/moneyRepository';
 import { undoMoneyCategoryRename } from './executeMoneyCategoryProposalDecision';
+import type { CompleteHouseholdActionBoundary } from '../household/data/householdActionBoundary';
+import { executeHouseholdReceiptUndo } from './executeHouseholdReceiptUndo';
 
 type UndoRepository = {
   markMutationReceiptUndone: (receiptId: string, undoneAt: string) => Promise<unknown>;
@@ -58,6 +60,7 @@ export async function executeReceiptUndo({
   chapterStore,
   relationshipUndo,
   moneyRepository,
+  householdBoundary,
   now = () => new Date().toISOString(),
 }: {
   receipt: UnifiedChatMutationReceipt;
@@ -72,6 +75,7 @@ export async function executeReceiptUndo({
   chapterStore?: ChapterStoreBoundary;
   relationshipUndo?: (receiptId: string) => Promise<RelationshipReceiptUndoResult>;
   moneyRepository?: Pick<MoneyRepository, 'loadSnapshot' | 'renameCategory'>;
+  householdBoundary?: CompleteHouseholdActionBoundary;
   now?: () => string;
 }): Promise<void> {
   if (proposal.id !== receipt.proposalId || proposal.status !== 'applied') {
@@ -97,6 +101,16 @@ export async function executeReceiptUndo({
     if (undone.receiptId !== receipt.id || undone.proposalId !== proposal.id || !undone.undoneAt) {
       throw new Error('Relationship undo returned an invalid receipt.');
     }
+    return;
+  }
+  if (proposal.capabilityId === 'household') {
+    if (!householdBoundary) throw new Error('Household undo is unavailable on this device.');
+    transitionProposal(proposal, 'undone', proposal.version);
+    const undone = await executeHouseholdReceiptUndo({ receipt, boundary: householdBoundary, now });
+    await repository.markMutationReceiptUndone(receipt.id, undone.undoneAt);
+    await repository.transitionProposalStatus({
+      proposalId: proposal.id, fromStatus: 'applied', toStatus: 'undone', expectedVersion: proposal.version,
+    });
     return;
   }
   if (proposal.capabilityId === 'plan') {

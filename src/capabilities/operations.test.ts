@@ -113,14 +113,14 @@ describe('KWILT_OPERATION_REGISTRY', () => {
     expect(new Set(ids).size).toBe(228);
   });
 
-  test('keeps Household reads live while writes remain explicit pending-provider boundaries', () => {
-    const liveReads = ['household.read', 'household.invitation.preview'] as const;
-    const pendingWrites = [
-      ['household.member.add_dependent', 'explicit'],
-      ['household.invitation.create', 'explicit'],
-      ['household.invitation.accept', 'explicit'],
-      ['household.child_capability.update', 'explicit'],
-      ['household.caregiver_grant.update', 'explicit'],
+  test('keeps every Household operation live with explicit reviewed writes and truthful Phone outcomes', () => {
+    const liveReads = ['household.read', 'household.invitation.preview', 'household.device.list'] as const;
+    const mobileProposalWrites = [
+      'household.member.add_dependent', 'household.invitation.create', 'household.invitation.accept',
+      'household.child_capability.update', 'household.caregiver_grant.update', 'household.member.remove',
+    ] as const;
+    const serverWrites = [
+      'household.member.update', 'household.device.update', 'household.device.revoke', 'household.device.reconcile',
     ] as const;
     const byId = new Map(KWILT_CAPABILITY_MANIFEST.map((operation) => [operation.id, operation]));
     for (const id of liveReads) {
@@ -132,12 +132,21 @@ describe('KWILT_OPERATION_REGISTRY', () => {
         },
       });
     }
-    for (const [id, confirmation] of pendingWrites) {
+    for (const id of mobileProposalWrites) {
       expect(byId.get(id)).toMatchObject({
-        owner: 'household', confirmation,
+        owner: 'household', confirmation: 'explicit',
         channels: {
-          mobile: { state: 'pending_provider', outcome: 'honest_boundary' },
-          phone: { state: 'pending_provider', outcome: 'honest_boundary' },
+          mobile: { state: 'live', outcome: 'proposal_or_receipt' },
+          phone: { state: 'confirmation_only', outcome: 'mobile_proposal' },
+        },
+      });
+    }
+    for (const id of serverWrites) {
+      expect(byId.get(id)).toMatchObject({
+        owner: 'household', confirmation: 'explicit',
+        channels: {
+          mobile: { state: 'live', outcome: 'proposal_or_receipt' },
+          phone: { state: 'live', outcome: 'server_execution' },
         },
       });
     }

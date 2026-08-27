@@ -54,9 +54,9 @@ const familySnapshot: HouseholdSnapshot = {
   household: { id: 'household-1', name: 'My household' },
   currentMembershipId: 'owner-1',
   members: [
-    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner', avatarUrl: null, avatarSource: 'initials' },
-    { id: 'child-1', personId: 'person-2', displayName: 'Riley', kind: 'dependent', role: 'child', avatarUrl: null, avatarSource: 'initials' },
-    { id: 'child-2', personId: 'person-3', displayName: 'Casey', kind: 'dependent', role: 'child', avatarUrl: null, avatarSource: 'initials' },
+    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner', avatarUrl: null, avatarSource: 'initials', updatedAt: 'version' },
+    { id: 'child-1', personId: 'person-2', displayName: 'Riley', kind: 'dependent', role: 'child', avatarUrl: null, avatarSource: 'initials', updatedAt: 'version' },
+    { id: 'child-2', personId: 'person-3', displayName: 'Casey', kind: 'dependent', role: 'child', avatarUrl: null, avatarSource: 'initials', updatedAt: 'version' },
   ],
   activations: [],
   grants: [],
@@ -301,7 +301,7 @@ describe('HouseholdSettingsScreen', () => {
       ...familySnapshot,
       members: [
         ...familySnapshot.members,
-        { id: 'caregiver-1', personId: 'person-4', displayName: 'Blaire', kind: 'adult', role: 'caregiver', avatarUrl: null, avatarSource: 'initials' },
+        { id: 'caregiver-1', personId: 'person-4', displayName: 'Blaire', kind: 'adult', role: 'caregiver', avatarUrl: null, avatarSource: 'initials', updatedAt: 'version' },
       ],
     };
     mockGetHouseholdSnapshot.mockResolvedValue(withCaregiver);

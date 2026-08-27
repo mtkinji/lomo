@@ -133,6 +133,8 @@ import { buildUnifiedChatTranscript } from './chatTranscript';
 import { createMoneyRepository } from '../../capabilities/money/data/moneyRepository';
 import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProposalDecision';
 import { executeRecipeProposalDecision } from './executeRecipeProposalDecision';
+import { executeHouseholdProposalDecision } from './executeHouseholdProposalDecision';
+import { createHouseholdActionBoundary } from '../household/data/householdActionBoundary';
 import { createRecipeRepository } from '../../capabilities/recipes/data/recipeRepository';
 import { useRecipeStore } from '../../capabilities/recipes/runtime/useRecipeStore';
 import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
@@ -1192,6 +1194,9 @@ export function UnifiedChatScreen({
               await executeRecipeProposalDecision({
                 proposal, action: 'approve', repository, recipes: recipeMutationBoundary,
               });
+            } else if (proposal.capabilityId === 'household') {
+              await executeHouseholdProposalDecision({ proposal, action: 'approve', repository,
+                boundary: createHouseholdActionBoundary(getSupabaseClient()) });
             } else if (proposal.capabilityId === 'money') {
               await executeMoneyCategoryProposalDecision({ proposal, action: 'approve', repository, moneyRepository });
             } else if (proposal.capabilityId === 'screenTime') {
@@ -1255,6 +1260,27 @@ export function UnifiedChatScreen({
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
             setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Recipe.');
+          }
+          return;
+        }
+        if (proposal.capabilityId === 'household') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Household change.');
+            return;
+          }
+          setError(null);
+          try {
+            const completion = await executeHouseholdProposalDecision({
+              proposal, action: command.action, repository,
+              boundary: createHouseholdActionBoundary(getSupabaseClient()),
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+            if (completion.status === 'pending_client_action') {
+              setError('The Household record is reconciled. Finish device-local cleanup from Household Devices.');
+            }
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that Household change.');
           }
           return;
         }
@@ -1468,6 +1494,9 @@ export function UnifiedChatScreen({
               chapterStore: chapterStoreBoundary,
               relationshipUndo: receipt.capabilityId === 'relationships'
                 ? createRelationshipMemoryToolProvider({}).undoReceipt
+                : undefined,
+              householdBoundary: receipt.capabilityId === 'household'
+                ? createHouseholdActionBoundary(getSupabaseClient())
                 : undefined,
               moneyRepository,
             });

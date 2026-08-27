@@ -160,6 +160,15 @@ const serverMobileProposalProof = [
   'src/features/unifiedChat/executeProfileProposalDecision.test.ts',
   'src/features/unifiedChat/recoverProfileMutations.test.ts',
 ] as const;
+const householdManagementProof = [
+  'src/features/household/data/householdManagementActions.test.ts',
+  'src/features/household/HouseholdMemberDetailScreen.test.tsx',
+  'src/features/household/HouseholdDevicesScreen.test.tsx',
+  'src/features/unifiedChat/householdToolProvider.test.ts',
+  'src/features/unifiedChat/executeHouseholdProposalDecision.test.ts',
+  'src/features/unifiedChat/executeHouseholdReceiptUndo.test.ts',
+  'supabase/functions/_shared/__tests__/serverHouseholdTools.test.ts',
+] as const;
 
 const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'general.answer', 'general.answer_with_context',
@@ -171,6 +180,8 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'profile.read',
   'relationships.read', 'relationships.remember', 'relationships.correct', 'relationships.forget',
   'household.read', 'household.invitation.preview',
+  'household.member.update', 'household.device.list', 'household.device.update',
+  'household.device.revoke', 'household.device.reconcile',
   'screen_time.read',
   'screen_time.agreement.create', 'screen_time.agreement.update', 'screen_time.agreement.deactivate',
   'screen_time.override.block', 'screen_time.override.allow', 'screen_time.override.cancel',
@@ -195,6 +206,8 @@ const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
   'activities.reminder.update', 'activities.focus_today',
   'chapters.note.update',
   'profile.update',
+  'household.member.add_dependent', 'household.invitation.create', 'household.invitation.accept',
+  'household.child_capability.update', 'household.caregiver_grant.update', 'household.member.remove',
   'activities.schedule', 'plan.schedule_activity', 'plan.schedule_chunks', 'plan.reschedule_activity', 'plan.remove_activity',
 ]);
 
@@ -408,6 +421,16 @@ function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): C
 function controlParityCapabilityRow(
   contract: typeof CONTROL_PARITY_OPERATION_CONTRACTS[number],
 ): ChatCapabilityCoverageRow {
+  if (contract.owner === 'household') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, householdManagementProof);
+  }
   return bounded('pending_provider', {
     id: contract.id,
     providers: contract.providers,
@@ -427,12 +450,12 @@ const CAPABILITY_ROWS = [
   live({ id: 'relationships.forget', providers: ['server', 'channel'], consequence: 'low', confirmation: 'none', toolIds: ['relationships.read', 'relationships.forget'], sourceRefs: ['service:phone_agent_relationship_memory'] }, relationshipProof),
   bounded('excluded', { id: 'relationships.forget_person', providers: ['server', 'channel'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Whole-person forgetting is withheld until Kwilt can review and restore every dependent relationship record safely.'),
   live({ id: 'household.read', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['household.read'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdReadProof),
-  bounded('pending_provider', { id: 'household.member.add_dependent', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.member.add_dependent'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Dependent creation now uses the canonical Household action, but Chat review and provider execution remain pending.'),
-  bounded('pending_provider', { id: 'household.invitation.create', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.create'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Invitation creation now uses the canonical Household action, but Chat review and secure delivery remain pending.'),
+  live({ id: 'household.member.add_dependent', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.member.add_dependent'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
+  live({ id: 'household.invitation.create', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.create'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
   live({ id: 'household.invitation.preview', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['household.invitation.preview'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdReadProof),
-  bounded('pending_provider', { id: 'household.invitation.accept', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.accept'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Invitation acceptance now uses the canonical Household action, but Chat review and provider execution remain pending.'),
-  bounded('pending_provider', { id: 'household.child_capability.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.child_capability.update'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Child capability authority now uses the canonical Household action, but Chat review and provider execution remain pending.'),
-  bounded('pending_provider', { id: 'household.caregiver_grant.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.caregiver_grant.update'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Caregiver authority now uses the canonical Household action, but Chat review and provider execution remain pending.'),
+  live({ id: 'household.invitation.accept', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.accept'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
+  live({ id: 'household.child_capability.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.child_capability.update'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
+  live({ id: 'household.caregiver_grant.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.caregiver_grant.update'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
   live({ id: 'profile.read', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['profile.read'], sourceRefs: ['mcp:get_current_account', 'legacy:get_user_profile'] }, profileProof),
   live({ id: 'profile.update', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['profile.update'], sourceRefs: ['legacy:set_user_profile'] }, profileProof),
 

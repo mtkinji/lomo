@@ -234,7 +234,7 @@ export type UnifiedChatMutationReceipt = {
   id: string;
   proposalId: string;
   operationId: string;
-  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'screenTime' | 'money' | 'recipes';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'household' | 'screenTime' | 'money' | 'recipes';
   idempotencyKey: string;
   status: 'reserved' | 'applied' | 'failed' | 'undone';
   resultingObjectType: string | null;
@@ -276,7 +276,7 @@ export type TransitionUnifiedChatRunInput = {
 };
 
 export type PersistUnifiedChatMutationReceiptInput = {
-  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'screenTime' | 'money' | 'recipes';
+  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'household' | 'screenTime' | 'money' | 'recipes';
   threadId: string;
   proposalId: string;
   operationId: string;
@@ -405,6 +405,12 @@ export type PlanRemoveActivityPayload = {
 
 export type UnifiedChatProposalOperation = UnifiedChatProposalOperationBase & (
   | ({ capabilityId: 'recipes' } & RecipeProposalOperation)
+  | {
+      capabilityId: 'household';
+      type: import('./householdToolProvider').HouseholdProposalOperationType;
+      targetId: string | null;
+      payload: Record<string, unknown>;
+    }
   | {
       capabilityId: 'money'; type: 'create_money_category'; targetId: null;
       payload: { name: string; budgetCents: number };
@@ -551,6 +557,10 @@ export type UnifiedChatProposal = UnifiedChatProposalBase & (
       operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'recipes' }>;
     }
   | {
+      capabilityId: 'household';
+      operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'household' }>;
+    }
+  | {
       capabilityId: 'money';
       operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'money' }>;
     }
@@ -612,6 +622,16 @@ export type CreateUnifiedChatProposalInput = CreateUnifiedChatProposalInputBase 
   | {
       capabilityId: 'recipes';
       operation: RecipeProposalOperation & { summary: string; idempotencyKey: string };
+    }
+  | {
+      capabilityId: 'household';
+      operation: {
+        type: import('./householdToolProvider').HouseholdProposalOperationType;
+        targetId: string | null;
+        payload: Record<string, unknown>;
+        summary: string;
+        idempotencyKey: string;
+      };
     }
   | {
       capabilityId: 'money';

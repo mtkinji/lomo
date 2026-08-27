@@ -47,11 +47,12 @@ describe('externalMcp helpers', () => {
       for (const child of Array.isArray(record.oneOf) ? record.oneOf : []) assertStrict(child);
     };
 
-    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(66);
+    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(77);
     for (const tool of EXTERNAL_MCP_ACTION_CATALOG) {
       assertStrict(tool.inputSchema);
       expect(tool.outputSchema).toEqual(expect.objectContaining({ type: 'object' }));
     }
+    expect(resolveExternalMcpTool('kwilt_household_device_revoke')?.annotations.destructiveHint).toBe(true);
   });
 
   test('keeps every manifest operation in an explicit external-control state', () => {

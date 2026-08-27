@@ -64,3 +64,19 @@ test('MCP projects the exact canonical receipt returned to mobile Chat', async (
     result_references: mobileResult.receipt.resultRefs,
   });
 });
+
+test('ChatGPT canonical Household tools preserve exact targets, versions, and reviewed fields', () => {
+  const tool = resolveExternalMcpTool('kwilt_household_device_update');
+  expect(tool).toBeDefined();
+  expect(prepareExternalMcpAction(tool!, {
+    householdId: 'household-1', deviceId: 'device-1',
+    expectedUpdatedAt: '2026-08-27T18:00:00.000Z',
+    displayName: 'School phone', memberIds: ['child-1'], idempotency_key: 'stable-household-key',
+  }, 'request-household')).toEqual({
+    id: 'request-household', toolId: 'household.device.update', arguments: {
+      householdId: 'household-1', deviceId: 'device-1',
+      expectedUpdatedAt: '2026-08-27T18:00:00.000Z',
+      displayName: 'School phone', memberIds: ['child-1'],
+    },
+  });
+});

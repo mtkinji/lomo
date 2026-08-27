@@ -2249,6 +2249,130 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
   {
     "annotations": {
       "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Add Household Dependent",
+    },
+    "canonicalName": "kwilt_household_member_add_dependent",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "displayName": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "householdId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "ownerDisplayName": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "householdId",
+        "displayName",
+        "ownerDisplayName",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_member_add_dependent",
+    "operationId": "household.member.add_dependent",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "household.member.add_dependent",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Create Household Invitation",
+    },
+    "canonicalName": "kwilt_household_invitation_create",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "householdId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "invitedEmail": {
+          "maxLength": 320,
+          "type": [
+            "string",
+            "null",
+          ],
+        },
+        "ownerDisplayName": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "role": {
+          "enum": [
+            "caregiver",
+            "child",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "householdId",
+        "role",
+        "invitedEmail",
+        "ownerDisplayName",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_invitation_create",
+    "operationId": "household.invitation.create",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "household.invitation.create",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
       "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": true,
@@ -2280,6 +2404,517 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "household.read",
     ],
     "toolId": "household.invitation.preview",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Accept Household Invitation",
+    },
+    "canonicalName": "kwilt_household_invitation_accept",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "displayName": {
+          "maxLength": 160,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "code",
+        "displayName",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_invitation_accept",
+    "operationId": "household.invitation.accept",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "household.invitation.accept",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Child Capability",
+    },
+    "canonicalName": "kwilt_household_child_capability_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilityId": {
+          "enum": [
+            "todos",
+            "screen-time",
+            "meal-planning",
+          ],
+          "type": "string",
+        },
+        "childMembershipId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "enabled": {
+          "type": "boolean",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "childMembershipId",
+        "capabilityId",
+        "enabled",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_child_capability_update",
+    "operationId": "household.child_capability.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "household.child_capability.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Caregiver Authority",
+    },
+    "canonicalName": "kwilt_household_caregiver_grant_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilityId": {
+          "enum": [
+            "todos",
+            "screen-time",
+            "meal-planning",
+          ],
+          "type": "string",
+        },
+        "caregiverMembershipId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "childMembershipId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "granted": {
+          "type": "boolean",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "caregiverMembershipId",
+        "childMembershipId",
+        "capabilityId",
+        "granted",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_caregiver_grant_update",
+    "operationId": "household.caregiver_grant.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "household.caregiver_grant.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Household Member",
+    },
+    "canonicalName": "kwilt_household_member_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "fields": {
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "displayName": {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string",
+            },
+            "role": {
+              "enum": [
+                "caregiver",
+                "child",
+              ],
+              "type": "string",
+            },
+          },
+          "type": "object",
+        },
+        "householdId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "membershipId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "membershipId",
+        "expectedUpdatedAt",
+        "householdId",
+        "fields",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_member_update",
+    "operationId": "household.member.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "household.member.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Remove Household Member",
+    },
+    "canonicalName": "kwilt_household_member_remove",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "householdId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "membershipId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "membershipId",
+        "expectedUpdatedAt",
+        "householdId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_member_remove",
+    "operationId": "household.member.remove",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "household.member.remove",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List Household Devices",
+    },
+    "canonicalName": "kwilt_household_devices_list",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "householdId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "householdId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_devices_list",
+    "operationId": "household.device.list",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+    ],
+    "toolId": "household.device.list",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Household Device",
+    },
+    "canonicalName": "kwilt_household_device_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "displayName",
+          ],
+        },
+        {
+          "required": [
+            "memberIds",
+          ],
+        },
+      ],
+      "properties": {
+        "deviceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "displayName": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "householdId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "memberIds": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string",
+          },
+          "maxItems": 50,
+          "type": "array",
+          "uniqueItems": true,
+        },
+      },
+      "required": [
+        "deviceId",
+        "expectedUpdatedAt",
+        "householdId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_device_update",
+    "operationId": "household.device.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "household.device.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Revoke Household Device",
+    },
+    "canonicalName": "kwilt_household_device_revoke",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "deviceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "householdId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "deviceId",
+        "expectedUpdatedAt",
+        "householdId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_device_revoke",
+    "operationId": "household.device.revoke",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "household.device.revoke",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Reconcile Household Device",
+    },
+    "canonicalName": "kwilt_household_device_reconcile",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "deviceId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "householdId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "deviceId",
+        "expectedUpdatedAt",
+        "householdId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_household_device_reconcile",
+    "operationId": "household.device.reconcile",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "household.read",
+      "household.write",
+    ],
+    "toolId": "household.device.reconcile",
   },
   {
     "annotations": {

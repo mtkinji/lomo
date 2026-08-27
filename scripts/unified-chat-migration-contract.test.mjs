@@ -70,6 +70,10 @@ const householdReadProviderMigration = readFileSync(
   new URL('../supabase/migrations/20260827125904_unified_chat_household_read_provider.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
+const householdControlMigration = readFileSync(
+  new URL('../supabase/migrations/20260827185456_household_conversational_control.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
 const screenTimeReadProviderMigration = readFileSync(
   new URL('../supabase/migrations/20260827131101_unified_chat_screen_time_read_provider.sql', import.meta.url),
   'utf8',
@@ -141,6 +145,36 @@ test('keeps external Household reads user-bound and service-role only', () => {
   assert.match(householdReadProviderMigration, /grant execute on function public\.get_kwilt_agent_household_snapshot\(uuid\) to service_role/);
   assert.match(householdReadProviderMigration, /revoke all on function public\.preview_kwilt_agent_household_invite\(uuid, text\) from public, anon, authenticated/);
   assert.match(householdReadProviderMigration, /grant execute on function public\.preview_kwilt_agent_household_invite\(uuid, text\) to service_role/);
+});
+
+test('keeps conversational Household mutations exact, versioned, audited, and least-privilege', () => {
+  assert.match(householdControlMigration, /kwilt_household_memberships[\s\S]+updated_at timestamptz not null default now\(\)/);
+  assert.match(householdControlMigration, /greatest\(v_target\.updated_at, v_person\.updated_at\) <> p_expected_updated_at/);
+  assert.match(householdControlMigration, /v_actor\.household_id <> p_household_id/);
+  assert.match(householdControlMigration, /v_actor\.role = 'owner' and v_target\.role <> 'owner'/);
+  assert.match(householdControlMigration, /v_actor\.role = 'caregiver' and v_target\.role = 'child'/);
+  assert.match(householdControlMigration, /status = 'removed', removed_at = now\(\)/);
+  assert.match(householdControlMigration, /status = 'revoked', credential_hash = null, revoked_at = now\(\)/);
+  assert.match(householdControlMigration, /'deviceassignments'/);
+  assert.match(householdControlMigration, /'sharedobjects'/);
+  assert.match(householdControlMigration, /'recovery'/);
+  assert.match(householdControlMigration, /'requiresnativecleanup'/);
+  assert.match(householdControlMigration, /stale_household_member/);
+  assert.match(householdControlMigration, /stale_household_device/);
+  for (const signature of [
+    'get_kwilt_agent_household_snapshot\\(uuid\\)',
+    'list_kwilt_agent_household_devices\\(uuid, uuid\\)',
+    'update_kwilt_agent_household_member\\(uuid, uuid, uuid, timestamptz, text, text\\)',
+    'preview_kwilt_agent_household_member_removal\\(uuid, uuid, uuid, timestamptz\\)',
+    'remove_kwilt_agent_household_member_reviewed\\(uuid, uuid, uuid, timestamptz\\)',
+    'update_kwilt_agent_household_device\\(uuid, uuid, uuid, timestamptz, text, uuid\\[\\]\\)',
+    'revoke_kwilt_agent_household_device\\(uuid, uuid, uuid, timestamptz\\)',
+    'reconcile_kwilt_agent_household_device\\(uuid, uuid, uuid, timestamptz\\)',
+  ]) {
+    assert.match(householdControlMigration, new RegExp(`revoke all on function public\\.${signature} from public, anon, authenticated`));
+    assert.match(householdControlMigration, new RegExp(`grant execute on function public\\.${signature} to service_role`));
+  }
+  assert.doesNotMatch(householdControlMigration, /grant execute[\s\S]+kwilt_agent_household_actor/);
 });
 
 test('keeps external Screen Time reads caregiver-authorized, semantic, and service-role only', () => {

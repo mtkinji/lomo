@@ -30,8 +30,8 @@ describe('Add to Meal Plan household fit', () => {
       projection: {
         householdId: 'household', setupState: 'completed', usualDinerCount: 7, usualDinerPersonIds: ['adult', 'child'],
         members: [
-          { id: 'member-adult', personId: 'adult', displayName: 'Blair', kind: 'adult', role: 'owner' },
-          { id: 'member-child', personId: 'child', displayName: 'Avery', kind: 'dependent', role: 'child' },
+          { id: 'member-adult', personId: 'adult', displayName: 'Blair', kind: 'adult', role: 'owner', updatedAt: 'version' },
+          { id: 'member-child', personId: 'child', displayName: 'Avery', kind: 'dependent', role: 'child', updatedAt: 'version' },
         ],
         foodNeeds: [{ id: 'need', personId: 'child', kind: 'must_avoid', ingredientConcept: 'peanut', displayLabel: 'Peanuts' }],
       },

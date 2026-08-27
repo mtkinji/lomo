@@ -487,7 +487,7 @@ function strictExternalSchema(schema: JsonObject): JsonObject {
     if (key === 'items' && value && typeof value === 'object' && !Array.isArray(value)) {
       return [key, strictExternalSchema(value as JsonObject)];
     }
-    if (key === 'oneOf' && Array.isArray(value)) {
+    if ((key === 'oneOf' || key === 'anyOf') && Array.isArray(value)) {
       return [key, value.map((child) => child && typeof child === 'object' && !Array.isArray(child)
         ? strictExternalSchema(child as JsonObject)
         : child)];
