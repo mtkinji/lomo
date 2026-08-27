@@ -347,6 +347,27 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
     return { ...base, capabilityId: 'money', type: 'rename_money_category', targetId: row.target_id, payload } as UnifiedChatProposalOperation;
   }
   if (
+    row.capability_id === 'money' && typeof row.target_id === 'string' &&
+    typeof payload.expectedUpdatedAt === 'string' && [
+      'update_money_budget',
+      'update_money_transaction_meaning',
+      'update_money_transaction_plan_treatment',
+      'review_money_transfer',
+      'disconnect_money_connection',
+    ].includes(String(row.operation_type))
+  ) {
+    const expectedUpdatedAt = payload.expectedUpdatedAt;
+    const { expectedUpdatedAt: _expectedUpdatedAt, ...operationPayload } = payload;
+    return {
+      ...base,
+      capabilityId: 'money',
+      type: row.operation_type,
+      targetId: row.target_id,
+      expectedUpdatedAt,
+      payload: operationPayload,
+    } as UnifiedChatProposalOperation;
+  }
+  if (
     row.capability_id === 'screenTime' &&
     (row.operation_type === 'block_family_screen_time_selection' ||
       row.operation_type === 'allow_family_screen_time_selection' ||

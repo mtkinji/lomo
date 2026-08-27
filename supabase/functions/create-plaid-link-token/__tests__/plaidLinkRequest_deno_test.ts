@@ -1,12 +1,25 @@
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import {
   buildPlaidPlatformFields,
+  buildPlaidLinkModeFields,
   PLAID_CLIENT_NAME,
   resolvePlaidLinkPlatform,
 } from '../plaidLinkRequest.ts';
 
 Deno.test('Plaid presents the current Kwilt product name', () => {
   assertEquals(PLAID_CLIENT_NAME, 'Kwilt');
+});
+
+Deno.test('Plaid update mode uses the private access token and omits products', () => {
+  assertEquals(buildPlaidLinkModeFields({
+    accessToken: 'private-access', products: ['transactions'], daysRequested: 730,
+  }), { access_token: 'private-access' });
+});
+
+Deno.test('Plaid new-item mode keeps products and transaction history request', () => {
+  assertEquals(buildPlaidLinkModeFields({
+    accessToken: null, products: ['transactions'], daysRequested: 730,
+  }), { products: ['transactions'], transactions: { days_requested: 730 } });
 });
 
 Deno.test('iOS Plaid link requests omit the Android package name', () => {

@@ -15,7 +15,9 @@ export async function recoverMoneyCategoryMutations({ aggregate, repository, mon
 }): Promise<UnifiedChatThreadAggregate> {
   let changed = false;
   for (const proposal of aggregate.proposals ?? []) {
-    if (proposal.capabilityId !== 'money' || proposal.status !== 'applying') continue;
+    if (proposal.capabilityId !== 'money' || proposal.status !== 'applying'
+      || (proposal.operation.type !== 'create_money_category'
+        && proposal.operation.type !== 'rename_money_category')) continue;
     const receipt = (aggregate.receipts ?? []).find(
       (candidate) => candidate.proposalId === proposal.id &&
         (candidate.status === 'reserved' || candidate.status === 'applied'),

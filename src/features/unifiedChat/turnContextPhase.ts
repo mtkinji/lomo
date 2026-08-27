@@ -58,7 +58,11 @@ export async function loadDefaultCapabilitySnapshots(
   const chapters = capabilities.includes('chapters')
     ? await fetchMyChapters({ limit: 20, throwOnError: true })
     : [];
-  const money = capabilities.includes('money')
+  const moneyPrivacyLocked = capabilities.includes('money')
+    ? (await (await import('../../capabilities/money/runtime/moneyPrivacyLock'))
+        .loadMoneyPrivacyLockSettings()).enabled
+    : false;
+  const money = capabilities.includes('money') && !moneyPrivacyLocked
     ? await loadDefaultMoneySnapshot()
     : undefined;
   const screenTime = capabilities.includes('screenTime')
@@ -119,6 +123,7 @@ export async function loadDefaultCapabilitySnapshots(
       },
     },
     money,
+    moneyPrivacyLocked,
     plan,
     screenTime,
     recipes,

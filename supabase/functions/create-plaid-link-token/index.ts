@@ -7,6 +7,7 @@ import {
 import { getAuthenticatedUser, isAuthenticationError } from '../_shared/supabase.ts';
 import {
   buildPlaidPlatformFields,
+  buildPlaidLinkModeFields,
   PLAID_CLIENT_NAME,
   resolvePlaidLinkPlatform,
 } from './plaidLinkRequest.ts';
@@ -34,8 +35,10 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const { user } = await getAuthenticatedUser(request);
+    const { supabase, user } = await getAuthenticatedUser(request);
     const body = await request.json().catch(() => ({}));
+    const connectionId = body && typeof body === 'object' && 'connectionId' in body
+      && typeof body.connectionId === 'string' ? body.connectionId.trim() : '';
     const platform = resolvePlaidLinkPlatform(
       body && typeof body === 'object' && 'platform' in body ? body.platform : undefined,
       request.headers.get('user-agent'),
@@ -58,20 +61,37 @@ Deno.serve(async (request) => {
     const daysRequested = Number.isFinite(configuredDaysRequested)
       ? Math.min(730, Math.max(1, Math.round(configuredDaysRequested)))
       : 730;
+    let accessToken: string | null = null;
+    if (connectionId) {
+      const { data: connection, error: connectionError } = await supabase
+        .from('budget_financial_connections').select('id')
+        .eq('id', connectionId).eq('user_id', user.id).maybeSingle();
+      if (connectionError || !connection) {
+        return Response.json({ error: 'Connection not found', code: 'connection_not_found' }, {
+          status: 404, headers: corsHeaders,
+        });
+      }
+      const { data: token, error: tokenError } = await supabase.rpc('get_budget_plaid_access_token', {
+        p_connection_id: connectionId,
+      });
+      if (tokenError || typeof token !== 'string' || !token.trim()) {
+        return Response.json({ error: 'Connection cannot be repaired', code: 'provider_token_missing' }, {
+          status: 409, headers: corsHeaders,
+        });
+      }
+      accessToken = token;
+    }
 
     const plaidRequest = {
       client_id: clientId,
       secret,
       client_name: PLAID_CLIENT_NAME,
-      products,
       country_codes: countryCodes,
       language: 'en',
       user: {
         client_user_id: user.id,
       },
-      transactions: {
-        days_requested: daysRequested,
-      },
+      ...buildPlaidLinkModeFields({ accessToken, products, daysRequested }),
       ...buildPlaidPlatformFields({ platform, redirectUri, androidPackageName }),
     };
 

@@ -8,6 +8,7 @@ import { executeServerProfileTool } from './serverProfileTools.ts';
 import { executeServerRelationshipTool } from './serverRelationshipTools.ts';
 import { executeServerHouseholdTool } from './serverHouseholdTools.ts';
 import { executeServerScreenTimeTool } from './serverScreenTimeTools.ts';
+import { executeServerMoneyTool } from './serverMoneyTools.ts';
 import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
 import {
   createServerToolProviderRegistry,
@@ -425,6 +426,8 @@ async function executeServerAgentToolHandler({
   if (householdResult) return householdResult;
   const screenTimeResult = await executeServerScreenTimeTool({ client, userId, call, stageProposal, stageDeviceAction });
   if (screenTimeResult) return screenTimeResult;
+  const moneyResult = await executeServerMoneyTool({ client, userId, call, stageDeviceAction });
+  if (moneyResult) return moneyResult;
   if (tool.capabilityId === 'relationships') {
     const policy = evaluateToolPolicy(tool, {
       authorized: true,

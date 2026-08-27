@@ -1,7 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState, type ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import type { SettingsStackParamList } from '../../../navigation/RootNavigator';
 import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
 import { useAppStore } from '../../../store/useAppStore';
@@ -22,14 +22,14 @@ import {
 } from '../components/MoneyInventoryListFrame';
 import { MoneyDataProvider, useMoneyData } from '../data/MoneyDataContext';
 import { isMoneyPlaidError } from '../data/moneyPlaidErrors';
-import { formatMoneyFreshness, type MoneyAccount } from '../data/moneySnapshot';
+import { formatMoneyFreshness, type MoneyAccount, type MoneyConnection } from '../data/moneySnapshot';
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 import { connectMoneyAccount } from '../runtime/connectMoneyAccount';
 import { MoneyPrivacyGate } from '../runtime/MoneyPrivacyGate';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 import { EmptyState } from '../../../ui/EmptyState';
-import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
+import { startMoneyPlaidLink, startMoneyPlaidRepair } from '../native/moneyPlaidLink';
 
 type AccountFilter = 'all' | 'linked' | 'needs_review';
 type AccountSort = 'name' | 'transactions_high' | 'status';
@@ -78,7 +78,7 @@ export function MoneyAccountsSurface({
   onOpenTransactions: (accountId: string) => void;
   onPressBack?: () => void;
 }) {
-  const { snapshot, reconcileConnectedActivity } = useMoneyData();
+  const { snapshot, reconcileConnectedActivity, disconnectConnection } = useMoneyData();
   const [filter, setFilter] = useState<AccountFilter>('all');
   const [sort, setSort] = useState<AccountSort>('name');
   const [connectionAction, setConnectionAction] = useState<'linking' | 'syncing' | null>(null);
@@ -86,6 +86,7 @@ export function MoneyAccountsSurface({
   const [connectionTone, setConnectionTone] = useState<ConnectionTone>('neutral');
   const [canRetryConnection, setCanRetryConnection] = useState(false);
   const accounts = snapshot?.accounts ?? [];
+  const connections = (snapshot?.connections ?? []).filter((connection) => connection.status !== 'disconnected');
   const visibleAccounts = useMemo(() => sortAccounts(accounts.filter((account) => (
     filter === 'all' || (filter === 'linked' ? account.transactionCount > 0 : account.transactionCount === 0)
   )), sort), [accounts, filter, sort]);
@@ -133,6 +134,59 @@ export function MoneyAccountsSurface({
     } finally {
       setConnectionAction(null);
     }
+  };
+
+  const repairConnection = async (connection: MoneyConnection) => {
+    if (connectionAction) return;
+    signalMoneyChoice();
+    setConnectionAction('linking');
+    setConnectionTone('neutral');
+    setConnectionMessage(`Opening secure repair for ${connection.institutionName}…`);
+    try {
+      const result = await startMoneyPlaidRepair(connection.id);
+      if (result.status === 'cancelled') {
+        setConnectionMessage('Connection repair closed without changes.');
+      } else {
+        await reconcileConnectedActivity({ trigger: 'manual_sync', sync: true });
+        setConnectionTone('success');
+        setConnectionMessage(`${connection.institutionName} repaired and checked.`);
+        signalMoneyMutationOutcome('succeeded');
+      }
+    } catch (error) {
+      setConnectionTone('error');
+      setConnectionMessage(isMoneyPlaidError(error) ? error.message : 'Kwilt could not repair this connection. Try again.');
+      signalMoneyMutationOutcome('failed');
+    } finally {
+      setConnectionAction(null);
+    }
+  };
+
+  const confirmDisconnect = (connection: MoneyConnection) => {
+    if (connectionAction) return;
+    Alert.alert(
+      `Disconnect ${connection.institutionName}?`,
+      `${connection.accountCount} linked account${connection.accountCount === 1 ? '' : 's'} will stop syncing. Existing Money history stays in Kwilt.`,
+      [
+        { text: 'Keep connected', style: 'cancel' },
+        {
+          text: 'Disconnect', style: 'destructive',
+          onPress: () => {
+            setConnectionAction('syncing');
+            setConnectionTone('neutral');
+            setConnectionMessage(`Disconnecting ${connection.institutionName}…`);
+            void disconnectConnection(connection.id).then(() => {
+              setConnectionTone('success');
+              setConnectionMessage(`${connection.institutionName} disconnected.`);
+              signalMoneyMutationOutcome('succeeded');
+            }).catch((error) => {
+              setConnectionTone('error');
+              setConnectionMessage(error instanceof Error ? error.message : 'The provider did not confirm the disconnect.');
+              signalMoneyMutationOutcome('failed');
+            }).finally(() => setConnectionAction(null));
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -184,6 +238,20 @@ export function MoneyAccountsSurface({
             ) : null}
           </View>
         ) : null}
+        {connections.length > 0 ? (
+          <View style={styles.connectionGroup}>
+            <Text style={styles.connectionHeading}>Connections</Text>
+            {connections.map((connection) => (
+              <ConnectionInventoryRow
+                key={connection.id}
+                connection={connection}
+                disabled={Boolean(connectionAction)}
+                onRepair={() => void repairConnection(connection)}
+                onDisconnect={() => confirmDisconnect(connection)}
+              />
+            ))}
+          </View>
+        ) : null}
         {visibleAccounts.length > 0 ? visibleAccounts.map((account) => (
           <AccountInventoryRow key={account.id} account={account} onPress={() => onOpenTransactions(account.id)} />
         )) : accounts.length === 0 ? (
@@ -205,6 +273,44 @@ export function MoneyAccountsSurface({
         )}
       </MoneyInventoryListFrame>
     </MoneyScreenFrame>
+  );
+}
+
+function ConnectionInventoryRow({ connection, disabled, onRepair, onDisconnect }: {
+  connection: MoneyConnection; disabled: boolean; onRepair: () => void; onDisconnect: () => void;
+}) {
+  const needsRepair = connection.status === 'error';
+  return (
+    <View style={styles.connectionRow}>
+      <View style={styles.connectionRowCopy}>
+        <Text numberOfLines={1} style={styles.rowTitle}>{connection.institutionName}</Text>
+        <Text style={styles.recentActivity}>
+          {needsRepair ? 'Needs repair' : `${connection.accountCount} linked account${connection.accountCount === 1 ? '' : 's'}`}
+        </Text>
+      </View>
+      <DropdownMenu>
+        <DropdownMenuTrigger accessibilityLabel={`Manage ${connection.institutionName} connection`} disabled={disabled}>
+          <View pointerEvents="none" style={[styles.connectionMenuButton, disabled ? styles.iconButtonDisabled : null]}>
+            <Icon name="more" size={18} color={colors.textPrimary} />
+          </View>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+          <DropdownMenuItem onPress={onRepair} accessibilityLabel={`Repair ${connection.institutionName} connection`}>
+            <View style={menuStyles.menuItemRow}>
+              <Icon name="refresh" size={18} color={colors.textSecondary} />
+              <Text style={menuStyles.menuItemText} {...menuItemTextProps}>Repair connection</Text>
+            </View>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onPress={onDisconnect} accessibilityLabel={`Disconnect ${connection.institutionName}`}>
+            <View style={menuStyles.menuItemRow}>
+              <Icon name="link" size={18} color={colors.madder700} />
+              <Text style={[menuStyles.menuItemText, styles.destructiveMenuText]} {...menuItemTextProps}>Disconnect</Text>
+            </View>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </View>
   );
 }
 
@@ -275,6 +381,12 @@ const styles = StyleSheet.create({
   connectionStatusError: { backgroundColor: colors.madder50 },
   connectionStatusText: { flex: 1, ...typography.bodyXs, color: colors.textSecondary },
   connectionStatusTextError: { color: colors.madder800 },
+  connectionGroup: { gap: spacing.xs, paddingBottom: spacing.sm },
+  connectionHeading: { ...typography.bodyXs, fontFamily: fonts.bold, color: colors.textSecondary },
+  connectionRow: { minHeight: 54, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 8, backgroundColor: colors.card },
+  connectionRowCopy: { flex: 1, minWidth: 0, gap: 2 },
+  connectionMenuButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  destructiveMenuText: { color: colors.madder700 },
   retryButton: { minHeight: 32, justifyContent: 'center', paddingHorizontal: spacing.xs, borderRadius: 6 },
   retryButtonPressed: { backgroundColor: colors.madder100 },
   retryButtonText: { ...typography.bodyXs, fontFamily: fonts.bold, color: colors.madder800 },

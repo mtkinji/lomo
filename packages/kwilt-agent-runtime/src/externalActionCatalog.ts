@@ -16,6 +16,7 @@ export type ExternalRedactionPolicy =
   | 'relationship_summary'
   | 'household_summary'
   | 'screen_time_summary'
+  | 'money_summary'
   | 'plan_summary'
   | 'mutation_receipt';
 
@@ -322,6 +323,17 @@ export const EXTERNAL_ACTION_REGISTRATIONS: readonly ExternalActionRegistration[
   canonicalWrite('screen_time.selection.open', 'screen_time.selection.open', 'kwilt_screen_time_selection_open', 'Choose Child Apps', ['household.read', 'household.write'], 'low', 'native'),
   canonicalWrite('screen_time.device.setup.open', 'screen_time.device.setup.open', 'kwilt_screen_time_device_setup_open', 'Set Up Child Device', ['household.read', 'household.write'], 'low', 'native'),
   canonicalWrite('screen_time.device.release.open', 'screen_time.device.release.open', 'kwilt_screen_time_device_release_open', 'Release Child Device', ['household.read', 'household.write'], 'consequential', 'native'),
+
+  canonicalRead('money.budget.read', 'money.budget.read', 'kwilt_money_budget_read', 'Review Money Plan', ['money.read'], 'money_summary'),
+  canonicalWrite('money.budget.update', 'money.budget.update', 'kwilt_money_budget_update', 'Update Money Plan', ['money.read', 'money.write'], 'consequential', 'explicit'),
+  canonicalRead('money.transaction.get', 'money.transaction.get', 'kwilt_money_transaction_get', 'Review Money Transaction', ['money.read'], 'money_summary'),
+  canonicalWrite('money.transaction.meaning.update', 'money.transaction.meaning.update', 'kwilt_money_transaction_meaning_update', 'Update Transaction Meaning', ['money.read', 'money.write'], 'consequential', 'explicit'),
+  canonicalWrite('money.transaction.plan_treatment.update', 'money.transaction.plan_treatment.update', 'kwilt_money_transaction_plan_treatment_update', 'Update Transaction Plan Treatment', ['money.read', 'money.write'], 'consequential', 'explicit'),
+  canonicalWrite('money.connection.disconnect', 'money.connection.disconnect', 'kwilt_money_connection_disconnect', 'Disconnect Money Connection', ['money.read', 'money.write'], 'consequential', 'explicit'),
+  canonicalWrite('money.connection.repair.open', 'money.connection.repair.open', 'kwilt_money_connection_repair_open', 'Repair Money Connection', ['money.read', 'money.write'], 'consequential', 'native'),
+  canonicalRead('money.transfer.list', 'money.transfer.list', 'kwilt_money_transfer_list', 'List Money Transfers', ['money.read'], 'money_summary'),
+  canonicalRead('money.transfer.get', 'money.transfer.get', 'kwilt_money_transfer_get', 'Review Money Transfer', ['money.read'], 'money_summary'),
+  canonicalWrite('money.transfer.review', 'money.transfer.review', 'kwilt_money_transfer_review', 'Review Money Transfer Pair', ['money.read', 'money.write'], 'consequential', 'explicit'),
 
   canonicalRead('chapters.list', 'chapters.read', 'kwilt_chapters_list', 'List Chapters', ['life.read'], 'chapter_summary'),
   canonicalRead('chapters.reflect', 'chapters.read', 'kwilt_chapters_reflect', 'Reflect on Chapters', ['life.read'], 'chapter_summary'),

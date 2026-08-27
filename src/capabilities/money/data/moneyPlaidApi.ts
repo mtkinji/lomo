@@ -20,9 +20,10 @@ export type MoneyPlaidExchangeResult = {
 export async function createMoneyPlaidLinkToken(
   client: SupabaseClient,
   platform: MoneyPlaidLinkPlatform,
+  connectionId?: string,
 ): Promise<MoneyPlaidLinkToken> {
   const { data, error } = await client.functions.invoke<MoneyPlaidLinkToken>('create-plaid-link-token', {
-    body: { platform },
+    body: { platform, ...(connectionId ? { connectionId } : {}) },
   });
   if (error) throw await normalizeMoneyPlaidError(error, 'link_token');
   if (!data?.link_token) throw new Error('Plaid did not return a Link token.');

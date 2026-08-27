@@ -200,6 +200,10 @@ const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'screen_time.device.setup.open', 'screen_time.device.release.open', 'screen_time.configure',
   'notifications.configure', 'search.open',
   'account.settings.open', 'account.subscription.manage', 'account.delete',
+  'money.budget.read', 'money.budget.update', 'money.transaction.get',
+  'money.transaction.meaning.update', 'money.transaction.plan_treatment.update',
+  'money.connection.disconnect', 'money.connection.repair.open',
+  'money.transfer.list', 'money.transfer.get', 'money.transfer.review',
 ]);
 
 const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
@@ -380,6 +384,15 @@ const moneyConnectionProof = [
   'src/capabilities/money/native/moneyPlaidLink.native.ts',
   'src/capabilities/money/screens/MoneyAccountsScreen.tsx',
 ] as const;
+const moneyControlProof = [
+  'src/capabilities/money/actions/moneyControlActions.test.ts',
+  'src/features/unifiedChat/moneyToolProvider.test.ts',
+  'src/features/unifiedChat/executeMoneyControlProposalDecision.test.ts',
+  'src/features/unifiedChat/recoverMoneyControlMutations.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'supabase/functions/_shared/__tests__/serverMoneyTools.test.ts',
+  'supabase/functions/disconnect-money-connection/__tests__/disconnectMoneyConnection_deno_test.ts',
+] as const;
 const relationshipProof = [
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
@@ -445,6 +458,16 @@ function controlParityCapabilityRow(
       toolIds: [contract.id],
       sourceRefs: contract.sourceRefs,
     }, screenTimeWriteProof);
+  }
+  if (contract.owner === 'money') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, moneyControlProof);
   }
   return bounded('pending_provider', {
     id: contract.id,

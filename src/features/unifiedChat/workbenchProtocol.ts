@@ -110,6 +110,9 @@ export type AgentWorkbenchProposal = {
       'remove_activity_from_plan' | 'create_goal' | 'update_goal' | 'delete_goal' |
       'create_arc' | 'update_arc' | 'delete_arc' | 'update_profile' | 'update_chapter_note' |
       'create_money_category' | 'rename_money_category' |
+      'update_money_budget' | 'update_money_transaction_meaning' |
+      'update_money_transaction_plan_treatment' | 'review_money_transfer' |
+      'disconnect_money_connection' |
       'create_recipe' | 'update_recipe' | 'delete_recipe' |
       'remember_relationship' | 'correct_relationship' | 'forget_relationship' |
       'household.member.add_dependent' | 'household.invitation.create' | 'household.invitation.accept' |

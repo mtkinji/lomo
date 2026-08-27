@@ -512,17 +512,17 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: `supabase/functions/_shared/serverToolImplementations.ts`
 - Modify: `supabase/functions/_shared/externalMcp.ts`
 
-- [ ] Regression-first: prove budget plan, transaction meaning/treatment, connection disconnect/repair, and transfer review lack exact canonical actions.
-- [ ] Move the corresponding native UI saves onto `moneyControlActions`.
-- [ ] Implement budget read/update as an exact reviewed monthly-plan diff. Do not call provider income inference “budget,” “cash flow,” or “saved money.”
-- [ ] Implement transaction get, meaning update, and plan-treatment update as distinct operations with source classification, explicit meaning, planning eligibility, and expected version preserved separately.
-- [ ] Implement transfer list/get/review without converting transfers into spending or income.
-- [ ] Implement disconnect as a consequential provider operation with institution/account impact review; implement repair as a provider-owned handoff.
-- [ ] Keep merchant names, account numbers, access tokens, and raw transaction lists out of general Chat evidence and external summaries unless the specific scoped read requires them.
-- [ ] Require fresh native authentication where the current Money privacy contract requires it; ChatGPT receives `pending_client_action`, not authentication authority.
-- [ ] Add tests for stale budget, transfer pairing, payroll/provider inference, explicit exclusion versus `not_counted`, duplicate update, privacy lock, disconnect failure, and repair resume.
-- [ ] Run focused Money Jest tests, Deno Money tests, and `npm run verify:changed -- --run`.
-- [ ] Commit with message `feat(money): complete conversational plan and transaction control`.
+- [x] Regression-first: prove budget plan, transaction meaning/treatment, connection disconnect/repair, and transfer review lack exact canonical actions.
+- [x] Move the corresponding native UI saves onto `moneyControlActions`. Transaction meaning/treatment and connection disconnect now use the shared actions directly; both the native budget editor and conversational budget action use the same governed Living Plan preview/commit primitives so Chat cannot bypass plan truth.
+- [x] Implement budget read/update as an exact reviewed monthly-plan diff. Do not call provider income inference “budget,” “cash flow,” or “saved money.”
+- [x] Implement transaction get, meaning update, and plan-treatment update as distinct operations with source classification, explicit meaning, planning eligibility, and expected version preserved separately.
+- [x] Implement transfer list/get/review without converting transfers into spending or income.
+- [x] Implement disconnect as a consequential provider operation with institution/account impact review; implement repair as a provider-owned handoff.
+- [x] Keep merchant names, account numbers, access tokens, and raw transaction lists out of general Chat evidence and external summaries unless the specific scoped read requires them.
+- [x] Require fresh native authentication where the current Money privacy contract requires it; ChatGPT receives `pending_client_action`, not authentication authority.
+- [x] Add tests for stale budget, transfer pairing, payroll/provider inference, explicit exclusion versus `not_counted`, duplicate update, privacy lock, disconnect failure, and repair resume.
+- [x] Run focused Money Jest tests, Deno Money tests, and `npm run verify:changed -- --run`. The focused gate passed 16 Jest suites (131 tests, 2 snapshots), 9 Deno tests, and all relevant Edge Function checks. The final diff-aware gate passed the complete Jest suite, app/test typechecks, Supabase lint/tests, product and Chat delivery contracts, protocol conformance, generated code-map validation, and architecture lint. Simulator proof on `iPhone 17 Pro` from this checkout rendered the Accounts connection menu plus Repair and destructive Disconnect review; the review was cancelled without changing account state.
+- [x] Commit with message `feat(money): complete conversational plan and transaction control`.
 
 ### Task 7: Replace the Chores learning adapter with Activity-backed authorized actions
 

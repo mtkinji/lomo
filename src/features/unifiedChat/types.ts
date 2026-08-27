@@ -419,6 +419,7 @@ export type UnifiedChatProposalOperation = UnifiedChatProposalOperationBase & (
       capabilityId: 'money'; type: 'rename_money_category'; targetId: string;
       payload: { name: string; expectedName: string };
     }
+  | ({ capabilityId: 'money' } & import('./moneyToolProvider').MoneyProposalOperation)
   | ({ capabilityId: 'screenTime' } & ScreenTimeProposalOperation)
   | {
       capabilityId: 'relationships';
@@ -638,6 +639,7 @@ export type CreateUnifiedChatProposalInput = CreateUnifiedChatProposalInputBase 
       operation: (
         | { type: 'create_money_category'; targetId: null; payload: { name: string; budgetCents: number } }
         | { type: 'rename_money_category'; targetId: string; payload: { name: string; expectedName: string } }
+        | import('./moneyToolProvider').MoneyProposalOperation
       ) & { summary: string; idempotencyKey: string };
     }
   | {

@@ -4066,6 +4066,447 @@ exports[`externalMcp helpers snapshots generated names, schemas, annotations, sc
       "idempotentHint": true,
       "openWorldHint": false,
       "readOnlyHint": true,
+      "title": "Review Money Plan",
+    },
+    "canonicalName": "kwilt_money_budget_read",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_money_budget_read",
+    "operationId": "money.budget.read",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+    ],
+    "toolId": "money.budget.read",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Money Plan",
+    },
+    "canonicalName": "kwilt_money_budget_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "categoryId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "month": {
+          "pattern": "^\\d{4}-\\d{2}$",
+          "type": "string",
+        },
+        "plannedCents": {
+          "minimum": 0,
+          "type": "integer",
+        },
+      },
+      "required": [
+        "expectedUpdatedAt",
+        "month",
+        "categoryId",
+        "plannedCents",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_budget_update",
+    "operationId": "money.budget.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.budget.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Review Money Transaction",
+    },
+    "canonicalName": "kwilt_money_transaction_get",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "transactionId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "transactionId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_transaction_get",
+    "operationId": "money.transaction.get",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+    ],
+    "toolId": "money.transaction.get",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Transaction Meaning",
+    },
+    "canonicalName": "kwilt_money_transaction_meaning_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "categoryId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "meaning": {
+          "enum": [
+            "income",
+            "transfer",
+            "not_counted",
+            "category_credit",
+          ],
+          "type": "string",
+        },
+        "transactionId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "transactionId",
+        "expectedUpdatedAt",
+        "meaning",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_transaction_meaning_update",
+    "operationId": "money.transaction.meaning.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.transaction.meaning.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Update Transaction Plan Treatment",
+    },
+    "canonicalName": "kwilt_money_transaction_plan_treatment_update",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "transactionId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "treatment": {
+          "enum": [
+            "protected",
+            "flexible",
+            "default",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "transactionId",
+        "expectedUpdatedAt",
+        "treatment",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_transaction_plan_treatment_update",
+    "operationId": "money.transaction.plan_treatment.update",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.transaction.plan_treatment.update",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Disconnect Money Connection",
+    },
+    "canonicalName": "kwilt_money_connection_disconnect",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "connectionId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "connectionId",
+        "expectedUpdatedAt",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_connection_disconnect",
+    "operationId": "money.connection.disconnect",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.connection.disconnect",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Repair Money Connection",
+    },
+    "canonicalName": "kwilt_money_connection_repair_open",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "connectionId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+      },
+      "required": [
+        "connectionId",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_connection_repair_open",
+    "operationId": "money.connection.repair.open",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.connection.repair.open",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "List Money Transfers",
+    },
+    "canonicalName": "kwilt_money_transfer_list",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "kwilt_money_transfer_list",
+    "operationId": "money.transfer.list",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+    ],
+    "toolId": "money.transfer.list",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": "Review Money Transfer",
+    },
+    "canonicalName": "kwilt_money_transfer_get",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "transferId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "transferId",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_transfer_get",
+    "operationId": "money.transfer.get",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+    ],
+    "toolId": "money.transfer.get",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": "Review Money Transfer Pair",
+    },
+    "canonicalName": "kwilt_money_transfer_review",
+    "compatibilityAlias": null,
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": {
+          "enum": [
+            "confirm_pair",
+            "unpair",
+          ],
+          "type": "string",
+        },
+        "expectedUpdatedAt": {
+          "format": "date-time",
+          "type": "string",
+        },
+        "idempotency_key": {
+          "description": "Required stable request ID. Reuse it only when safely retrying the same write.",
+          "maxLength": 200,
+          "minLength": 8,
+          "type": "string",
+        },
+        "transferId": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "transferId",
+        "expectedUpdatedAt",
+        "decision",
+        "idempotency_key",
+      ],
+      "type": "object",
+    },
+    "name": "kwilt_money_transfer_review",
+    "operationId": "money.transfer.review",
+    "outputSchema": {
+      "additionalProperties": true,
+      "type": "object",
+    },
+    "scopes": [
+      "money.read",
+      "money.write",
+    ],
+    "toolId": "money.transfer.review",
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
       "title": "List Chapters",
     },
     "canonicalName": "kwilt_chapters_list",

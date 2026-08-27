@@ -58,6 +58,41 @@ export function resolveClientActionOpenInstruction(
         },
       };
     }
+    case 'open_money_connection_repair':
+      if (!action.targetId || action.targetType !== 'money_connection'
+        || action.payload.toolId !== 'money.connection.repair.open') return null;
+      return { kind: 'navigate', name: 'Money', params: { screen: 'MoneyAccounts' } };
+    case 'open_money_control': {
+      const toolId = typeof action.payload.toolId === 'string' ? action.payload.toolId : '';
+      if (toolId.startsWith('money.transaction.')) {
+        if (!action.targetId || action.targetType !== 'money_transaction') return null;
+        return {
+          kind: 'navigate', name: 'Money',
+          params: { screen: 'MoneyTransactionDetail', params: { transactionId: action.targetId } },
+        };
+      }
+      if (toolId.startsWith('money.connection.')) {
+        if (!action.targetId || action.targetType !== 'money_connection') return null;
+        return { kind: 'navigate', name: 'Money', params: { screen: 'MoneyAccounts' } };
+      }
+      if (toolId === 'money.transfer.get' || toolId === 'money.transfer.review') {
+        if (!action.targetId || action.targetType !== 'money_transfer') return null;
+        return {
+          kind: 'navigate', name: 'Money',
+          params: { screen: 'MoneyTransactions', params: { reviewState: 'not_counted' } },
+        };
+      }
+      if (toolId === 'money.transfer.list') {
+        return {
+          kind: 'navigate', name: 'Money',
+          params: { screen: 'MoneyTransactions', params: { reviewState: 'not_counted' } },
+        };
+      }
+      if (toolId === 'money.budget.read' || toolId === 'money.budget.update' || !toolId) {
+        return { kind: 'navigate', name: 'Money', params: { screen: 'MoneySummary' } };
+      }
+      return null;
+    }
     case 'configure_screen_time':
       return {
         kind: 'navigate', name: 'Settings', params: {

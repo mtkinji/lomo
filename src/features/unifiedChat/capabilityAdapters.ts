@@ -84,6 +84,7 @@ export type UnifiedChatCapabilitySnapshots = {
   profile?: ProfileChatSnapshot;
   account?: AccountChatSnapshot;
   money?: MoneyChatSnapshot;
+  moneyPrivacyLocked?: boolean;
   screenTime?: ScreenTimeChatSnapshot;
   recipes?: RecipesChatSnapshot;
 };

@@ -102,3 +102,38 @@ test('Money-owned self control opens the exact category app-control editor', () 
     },
   });
 });
+
+test.each([
+  ['money.transaction.get', 'money_transaction', 'transaction-1', 'MoneyTransactionDetail', { transactionId: 'transaction-1' }],
+  ['money.transaction.meaning.update', 'money_transaction', 'transaction-1', 'MoneyTransactionDetail', { transactionId: 'transaction-1' }],
+  ['money.transaction.plan_treatment.update', 'money_transaction', 'transaction-1', 'MoneyTransactionDetail', { transactionId: 'transaction-1' }],
+  ['money.connection.disconnect', 'money_connection', 'connection-1', 'MoneyAccounts', undefined],
+  ['money.transfer.get', 'money_transfer', 'one:two', 'MoneyTransactions', { reviewState: 'not_counted' }],
+  ['money.transfer.review', 'money_transfer', 'one:two', 'MoneyTransactions', { reviewState: 'not_counted' }],
+] as const)('external %s opens its owned authenticated Money review', (
+  toolId, targetType, targetId, screen, params,
+) => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_money_control', targetId),
+    capabilityId: 'money', targetType,
+    payload: { toolId, arguments: {} },
+  })).toEqual({
+    kind: 'navigate', name: 'Money', params: { screen, ...(params ? { params } : {}) },
+  });
+});
+
+test('external connection repair opens the provider-owned account repair surface', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_money_connection_repair', 'connection-1'),
+    capabilityId: 'money', targetType: 'money_connection',
+    payload: { toolId: 'money.connection.repair.open', arguments: { connectionId: 'connection-1' } },
+  })).toEqual({ kind: 'navigate', name: 'Money', params: { screen: 'MoneyAccounts' } });
+});
+
+test('Money control refuses a mismatched target type instead of opening unrelated data', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_money_control', 'transaction-1'),
+    capabilityId: 'money', targetType: 'money_connection',
+    payload: { toolId: 'money.transaction.get', arguments: { transactionId: 'transaction-1' } },
+  })).toBeNull();
+});

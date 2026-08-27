@@ -132,13 +132,17 @@ import {
 } from './unifiedChatTranscriptInsertion';
 import { buildUnifiedChatTranscript } from './chatTranscript';
 import { createMoneyRepository } from '../../capabilities/money/data/moneyRepository';
-import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProposalDecision';
+import { executeMoneyCategoryProposalDecision, type MoneyCategoryProposal } from './executeMoneyCategoryProposalDecision';
+import { executeMoneyControlProposalDecision, type MoneyControlProposal } from './executeMoneyControlProposalDecision';
+import { createMoneyControlActions } from '../../capabilities/money/actions/moneyControlActions';
+import { createMoneyControlActionBoundary } from '../../capabilities/money/actions/moneyControlActionBoundary';
 import { executeRecipeProposalDecision } from './executeRecipeProposalDecision';
 import { executeHouseholdProposalDecision } from './executeHouseholdProposalDecision';
 import { createHouseholdActionBoundary } from '../household/data/householdActionBoundary';
 import { createRecipeRepository } from '../../capabilities/recipes/data/recipeRepository';
 import { useRecipeStore } from '../../capabilities/recipes/runtime/useRecipeStore';
 import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
+import { recoverMoneyControlMutations } from './recoverMoneyControlMutations';
 import { buildFreshDrawerContext, getFreshDrawerCopy, getFreshDrawerOffers } from './contextualChatPresentation';
 import { UnifiedChatDrawerHeader } from './UnifiedChatDrawerHeader';
 import type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
@@ -146,6 +150,19 @@ import type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
 export type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
 
 const CHAT_RECOVERY_ILLUSTRATION = require('../../../assets/illustrations/recovery-broken-chain.png');
+
+function isMoneyCategoryProposal(proposal: UnifiedChatProposal): proposal is MoneyCategoryProposal {
+  return proposal.capabilityId === 'money' && (
+    proposal.operation.type === 'create_money_category'
+    || proposal.operation.type === 'rename_money_category'
+  );
+}
+
+function isMoneyControlProposal(proposal: UnifiedChatProposal): proposal is MoneyControlProposal {
+  return proposal.capabilityId === 'money'
+    && proposal.operation.type !== 'create_money_category'
+    && proposal.operation.type !== 'rename_money_category';
+}
 
 const activityStoreBoundary = {
   getActivities: () => useAppStore.getState().activities,
@@ -409,8 +426,13 @@ export function UnifiedChatScreen({
     const moneyRecovered = await recoverMoneyCategoryMutations({
       aggregate: chaptersRecovered, repository, moneyRepository,
     });
+    const moneyControlsRecovered = await recoverMoneyControlMutations({
+      aggregate: moneyRecovered, repository,
+      actions: createMoneyControlActions(createMoneyControlActionBoundary(moneyRepository)),
+      loadSnapshot: moneyRepository.loadSnapshot,
+    });
     const screenTimeRecovered = await recoverScreenTimeMutations({
-      aggregate: moneyRecovered, repository, client: getSupabaseClient(),
+      aggregate: moneyControlsRecovered, repository, client: getSupabaseClient(),
       personalBoundary: createPersonalScreenTimeRuleActionBoundary(),
     });
     for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, screenTimeRecovered)) {
@@ -1200,7 +1222,14 @@ export function UnifiedChatScreen({
               await executeHouseholdProposalDecision({ proposal, action: 'approve', repository,
                 boundary: createHouseholdActionBoundary(getSupabaseClient()) });
             } else if (proposal.capabilityId === 'money') {
-              await executeMoneyCategoryProposalDecision({ proposal, action: 'approve', repository, moneyRepository });
+              if (isMoneyCategoryProposal(proposal)) {
+                await executeMoneyCategoryProposalDecision({ proposal, action: 'approve', repository, moneyRepository });
+              } else if (isMoneyControlProposal(proposal)) {
+                await executeMoneyControlProposalDecision({
+                  proposal, action: 'approve', repository,
+                  actions: createMoneyControlActions(createMoneyControlActionBoundary(moneyRepository)),
+                });
+              }
             } else if (proposal.capabilityId === 'screenTime') {
               await executeScreenTimeProposalDecision({
                 proposal, action: 'approve', repository, client: getSupabaseClient(),
@@ -1294,9 +1323,16 @@ export function UnifiedChatScreen({
           }
           setError(null);
           try {
-            await executeMoneyCategoryProposalDecision({
-              proposal, action: command.action, repository, moneyRepository,
-            });
+            if (isMoneyCategoryProposal(proposal)) {
+              await executeMoneyCategoryProposalDecision({
+                proposal, action: command.action, repository, moneyRepository,
+              });
+            } else if (isMoneyControlProposal(proposal)) {
+              await executeMoneyControlProposalDecision({
+                proposal, action: command.action, repository,
+                actions: createMoneyControlActions(createMoneyControlActionBoundary(moneyRepository)),
+              });
+            }
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));

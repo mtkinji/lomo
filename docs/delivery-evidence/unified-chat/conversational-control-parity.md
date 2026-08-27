@@ -5,11 +5,11 @@
 | Measure | Value |
 | --- | --- |
 | Operations | 228 |
-| Mobile | {"ready":77,"excluded":7,"missing_provider":144} |
-| Phone | {"ready":67,"excluded":7,"missing_provider":154} |
-| External | {"boundary":7,"ready":65,"missing_provider":153,"excluded":2,"missing_proof":1} |
+| Mobile | {"ready":108,"excluded":7,"missing_provider":113} |
+| Phone | {"ready":99,"excluded":7,"missing_provider":122} |
+| External | {"boundary":7,"ready":97,"missing_provider":122,"excluded":2} |
 | Voice | {"missing_conformance":221,"excluded":7} |
-| Final parity errors | 836 |
+| Final parity errors | 711 |
 
 ## Operations
 
@@ -23,12 +23,12 @@
 | `relationships.forget` | relationships | direct | ready | ready | ready | missing_conformance |
 | `relationships.forget_person` | relationships | supported_boundary | excluded | excluded | boundary | excluded |
 | `household.read` | household | direct | ready | ready | ready | missing_conformance |
-| `household.member.add_dependent` | household | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `household.invitation.create` | household | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `household.member.add_dependent` | household | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `household.invitation.create` | household | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `household.invitation.preview` | household | direct | ready | ready | ready | missing_conformance |
-| `household.invitation.accept` | household | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `household.child_capability.update` | household | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `household.caregiver_grant.update` | household | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `household.invitation.accept` | household | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `household.child_capability.update` | household | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `household.caregiver_grant.update` | household | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `profile.read` | profile | direct | ready | ready | ready | missing_conformance |
 | `profile.update` | profile | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `arcs.list` | arcs | direct | ready | ready | ready | missing_conformance |
@@ -148,24 +148,24 @@
 | `screen_time.override.allow` | screenTime | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `screen_time.override.cancel` | screenTime | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `screen_time.request.decide` | screenTime | reviewed_proposal | ready | ready | ready | missing_conformance |
-| `screen_time.personal.setup.open` | screenTime | native_handoff | ready | missing_provider | missing_provider | missing_conformance |
-| `screen_time.personal.limit.open` | screenTime | native_handoff | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `screen_time.selection.open` | screenTime | native_handoff | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `screen_time.device.setup.open` | screenTime | native_handoff | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `screen_time.device.release.open` | screenTime | native_handoff | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `screen_time.configure` | screenTime | native_handoff | missing_provider | missing_provider | missing_proof | missing_conformance |
+| `screen_time.personal.setup.open` | screenTime | native_handoff | ready | ready | ready | missing_conformance |
+| `screen_time.personal.limit.open` | screenTime | native_handoff | ready | ready | ready | missing_conformance |
+| `screen_time.selection.open` | screenTime | native_handoff | ready | ready | ready | missing_conformance |
+| `screen_time.device.setup.open` | screenTime | native_handoff | ready | ready | ready | missing_conformance |
+| `screen_time.device.release.open` | screenTime | native_handoff | ready | ready | ready | missing_conformance |
+| `screen_time.configure` | screenTime | native_handoff | ready | ready | ready | missing_conformance |
 | `notifications.configure` | notifications | native_handoff | ready | ready | ready | missing_conformance |
 | `search.open` | navigation | native_handoff | ready | ready | ready | missing_conformance |
 | `account.settings.open` | account | native_handoff | ready | ready | ready | missing_conformance |
 | `account.subscription.manage` | account | native_handoff | ready | ready | ready | missing_conformance |
 | `account.delete` | account | native_handoff | ready | ready | ready | missing_conformance |
 | `channel.phone.continue_run` | channels | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `household.member.update` | household | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `household.member.remove` | household | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `household.device.list` | household | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `household.device.update` | household | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `household.device.revoke` | household | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `household.device.reconcile` | household | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `household.member.update` | household | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `household.member.remove` | household | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `household.device.list` | household | direct | ready | ready | ready | missing_conformance |
+| `household.device.update` | household | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `household.device.revoke` | household | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `household.device.reconcile` | household | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `plan.availability.read` | plan | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `plan.availability.update` | plan | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `plan.calendars.read` | plan | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
@@ -206,16 +206,16 @@
 | `settings.activity_areas.create` | settings | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `settings.activity_areas.update` | settings | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `settings.activity_areas.delete` | settings | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `money.budget.read` | money | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `money.budget.update` | money | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `money.transaction.get` | money | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `money.transaction.meaning.update` | money | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `money.transaction.plan_treatment.update` | money | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `money.connection.disconnect` | money | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `money.connection.repair.open` | money | provider_handoff | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `money.transfer.list` | money | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `money.transfer.get` | money | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `money.transfer.review` | money | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `money.budget.read` | money | direct | ready | ready | ready | missing_conformance |
+| `money.budget.update` | money | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `money.transaction.get` | money | direct | ready | ready | ready | missing_conformance |
+| `money.transaction.meaning.update` | money | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `money.transaction.plan_treatment.update` | money | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `money.connection.disconnect` | money | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `money.connection.repair.open` | money | provider_handoff | ready | ready | ready | missing_conformance |
+| `money.transfer.list` | money | direct | ready | ready | ready | missing_conformance |
+| `money.transfer.get` | money | direct | ready | ready | ready | missing_conformance |
+| `money.transfer.review` | money | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `chores.list` | chores | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `chores.get` | chores | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `chores.definition.create` | chores | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
@@ -235,11 +235,11 @@
 | `recipes.visibility.update` | recipes | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `meal_planning.preferences.read` | meal_planning | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `meal_planning.preferences.update` | meal_planning | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `screen_time.personal_rule.list` | screenTime | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `screen_time.personal_rule.get` | screenTime | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `screen_time.personal_rule.update` | screenTime | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `screen_time.personal_rule.deactivate` | screenTime | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
-| `screen_time.personal_rule.delete` | screenTime | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
+| `screen_time.personal_rule.list` | screenTime | direct | ready | ready | ready | missing_conformance |
+| `screen_time.personal_rule.get` | screenTime | direct | ready | ready | ready | missing_conformance |
+| `screen_time.personal_rule.update` | screenTime | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `screen_time.personal_rule.deactivate` | screenTime | reviewed_proposal | ready | ready | ready | missing_conformance |
+| `screen_time.personal_rule.delete` | screenTime | reviewed_proposal | ready | ready | ready | missing_conformance |
 | `notifications.preferences.read` | notifications | direct | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `notifications.preferences.update` | notifications | reviewed_proposal | missing_provider | missing_provider | missing_provider | missing_conformance |
 | `navigation.open_capability` | navigation | native_handoff | missing_provider | missing_provider | missing_provider | missing_conformance |
@@ -257,32 +257,12 @@
 - relationships.forget_person voice is excluded
 - relationships.forget_person has no proof paths
 - household.read voice is missing_conformance
-- household.member.add_dependent mobile is missing_provider
-- household.member.add_dependent phone is missing_provider
-- household.member.add_dependent external is missing_provider
 - household.member.add_dependent voice is missing_conformance
-- household.member.add_dependent has no proof paths
-- household.invitation.create mobile is missing_provider
-- household.invitation.create phone is missing_provider
-- household.invitation.create external is missing_provider
 - household.invitation.create voice is missing_conformance
-- household.invitation.create has no proof paths
 - household.invitation.preview voice is missing_conformance
-- household.invitation.accept mobile is missing_provider
-- household.invitation.accept phone is missing_provider
-- household.invitation.accept external is missing_provider
 - household.invitation.accept voice is missing_conformance
-- household.invitation.accept has no proof paths
-- household.child_capability.update mobile is missing_provider
-- household.child_capability.update phone is missing_provider
-- household.child_capability.update external is missing_provider
 - household.child_capability.update voice is missing_conformance
-- household.child_capability.update has no proof paths
-- household.caregiver_grant.update mobile is missing_provider
-- household.caregiver_grant.update phone is missing_provider
-- household.caregiver_grant.update external is missing_provider
 - household.caregiver_grant.update voice is missing_conformance
-- household.caregiver_grant.update has no proof paths
 - profile.read voice is missing_conformance
 - profile.update voice is missing_conformance
 - arcs.list voice is missing_conformance
@@ -630,32 +610,11 @@
 - screen_time.override.allow voice is missing_conformance
 - screen_time.override.cancel voice is missing_conformance
 - screen_time.request.decide voice is missing_conformance
-- screen_time.personal.setup.open phone is missing_provider
-- screen_time.personal.setup.open external is missing_provider
 - screen_time.personal.setup.open voice is missing_conformance
-- screen_time.personal.limit.open mobile is missing_provider
-- screen_time.personal.limit.open phone is missing_provider
-- screen_time.personal.limit.open external is missing_provider
 - screen_time.personal.limit.open voice is missing_conformance
-- screen_time.personal.limit.open has no proof paths
-- screen_time.selection.open mobile is missing_provider
-- screen_time.selection.open phone is missing_provider
-- screen_time.selection.open external is missing_provider
 - screen_time.selection.open voice is missing_conformance
-- screen_time.selection.open has no proof paths
-- screen_time.device.setup.open mobile is missing_provider
-- screen_time.device.setup.open phone is missing_provider
-- screen_time.device.setup.open external is missing_provider
 - screen_time.device.setup.open voice is missing_conformance
-- screen_time.device.setup.open has no proof paths
-- screen_time.device.release.open mobile is missing_provider
-- screen_time.device.release.open phone is missing_provider
-- screen_time.device.release.open external is missing_provider
 - screen_time.device.release.open voice is missing_conformance
-- screen_time.device.release.open has no proof paths
-- screen_time.configure mobile is missing_provider
-- screen_time.configure phone is missing_provider
-- screen_time.configure external is missing_proof
 - screen_time.configure voice is missing_conformance
 - notifications.configure voice is missing_conformance
 - search.open voice is missing_conformance
@@ -667,36 +626,12 @@
 - channel.phone.continue_run external is missing_provider
 - channel.phone.continue_run voice is missing_conformance
 - channel.phone.continue_run has no proof paths
-- household.member.update mobile is missing_provider
-- household.member.update phone is missing_provider
-- household.member.update external is missing_provider
 - household.member.update voice is missing_conformance
-- household.member.update has no proof paths
-- household.member.remove mobile is missing_provider
-- household.member.remove phone is missing_provider
-- household.member.remove external is missing_provider
 - household.member.remove voice is missing_conformance
-- household.member.remove has no proof paths
-- household.device.list mobile is missing_provider
-- household.device.list phone is missing_provider
-- household.device.list external is missing_provider
 - household.device.list voice is missing_conformance
-- household.device.list has no proof paths
-- household.device.update mobile is missing_provider
-- household.device.update phone is missing_provider
-- household.device.update external is missing_provider
 - household.device.update voice is missing_conformance
-- household.device.update has no proof paths
-- household.device.revoke mobile is missing_provider
-- household.device.revoke phone is missing_provider
-- household.device.revoke external is missing_provider
 - household.device.revoke voice is missing_conformance
-- household.device.revoke has no proof paths
-- household.device.reconcile mobile is missing_provider
-- household.device.reconcile phone is missing_provider
-- household.device.reconcile external is missing_provider
 - household.device.reconcile voice is missing_conformance
-- household.device.reconcile has no proof paths
 - plan.availability.read mobile is missing_provider
 - plan.availability.read phone is missing_provider
 - plan.availability.read external is missing_provider
@@ -897,56 +832,16 @@
 - settings.activity_areas.delete external is missing_provider
 - settings.activity_areas.delete voice is missing_conformance
 - settings.activity_areas.delete has no proof paths
-- money.budget.read mobile is missing_provider
-- money.budget.read phone is missing_provider
-- money.budget.read external is missing_provider
 - money.budget.read voice is missing_conformance
-- money.budget.read has no proof paths
-- money.budget.update mobile is missing_provider
-- money.budget.update phone is missing_provider
-- money.budget.update external is missing_provider
 - money.budget.update voice is missing_conformance
-- money.budget.update has no proof paths
-- money.transaction.get mobile is missing_provider
-- money.transaction.get phone is missing_provider
-- money.transaction.get external is missing_provider
 - money.transaction.get voice is missing_conformance
-- money.transaction.get has no proof paths
-- money.transaction.meaning.update mobile is missing_provider
-- money.transaction.meaning.update phone is missing_provider
-- money.transaction.meaning.update external is missing_provider
 - money.transaction.meaning.update voice is missing_conformance
-- money.transaction.meaning.update has no proof paths
-- money.transaction.plan_treatment.update mobile is missing_provider
-- money.transaction.plan_treatment.update phone is missing_provider
-- money.transaction.plan_treatment.update external is missing_provider
 - money.transaction.plan_treatment.update voice is missing_conformance
-- money.transaction.plan_treatment.update has no proof paths
-- money.connection.disconnect mobile is missing_provider
-- money.connection.disconnect phone is missing_provider
-- money.connection.disconnect external is missing_provider
 - money.connection.disconnect voice is missing_conformance
-- money.connection.disconnect has no proof paths
-- money.connection.repair.open mobile is missing_provider
-- money.connection.repair.open phone is missing_provider
-- money.connection.repair.open external is missing_provider
 - money.connection.repair.open voice is missing_conformance
-- money.connection.repair.open has no proof paths
-- money.transfer.list mobile is missing_provider
-- money.transfer.list phone is missing_provider
-- money.transfer.list external is missing_provider
 - money.transfer.list voice is missing_conformance
-- money.transfer.list has no proof paths
-- money.transfer.get mobile is missing_provider
-- money.transfer.get phone is missing_provider
-- money.transfer.get external is missing_provider
 - money.transfer.get voice is missing_conformance
-- money.transfer.get has no proof paths
-- money.transfer.review mobile is missing_provider
-- money.transfer.review phone is missing_provider
-- money.transfer.review external is missing_provider
 - money.transfer.review voice is missing_conformance
-- money.transfer.review has no proof paths
 - chores.list mobile is missing_provider
 - chores.list phone is missing_provider
 - chores.list external is missing_provider
@@ -1042,31 +937,11 @@
 - meal_planning.preferences.update external is missing_provider
 - meal_planning.preferences.update voice is missing_conformance
 - meal_planning.preferences.update has no proof paths
-- screen_time.personal_rule.list mobile is missing_provider
-- screen_time.personal_rule.list phone is missing_provider
-- screen_time.personal_rule.list external is missing_provider
 - screen_time.personal_rule.list voice is missing_conformance
-- screen_time.personal_rule.list has no proof paths
-- screen_time.personal_rule.get mobile is missing_provider
-- screen_time.personal_rule.get phone is missing_provider
-- screen_time.personal_rule.get external is missing_provider
 - screen_time.personal_rule.get voice is missing_conformance
-- screen_time.personal_rule.get has no proof paths
-- screen_time.personal_rule.update mobile is missing_provider
-- screen_time.personal_rule.update phone is missing_provider
-- screen_time.personal_rule.update external is missing_provider
 - screen_time.personal_rule.update voice is missing_conformance
-- screen_time.personal_rule.update has no proof paths
-- screen_time.personal_rule.deactivate mobile is missing_provider
-- screen_time.personal_rule.deactivate phone is missing_provider
-- screen_time.personal_rule.deactivate external is missing_provider
 - screen_time.personal_rule.deactivate voice is missing_conformance
-- screen_time.personal_rule.deactivate has no proof paths
-- screen_time.personal_rule.delete mobile is missing_provider
-- screen_time.personal_rule.delete phone is missing_provider
-- screen_time.personal_rule.delete external is missing_provider
 - screen_time.personal_rule.delete voice is missing_conformance
-- screen_time.personal_rule.delete has no proof paths
 - notifications.preferences.read mobile is missing_provider
 - notifications.preferences.read phone is missing_provider
 - notifications.preferences.read external is missing_provider

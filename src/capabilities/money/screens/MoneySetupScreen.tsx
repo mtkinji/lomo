@@ -372,6 +372,7 @@ export function MoneySetupExperience({
         setConnectionPhase('cancelled');
         return;
       }
+      if (result.status !== 'linked') throw new Error('Plaid returned an unexpected connection result.');
       setConnectedInstitutionName(result.exchange.institutionName);
       await reconcileConnectedActivity({ trigger: 'account_connected', sync: false });
       await refresh();

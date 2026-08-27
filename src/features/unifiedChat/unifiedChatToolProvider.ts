@@ -40,9 +40,13 @@ import {
   type RecipeProposalOperation,
 } from './recipeProposal';
 import type { StagedHouseholdToolProposal } from './householdToolProvider';
+import { createMoneyControlActions } from '../../capabilities/money/actions/moneyControlActions';
+import { createMoneyControlActionBoundary } from '../../capabilities/money/actions/moneyControlActionBoundary';
+import { createMoneyToolProvider, type StagedMoneyToolProposal } from './moneyToolProvider';
 
 export type StagedUnifiedChatToolProposal =
   | StagedHouseholdToolProposal
+  | StagedMoneyToolProposal
   | {
       capabilityId: 'recipes';
       title: string;
@@ -150,6 +154,7 @@ export function createUnifiedChatToolProvider({
   executeRelationshipTool,
   executeHouseholdTool,
   householdProposals,
+  moneyActions,
   actionExecution,
   now = () => new Date(),
 }: {
@@ -164,6 +169,7 @@ export function createUnifiedChatToolProvider({
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
   householdProposals?: () => readonly StagedHouseholdToolProposal[];
+  moneyActions?: ReturnType<typeof createMoneyControlActions>;
   actionExecution?: {
     envelope(call: AgentToolCall, tool: AgentToolDefinition): KwiltActionExecutionEnvelope;
     store: ActionExecutionReceiptStore;
@@ -175,6 +181,11 @@ export function createUnifiedChatToolProvider({
 }) {
   const staged: StagedUnifiedChatToolProposal[] = [];
   const deviceProvider = createDeviceToolProvider({ snapshots });
+  const moneyProvider = createMoneyToolProvider({
+    snapshot: snapshots.money ?? null,
+    privacyLocked: snapshots.moneyPrivacyLocked === true,
+    actions: moneyActions ?? createMoneyControlActions(createMoneyControlActionBoundary()),
+  });
   const planReferentFailure = (activity: { id: string; title: string; updatedAt: string }) => {
     if (!planConversationReferent) return null;
     if (activity.id !== planConversationReferent.activityId) {
@@ -217,6 +228,8 @@ export function createUnifiedChatToolProvider({
     if (relationshipResult) return relationshipResult;
     const householdResult = await executeHouseholdTool?.(call, tool);
     if (householdResult) return householdResult;
+    const moneyResult = await moneyProvider.execute(call, tool);
+    if (moneyResult) return moneyResult;
     const deviceResult = await deviceProvider.execute(call, tool);
     if (deviceResult) return deviceResult;
     if (call.toolId === 'screen_time.read') {
@@ -1198,8 +1211,9 @@ export function createUnifiedChatToolProvider({
     execute,
     proposals: (): readonly StagedUnifiedChatToolProposal[] => [
       ...staged,
+      ...moneyProvider.proposals(),
       ...(householdProposals?.() ?? []),
     ],
-    clientActions: deviceProvider.actions,
+    clientActions: () => [...deviceProvider.actions(), ...moneyProvider.actions()],
   };
 }
