@@ -92,7 +92,7 @@ The ChatGPT path is identical except the directory and dialog are OpenAI's.
 
 Designed against [Anthropic's review criteria](https://claude.com/docs/connectors/building/review-criteria): separate read and write tools (no catch-all method-param tools), narrow descriptions, accurate hint annotations, names ≤ 64 chars.
 
-**Reads (`readOnlyHint: true`, `openWorldHint: false`):**
+**Initial compatibility reads (`readOnlyHint: true`, `openWorldHint: false`):**
 
 | Tool | Returns | Privacy posture |
 |---|---|---|
@@ -105,7 +105,7 @@ Designed against [Anthropic's review criteria](https://claude.com/docs/connector
 | `get_current_chapter` | Latest published Chapter narrative | Lookback only — never future |
 | `get_show_up_status` | Current streak, repair-window state, today's show-up boolean | No protected/repair-window mechanics in description copy that could be exploited |
 
-**Writes (`life.read life.write`):**
+**Initial compatibility writes (`life.read life.write`):**
 
 | Tool | Hints | Notes |
 |---|---|---|
@@ -113,9 +113,19 @@ Designed against [Anthropic's review criteria](https://claude.com/docs/connector
 | `create_*`, `update_*`, Activity step tools, Chapter-note update | `readOnlyHint: false` | Use canonical server actions and their confirmation policy. |
 | `delete_arc`, `delete_goal`, `delete_activity`, `delete_activity_step` | `destructiveHint: true` | Recoverable where the capability supports recovery and always subject to consequential review policy. |
 
-Every write schema requires an `idempotency_key`: a stable request ID that the caller reuses only when retrying the same intended operation. Compatibility tool names remain aliases for one contract version; the generated catalog binds every alias to a canonical operation, registered server handler, exact scopes, consequence, confirmation, and redaction policy. Device-only writes are not advertised as remotely executable.
+Every write schema requires an `idempotency_key`: a stable request ID that the caller reuses only when retrying the same intended operation. Compatibility tool names remain aliases for one contract version; the generated catalog binds every alias to a canonical operation, registered server handler, exact scopes, consequence, confirmation, and redaction policy. Canonical tools extend this surface without multiplying legacy aliases. Device-owned writes are advertised only when the server can durably stage the exact native handoff; their result is pending native action, never remote completion.
+
+Implementation checkpoint (2026-08-26): the generated MCP catalog exposes 56 scoped tools. In addition to the compatibility slice above, it covers Plan reads and reviewed scheduling, Relationship memory, To-do get/search/schedule/chunks/reminder/repeat, Chapter list/reflect, Profile update, Goal and To-do sharing handoffs, Focus, Plan preferences, notifications, search, relevant Account surfaces, and the truthful Screen Time cross-device boundary. The generated 145-operation ledger currently classifies 56 as externally exposed, 80 as pending a provider, two as deliberately excluded capabilities, five as explicit safety boundaries, and two internal answer/synthesis operations as non-applicable because ChatGPT performs its own synthesis over callable tools.
 
 Notably absent: no `set_streak`, no tool that returns a composite "growth score," and no tool that lets the agent author Chapters.
+
+### Core capability coverage contract
+
+The Life tools above are the proven first slice, not the finished connector. The product requirement is that every meaningful user operation in Kwilt's core capabilities has one canonical manifest entry and resolves externally to one of four truthful outcomes: authoritative execution, a review proposal, a pending native/device handoff, or an explicit temporary boundary.
+
+Core coverage obligations are Household and Relationships, Arcs, Goals, To-dos, Plan and Focus, Chapters, Money, Recipes, Meal Plan, Groceries and Savings, Chores, Screen Time, and relevant Account actions. Navigation and notification actions are supporting controls. Games and Explore are explicitly excluded from external conversational control for this program; their absence must not be confused with an accidental catalog gap. AI can never attest publishing rights, complete retailer checkout or payment without provider authority, bypass native device authorization, or silently perform destructive/shared/financial actions.
+
+The generated manifest and CI coverage projection are the ledger. Adding a core UI action without a canonical operation, policy metadata, provider state, and external-control classification is a contract failure. A granted OAuth scope makes eligible actions discoverable; it does not turn pending or device-owned behavior into server authority.
 
 ### Authorization and review contract
 

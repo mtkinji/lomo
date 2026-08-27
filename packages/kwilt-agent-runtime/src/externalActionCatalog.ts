@@ -2,12 +2,15 @@ import type { CapabilityConfirmation, CapabilityManifestEntry } from './capabili
 
 export type ExternalExposureState = 'exposed' | 'status_only' | 'hidden';
 export type ExternalRedactionPolicy =
+  | 'bounded_summary'
   | 'account_identity'
   | 'identity_summary'
   | 'goal_summary'
   | 'activity_summary'
   | 'chapter_summary'
   | 'streak_summary'
+  | 'relationship_summary'
+  | 'plan_summary'
   | 'mutation_receipt';
 
 export type ExternalCompatibilityAlias = {
@@ -45,6 +48,22 @@ export type ExternalActionCatalogEntry = ExternalActionRegistration & {
 };
 
 type ServerRegistration = { toolId: string };
+
+export type ExternalControlCoverageState =
+  | 'exposed'
+  | 'not_applicable'
+  | 'explicit_boundary'
+  | 'pending_registration'
+  | 'pending_provider'
+  | 'excluded';
+
+export type ExternalControlCoverageRow = {
+  operationId: string;
+  owner: string;
+  state: ExternalControlCoverageState;
+  toolIds: readonly string[];
+  reason: string;
+};
 
 function isDestructive(operationId: string): boolean {
   return /(^|\.)(delete|forget|remove|deactivate)(\.|$)/.test(operationId);
@@ -108,6 +127,60 @@ export function projectExternalActionCatalog(input: {
   });
 }
 
+export function projectExternalControlCoverage(input: {
+  manifest: readonly CapabilityManifestEntry[];
+  serverRegistrations: readonly ServerRegistration[];
+  externalRegistrations: readonly ExternalActionRegistration[];
+  scopeByOwner: Readonly<Record<string, 'core' | 'supporting' | 'excluded'>>;
+  nonApplicableOperationIds?: readonly string[];
+}): ExternalControlCoverageRow[] {
+  const serverToolIds = new Set(input.serverRegistrations.map((registration) => registration.toolId));
+  const exposedOperationIds = new Set(input.externalRegistrations
+    .filter((registration) => registration.exposure === 'exposed' && serverToolIds.has(registration.toolId))
+    .map((registration) => registration.operationId));
+  const notApplicableOperationIds = new Set(input.nonApplicableOperationIds ?? []);
+
+  return input.manifest.map((operation) => {
+    const scope = input.scopeByOwner[operation.owner];
+    if (!scope) throw new Error(`Missing external control scope for owner: ${operation.owner}`);
+    if (scope === 'excluded') {
+      return {
+        operationId: operation.id, owner: operation.owner, state: 'excluded' as const,
+        toolIds: operation.tools.map((tool) => tool.id), reason: 'Capability is explicitly outside external conversational control.',
+      };
+    }
+    if (notApplicableOperationIds.has(operation.id)) {
+      return {
+        operationId: operation.id, owner: operation.owner, state: 'not_applicable' as const,
+        toolIds: operation.tools.map((tool) => tool.id), reason: 'This is an internal orchestration operation rather than a user-callable external action.',
+      };
+    }
+    if (operation.channels.phone.state === 'excluded') {
+      return {
+        operationId: operation.id, owner: operation.owner, state: 'explicit_boundary' as const,
+        toolIds: operation.tools.map((tool) => tool.id),
+        reason: operation.channels.phone.boundaryReason ?? 'This operation is explicitly withheld from external control.',
+      };
+    }
+    if (exposedOperationIds.has(operation.id)) {
+      return {
+        operationId: operation.id, owner: operation.owner, state: 'exposed' as const,
+        toolIds: operation.tools.map((tool) => tool.id), reason: 'A scoped external action is backed by the canonical server dispatcher.',
+      };
+    }
+    if (operation.tools.some((tool) => serverToolIds.has(tool.id))) {
+      return {
+        operationId: operation.id, owner: operation.owner, state: 'pending_registration' as const,
+        toolIds: operation.tools.map((tool) => tool.id), reason: 'The server dispatcher is available, but the operation is not yet registered externally.',
+      };
+    }
+    return {
+      operationId: operation.id, owner: operation.owner, state: 'pending_provider' as const,
+      toolIds: operation.tools.map((tool) => tool.id), reason: 'No server or durable device-handoff provider is registered for external control yet.',
+    };
+  });
+}
+
 const alias = (name: string): readonly ExternalCompatibilityAlias[] => [{ name, version: 1 }];
 const read = (
   operationId: string,
@@ -131,6 +204,31 @@ const write = (
 ): ExternalActionRegistration => ({
   operationId, toolId, canonicalName, title, exposure: 'exposed', requiredScopes: ['life.read', 'life.write'],
   consequence, confirmation, redactionPolicy: 'mutation_receipt', compatibilityAliases: alias(legacyName),
+});
+
+const canonicalRead = (
+  operationId: string,
+  toolId: string,
+  canonicalName: string,
+  title: string,
+  requiredScopes: readonly string[],
+  redactionPolicy: Exclude<ExternalRedactionPolicy, 'mutation_receipt'>,
+): ExternalActionRegistration => ({
+  operationId, toolId, canonicalName, title, exposure: 'exposed', requiredScopes,
+  consequence: 'low', confirmation: 'none', redactionPolicy, compatibilityAliases: [],
+});
+
+const canonicalWrite = (
+  operationId: string,
+  toolId: string,
+  canonicalName: string,
+  title: string,
+  requiredScopes: readonly string[],
+  consequence: ExternalActionRegistration['consequence'],
+  confirmation: CapabilityConfirmation,
+): ExternalActionRegistration => ({
+  operationId, toolId, canonicalName, title, exposure: 'exposed', requiredScopes,
+  consequence, confirmation, redactionPolicy: 'mutation_receipt', compatibilityAliases: [],
 });
 
 /**
@@ -164,4 +262,38 @@ export const EXTERNAL_ACTION_REGISTRATIONS: readonly ExternalActionRegistration[
   write('activities.focus_today', 'activities.focus_today', 'kwilt_activities_focus_today', 'Set Focus Today', 'set_focus_today', 'low', 'explicit'),
   write('activities.delete', 'activities.delete', 'kwilt_activities_delete', 'Delete To-do', 'delete_activity', 'consequential', 'explicit'),
   write('chapters.note.update', 'chapters.note.update', 'kwilt_chapters_note_update', 'Update Chapter Note', 'update_chapter_user_note', 'low', 'explicit'),
+
+  canonicalRead('plan.read_day_context', 'plan.read_day_context', 'kwilt_plan_read_day_context', 'Read Plan Day', ['life.read'], 'plan_summary'),
+  canonicalRead('plan.recommend_day', 'plan.recommend_day', 'kwilt_plan_recommend_day', 'Recommend Plan Day', ['life.read'], 'plan_summary'),
+  canonicalRead('activities.get', 'activities.read', 'kwilt_activities_get', 'Get To-do', ['life.read'], 'activity_summary'),
+  canonicalRead('activities.search', 'activities.read', 'kwilt_activities_search', 'Search To-dos', ['life.read'], 'activity_summary'),
+  canonicalWrite('plan.schedule_activity', 'plan.schedule_activity', 'kwilt_plan_schedule_activity', 'Schedule To-do in Plan', ['life.read', 'life.write'], 'low', 'explicit'),
+  canonicalWrite('plan.reschedule_activity', 'plan.reschedule_activity', 'kwilt_plan_reschedule_activity', 'Move Planned To-do', ['life.read', 'life.write'], 'low', 'explicit'),
+  canonicalWrite('plan.remove_activity', 'plan.remove_activity', 'kwilt_plan_remove_activity', 'Remove To-do from Plan', ['life.read', 'life.write'], 'consequential', 'explicit'),
+  canonicalWrite('activities.schedule', 'plan.schedule_activity', 'kwilt_activities_schedule', 'Schedule To-do', ['life.read', 'life.write'], 'low', 'explicit'),
+  canonicalWrite('plan.schedule_chunks', 'plan.schedule_chunks', 'kwilt_plan_schedule_chunks', 'Schedule To-do Chunks', ['life.read', 'life.write'], 'low', 'explicit'),
+  canonicalWrite('activities.reminder.update', 'activities.reminder.update', 'kwilt_activities_reminder_update', 'Update To-do Reminder', ['life.read', 'life.write'], 'low', 'explicit'),
+  canonicalWrite('activities.repeat.update', 'activities.repeat.update', 'kwilt_activities_repeat_update', 'Update To-do Repeat', ['life.read', 'life.write'], 'low', 'explicit'),
+
+  canonicalRead('relationships.read', 'relationships.read', 'kwilt_relationships_read', 'Read Relationships', ['household.read'], 'relationship_summary'),
+  canonicalWrite('relationships.remember', 'relationships.remember', 'kwilt_relationships_remember', 'Remember Relationship Detail', ['household.read', 'household.write'], 'low', 'none'),
+  canonicalWrite('relationships.correct', 'relationships.correct', 'kwilt_relationships_correct', 'Correct Relationship Detail', ['household.read', 'household.write'], 'low', 'none'),
+  canonicalWrite('relationships.forget', 'relationships.forget', 'kwilt_relationships_forget', 'Forget Relationship Detail', ['household.read', 'household.write'], 'low', 'none'),
+
+  canonicalRead('chapters.list', 'chapters.read', 'kwilt_chapters_list', 'List Chapters', ['life.read'], 'chapter_summary'),
+  canonicalRead('chapters.reflect', 'chapters.read', 'kwilt_chapters_reflect', 'Reflect on Chapters', ['life.read'], 'chapter_summary'),
+
+  canonicalWrite('profile.update', 'profile.update', 'kwilt_profile_update', 'Update Profile', ['life.read', 'life.write'], 'low', 'explicit'),
+  canonicalWrite('goals.share', 'goals.share.open', 'kwilt_goals_share_open', 'Open Goal Sharing', ['life.read', 'life.write'], 'consequential', 'native'),
+  canonicalWrite('activities.focus.open', 'activities.open_focus', 'kwilt_activities_focus_open', 'Open Focus', ['life.read', 'life.write'], 'low', 'native'),
+  canonicalWrite('activities.location.update', 'activities.location.update', 'kwilt_activities_location_update', 'Review To-do Location', ['life.read', 'life.write'], 'consequential', 'native'),
+  canonicalWrite('activities.attachments.update', 'activities.attachments.open', 'kwilt_activities_attachments_open', 'Open To-do Attachments', ['life.read', 'life.write'], 'consequential', 'native'),
+  canonicalWrite('activities.share', 'activities.share.open', 'kwilt_activities_share_open', 'Open To-do Sharing', ['life.read', 'life.write'], 'consequential', 'native'),
+  canonicalWrite('plan.preferences.open', 'plan.preferences.open', 'kwilt_plan_preferences_open', 'Open Plan Preferences', ['life.read', 'life.write'], 'low', 'native'),
+  canonicalWrite('notifications.configure', 'notifications.configure', 'kwilt_notifications_configure', 'Open Notification Settings', ['life.read', 'life.write'], 'consequential', 'native'),
+  canonicalWrite('search.open', 'navigation.search.open', 'kwilt_search_open', 'Open Kwilt Search', ['life.read', 'life.write'], 'low', 'native'),
+  canonicalWrite('account.settings.open', 'navigation.account_settings.open', 'kwilt_account_settings_open', 'Open Account Settings', ['life.read', 'life.write'], 'low', 'native'),
+  canonicalWrite('account.subscription.manage', 'account.subscription.open', 'kwilt_account_subscription_open', 'Open Subscription Management', ['life.read', 'life.write'], 'consequential', 'native'),
+  canonicalWrite('account.delete', 'account.delete.open', 'kwilt_account_delete_open', 'Open Account Deletion', ['life.read', 'life.write'], 'consequential', 'native'),
+  canonicalWrite('screen_time.configure', 'screen_time.configure', 'kwilt_screen_time_configure', 'Review Screen Time Control', ['household.read', 'household.write'], 'consequential', 'native'),
 ] as const;

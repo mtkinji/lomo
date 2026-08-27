@@ -27,6 +27,38 @@ export type KwiltOperationOwner =
   | 'groceries'
   | 'savings';
 
+export type ExternalControlScope = 'core' | 'supporting' | 'excluded';
+
+/**
+ * Product scope for conversational control outside the Kwilt app. Core owners are a
+ * coverage obligation, supporting owners keep the operator usable, and exclusions are
+ * deliberate product boundaries rather than silent catalog gaps.
+ */
+export const KWILT_EXTERNAL_CONTROL_SCOPE = {
+  general: 'supporting',
+  relationships: 'core',
+  household: 'core',
+  profile: 'core',
+  arcs: 'core',
+  goals: 'core',
+  todos: 'core',
+  plan: 'core',
+  chapters: 'core',
+  money: 'core',
+  explore: 'excluded',
+  games: 'excluded',
+  chores: 'core',
+  account: 'core',
+  screenTime: 'core',
+  notifications: 'supporting',
+  navigation: 'supporting',
+  channels: 'supporting',
+  recipes: 'core',
+  meal_planning: 'core',
+  groceries: 'core',
+  savings: 'core',
+} as const satisfies Record<KwiltOperationOwner, ExternalControlScope>;
+
 export type ChatCapabilityCoverageState =
   | 'live'
   | 'pending_provider'

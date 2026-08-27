@@ -1,4 +1,5 @@
-import { EXTERNAL_MCP_WRITE_TOOLS } from '../externalMcp';
+import { resolveExternalMcpTool } from '../externalMcp';
+import { EXTERNAL_ACTION_REGISTRATIONS } from '../../../../packages/kwilt-agent-runtime/src/externalActionCatalog';
 import { executeExternalMcpWrite, prepareExternalMcpAction } from '../externalMcpWrite';
 
 const cases: Array<[string, Record<string, unknown>, string, Record<string, unknown>]> = [
@@ -23,19 +24,22 @@ const cases: Array<[string, Record<string, unknown>, string, Record<string, unkn
 ];
 
 test.each(cases)('%s produces the same canonical call consumed by mobile Chat', (name, args, toolId, canonicalArguments) => {
-  const tool = EXTERNAL_MCP_WRITE_TOOLS.find((candidate) => candidate.name === name);
+  const tool = resolveExternalMcpTool(name);
   expect(tool).toBeDefined();
   expect(prepareExternalMcpAction(tool!, { ...args, idempotency_key: 'stable-key' }, 'request-1')).toEqual({
     id: 'request-1', toolId, arguments: canonicalArguments,
   });
 });
 
-test('parity covers every currently advertised compatibility write', () => {
-  expect(cases.map(([name]) => name)).toEqual(EXTERNAL_MCP_WRITE_TOOLS.map((tool) => tool.name));
+test('parity covers every retained v1 compatibility write', () => {
+  const compatibilityWrites = EXTERNAL_ACTION_REGISTRATIONS
+    .filter((registration) => registration.requiredScopes.some((scope) => scope.endsWith('.write')))
+    .flatMap((registration) => registration.compatibilityAliases.map((item) => item.name));
+  expect(cases.map(([name]) => name)).toEqual(compatibilityWrites);
 });
 
 test('MCP projects the exact canonical receipt returned to mobile Chat', async () => {
-  const tool = EXTERNAL_MCP_WRITE_TOOLS.find((candidate) => candidate.name === 'capture_activity');
+  const tool = resolveExternalMcpTool('capture_activity');
   if (!tool) throw new Error('missing capture tool');
   const canonicalExecute = jest.fn(async (call: ReturnType<typeof prepareExternalMcpAction>) => ({
     status: 'completed' as const,

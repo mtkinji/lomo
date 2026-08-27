@@ -1,10 +1,14 @@
 import {
   EXTERNAL_ACTION_REGISTRATIONS,
   projectExternalActionCatalog,
+  projectExternalControlCoverage,
   type ExternalActionAnnotations,
   type ExternalRedactionPolicy,
 } from '../../../packages/kwilt-agent-runtime/src/externalActionCatalog.ts';
-import { KWILT_CAPABILITY_MANIFEST } from '../../../packages/kwilt-agent-runtime/src/kwiltCapabilityManifest.ts';
+import {
+  KWILT_CAPABILITY_MANIFEST,
+  KWILT_EXTERNAL_CONTROL_SCOPE,
+} from '../../../packages/kwilt-agent-runtime/src/kwiltCapabilityManifest.ts';
 import { SERVER_TOOL_PROVIDER_REGISTRATIONS } from './serverToolImplementations.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -15,13 +19,14 @@ export type ExternalMcpToolDefinition = {
   description: string;
   scope: 'read' | 'write';
   inputSchema: JsonObject;
+  outputSchema: JsonObject;
   annotations: ExternalActionAnnotations;
   canonicalName: string;
   operationId: string;
   toolId: string;
   requiredScopes: string[];
   redactionPolicy: ExternalRedactionPolicy;
-  compatibilityAlias: { name: string; version: 1 };
+  compatibilityAlias: { name: string; version: 1 } | null;
 };
 
 type LegacyExternalMcpToolDefinition = Pick<
@@ -499,6 +504,12 @@ function requireStableWriteRequestId(schema: JsonObject): JsonObject {
     : [];
   return {
     ...schema,
+    properties: {
+      ...(schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)
+        ? schema.properties as JsonObject
+        : {}),
+      idempotency_key: IDEMPOTENCY_PROPERTY,
+    },
     required: Array.from(new Set([...required, 'idempotency_key'])),
   };
 }
@@ -507,37 +518,81 @@ const projectedActions = projectExternalActionCatalog({
   manifest: KWILT_CAPABILITY_MANIFEST,
   serverRegistrations: SERVER_TOOL_PROVIDER_REGISTRATIONS,
   externalRegistrations: EXTERNAL_ACTION_REGISTRATIONS,
-  availableScopes: ['life.read', 'life.write'],
+  availableScopes: [
+    'life.read', 'life.write',
+    'household.read', 'household.write',
+    'money.read', 'money.write',
+    'food.read', 'food.write',
+  ],
+});
+
+export const EXTERNAL_MCP_CONTROL_COVERAGE = projectExternalControlCoverage({
+  manifest: KWILT_CAPABILITY_MANIFEST,
+  serverRegistrations: SERVER_TOOL_PROVIDER_REGISTRATIONS,
+  externalRegistrations: EXTERNAL_ACTION_REGISTRATIONS,
+  scopeByOwner: KWILT_EXTERNAL_CONTROL_SCOPE,
+  nonApplicableOperationIds: ['general.answer', 'general.answer_with_context'],
 });
 const legacyToolByName = new Map(LEGACY_EXTERNAL_MCP_TOOLS.map((tool) => [tool.name, tool] as const));
 
-export const EXTERNAL_MCP_ACTION_CATALOG: readonly ExternalMcpToolDefinition[] = projectedActions.flatMap((action) =>
-  action.compatibilityAliases.map((compatibilityAlias) => {
+const EXTERNAL_STRUCTURED_OUTPUT_SCHEMA: JsonObject = {
+  type: 'object',
+  additionalProperties: true,
+};
+
+function canonicalExternalTool(action: (typeof projectedActions)[number]): ExternalMcpToolDefinition {
+  return {
+    name: action.canonicalName,
+    description: action.description,
+    scope: action.effect === 'write' ? 'write' as const : 'read' as const,
+    inputSchema: action.effect === 'write'
+      ? requireStableWriteRequestId(strictExternalSchema(action.inputSchema as JsonObject))
+      : strictExternalSchema(action.inputSchema as JsonObject),
+    outputSchema: EXTERNAL_STRUCTURED_OUTPUT_SCHEMA,
+    annotations: action.annotations,
+    canonicalName: action.canonicalName,
+    operationId: action.operationId,
+    toolId: action.toolId,
+    requiredScopes: [...action.requiredScopes],
+    redactionPolicy: action.redactionPolicy,
+    compatibilityAlias: null,
+  };
+}
+
+const canonicalToolByName = new Map(projectedActions.map((action) => {
+  const tool = canonicalExternalTool(action);
+  return [tool.name, tool] as const;
+}));
+const compatibilityToolByName = new Map<string, ExternalMcpToolDefinition>();
+for (const action of projectedActions) {
+  const canonical = canonicalToolByName.get(action.canonicalName);
+  if (!canonical) throw new Error(`Missing canonical external MCP tool: ${action.canonicalName}`);
+  for (const compatibilityAlias of action.compatibilityAliases) {
     const legacy = legacyToolByName.get(compatibilityAlias.name);
     if (!legacy) throw new Error(`Missing external MCP compatibility schema: ${compatibilityAlias.name}`);
-    const scope = action.effect === 'write' ? 'write' as const : 'read' as const;
-    if (legacy.scope !== scope) throw new Error(`External MCP scope drift: ${compatibilityAlias.name}`);
-    return {
+    if (legacy.scope !== canonical.scope) throw new Error(`External MCP scope drift: ${compatibilityAlias.name}`);
+    compatibilityToolByName.set(compatibilityAlias.name, {
+      ...canonical,
       ...legacy,
-      scope,
-      inputSchema: action.effect === 'write'
+      inputSchema: canonical.scope === 'write'
         ? requireStableWriteRequestId(strictExternalSchema(legacy.inputSchema))
         : strictExternalSchema(legacy.inputSchema),
+      outputSchema: EXTERNAL_STRUCTURED_OUTPUT_SCHEMA,
       annotations: action.annotations,
-      canonicalName: action.canonicalName,
-      operationId: action.operationId,
-      toolId: action.toolId,
-      requiredScopes: [...action.requiredScopes],
-      redactionPolicy: action.redactionPolicy,
       compatibilityAlias,
-    };
-  }));
-
-const projectedAliasNames = new Set(EXTERNAL_MCP_ACTION_CATALOG.map((tool) => tool.name));
-for (const legacy of LEGACY_EXTERNAL_MCP_TOOLS) {
-  if (!projectedAliasNames.has(legacy.name)) {
-    throw new Error(`External MCP tool is not backed by an exposed server action: ${legacy.name}`);
+    });
   }
+}
+
+export const EXTERNAL_MCP_ACTION_CATALOG: readonly ExternalMcpToolDefinition[] = projectedActions.map((action) => {
+  const compatibilityAlias = action.compatibilityAliases[0];
+  return compatibilityAlias
+    ? compatibilityToolByName.get(compatibilityAlias.name)!
+    : canonicalToolByName.get(action.canonicalName)!;
+});
+
+export function resolveExternalMcpTool(name: string): ExternalMcpToolDefinition | null {
+  return canonicalToolByName.get(name) ?? compatibilityToolByName.get(name) ?? null;
 }
 
 export const EXTERNAL_MCP_READ_TOOLS = EXTERNAL_MCP_ACTION_CATALOG.filter((tool) => tool.scope === 'read');

@@ -20,7 +20,7 @@ related_briefs:
   - brief-background-agents-weekly-planning
   - brief-unified-chat-operational-control-plane
 owner: andrew
-last_updated: 2026-08-11
+last_updated: 2026-08-26
 ---
 
 # Kwilt Chat
@@ -273,6 +273,8 @@ Chat is the first in-app channel over a channel-independent Kwilt Agent Runtime.
 The mobile app does not call Kwilt's external MCP server. MCP is an external-client projection of the server-capable catalog. In-app Chat calls authenticated server operations and native adapters through the same versioned tool semantics. Phone Agent should ultimately use the same coordinator and server tools, while persisting device-only or app-confirmation steps for later completion in Kwilt.
 
 Capability completeness is a coverage contract, not a promise that every schema is loaded into every prompt. Each meaningful user operation across Kwilt must eventually have a capability-owned tool or an explicit exclusion. The runtime discovers a small relevant tool set per turn, applies deterministic consequence-based policy, and treats only authoritative provider results as success.
+
+The core coverage obligation includes Household and Relationships, Arcs, Goals, To-dos, Plan and Focus, Chapters, Money, Recipes, Meal Plan, Groceries and Savings, Chores, Screen Time, and relevant Account actions. Navigation and notifications are supporting controls. Games and Explore are deliberate exclusions from this program. Every included operation must be available through in-app Chat and projected to external ChatGPT/MCP when its provider can execute server-side; device-owned operations project as truthful pending native actions rather than disappearing or claiming completion.
 
 Capability ownership includes presentation. When Plan, Goals, Arcs, Activities, or Chapters already have a trusted prioritization method, review card, approval surface, receipt, recovery path, or native layout, Chat projects that durable contract into the conversation. The model may explain or connect the result, but it must not independently reprioritize the same objects or invent a parallel AI-only card and mutation path. Improving the capability-owned method should improve both its deterministic home and every conversational channel that reuses it.
 

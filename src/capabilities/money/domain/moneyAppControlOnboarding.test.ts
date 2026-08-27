@@ -19,9 +19,14 @@ describe('Money app-control onboarding entry', () => {
       categoryId: 'shopping',
       monthOffset: 0,
       entryIntent: 'app-control-onboarding',
+      suggestedAppLabels: ['Games', 'Social'],
     })).toEqual({
       screen: 'MoneyAppControl',
-      params: { categoryId: 'shopping', source: 'capability-onboarding' },
+      params: {
+        categoryId: 'shopping',
+        source: 'capability-onboarding',
+        suggestedAppLabels: ['Games', 'Social'],
+      },
     });
   });
 

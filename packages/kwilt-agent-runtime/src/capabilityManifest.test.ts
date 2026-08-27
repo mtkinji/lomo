@@ -7,7 +7,7 @@ import {
   type CapabilityManifestEntry,
   type RuntimeToolImplementation,
 } from './capabilityManifest';
-import { KWILT_CAPABILITY_MANIFEST } from './kwiltCapabilityManifest';
+import { KWILT_CAPABILITY_MANIFEST, KWILT_EXTERNAL_CONTROL_SCOPE } from './kwiltCapabilityManifest';
 import type { RuntimeToolProviderRegistration } from './providerRegistry';
 
 const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: false } as const;
@@ -48,6 +48,14 @@ function inspectOperation(
 }
 
 describe('canonical capability manifest', () => {
+  test('classifies every operation owner and excludes only Games and Explore from external control', () => {
+    const owners = new Set(KWILT_CAPABILITY_MANIFEST.map((operation) => operation.owner));
+    for (const owner of owners) expect(KWILT_EXTERNAL_CONTROL_SCOPE[owner as keyof typeof KWILT_EXTERNAL_CONTROL_SCOPE]).toBeDefined();
+    expect(Object.entries(KWILT_EXTERNAL_CONTROL_SCOPE)
+      .filter(([, scope]) => scope === 'excluded')
+      .map(([owner]) => owner)).toEqual(['explore', 'games']);
+  });
+
   test('projects only tool providers backed by executable registrations', () => {
     const manifest = defineCapabilityManifest([inspectOperation({
       tools: [

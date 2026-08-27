@@ -1,4 +1,4 @@
-import { EXTERNAL_MCP_WRITE_TOOLS } from '../externalMcp';
+import { resolveExternalMcpTool } from '../externalMcp';
 import {
   executeExternalMcpWrite,
   externalMcpIdempotencyMaterial,
@@ -7,12 +7,38 @@ import {
 } from '../externalMcpWrite';
 
 const tool = (name: string) => {
-  const found = EXTERNAL_MCP_WRITE_TOOLS.find((candidate) => candidate.name === name);
+  const found = resolveExternalMcpTool(name);
   if (!found) throw new Error(`missing test tool ${name}`);
   return found;
 };
 
 describe('externalMcpWrite canonical adapter', () => {
+  test('passes canonical Plan and Relationships arguments without a second compatibility mapper', () => {
+    expect(prepareExternalMcpAction(tool('kwilt_plan_schedule_activity'), {
+      idempotency_key: 'plan-request-1',
+      activityId: 'activity-1',
+      startDate: '2026-08-28T15:00:00.000Z',
+      endDate: '2026-08-28T16:00:00.000Z',
+      targetDateKey: '2026-08-28',
+    }, 'request-1')).toEqual({
+      id: 'request-1', toolId: 'plan.schedule_activity', arguments: {
+        activityId: 'activity-1',
+        startDate: '2026-08-28T15:00:00.000Z',
+        endDate: '2026-08-28T16:00:00.000Z',
+        targetDateKey: '2026-08-28',
+      },
+    });
+
+    expect(prepareExternalMcpAction(tool('kwilt_relationships_forget'), {
+      idempotency_key: 'relationship-request-1',
+      recordType: 'memory', recordId: 'memory-1', expectedUpdatedAt: '2026-08-27T00:00:00.000Z',
+    }, 'request-2')).toEqual({
+      id: 'request-2', toolId: 'relationships.forget', arguments: {
+        recordType: 'memory', recordId: 'memory-1', expectedUpdatedAt: '2026-08-27T00:00:00.000Z',
+      },
+    });
+  });
+
   test('rejects undeclared arguments, including legacy compound fields that canonical actions cannot preserve', () => {
     expect(() => prepareExternalMcpAction(tool('create_goal'), { title: 'Goal', surprise: true }, 'request-1'))
       .toThrow('unsupported_external_argument:surprise');

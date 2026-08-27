@@ -13,6 +13,7 @@ import {
   normalizeGetGoalArgs,
   normalizeListGoalsArgs,
   normalizeListRecentActivitiesArgs,
+  resolveExternalMcpTool,
   summarizeActivity,
   summarizeArc,
   summarizeChapter,
@@ -174,7 +175,7 @@ function hasRequiredScopes(context: ExternalTokenContext, scopes: readonly strin
 }
 
 function getExternalTool(name: string) {
-  return ALL_EXTERNAL_MCP_TOOLS.find((candidate) => candidate.name === name) ?? null;
+  return resolveExternalMcpTool(name);
 }
 
 function getIdempotencyKey(args: unknown): string | null {
@@ -603,6 +604,23 @@ async function executeCanonicalExternalTool(
   }
 }
 
+async function executeCanonicalExternalReadTool(
+  admin: ExternalServiceClient,
+  context: ExternalTokenContext,
+  externalTool: (typeof ALL_EXTERNAL_MCP_TOOLS)[number],
+  args: unknown,
+): Promise<JsonObject> {
+  const result = await executeCanonicalExternalTool(admin, context, externalTool, {
+    id: `mcp-read-${crypto.randomUUID()}`,
+    toolId: externalTool.toolId,
+    arguments: asRecord(args) ?? {},
+  });
+  if (result.status === 'completed') return (asRecord(result.output) ?? {}) as JsonObject;
+  if (result.status === 'unavailable') throw new Error(result.reason);
+  if (result.status === 'failed') throw new Error(result.code || 'external_read_failed');
+  throw new Error('external_read_did_not_complete');
+}
+
 async function handleWriteTool(
   admin: any,
   context: ExternalTokenContext,
@@ -966,7 +984,11 @@ async function handleMcp(req: Request) {
         idempotencyKeyHash ? `mcp-${idempotencyKeyHash.slice(0, 64)}` : `mcp-${crypto.randomUUID()}`,
       )
       : null;
-    const finalResult = replay ?? (writeResult ? writeResult.structured : await handleReadTool(auth.admin, auth.context, name, args));
+    const finalResult = replay ?? (writeResult
+      ? writeResult.structured
+      : externalTool.compatibilityAlias
+        ? await handleReadTool(auth.admin, auth.context, name, args)
+        : await executeCanonicalExternalReadTool(auth.admin, auth.context, externalTool, args));
     await auditToolCall(auth.admin, auth.context, {
       toolName: externalTool.canonicalName,
       toolKind: toolScope,

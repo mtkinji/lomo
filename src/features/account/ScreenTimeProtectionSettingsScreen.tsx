@@ -708,7 +708,6 @@ export function ScreenTimeProtectionSettingsScreen() {
       enableContentPanningGesture
       keyboardAvoidanceEnabled={false}
       sheetStyle={styles.setupDrawerSheet}
-      handleContainerStyle={styles.setupDrawerHandleContainer}
       handleStyle={styles.setupDrawerHandle}
     >
       <View style={styles.setupDrawerContent}>
@@ -956,10 +955,6 @@ const styles = StyleSheet.create({
   },
   setupDrawerSheet: {
     backgroundColor: colors.pine700,
-  },
-  setupDrawerHandleContainer: {
-    backgroundColor: colors.pine700,
-    paddingTop: spacing.sm,
   },
   setupDrawerHandle: {
     backgroundColor: 'rgba(250,247,237,0.38)',

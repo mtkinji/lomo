@@ -112,7 +112,9 @@ export function prepareExternalMcpAction(
     case 'set_focus_today': canonicalArgs = { activityId: args.activity_id }; break;
     case 'delete_activity': canonicalArgs = { activityId: args.activity_id }; break;
     case 'update_chapter_user_note': canonicalArgs = { chapterId: args.chapter_id, note: args.note }; break;
-    default: throw new Error('unknown_external_write_tool');
+    default:
+      if (tool.name !== tool.canonicalName) throw new Error('unknown_external_write_tool');
+      canonicalArgs = Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'idempotency_key'));
   }
 
   return { id: requestId, toolId: tool.toolId, arguments: canonicalArgs };

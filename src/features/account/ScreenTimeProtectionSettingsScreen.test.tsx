@@ -1,5 +1,5 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import type { MoneyAppControlSettings } from '../../capabilities/money/domain/moneyAppControl';
 import { presentScreenTimeActivityPicker } from '../../services/appleEcosystem/screenTimeProtection';
 import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from '../../services/screenTimeProtection';
@@ -201,9 +201,15 @@ describe('ScreenTimeProtectionSettingsScreen overview', () => {
   it('returns to setup when native authorization invalidates persisted completion', async () => {
     mockGetScreenTimeAuthorizationStatus.mockResolvedValue('notDetermined');
 
-    const { getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
+    const { getByTestId, getByText } = renderWithProviders(<ScreenTimeProtectionSettingsScreen />);
 
     expect(await waitFor(() => getByText('Do what matters first.'))).toBeTruthy();
+    expect(
+      StyleSheet.flatten(getByTestId(
+        'bottom-drawer.handle-layout-spacer',
+        { includeHiddenElements: true },
+      ).props.style),
+    ).not.toHaveProperty('backgroundColor');
     expect(useAppStore.getState().screenTimeProtection.authorizationStatus).toBe('notDetermined');
   });
 

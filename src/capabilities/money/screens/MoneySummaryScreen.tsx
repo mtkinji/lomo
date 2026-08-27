@@ -432,6 +432,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
                     categoryId,
                     monthOffset: item.monthOffset,
                     entryIntent: route.params?.entryIntent,
+                    suggestedAppLabels: route.params?.suggestedAppLabels,
                   });
                   if (destination.screen === 'MoneyAppControl') {
                     navigation.navigate('MoneyAppControl', destination.params);

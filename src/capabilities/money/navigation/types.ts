@@ -15,6 +15,7 @@ export type MoneyStackParamList = {
   MoneySummary: {
     entryTransition?: 'none';
     entryIntent?: 'app-control-onboarding';
+    suggestedAppLabels?: string[];
     devBudgetState?: 'none' | 'onboarding-sample';
     onboardingHandoff?: MoneyOnboardingHandoffReceipt;
   } | undefined;
