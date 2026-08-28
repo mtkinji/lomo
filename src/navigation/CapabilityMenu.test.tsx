@@ -1,4 +1,4 @@
-import { fireEvent, render, within } from '@testing-library/react-native';
+import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { CapabilityMenu } from './CapabilityMenu';
 import { CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
@@ -41,12 +41,12 @@ const mockOpenDropdownMenu = jest.fn();
 jest.mock('../ui/DropdownMenu', () => {
   const React = require('react');
   const { Pressable, Text, View } = require('react-native');
-  const Trigger = React.forwardRef((props: object, ref: import('react').Ref<unknown>) => {
+  const Trigger = React.forwardRef((props: { children?: import('react').ReactNode }, ref: import('react').Ref<unknown>) => {
     React.useImperativeHandle(ref, () => ({
       open: mockOpenDropdownMenu,
       close: jest.fn(),
     }));
-    return React.createElement(View, props);
+    return React.createElement(View, props, props.children);
   });
 
   return {
@@ -63,6 +63,7 @@ const handlers = {
   onSelectChat: jest.fn(),
   onArchiveChat: jest.fn(),
   onDeleteChat: jest.fn(),
+  onDeleteChats: jest.fn().mockResolvedValue(true),
   onCreateChat: jest.fn(),
   onOpenSearch: jest.fn(),
   onOpenSettings: jest.fn(),
@@ -654,6 +655,90 @@ describe('CapabilityMenu', () => {
 
     expect(handlers.onCreateChat).toHaveBeenCalledTimes(1);
     expect(handlers.onSelectChat).toHaveBeenCalledWith('chat-2');
+  });
+
+  it('keeps chat management beside the Chats label and creation isolated on the right', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    const chatLabelActions = within(menu.getByTestId('capability.menu.chats.header.left'));
+    expect(chatLabelActions.getByText('CHATS')).toBeTruthy();
+    expect(chatLabelActions.getByLabelText('More chat options')).toBeTruthy();
+    expect(menu.getByLabelText('New chat')).toBeTruthy();
+  });
+
+  it('reuses the floating navigation row for one Delete action while selecting chats', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    fireEvent.press(menu.getByLabelText('Select chats'));
+
+    expect(menu.getByText('Select chats')).toBeTruthy();
+    expect(menu.getByLabelText('Done selecting chats')).toBeTruthy();
+    expect(menu.getByLabelText('Select Plan the school week')).toBeTruthy();
+    expect(menu.getByLabelText('Select Tea tomorrow')).toBeTruthy();
+    expect(menu.queryByLabelText('Search Kwilt')).toBeNull();
+    expect(menu.queryByLabelText('Open chat')).toBeNull();
+    const floatingControls = within(menu.getByTestId('capability.menu.footer'));
+    expect(floatingControls.queryByLabelText('Archive selected chats')).toBeNull();
+    const deleteButton = floatingControls.getByLabelText('Delete selected chats');
+    expect(deleteButton.props.accessibilityState.disabled).toBe(true);
+    expect(StyleSheet.flatten(deleteButton.props.style)).toMatchObject({ flexDirection: 'row' });
+    expect(menu.queryByTestId('capability.menu.chat.bulk-actions')).toBeNull();
+  });
+
+  it('long-presses a chat into selection mode with that chat already selected', () => {
+    const menu = render(
+      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    fireEvent(menu.getByLabelText('Open chat Plan the school week'), 'longPress');
+
+    expect(menu.getByLabelText('Deselect Plan the school week').props.accessibilityState.checked).toBe(true);
+    expect(menu.getByText('1 selected')).toBeTruthy();
+  });
+
+  it('lets the revealed selection target choose more than two chats', () => {
+    const manyChats = [
+      ...chats,
+      { id: 'chat-0', title: 'Plan the birthday', updatedAt: '2026-07-20T18:00:00.000Z' },
+    ];
+    const menu = render(
+      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={manyChats} {...handlers} />,
+    );
+
+    fireEvent.press(menu.getByLabelText('Select chats'));
+    fireEvent.press(menu.getByTestId('capability.menu.chat.selection-target.chat-2'));
+    fireEvent.press(menu.getByTestId('capability.menu.chat.selection-target.chat-1'));
+    fireEvent.press(menu.getByTestId('capability.menu.chat.selection-target.chat-0'));
+
+    expect(menu.getByText('3 selected')).toBeTruthy();
+    expect(StyleSheet.flatten(
+      menu.getByTestId('capability.menu.chat.selection-indicator.chat-0.selected').props.style,
+    )).toMatchObject({ backgroundColor: colors.sumi900 });
+  });
+
+  it('keeps selection active when bulk deletion is cancelled', async () => {
+    const onDeleteChats = jest.fn().mockResolvedValue(false);
+    const menu = render(
+      <CapabilityMenu
+        activeCapabilityId={null}
+        displayName="Andy"
+        chats={chats}
+        {...handlers}
+        onDeleteChats={onDeleteChats}
+      />,
+    );
+
+    fireEvent(menu.getByLabelText('Open chat Tea tomorrow'), 'longPress');
+    fireEvent.press(menu.getByLabelText('Delete selected chats'));
+
+    await waitFor(() => {
+      expect(onDeleteChats).toHaveBeenCalledWith(['chat-1']);
+      expect(menu.getByText('1 selected')).toBeTruthy();
+    });
   });
 
   it('exposes archive to the right and delete to the left for each chat', () => {

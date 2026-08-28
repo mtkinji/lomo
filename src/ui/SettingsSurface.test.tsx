@@ -4,6 +4,7 @@ import {
   SettingsDivider,
   SettingsChoiceRow,
   SettingsCopyField,
+  SettingsDetailRow,
   SettingsGroup,
   SettingsInstructionSection,
   SettingsRow,
@@ -26,6 +27,40 @@ describe('SettingsSurface', () => {
     expect(getByTestId('settings.divider')).toBeTruthy();
   });
 
+  it('keeps a section action in the tight header above its grouped rows', () => {
+    const onAdd = jest.fn();
+    const { getByRole, getByText } = render(
+      <SettingsGroup
+        title="My rules · 2"
+        headerAction={<Text accessibilityRole="button" onPress={onAdd}>Add rule</Text>}
+      >
+        <SettingsRow title="Social" />
+      </SettingsGroup>,
+    );
+
+    expect(getByText('My rules · 2')).toBeTruthy();
+    fireEvent.press(getByRole('button', { name: 'Add rule' }));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a tappable detail row with consistent state and disclosure', () => {
+    const onPress = jest.fn();
+    const { getByLabelText, getByText } = render(
+      <SettingsDetailRow
+        context="Money"
+        description="Pause when Shopping reaches its monthly plan."
+        onPress={onPress}
+        state="On"
+        title="Amazon"
+      />,
+    );
+
+    expect(getByText('Money')).toBeTruthy();
+    expect(getByText('On')).toBeTruthy();
+    fireEvent.press(getByLabelText('Amazon. Pause when Shopping reaches its monthly plan. Money. On'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
   it('renders values, invokes enabled rows, and blocks disabled rows', () => {
     const enabledPress = jest.fn();
     const disabledPress = jest.fn();
@@ -41,6 +76,13 @@ describe('SettingsSurface', () => {
 
     expect(enabledPress).toHaveBeenCalledTimes(1);
     expect(disabledPress).not.toHaveBeenCalled();
+  });
+
+  it('allows a read-only row to show decision-critical text without truncating it', () => {
+    const title = 'Social will pause after 15 minutes of use each day.';
+    const { getByText } = render(<SettingsRow multiline title={title} />);
+
+    expect(getByText(title).props.numberOfLines).toBeUndefined();
   });
 
   it('exposes one switch control and invokes its row callback once', () => {

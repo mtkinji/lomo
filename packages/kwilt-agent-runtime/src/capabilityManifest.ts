@@ -9,6 +9,36 @@ export type CapabilityReturnBehavior =
   | 'native_handoff'
   | 'honest_boundary';
 
+export type ConversationalCompletionMode =
+  | 'direct'
+  | 'reviewed_proposal'
+  | 'native_handoff'
+  | 'provider_handoff'
+  | 'supported_boundary'
+  | 'excluded';
+
+export type CapabilityOAuthScope =
+  | 'life.read'
+  | 'life.write'
+  | 'household.read'
+  | 'household.write'
+  | 'money.read'
+  | 'money.write'
+  | 'food.read'
+  | 'food.write';
+
+export type CapabilityReceiptRequirement = {
+  required: true;
+  resultRefKinds: readonly string[];
+  reversible: boolean;
+  undoOperationId: string | null;
+};
+
+export type CapabilitySupportedBoundary = {
+  finalActOwner: 'kwilt' | 'device' | 'provider' | 'person' | 'excluded';
+  reason: string | null;
+};
+
 export type CapabilityChannelCoverage = {
   state: CapabilityCoverageState;
   outcome: string;
@@ -40,6 +70,10 @@ export type CapabilityManifestEntry = {
   tools: readonly CapabilityToolContract[];
   sourceRefs: readonly string[];
   returnBehavior: CapabilityReturnBehavior;
+  completionMode: ConversationalCompletionMode;
+  requiredScopes: readonly CapabilityOAuthScope[];
+  receipt: CapabilityReceiptRequirement;
+  supportedBoundary: CapabilitySupportedBoundary;
   channels: {
     mobile: CapabilityChannelCoverage;
     phone: CapabilityChannelCoverage;
@@ -62,6 +96,10 @@ export type OperationCoverageProjection = {
   toolIds: readonly string[];
   sourceRefs: readonly string[];
   returnBehavior: CapabilityReturnBehavior;
+  completionMode: ConversationalCompletionMode;
+  requiredScopes: readonly CapabilityOAuthScope[];
+  receipt: CapabilityReceiptRequirement;
+  supportedBoundary: CapabilitySupportedBoundary;
   channels: CapabilityManifestEntry['channels'];
 };
 
@@ -79,6 +117,15 @@ export function defineCapabilityManifest<const Entries extends readonly Capabili
     }
     if (entry.providerEligibility.length === 0) {
       throw new Error(`Capability operation requires provider eligibility: ${entry.id}`);
+    }
+    if (entry.requiredScopes.length === 0) {
+      throw new Error(`Capability operation requires at least one OAuth scope: ${entry.id}`);
+    }
+    if (entry.receipt.reversible !== entry.reversible) {
+      throw new Error(`Capability receipt reversibility mismatch: ${entry.id}`);
+    }
+    if (entry.completionMode === 'excluded' && entry.supportedBoundary.finalActOwner !== 'excluded') {
+      throw new Error(`Excluded capability operation requires excluded boundary ownership: ${entry.id}`);
     }
   }
   return entries;
@@ -142,7 +189,7 @@ export function projectAgentToolCatalog<Context = unknown>(
         effect: operation.effect,
         consequence: operation.consequence,
         reversible: operation.reversible,
-        confirmation: operation.confirmation === 'none' ? 'none' : 'explicit',
+        confirmation: operation.confirmation,
         canDeferToClient: input.runtime === 'server' && providers.includes('server')
           ? false
           : contract.canDeferToClient,
@@ -164,6 +211,10 @@ export function projectOperationCoverage(
     toolIds: operation.tools.map((tool) => tool.id),
     sourceRefs: operation.sourceRefs,
     returnBehavior: operation.returnBehavior,
+    completionMode: operation.completionMode,
+    requiredScopes: operation.requiredScopes,
+    receipt: operation.receipt,
+    supportedBoundary: operation.supportedBoundary,
     channels: operation.channels,
   }));
 }

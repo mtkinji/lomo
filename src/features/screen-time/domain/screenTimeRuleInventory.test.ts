@@ -32,6 +32,32 @@ const moneySettings: MoneyAppControlSettings = {
 };
 
 describe('buildMyScreenTimeRuleInventory', () => {
+  it('renders one inventory row for a composite aggregate instead of one row per condition', () => {
+    const composite = {
+      id: 'social-evening', selectionId: 'social', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [
+        { id: 'after-five', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 },
+        { id: 'under-limit', type: 'daily_usage' as const, operator: 'below' as const, minutes: 15 },
+      ], lastUpdated: '2026-08-27T20:00:00.000Z',
+    };
+    const rows = buildMyScreenTimeRuleInventory({
+      personalSettings: {
+        ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+        personalCompositeRules: [composite],
+      },
+      moneySettings: { ...moneySettings, policies: {} },
+    });
+
+    expect(rows).toEqual([{
+      id: 'social-evening', domain: 'personal', title: 'Social',
+      detail: 'Available after 5:00 PM and while daily use is under 15 minutes.',
+      targetCount: 1, enabled: true, contextLabel: null,
+      destination: { kind: 'personal', ruleId: 'social-evening' },
+    }]);
+  });
+
   it('projects personal and Money records as individually countable rules', () => {
     const personalRules = [
       createPersonalScreenTimeRule({

@@ -40,6 +40,8 @@ import { captureMoneyClassification } from '../runtime/moneyClassificationTeleme
 import type { MoneyPlaidSyncResult } from './moneyPlaidApi';
 import { getMoneyTransactionsAvailability } from '../domain/moneyOnboarding';
 import { useMoneyNavigationAvailabilityStore } from '../runtime/useMoneyNavigationAvailabilityStore';
+import { createMoneyControlActions } from '../actions/moneyControlActions';
+import { createMoneyControlActionBoundary } from '../actions/moneyControlActionBoundary';
 
 type MoneyDataContextValue = MoneyDataState & {
   userId: string | null;
@@ -74,9 +76,14 @@ type MoneyDataContextValue = MoneyDataState & {
     funding?: Parameters<typeof previewLivingPlanOverride>[3],
   ) => Promise<LivingPlanOverridePreview | null>;
   reviewMoneyAppControl: (categoryId: string, outcome: MoneyAppControlReviewOutcome) => Promise<void>;
+  disconnectConnection: (connectionId: string) => Promise<void>;
 };
 
 const MoneyDataContext = createContext<MoneyDataContextValue | null>(null);
+
+function nativeMoneyRequestId(operation: string, targetId: string): string {
+  return `money-native:${operation}:${targetId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+}
 
 export function MoneyDataProvider({
   children,
@@ -95,6 +102,10 @@ export function MoneyDataProvider({
   const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
   const { capture } = useAnalytics();
   const resolvedRepository = useMemo(() => repository ?? createMoneyRepository(), [repository]);
+  const moneyActions = useMemo(
+    () => createMoneyControlActions(createMoneyControlActionBoundary(resolvedRepository)),
+    [resolvedRepository],
+  );
   const mutationVersionRef = useRef(0);
   const initializationVersionRef = useRef(0);
   const normalizedUserId = userId?.trim() || null;
@@ -342,9 +353,24 @@ export function MoneyDataProvider({
   const reviewTransactionMeaning = useCallback(
     (transactionId: string, input: TransactionMeaningReviewInput) => reviewBoundedTransaction(
       transactionId,
-      () => resolvedRepository.reviewTransactionMeaning(transactionId, input),
+      async () => {
+        const transaction = state.snapshot?.transactions.find((candidate) => candidate.id === transactionId);
+        if (!transaction) throw new Error('This transaction is no longer available.');
+        const receipt = await moneyActions.updateTransactionMeaning({
+          requestId: nativeMoneyRequestId('meaning', transactionId), confirmed: true,
+          transactionId, expectedUpdatedAt: transaction.updatedAt ?? state.snapshot!.generatedAt,
+          meaning: input.meaning,
+          ...(input.meaning === 'category_credit' ? { categoryId: input.categoryId } : {}),
+        });
+        return {
+          confirmedAt: String(receipt.result.updatedAt), transactionId,
+          categorySourceId: input.meaning === 'category_credit' ? input.categoryId : null,
+          meaning: input.meaning,
+          reviewState: input.meaning === 'not_counted' ? 'not_counted' as const : 'assigned' as const,
+        };
+      },
     ),
-    [resolvedRepository, reviewBoundedTransaction],
+    [moneyActions, reviewBoundedTransaction, state.snapshot],
   );
 
   const setTransactionPlanRoleOverride = useCallback(async (
@@ -353,7 +379,18 @@ export function MoneyDataProvider({
   ) => {
     setReviewingTransactionId(transactionId);
     try {
-      const result = await resolvedRepository.setTransactionPlanRoleOverride(transactionId, planRoleOverride);
+      const transaction = state.snapshot?.transactions.find((candidate) => candidate.id === transactionId);
+      if (!transaction) throw new Error('This transaction is no longer available.');
+      const receipt = await moneyActions.updateTransactionPlanTreatment({
+        requestId: nativeMoneyRequestId('plan-treatment', transactionId), confirmed: true,
+        transactionId, expectedUpdatedAt: transaction.updatedAt ?? state.snapshot!.generatedAt,
+        treatment: planRoleOverride ?? 'default',
+      });
+      const result = {
+        transactionId,
+        planRoleOverride,
+        confirmedAt: String(receipt.result.updatedAt),
+      };
       dispatch({
         type: 'confirmed_transaction_plan_role_patch',
         patch: { transactionId: result.transactionId, planRoleOverride: result.planRoleOverride },
@@ -367,7 +404,7 @@ export function MoneyDataProvider({
     } finally {
       setReviewingTransactionId(null);
     }
-  }, [refreshInBackground, resolvedRepository]);
+  }, [moneyActions, refreshInBackground, state.snapshot]);
 
   const setTransactionPlanCoverage = useCallback(
     (transactionId: string, savedResourceCents: number) => reviewBroadTransaction(
@@ -546,6 +583,16 @@ export function MoneyDataProvider({
     await reconcileMoneyAppControls(state.snapshot, next);
   }, [state.snapshot]);
 
+  const disconnectConnection = useCallback(async (connectionId: string) => {
+    const connection = (state.snapshot?.connections ?? []).find((candidate) => candidate.id === connectionId);
+    if (!connection) throw new Error('This connection is no longer available.');
+    await moneyActions.disconnectConnection({
+      requestId: nativeMoneyRequestId('disconnect', connectionId), confirmed: true,
+      connectionId, expectedUpdatedAt: connection.updatedAt,
+    });
+    await refresh();
+  }, [moneyActions, refresh, state.snapshot]);
+
   const value = useMemo(() => ({
     ...state,
     userId: normalizedUserId,
@@ -567,9 +614,10 @@ export function MoneyDataProvider({
     renameCategory,
     updateCategoryCover,
     updateCategoryPlan,
+    disconnectConnection,
     previewCategoryPlanAmount,
     reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanCoverage, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, disconnectConnection, markTransactionNotCounted, normalizedUserId, previewCategoryPlanAmount, reconcileConnectedActivity, reconcileGovernedPlanFoundation, refresh, renameCategory, reorderCategories, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, savingCategoryOrder, setTransactionPlanCoverage, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryCover, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

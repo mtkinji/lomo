@@ -2,9 +2,12 @@ jest.mock('react-native', () => ({
   NativeModules: {
     KwiltScreenTimeProtection: {
       applyRestrictions: jest.fn(),
+      transferActivitySelection: jest.fn(),
       consumePendingReviewRequest: jest.fn(),
       applyPersonalUsageLimit: jest.fn(),
       clearPersonalUsageLimit: jest.fn(),
+      applyPersonalCompositeRule: jest.fn(),
+      clearPersonalCompositeRule: jest.fn(),
     },
   },
   Platform: { OS: 'ios' },
@@ -17,6 +20,9 @@ import {
   consumePendingScreenTimeShieldHandoff,
   applyPersonalScreenTimeUsageLimit,
   clearPersonalScreenTimeUsageLimit,
+  applyPersonalCompositeScreenTimeRule,
+  clearPersonalCompositeScreenTimeRule,
+  transferScreenTimeActivitySelection,
 } from './screenTimeProtection';
 
 const mockConsumePendingReviewRequest = NativeModules.KwiltScreenTimeProtection
@@ -27,6 +33,12 @@ const mockApplyPersonalUsageLimit = NativeModules.KwiltScreenTimeProtection
   .applyPersonalUsageLimit as jest.Mock;
 const mockClearPersonalUsageLimit = NativeModules.KwiltScreenTimeProtection
   .clearPersonalUsageLimit as jest.Mock;
+const mockApplyPersonalCompositeRule = NativeModules.KwiltScreenTimeProtection
+  .applyPersonalCompositeRule as jest.Mock;
+const mockClearPersonalCompositeRule = NativeModules.KwiltScreenTimeProtection
+  .clearPersonalCompositeRule as jest.Mock;
+const mockTransferActivitySelection = NativeModules.KwiltScreenTimeProtection
+  .transferActivitySelection as jest.Mock;
 
 describe('Screen Time shield handoff bridge', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -49,6 +61,20 @@ describe('Screen Time shield handoff bridge', () => {
     });
   });
 
+  it('transfers an opaque Apple picker selection to the chosen budget identity', async () => {
+    mockTransferActivitySelection.mockResolvedValue(true);
+
+    await expect(transferScreenTimeActivitySelection({
+      sourceSelectionId: 'personal_rule_rule-uuid',
+      targetSelectionId: 'money_restaurants',
+    })).resolves.toBe(true);
+
+    expect(JSON.parse(mockTransferActivitySelection.mock.calls[0][0])).toEqual({
+      sourceSelectionId: 'personal_rule_rule-uuid',
+      targetSelectionId: 'money_restaurants',
+    });
+  });
+
   it('passes a validated daily usage threshold to native Screen Time', async () => {
     mockApplyPersonalUsageLimit.mockResolvedValue(true);
     mockClearPersonalUsageLimit.mockResolvedValue(true);
@@ -65,6 +91,37 @@ describe('Screen Time shield handoff bridge', () => {
 
     await expect(clearPersonalScreenTimeUsageLimit('personal_daily_limit')).resolves.toBe(true);
     expect(JSON.parse(mockClearPersonalUsageLimit.mock.calls[0][0])).toEqual({ ruleId: 'personal_daily_limit' });
+  });
+
+  it('passes one normalized composite rule to the native evaluator', async () => {
+    mockApplyPersonalCompositeRule.mockResolvedValue(true);
+    const rule = {
+      id: 'social-rule', selectionId: 'social-selection', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [
+        { id: 'after-five', type: 'time_of_day' as const, operator: 'after' as const, minuteOfDay: 1020 },
+        { id: 'under-limit', type: 'daily_usage' as const, operator: 'below' as const, minutes: 15 },
+      ], lastUpdated: '2026-08-27T20:00:00.000Z',
+    };
+
+    await expect(applyPersonalCompositeScreenTimeRule(rule)).resolves.toBe(true);
+    expect(JSON.parse(mockApplyPersonalCompositeRule.mock.calls[0][0])).toEqual({
+      version: 2,
+      ruleId: 'social-rule', selectionId: 'social-selection', connector: 'all', outcome: 'available',
+      conditions: [
+        { id: 'after-five', type: 'time_of_day', operator: 'after', minuteOfDay: 1020 },
+        { id: 'under-limit', type: 'daily_usage', operator: 'below', minutes: 15 },
+      ], restrictionLabel: 'Social',
+    });
+  });
+
+  it('rejects incomplete composites before crossing the bridge and clears by aggregate id', async () => {
+    await expect(applyPersonalCompositeScreenTimeRule({ conditions: [] } as never)).resolves.toBe(false);
+    expect(mockApplyPersonalCompositeRule).not.toHaveBeenCalled();
+    mockClearPersonalCompositeRule.mockResolvedValue(true);
+    await expect(clearPersonalCompositeScreenTimeRule('social-rule')).resolves.toBe(true);
+    expect(JSON.parse(mockClearPersonalCompositeRule.mock.calls[0][0])).toEqual({ ruleId: 'social-rule' });
   });
 
   it('preserves the native shield reason with its timestamp', async () => {

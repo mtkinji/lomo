@@ -47,15 +47,18 @@ describe('externalMcp helpers', () => {
       for (const child of Array.isArray(record.oneOf) ? record.oneOf : []) assertStrict(child);
     };
 
-    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(66);
+    expect(EXTERNAL_MCP_ACTION_CATALOG).toHaveLength(
+      EXTERNAL_MCP_CONTROL_COVERAGE.filter((row) => row.state === 'exposed').length,
+    );
     for (const tool of EXTERNAL_MCP_ACTION_CATALOG) {
       assertStrict(tool.inputSchema);
       expect(tool.outputSchema).toEqual(expect.objectContaining({ type: 'object' }));
     }
+    expect(resolveExternalMcpTool('kwilt_household_device_revoke')?.annotations.destructiveHint).toBe(true);
   });
 
   test('keeps every manifest operation in an explicit external-control state', () => {
-    expect(EXTERNAL_MCP_CONTROL_COVERAGE).toHaveLength(145);
+    expect(EXTERNAL_MCP_CONTROL_COVERAGE).toHaveLength(233);
     expect(EXTERNAL_MCP_CONTROL_COVERAGE.filter((row) => row.state === 'excluded')
       .every((row) => row.owner === 'games' || row.owner === 'explore')).toBe(true);
     expect(new Set(EXTERNAL_MCP_ACTION_CATALOG.map((tool) => tool.operationId)))

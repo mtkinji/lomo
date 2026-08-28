@@ -19,9 +19,11 @@ function hasPlaidLinkExitError(
   );
 }
 
-export async function prepareMoneyPlaidLink(): Promise<MoneyPlaidLinkSession> {
+export async function prepareMoneyPlaidLink(options: { connectionId?: string } = {}): Promise<MoneyPlaidLinkSession> {
   const client = getSupabaseClient();
-  const token = await createMoneyPlaidLinkToken(client, Platform.OS === 'android' ? 'android' : 'ios');
+  const token = await createMoneyPlaidLinkToken(
+    client, Platform.OS === 'android' ? 'android' : 'ios', options.connectionId,
+  );
   let opened = false;
   let settled = false;
   let exchangeStarted = false;
@@ -56,6 +58,10 @@ export async function prepareMoneyPlaidLink(): Promise<MoneyPlaidLinkSession> {
     onSuccess: (success: LinkSuccess) => {
       if (exchangeStarted) return;
       exchangeStarted = true;
+      if (options.connectionId) {
+        finish({ status: 'repaired', connectionId: options.connectionId });
+        return;
+      }
       onPhaseChange?.('exchanging');
       void exchangeMoneyPlaidToken(client, success.publicToken, success.metadata)
         .then((exchange) => finish({ status: 'linked', exchange }))
@@ -81,5 +87,10 @@ export async function prepareMoneyPlaidLink(): Promise<MoneyPlaidLinkSession> {
 
 export async function startMoneyPlaidLink(): Promise<MoneyPlaidLinkResult> {
   const session = await prepareMoneyPlaidLink();
+  return session.open();
+}
+
+export async function startMoneyPlaidRepair(connectionId: string): Promise<MoneyPlaidLinkResult> {
+  const session = await prepareMoneyPlaidLink({ connectionId });
   return session.open();
 }

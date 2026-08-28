@@ -4,12 +4,17 @@ import {
   projectChoreRewards,
 } from '../domain/choreLearning';
 import {
+  CHORE_LEARNING_AUTHORITY,
   resetChoreLearningStoreForTests,
   useChoreLearningStore,
 } from './useChoreLearningStore';
 
 describe('Chores learning store', () => {
   beforeEach(() => resetChoreLearningStoreForTests());
+
+  it('declares itself local-learning-only rather than Household or Chat authority', () => {
+    expect(CHORE_LEARNING_AUTHORITY).toBe('local_learning_only');
+  });
 
   it('falls back to the starter record when persisted state is malformed', () => {
     expect(normalizeChoreLearningRecord({ version: 0 })).toEqual(createChoreLearningRecord());

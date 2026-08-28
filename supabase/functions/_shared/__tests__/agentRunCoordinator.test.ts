@@ -81,22 +81,34 @@ function persistence(order: string[]): AgentRunPersistence {
 test('persists causal run state around the shared bounded loop', async () => {
   const order: string[] = [];
   const store = persistence(order);
+  const membershipQuery = {
+    select: jest.fn(), eq: jest.fn(), maybeSingle: jest.fn(async () => ({
+      data: { household_id: 'household-1' }, error: null,
+    })),
+  };
+  membershipQuery.select.mockReturnValue(membershipQuery);
+  membershipQuery.eq.mockReturnValue(membershipQuery);
+  const rpc = jest.fn(async () => ({ data: { children: [{
+    membershipId: 'charlie', displayName: 'Charlie', desiredPolicyVersion: 7,
+    selections: [], agreements: [], activeOverrides: [], pendingRequests: [], devices: [],
+    latestDeviceReceipt: null,
+  }] }, error: null }));
   const steps: ServerAgentModelStep[] = [
     { content: null, toolCalls: [{
       id: 'call-1', toolId: 'screen_time.configure',
       arguments: { childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' },
     }] },
-    { content: 'Screen Time is configured.', toolCalls: [] },
+    { content: 'I opened the exact Screen Time setup for review on your device.', toolCalls: [] },
   ];
   await expect(executeCanonicalAgentRun({
     request, userId: 'user-1', persistence: store,
-    dataClient: { from: jest.fn() },
+    dataClient: { rpc, from: jest.fn(() => membershipQuery) },
     modelStep: async () => steps.shift()!,
   })).resolves.toMatchObject({
     state: 'complete',
-    answer: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
+    answer: 'I prepared that next step for review in Kwilt. The underlying action has not happened yet.',
   });
-  expect(order).toEqual(['enqueue', 'start', 'history', 'complete']);
+  expect(order).toEqual(['enqueue', 'start', 'history', 'stage', 'complete']);
   expect(store.complete).toHaveBeenCalledWith(expect.objectContaining({
     expectedVersion: 2, participatingCapabilities: ['screenTime'], requestClass: 'capability_question',
   }));

@@ -3,6 +3,11 @@ export { evaluateToolPolicy } from './policy';
 export { KWILT_CAPABILITY_MANIFEST } from './kwiltCapabilityManifest';
 export { KWILT_TOOL_CONTRACTS } from './kwiltToolContracts';
 export {
+  CONTROL_PARITY_OPERATION_CONTRACTS,
+  CONTROL_PARITY_OPERATION_IDS,
+  CONTROL_PARITY_TOOL_CONTRACTS,
+} from './controlParityOperationContracts';
+export {
   FOOD_OPERATION_CONTRACTS,
   FOOD_OPERATION_IDS,
   FOOD_TOOL_CONTRACTS,
@@ -14,6 +19,8 @@ export {
 } from './capabilityManifest';
 export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
 export { createRuntimeToolProviderRegistry } from './providerRegistry';
+export { executeActionEnvelope, toolResultFromActionReceipt } from './actionExecution';
+export { createDeviceHandoff, redactActionArguments, transitionDeviceHandoff } from './deviceHandoffs';
 export {
   EXTERNAL_ACTION_REGISTRATIONS,
   projectExternalActionCatalog,
@@ -33,6 +40,8 @@ export type {
   ExternalActionCatalogEntry,
   ExternalActionRegistration,
   ExternalCompatibilityAlias,
+  ExternalControlCoverageRow,
+  ExternalControlCoverageState,
   ExternalExposureState,
   ExternalRedactionPolicy,
 } from './externalActionCatalog';
@@ -91,8 +100,12 @@ export type {
   KwiltActionReceipt,
   KwiltActionReceiptStatus,
   KwiltActionRequest,
+  KwiltActionAuthorization,
+  KwiltActionConfirmation,
   KwiltActionSource,
 } from './types';
+export type { ActionExecutionReceiptStore, KwiltActionExecutionEnvelope, ResolvedActionTarget } from './actionExecution';
+export type { DeviceActionHandoff, DeviceActionHandoffState } from './deviceHandoffs';
 export type { DiscoveredAgentTool } from './discovery';
 export type {
   KwiltCapabilityOperationId,
@@ -109,8 +122,12 @@ export type {
   CapabilityConfirmation,
   CapabilityCoverageState,
   CapabilityManifestEntry,
+  CapabilityOAuthScope,
+  CapabilityReceiptRequirement,
   CapabilityReturnBehavior,
+  CapabilitySupportedBoundary,
   CapabilityToolContract,
+  ConversationalCompletionMode,
   OperationCoverageProjection,
   RuntimeToolImplementation,
 } from './capabilityManifest';

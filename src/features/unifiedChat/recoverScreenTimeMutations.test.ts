@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { recoverScreenTimeMutations } from './recoverScreenTimeMutations';
 import type { UnifiedChatThreadAggregate } from './types';
+import { createPersonalScreenTimeRule, normalizeScreenTimeProtectionSettings } from '../../services/screenTimeProtection';
 
 const aggregate: UnifiedChatThreadAggregate = {
   thread: { id: 'thread-1', title: 'Chat', titleSource: 'default', status: 'active', archivedAt: null, createdAt: 'created', updatedAt: 'updated' },
@@ -65,4 +66,59 @@ test('keeps an unconfirmed recovery reserved and retryable instead of reporting 
   expect(repository.failMutationReceipt).not.toHaveBeenCalled();
   expect(repository.transitionProposalStatus).not.toHaveBeenCalled();
   expect(repository.loadThread).not.toHaveBeenCalled();
+});
+
+test('finalizes an already-applied personal rule after reload without enforcing it twice', async () => {
+  const appliedAt = '2026-08-27T15:00:00.000Z';
+  const personalAggregate = {
+    ...aggregate,
+    proposals: [{
+      ...aggregate.proposals![0], id: 'proposal-personal',
+      operation: {
+        ...aggregate.proposals![0].operation, id: 'operation-personal', proposalId: 'proposal-personal',
+        type: 'update_personal_screen_time_rule', targetId: 'rule-1',
+        payload: { expectedUpdatedAt: '2026-08-27T14:00:00.000Z', fields: { limitMinutes: 20 } },
+      },
+    }],
+    receipts: [{
+      ...aggregate.receipts![0], id: 'receipt-personal', proposalId: 'proposal-personal',
+      operationId: 'operation-personal', resultingObjectType: 'personal_screen_time_rule',
+      resultingObjectId: 'rule-1', appliedAt,
+      undoOperation: {
+        type: 'screen_time.personal_rule.update', ruleId: 'rule-1', expectedUpdatedAt: appliedAt,
+        fields: { enabled: true, kind: 'daily_limit', limitMinutes: 30 },
+      },
+    }],
+  } as UnifiedChatThreadAggregate;
+  const settings = normalizeScreenTimeProtectionSettings({
+    authorizationStatus: 'approved', personalRules: [createPersonalScreenTimeRule({
+      id: 'rule-1', selectionId: 'private-selection', kind: 'daily_limit',
+      selectedApps: [{ token: 'private-token', label: 'Instagram' }], selectedCategories: [],
+      enabled: true, setupCompleted: true, limitMinutes: 20, nowIso: appliedAt,
+    })],
+  });
+  const loaded = { ...personalAggregate, proposals: [] } as UnifiedChatThreadAggregate;
+  const repository = {
+    finalizeMutationReceipt: jest.fn(async () => undefined),
+    transitionProposalStatus: jest.fn(async () => undefined),
+    loadThread: jest.fn(async () => loaded),
+  };
+  const activateRule = jest.fn(async () => true);
+  const deactivateRule = jest.fn(async () => true);
+
+  await expect(recoverScreenTimeMutations({
+    aggregate: personalAggregate, repository: repository as never,
+    client: { rpc: jest.fn() } as unknown as SupabaseClient,
+    personalBoundary: {
+      readSettings: () => settings, persistSettings: jest.fn(), activateRule, deactivateRule,
+    },
+  })).resolves.toBe(loaded);
+
+  expect(activateRule).not.toHaveBeenCalled();
+  expect(deactivateRule).not.toHaveBeenCalled();
+  expect(repository.finalizeMutationReceipt).toHaveBeenCalledWith('receipt-personal', expect.objectContaining({
+    resultState: { enforcementState: 'applied', rule: expect.objectContaining({ limitMinutes: 20 }) },
+    undoOperation: expect.objectContaining({ ruleId: 'rule-1' }),
+  }));
+  expect(JSON.stringify(repository.finalizeMutationReceipt.mock.calls)).not.toMatch(/private-token|private-selection/);
 });

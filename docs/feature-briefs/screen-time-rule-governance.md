@@ -9,7 +9,7 @@ job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-put-intention-before-impulse, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls, brief-screen-time-controls]
 owner: andrew
-last_updated: 2026-08-18
+last_updated: 2026-08-27
 ---
 
 # Screen Time Rule Governance
@@ -51,13 +51,15 @@ Settings > Screen Time contains one compact authorization row followed by two co
 
 Each collection has its own **Add rule** action. The action carries scope into the common builder system. Rule rows lead with the selected apps or categories, then state the concrete behavior. Capability or subject context appears only when it disambiguates ownership, such as Money or a child. Each row has one direct enabled control when authority permits and one disclosure path.
 
-The scoped add action opens one structured, full-screen guided builder after
-the established initial Screen Time setup pattern. It continues from entry
-context and asks one unresolved question at a time. From Settings,
-subject is already Me, so the first question is which apps the rule should
-manage; after selection, the builder asks what should happen with those apps.
-From a contextual Focus or real-step offer, behavior is already known, so the
-builder asks only for apps and proceeds directly to a sentence receipt.
+The scoped add action opens one structured, full-screen builder after the
+established initial Screen Time setup pattern. From Settings, subject is
+already Me, so the first question is which apps the rule should manage. Apple
+selection advances directly into a flat rule composer whose visible grammar is
+**Rule for / When / AND-or-OR / Then**. Conditions expose their field,
+operator, and value independently. **Add condition** sits outside the
+statements it creates. There is no separate behavior step or sentence receipt.
+From a contextual Focus, real-step, or daily-use offer, the known condition is
+prepopulated but remains editable.
 When authorization already exists, these workflow offers present the same
 builder through a root drawer host so the originating workflow remains visible
 behind it. The originating To-do, Focus surface, or other offer context selects
@@ -70,20 +72,12 @@ valid selection and advances to the next unresolved question. Cancel or an
 empty selection stays on the apps question, avoiding a redundant second
 confirmation.
 
-The broader Household model distinguishes two consequential rule modes:
-
-- **Set when apps are available** — apps begin unavailable and become available
-  only when every selected requirement is met.
-- **Pause apps at certain times** — apps begin available and pause when any
-  selected trigger applies.
-
-This is not an availability toggle and the builder does not expose AND/OR
-controls. Each mode fixes its baseline and connector semantics. Guided fields
-configure apps and compatible criteria. Prior answers collapse into quiet
-editable summaries while the current unanswered prompt remains dominant. A
-read-only agreement sentence makes the resulting behavior predictable; a
-**Right now** receipt appears only when a condition owner can supply truthful
-runtime state.
+The outcome is explicit: **Make these apps available** or **Pause these apps**.
+When a rule has more than one condition, the connector is equally explicit:
+**AND** means every condition must match; **OR** means any condition may match.
+Tapping the connector changes it through a two-choice radio drawer. The UI and
+runtime consume the same normalized aggregate so the visible connector is not
+decorative copy.
 
 Examples:
 
@@ -91,14 +85,18 @@ Examples:
 
 > Games are available to Charlie on school days from 4–7 PM, after today's responsibilities are complete, for up to 30 minutes.
 
-Condition owners define compatible fields and deterministic semantics. The builder does not combine independently owned Focus and Money claims into one rule. The control plane continues to preserve each named restriction and AND enforcement across overlapping rules.
+Condition owners define compatible fields and deterministic semantics. The
+personal composite supports time of day, device-local daily usage, Focus, and
+real-step completion. Money remains a capability-owned rule source in this
+slice. The control plane continues to preserve each named restriction and AND
+enforcement across overlapping saved rules.
 
-Personal rule kinds are repeatable. A person may create multiple Focus,
-real-step, or daily-limit rules when the targets or configuration differ. Every
-saved rule owns a stable rule ID and native selection ID; editing, toggling,
-reconciling, and clearing act on that identity rather than on its condition
-kind. Only an exact duplicate of kind, targets, and condition configuration is
-rejected.
+Personal composite rules are repeatable. Every saved aggregate owns one stable
+rule ID and native selection ID; editing, toggling, reconciling, and clearing
+act on that aggregate rather than its individual conditions. V1 Focus,
+real-step, and daily-limit records migrate to equivalent one-condition V2
+aggregates. Only an exact duplicate of targets, outcome, connector, and
+condition configuration is rejected.
 
 Overlapping rules are unordered. An app remains paused while any applicable
 rule is active; satisfying one rule never implies that another rule was
@@ -128,9 +126,8 @@ Three-second read: Screen Time is allowed; I have N private rules and N Househol
 Primary actions: **Add rule** within each collection.
 
 Primary information: target summary, concrete behavior, and state; in the
-shipping personal builder, the current unanswered question and accumulated
-answers. The expanded Household builder adds criteria, agreement, and a
-truthful current-state result.
+personal builder, the editable When conditions, visible connector, and Then
+outcome.
 
 Secondary information: capability/subject context when useful, authorization,
 and delivery detail.
@@ -140,17 +137,16 @@ override duration, and technical recovery detail.
 
 Scan order: authorization -> My rules/count/add -> Household rules/count/add -> setup/recovery rows.
 
-Must not add: global dashboard, tabs, editable sentence fragments, generic
-wizard instructions or repeated context, arbitrary boolean logic, a global
-availability toggle, rule names, global personal visibility, or unverified
-device claims.
+Must not add: global dashboard, tabs, generic wizard instructions or repeated
+context, decorative rails, an enclosing condition card, a result card, green
+emphasis, rule names, global personal visibility, or unverified device claims.
 
-Reuse map: the initial Screen Time setup's full-screen pine surface, progress
-rail, close affordance, typography, and inverse action hierarchy; large
-accessible touch cards for consequential choices; Apple FamilyActivityPicker
-for app volume; standard BottomDrawer mechanics for condition detail; Button
-for one commit action; existing Money and Household authority/persistence
-routes.
+Reuse map: the canonical secondary Settings page shell; Apple
+FamilyActivityPicker for app volume; standard BottomDrawer and radio-row
+mechanics for condition detail; DurationPicker and native time picker for
+values; Button for one commit action; existing Money and Household
+authority/persistence routes. The green full-screen treatment remains reserved
+for initial Screen Time onboarding, not ongoing rule management.
 
 Required states: no rules, personal only, Money present, Household setup,
 applying/needs-attention, permission revoked, either builder mode, builder
@@ -163,7 +159,7 @@ Proof path: Settings > Screen Time on iPhone 17 Pro Simulator; signed physical d
 ## Success signal
 
 The person can correctly count and explain visible private and Household rules,
-choose the intended baseline without programming boolean logic, configure every
+choose the intended outcome and connector, configure every
 representative parent-administration case, predict the current outcome, find a
 Money-backed rule, and distinguish desired Household state from applied device
 state.
@@ -173,28 +169,30 @@ state.
 - The first release uses one add action per group, not a global add action.
 - Scoped Add rule opens a dedicated full-screen guided sequence; it does not
   insert an inline sentence or restate context in a generic setup wizard.
-- New drafts choose `available_when` or `pause_when`. The connector is derived:
-  every access requirement must pass; any pause trigger may block.
-- The agreement sentence is a read-only receipt. The current-state receipt uses
-  the same deterministic evaluation semantics as enforcement and composes with
-  other active restriction claims.
+- New drafts choose `available` or `pause` and store an explicit `all` or `any`
+  connector. A connector is shown only when two or more conditions exist.
+- The flat composer is the source of truth; it does not duplicate the rule as a
+  read-only agreement receipt. Inventory copy uses the same normalized
+  conditions and connector as enforcement.
 - Personal conditions include Focus, real step, and a device-local daily usage
   allowance. Existing personal records derive their mode, so adding the allowance
   kind requires no rewrite of older records. Chat may carry a self subject,
   suggested app label, bounded minute allowance, and daily reset into the same
   native builder; Apple token selection and save remain native-only.
-- Personal condition kinds are repeatable. A qualifying real-step event updates
-  every enabled rule for which that event satisfies the rule's own release
-  policy; rule IDs, selections, and unlock state remain independent.
+- A saved personal aggregate contains at most one condition of each current
+  device-monitoring type. A qualifying real-step or Focus event refreshes host
+  truth for every enabled aggregate that references it; time and usage truth
+  remain device-local.
 - Household Add rule retains the child-specific authority path, then opens the
   same builder screen with a Household adapter. Typed V2 Household agreement JSON
   is introduced behind normalization and legacy reading; IDs, selections, and
   desired/applied version behavior remain stable.
 - Money rules are projected individually but their condition configuration
   remains Money-owned.
-- Changing a saved rule's type is a deliberate replacement flow that confirms
-  removal of incompatible criteria. Rule enabled state remains a separate
-  persisted control.
+- Changing a condition field replaces only that condition and its incompatible
+  operator/value. Rule enabled remains a top-level edit affordance; deletion is
+  a standalone destructive action at the bottom, without a Rule management
+  section.
 - Temporary Allow/Pause actions are overrides, not builder modes.
 - Logic projections and personal rule mutations require tests first; UI composition may be implemented directly with component tests for key states.
 - A Chat handoff is not a saved rule or enforcement receipt. It reports only

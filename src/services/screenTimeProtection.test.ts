@@ -9,6 +9,7 @@ import {
   getScreenTimeSetupRecoveryStep,
   isMeaningfulFirstUnlocked,
   normalizeScreenTimeProtectionSettings,
+  removePersonalScreenTimeRule,
   recordMeaningfulFirstQualification,
   shouldScheduleScreenTimeSetupNotification,
   shouldShowScreenTimeSetupOffer,
@@ -26,6 +27,26 @@ function base(overrides: Partial<ScreenTimeProtectionSettings> = {}): ScreenTime
 }
 
 describe('screenTimeProtection.normalizeScreenTimeProtectionSettings', () => {
+  it('migrates V1 personal rules into V2 composite aggregates without rewriting their behavior', () => {
+    const settings = normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved',
+      personalRules: [{
+        id: 'legacy-limit', kind: 'daily_limit', selectionId: 'legacy-selection',
+        selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
+        enabled: true, setupCompleted: true, limitMinutes: 15, reset: 'daily',
+        lastUpdated: '2026-08-27T20:00:00.000Z',
+      }],
+    });
+
+    expect(settings.personalRuleSchemaVersion).toBe(2);
+    expect(settings.personalCompositeRules).toEqual([
+      expect.objectContaining({
+        id: 'legacy-limit', connector: 'all', outcome: 'pause',
+        conditions: [{ id: 'legacy-limit:condition', type: 'daily_usage', operator: 'reaches', minutes: 15 }],
+      }),
+    ]);
+  });
+
   it('migrates shared legacy targets into independent personal rules', () => {
     const settings = normalizeScreenTimeProtectionSettings({
       authorizationStatus: 'approved',
@@ -85,6 +106,23 @@ describe('screenTimeProtection.normalizeScreenTimeProtectionSettings', () => {
     });
 
     expect(settings.meaningfulFirst.currentUnlockUntilIso).toBeNull();
+  });
+});
+
+describe('screenTimeProtection.removePersonalScreenTimeRule', () => {
+  it('removes the last saved rule without reviving its legacy projection', () => {
+    const rule = createPersonalScreenTimeRule({
+      id: 'focus-games', selectionId: 'focus-games', kind: 'focus',
+      selectedApps: [{ token: 'games', label: 'Games' }], selectedCategories: [],
+      enabled: true, setupCompleted: true,
+    });
+    const settings = normalizeScreenTimeProtectionSettings({
+      ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+      authorizationStatus: 'approved',
+      personalRules: [rule],
+    });
+
+    expect(removePersonalScreenTimeRule(settings, 'focus-games').personalRules).toEqual([]);
   });
 });
 

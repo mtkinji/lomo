@@ -15,6 +15,9 @@ function operation(overrides: Partial<CapabilityManifestEntry> = {}): Capability
     inputSchema: EMPTY_SCHEMA, outputSchema: EMPTY_SCHEMA,
     tools: [{ id: 'todos.read', version: 1, inputSchema: EMPTY_SCHEMA, outputSchema: EMPTY_SCHEMA, canDeferToClient: false }],
     sourceRefs: [], returnBehavior: 'answer',
+    completionMode: 'direct', requiredScopes: ['life.read'],
+    receipt: { required: true, resultRefKinds: ['todos'], reversible: true, undoOperationId: null },
+    supportedBoundary: { finalActOwner: 'kwilt', reason: null },
     channels: {
       mobile: { state: 'live', outcome: 'answer', proofPaths: [], boundaryReason: null },
       phone: { state: 'live', outcome: 'server_execution', proofPaths: [], boundaryReason: null },
@@ -81,6 +84,12 @@ describe('projectExternalActionCatalog', () => {
 
     expect(() => projectExternalActionCatalog({
       manifest: [operation()], serverRegistrations: [{ toolId: 'todos.read' }],
+      externalRegistrations: [{ ...registration, requiredScopes: ['life.read', 'life.write'] }],
+      availableScopes: ['life.read', 'life.write'],
+    })).toThrow('External scopes do not match operation todos.list');
+
+    expect(() => projectExternalActionCatalog({
+      manifest: [operation()], serverRegistrations: [{ toolId: 'todos.read' }],
       externalRegistrations: [registration, { ...registration, operationId: 'todos.list' }], availableScopes: ['life.read'],
     })).toThrow('Duplicate external action name: kwilt_todos_list');
   });
@@ -112,6 +121,79 @@ describe('projectExternalControlCoverage', () => {
 });
 
 describe('EXTERNAL_ACTION_REGISTRATIONS', () => {
+  test('exposes reviewed Recipe mutations with food scopes and exact confirmation policy', () => {
+    const byOperation = Object.fromEntries(EXTERNAL_ACTION_REGISTRATIONS.map((item) => [item.operationId, item]));
+    expect(byOperation['recipes.create']).toMatchObject({
+      canonicalName: 'kwilt_recipes_create', requiredScopes: ['food.read', 'food.write'],
+      consequence: 'low', confirmation: 'explicit', redactionPolicy: 'mutation_receipt',
+    });
+    expect(byOperation['recipes.update']).toMatchObject({
+      canonicalName: 'kwilt_recipes_update', requiredScopes: ['food.read', 'food.write'],
+      consequence: 'low', confirmation: 'explicit',
+    });
+    expect(byOperation['recipes.import.prepare']).toMatchObject({
+      canonicalName: 'kwilt_recipes_import_prepare', requiredScopes: ['food.read', 'food.write'],
+      consequence: 'low', confirmation: 'none',
+    });
+    expect(byOperation['recipes.import.approve']).toMatchObject({
+      canonicalName: 'kwilt_recipes_import_approve', requiredScopes: ['food.read', 'food.write'],
+      consequence: 'low', confirmation: 'explicit',
+    });
+    expect(byOperation['recipes.delete']).toMatchObject({
+      canonicalName: 'kwilt_recipes_delete', requiredScopes: ['food.read', 'food.write'],
+      consequence: 'consequential', confirmation: 'explicit',
+    });
+    expect(byOperation['cook_session.read']).toMatchObject({
+      canonicalName: 'kwilt_cook_session_read', requiredScopes: ['food.read'],
+    });
+    expect(byOperation['recipes.fork']).toMatchObject({
+      canonicalName: 'kwilt_recipes_fork', requiredScopes: ['food.read', 'food.write'],
+      consequence: 'low', confirmation: 'explicit',
+    });
+    expect(byOperation['recipes.collaborator.invite']).toMatchObject({
+      canonicalName: 'kwilt_recipes_collaborator_invite',
+      requiredScopes: ['food.read', 'food.write'],
+      consequence: 'consequential', confirmation: 'explicit',
+    });
+    expect(byOperation['recipes.share_copy.prepare']).toMatchObject({
+      canonicalName: 'kwilt_recipes_share_copy_prepare', requiredScopes: ['food.read', 'food.write'],
+      consequence: 'low', confirmation: 'explicit',
+    });
+    expect(byOperation['cook_session.control']).toMatchObject({
+      canonicalName: 'kwilt_cook_session_control', requiredScopes: ['food.read', 'food.write'],
+      consequence: 'low', confirmation: 'none',
+    });
+    expect(byOperation['cook_session.complete']).toMatchObject({
+      canonicalName: 'kwilt_cook_session_complete', requiredScopes: ['food.read', 'food.write'],
+      consequence: 'low', confirmation: 'explicit',
+    });
+    expect(byOperation['meal_planning.plan.create']).toMatchObject({
+      canonicalName: 'kwilt_meal_plan_create', requiredScopes: ['food.read', 'food.write'],
+      consequence: 'low', confirmation: 'explicit',
+    });
+    expect(byOperation['food_budget.read']).toMatchObject({
+      canonicalName: 'kwilt_food_budget_read', requiredScopes: ['food.read'],
+    });
+    expect(byOperation['food_stock.read']).toMatchObject({
+      canonicalName: 'kwilt_food_stock_read', requiredScopes: ['food.read'],
+    });
+    expect(byOperation['food_stock.observe']).toMatchObject({
+      canonicalName: 'kwilt_food_stock_observe', requiredScopes: ['food.read', 'food.write'], confirmation: 'explicit',
+    });
+    expect(byOperation['food_stock.deplete']).toMatchObject({
+      canonicalName: 'kwilt_food_stock_deplete', requiredScopes: ['food.read', 'food.write'], confirmation: 'explicit',
+    });
+    expect(byOperation['meal_planning.plan.update']).toMatchObject({
+      canonicalName: 'kwilt_meal_plan_update', requiredScopes: ['food.read', 'food.write'],
+    });
+    expect(byOperation['meal_planning.candidate.add']).toMatchObject({
+      canonicalName: 'kwilt_meal_plan_candidate_add', requiredScopes: ['food.read', 'food.write'],
+    });
+    expect(byOperation['meal_planning.candidate.remove']).toMatchObject({
+      canonicalName: 'kwilt_meal_plan_candidate_remove', requiredScopes: ['food.read', 'food.write'],
+    });
+  });
+
   test('projects already executable Plan and Relationships operations with least-privilege scopes', () => {
     const byOperation = Object.fromEntries(EXTERNAL_ACTION_REGISTRATIONS.map((item) => [item.operationId, item]));
 
@@ -132,6 +214,21 @@ describe('EXTERNAL_ACTION_REGISTRATIONS', () => {
     });
     expect(byOperation['household.invitation.preview']).toMatchObject({
       canonicalName: 'kwilt_household_invitation_preview', requiredScopes: ['household.read'],
+    });
+    for (const operationId of [
+      'household.member.add_dependent', 'household.invitation.create', 'household.invitation.accept',
+      'household.child_capability.update', 'household.caregiver_grant.update', 'household.member.update',
+      'household.member.remove', 'household.device.update', 'household.device.revoke',
+      'household.device.reconcile',
+    ]) {
+      expect(byOperation[operationId]).toMatchObject({
+        requiredScopes: ['household.read', 'household.write'], confirmation: 'explicit',
+        redactionPolicy: 'mutation_receipt',
+      });
+    }
+    expect(byOperation['household.device.list']).toMatchObject({
+      canonicalName: 'kwilt_household_devices_list', requiredScopes: ['household.read'],
+      redactionPolicy: 'household_summary',
     });
     expect(byOperation['screen_time.read']).toMatchObject({
       canonicalName: 'kwilt_screen_time_read', requiredScopes: ['household.read'],

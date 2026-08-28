@@ -33,7 +33,7 @@ export function createMoneySnapshotCache(adapter: StorageAdapter): MoneySnapshot
         if (!raw) return null;
         const document = JSON.parse(raw) as Partial<MoneySnapshotCacheDocument>;
         if (document.schemaVersion !== 1 || !isMoneySnapshot(document.snapshot)) return null;
-        return document.snapshot;
+        return normalizeSnapshot(document.snapshot);
       } catch {
         return null;
       }
@@ -77,6 +77,24 @@ function isMoneySnapshot(value: unknown): value is MoneySnapshot {
     && Array.isArray(snapshot.categories)
     && Array.isArray(snapshot.transactions)
     && Array.isArray(snapshot.accounts);
+}
+
+function normalizeSnapshot(snapshot: MoneySnapshot): MoneySnapshot {
+  const legacy = snapshot as MoneySnapshot & { connections?: MoneySnapshot['connections'] };
+  return {
+    ...snapshot,
+    categories: snapshot.categories.map((category) => ({
+      ...category,
+      updatedAt: typeof category.updatedAt === 'string' && category.updatedAt
+        ? category.updatedAt : snapshot.generatedAt,
+    })),
+    transactions: snapshot.transactions.map((transaction) => ({
+      ...transaction,
+      updatedAt: typeof transaction.updatedAt === 'string' && transaction.updatedAt
+        ? transaction.updatedAt : snapshot.generatedAt,
+    })),
+    connections: Array.isArray(legacy.connections) ? legacy.connections : [],
+  };
 }
 
 function hasNumericFields(value: unknown, fields: string[]): boolean {

@@ -24,7 +24,7 @@ import type { UnifiedChatRepository } from './threadRepository';
 import { transitionRun } from './runStateMachine';
 import { createRelationshipMemoryToolProvider } from '../../services/relationshipMemoryToolProvider';
 import { createUnifiedChatToolProvider } from './unifiedChatToolProvider';
-import { createHouseholdChatToolProvider } from './householdChatToolProvider';
+import { createHouseholdToolProvider } from './householdToolProvider';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 import { inferredGoalTargetDate, directRecurringReminder } from './directAppControl';
 import { ACTIVITY_ACTION_RESPONSE_FORMAT, parseActivityActionResponse } from './activityProposal';
@@ -382,7 +382,7 @@ export async function executeUnifiedChatTurnPhase(
         capability === 'goals' || capability === 'profile' || capability === 'chapters' ||
         capability === 'screenTime' || capability === 'notifications' || capability === 'account' ||
         capability === 'navigation' || capability === 'relationships' || capability === 'money' ||
-        capability === 'recipes' || capability === 'household',
+        capability === 'recipes' || capability === 'household' || capability === 'chores',
     );
   const relationshipProvider = input.executeRelationshipTool
     ? { execute: input.executeRelationshipTool }
@@ -394,13 +394,14 @@ export async function executeUnifiedChatTurnPhase(
         },
       });
   const householdProvider = input.executeHouseholdTool
-    ? { execute: input.executeHouseholdTool }
-    : createHouseholdChatToolProvider();
+    ? { execute: input.executeHouseholdTool, proposals: () => [] }
+    : createHouseholdToolProvider();
   const toolProvider = createUnifiedChatToolProvider({
     snapshots: input.snapshots,
     planConversationReferent: input.planConversationReferent,
     executeRelationshipTool: relationshipProvider.execute,
     executeHouseholdTool: householdProvider.execute,
+    householdProposals: householdProvider.proposals,
     now: input.now,
   });
   const coveredTargetIds = new Set<string>();

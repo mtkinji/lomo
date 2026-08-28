@@ -269,6 +269,36 @@ export async function materializeUnifiedChatOutcomePhase(
           idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
         },
       });
+    } else if (proposal.capabilityId === 'meal_planning') {
+      await persistProposal({
+        ...common,
+        capabilityId: 'meal_planning',
+        operation: {
+          ...proposal.operation,
+          summary: proposal.title,
+          idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
+        },
+      });
+    } else if (proposal.capabilityId === 'groceries') {
+      await persistProposal({
+        ...common,
+        capabilityId: 'groceries',
+        operation: {
+          ...proposal.operation,
+          summary: proposal.title,
+          idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
+        },
+      });
+    } else if (proposal.capabilityId === 'household') {
+      await persistProposal({
+        ...common,
+        capabilityId: 'household',
+        operation: {
+          ...proposal.operation,
+          summary: proposal.title,
+          idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
+        },
+      });
     } else if (proposal.capabilityId === 'money') {
       await persistProposal({
         ...common,
@@ -333,6 +363,16 @@ export async function materializeUnifiedChatOutcomePhase(
       await persistProposal({
         ...common,
         capabilityId: 'chapters',
+        operation: {
+          ...proposal.operation,
+          summary: proposal.title,
+          idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
+        },
+      });
+    } else if (proposal.capabilityId === 'chores') {
+      await persistProposal({
+        ...common,
+        capabilityId: 'chores',
         operation: {
           ...proposal.operation,
           summary: proposal.title,

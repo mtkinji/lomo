@@ -1,8 +1,11 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert } from 'react-native';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Alert, StyleSheet } from 'react-native';
+import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import {
   SettingsDivider,
+  SettingsChoiceRow,
   SettingsGroup,
   SettingsPage,
   SettingsRow,
@@ -28,6 +31,9 @@ import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../../services/analytics/events';
 import { useAppStore } from '../../../store/useAppStore';
 import { useCapabilityOnboardingStore } from '../../../features/capability-onboarding/useCapabilityOnboardingStore';
+import { spacing } from '../../../theme';
+import { navigateWhenReady } from '../../../navigation/rootNavigationRef';
+import type { PersonalScreenTimeRuleKind } from '../../../services/screenTimeProtection';
 
 const PRESETS: MoneyAppControlPreset[] = [
   'always_review',
@@ -50,6 +56,8 @@ export function MoneyAppControlScreen({ navigation, route }: NativeStackScreenPr
   const { snapshot } = useMoneyData();
   const { settings, loaded, save } = useMoneyAppControlSettings();
   const [saving, setSaving] = useState(false);
+  const [presetDrawerOpen, setPresetDrawerOpen] = useState(false);
+  const [behaviorDrawerOpen, setBehaviorDrawerOpen] = useState(false);
   const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   const { capture } = useAnalytics();
   const category = snapshot?.categories.find((item) => item.id === route.params.categoryId || item.sourceId === route.params.categoryId);
@@ -137,6 +145,78 @@ export function MoneyAppControlScreen({ navigation, route }: NativeStackScreenPr
     }
   };
 
+  const choosePreset = async (preset: MoneyAppControlPreset) => {
+    setSaving(true);
+    try {
+      await persist({ ...policy, preset });
+      setPresetDrawerOpen(false);
+    } catch (error) {
+      Alert.alert('Unable to update this rule', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const chooseBehavior = (kind: PersonalScreenTimeRuleKind) => {
+    Alert.alert(
+      'Replace this rule behavior?',
+      'The budget condition will be removed. Your selected apps will carry into the new rule for review before anything changes.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: () => {
+            setBehaviorDrawerOpen(false);
+            navigateWhenReady('Settings', {
+              screen: 'SettingsScreenTimeRuleBuilder',
+              params: {
+                entry: 'inventory',
+                suggestedKind: kind,
+                sourceSelectionId: moneyAppControlSelectionId(category!.sourceId),
+                selectedApps: policy.selectedApps,
+                selectedCategories: policy.selectedCategories,
+                replacingMoneyCategoryId: category!.sourceId,
+              },
+            });
+          },
+        },
+      ],
+    );
+  };
+
+  const deleteRule = () => {
+    Alert.alert(
+      'Delete this rule?',
+      'The selected apps will no longer pause because of this budget rule.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete rule',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              if (!snapshot) return;
+              setSaving(true);
+              try {
+                const next = await save((current) => {
+                  const policies = { ...current.policies };
+                  delete policies[category!.sourceId];
+                  return { ...current, policies };
+                });
+                await reconcileMoneyAppControls(snapshot, next);
+                navigation.goBack();
+              } catch (error) {
+                Alert.alert('Unable to delete this rule', error instanceof Error ? error.message : 'Please try again.');
+              } finally {
+                setSaving(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
   if (!category) {
     return (
       <SettingsPage onBack={() => navigation.goBack()} title="App controls">
@@ -148,54 +228,145 @@ export function MoneyAppControlScreen({ navigation, route }: NativeStackScreenPr
   }
 
   return (
-    <SettingsPage onBack={() => navigation.goBack()} title={`${category.name} app controls`}>
+    <SettingsPage onBack={() => navigation.goBack()} title="Edit rule">
       {route.params.suggestedAppLabels?.length ? (
         <SettingsGroup footer="Choose the actual apps in Apple’s private picker. Kwilt does not convert these labels into app identities." title="From Chat">
           <SettingsRow title="Apps you mentioned" value={route.params.suggestedAppLabels.join(', ')} />
         </SettingsGroup>
       ) : null}
-      <SettingsGroup footer="Kwilt uses Apple's Screen Time picker. Your app choices stay opaque to JavaScript and on this device." title="Selected apps">
-        <SettingsRow disabled={saving} onPress={() => void chooseApps()} title="Apps to pause" value={status} />
-        <SettingsDivider />
+      <SettingsGroup title="Rule status">
         <SettingsToggleRow
           disabled={!loaded || saving || targetCount === 0 || settings.authorizationStatus !== 'approved'}
           enabled={policy.enabled}
           onPress={() => void persist({ ...policy, enabled: !policy.enabled })}
-          title="Pause selected apps"
+          title="Rule enabled"
+        />
+      </SettingsGroup>
+      <SettingsGroup
+        footer="Kwilt uses Apple's private Screen Time picker. App identities stay opaque to JavaScript and on this device."
+        title="Rule details"
+      >
+        <SettingsRow disabled={saving} onPress={() => void chooseApps()} title="Apps and categories" value={status} />
+        <SettingsDivider />
+        <SettingsRow onPress={() => setBehaviorDrawerOpen(true)} title="Rule behavior" value="Based on a budget" />
+        <SettingsDivider />
+        <SettingsRow
+          onPress={() => navigation.navigate('MoneyAppControlBudgetPicker', {
+            sourceSelectionId: moneyAppControlSelectionId(category.sourceId),
+            selectedApps: policy.selectedApps,
+            selectedCategories: policy.selectedCategories,
+            replacingMoneyCategoryId: category.sourceId,
+          })}
+          title="Budget"
+          value={category.name}
+        />
+        <SettingsDivider />
+        <SettingsRow
+          disabled={saving}
+          onPress={() => setPresetDrawerOpen(true)}
+          title="When to pause"
+          value={getMoneyAppControlPresetCopy(policy.preset).title}
         />
       </SettingsGroup>
 
-      <SettingsGroup
-        footer={`${getMoneyAppControlPresetCopy(policy.preset).detail} A review opens access for 20 minutes; Keep blocked leaves the pause in place.`}
-        title="When to pause"
-      >
-        {PRESETS.map((preset, index) => {
-          const copy = getMoneyAppControlPresetCopy(preset);
-          return (
-            <MemoPresetRow
-              key={preset}
-              divider={index > 0}
-              onPress={() => void persist({ ...policy, preset })}
-              selected={policy.preset === preset}
-              title={copy.title}
-            />
-          );
-        })}
+      <SettingsGroup title="What will happen">
+        <SettingsRow
+          multiline
+          title={`${targetCount > 0 ? `${targetCount} selected app${targetCount === 1 ? '' : 's'} or categor${targetCount === 1 ? 'y' : 'ies'}` : 'Selected apps and categories'} will pause based on ${category.name}: ${getMoneyAppControlPresetCopy(policy.preset).title.toLowerCase()}.`}
+        />
       </SettingsGroup>
+
+      <SettingsGroup title="Rule management">
+        <SettingsRow destructive disabled={saving} onPress={deleteRule} showsDisclosureIndicator={false} title="Delete rule" />
+      </SettingsGroup>
+
+      <BottomDrawer
+        visible={behaviorDrawerOpen}
+        onClose={() => setBehaviorDrawerOpen(false)}
+        snapPoints={['54%']}
+        keyboardAvoidanceEnabled={false}
+      >
+        <BottomDrawerScrollView contentContainerStyle={styles.presetDrawerContent}>
+          <BottomDrawerHeader
+            title="Rule behavior"
+            subtitle="Choose what controls access to these apps."
+            variant="withClose"
+            onClose={() => setBehaviorDrawerOpen(false)}
+            closeAccessibilityLabel="Close Rule behavior"
+          />
+          <SettingsGroup>
+            <SettingsChoiceRow
+              description="Pause according to this budget and its condition."
+              onPress={() => setBehaviorDrawerOpen(false)}
+              selected
+              title="Based on a budget"
+            />
+            <SettingsDivider />
+            <SettingsChoiceRow
+              description="Unlock after a to-do, progress update, or Focus."
+              onPress={() => chooseBehavior('real_step')}
+              selected={false}
+              title="After a real step"
+            />
+            <SettingsDivider />
+            <SettingsChoiceRow
+              description="Pause only while Focus is running."
+              onPress={() => chooseBehavior('focus')}
+              selected={false}
+              title="During Focus"
+            />
+            <SettingsDivider />
+            <SettingsChoiceRow
+              description="Pause after a chosen amount of use each day."
+              onPress={() => chooseBehavior('daily_limit')}
+              selected={false}
+              title="After a daily time limit"
+            />
+          </SettingsGroup>
+        </BottomDrawerScrollView>
+      </BottomDrawer>
+
+      <BottomDrawer
+        visible={presetDrawerOpen}
+        onClose={() => setPresetDrawerOpen(false)}
+        snapPoints={['58%']}
+        keyboardAvoidanceEnabled={false}
+      >
+        <BottomDrawerScrollView contentContainerStyle={styles.presetDrawerContent}>
+          <BottomDrawerHeader
+            title="When to pause"
+            subtitle="Choose the budget condition that pauses these apps."
+            variant="withClose"
+            onClose={() => setPresetDrawerOpen(false)}
+            closeAccessibilityLabel="Close When to pause"
+          />
+          <SettingsGroup>
+            {PRESETS.map((preset, index) => {
+              const copy = getMoneyAppControlPresetCopy(preset);
+              return (
+                <Fragment key={preset}>
+                  <SettingsChoiceRow
+                    description={copy.detail}
+                    multilineTitle
+                    onPress={() => void choosePreset(preset)}
+                    selected={policy.preset === preset}
+                    title={copy.title}
+                  />
+                  {index < PRESETS.length - 1 ? <SettingsDivider /> : null}
+                </Fragment>
+              );
+            })}
+          </SettingsGroup>
+        </BottomDrawerScrollView>
+      </BottomDrawer>
     </SettingsPage>
   );
 }
 
-function MemoPresetRow({ divider, onPress, selected, title }: {
-  divider: boolean;
-  onPress: () => void;
-  selected: boolean;
-  title: string;
-}) {
-  return (
-    <>
-      {divider ? <SettingsDivider /> : null}
-      <SettingsRow onPress={onPress} title={title} value={selected ? 'Selected' : undefined} />
-    </>
-  );
-}
+const styles = StyleSheet.create({
+  presetDrawerContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+});

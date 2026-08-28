@@ -17,7 +17,14 @@ function receiptFor(
   return {
     receiptId, operationId: request.operationId, requestId: request.requestId,
     actorId: request.actorId, householdId: request.householdId, source: request.source,
-    status, resultRefs, reversible, createdAt,
+    status, resultRefs, reversible,
+    targetVersion: null,
+    provider: status === 'pending_client_action' ? 'device' : null,
+    retryable: status === 'needs_input' || status === 'failed',
+    reason: null,
+    candidateSummary: null,
+    replayed: false,
+    createdAt,
   };
 }
 

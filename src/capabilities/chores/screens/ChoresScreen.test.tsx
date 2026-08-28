@@ -253,7 +253,7 @@ describe('ChoresScreen', () => {
       suppressionKeys: {},
       queuedToasts: [],
     });
-    useAppStore.setState({ authIdentity: null });
+    useAppStore.setState({ authIdentity: null, userProfile: null });
   });
 
   it('renders the quiet member-first inventory with token language absent by default', () => {
@@ -312,12 +312,16 @@ describe('ChoresScreen', () => {
       });
   });
 
-  it('keeps the signed-in caregiver avatar in the member menu', () => {
+  it('keeps the caregiver profile avatar in the member menu', () => {
     useAppStore.setState({
-      authIdentity: {
-        userId: 'andrew-user',
-        name: 'Andrew',
+      userProfile: {
+        id: 'andrew-user',
+        fullName: 'Andrew',
         avatarUrl: 'https://example.test/andrew.jpg',
+        communication: {},
+        visuals: {},
+        createdAt: '',
+        updatedAt: '',
       },
     });
     const screen = renderDefaultChoresScreen();

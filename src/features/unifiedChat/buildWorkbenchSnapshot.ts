@@ -545,7 +545,12 @@ export function buildWorkbenchSnapshot(
         ? visibleEvidence.find((item) => item.objectId === proposal.operation.targetId)?.label
         : null;
       const visibleFields = proposal.capabilityId === 'screenTime'
-        ? proposal.operation.type === 'create_family_screen_time_prerequisite_agreement'
+        ? proposal.operation.type === 'update_personal_screen_time_rule'
+          ? proposal.operation.payload.fields
+          : proposal.operation.type === 'deactivate_personal_screen_time_rule'
+            || proposal.operation.type === 'delete_personal_screen_time_rule'
+            ? {}
+        : proposal.operation.type === 'create_family_screen_time_prerequisite_agreement'
           ? {
               thresholdMinutes: proposal.operation.payload.rule.prerequisiteActivity.thresholdMinutes,
               reset: proposal.operation.payload.rule.prerequisiteActivity.reset,

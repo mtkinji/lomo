@@ -15,6 +15,42 @@ Bottom Dock Geometry is the first Canonical reusable composition. Andrew approve
 
 ## Canonical Patterns
 
+### Secondary Settings Page
+
+Job: When a person opens a pushed management page within a top-level capability or Settings, they need to stay oriented while scanning related controls as one familiar system.
+
+Status: Canonical. Explicit product/design-owner approval: Andrew, 2026-08-27.
+
+Approved routes: Pushed second-level management pages, including Screen Time inventory and rule detail, Money app-control rule detail, and equivalent Settings destinations. Top-level capability landing pages are excluded.
+
+Rendered references: Screen Time inventory and Shopping app-controls Simulator references reviewed 2026-08-27. The Screen Time reference establishes the correction target; Shopping app controls establishes the accepted compact-header and gray-canvas precedent.
+
+Three-second read: A compact centered destination title, a back path, and grouped white management cards on the gray application shell.
+
+Scan order: Destination title -> current access or object state -> tightly labeled management groups -> rows and disclosure destinations -> optional completion action.
+
+Primary action: The one capability-owned management action for the current level, such as Add rule or Save changes. A list row opens its detail; it does not skip directly into one field editor.
+
+Anatomy: `SettingsPage` owns the gray `shellAlt` canvas, compact centered title under the safe area, 44pt back target, scrolling content, and standard group spacing. `SettingsGroup` owns a label immediately above one white rounded card and may carry one quiet header action. Rows use one consistent list anatomy: title, supporting outcome/context where needed, current state, and disclosure when the row opens detail.
+
+Canonical components: `SettingsPage`, `SettingsGroup`, `SettingsRow`, `SettingsDetailRow`, `SettingsToggleRow`, and `SettingsDivider` in `src/ui/SettingsSurface.tsx`.
+
+States: Loading, empty, populated, disabled/unavailable, enabled, and pressed. Empty collections remain inside the same white group surface. Enabled state belongs in rule detail unless a list is explicitly designed as a direct-control list; one list must not mix direct toggles and disclosure rows for equivalent objects.
+
+Responsive and accessibility behavior: The centered title remains centered independent of back-button width. Back and header actions retain 44pt targets. Detail rows expose title, concrete behavior, owner/context, and On/Off state in one spoken label. Supporting copy wraps under Dynamic Type rather than truncating the rule's meaning.
+
+Allowed variations: A group may omit its label, include a quiet footer, or expose one trailing header action. Capability-owned condition editors may use drawers or deeper pages, but return to the same rule-detail grammar.
+
+Do not use when: The page is a top-level capability landing page, an initial immersive onboarding step, a focused emotional moment, or a platform-owned picker. Do not use a large leading `PageHeader` on a pushed secondary page; do not use a white page canvas; do not place section labels far from their cards; and do not make an object row jump directly into an arbitrary field editor.
+
+RNR reference: Localized Kwilt Settings components remain authoritative for control anatomy and tokens.
+
+External-exemplar preserve/translate/reject ledger: Preserve the clarity of native grouped settings and compact navigation titles; translate them through Kwilt typography, gray shell, white cards, and capability language; reject copied platform chrome, inset-table pixel matching, and mixed row behaviors.
+
+Kwilt localization: Capability owners define rule conditions and outcome copy. The shell, hierarchy, row grammar, and transition from inventory to full detail remain shared.
+
+Last reviewed: 2026-08-27.
+
 ### Bottom Dock Geometry
 
 Job: When the current action must remain available at the bottom of a phone surface, the user needs it to feel deliberately nested inside the device rather than attached with arbitrary padding, so it remains reachable without colliding with the home indicator, keyboard, tab bar, or content.
@@ -94,7 +130,7 @@ Last reviewed: 2026-08-20.
 
 | Job / surface | Start from | Status | Required hierarchy |
 | --- | --- | --- | --- |
-| Settings | `SettingsPage`, `SettingsGroup`, `SettingsRow`, `SettingsToggleRow`, `SettingsDivider` in `src/ui/SettingsSurface.tsx`; `Settings/Patterns` Storybook | Candidate | Page title, groups, then rows; destructive actions last and quiet until chosen. |
+| Settings | Canonical Secondary Settings Page for pushed management pages; `Settings/Patterns` Storybook for remaining top-level and modal settings work | Candidate | Match navigation depth first; then page title, groups, and rows. Destructive actions remain last and quiet until chosen. |
 | Inventory / list | `PageHeader`, `InventoryControlGroup`, domain row component, `CanvasFlatList` | Candidate | Orientation and primary create action, controls, then scannable content. Avoid one Card per row unless the item needs a surface boundary. |
 | Object detail | `ObjectPageHeader`, `CanvasScrollView`, domain sections, `KeyActionsRow` where appropriate | Candidate | Identity and current state, next useful action, then supporting detail. |
 | Edit / create | `PageHeader` or `BottomDrawerHeader`, Canonical fields, `BottomDrawerFooter` or one page action | Candidate | Object identity, required fields, optional fields, one completion action. |

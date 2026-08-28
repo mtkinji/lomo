@@ -610,7 +610,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(committedInfo.props.accessibilityState).toMatchObject({ expanded: true });
   });
 
-  it('anchors app-control onboarding to one selectable budget instead of the category grid', () => {
+  it('does not turn the Budget summary into an app-control picker', () => {
     mockSnapshot = {
       ...initialSnapshot,
       categories: [
@@ -624,46 +624,10 @@ describe('MoneySummaryScreen living limit answer', () => {
       route={{ key: 'summary', name: 'MoneySummary', params: { entryIntent: 'app-control-onboarding' } } as never}
     />);
 
-    expect(screen.getByTestId('guide-target-Groceries')).toBeTruthy();
-    expect(screen.queryByTestId('guide-target-Shopping')).toBeNull();
-  });
-
-  it('shows the guide when onboarding returns to an already-mounted Budget screen', () => {
-    mockSnapshot = {
-      ...initialSnapshot,
-      categories: [category('groceries', 'Groceries', 'flexible')],
-    };
-    const navigation = { navigate: jest.fn(), setParams: jest.fn() };
-    const screen = render(<MoneySummaryScreen
-      navigation={navigation as never}
-      route={{ key: 'summary', name: 'MoneySummary' } as never}
-    />);
-
     expect(screen.queryByTestId('money-app-control-guide')).toBeNull();
-    screen.rerender(<MoneySummaryScreen
-      navigation={navigation as never}
-      route={{ key: 'summary', name: 'MoneySummary', params: { entryIntent: 'app-control-onboarding' } } as never}
-    />);
-
-    expect(screen.getByTestId('money-app-control-guide')).toBeTruthy();
-  });
-
-  it('opens the real budget creation flow when app-control onboarding has no budgets', async () => {
-    mockSnapshot = {
-      ...initialSnapshot,
-      categories: [category('groceries', 'Groceries', 'flexible')],
-    };
-    const navigation = { navigate: jest.fn(), setParams: jest.fn() };
-    render(<MoneySummaryScreen
-      navigation={navigation as never}
-      route={{
-        key: 'summary',
-        name: 'MoneySummary',
-        params: { entryIntent: 'app-control-onboarding', devBudgetState: 'none' },
-      } as never}
-    />);
-
-    await waitFor(() => expect(navigation.navigate).toHaveBeenCalledWith('MoneyCategoryCreate'));
+    expect(screen.getAllByText('Groceries').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Shopping').length).toBeGreaterThan(0);
+    expect(navigation.navigate).not.toHaveBeenCalledWith('MoneyCategoryCreate');
   });
 
   it('opens category reordering from the View menu', () => {

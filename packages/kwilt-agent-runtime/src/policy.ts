@@ -28,7 +28,7 @@ export function evaluateToolPolicy(
     return { decision: 'unavailable', providers: tool.providers };
   }
 
-  if (!context.authorized || tool.confirmation === 'explicit' || tool.consequence === 'consequential') {
+  if (!context.authorized || tool.confirmation !== 'none' || tool.consequence === 'consequential') {
     return { decision: 'require_confirmation', provider };
   }
 

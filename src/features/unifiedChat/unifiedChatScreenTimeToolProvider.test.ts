@@ -5,7 +5,14 @@ const tool = (id: string) => UNIFIED_CHAT_TOOL_CATALOG.find((candidate) => candi
 const now = new Date('2026-07-30T10:00:00.000Z');
 const snapshots = {
   goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
-  screenTime: { children: [{
+  screenTime: { self: {
+    kind: 'self' as const, deviceScope: 'current_device' as const, authorizationStatus: 'approved' as const,
+    personalRules: [{
+      id: 'personal-rule-1', kind: 'daily_limit' as const, targetLabels: ['Instagram'],
+      appCount: 1, categoryCount: 0, enabled: true, limitMinutes: 30,
+      updatedAt: '2026-08-27T10:00:00.000Z',
+    }],
+  }, children: [{
     membershipId: 'charlie', displayName: 'Charlie', canManage: true,
     policy: {
       childMembershipId: 'charlie', subjectId: 'subject-charlie', desiredPolicyVersion: 7,
@@ -49,6 +56,35 @@ const snapshots = {
 };
 
 describe('Unified Chat family Screen Time provider', () => {
+  it('reads and proposes personal rule changes without exposing Apple tokens', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    await expect(provider.execute({
+      id: 'personal-list', toolId: 'screen_time.personal_rule.list', arguments: {},
+    }, tool('screen_time.personal_rule.list'))).resolves.toMatchObject({
+      status: 'completed', output: { rules: [{ id: 'personal-rule-1', targetLabels: ['Instagram'] }] },
+    });
+    await expect(provider.execute({
+      id: 'personal-update', toolId: 'screen_time.personal_rule.update', arguments: {
+        ruleId: 'personal-rule-1', expectedUpdatedAt: '2026-08-27T10:00:00.000Z',
+        fields: { limitMinutes: 20 },
+      },
+    }, tool('screen_time.personal_rule.update'))).resolves.toMatchObject({ status: 'proposed' });
+    expect(provider.proposals()[0]).toMatchObject({
+      operation: { type: 'update_personal_screen_time_rule', targetId: 'personal-rule-1' },
+    });
+    expect(JSON.stringify(provider.proposals())).not.toMatch(/token|selectionRef/i);
+  });
+
+  it('rejects stale personal rule mutation timestamps', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    await expect(provider.execute({
+      id: 'personal-delete', toolId: 'screen_time.personal_rule.delete', arguments: {
+        ruleId: 'personal-rule-1', expectedUpdatedAt: '2026-08-26T10:00:00.000Z',
+      },
+    }, tool('screen_time.personal_rule.delete'))).resolves.toMatchObject({
+      status: 'failed', code: 'screen_time_rule_stale', retryable: true,
+    });
+  });
   it('reads authorized Screen Time policy state without exposing Apple selection references', async () => {
     const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
     const result = await provider.execute({

@@ -93,7 +93,9 @@ export function RecipeImportReviewScreen({ navigation, route }: Props) {
         setBusy(true); setError(null);
         try {
           if(!canSave)throw new Error('Choose how this source may be saved.');const reviewedData = reviewedDataFromEditorDraft(editorDraft, { method: draft.method, sourceUrl }, draft.extractedData.equipmentRequirements);
-          const receipt = await createRecipeImportProposalExecutor().approve({ draftId: draft.id, idempotencyKey: `recipe-import-approval:${Crypto.randomUUID()}`, reviewedData });
+          const receipt = await createRecipeImportProposalExecutor().approve({ draftId: draft.id,
+            expectedDraftVersion: draft.version,
+            idempotencyKey: `recipe-import-approval:${Crypto.randomUUID()}`, reviewedData });
           await refresh();
           capture(AnalyticsEvent.RecipeImportApproved, { method: draft.method });
           navigation.replace('RecipeHome', { recipeId: receipt.recipeId });

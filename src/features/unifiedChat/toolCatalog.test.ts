@@ -66,7 +66,7 @@ describe('UNIFIED_CHAT_TOOL_CATALOG', () => {
   test('registers Goal check-ins as a deferred native confirmation action', () => {
     expect(UNIFIED_CHAT_TOOL_CATALOG).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        id: 'goals.check_in', providers: ['device'], confirmation: 'explicit', canDeferToClient: true,
+        id: 'goals.check_in', providers: ['device'], confirmation: 'native', canDeferToClient: true,
       }),
     ]));
   });

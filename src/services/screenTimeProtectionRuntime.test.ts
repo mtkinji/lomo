@@ -4,16 +4,20 @@ jest.mock('./appleEcosystem/screenTimeProtection', () => ({
   clearScreenTimeRestrictionsForSelection: jest.fn().mockResolvedValue(true),
   applyPersonalScreenTimeUsageLimit: jest.fn().mockResolvedValue(true),
   clearPersonalScreenTimeUsageLimit: jest.fn().mockResolvedValue(true),
+  applyPersonalCompositeScreenTimeRule: jest.fn().mockResolvedValue(true),
+  clearPersonalCompositeScreenTimeRule: jest.fn().mockResolvedValue(true),
 }));
 
 import {
   applyScreenTimeRestrictions,
+  clearPersonalScreenTimeUsageLimit,
   clearScreenTimeRestrictions,
   clearScreenTimeRestrictionsForSelection,
 } from './appleEcosystem/screenTimeProtection';
 import {
   activatePersonalScreenTimeRule,
   applyMeaningfulFirstRestrictionsIfLocked,
+  deactivatePersonalScreenTimeRule,
   reconcileScreenTimeRestrictionsForSettings,
 } from './screenTimeProtectionRuntime';
 import { createPersonalScreenTimeRule, normalizeScreenTimeProtectionSettings } from './screenTimeProtection';
@@ -25,6 +29,35 @@ describe('screenTimeProtectionRuntime', () => {
   beforeEach(() => {
     useAppStore.getState().resetStore();
     jest.clearAllMocks();
+  });
+
+  it('reconciles one composite aggregate with host-owned condition truth', async () => {
+    const rule = {
+      id: 'social-evening', selectionId: 'social', selectedApps: [],
+      selectedCategories: [{ token: 'social', label: 'Social' }], enabled: true,
+      setupCompleted: true, connector: 'all' as const, outcome: 'available' as const,
+      conditions: [
+        { id: 'focus', type: 'focus_active' as const, operator: 'is' as const, value: true as const },
+        { id: 'usage', type: 'daily_usage' as const, operator: 'below' as const, minutes: 15 },
+      ], lastUpdated: now.toISOString(),
+    };
+    const settings = normalizeScreenTimeProtectionSettings({
+      authorizationStatus: 'approved', personalRuleSchemaVersion: 2,
+      personalCompositeRules: [rule], personalRules: [],
+    });
+    const bridge = {
+      apply: jest.fn(),
+      applyComposite: jest.fn().mockResolvedValue(true),
+      clearComposite: jest.fn().mockResolvedValue(true),
+    };
+
+    await expect(reconcileScreenTimeRestrictionsForSettings({
+      settings, focusSessionActive: true, now, bridge,
+    })).resolves.toEqual([]);
+    expect(bridge.applyComposite).toHaveBeenCalledWith(rule, {
+      focusActive: true, realStepComplete: false,
+    });
+    expect(bridge.apply).not.toHaveBeenCalled();
   });
 
   it('applies active reasons through the bridge', async () => {
@@ -222,6 +255,23 @@ describe('screenTimeProtectionRuntime', () => {
 
     await expect(activatePersonalScreenTimeRule({ rule, focusSessionActive: false }))
       .resolves.toBe(false);
+  });
+
+  it('deactivates a saved rule through the native mechanism owned by its behavior', async () => {
+    const focusRule = createPersonalScreenTimeRule({
+      id: 'focus-social', selectionId: 'focus-social', kind: 'focus',
+      selectedApps: [{ token: 'social', label: 'Social' }], selectedCategories: [],
+    });
+    const limitRule = createPersonalScreenTimeRule({
+      id: 'limit-video', selectionId: 'limit-video', kind: 'daily_limit', limitMinutes: 15,
+      selectedApps: [{ token: 'video', label: 'Video' }], selectedCategories: [],
+    });
+
+    await expect(deactivatePersonalScreenTimeRule(focusRule)).resolves.toBe(true);
+    expect(clearScreenTimeRestrictionsForSelection).toHaveBeenCalledWith('focus-social');
+
+    await expect(deactivatePersonalScreenTimeRule(limitRule)).resolves.toBe(true);
+    expect(clearPersonalScreenTimeUsageLimit).toHaveBeenCalledWith('limit-video');
   });
 
   it('applies every locked Meaningful First rule independently on foreground', async () => {

@@ -17,6 +17,8 @@ test('maps an existing mutation receipt row into the canonical wire receipt', as
     receiptId: 'mutation-1', operationId: 'activities.capture', requestId: 'request-1',
     actorId: 'actor-1', householdId: 'house-1', source: 'mobile_chat', status: 'completed',
     resultRefs: [{ kind: 'activity', id: 'activity-1' }], reversible: true,
+    targetVersion: null, provider: null, retryable: false, reason: null,
+    candidateSummary: null, replayed: false,
     createdAt: '2026-08-26T12:00:00.000Z',
   });
 });

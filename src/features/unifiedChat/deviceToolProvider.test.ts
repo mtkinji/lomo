@@ -73,16 +73,21 @@ test.each([
   expect(provider.actions()[0].consequenceSummary.length).toBeGreaterThan(20);
 });
 
-test('returns an honest boundary for cross-device Screen Time control', async () => {
+test('stages an exact authorized child Screen Time intent for native review', async () => {
   const provider = createDeviceToolProvider({ snapshots });
   await expect(provider.execute({
     id: 'screen-time', toolId: 'screen_time.configure',
     arguments: { childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' },
-  }, tool('screen_time.configure'))).resolves.toEqual({
-    status: 'unavailable', retryable: false,
-    reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
+  }, tool('screen_time.configure'))).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: expect.objectContaining({
+      actionType: 'open_family_screen_time_setup', targetId: 'child-charlie',
+      payload: expect.objectContaining({
+        childDisplayName: 'Charlie', setupStep: 'selection', suggestedLabel: 'Brawl Stars', desiredAccess: 'allow',
+      }),
+    }),
   });
-  expect(provider.actions()).toEqual([]);
+  expect(provider.actions()[0].consequenceSummary).toContain('Nothing changes until');
 });
 
 test('stages personal Screen Time setup for self without substituting a child', async () => {
@@ -188,4 +193,13 @@ test('rejects a Screen Time handoff outside the authorized child snapshot', asyn
     status: 'failed', code: 'screen_time_child_not_found',
   });
   expect(provider.actions()).toEqual([]);
+});
+
+test('opens the native Activity-backed Chores surface without claiming a Chore changed', async () => {
+  const provider = createDeviceToolProvider({ snapshots });
+  await expect(provider.execute({ id: 'chores-open', toolId: 'chores.open', arguments: {} }, tool('chores.open')))
+    .resolves.toMatchObject({
+      status: 'pending_client_action', provider: 'device',
+      request: expect.objectContaining({ capabilityId: 'chores', actionType: 'open_chores' }),
+    });
 });

@@ -5,6 +5,8 @@ import {
   clearScreenTimeRestrictionsForSelection,
   applyPersonalScreenTimeUsageLimit,
   clearPersonalScreenTimeUsageLimit,
+  applyPersonalCompositeScreenTimeRule,
+  clearPersonalCompositeScreenTimeRule,
 } from './appleEcosystem/screenTimeProtection';
 import {
   getActivePersonalScreenTimeRestrictions,
@@ -14,6 +16,25 @@ import {
   type ScreenTimeProtectionSettings,
   type ScreenTimeRestrictionReason,
 } from './screenTimeProtection';
+import type { PersonalCompositeScreenTimeRule } from '../features/screen-time/domain/personalCompositeScreenTimeRule';
+
+export async function activatePersonalCompositeScreenTimeRule(params: {
+  rule: PersonalCompositeScreenTimeRule;
+  focusSessionActive?: boolean;
+  realStepComplete?: boolean;
+}): Promise<boolean> {
+  if (!params.rule.enabled) return true;
+  return applyPersonalCompositeScreenTimeRule(params.rule, {
+    focusActive: params.focusSessionActive ?? false,
+    realStepComplete: params.realStepComplete ?? false,
+  }).catch(() => false);
+}
+
+export async function deactivatePersonalCompositeScreenTimeRule(
+  rule: PersonalCompositeScreenTimeRule,
+): Promise<boolean> {
+  return clearPersonalCompositeScreenTimeRule(rule.id).catch(() => false);
+}
 
 export async function activatePersonalScreenTimeRule(params: {
   rule: PersonalScreenTimeRule;
@@ -51,6 +72,13 @@ export async function activatePersonalScreenTimeRule(params: {
   }).catch(() => false);
 }
 
+export async function deactivatePersonalScreenTimeRule(rule: PersonalScreenTimeRule): Promise<boolean> {
+  if (rule.kind === 'daily_limit') {
+    return clearPersonalScreenTimeUsageLimit(rule.id).catch(() => false);
+  }
+  return clearScreenTimeRestrictionsForSelection(rule.selectionId).catch(() => false);
+}
+
 type ScreenTimeProtectionBridge = {
   apply: (params: {
     settings: Pick<ScreenTimeProtectionSettings, 'selectedApps' | 'selectedCategories'>;
@@ -71,6 +99,11 @@ type ScreenTimeProtectionBridge = {
     restrictionLabel?: string;
   }) => Promise<boolean>;
   clearUsageLimit?: (ruleId: string) => Promise<boolean>;
+  applyComposite?: (rule: PersonalCompositeScreenTimeRule, context: {
+    focusActive: boolean;
+    realStepComplete: boolean;
+  }) => Promise<boolean>;
+  clearComposite?: (ruleId: string) => Promise<boolean>;
 };
 
 export async function reconcileScreenTimeRestrictionsForSettings(params: {
@@ -80,6 +113,23 @@ export async function reconcileScreenTimeRestrictionsForSettings(params: {
   bridge: ScreenTimeProtectionBridge;
 }): Promise<ScreenTimeRestrictionReason[]> {
   const settings = normalizeScreenTimeProtectionSettings(params.settings);
+  if (settings.personalCompositeRules.length > 0 && params.bridge.applyComposite) {
+    const now = params.now ?? new Date();
+    const unlockUntil = settings.meaningfulFirst.currentUnlockUntilIso;
+    const realStepComplete = !!unlockUntil && Number.isFinite(Date.parse(unlockUntil))
+      && now.getTime() < Date.parse(unlockUntil);
+    await Promise.all(settings.personalCompositeRules.map(async (rule) => {
+      if (rule.enabled) {
+        await params.bridge.applyComposite!(rule, {
+          focusActive: params.focusSessionActive,
+          realStepComplete,
+        }).catch(() => false);
+      } else if (params.bridge.clearComposite) {
+        await params.bridge.clearComposite(rule.id).catch(() => false);
+      }
+    }));
+    return [];
+  }
   if (settings.personalRules.length > 0) {
     const active = getActivePersonalScreenTimeRestrictions(settings, {
       now: params.now ?? new Date(),
@@ -155,6 +205,8 @@ export async function reconcileScreenTimeRestrictions(params: {
       clearSelection: clearScreenTimeRestrictionsForSelection,
       applyUsageLimit: applyPersonalScreenTimeUsageLimit,
       clearUsageLimit: clearPersonalScreenTimeUsageLimit,
+      applyComposite: (rule, context) => applyPersonalCompositeScreenTimeRule(rule, context),
+      clearComposite: clearPersonalCompositeScreenTimeRule,
     },
   });
 }

@@ -95,20 +95,35 @@ test('applies shared consequence policy before a direct server relationship muta
   expect(rpc).not.toHaveBeenCalled();
 });
 
-test('reports the cross-device Screen Time boundary without staging the wrong native action', async () => {
+test('stages an authorized cross-device Screen Time native review', async () => {
   const stageDeviceAction = jest.fn(async () => undefined);
-  const { client } = clientWith({ data: [], error: null });
+  const membershipQuery: Record<string, unknown> = {};
+  membershipQuery.select = () => membershipQuery;
+  membershipQuery.eq = () => membershipQuery;
+  membershipQuery.maybeSingle = async () => ({ data: { household_id: 'household-1' }, error: null });
+  const client = {
+    rpc: jest.fn(async () => ({ data: {
+      children: [{
+        membershipId: 'child-charlie', displayName: 'Charlie', desiredPolicyVersion: 7,
+        selections: [], agreements: [], activeOverrides: [], pendingRequests: [], devices: [], latestDeviceReceipt: null,
+      }],
+    }, error: null })),
+    from: jest.fn(() => membershipQuery),
+  };
   await expect(executeServerAgentTool({
     client, userId: 'user-1', call: {
       id: 'call-1', toolId: 'screen_time.configure',
       arguments: { childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' },
     },
     tool: tool('screen_time.configure'), stageDeviceAction,
-  })).resolves.toEqual({
-    status: 'unavailable', retryable: false,
-    reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: expect.objectContaining({
+      actionType: 'open_family_screen_time_setup', targetId: 'child-charlie',
+      payload: expect.objectContaining({ householdId: 'household-1', suggestedLabel: 'Brawl Stars', desiredAccess: 'allow' }),
+    }),
   });
-  expect(stageDeviceAction).not.toHaveBeenCalled();
+  expect(stageDeviceAction).toHaveBeenCalledTimes(1);
 });
 
 test('stages native Plan preferences without claiming availability or calendars changed', async () => {
@@ -157,11 +172,13 @@ test('captures a low-risk Activity through one receipt-safe service RPC', async 
     writeContext: { threadId: 'thread-1', runId: 'run-1', messageId: 'message-1' },
   })).resolves.toEqual({
     status: 'completed',
-    output: { receiptId: 'receipt-1', resultRefs: [{ kind: 'activity', id: 'activity-1' }] },
+    output: { receiptId: 'receipt-1', resultRefs: [{ kind: 'activity', id: 'activity-1' }], replayed: false },
     receipt: {
       receiptId: 'receipt-1', operationId: 'activities.capture', requestId: 'call-1',
       actorId: 'user-1', householdId: 'user-1', source: 'phone', status: 'completed',
       resultRefs: [{ kind: 'activity', id: 'activity-1' }], reversible: true,
+      targetVersion: null, provider: null, retryable: false, reason: null,
+      candidateSummary: null, replayed: false,
       createdAt: expect.any(String),
     },
   });

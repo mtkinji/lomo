@@ -24,6 +24,19 @@ export type ScreenTimePrerequisiteAgreementRule = ScreenTimeAgreementRule & {
 
 export type ScreenTimeProposalOperation =
   | {
+      type: 'update_personal_screen_time_rule';
+      targetId: string;
+      payload: {
+        expectedUpdatedAt: string;
+        fields: { enabled?: boolean; kind?: 'real_step' | 'focus' | 'daily_limit'; limitMinutes?: number };
+      };
+    }
+  | {
+      type: 'deactivate_personal_screen_time_rule' | 'delete_personal_screen_time_rule';
+      targetId: string;
+      payload: { expectedUpdatedAt: string };
+    }
+  | {
       type: 'block_family_screen_time_selection';
       targetId: null;
       payload: {
@@ -107,6 +120,48 @@ function parseTarget(value: unknown): ScreenTimeOverrideTarget | null {
 
 function isIntegerInRange(value: unknown, minimum: number, maximum: number): value is number {
   return Number.isInteger(value) && Number(value) >= minimum && Number(value) <= maximum;
+}
+
+function isIsoTimestamp(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() === value && Number.isFinite(Date.parse(value));
+}
+
+export function parsePersonalScreenTimeRuleProposal(
+  toolId: 'screen_time.personal_rule.update' | 'screen_time.personal_rule.deactivate' | 'screen_time.personal_rule.delete',
+  value: unknown,
+): Extract<ScreenTimeProposalOperation, {
+  type: 'update_personal_screen_time_rule' | 'deactivate_personal_screen_time_rule' | 'delete_personal_screen_time_rule';
+}> | null {
+  if (!isRecord(value) || typeof value.ruleId !== 'string' || !value.ruleId.trim()
+    || !isIsoTimestamp(value.expectedUpdatedAt)) return null;
+  if (toolId !== 'screen_time.personal_rule.update') {
+    if (Object.keys(value).some((key) => key !== 'ruleId' && key !== 'expectedUpdatedAt')) return null;
+    return {
+      type: toolId === 'screen_time.personal_rule.deactivate'
+        ? 'deactivate_personal_screen_time_rule'
+        : 'delete_personal_screen_time_rule',
+      targetId: value.ruleId,
+      payload: { expectedUpdatedAt: value.expectedUpdatedAt },
+    };
+  }
+  if (Object.keys(value).some((key) => !['ruleId', 'expectedUpdatedAt', 'fields'].includes(key))
+    || !isRecord(value.fields) || Object.keys(value.fields).length === 0
+    || Object.keys(value.fields).some((key) => !['enabled', 'kind', 'limitMinutes'].includes(key))) return null;
+  const fields = value.fields;
+  if ((fields.enabled !== undefined && typeof fields.enabled !== 'boolean')
+    || (fields.kind !== undefined && !['real_step', 'focus', 'daily_limit'].includes(String(fields.kind)))
+    || (fields.limitMinutes !== undefined && !isIntegerInRange(fields.limitMinutes, 1, 1440))) return null;
+  return {
+    type: 'update_personal_screen_time_rule', targetId: value.ruleId,
+    payload: {
+      expectedUpdatedAt: value.expectedUpdatedAt,
+      fields: {
+        ...(fields.enabled !== undefined ? { enabled: fields.enabled } : {}),
+        ...(fields.kind !== undefined ? { kind: fields.kind as 'real_step' | 'focus' | 'daily_limit' } : {}),
+        ...(fields.limitMinutes !== undefined ? { limitMinutes: Number(fields.limitMinutes) } : {}),
+      },
+    },
+  };
 }
 
 function parseAgreementRule(value: unknown): ScreenTimeAgreementRule | null {
@@ -265,6 +320,18 @@ export function parseScreenTimeOverrideProposal(
 }
 
 export function parseStoredScreenTimeProposalOperation(value: unknown): ScreenTimeProposalOperation | null {
+  if (isRecord(value) && typeof value.targetId === 'string' && isRecord(value.payload)) {
+    const toolId = value.type === 'update_personal_screen_time_rule'
+      ? 'screen_time.personal_rule.update'
+      : value.type === 'deactivate_personal_screen_time_rule'
+        ? 'screen_time.personal_rule.deactivate'
+        : value.type === 'delete_personal_screen_time_rule'
+          ? 'screen_time.personal_rule.delete'
+          : null;
+    if (toolId) return parsePersonalScreenTimeRuleProposal(toolId, {
+      ruleId: value.targetId, ...value.payload,
+    });
+  }
   if (isRecord(value) && typeof value.type === 'string' && typeof value.targetId === 'string'
     && isRecord(value.payload)) {
     if (value.type === 'update_family_screen_time_agreement' || value.type === 'deactivate_family_screen_time_agreement') {

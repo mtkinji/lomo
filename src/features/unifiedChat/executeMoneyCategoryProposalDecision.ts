@@ -6,10 +6,16 @@ import type {
   TransitionUnifiedChatProposalInput,
   UnifiedChatMutationReceipt,
   UnifiedChatProposal,
+  UnifiedChatProposalOperation,
   UnifiedChatProposalDecisionResult,
 } from './types';
 
-type MoneyProposal = Extract<UnifiedChatProposal, { capabilityId: 'money' }>;
+type MoneyCategoryOperation = Extract<UnifiedChatProposalOperation, {
+  capabilityId: 'money'; type: 'create_money_category' | 'rename_money_category';
+}>;
+export type MoneyCategoryProposal = Omit<Extract<UnifiedChatProposal, { capabilityId: 'money' }>, 'operation'> & {
+  operation: MoneyCategoryOperation;
+};
 type Repository = {
   decideProposal: (input: DecideUnifiedChatProposalInput) => Promise<UnifiedChatProposalDecisionResult>;
   transitionProposalStatus: (input: TransitionUnifiedChatProposalInput) => Promise<{ status: UnifiedChatProposal['status']; version: number }>;
@@ -22,7 +28,7 @@ export class MoneyCategoryMutationConflictError extends Error {}
 export async function executeMoneyCategoryProposalDecision({
   proposal, action, repository, moneyRepository, now = () => new Date().toISOString(),
 }: {
-  proposal: MoneyProposal;
+  proposal: MoneyCategoryProposal;
   action: DecideUnifiedChatProposalInput['action'];
   repository: Repository;
   moneyRepository: Pick<MoneyRepository, 'loadSnapshot' | 'createCategory' | 'renameCategory'>;

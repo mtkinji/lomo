@@ -33,6 +33,8 @@ function parse(value: unknown): HouseholdMealPreferencesProjection {
   }
   return {
     householdId: candidate.householdId,
+    version: Number.isInteger(candidate.version) && candidate.version >= 0 ? candidate.version : 0,
+    updatedAt: typeof candidate.updatedAt === 'string' ? candidate.updatedAt : null,
     usualDinerCount,
     usualDinerPersonIds: uniqueDiners,
     setupState: candidate.setupState,

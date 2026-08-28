@@ -94,6 +94,19 @@ describe('prepared Money Plaid Link session', () => {
     });
   });
 
+  it('repairs an existing Item without exchanging its unchanged access token', async () => {
+    mockedCreateSession.mockResolvedValue({ open: jest.fn() } as never);
+    const session = await prepareMoneyPlaidLink({ connectionId: 'connection-1' });
+    const resultPromise = session.open();
+    const callbacks = mockedCreateSession.mock.calls[0][0];
+
+    callbacks.onSuccess({ publicToken: 'ignored-update-token', metadata: {} } as never);
+
+    await expect(resultPromise).resolves.toEqual({ status: 'repaired', connectionId: 'connection-1' });
+    expect(mockedCreateToken).toHaveBeenCalledWith(expect.anything(), 'ios', 'connection-1');
+    expect(mockedExchangeToken).not.toHaveBeenCalled();
+  });
+
   it('does not let an exit race override a successful Plaid return', async () => {
     mockedCreateSession.mockResolvedValue({ open: jest.fn() } as never);
     let finishExchange: ((value: Awaited<ReturnType<typeof exchangeMoneyPlaidToken>>) => void) | undefined;

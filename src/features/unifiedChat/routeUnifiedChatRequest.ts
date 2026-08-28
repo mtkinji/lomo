@@ -24,13 +24,14 @@ const CAPABILITY_DESCRIPTIONS: Readonly<Record<UnifiedChatCapabilityId, string>>
   profile: 'Read the user\'s bounded coaching profile and update an explicitly requested display name or age range.',
   relationships: 'Read explicitly saved People, facts, dates, and follow-up cadences; remember, correct, or forget only details the user explicitly identifies.',
   household: 'Read the authenticated Household roster, roles, child capability states, caregiver grants, and bounded invitation previews.',
-  money: 'Read the current Budget answer, including whether the plan fits the chosen income or living limit, plus current-month spending aggregates. Merchant, account, and mutation workflows remain native and bounded.',
+  money: 'Read the current plan-versus-income-limit answer, including whether the Budget fits the chosen income or living limit, plus current-month spending aggregates. Merchant and account detail remain privacy-bounded, while reviewed mutations use the canonical Money actions.',
   screenTime: 'Recognize Screen Time and app-control requests that require native authorization.',
   notifications: 'Open native notification settings and authorization owned by the device.',
   account: 'Read show-up streak status or open native account, subscription, and destructive account-review surfaces; never silently execute consequential changes.',
   navigation: 'Open an exact native Kwilt destination such as search.',
   recipes: 'Find and discuss the user\'s authorized Recipes and meal ideas.',
   meal_planning: 'Prepare a household-aware Meal Plan using explicit preferences, budget boundaries, and available food evidence.',
+  groceries: 'Read and update reviewed Food Stock evidence, and manage Grocery lists without claiming retailer checkout or payment.',
 };
 
 const capabilityDescriptions = (Object.keys(CAPABILITY_DESCRIPTIONS) as UnifiedChatCapabilityId[])

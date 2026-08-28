@@ -9,18 +9,13 @@ import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { SettingsGroup, SettingsPage, SettingsRow, SettingsToggleRow } from '../../ui/SettingsSurface';
 import { Heading, Text } from '../../ui/primitives';
-import {
-  getHouseholdSnapshot,
-  type ChildCapabilityActivation,
-  type HouseholdMember,
-} from './data/household';
+import type { ChildCapabilityActivation, HouseholdMember } from './data/household';
 import {
   designateSharedHouseholdDevice,
-  listHouseholdDevices,
-  revokeHouseholdDevice,
-  setSharedHouseholdDeviceMembers,
   type HouseholdDevice,
 } from './data/householdDeviceParticipation';
+import { createHouseholdActionBoundary } from './data/householdActionBoundary';
+import { revokeHouseholdDeviceReviewed, updateHouseholdDevice } from './data/householdManagementActions';
 import { useHouseholdModeStore } from './sharedDevice/useHouseholdModeStore';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'SettingsHouseholdDevices'>;
@@ -28,6 +23,7 @@ type Props = NativeStackScreenProps<SettingsStackParamList, 'SettingsHouseholdDe
 export function HouseholdDevicesScreen({ navigation, route }: Props) {
   const authIdentity = useAppStore((state) => state.authIdentity);
   const client = useMemo(() => (authIdentity ? getSupabaseClient() : null), [authIdentity]);
+  const householdActions = useMemo(() => (client ? createHouseholdActionBoundary(client) : null), [client]);
   const [children, setChildren] = useState<HouseholdMember[]>([]);
   const [devices, setDevices] = useState<HouseholdDevice[]>([]);
   const [installId, setInstallId] = useState<string | null>(null);
@@ -36,12 +32,12 @@ export function HouseholdDevicesScreen({ navigation, route }: Props) {
   const enterHouseholdMode = useHouseholdModeStore((state) => state.enter);
 
   const load = useCallback(async () => {
-    if (!client) return;
+    if (!householdActions) return;
     try {
       const [snapshot, id, rows] = await Promise.all([
-        getHouseholdSnapshot(client),
+        householdActions.read(),
         getInstallId(),
-        listHouseholdDevices(client, route.params.householdId),
+        householdActions.listDevices(route.params.householdId),
       ]);
       setChildren(snapshot.members.filter((member) => member.role === 'child'));
       setActivations(snapshot.activations);
@@ -50,36 +46,25 @@ export function HouseholdDevicesScreen({ navigation, route }: Props) {
     } catch (error) {
       Alert.alert('Unable to load Household devices', error instanceof Error ? error.message : 'Please try again.');
     }
-  }, [client, route.params.householdId]);
+  }, [householdActions, route.params.householdId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const current = devices.find((device) => (
-    device.kind === 'shared_household' && device.installId === installId
+    device.kind === 'shared_household' && device.installId === installId && device.status !== 'revoked'
   )) ?? null;
 
   const designate = async () => {
     if (!client || !installId || busy) return;
     setBusy(true);
     try {
-      const receipt = await designateSharedHouseholdDevice(client, {
+      await designateSharedHouseholdDevice(client, {
         householdId: route.params.householdId,
         installId,
         label: 'Shared iPad',
         platform: 'ipados',
       });
-      setDevices((existing) => [...existing.filter((device) => device.installId !== installId), {
-        id: receipt.id,
-        householdId: route.params.householdId,
-        kind: 'shared_household',
-        childMembershipId: null,
-        assignedCaregiverMembershipId: null,
-        installId,
-        label: 'Shared iPad',
-        platform: 'ipados',
-        status: receipt.status,
-        memberIds: [],
-      }]);
+      await load();
     } catch (error) {
       Alert.alert('Unable to set up this iPad', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -88,15 +73,17 @@ export function HouseholdDevicesScreen({ navigation, route }: Props) {
   };
 
   const toggleMember = async (membershipId: string) => {
-    if (!client || !current || busy) return;
+    if (!householdActions || !current || busy) return;
     const next = current.memberIds.includes(membershipId)
       ? current.memberIds.filter((id) => id !== membershipId)
       : [...current.memberIds, membershipId];
     setBusy(true);
     try {
-      await setSharedHouseholdDeviceMembers(client, current.id, next);
-      setDevices((rows) => rows.map((device) => device.id === current.id
-        ? { ...device, memberIds: next } : device));
+      const receipt = await updateHouseholdDevice({
+        householdId: route.params.householdId, deviceId: current.id,
+        expectedUpdatedAt: current.updatedAt, fields: { memberIds: next }, confirmed: true,
+      }, householdActions);
+      setDevices((rows) => rows.map((device) => device.id === current.id ? receipt.result : device));
     } catch (error) {
       Alert.alert('Unable to update this iPad', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -105,11 +92,14 @@ export function HouseholdDevicesScreen({ navigation, route }: Props) {
   };
 
   const release = async () => {
-    if (!client || !current || busy) return;
+    if (!householdActions || !current || busy) return;
     setBusy(true);
     try {
-      await revokeHouseholdDevice(client, current.id);
-      setDevices((rows) => rows.filter((device) => device.id !== current.id));
+      const receipt = await revokeHouseholdDeviceReviewed({
+        householdId: route.params.householdId, deviceId: current.id,
+        expectedUpdatedAt: current.updatedAt, confirmed: true,
+      }, householdActions);
+      setDevices((rows) => rows.map((device) => device.id === current.id ? receipt.result : device));
     } catch (error) {
       Alert.alert('Unable to remove this iPad', error instanceof Error ? error.message : 'Please try again.');
     } finally {

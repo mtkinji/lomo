@@ -39,6 +39,7 @@ const LOCAL_REASONS = new Set<ScreenTimeRestrictionReason>([
   'money_review_required', 'money_over_limit', 'money_ahead_of_pace',
   'money_usage_threshold', 'money_transactions_need_review',
   'personal_usage_limit_reached',
+  'personal_composite_rule',
 ]);
 
 function isLocalRestrictionReason(reason: string): reason is ScreenTimeRestrictionReason {

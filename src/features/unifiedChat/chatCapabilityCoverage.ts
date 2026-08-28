@@ -21,12 +21,17 @@ type ChannelCoverage<Outcome extends string> = {
 export type ChatCapabilityCoverageRow = {
   id: string;
   owner: string;
+  effect: CapabilityManifestEntry['effect'];
   providers: CapabilityManifestEntry['providerEligibility'];
   consequence: CapabilityManifestEntry['consequence'];
   confirmation: CapabilityManifestEntry['confirmation'];
   toolIds: readonly string[];
   sourceRefs: readonly string[];
   returnBehavior: CapabilityManifestEntry['returnBehavior'];
+  completionMode: CapabilityManifestEntry['completionMode'];
+  requiredScopes: CapabilityManifestEntry['requiredScopes'];
+  receipt: CapabilityManifestEntry['receipt'];
+  supportedBoundary: CapabilityManifestEntry['supportedBoundary'];
   toolCoverage: readonly {
     toolId: string;
     mobileHandler: boolean;
@@ -76,12 +81,17 @@ export function buildChatCapabilityCoverage({
       return {
         id: declared.id,
         owner: declared.owner,
+        effect: 'read',
         providers: [],
         consequence: 'low',
         confirmation: 'none',
         toolIds: [],
         sourceRefs: [`capability:${declared.owner}`],
         returnBehavior: 'honest_boundary',
+        completionMode: 'direct',
+        requiredScopes: ['life.read'],
+        receipt: { required: true, resultRefKinds: [], reversible: true, undoOperationId: null },
+        supportedBoundary: { finalActOwner: 'kwilt', reason: null },
         toolCoverage: [],
         channels: {
           mobile: { state: 'pending_provider', outcome: 'honest_boundary', proofPaths: [], boundaryReason },
@@ -106,12 +116,17 @@ export function buildChatCapabilityCoverage({
     return {
       id: declared.id,
       owner: declared.owner,
+      effect: contract.effect,
       providers: contract.providerEligibility,
       consequence: contract.consequence,
       confirmation: contract.confirmation,
       toolIds,
       sourceRefs: contract.sourceRefs,
       returnBehavior: contract.returnBehavior,
+      completionMode: contract.completionMode,
+      requiredScopes: contract.requiredScopes,
+      receipt: contract.receipt,
+      supportedBoundary: contract.supportedBoundary,
       toolCoverage: toolIds.map((toolId) => ({
         toolId,
         mobileHandler: mobileHandlers.has(toolId),

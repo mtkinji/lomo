@@ -10,6 +10,7 @@ export type MutationReceiptRow = {
   resulting_object_id?: string | null;
   can_undo?: boolean | null;
   created_at?: string | null;
+  replayed?: boolean | null;
 };
 
 function canonicalStatus(status: string): KwiltActionReceipt['status'] {
@@ -25,6 +26,7 @@ function mapMutationReceipt(
   request: KwiltActionRequest,
   row: MutationReceiptRow,
   fallbackCreatedAt: string,
+  replayed = row.replayed === true,
 ): KwiltActionReceipt {
   const kind = typeof row.resulting_object_type === 'string' ? row.resulting_object_type : '';
   const id = typeof row.resulting_object_id === 'string' ? row.resulting_object_id : '';
@@ -32,7 +34,9 @@ function mapMutationReceipt(
     receiptId: row.id, operationId: request.operationId, requestId: request.requestId,
     actorId: request.actorId, householdId: request.householdId, source: request.source,
     status: canonicalStatus(row.status), resultRefs: kind && id ? [{ kind, id }] : [],
-    reversible: row.can_undo === true, createdAt: row.created_at ?? fallbackCreatedAt,
+    reversible: row.can_undo === true, targetVersion: null, provider: null,
+    retryable: false, reason: null, candidateSummary: null, replayed,
+    createdAt: row.created_at ?? fallbackCreatedAt,
   };
 }
 
@@ -44,7 +48,10 @@ function syntheticReceipt(
   return {
     receiptId: `${request.requestId}:${status}`, operationId: request.operationId,
     requestId: request.requestId, actorId: request.actorId, householdId: request.householdId,
-    source: request.source, status, resultRefs: [], reversible: false, createdAt,
+    source: request.source, status, resultRefs: [], reversible: false,
+    targetVersion: null, provider: null, retryable: status === 'failed',
+    reason: status === 'refused' ? 'authorization_refused' : 'execution_failed',
+    candidateSummary: null, replayed: false, createdAt,
   };
 }
 
@@ -64,7 +71,7 @@ export async function dispatchServerAction({
   const createdAt = now();
   if (!await authorize(request)) return syntheticReceipt(request, 'refused', createdAt);
   const replay = await findMutationReceipt(request);
-  if (replay) return mapMutationReceipt(request, replay, createdAt);
+  if (replay) return mapMutationReceipt(request, replay, createdAt, true);
   try {
     return mapMutationReceipt(request, await execute(request), createdAt);
   } catch {

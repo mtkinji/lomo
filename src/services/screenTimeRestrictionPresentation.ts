@@ -19,7 +19,7 @@ const priority = (reason: ActiveScreenTimeRestriction['reason']): number => {
   if (reason === 'focus_session_active' || reason === 'focus') return 400;
   if (reason === 'family_prerequisite') return 300;
   if (reason.startsWith('money_')) return 200;
-  if (reason === 'personal_usage_limit_reached') return 150;
+  if (reason === 'personal_usage_limit_reached' || reason === 'personal_composite_rule') return 150;
   if (reason === 'meaningful_first_locked' || reason === 'meaningful_first_bypass') return 100;
   return 0;
 };
@@ -76,6 +76,13 @@ const singleCopy = (
     return {
       title: 'That’s today’s limit.',
       subtitle: `You can use ${appName} again tomorrow, or change this rule in Kwilt.`,
+      buttonLabel: 'Open Screen Time',
+    };
+  }
+  if (restriction.reason === 'personal_composite_rule') {
+    return {
+      title: 'This Screen Time rule is active.',
+      subtitle: `Open Kwilt to review what needs to change before using ${appName}.`,
       buttonLabel: 'Open Screen Time',
     };
   }

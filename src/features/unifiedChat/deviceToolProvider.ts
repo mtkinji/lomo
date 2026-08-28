@@ -20,6 +20,7 @@ const DEVICE_TOOL_IDS = new Set([
   'navigation.account_settings.open', 'account.subscription.open', 'account.delete.open',
   'activities.open_focus', 'activities.location.update', 'activities.attachments.open',
   'activities.share.open', 'goals.share.open', 'goals.check_in', 'plan.preferences.open',
+  'chores.open',
 ]);
 
 export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChatCapabilitySnapshots }) {
@@ -153,11 +154,31 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
           fields: ['childName', 'appName', 'desiredAccess'],
         };
       }
-      return {
-        status: 'unavailable',
-        retryable: false,
-        reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
-      };
+      const matches = snapshots.screenTime?.children.filter((candidate) => (
+        candidate.canManage && candidate.householdId
+        && candidate.displayName.localeCompare(childName, undefined, { sensitivity: 'base' }) === 0
+      )) ?? [];
+      if (matches.length !== 1) {
+        return {
+          status: 'failed', code: matches.length === 0 ? 'screen_time_child_not_found' : 'screen_time_child_ambiguous',
+          message: matches.length === 0
+            ? 'That child is not available in your authorized Screen Time household.'
+            : 'More than one authorized child has that name. Choose the exact child first.',
+          retryable: true,
+        };
+      }
+      const child = matches[0];
+      return stage({
+        capabilityId: 'screenTime', actionType: 'open_family_screen_time_setup',
+        targetType: 'family_screen_time_child', targetId: child.membershipId,
+        title: `Review ${desiredAccess} for ${appName}`,
+        consequenceSummary: `Kwilt will open ${child.displayName}'s native app-selection review. Nothing changes until Apple authorization, selection, and device confirmation complete there.`,
+        payload: {
+          householdId: child.householdId, childDisplayName: child.displayName,
+          setupStep: 'selection', suggestedLabel: appName, desiredAccess,
+          expectedPolicyVersion: child.policy.desiredPolicyVersion,
+        },
+      });
     }
     if (call.toolId === 'screen_time.selection.open' || call.toolId === 'screen_time.device.setup.open'
       || call.toolId === 'screen_time.device.release.open') {
@@ -209,6 +230,10 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
       'navigation.account_settings.open': {
         capabilityId: 'account', actionType: 'open_account_settings', targetType: null, targetId: null,
         title: 'Open account settings', consequenceSummary: 'Kwilt will open your native account settings.', payload: {},
+      },
+      'chores.open': {
+        capabilityId: 'chores', actionType: 'open_chores', targetType: null, targetId: null,
+        title: 'Open Chores', consequenceSummary: 'Kwilt will open the native Chores surface.', payload: {},
       },
       'account.subscription.open': {
         capabilityId: 'account', actionType: 'open_subscription_management', targetType: null, targetId: null,

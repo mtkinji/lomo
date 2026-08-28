@@ -10,6 +10,9 @@ import type { ChapterProposalOperation } from './chapterProposal';
 import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 import type { ScreenTimeProposalOperation } from './screenTimeProposal';
 import type { RecipeProposalOperation } from './recipeProposal';
+import type { MealPreferenceProposalOperation } from './foodControlToolProvider';
+import type { MealPlanProposalOperation } from './mealPlanProposal';
+import type { GroceryProposalOperation } from './groceryProposal';
 
 export type UnifiedChatThreadStatus = 'active' | 'archived';
 export type UnifiedChatThreadTitleSource = 'default' | 'generated' | 'user';
@@ -234,7 +237,7 @@ export type UnifiedChatMutationReceipt = {
   id: string;
   proposalId: string;
   operationId: string;
-  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'screenTime' | 'money' | 'recipes';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'household' | 'screenTime' | 'money' | 'recipes' | 'meal_planning' | 'chores';
   idempotencyKey: string;
   status: 'reserved' | 'applied' | 'failed' | 'undone';
   resultingObjectType: string | null;
@@ -276,7 +279,7 @@ export type TransitionUnifiedChatRunInput = {
 };
 
 export type PersistUnifiedChatMutationReceiptInput = {
-  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'screenTime' | 'money' | 'recipes';
+  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'household' | 'screenTime' | 'money' | 'recipes' | 'meal_planning' | 'chores' | 'groceries';
   threadId: string;
   proposalId: string;
   operationId: string;
@@ -405,6 +408,14 @@ export type PlanRemoveActivityPayload = {
 
 export type UnifiedChatProposalOperation = UnifiedChatProposalOperationBase & (
   | ({ capabilityId: 'recipes' } & RecipeProposalOperation)
+  | ({ capabilityId: 'meal_planning' } & (MealPreferenceProposalOperation | MealPlanProposalOperation))
+  | ({ capabilityId: 'groceries' } & GroceryProposalOperation)
+  | {
+      capabilityId: 'household';
+      type: import('./householdToolProvider').HouseholdProposalOperationType;
+      targetId: string | null;
+      payload: Record<string, unknown>;
+    }
   | {
       capabilityId: 'money'; type: 'create_money_category'; targetId: null;
       payload: { name: string; budgetCents: number };
@@ -413,6 +424,8 @@ export type UnifiedChatProposalOperation = UnifiedChatProposalOperationBase & (
       capabilityId: 'money'; type: 'rename_money_category'; targetId: string;
       payload: { name: string; expectedName: string };
     }
+  | ({ capabilityId: 'money' } & import('./moneyToolProvider').MoneyProposalOperation)
+  | ({ capabilityId: 'chores' } & import('./choreToolProvider').ChoreProposalOperation)
   | ({ capabilityId: 'screenTime' } & ScreenTimeProposalOperation)
   | {
       capabilityId: 'relationships';
@@ -551,8 +564,24 @@ export type UnifiedChatProposal = UnifiedChatProposalBase & (
       operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'recipes' }>;
     }
   | {
+      capabilityId: 'meal_planning';
+      operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'meal_planning' }>;
+    }
+  | {
+      capabilityId: 'groceries';
+      operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'groceries' }>;
+    }
+  | {
+      capabilityId: 'household';
+      operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'household' }>;
+    }
+  | {
       capabilityId: 'money';
       operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'money' }>;
+    }
+  | {
+      capabilityId: 'chores';
+      operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'chores' }>;
     }
   | {
       capabilityId: 'screenTime';
@@ -614,11 +643,36 @@ export type CreateUnifiedChatProposalInput = CreateUnifiedChatProposalInputBase 
       operation: RecipeProposalOperation & { summary: string; idempotencyKey: string };
     }
   | {
+      capabilityId: 'meal_planning';
+      operation: (MealPreferenceProposalOperation | MealPlanProposalOperation) & { summary: string; idempotencyKey: string };
+    }
+  | {
+      capabilityId: 'groceries';
+      operation: GroceryProposalOperation & { summary: string; idempotencyKey: string };
+    }
+  | {
+      capabilityId: 'household';
+      operation: {
+        type: import('./householdToolProvider').HouseholdProposalOperationType;
+        targetId: string | null;
+        payload: Record<string, unknown>;
+        summary: string;
+        idempotencyKey: string;
+      };
+    }
+  | {
       capabilityId: 'money';
       operation: (
         | { type: 'create_money_category'; targetId: null; payload: { name: string; budgetCents: number } }
         | { type: 'rename_money_category'; targetId: string; payload: { name: string; expectedName: string } }
+        | import('./moneyToolProvider').MoneyProposalOperation
       ) & { summary: string; idempotencyKey: string };
+    }
+  | {
+      capabilityId: 'chores';
+      operation: import('./choreToolProvider').ChoreProposalOperation & {
+        summary: string; idempotencyKey: string;
+      };
     }
   | {
       capabilityId: 'screenTime';

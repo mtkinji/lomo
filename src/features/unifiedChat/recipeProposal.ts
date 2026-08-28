@@ -4,6 +4,7 @@ import {
   type ReviewedRecipeData,
 } from '../../capabilities/recipes/domain/recipeValidation';
 import { deriveSpecializedRecipeEquipment } from '../../capabilities/recipes/domain/recipeEquipment';
+import type { RecipeControlProposalOperation } from './foodControlToolProvider';
 
 const CREATE_KEYS = [
   'title', 'description', 'yieldQuantity', 'yieldUnit', 'prepMinutes', 'cookMinutes',
@@ -26,8 +27,14 @@ export type RecipeChatPatch = Partial<RecipeChatDraft>;
 
 export type RecipeProposalOperation =
   | { type: 'create_recipe'; targetId: null; expectedVersion: 0; payload: { reviewedData: ReviewedRecipeData } }
+  | { type: 'recipes.import.approve'; targetId: string; expectedVersion: number; payload: { reviewedData: ReviewedRecipeData; approvalIdempotencyKey: string } }
+  | { type: 'cook_session.start'; targetId: string; expectedVersion: number; payload: { recipeScaleMultiplier: 1 | 2 | 3 } }
+  | { type: 'cook_session.complete'; targetId: string; expectedVersion: number; payload: { outcome: 'completed' | 'abandoned' } }
+  | { type: 'recipes.fork'; targetId: string; expectedVersion: number; payload: { sourceRecipeId: string; reviewedData: ReviewedRecipeData } }
+  | { type: 'recipes.collaborator.invite'; targetId: string; expectedVersion: number; payload: { recipientPersonId: string; role: 'viewer' | 'contributor' | 'maintainer' } }
   | { type: 'update_recipe'; targetId: string; expectedVersion: number; payload: { reviewedData: ReviewedRecipeData; changedFields: string[] } }
-  | { type: 'delete_recipe'; targetId: string; expectedVersion: number; payload: Record<string, never> };
+  | { type: 'delete_recipe'; targetId: string; expectedVersion: number; payload: Record<string, never> }
+  | RecipeControlProposalOperation;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -135,6 +142,17 @@ function instructionSteps(lines: readonly string[], existing?: RecipeProjection[
 export function buildReviewedRecipeCreate(value: unknown): ReviewedRecipeData | null {
   const draft = parsedDraft(value, true);
   if (!draft?.title || !draft.ingredients || !draft.instructions) return null;
+  return buildReviewedRecipeDraft(draft, {
+    method: 'manual', sourceUrl: null, sourceTitle: null, sourceAuthor: null,
+    sourceContentHash: null, rightsBasis: 'user_authored',
+  });
+}
+
+function buildReviewedRecipeDraft(
+  draft: RecipeChatPatch,
+  provenance: ReviewedRecipeData['provenance'],
+): ReviewedRecipeData | null {
+  if (!draft.title || !draft.ingredients || !draft.instructions) return null;
   try {
     return parseReviewedRecipeData({
       title: draft.title,
@@ -147,16 +165,24 @@ export function buildReviewedRecipeCreate(value: unknown): ReviewedRecipeData | 
       ingredients: ingredientLines(draft.ingredients),
       instructions: instructionSteps(draft.instructions),
       equipmentRequirements: deriveSpecializedRecipeEquipment(draft.instructions),
-      provenance: {
-        method: 'manual', sourceUrl: null, sourceTitle: null, sourceAuthor: null,
-        sourceContentHash: null, rightsBasis: 'user_authored',
-      },
+      provenance,
       credits: [],
       lineage: [],
     });
   } catch {
     return null;
   }
+}
+
+export function buildReviewedRecipeImport(
+  value: unknown,
+  provenance: Pick<ReviewedRecipeData['provenance'], 'method' | 'sourceUrl' | 'sourceTitle' | 'sourceAuthor'>,
+): ReviewedRecipeData | null {
+  const draft = parsedDraft(value, true);
+  if (!draft) return null;
+  return buildReviewedRecipeDraft(draft, {
+    ...provenance, sourceContentHash: null, rightsBasis: 'private_user_import',
+  });
 }
 
 export function buildReviewedRecipeUpdate(
@@ -197,6 +223,38 @@ export function buildReviewedRecipeUpdate(
       lineage: recipe.lineage.map(({ id, relationship, sourceRecipeId, sourceRecipeVersionId, sourcePublicationId }) => ({
         id, relationship, sourceRecipeId, sourceRecipeVersionId, sourcePublicationId,
       })),
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function buildReviewedRecipeFork(projection: RecipeProjection): ReviewedRecipeData | null {
+  const { recipe, currentVersion } = projection;
+  try {
+    return parseReviewedRecipeData({
+      title: currentVersion.title,
+      description: currentVersion.description,
+      yieldQuantity: currentVersion.yieldQuantity,
+      yieldUnit: currentVersion.yieldUnit,
+      prepMinutes: currentVersion.prepMinutes,
+      cookMinutes: currentVersion.cookMinutes,
+      notes: currentVersion.notes,
+      ingredients: currentVersion.ingredients.map(({ id, recipeVersionId: _recipeVersionId, position: _position, ...line }) => ({ ...line, id })),
+      instructions: currentVersion.instructions.map(({ id, recipeVersionId: _recipeVersionId, position: _position, mediaAssetIds: _mediaAssetIds, ...step }) => ({ ...step, id })),
+      equipmentRequirements: currentVersion.equipmentRequirements,
+      provenance: {
+        method: 'copy', sourceUrl: recipe.provenance.sourceUrl, sourceTitle: currentVersion.title,
+        sourceAuthor: recipe.provenance.sourceAuthor, sourceContentHash: currentVersion.contentHash,
+        rightsBasis: 'private_user_import',
+      },
+      credits: recipe.credits.map(({ id, role, personId, publicProfileId, displayLabel, position, publicVisible }) => ({
+        id, role, personId, publicProfileId, displayLabel, position, publicVisible,
+      })),
+      lineage: [{
+        id: `fork:${currentVersion.id}`, relationship: 'fork', sourceRecipeId: recipe.id,
+        sourceRecipeVersionId: currentVersion.id, sourcePublicationId: recipe.lineage[0]?.sourcePublicationId ?? null,
+      }],
     });
   } catch {
     return null;

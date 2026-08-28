@@ -1,7 +1,7 @@
 import { resolveContextualPersonalRuleBuilderLaunch } from './personalRuleBuilderLaunch';
 
 describe('resolveContextualPersonalRuleBuilderLaunch', () => {
-  it('opens the suggested general rule drawer when Screen Time is already approved', () => {
+  it('opens the suggested rule in the standard Settings stack when Screen Time is already approved', () => {
     expect(resolveContextualPersonalRuleBuilderLaunch({
       authorizationStatus: 'approved',
       activityId: 'activity-42',
@@ -9,12 +9,15 @@ describe('resolveContextualPersonalRuleBuilderLaunch', () => {
       setupIntent: 'focus_sessions',
       entrySurface: 'focus_drawer',
     })).toEqual({
-      kind: 'drawer',
-      params: {
-        entry: 'contextual',
-        suggestedKind: 'focus',
-        setupIntent: 'focus_sessions',
-        entrySurface: 'focus_drawer',
+      kind: 'builder',
+      route: {
+        screen: 'SettingsScreenTimeRuleBuilder',
+        params: {
+          entry: 'contextual',
+          suggestedKind: 'focus',
+          setupIntent: 'focus_sessions',
+          entrySurface: 'focus_drawer',
+        },
       },
     });
   });

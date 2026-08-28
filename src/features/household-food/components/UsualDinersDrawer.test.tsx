@@ -11,8 +11,8 @@ jest.mock('../../../ui/BottomDrawer', () => {
 });
 
 const members = [
-  { id: 'membership-adult', personId: 'adult', displayName: 'Blair', kind: 'adult' as const, role: 'owner' as const },
-  { id: 'membership-child', personId: 'child', displayName: 'Avery', kind: 'dependent' as const, role: 'child' as const },
+  { id: 'membership-adult', personId: 'adult', displayName: 'Blair', kind: 'adult' as const, role: 'owner' as const, updatedAt: 'version' },
+  { id: 'membership-child', personId: 'child', displayName: 'Avery', kind: 'dependent' as const, role: 'child' as const, updatedAt: 'version' },
 ];
 
 describe('Usually cooking for drawer', () => {

@@ -179,7 +179,7 @@ async function performGlanceableStateMerge(
   const ok = await writeGlanceableState(merged);
   if (ok) {
     if (Object.prototype.hasOwnProperty.call(partial, 'focusSession')) {
-      scheduleWidgetReload(['KwiltWidgets.focus'], { immediate: true });
+      scheduleWidgetReload(['KwiltWidgets.focus', 'KwiltWidgets.launcher'], { immediate: true });
     } else {
       scheduleWidgetReload();
     }

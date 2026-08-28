@@ -81,6 +81,7 @@ import { extractInspectableSourceUrls } from './webSearchResponse';
 import { executePlanProposalDecision } from './executePlanProposalDecision';
 import { executeGoalProposalDecision } from './executeGoalProposalDecision';
 import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
+import { createPersonalScreenTimeRuleActionBoundary } from '../screen-time/runtime/personalScreenTimeRuleActionBoundary';
 import { recoverScreenTimeMutations } from './recoverScreenTimeMutations';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { applyApprovedPlanProposal } from './planProposalExecutor';
@@ -93,7 +94,6 @@ import { executeProfileProposalDecision } from './executeProfileProposalDecision
 import { recoverProfileMutations } from './recoverProfileMutations';
 import { executeChapterProposalDecision } from './executeChapterProposalDecision';
 import { recoverChapterMutations } from './recoverChapterMutations';
-import { fetchMyChapterById, updateChapterUserNote } from '../../services/chapters';
 import { executeClientActionDecision } from './executeClientActionDecision';
 import { resolveClientActionOpenInstruction } from './clientActionNavigation';
 import { prepareClientActionNativeReview } from './prepareClientActionNativeReview';
@@ -132,86 +132,41 @@ import {
 import { buildUnifiedChatTranscript } from './chatTranscript';
 import { createMoneyRepository } from '../../capabilities/money/data/moneyRepository';
 import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProposalDecision';
+import { executeMoneyControlProposalDecision } from './executeMoneyControlProposalDecision';
+import { createMoneyControlActions } from '../../capabilities/money/actions/moneyControlActions';
+import { createMoneyControlActionBoundary } from '../../capabilities/money/actions/moneyControlActionBoundary';
 import { executeRecipeProposalDecision } from './executeRecipeProposalDecision';
-import { createRecipeRepository } from '../../capabilities/recipes/data/recipeRepository';
-import { useRecipeStore } from '../../capabilities/recipes/runtime/useRecipeStore';
+import { executeMealPreferenceProposalDecision } from './executeMealPreferenceProposalDecision';
+import { executeMealPlanProposalDecision } from './executeMealPlanProposalDecision';
+import { executeGroceryProposalDecision } from './executeGroceryProposalDecision';
+import { executeHouseholdProposalDecision } from './executeHouseholdProposalDecision';
+import { createHouseholdActionBoundary } from '../household/data/householdActionBoundary';
+import { createChoreRepository } from '../../capabilities/chores/data/choreRepository';
+import { createChoreActions } from '../../capabilities/chores/domain/choreActions';
+import { executeChoreProposalDecision } from './executeChoreProposalDecision';
 import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
+import { recoverMoneyControlMutations } from './recoverMoneyControlMutations';
 import { buildFreshDrawerContext, getFreshDrawerCopy, getFreshDrawerOffers } from './contextualChatPresentation';
 import { UnifiedChatDrawerHeader } from './UnifiedChatDrawerHeader';
 import type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
+import {
+  activityStoreBoundary,
+  arcStoreBoundary,
+  chapterStoreBoundary,
+  goalStoreBoundary,
+  isMealPlanProposal,
+  isMealPreferenceProposal,
+  isMoneyCategoryProposal,
+  isMoneyControlProposal,
+  planStoreBoundary,
+  profileStoreBoundary,
+  recipeMutationBoundary,
+  resolveCookRecipe,
+} from './proposalDecisionBoundaries';
 
 export type { UnifiedChatScreenProps } from './UnifiedChatScreenProps';
 
 const CHAT_RECOVERY_ILLUSTRATION = require('../../../assets/illustrations/recovery-broken-chain.png');
-
-const activityStoreBoundary = {
-  getActivities: () => useAppStore.getState().activities,
-  getGoals: () => useAppStore.getState().goals,
-  addActivity: (activity: Parameters<ReturnType<typeof useAppStore.getState>['addActivity']>[0]) =>
-    useAppStore.getState().addActivity(activity),
-  updateActivity: (id: string, updater: Parameters<ReturnType<typeof useAppStore.getState>['updateActivity']>[1]) =>
-    useAppStore.getState().updateActivity(id, updater),
-  removeActivity: (id: string) => useAppStore.getState().removeActivity(id),
-};
-
-const recipeMutationBoundary = {
-  save: (input: Parameters<ReturnType<typeof createRecipeRepository>['save']>[0]) =>
-    createRecipeRepository().save(input),
-  delete: (recipeId: string, expectedVersion: number) =>
-    createRecipeRepository().delete(recipeId, expectedVersion),
-  refresh: () => useRecipeStore.getState().refresh(),
-};
-
-const planStoreBoundary = {
-  getActivities: () => useAppStore.getState().activities,
-  updateActivity: (id: string, updater: Parameters<ReturnType<typeof useAppStore.getState>['updateActivity']>[1]) =>
-    useAppStore.getState().updateActivity(id, updater),
-  addDailyPlanCommitment: (dateKey: string, activityId: string) =>
-    useAppStore.getState().addDailyPlanCommitment(dateKey, activityId),
-  removeDailyPlanCommitment: (dateKey: string, activityId: string) =>
-    useAppStore.getState().removeDailyPlanCommitment(dateKey, activityId),
-};
-
-const goalStoreBoundary = {
-  getGoals: () => useAppStore.getState().goals,
-  getArcIds: () => useAppStore.getState().arcs.map((arc) => arc.id),
-  getActivities: () => useAppStore.getState().activities,
-  addGoal: (goal: Parameters<ReturnType<typeof useAppStore.getState>['addGoal']>[0]) =>
-    useAppStore.getState().addGoal(goal),
-  updateGoal: (id: string, updater: Parameters<ReturnType<typeof useAppStore.getState>['updateGoal']>[1]) =>
-    useAppStore.getState().updateGoal(id, updater),
-  removeGoal: (id: string) => useAppStore.getState().removeGoal(id),
-  restoreRemovedGoal: (input: Parameters<ReturnType<typeof useAppStore.getState>['restoreRemovedGoal']>[0]) =>
-    useAppStore.getState().restoreRemovedGoal(input),
-};
-
-const arcStoreBoundary = {
-  getArcs: () => useAppStore.getState().arcs,
-  getGoals: () => useAppStore.getState().goals,
-  getActivities: () => useAppStore.getState().activities,
-  getGoalRecommendations: (arcId: string) => useAppStore.getState().goalRecommendations[arcId] ?? [],
-  getIsPro: () => useEntitlementsStore.getState().isPro,
-  addArc: (arc: Parameters<ReturnType<typeof useAppStore.getState>['addArc']>[0]) =>
-    useAppStore.getState().addArc(arc),
-  updateArc: (id: string, updater: Parameters<ReturnType<typeof useAppStore.getState>['updateArc']>[1]) =>
-    useAppStore.getState().updateArc(id, updater),
-  removeArc: (id: string) => useAppStore.getState().removeArc(id),
-  restoreRemovedArc: (input: Parameters<ReturnType<typeof useAppStore.getState>['restoreRemovedArc']>[0]) =>
-    useAppStore.getState().restoreRemovedArc(input),
-};
-
-const profileStoreBoundary = {
-  getProfile: () => useAppStore.getState().userProfile,
-  updateProfileAt: (
-    updater: Parameters<ReturnType<typeof useAppStore.getState>['updateUserProfileAt']>[0],
-    updatedAt: string,
-  ) => useAppStore.getState().updateUserProfileAt(updater, updatedAt),
-};
-
-const chapterStoreBoundary = {
-  getChapter: (id: string) => fetchMyChapterById(id),
-  updateNote: (id: string, note: string | null) => updateChapterUserNote({ chapterId: id, note }),
-};
 
 export function UnifiedChatScreen({
   presentation = 'screen',
@@ -406,8 +361,14 @@ export function UnifiedChatScreen({
     const moneyRecovered = await recoverMoneyCategoryMutations({
       aggregate: chaptersRecovered, repository, moneyRepository,
     });
+    const moneyControlsRecovered = await recoverMoneyControlMutations({
+      aggregate: moneyRecovered, repository,
+      actions: createMoneyControlActions(createMoneyControlActionBoundary(moneyRepository)),
+      loadSnapshot: moneyRepository.loadSnapshot,
+    });
     const screenTimeRecovered = await recoverScreenTimeMutations({
-      aggregate: moneyRecovered, repository, client: getSupabaseClient(),
+      aggregate: moneyControlsRecovered, repository, client: getSupabaseClient(),
+      personalBoundary: createPersonalScreenTimeRuleActionBoundary(),
     });
     for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, screenTimeRecovered)) {
       track(posthogClient, AnalyticsEvent.UnifiedChatReconciled, properties);
@@ -1190,13 +1151,35 @@ export function UnifiedChatScreen({
           const executeApprovedProposal = async (proposal: UnifiedChatProposal) => {
             if (proposal.capabilityId === 'recipes') {
               await executeRecipeProposalDecision({
-                proposal, action: 'approve', repository, recipes: recipeMutationBoundary,
+                proposal, action: 'approve', repository, recipes: recipeMutationBoundary, resolveCookRecipe,
               });
+            } else if (proposal.capabilityId === 'meal_planning') {
+              if (isMealPlanProposal(proposal)) {
+                await executeMealPlanProposalDecision({ proposal, action: 'approve', repository });
+              } else if (isMealPreferenceProposal(proposal)) {
+                await executeMealPreferenceProposalDecision({ proposal, action: 'approve', repository });
+              }
+            } else if (proposal.capabilityId === 'groceries') {
+              await executeGroceryProposalDecision({ proposal, action: 'approve', repository });
+            } else if (proposal.capabilityId === 'household') {
+              await executeHouseholdProposalDecision({ proposal, action: 'approve', repository,
+                boundary: createHouseholdActionBoundary(getSupabaseClient()) });
             } else if (proposal.capabilityId === 'money') {
-              await executeMoneyCategoryProposalDecision({ proposal, action: 'approve', repository, moneyRepository });
+              if (isMoneyCategoryProposal(proposal)) {
+                await executeMoneyCategoryProposalDecision({ proposal, action: 'approve', repository, moneyRepository });
+              } else if (isMoneyControlProposal(proposal)) {
+                await executeMoneyControlProposalDecision({
+                  proposal, action: 'approve', repository,
+                  actions: createMoneyControlActions(createMoneyControlActionBoundary(moneyRepository)),
+                });
+              }
+            } else if (proposal.capabilityId === 'chores') {
+              await executeChoreProposalDecision({ proposal, action: 'approve', repository,
+                actions: createChoreActions(createChoreRepository()) });
             } else if (proposal.capabilityId === 'screenTime') {
               await executeScreenTimeProposalDecision({
                 proposal, action: 'approve', repository, client: getSupabaseClient(),
+                personalBoundary: createPersonalScreenTimeRuleActionBoundary(),
               });
             } else if (proposal.capabilityId === 'plan') {
               await executePlanProposalDecision({
@@ -1249,12 +1232,69 @@ export function UnifiedChatScreen({
           setError(null);
           try {
             await executeRecipeProposalDecision({
-              proposal, action: command.action, repository, recipes: recipeMutationBoundary,
+              proposal, action: command.action, repository, recipes: recipeMutationBoundary, resolveCookRecipe,
             });
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
             setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Recipe.');
+          }
+          return;
+        }
+        if (proposal.capabilityId === 'meal_planning') {
+          if (command.action === 'edit') {
+            setError(isMealPlanProposal(proposal)
+              ? 'Ask Kwilt to prepare a revised Meal Plan change.'
+              : 'Ask Kwilt to prepare revised meal preferences.');
+            return;
+          }
+          setError(null);
+          try {
+            if (isMealPlanProposal(proposal)) {
+              await executeMealPlanProposalDecision({ proposal, action: command.action, repository });
+            } else if (isMealPreferenceProposal(proposal)) {
+              await executeMealPreferenceProposalDecision({ proposal, action: command.action, repository });
+            }
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that Meal Plan change.');
+          }
+          return;
+        }
+        if (proposal.capabilityId === 'groceries') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Food Stock change.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeGroceryProposalDecision({ proposal, action: command.action, repository });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that Food Stock change.');
+          }
+          return;
+        }
+        if (proposal.capabilityId === 'household') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Household change.');
+            return;
+          }
+          setError(null);
+          try {
+            const completion = await executeHouseholdProposalDecision({
+              proposal, action: command.action, repository,
+              boundary: createHouseholdActionBoundary(getSupabaseClient()),
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+            if (completion.status === 'pending_client_action') {
+              setError('The Household record is reconciled. Finish device-local cleanup from Household Devices.');
+            }
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that Household change.');
           }
           return;
         }
@@ -1265,13 +1305,36 @@ export function UnifiedChatScreen({
           }
           setError(null);
           try {
-            await executeMoneyCategoryProposalDecision({
-              proposal, action: command.action, repository, moneyRepository,
-            });
+            if (isMoneyCategoryProposal(proposal)) {
+              await executeMoneyCategoryProposalDecision({
+                proposal, action: command.action, repository, moneyRepository,
+              });
+            } else if (isMoneyControlProposal(proposal)) {
+              await executeMoneyControlProposalDecision({
+                proposal, action: command.action, repository,
+                actions: createMoneyControlActions(createMoneyControlActionBoundary(moneyRepository)),
+              });
+            }
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
           } catch (decisionError) {
             setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
             setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Money category.');
+          }
+          return;
+        }
+        if (proposal.capabilityId === 'chores') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Chore change.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeChoreProposalDecision({ proposal, action: command.action, repository,
+              actions: createChoreActions(createChoreRepository()) });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that Chore change.');
           }
           return;
         }
@@ -1286,6 +1349,7 @@ export function UnifiedChatScreen({
           try {
             await executeScreenTimeProposalDecision({
               proposal, action: command.action, repository, client: getSupabaseClient(),
+              personalBoundary: createPersonalScreenTimeRuleActionBoundary(),
             });
             track(posthogClient, AnalyticsEvent.FamilyScreenTimeChatPolicyOutcome,
               buildFamilyScreenTimeDecisionTelemetry(
@@ -1468,6 +1532,12 @@ export function UnifiedChatScreen({
               chapterStore: chapterStoreBoundary,
               relationshipUndo: receipt.capabilityId === 'relationships'
                 ? createRelationshipMemoryToolProvider({}).undoReceipt
+                : undefined,
+              householdBoundary: receipt.capabilityId === 'household'
+                ? createHouseholdActionBoundary(getSupabaseClient())
+                : undefined,
+              personalScreenTimeBoundary: receipt.capabilityId === 'screenTime'
+                ? createPersonalScreenTimeRuleActionBoundary()
                 : undefined,
               moneyRepository,
             });

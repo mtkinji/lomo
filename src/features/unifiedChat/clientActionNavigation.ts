@@ -2,7 +2,7 @@ import type { UnifiedChatClientAction } from './types';
 
 export type ClientActionOpenInstruction =
   | { kind: 'search' }
-  | { kind: 'navigate'; name: 'MainTabs' | 'Settings' | 'Money'; params: Record<string, unknown> };
+  | { kind: 'navigate'; name: 'MainTabs' | 'Settings' | 'Money' | 'Chores' | 'Food'; params: Record<string, unknown> };
 
 export function resolveClientActionOpenInstruction(
   action: UnifiedChatClientAction,
@@ -58,6 +58,46 @@ export function resolveClientActionOpenInstruction(
         },
       };
     }
+    case 'open_money_connection_repair':
+      if (!action.targetId || action.targetType !== 'money_connection'
+        || action.payload.toolId !== 'money.connection.repair.open') return null;
+      return { kind: 'navigate', name: 'Money', params: { screen: 'MoneyAccounts' } };
+    case 'open_money_control': {
+      const toolId = typeof action.payload.toolId === 'string' ? action.payload.toolId : '';
+      if (toolId.startsWith('money.transaction.')) {
+        if (!action.targetId || action.targetType !== 'money_transaction') return null;
+        return {
+          kind: 'navigate', name: 'Money',
+          params: { screen: 'MoneyTransactionDetail', params: { transactionId: action.targetId } },
+        };
+      }
+      if (toolId.startsWith('money.connection.')) {
+        if (!action.targetId || action.targetType !== 'money_connection') return null;
+        return { kind: 'navigate', name: 'Money', params: { screen: 'MoneyAccounts' } };
+      }
+      if (toolId === 'money.transfer.get' || toolId === 'money.transfer.review') {
+        if (!action.targetId || action.targetType !== 'money_transfer') return null;
+        return {
+          kind: 'navigate', name: 'Money',
+          params: { screen: 'MoneyTransactions', params: { reviewState: 'not_counted' } },
+        };
+      }
+      if (toolId === 'money.transfer.list') {
+        return {
+          kind: 'navigate', name: 'Money',
+          params: { screen: 'MoneyTransactions', params: { reviewState: 'not_counted' } },
+        };
+      }
+      if (toolId === 'money.budget.read' || toolId === 'money.budget.update' || !toolId) {
+        return { kind: 'navigate', name: 'Money', params: { screen: 'MoneySummary' } };
+      }
+      return null;
+    }
+    case 'open_chore_evidence_picker':
+      if (!action.targetId || action.targetType !== 'chore_occurrence') return null;
+      return { kind: 'navigate', name: 'Chores', params: { occurrenceId: action.targetId, openEvidencePicker: true } };
+    case 'open_chores':
+      return { kind: 'navigate', name: 'Chores', params: {} };
     case 'configure_screen_time':
       return {
         kind: 'navigate', name: 'Settings', params: {
@@ -90,6 +130,16 @@ export function resolveClientActionOpenInstruction(
             setupIntent: 'settings_discovery',
             entrySurface: 'settings',
           },
+        },
+      };
+    }
+    case 'open_personal_screen_time_rules':
+      return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsScreenTimeProtection' } };
+    case 'open_personal_screen_time_rule': {
+      if (!action.targetId) return null;
+      return {
+        kind: 'navigate', name: 'Settings', params: {
+          screen: 'SettingsScreenTimeRuleBuilder', params: { entry: 'inventory', ruleId: action.targetId },
         },
       };
     }
@@ -129,6 +179,41 @@ export function resolveClientActionOpenInstruction(
       return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsProfile', params: { openAccountDeletion: true } } };
     case 'open_plan_preferences':
       return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsPlanAvailability' } };
+    case 'open_recipe_import': {
+      const method = typeof action.payload.method === 'string' ? action.payload.method : '';
+      if (!['url', 'photo', 'scan', 'text', 'voice', 'email'].includes(method)) return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'RecipeImportReview', params: { intent: method === 'url' ? 'web' : 'family' },
+      } };
+    }
+    case 'open_cook_session_timer': {
+      const recipeId = typeof action.payload.recipeId === 'string' ? action.payload.recipeId.trim() : '';
+      const multiplier = Number(action.payload.recipeScaleMultiplier);
+      if (!recipeId || ![1, 2, 3].includes(multiplier)) return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'RecipeCookMode', params: { recipeId, recipeScaleMultiplier: multiplier },
+      } };
+    }
+    case 'open_recipe_share_copy': {
+      const recipeVersionId = typeof action.payload.recipeVersionId === 'string' ? action.payload.recipeVersionId.trim() : '';
+      const recipientPersonId = typeof action.payload.recipientPersonId === 'string' ? action.payload.recipientPersonId.trim() : '';
+      if (!action.targetId || !recipeVersionId || !recipientPersonId) return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'RecipeHome', params: { recipeId: action.targetId },
+      } };
+    }
+    case 'open_grocery_product_match': {
+      const groceryListId = typeof action.payload.groceryListId === 'string' ? action.payload.groceryListId.trim() : '';
+      if (!action.targetId || action.targetType !== 'grocery_item' || !groceryListId || action.payload.provider !== 'kroger') return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'KrogerCart', params: { listId: groceryListId },
+      } };
+    }
+    case 'open_grocery_handoff':
+      if (!action.targetId || action.targetType !== 'grocery_list') return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'GroceryHandoff', params: { listId: action.targetId },
+      } };
     default: return null;
   }
 }

@@ -47,13 +47,15 @@ export type MoneyPlanRow = {
   expected_need_cents?: number | null;
   expected_need_due_month?: string | null;
   plan_role?: MoneyCategoryPlanRole | null;
+  updated_at?: string | null;
 };
 
 export type MoneyConnectionRow = {
   id: string;
   institution_name: string;
-  status: 'linked' | 'syncing' | 'healthy' | 'error';
+  status: 'linked' | 'syncing' | 'healthy' | 'error' | 'disconnecting' | 'disconnected';
   last_synced_at: string | null;
+  updated_at?: string | null;
 };
 
 export type MoneyRuleRow = {
@@ -101,6 +103,7 @@ export type MoneyTransactionRow = {
   personal_finance_category_primary?: string | null;
   personal_finance_category_detailed?: string | null;
   personal_finance_category_confidence?: 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN' | null;
+  updated_at?: string | null;
 };
 
 export type MoneyTransactionAllocationRow = {
@@ -149,6 +152,7 @@ export type MoneyCategory = {
   planRole?: MoneyCategoryPlanRole;
   planRoleOverride?: MoneyCategoryPlanRole | null;
   mappingTags?: string[];
+  updatedAt?: string;
 };
 
 export type MoneyTransaction = {
@@ -188,6 +192,16 @@ export type MoneyTransaction = {
     sourceAccountName: string;
     destinationAccountName: string;
   };
+  updatedAt?: string;
+};
+
+export type MoneyConnection = {
+  id: string;
+  institutionName: string;
+  status: MoneyConnectionRow['status'];
+  lastSyncedAt: string | null;
+  accountCount: number;
+  updatedAt: string;
 };
 
 export type MoneyAccount = {
@@ -229,6 +243,7 @@ export type MoneySnapshot = {
   categories: MoneyCategory[];
   transactions: MoneyTransaction[];
   accounts: MoneyAccount[];
+  connections?: MoneyConnection[];
   livingLimitAnswer?: MoneyPlanLimitAnswer | null;
   monthlyPlan?: MonthlyHouseholdPlanStatement | null;
 };
@@ -404,6 +419,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         forecast,
         planRoleOverride,
         mappingTags: Array.isArray(category.mapping_tags) ? category.mapping_tags : [],
+        updatedAt: plan?.updated_at ?? now.toISOString(),
       };
       return {
         ...projectedCategory,
@@ -439,6 +455,14 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
       latestTransactionDate: newest,
     };
   });
+  const connections = rows.connections.map((connection): MoneyConnection => ({
+    id: connection.id,
+    institutionName: connection.institution_name.trim() || 'Linked institution',
+    status: connection.status,
+    lastSyncedAt: connection.last_synced_at,
+    accountCount: rows.accounts.filter((account) => account.connection_id === connection.id).length,
+    updatedAt: connection.updated_at ?? now.toISOString(),
+  }));
 
   const plannedCents = categories.reduce((sum, category) => sum + category.plannedCents, 0);
   const spentCents = categories.reduce((sum, category) => sum + category.spentCents, 0);
@@ -485,6 +509,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
     categories,
     transactions,
     accounts,
+    connections,
   };
 }
 
@@ -562,6 +587,7 @@ function projectTransaction(
       : null,
     savedResourceCents: Math.min(validCents(transaction.saved_resource_cents ?? 0), validCents(transaction.amount_cents)),
     planCoverageReviewedAt: transaction.plan_coverage_reviewed_at ?? null,
+    updatedAt: transaction.updated_at ?? new Date(`${transaction.date}T00:00:00.000Z`).toISOString(),
     ...(allocations?.length ? { allocations } : {}),
   };
 }

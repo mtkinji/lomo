@@ -19,6 +19,7 @@ const snapshot = {
   categories: [],
   transactions: [],
   accounts: [],
+  connections: [],
 } as MoneySnapshot;
 
 function memoryAdapter() {
@@ -68,5 +69,23 @@ describe('moneySnapshotCache', () => {
 
     await expect(cache.load('user-a')).resolves.toBeNull();
     await expect(cache.load('user-b')).resolves.toEqual({ ...snapshot, generatedAt: 'user-b' });
+  });
+
+  it('normalizes legacy snapshots before Money actions can inspect them', async () => {
+    const adapter = memoryAdapter();
+    const cache = createMoneySnapshotCache(adapter);
+    const legacy = {
+      ...snapshot,
+      categories: [{ id: 'food', sourceId: 'food-source' }],
+      transactions: [{ id: 'transaction-1' }],
+    } as unknown as Record<string, unknown>;
+    delete legacy.connections;
+    adapter.rows.set(moneySnapshotCacheKey('user-a'), JSON.stringify({ schemaVersion: 1, snapshot: legacy }));
+
+    await expect(cache.load('user-a')).resolves.toMatchObject({
+      connections: [],
+      categories: [{ id: 'food', sourceId: 'food-source', updatedAt: snapshot.generatedAt }],
+      transactions: [{ id: 'transaction-1', updatedAt: snapshot.generatedAt }],
+    });
   });
 });

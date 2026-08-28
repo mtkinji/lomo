@@ -43,13 +43,28 @@ export function SettingsPage({
   );
 }
 
-export function SettingsGroup({ children, footer, title }: { children: ReactNode; footer?: string; title?: string }) {
+export function SettingsGroup({
+  children,
+  footer,
+  headerAction,
+  title,
+}: {
+  children: ReactNode;
+  footer?: string;
+  headerAction?: ReactNode;
+  title?: string;
+}) {
   return (
     <View style={styles.groupBlock}>
-      {title ? (
-        <Text selectable style={styles.groupLabel}>
-          {title}
-        </Text>
+      {title || headerAction ? (
+        <View style={styles.groupHeader}>
+          {title ? (
+            <Text selectable style={styles.groupLabel}>
+              {title}
+            </Text>
+          ) : <View />}
+          {headerAction}
+        </View>
       ) : null}
       <View style={styles.group}>{children}</View>
       {footer ? (
@@ -58,6 +73,49 @@ export function SettingsGroup({ children, footer, title }: { children: ReactNode
         </Text>
       ) : null}
     </View>
+  );
+}
+
+export function SettingsDetailRow({
+  context,
+  description,
+  disabled = false,
+  onPress,
+  state,
+  title,
+}: {
+  context?: string;
+  description: string;
+  disabled?: boolean;
+  onPress: () => void;
+  state?: string;
+  title: string;
+}) {
+  const accessibilityLabel = [
+    `${title}.`,
+    description,
+    context ? `${context}.` : null,
+    state,
+  ].filter(Boolean).join(' ');
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.detailRow, disabled ? styles.disabled : null, pressed ? styles.pressed : null]}
+    >
+      <View style={styles.rowCopy}>
+        <Text selectable={false} style={styles.rowTitle}>{title}</Text>
+        <Text selectable={false} style={styles.rowDescription}>{description}</Text>
+        {context ? <Text selectable={false} style={styles.rowContext}>{context}</Text> : null}
+      </View>
+      <View style={styles.rowTrailing}>
+        {state ? <Text selectable={false} style={styles.rowValue}>{state}</Text> : null}
+        <Icon name="chevronRight" size={17} color={colors.textSecondary} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -97,6 +155,7 @@ export function SettingsInstructionSection({
 export function SettingsRow({
   destructive = false,
   disabled = false,
+  multiline = false,
   onPress,
   showsDisclosureIndicator,
   title,
@@ -104,6 +163,7 @@ export function SettingsRow({
 }: {
   destructive?: boolean;
   disabled?: boolean;
+  multiline?: boolean;
   onPress?: () => void;
   showsDisclosureIndicator?: boolean;
   title: string;
@@ -112,7 +172,11 @@ export function SettingsRow({
   const showDisclosure = showsDisclosureIndicator ?? Boolean(onPress);
   const content = (
     <>
-      <Text selectable={false} numberOfLines={1} style={[styles.rowTitle, destructive ? styles.rowTitleDestructive : null]}>
+      <Text
+        selectable={false}
+        numberOfLines={multiline ? undefined : 1}
+        style={[styles.rowTitle, destructive ? styles.rowTitleDestructive : null]}
+      >
         {title}
       </Text>
       <View style={styles.rowTrailing}>
@@ -151,12 +215,14 @@ export function SettingsRow({
 export function SettingsChoiceRow({
   description,
   disabled = false,
+  multilineTitle = false,
   onPress,
   selected,
   title,
 }: {
   description?: string;
   disabled?: boolean;
+  multilineTitle?: boolean;
   onPress: () => void;
   selected: boolean;
   title: string;
@@ -171,7 +237,7 @@ export function SettingsChoiceRow({
       style={({ pressed }) => [styles.row, disabled ? styles.disabled : null, pressed ? styles.pressed : null]}
     >
       <View style={styles.rowCopy}>
-        <Text selectable={false} numberOfLines={1} style={styles.rowTitle}>
+        <Text selectable={false} numberOfLines={multilineTitle ? undefined : 1} style={styles.rowTitle}>
           {title}
         </Text>
         {description ? (
@@ -397,6 +463,13 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     gap: spacing.xs,
   },
+  groupHeader: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   groupLabel: {
     paddingHorizontal: spacing.md,
     color: colors.textSecondary,
@@ -443,6 +516,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 9,
   },
+  detailRow: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   rowTitle: {
     color: colors.textPrimary,
     flex: 1,
@@ -461,6 +543,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 18,
+  },
+  rowContext: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   rowTitleDestructive: {
     color: colors.destructive,

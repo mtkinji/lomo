@@ -8,6 +8,9 @@ import { executeServerProfileTool } from './serverProfileTools.ts';
 import { executeServerRelationshipTool } from './serverRelationshipTools.ts';
 import { executeServerHouseholdTool } from './serverHouseholdTools.ts';
 import { executeServerScreenTimeTool } from './serverScreenTimeTools.ts';
+import { executeServerMoneyTool } from './serverMoneyTools.ts';
+import { executeServerChoreTool } from './serverChoreTools.ts';
+import { executeServerFoodTool } from './serverFoodTools.ts';
 import { SERVER_AGENT_TOOL_CATALOG } from './serverAgentCatalog.ts';
 import {
   createServerToolProviderRegistry,
@@ -16,6 +19,11 @@ import {
 } from './serverToolProviderRegistry.ts';
 import { dispatchServerAction } from './serverActionDispatcher.ts';
 import type { KwiltActionSource } from '../../../packages/kwilt-agent-runtime/src/types.ts';
+import {
+  executeActionEnvelope,
+  type ActionExecutionReceiptStore,
+  type KwiltActionExecutionEnvelope,
+} from '../../../packages/kwilt-agent-runtime/src/actionExecution.ts';
 import { calendarDateInTimeZone, normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 import { evaluateToolPolicy } from '../../../packages/kwilt-agent-runtime/src/policy.ts';
 type ClientActionRequest = ServerDeviceActionRequest;
@@ -40,6 +48,13 @@ type ExecuteServerAgentToolArgs = {
   writeContext?: { threadId: string; runId: string; messageId: string };
   actionSource?: KwiltActionSource;
   timeZone?: string;
+  actionExecution?: {
+    envelope(call: ServerAgentToolCall, tool: ServerAgentToolDefinition): KwiltActionExecutionEnvelope;
+    store: ActionExecutionReceiptStore;
+    resolveTarget?: Parameters<typeof executeActionEnvelope>[0]['resolveTarget'];
+    createReceiptId(): string;
+    now(): string;
+  };
 };
 const SERVER_TOOL_PROVIDER_REGISTRY = createServerToolProviderRegistry(SERVER_AGENT_TOOL_CATALOG);
 function asRecord(value: unknown): Record<string, unknown> {
@@ -357,6 +372,10 @@ const DEVICE_ACTIONS: Record<string, ClientActionRequest> = {
     capabilityId: 'account', actionType: 'open_account_settings', targetType: null, targetId: null,
     title: 'Open account settings', consequenceSummary: 'Kwilt will open your native account settings.', payload: {},
   },
+  'chores.open': {
+    capabilityId: 'chores', actionType: 'open_chores', targetType: null, targetId: null,
+    title: 'Open Chores', consequenceSummary: 'Kwilt will open the native Chores surface.', payload: {},
+  },
   'account.subscription.open': {
     capabilityId: 'account', actionType: 'open_subscription_management', targetType: null, targetId: null,
     title: 'Review subscription',
@@ -398,25 +417,6 @@ async function executeServerAgentToolHandler({
   if (call.toolId !== tool.id) {
     return { status: 'failed', code: 'tool_mismatch', message: 'The discovered tool does not match this call.', retryable: false };
   }
-  if (call.toolId === 'screen_time.configure') {
-    const childName = typeof call.arguments.childName === 'string' ? call.arguments.childName.trim() : '';
-    const appName = typeof call.arguments.appName === 'string' ? call.arguments.appName.trim() : '';
-    const desiredAccess = call.arguments.desiredAccess === 'allow' || call.arguments.desiredAccess === 'block'
-      ? call.arguments.desiredAccess
-      : null;
-    if (!childName || !appName || !desiredAccess) {
-      return {
-        status: 'needs_input',
-        prompt: 'Which child, app, and access change should Kwilt prepare for Screen Time review?',
-        fields: ['childName', 'appName', 'desiredAccess'],
-      };
-    }
-    return {
-      status: 'unavailable',
-      reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
-      retryable: false,
-    };
-  }
   const deviceAction = DEVICE_ACTIONS[call.toolId];
   if (deviceAction) {
     await stageDeviceAction(deviceAction);
@@ -426,10 +426,18 @@ async function executeServerAgentToolHandler({
   if (deviceHandoff) return deviceHandoff;
   const profileResult = await executeServerProfileTool({ client, userId, call, stageProposal });
   if (profileResult) return profileResult;
-  const householdResult = await executeServerHouseholdTool({ client, userId, call });
+  const householdResult = await executeServerHouseholdTool({
+    client, userId, call, stageProposal, stageDeviceAction,
+  });
   if (householdResult) return householdResult;
-  const screenTimeResult = await executeServerScreenTimeTool({ client, userId, call, stageProposal });
+  const screenTimeResult = await executeServerScreenTimeTool({ client, userId, call, stageProposal, stageDeviceAction });
   if (screenTimeResult) return screenTimeResult;
+  const moneyResult = await executeServerMoneyTool({ client, userId, call, stageDeviceAction });
+  if (moneyResult) return moneyResult;
+  const choreResult = await executeServerChoreTool({ client, userId, call, stageProposal, stageDeviceAction });
+  if (choreResult) return choreResult;
+  const foodResult = await executeServerFoodTool({ client, userId, call, stageProposal, stageDeviceAction });
+  if (foodResult) return foodResult;
   if (tool.capabilityId === 'relationships') {
     const policy = evaluateToolPolicy(tool, {
       authorized: true,
@@ -830,6 +838,7 @@ async function executeServerAgentToolHandler({
           resulting_object_type: 'activity',
           resulting_object_id: activityId,
           can_undo: true,
+          replayed: result.replayed === true,
         };
       },
     });
@@ -893,7 +902,7 @@ async function executeServerAgentToolHandler({
 export async function executeServerAgentTool(
   args: ExecuteServerAgentToolArgs,
 ): Promise<ServerAgentToolResult> {
-  return executeServerRegisteredTool({
+  const executeRaw = () => executeServerRegisteredTool({
     registry: SERVER_TOOL_PROVIDER_REGISTRY,
     context: {
       dispatch: (call) => executeServerAgentToolHandler({ ...args, call, tool: args.tool }),
@@ -901,4 +910,14 @@ export async function executeServerAgentTool(
     call: args.call,
     tool: args.tool,
   });
+  if (!args.actionExecution) return executeRaw();
+  const receipt = await executeActionEnvelope({
+    envelope: args.actionExecution.envelope(args.call, args.tool),
+    store: args.actionExecution.store,
+    resolveTarget: args.actionExecution.resolveTarget,
+    createReceiptId: args.actionExecution.createReceiptId,
+    now: args.actionExecution.now,
+    execute: executeRaw,
+  });
+  return serverToolResultFromActionReceipt(receipt);
 }

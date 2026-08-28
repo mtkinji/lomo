@@ -21,6 +21,10 @@ export async function connectMoneyAccount({
   try {
     const result = await startLink();
     if (result.status === 'cancelled') return { status: 'cancelled' };
+    if (result.status === 'repaired') {
+      await reconcileConnectedActivity({ trigger: 'account_connected', sync: false });
+      return { status: 'connected', institutionName: 'Account connection' };
+    }
 
     await reconcileConnectedActivity({ trigger: 'account_connected', sync: false });
     return {

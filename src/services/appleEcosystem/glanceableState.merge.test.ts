@@ -50,7 +50,7 @@ describe('glanceable Focus publication', () => {
 
     expect(JSON.parse(stored ?? '{}').focusSession).toBeNull();
     expect(scheduleWidgetReloadMock).toHaveBeenLastCalledWith(
-      ['KwiltWidgets.focus'],
+      ['KwiltWidgets.focus', 'KwiltWidgets.launcher'],
       { immediate: true },
     );
   });

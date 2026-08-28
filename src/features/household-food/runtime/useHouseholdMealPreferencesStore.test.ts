@@ -2,7 +2,8 @@ import { createHouseholdMealPreferencesStore } from './useHouseholdMealPreferenc
 import type { HouseholdMealPreferencesProjection } from '../data/householdMealPreferencesRepository';
 
 const projection: HouseholdMealPreferencesProjection = {
-  householdId: 'household-1', usualDinerCount: 4, usualDinerPersonIds: ['adult'], setupState: 'unseen', foodNeeds: [], members: [],
+  householdId: 'household-1', version: 3, updatedAt: '2026-08-27T21:00:00.000Z',
+  usualDinerCount: 4, usualDinerPersonIds: ['adult'], setupState: 'unseen', foodNeeds: [], members: [],
 };
 
 describe('household meal preferences store', () => {

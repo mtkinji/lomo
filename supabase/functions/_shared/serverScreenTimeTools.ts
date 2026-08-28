@@ -6,8 +6,18 @@ import type {
 } from './agentRuntime.ts';
 
 type QueryResult = { data: unknown; error: unknown };
+type MembershipQuery = {
+  select: (columns: string) => MembershipQuery;
+  eq: (column: string, value: unknown) => MembershipQuery;
+  maybeSingle: () => PromiseLike<QueryResult>;
+};
 type ScreenTimeClient = {
   rpc?: (name: string, args: Record<string, unknown>) => PromiseLike<QueryResult>;
+  from?: (table: string) => unknown;
+};
+type DeviceActionRequest = {
+  capabilityId: string; actionType: string; targetType: string | null; targetId: string | null;
+  title: string; consequenceSummary: string; payload: Record<string, unknown>;
 };
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -316,19 +326,62 @@ function staleTargetResult(): ServerAgentToolResult {
 }
 
 export async function executeServerScreenTimeTool({
-  client, userId, call, stageProposal, now = new Date(),
+  client, userId, call, stageProposal, stageDeviceAction, now = new Date(),
 }: {
   client: ScreenTimeClient;
   userId: string;
   call: ServerAgentToolCall;
   stageProposal?: (request: ServerAgentProposalRequest) => Promise<ServerAgentProposalRecord>;
+  stageDeviceAction?: (request: DeviceActionRequest) => Promise<void>;
   now?: Date;
 }): Promise<ServerAgentToolResult | null> {
+  const personalHandoffIds = [
+    'screen_time.personal.setup.open', 'screen_time.personal.limit.open',
+    'screen_time.personal_rule.list', 'screen_time.personal_rule.get',
+    'screen_time.personal_rule.update', 'screen_time.personal_rule.deactivate',
+    'screen_time.personal_rule.delete',
+  ];
+  if (personalHandoffIds.includes(call.toolId)) {
+    if (!stageDeviceAction) return { status: 'unavailable', reason: 'server_device_handoff_unavailable', retryable: false };
+    const subject = record(call.arguments.subject);
+    const ruleId = text(call.arguments.ruleId);
+    if ((call.toolId === 'screen_time.personal.setup.open' || call.toolId === 'screen_time.personal.limit.open')
+      && subject?.kind !== 'self') {
+      return { status: 'failed', code: 'invalid_personal_screen_time_subject', message: 'Personal Screen Time requires the signed-in person on their device.', retryable: false };
+    }
+    if (call.toolId.includes('personal_rule.') && call.toolId !== 'screen_time.personal_rule.list' && !ruleId) {
+      return { status: 'failed', code: 'invalid_personal_screen_time_rule', message: 'Choose an exact personal Screen Time rule.', retryable: false };
+    }
+    const list = call.toolId === 'screen_time.personal_rule.list';
+    const setup = call.toolId === 'screen_time.personal.setup.open';
+    const limit = call.toolId === 'screen_time.personal.limit.open';
+    const request: DeviceActionRequest = {
+      capabilityId: 'screenTime',
+      actionType: setup ? 'configure_screen_time' : limit ? 'open_personal_screen_time_limit'
+        : list ? 'open_personal_screen_time_rules' : 'open_personal_screen_time_rule',
+      targetType: list || setup || limit ? 'personal_screen_time_device' : 'personal_screen_time_rule',
+      targetId: list || setup || limit ? 'self' : ruleId,
+      title: setup ? 'Set up My Screen Time' : limit ? 'Review personal app limit'
+        : list ? 'Open My Screen Time rules' : 'Review personal Screen Time rule',
+      consequenceSummary: call.toolId.endsWith('.delete')
+        ? 'Kwilt will open the exact native rule. Deletion and enforcement cleanup require confirmation on that device.'
+        : 'Kwilt will open the exact native Screen Time review on the signed-in device; Apple authorization and enforcement remain device-owned.',
+      payload: { ...call.arguments },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  const familyHandoff = [
+    'screen_time.configure', 'screen_time.selection.open',
+    'screen_time.device.setup.open', 'screen_time.device.release.open',
+  ].includes(call.toolId);
   if (![
     'screen_time.read', 'screen_time.agreement.create',
     'screen_time.agreement.update', 'screen_time.agreement.deactivate',
     'screen_time.override.block', 'screen_time.override.allow',
     'screen_time.override.cancel', 'screen_time.request.decide',
+    'screen_time.configure', 'screen_time.selection.open',
+    'screen_time.device.setup.open', 'screen_time.device.release.open',
   ].includes(call.toolId)) return null;
   if (!client.rpc) {
     return { status: 'unavailable', reason: 'server_screen_time_provider_unavailable', retryable: false };
@@ -336,6 +389,48 @@ export async function executeServerScreenTimeTool({
   const override = normalizeOverrideInput(call, now);
   const agreement = normalizeAgreementInput(call);
   const mutation = normalizeExistingMutationInput(call);
+  if (familyHandoff) {
+    if (!stageDeviceAction) return { status: 'unavailable', reason: 'server_device_handoff_unavailable', retryable: false };
+    const childMembershipId = text(call.arguments.childMembershipId);
+    const childName = text(call.arguments.childName);
+    const appName = text(call.arguments.appName);
+    const desiredAccess = inSet(call.arguments.desiredAccess, ['allow', 'block']);
+    if (call.toolId === 'screen_time.configure' ? (!childName || !appName || !desiredAccess) : !childMembershipId) {
+      return { status: 'failed', code: 'invalid_screen_time_handoff', message: 'Choose an exact child and supported Screen Time setup step.', retryable: false };
+    }
+    const { data, error } = await client.rpc('get_kwilt_agent_screen_time_snapshot', {
+      p_user_id: userId, p_child_membership_ids: childMembershipId ? [childMembershipId] : null,
+    });
+    const output = error ? null : normalizeProjection(data);
+    const children = output?.children as Record<string, unknown>[] | undefined;
+    const matches = children?.filter((child) => childMembershipId
+      ? child.membershipId === childMembershipId
+      : typeof child.displayName === 'string' && child.displayName.localeCompare(childName!, undefined, { sensitivity: 'base' }) === 0) ?? [];
+    if (matches.length !== 1) return staleTargetResult();
+    const child = matches[0];
+    if (!client.from) return { status: 'unavailable', reason: 'server_household_lookup_unavailable', retryable: false };
+    const membershipResult = await (client.from('kwilt_household_memberships') as MembershipQuery)
+      .select('household_id').eq('id', child.membershipId).maybeSingle();
+    const householdId = text(record(membershipResult.data)?.household_id);
+    if (membershipResult.error || !householdId) return staleTargetResult();
+    const setupStep = call.toolId === 'screen_time.device.release.open' ? 'release'
+      : call.toolId === 'screen_time.device.setup.open' ? 'device' : 'selection';
+    const suggestedLabel = call.toolId === 'screen_time.configure' ? appName : text(call.arguments.suggestedLabel);
+    const request: DeviceActionRequest = {
+      capabilityId: 'screenTime', actionType: 'open_family_screen_time_setup',
+      targetType: 'family_screen_time_child', targetId: String(child.membershipId),
+      title: setupStep === 'release' ? `Review ${String(child.displayName)}'s device release` : `Continue Screen Time setup for ${String(child.displayName)}`,
+      consequenceSummary: 'Kwilt will open the exact authorized native step. Nothing is applied until Apple authorization, selection, and device confirmation complete there.',
+      payload: {
+        householdId, childDisplayName: child.displayName, setupStep,
+        expectedPolicyVersion: child.desiredPolicyVersion,
+        ...(suggestedLabel ? { suggestedLabel } : {}),
+        ...(desiredAccess ? { desiredAccess } : {}),
+      },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
   const isWrite = call.toolId !== 'screen_time.read';
   if (isWrite && !override && !agreement && !mutation) {
     const invalidCode = call.toolId.startsWith('screen_time.agreement.')

@@ -1,0 +1,133 @@
+program: full-conversational-control-parity
+plan: docs/superpowers/plans/2026-08-27-full-conversational-control-parity.md
+captured_at: 2026-08-27T11:32:06-06:00
+checkout:
+  path: /Users/andrewwatanabe/Kwilt
+  branch: codex/chat-enhancements-next
+  head: c72551c51c8d8b18b9fedf0d5541aeb37dd45939
+  state: dirty
+  provenance: Counts were projected from the working tree, including the uncommitted UI parity inventory and canonical manifest corrections listed below.
+working_tree_ownership:
+  conversational_control_program:
+    - docs/delivery-evidence/unified-chat/2026-08-27-ui-parity-inventory.md
+    - docs/feature-briefs/external-ai-connector.md
+    - docs/feature-briefs/unified-chat.md
+    - packages/kwilt-agent-runtime/src/index.ts
+    - packages/kwilt-agent-runtime/src/kwiltCapabilityManifest.ts
+    - src/capabilities/uiParityInventory.test.ts
+    - src/capabilities/uiParityInventory.ts
+  preserved_other_active_work:
+    - docs/agent-code-map.md
+    - docs/design-explorations/home-screen-intent-launcher/
+    - docs/feature-briefs/home-screen-intent-launcher.md
+    - docs/superpowers/plans/2026-08-27-home-screen-intent-launcher.md
+    - plugins/withAppleEcosystemIntegrations.js
+    - plugins/appleEcosystem/launcherWidgetSwift.js
+    - scripts/apple-widget-generator-contract.test.mjs
+    - scripts/screen-time-shield-colors.test.mjs
+    - src/capabilities/money/navigation/
+    - src/capabilities/money/screens/
+    - src/features/account/ScreenTimeProtectionSettingsScreen.tsx
+    - src/features/account/ScreenTimeProtectionSettingsScreen.test.tsx
+    - src/features/account/WidgetsSettingsScreen.tsx
+    - src/features/activities/
+    - src/features/screen-time/rule-builder/
+    - src/navigation/RootNavigator.tsx
+    - src/navigation/linkingConfig.test.ts
+    - src/services/appleEcosystem/
+baseline:
+  canonical_operations: 145
+  audited_surfaces:
+    total: 23
+    included: 20
+    excluded: 3
+  ui_intents: 89
+  unresolved_ui_gaps:
+    total: 33
+    p0: 10
+    p1: 14
+    p2: 7
+    p3: 2
+  mobile:
+    live: 58
+    confirmation_only: 19
+    pending_provider: 61
+    excluded: 7
+  phone:
+    live: 31
+    confirmation_only: 36
+    pending_provider: 71
+    excluded: 7
+  external:
+    exposed: 66
+    pending_provider: 70
+    explicit_boundary: 5
+    not_applicable: 2
+    excluded: 2
+target:
+  planned_canonical_operations: 233
+  unresolved_ui_gaps: 0
+  mobile_pending_provider: 0
+  phone_pending_provider: 0
+  external_pending_provider: 0
+  program_level_exclusions:
+    - explore.open
+    - games.open
+verification:
+  ui_parity_inventory:
+    command: npx jest src/capabilities/uiParityInventory.test.ts --runInBand
+    result: passed
+    suites: 1
+    tests: 5
+  executable_parity_contract:
+    status: source_tested
+    generated_reports:
+      - docs/delivery-evidence/unified-chat/conversational-control-parity.md
+      - docs/delivery-evidence/unified-chat/conversational-control-parity.json
+    focused_commands:
+      - node --test scripts/conversational-control-parity.test.mjs
+      - npx jest src/capabilities/uiParityInventory.test.ts src/features/unifiedChat/conversationalParity.test.ts src/features/unifiedChat/chatCapabilityCoverage.test.ts --runInBand
+      - npm run lint
+      - npm run lint:tests
+    result:
+      node_tests: 3_passed
+      jest_suites: 3_passed
+      jest_tests: 17_passed
+      app_typecheck: passed
+      test_typecheck: passed
+    strict_final_gate:
+      command: npm run chat:control-parity -- --no-write
+      result: expected_failure
+      parity_errors: 454
+      meaning: The command now fails until all UI gaps, providers, proof, and voice conformance are complete.
+  operation_catalog_expansion:
+    status: source_tested
+    canonical_operations: 233
+    ordinary_language_intents: 122
+    unresolved_ui_gaps: 0
+    newly_declared_operations: 88
+    inventory_correction: Task 7 split five independently useful Chores UI actions out of the earlier completion cluster.
+    provider_policy: New declarations remain pending_provider until capability-owned handlers are registered.
+    channel_checkpoint:
+      mobile_pending_provider: 144
+      phone_pending_provider: 154
+      external_pending_provider: 153
+      external_exposed: 66
+    focused_commands:
+      - npx jest src/capabilities/operations.test.ts src/capabilities/uiParityInventory.test.ts packages/kwilt-agent-runtime/src/capabilityManifest.test.ts packages/kwilt-agent-runtime/src/providerRegistry.test.ts packages/kwilt-agent-runtime/src/kwiltToolContracts.test.ts packages/kwilt-agent-runtime/src/toolNamespaces.test.ts packages/kwilt-agent-runtime/src/externalActionCatalog.test.ts packages/kwilt-agent-runtime/src/policy.test.ts packages/kwilt-agent-runtime/src/planning/resolveTurnPolicy.test.ts src/features/unifiedChat/chatCapabilityCoverage.test.ts src/features/unifiedChat/conversationalParity.test.ts --runInBand
+      - npm run lint
+      - npm run lint:tests
+      - npm run chat:control-parity -- --allow-incomplete
+    result:
+      jest_suites: 11_passed
+      jest_tests: 276_passed
+      app_typecheck: passed
+      test_typecheck: passed
+      generated_parity_errors: 836
+proof_boundaries:
+  source_and_tests: task_2_catalog_complete
+  backend_deployment: not_run
+  simulator: not_run
+  physical_device: not_run
+  testflight: not_run
+  production: not_run

@@ -61,6 +61,8 @@ type ChoreLearningState = {
   reset: () => void;
 };
 
+/** Local demonstration state only. It is never a Household or Chat authority. */
+export const CHORE_LEARNING_AUTHORITY = 'local_learning_only' as const;
 export const CHORE_LEARNING_STORAGE_KEY = 'kwilt-chores-learning-v1';
 
 export const useChoreLearningStore = create<ChoreLearningState>()(

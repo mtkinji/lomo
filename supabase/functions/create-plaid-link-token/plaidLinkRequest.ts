@@ -26,3 +26,17 @@ export function buildPlaidPlatformFields({
 
   return redirectUri ? { redirect_uri: redirectUri } : {};
 }
+
+export function buildPlaidLinkModeFields({
+  accessToken,
+  products,
+  daysRequested,
+}: {
+  accessToken?: string | null;
+  products: string[];
+  daysRequested: number;
+}) {
+  return accessToken?.trim()
+    ? { access_token: accessToken.trim() }
+    : { products, transactions: { days_requested: daysRequested } };
+}

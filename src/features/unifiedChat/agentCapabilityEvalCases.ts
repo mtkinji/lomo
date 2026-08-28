@@ -4,7 +4,9 @@ import {
   type ChatCapabilityMobileOutcome,
   type ChatCapabilityPhoneOutcome,
 } from './chatCapabilityCoverage';
+import { CONTROL_PARITY_OPERATION_IDS } from '@kwilt/agent-runtime';
 import type { KwiltOperationId } from '../../capabilities/operations';
+import { UI_PARITY_SURFACES } from '../../capabilities/uiParityInventory';
 
 export type AgentCapabilityEvalCase = {
   id: string;
@@ -149,6 +151,16 @@ const languageCase = (
   prompt?: string,
   boundaryReason?: string,
 ): OperationLanguageCase => ({ operationId, prompt, boundaryReason });
+
+const INTENT_LABEL_BY_OPERATION = new Map(UI_PARITY_SURFACES.flatMap((surface) =>
+  surface.intents.flatMap((intent) => intent.operationIds.map((operationId) => [operationId, intent.label] as const)),
+));
+
+const CONTROL_PARITY_LANGUAGE_CASES = CONTROL_PARITY_OPERATION_IDS.map((operationId): OperationLanguageCase => {
+  const label = INTENT_LABEL_BY_OPERATION.get(operationId);
+  if (!label) throw new Error(`Missing ordinary-language intent for ${operationId}`);
+  return languageCase(operationId, `Can you ${label.charAt(0).toLowerCase()}${label.slice(1)}?`);
+});
 
 /** One ordinary-language example or explicit boundary for every product-owned operation. */
 export const OPERATION_LANGUAGE_CASES: readonly OperationLanguageCase[] = [
@@ -297,6 +309,7 @@ export const OPERATION_LANGUAGE_CASES: readonly OperationLanguageCase[] = [
   languageCase('notifications.configure', 'Open notification settings so I can change reminders.'),
   languageCase('search.open', 'Search all of Kwilt for school.'),
   languageCase('channel.phone.continue_run', 'Continue this conversation on my phone.'),
+  ...CONTROL_PARITY_LANGUAGE_CASES,
 ];
 
 // Channel behavior comes from the executable capability manifest. This file deliberately

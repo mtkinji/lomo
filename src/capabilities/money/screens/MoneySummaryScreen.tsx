@@ -44,8 +44,6 @@ import { refreshStaleMoneySummary } from '../runtime/moneySummaryAutoRefresh';
 import { projectMoneyPlanAudit, type MoneyPlanAudit } from '../domain/moneyPlanAudit';
 import { projectMonthlyBudgetSummary, type MonthlyBudgetSummary } from '../domain/monthlyBudgetSummary';
 import { MoneyCategoryReorderDrawer } from '../components/MoneyCategoryReorderDrawer';
-import { Coachmark } from '../../../ui/Coachmark';
-import { getMoneyCategoryDestination } from '../domain/moneyAppControlOnboarding';
 import { EmptyState } from '../../../ui/EmptyState';
 import { BottomGuide } from '../../../ui/BottomGuide';
 import { Heading, HStack, VStack } from '../../../ui/primitives';
@@ -90,9 +88,6 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   const [accountConnectionPending, setAccountConnectionPending] = useState(false);
   const [accountConnectionMessage, setAccountConnectionMessage] = useState<string | null>(null);
   const [refreshReceipt, setRefreshReceipt] = useState<'idle' | 'checking' | 'fresh' | 'error'>('idle');
-  const [appControlGuideVisible, setAppControlGuideVisible] = useState(
-    route.params?.entryIntent === 'app-control-onboarding',
-  );
   const freshHandoff = route.params?.onboardingHandoff ?? null;
   const [onboardingHandoff, setOnboardingHandoff] = useState<MoneyOnboardingHandoffState | null>(() => (
     freshHandoff ? handoffStateFromReceipt(freshHandoff) : null
@@ -107,7 +102,6 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   ), [liveSnapshot, route.params?.devBudgetState]);
   const autoRefreshKeyRef = useRef<string | null>(null);
   const refreshReceiptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const categoryGuideTargetRef = useRef<View | null>(null);
   const pagerRef = useRef<FlatList<MoneyPeriodView>>(null);
   const onboardingHandoffRef = useRef(onboardingHandoff);
   const freshCompletionVisitRef = useRef(Boolean(freshHandoff));
@@ -124,8 +118,6 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
     ));
   }, [snapshot]);
   const currentPeriod = periods[currentMonthIndex] ?? periods[INITIAL_MONTH_INDEX];
-  const selectableBudgetCount = snapshot?.categories.filter((category) => category.planRole !== 'protected').length ?? 0;
-  const rehearsingNoBudgets = __DEV__ && route.params?.devBudgetState === 'none';
   const refreshBudget = useCallback(async () => {
     if (!liveSnapshot?.accounts.length) {
       await refresh();
@@ -290,20 +282,6 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
   }, [capture, currentMonthIndex, livingLimitAnswer]);
 
   useEffect(() => {
-    if (route.params?.entryIntent === 'app-control-onboarding') {
-      setAppControlGuideVisible(true);
-    }
-  }, [route.params?.entryIntent]);
-
-  useEffect(() => {
-    if (route.params?.entryIntent !== 'app-control-onboarding' || !snapshot) return;
-    if (!rehearsingNoBudgets && selectableBudgetCount > 0) return;
-    setAppControlGuideVisible(false);
-    navigation.setParams({ entryIntent: undefined, devBudgetState: undefined });
-    navigation.navigate('MoneyCategoryCreate');
-  }, [navigation, rehearsingNoBudgets, route.params?.entryIntent, selectableBudgetCount, snapshot]);
-
-  useEffect(() => {
     if (!snapshot || livingLimitAnswer?.state !== 'stale') return;
     const refreshKey = `${livingLimitAnswer.facts.planVersionId}:${snapshot.lastSyncedAt ?? 'never'}`;
     if (autoRefreshKeyRef.current === refreshKey) return;
@@ -428,19 +406,11 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
                 onReviewUnclear={() => setUnclearReviewOpen(true)}
                 onOpenCategory={(categoryId) => {
                   exploredBudgetThisVisitRef.current = true;
-                  const destination = getMoneyCategoryDestination({
+                  navigation.navigate('MoneyCategoryDetail', {
                     categoryId,
                     monthOffset: item.monthOffset,
-                    entryIntent: route.params?.entryIntent,
-                    suggestedAppLabels: route.params?.suggestedAppLabels,
                   });
-                  if (destination.screen === 'MoneyAppControl') {
-                    navigation.navigate('MoneyAppControl', destination.params);
-                  } else {
-                    navigation.navigate('MoneyCategoryDetail', destination.params);
-                  }
                 }}
-                categoryTargetRef={item.monthOffset === 0 ? categoryGuideTargetRef : undefined}
                 categoryPresentation={categoryPresentation}
               />
             )}
@@ -587,7 +557,7 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
       visible={categoryReorderOpen}
     />
     <MoneyOnboardingHandoffGuide
-      guide={appControlGuideVisible ? null : onboardingGuide}
+      guide={onboardingGuide}
       handoff={onboardingHandoff}
       onAcknowledgeBudgets={() => {
         if (!onboardingHandoff) return;
@@ -619,25 +589,6 @@ export function MoneySummaryScreen({ navigation, route }: NativeStackScreenProps
         }
       }}
     />
-    {route.params?.entryIntent === 'app-control-onboarding' ? <Coachmark
-      actions={[
-        { id: 'dismiss', label: 'Got it', variant: 'accent' },
-        { id: 'not-now', label: 'Not now', variant: 'ghost' },
-      ]}
-      body={<Text style={styles.guideBody}>Pick the kind of spending you want to use as a boundary. You’ll choose the apps and when to pause them next.</Text>}
-      onAction={() => {
-        setAppControlGuideVisible(false);
-        navigation.setParams({ entryIntent: undefined });
-      }}
-      onDismiss={() => {
-        setAppControlGuideVisible(false);
-        navigation.setParams({ entryIntent: undefined });
-      }}
-      placement="above"
-      targetRef={categoryGuideTargetRef}
-      title={<Text style={styles.guideTitle}>Choose a budget</Text>}
-      visible={appControlGuideVisible && !rehearsingNoBudgets && selectableBudgetCount > 0}
-    /> : null}
     </>
   );
 }
@@ -1482,6 +1433,4 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   onboardingWelcomeIllustration: { height: 124, width: '92%' },
-  guideTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, fontWeight: '600' },
-  guideBody: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
 });

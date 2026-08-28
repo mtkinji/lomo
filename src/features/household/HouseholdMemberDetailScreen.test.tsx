@@ -12,6 +12,9 @@ const mockUpload = jest.fn();
 const mockLaunchImageLibrary = jest.fn();
 const mockListDevices = jest.fn();
 const mockRevokeDevice = jest.fn();
+const mockUpdateMember = jest.fn();
+const mockPreviewRemoval = jest.fn();
+const mockRemoveMember = jest.fn();
 
 jest.mock('expo-image-picker', () => ({
   requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
@@ -32,13 +35,19 @@ jest.mock('./data/householdDeviceParticipation', () => ({
   listHouseholdDevices: (...args: unknown[]) => mockListDevices(...args),
   revokeHouseholdDevice: (...args: unknown[]) => mockRevokeDevice(...args),
 }));
+jest.mock('./data/householdManagementActions', () => ({
+  revokeHouseholdDeviceReviewed: (...args: unknown[]) => mockRevokeDevice(...args),
+  updateHouseholdMember: (...args: unknown[]) => mockUpdateMember(...args),
+  previewHouseholdMemberRemoval: (...args: unknown[]) => mockPreviewRemoval(...args),
+  removeHouseholdMemberReviewed: (...args: unknown[]) => mockRemoveMember(...args),
+}));
 
 const baseSnapshot = {
   household: { id: 'household-1', name: 'My household' },
   currentMembershipId: 'owner-1',
   members: [
-    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner', avatarUrl: null, avatarSource: 'initials' },
-    { id: 'child-1', personId: 'person-2', displayName: 'Riley', kind: 'dependent', role: 'child', avatarUrl: null, avatarSource: 'initials' },
+    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner', updatedAt: '2026-08-27T18:00:00.000Z', avatarUrl: null, avatarSource: 'initials' },
+    { id: 'child-1', personId: 'person-2', displayName: 'Riley', kind: 'dependent', role: 'child', updatedAt: '2026-08-27T18:00:00.000Z', avatarUrl: null, avatarSource: 'initials' },
   ],
   activations: [], grants: [],
 };
@@ -58,14 +67,21 @@ describe('HouseholdMemberDetailScreen', () => {
     mockUpload.mockReset();
     mockLaunchImageLibrary.mockReset();
     mockListDevices.mockReset().mockResolvedValue([]);
-    mockRevokeDevice.mockReset().mockResolvedValue(undefined);
+    mockRevokeDevice.mockReset().mockImplementation(async (input) => ({ result: {
+      id: input.deviceId, householdId: 'household-1', kind: 'personal_child', childMembershipId: 'child-1',
+      assignedCaregiverMembershipId: null, installId: 'install-123', label: "Riley's iPhone",
+      platform: 'ios', status: 'revoked', memberIds: [], updatedAt: '2026-08-27T18:01:00.000Z',
+    } }));
+    mockUpdateMember.mockReset();
+    mockPreviewRemoval.mockReset();
+    mockRemoveMember.mockReset();
   });
 
   it('lets the owner explicitly confirm revoking a connected personal device', async () => {
     mockListDevices.mockResolvedValue([{
       id: 'device-1', householdId: 'household-1', kind: 'personal_child', childMembershipId: 'child-1',
       assignedCaregiverMembershipId: null, installId: 'install-123', label: "Riley's iPhone",
-      platform: 'ios', status: 'ready', memberIds: [],
+      platform: 'ios', status: 'ready', memberIds: [], updatedAt: '2026-08-27T18:00:00.000Z',
     }]);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { getByText } = renderWithProviders(<HouseholdMemberDetailScreen {...props} />);
@@ -75,7 +91,9 @@ describe('HouseholdMemberDetailScreen', () => {
     expect(mockRevokeDevice).not.toHaveBeenCalled();
     const buttons = alert.mock.calls[0]?.[2] ?? [];
     act(() => buttons.find((button) => button.style === 'destructive')?.onPress?.());
-    await waitFor(() => expect(mockRevokeDevice).toHaveBeenCalledWith(expect.anything(), 'device-1'));
+    await waitFor(() => expect(mockRevokeDevice).toHaveBeenCalledWith(expect.objectContaining({
+      householdId: 'household-1', deviceId: 'device-1', expectedUpdatedAt: '2026-08-27T18:00:00.000Z', confirmed: true,
+    }), expect.anything()));
     alert.mockRestore();
   });
 

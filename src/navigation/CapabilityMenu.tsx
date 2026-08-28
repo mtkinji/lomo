@@ -4,6 +4,12 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableProps,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 import { CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
 import type { CapabilityMenuDestinationId } from '../capabilities/types';
 import { colors, fonts, radii, spacing, typography } from '../theme';
@@ -43,6 +49,7 @@ type CapabilityMenuProps = {
   onSelectChat: (threadId: string) => void;
   onArchiveChat: (threadId: string) => void;
   onDeleteChat: (threadId: string) => void;
+  onDeleteChats: (threadIds: readonly string[]) => Promise<boolean>;
   onCreateChat: () => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
@@ -82,6 +89,7 @@ export function CapabilityMenu({
   onSelectChat,
   onArchiveChat,
   onDeleteChat,
+  onDeleteChats,
   onCreateChat,
   onOpenSearch,
   onOpenSettings,
@@ -102,6 +110,9 @@ export function CapabilityMenu({
   const [moreExpanded, setMoreExpanded] = useState(
     () => activeCapabilityId !== null && moreCapabilityIds.includes(activeCapabilityId),
   );
+  const [chatSelectionMode, setChatSelectionMode] = useState(false);
+  const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(() => new Set());
+  const [chatBulkActionPending, setChatBulkActionPending] = useState(false);
   const pinMenuTriggers = useRef<Partial<Record<CapabilityMenuDestinationId, CapabilityPinMenuTrigger | null>>>({});
 
   useEffect(() => {
@@ -109,6 +120,52 @@ export function CapabilityMenu({
       setMoreExpanded(true);
     }
   }, [activeCapabilityId, moreCapabilityIds]);
+
+  useEffect(() => {
+    const visibleIds = new Set(chats.map((chat) => chat.id));
+    setSelectedChatIds((current) => {
+      const next = new Set([...current].filter((id) => visibleIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [chats]);
+
+  const enterChatSelection = (threadId?: string) => {
+    setSelectedChatIds(threadId ? new Set([threadId]) : new Set());
+    setChatSelectionMode(true);
+  };
+
+  const exitChatSelection = () => {
+    if (chatBulkActionPending) return;
+    setChatSelectionMode(false);
+    setSelectedChatIds(new Set());
+  };
+
+  const toggleChatSelection = (threadId: string) => {
+    setSelectedChatIds((current) => {
+      const next = new Set(current);
+      if (next.has(threadId)) next.delete(threadId);
+      else next.add(threadId);
+      return next;
+    });
+  };
+
+  const runChatBulkAction = async (
+    action: (threadIds: readonly string[]) => Promise<boolean>,
+  ) => {
+    const selectedIds = chats
+      .filter((chat) => selectedChatIds.has(chat.id))
+      .map((chat) => chat.id);
+    if (selectedIds.length === 0 || chatBulkActionPending) return;
+    setChatBulkActionPending(true);
+    try {
+      if (await action(selectedIds)) {
+        setChatSelectionMode(false);
+        setSelectedChatIds(new Set());
+      }
+    } finally {
+      setChatBulkActionPending(false);
+    }
+  };
 
   const isCapabilityVisible = (id: CapabilityMenuDestinationId) => {
     const capability = CAPABILITY_MENU_REGISTRY.find((candidate) => candidate.id === id);
@@ -299,16 +356,53 @@ export function CapabilityMenu({
         </View>
 
         <View style={[styles.sectionHeader, styles.chatsHeader]}>
-          <Text style={styles.groupLabel}>CHATS</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="New chat"
-            onPress={onCreateChat}
-            hitSlop={6}
-            style={({ pressed }) => [styles.sectionHeaderAction, pressed && styles.rowPressed]}
-          >
-            <Icon name="plus" size={17} color={colors.textPrimary} />
-          </Pressable>
+          {chatSelectionMode ? (
+            <>
+              <Text style={styles.groupLabel}>
+                {selectedChatIds.size === 0 ? 'Select chats' : `${selectedChatIds.size} selected`}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Done selecting chats"
+                disabled={chatBulkActionPending}
+                onPress={exitChatSelection}
+                hitSlop={6}
+                style={({ pressed }) => [styles.chatSelectionDone, pressed && styles.rowPressed]}
+              >
+                <Text style={styles.chatSelectionDoneLabel}>Done</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <View testID="capability.menu.chats.header.left" style={styles.chatsHeaderLabelActions}>
+                <Text style={styles.groupLabel}>CHATS</Text>
+                <DropdownMenu>
+                  <DropdownMenuTrigger accessibilityLabel="More chat options">
+                    <View pointerEvents="none" style={styles.chatMoreButton}>
+                      <Icon name="more" size={17} color={colors.muted} />
+                    </View>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" sideOffset={4} align="start">
+                    <DropdownMenuItem
+                      accessibilityLabel="Select chats"
+                      label="Select chats"
+                      icon="checkCircle"
+                      onPress={() => enterChatSelection()}
+                    />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="New chat"
+                onPress={onCreateChat}
+                hitSlop={6}
+                style={({ pressed }) => [styles.sectionHeaderAction, pressed && styles.rowPressed]}
+              >
+                <Icon name="plus" size={17} color={colors.textPrimary} />
+              </Pressable>
+            </>
+          )}
         </View>
         {chatsLoading && chats.length === 0 ? (
           <View style={styles.chatStateRow}>
@@ -324,58 +418,82 @@ export function CapabilityMenu({
             key={chat.id}
             chat={chat}
             selected={chat.id === activeChatThreadId}
+            selectionMode={chatSelectionMode}
+            selectionChecked={selectedChatIds.has(chat.id)}
             onOpen={() => onSelectChat(chat.id)}
+            onEnterSelection={() => enterChatSelection(chat.id)}
+            onToggleSelection={() => toggleChatSelection(chat.id)}
             onArchive={() => onArchiveChat(chat.id)}
             onDelete={() => onDeleteChat(chat.id)}
           />
         ))}
       </ScrollView>
 
-      <View testID="capability.menu.footer" style={styles.footer}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Search Kwilt"
-          onPress={onOpenSearch}
-          style={({ pressed }) => [
-            styles.searchButton,
-            pressed && styles.searchButtonPressed,
-          ]}
-        >
-          <Icon name="search" size={20} color={colors.gray700} />
-        </Pressable>
-
-        {sharedHomeEnabled ? (
-          <View style={styles.footerActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open Home"
-              onPress={onOpenHome}
-              style={({ pressed }) => [styles.homeButton, pressed && styles.searchButtonPressed]}
-            >
-              <Icon name="home" size={17} color={colors.gray700} />
-              <Text style={styles.homeButtonLabel}>Home</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Ask Kwilt"
-              onPress={onOpenChat}
-              style={({ pressed }) => [styles.askButton, styles.askButtonSplit, pressed && styles.chatButtonPressed]}
-            >
-              <Icon name="navAiGuide" size={17} color={colors.gray50} />
-              <Text style={styles.chatButtonLabel}>Ask</Text>
-            </Pressable>
-          </View>
-        ) : (
+      <View
+        testID="capability.menu.footer"
+        style={[styles.footer, chatSelectionMode && styles.footerSelecting]}
+      >
+        {chatSelectionMode ? (
           <Button
-            accessibilityLabel="Open chat"
-            onPress={onOpenChat}
-            variant="primary"
+            accessibilityLabel="Delete selected chats"
+            disabled={selectedChatIds.size === 0 || chatBulkActionPending}
+            loading={chatBulkActionPending}
+            onPress={() => void runChatBulkAction(onDeleteChats)}
             size="md"
             style={styles.chatButton}
+            variant="destructive"
           >
-            <Icon name="navAiGuide" size={17} color={colors.gray50} />
-            <ButtonLabel tone="inverse">Chat</ButtonLabel>
+            <Icon name="trash" size={17} color={colors.primaryForeground} />
+            <ButtonLabel tone="inverse">Delete</ButtonLabel>
           </Button>
+        ) : (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Search Kwilt"
+              onPress={onOpenSearch}
+              style={({ pressed }) => [
+                styles.searchButton,
+                pressed && styles.searchButtonPressed,
+              ]}
+            >
+              <Icon name="search" size={20} color={colors.gray700} />
+            </Pressable>
+
+            {sharedHomeEnabled ? (
+              <View style={styles.footerActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Open Home"
+                  onPress={onOpenHome}
+                  style={({ pressed }) => [styles.homeButton, pressed && styles.searchButtonPressed]}
+                >
+                  <Icon name="home" size={17} color={colors.gray700} />
+                  <Text style={styles.homeButtonLabel}>Home</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Ask Kwilt"
+                  onPress={onOpenChat}
+                  style={({ pressed }) => [styles.askButton, styles.askButtonSplit, pressed && styles.chatButtonPressed]}
+                >
+                  <Icon name="navAiGuide" size={17} color={colors.gray50} />
+                  <Text style={styles.chatButtonLabel}>Ask</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Button
+                accessibilityLabel="Open chat"
+                onPress={onOpenChat}
+                variant="primary"
+                size="md"
+                style={styles.chatButton}
+              >
+                <Icon name="navAiGuide" size={17} color={colors.gray50} />
+                <ButtonLabel tone="inverse">Chat</ButtonLabel>
+              </Button>
+            )}
+          </>
         )}
       </View>
     </View>
@@ -385,16 +503,46 @@ export function CapabilityMenu({
 function CapabilityMenuChatRow({
   chat,
   selected,
+  selectionMode,
+  selectionChecked,
   onOpen,
+  onEnterSelection,
+  onToggleSelection,
   onArchive,
   onDelete,
 }: {
   chat: CapabilityMenuChat;
   selected: boolean;
+  selectionMode: boolean;
+  selectionChecked: boolean;
   onOpen: () => void;
+  onEnterSelection: () => void;
+  onToggleSelection: () => void;
   onArchive: () => void;
   onDelete: () => void;
 }) {
+  const shiftedRowStyle = useAnimatedStyle(() => ({
+    transform: [{
+      translateX: withTiming(selectionMode ? 30 : 0, {
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        reduceMotion: ReduceMotion.System,
+      }),
+    }],
+  }), [selectionMode]);
+  const selectionControlStyle = useAnimatedStyle(() => ({
+    opacity: withTiming(selectionMode ? 1 : 0, {
+      duration: 140,
+      reduceMotion: ReduceMotion.System,
+    }),
+    transform: [{
+      scale: withTiming(selectionMode ? 1 : 0.82, {
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        reduceMotion: ReduceMotion.System,
+      }),
+    }],
+  }), [selectionMode]);
   const renderArchiveAction: NonNullable<SwipeableProps['renderLeftActions']> = (
     _progress,
     _translation,
@@ -443,6 +591,7 @@ function CapabilityMenuChatRow({
 
   return (
     <ReanimatedSwipeable
+      enabled={!selectionMode}
       friction={1.5}
       leftThreshold={36}
       rightThreshold={36}
@@ -453,29 +602,57 @@ function CapabilityMenuChatRow({
       containerStyle={styles.chatSwipeContainer}
     >
       <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Open chat ${chat.title}`}
-        accessibilityState={{ selected }}
-        accessibilityActions={[
+        testID={`capability.menu.chat.selection-target.${chat.id}`}
+        accessibilityRole={selectionMode ? 'checkbox' : 'button'}
+        accessibilityLabel={selectionMode
+          ? `${selectionChecked ? 'Deselect' : 'Select'} ${chat.title}`
+          : `Open chat ${chat.title}`}
+        accessibilityState={selectionMode ? { checked: selectionChecked } : { selected }}
+        accessibilityActions={selectionMode ? undefined : [
           { name: 'archive', label: `Archive ${chat.title}` },
           { name: 'delete', label: `Delete ${chat.title}` },
         ]}
-        onAccessibilityAction={(event) => {
+        onAccessibilityAction={selectionMode ? undefined : (event) => {
           if (event.nativeEvent.actionName === 'archive') onArchive();
           if (event.nativeEvent.actionName === 'delete') onDelete();
         }}
-        onPress={onOpen}
+        onLongPress={selectionMode ? undefined : onEnterSelection}
+        onPress={selectionMode ? onToggleSelection : onOpen}
         style={({ pressed }) => [
-          styles.chatRow,
-          selected && styles.capabilityRowSelected,
+          styles.chatSelectionFrame,
           pressed && styles.rowPressed,
         ]}
       >
-        <Icon name="navAiGuide" size={17} color={colors.textSecondary} />
-        <View style={styles.chatRowText}>
-          <Text numberOfLines={1} style={styles.chatTitle}>{chat.title}</Text>
-          <Text style={styles.chatDate}>{formatChatDate(chat.updatedAt)}</Text>
-        </View>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.chatSelectionControl, selectionControlStyle]}
+        >
+          {selectionChecked ? (
+            <View
+              testID={`capability.menu.chat.selection-indicator.${chat.id}.selected`}
+              style={styles.chatSelectionCheckedCircle}
+            >
+              <Icon name="check" size={13} strokeWidth={3} color={colors.primaryForeground} />
+            </View>
+          ) : (
+            <View style={styles.chatSelectionEmptyCircle} />
+          )}
+        </Animated.View>
+        <Animated.View
+          testID={`capability.menu.chat.shift.${chat.id}`}
+          style={[styles.chatRowMotion, shiftedRowStyle]}
+        >
+          <View style={[
+            styles.chatRow,
+            selected && !selectionMode && styles.capabilityRowSelected,
+          ]}>
+            <Icon name="navAiGuide" size={17} color={colors.textSecondary} />
+            <View style={styles.chatRowText}>
+              <Text numberOfLines={1} style={styles.chatTitle}>{chat.title}</Text>
+              <Text style={styles.chatDate}>{formatChatDate(chat.updatedAt)}</Text>
+            </View>
+          </View>
+        </Animated.View>
       </Pressable>
     </ReanimatedSwipeable>
   );
@@ -570,6 +747,29 @@ const styles = StyleSheet.create({
   chatsHeader: {
     paddingTop: spacing.md,
   },
+  chatsHeaderLabelActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  chatMoreButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  chatSelectionDone: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+    borderRadius: 10,
+  },
+  chatSelectionDoneLabel: {
+    ...typography.bodySm,
+    fontFamily: fonts.medium,
+    color: colors.textPrimary,
+  },
   chatStateRow: {
     minHeight: 44,
     flexDirection: 'row',
@@ -596,6 +796,34 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 10,
     overflow: 'hidden',
+  },
+  chatSelectionFrame: {
+    width: '100%',
+    position: 'relative',
+  },
+  chatSelectionControl: {
+    position: 'absolute',
+    left: spacing.sm,
+    top: 15,
+    zIndex: 1,
+  },
+  chatSelectionEmptyCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.sumi600,
+  },
+  chatSelectionCheckedCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.sumi900,
+  },
+  chatRowMotion: {
+    width: '100%',
   },
   swipeAction: {
     width: 88,
@@ -638,6 +866,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: spacing.sm,
+  },
+  footerSelecting: {
+    justifyContent: 'flex-end',
   },
   settingsButton: {
     height: 44,

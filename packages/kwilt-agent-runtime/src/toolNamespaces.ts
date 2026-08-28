@@ -48,7 +48,7 @@ export const KWILT_TOOL_NAMESPACES: readonly {
   {
     id: 'account_navigation',
     description: 'Account, subscription, settings, search, and navigation actions.',
-    capabilityIds: ['account', 'navigation'],
+    capabilityIds: ['account', 'settings', 'navigation'],
   },
 ] as const;
 

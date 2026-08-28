@@ -33,5 +33,25 @@ describe('canonical Food capability manifest', () => {
       required: ['recipeId', 'expectedVersion', 'reviewedVersion'],
       properties: { reviewedVersion: { minProperties: 1 } },
     });
+    expect(byId.get('recipes.import.approve')?.inputSchema).toMatchObject({
+      required: ['draftId', 'expectedDraftVersion', 'idempotencyKey', 'reviewedVersion'],
+      properties: { reviewedVersion: { required: ['title', 'ingredients', 'instructions'] } },
+    });
+    expect(byId.get('cook_session.control')?.inputSchema).toMatchObject({
+      required: ['sessionId', 'expectedRevision', 'command'],
+      properties: { command: { required: ['type'] } },
+    });
+  });
+
+  test('gives Food Stock writes exact, idempotent, non-placeholder schemas', () => {
+    const byId = new Map(FOOD_OPERATION_CONTRACTS.map((contract) => [contract.id, contract]));
+    expect(byId.get('food_stock.observe')?.inputSchema).toMatchObject({
+      required: ['observation', 'expectedObservationId', 'idempotencyKey'],
+      properties: { observation: { required: ['concept', 'state', 'quantityMin', 'quantityMax', 'unit',
+        'source', 'confidence', 'observedAt', 'expiresAt'] } },
+    });
+    expect(byId.get('food_stock.deplete')?.inputSchema).toMatchObject({
+      required: ['concept', 'expectedObservationId', 'observedAt', 'idempotencyKey'],
+    });
   });
 });

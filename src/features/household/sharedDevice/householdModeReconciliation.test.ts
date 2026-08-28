@@ -11,13 +11,13 @@ const session: HouseholdModeSession = {
 const device: HouseholdDevice = {
   id: 'device-1', householdId: 'house-1', kind: 'shared_household', childMembershipId: null,
   assignedCaregiverMembershipId: 'owner-1', installId: 'install-123', label: 'Shared iPad',
-  platform: 'ipados', status: 'ready', memberIds: ['child-1'],
+  platform: 'ipados', status: 'ready', memberIds: ['child-1'], updatedAt: 'version',
 };
 const snapshot: HouseholdSnapshot = {
   household: { id: 'house-1', name: 'Watanabe Household' }, currentMembershipId: 'owner-1',
   members: [
-    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner' },
-    { id: 'child-1', personId: 'person-2', displayName: 'Charlie', kind: 'dependent', role: 'child' },
+    { id: 'owner-1', personId: 'person-1', displayName: 'Andrew', kind: 'adult', role: 'owner', updatedAt: 'version' },
+    { id: 'child-1', personId: 'person-2', displayName: 'Charlie', kind: 'dependent', role: 'child', updatedAt: 'version' },
   ],
   activations: [{ childMembershipId: 'child-1', capabilityId: 'todos', state: 'active' }],
   grants: [],

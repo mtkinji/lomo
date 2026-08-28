@@ -18,6 +18,10 @@ const chatWidgetTemplate = await readFile(
   new URL('../plugins/appleEcosystem/chatWidgetSwift.js', import.meta.url),
   'utf8',
 ).catch(() => '');
+const launcherWidgetTemplate = await readFile(
+  new URL('../plugins/appleEcosystem/launcherWidgetSwift.js', import.meta.url),
+  'utf8',
+).catch(() => '');
 const generatedWidgetSwift = await readFile(
   new URL('../ios/KwiltWidgets/KwiltWidgets.swift', import.meta.url),
   'utf8',
@@ -36,12 +40,74 @@ test('all widget families share the bundled Inter typography system', () => {
   assert.match(widgetGenerator, /Inter-Black/);
   assert.match(widgetGenerator, /<key>UIAppFonts<\/key>/);
 
-  for (const source of [moneyWidgetTemplate, focusWidgetTemplate, chatWidgetTemplate]) {
+  for (const source of [moneyWidgetTemplate, focusWidgetTemplate, chatWidgetTemplate, launcherWidgetTemplate]) {
     assert.match(source, /KwiltWidgetTypography/);
   }
   assert.doesNotMatch(focusWidgetTemplate, /design: \.rounded/);
   assert.doesNotMatch(chatWidgetTemplate, /design: \.rounded/);
   assert.doesNotMatch(widgetGenerator, /design: \.rounded/);
+});
+
+test('Kwilt Launcher provides four configurable shortcuts and a stable Ask Kwilt action', () => {
+  assert.match(launcherWidgetTemplate, /struct LauncherWidgetConfigurationIntent: WidgetConfigurationIntent/);
+  assert.equal((launcherWidgetTemplate.match(/@Parameter\(title: "Shortcut [1-4]"/g) ?? []).length, 4);
+  assert.match(launcherWidgetTemplate, /return "focus"/);
+  assert.match(launcherWidgetTemplate, /return "calendar"/);
+  assert.match(launcherWidgetTemplate, /return "todos"/);
+  assert.match(launcherWidgetTemplate, /return "meals"/);
+  assert.match(launcherWidgetTemplate, /Text\("Ask Kwilt"\)/);
+  assert.match(launcherWidgetTemplate, /kwilt:\/\/chat\?entry=fresh&mode=conversation&source=widget/);
+  assert.match(launcherWidgetTemplate, /\.supportedFamilies\(\[\.systemMedium\]\)/);
+  assert.match(widgetGenerator, /getLauncherWidgetSwift\(targetName\)/);
+  assert.match(widgetGenerator, /KwiltLauncherWidget\(\)/);
+});
+
+test('Kwilt Launcher keeps destinations bounded and projects only Focus state', () => {
+  for (const route of [
+    'kwilt://focus?source=widget',
+    'kwilt://plan?source=widget',
+    'kwilt://todos?source=widget',
+    'kwilt://todos?openQuickAdd=1&source=widget',
+  ]) {
+    assert.ok(launcherWidgetTemplate.includes(route), `missing launcher route: ${route}`);
+  }
+  assert.match(launcherWidgetTemplate, /deepLinkFocusControls\(focus\)/);
+  assert.match(launcherWidgetTemplate, /Text\(timerInterval:/);
+  assert.doesNotMatch(launcherWidgetTemplate, /threadTitle|eventTitle|remainingCents|activity\.title/);
+});
+
+test('Kwilt Launcher uses canonical label-free controls and no soft-pine derivative', () => {
+  const shortcutView = launcherWidgetTemplate.slice(
+    launcherWidgetTemplate.indexOf('struct LauncherShortcutView'),
+    launcherWidgetTemplate.indexOf('struct LauncherWidgetView'),
+  );
+  const launcherView = launcherWidgetTemplate.slice(
+    launcherWidgetTemplate.indexOf('struct LauncherWidgetView'),
+    launcherWidgetTemplate.indexOf('struct KwiltLauncherWidget'),
+  );
+
+  assert.doesNotMatch(widgetGenerator, /pineSoft/);
+  assert.match(widgetGenerator, /static let sumi: Color = Color\(red: 28\/255, green: 26\/255, blue: 25\/255\)/);
+  assert.match(widgetGenerator, /static let shellAlt: Color = Color\(red: 245\/255, green: 245\/255, blue: 244\/255\)/);
+  assert.match(widgetGenerator, /static let border: Color = Color\(red: 228\/255, green: 228\/255, blue: 231\/255\)/);
+  assert.match(widgetGenerator, /static let gray300: Color = Color\(red: 212\/255, green: 212\/255, blue: 216\/255\)/);
+  assert.match(shortcutView, /Circle\(\)[\s\S]*?\.fill\(KwiltPalette\.shellAlt\)/);
+  assert.match(shortcutView, /Circle\(\)[\s\S]*?\.strokeBorder\(KwiltPalette\.gray300, lineWidth: 1\.5\)/);
+  assert.match(shortcutView, /font\(\.system\(size: 23, weight: \.semibold\)\)/);
+  assert.match(shortcutView, /frame\(width: 58, height: 58\)/);
+  assert.match(shortcutView, /foregroundStyle\(KwiltPalette\.sumi\)/);
+  assert.doesNotMatch(shortcutView, /Text\(destination\.label\)/);
+  assert.match(shortcutView, /accessibilityLabel\(destination\.label\)/);
+  assert.match(launcherView, /VStack\(spacing: 0\)/);
+  assert.match(generatedWidgetSwift, /ForEach\(Array\(entry\.destinations\.enumerated\(\)\), id: \\\.offset\)/);
+  assert.match(launcherView, /Spacer\(minLength: 0\)/);
+  assert.match(launcherView, /KwiltPalette\.pine,[\s\S]*?in: Capsule\(\)/);
+  assert.match(launcherView, /frame\(maxWidth: \.infinity, minHeight: 48, maxHeight: 48\)/);
+  assert.match(launcherView, /padding\(\.horizontal, 12\)/);
+  assert.match(launcherView, /padding\(\.bottom, 12\)/);
+  assert.doesNotMatch(launcherView, /padding\(\.top,/);
+  assert.doesNotMatch(launcherView, /padding\(\.vertical,/);
+  assert.doesNotMatch(launcherView, /RoundedRectangle\(cornerRadius:/);
 });
 
 test('launcher and To-dos widgets carry the Kwilt mark without redundant launcher labels', () => {

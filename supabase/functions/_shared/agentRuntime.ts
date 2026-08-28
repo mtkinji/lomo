@@ -162,7 +162,7 @@ export type ServerAgentToolDefinition = {
   effect: 'read' | 'write';
   consequence: 'low' | 'consequential';
   reversible: boolean;
-  confirmation: 'none' | 'explicit';
+  confirmation: 'none' | 'explicit' | 'native';
   canDeferToClient: boolean;
   inputSchema: Record<string, unknown>;
   outputSchema: Record<string, unknown>;
@@ -179,9 +179,10 @@ export type ServerAgentToolCall = {
 export type ServerAgentToolResult =
   | { status: 'completed'; output: Record<string, unknown>; receipt: Record<string, unknown> | null }
   | { status: 'proposed'; proposal: Record<string, unknown> }
-  | { status: 'pending_client_action'; provider: 'device'; request: Record<string, unknown> }
+  | { status: 'pending_client_action'; provider: 'device' | 'connector'; request: Record<string, unknown> }
   | { status: 'needs_input'; prompt: string; fields: string[] }
   | { status: 'unavailable'; reason: string; retryable: boolean }
+  | { status: 'refused'; reason: string }
   | { status: 'failed'; code: string; message: string; retryable: boolean };
 
 export type ServerAgentProposalRequest = {

@@ -14,12 +14,15 @@ import { Icon } from '../../ui/Icon';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { SettingsGroup, SettingsPage, SettingsRow } from '../../ui/SettingsSurface';
 import { Heading, Text, VStack } from '../../ui/primitives';
-import { getHouseholdSnapshot, type HouseholdMember } from './data/household';
+import type { HouseholdMember } from './data/household';
+import type { HouseholdDevice } from './data/householdDeviceParticipation';
+import { createHouseholdActionBoundary } from './data/householdActionBoundary';
 import {
-  listHouseholdDevices,
-  revokeHouseholdDevice,
-  type HouseholdDevice,
-} from './data/householdDeviceParticipation';
+  previewHouseholdMemberRemoval,
+  removeHouseholdMemberReviewed,
+  revokeHouseholdDeviceReviewed,
+  updateHouseholdMember,
+} from './data/householdManagementActions';
 import {
   removeAvatar,
   resolveHouseholdAvatars,
@@ -32,8 +35,11 @@ type Props = NativeStackScreenProps<SettingsStackParamList, 'SettingsHouseholdMe
 export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
   const authIdentity = useAppStore((state) => state.authIdentity);
   const client = useMemo(() => (authIdentity ? getSupabaseClient() : null), [authIdentity]);
+  const householdActions = useMemo(() => (client ? createHouseholdActionBoundary(client) : null), [client]);
   const [member, setMember] = useState<HouseholdMember | null>(null);
   const [canManage, setCanManage] = useState(false);
+  const [canEditDetails, setCanEditDetails] = useState(false);
+  const [canRemoveMember, setCanRemoveMember] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -41,10 +47,10 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
   const [householdId, setHouseholdId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!client) return;
+    if (!householdActions) return;
     setLoading(true);
     try {
-      const snapshot = await getHouseholdSnapshot(client);
+      const snapshot = await householdActions.read();
       const avatars = await resolveHouseholdAvatars().catch((): HouseholdAvatarMap => ({}));
       const selected = snapshot.members.find((item) => item.id === route.params.membershipId) ?? null;
       const current = snapshot.members.find((item) => item.id === snapshot.currentMembershipId) ?? null;
@@ -52,8 +58,14 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
       setHouseholdId(snapshot.household?.id ?? null);
       setMember({ ...selected, ...(avatars[selected.id] ?? {}) });
       setCanManage(current?.role === 'owner' && selected.role === 'child');
+      setCanEditDetails(Boolean(current && (
+        (current.id === selected.id && current.kind === 'adult')
+        || (current.role === 'owner' && selected.role !== 'owner')
+        || (current.role === 'caregiver' && selected.role === 'child')
+      )));
+      setCanRemoveMember(Boolean(current?.role === 'owner' && selected.role !== 'owner'));
       const devices = snapshot.household && selected.role === 'child'
-        ? await listHouseholdDevices(client, snapshot.household.id).catch(() => [])
+        ? await householdActions.listDevices(snapshot.household.id).catch(() => [])
         : [];
       setPersonalDevices(devices.filter((device) => (
         device.kind === 'personal_child' && device.childMembershipId === selected.id
@@ -63,12 +75,12 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [client, route.params.membershipId]);
+  }, [householdActions, route.params.membershipId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const confirmDeviceRemoval = (device: HouseholdDevice) => {
-    if (!client || busy || !member) return;
+    if (!householdActions || !householdId || busy || !member) return;
     Alert.alert(
       `Remove ${device.label}?`,
       `Kwilt access for ${member.displayName} will stop on this device. ${member.displayName} will remain in your Household.`,
@@ -79,8 +91,12 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
           style: 'destructive',
           onPress: () => {
             setBusy(true);
-            void revokeHouseholdDevice(client, device.id)
-              .then(() => setPersonalDevices((devices) => devices.filter((row) => row.id !== device.id)))
+            void revokeHouseholdDeviceReviewed({
+              householdId, deviceId: device.id, expectedUpdatedAt: device.updatedAt, confirmed: true,
+            }, householdActions)
+              .then((receipt) => setPersonalDevices((devices) => devices.map((row) => (
+                row.id === device.id ? receipt.result : row
+              ))))
               .catch((error) => Alert.alert(
                 'Unable to remove device', error instanceof Error ? error.message : 'Please try again.',
               ))
@@ -146,6 +162,52 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
   const connected = member?.avatarSource === 'account';
   const editable = Boolean(member && canManage && !connected);
 
+  const renameMember = () => {
+    if (!member || !householdId || !householdActions || !canEditDetails || busy) return;
+    Alert.prompt('Change name', 'Enter the name shown throughout this Household.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Save', onPress: (value?: string) => {
+        const displayName = value?.trim();
+        if (!displayName || displayName === member.displayName) return;
+        setBusy(true);
+        void updateHouseholdMember({ householdId, membershipId: member.id,
+          expectedUpdatedAt: member.updatedAt, fields: { displayName }, confirmed: true }, householdActions)
+          .then((receipt) => {
+            const updated = receipt.result.members.find((candidate) => candidate.id === member.id);
+            if (updated) setMember((current) => current ? { ...current, ...updated } : current);
+          })
+          .catch((error) => Alert.alert('Unable to update this person', error instanceof Error ? error.message : 'Please try again.'))
+          .finally(() => setBusy(false));
+      } },
+    ], 'plain-text', member.displayName);
+  };
+
+  const confirmMemberRemoval = async () => {
+    if (!member || !householdId || !householdActions || !canRemoveMember || busy) return;
+    setBusy(true);
+    try {
+      const preview = await previewHouseholdMemberRemoval({
+        householdId, membershipId: member.id, expectedUpdatedAt: member.updatedAt,
+      }, householdActions);
+      Alert.alert(
+        `Remove ${member.displayName}?`,
+        `${preview.result.capabilityGrants} capability grant(s), ${preview.result.deviceAssignments.length} device assignment(s), and ${preview.result.sharedObjects.reduce((sum, item) => sum + item.count, 0)} shared record(s) are affected. ${preview.result.recovery}`,
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => setBusy(false) },
+          { text: 'Remove member', style: 'destructive', onPress: () => {
+            void removeHouseholdMemberReviewed({ ...preview.result, householdId, confirmed: true }, householdActions)
+              .then(() => navigation.goBack())
+              .catch((error) => Alert.alert('Unable to remove this person', error instanceof Error ? error.message : 'Please try again.'))
+              .finally(() => setBusy(false));
+          } },
+        ],
+      );
+    } catch (error) {
+      setBusy(false);
+      Alert.alert('Unable to review this removal', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
+
   return (
     <SettingsPage onBack={() => navigation.goBack()} title={member?.displayName ?? 'Family member'}>
       <View style={styles.identity}>
@@ -168,6 +230,7 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
 
       {member ? (
         <SettingsGroup title="Household">
+          <SettingsRow disabled={!canEditDetails || busy} onPress={canEditDetails ? renameMember : undefined} title="Name" value={member.displayName} />
           <SettingsRow title="Role" value={member.role === 'child' ? 'Child' : member.role === 'owner' ? 'Organizer' : 'Caregiver'} />
         </SettingsGroup>
       ) : null}
@@ -210,6 +273,12 @@ export function HouseholdMemberDetailScreen({ navigation, route }: Props) {
               ) : null}
             </View>
           )}
+        </SettingsGroup>
+      ) : null}
+
+      {member && canRemoveMember ? (
+        <SettingsGroup footer="You will review affected grants, devices, shared records, and recovery before removal." title="Manage member">
+          <SettingsRow destructive disabled={busy} onPress={() => void confirmMemberRemoval()} title={`Remove ${member.displayName}`} />
         </SettingsGroup>
       ) : null}
 

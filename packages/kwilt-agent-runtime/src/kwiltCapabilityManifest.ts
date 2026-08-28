@@ -1,7 +1,13 @@
 import type { AgentToolProvider } from './types.ts';
-import { defineCapabilityManifest, type CapabilityManifestEntry } from './capabilityManifest.ts';
+import {
+  defineCapabilityManifest,
+  type CapabilityManifestEntry,
+  type CapabilityOAuthScope,
+  type ConversationalCompletionMode,
+} from './capabilityManifest.ts';
 import { KWILT_TOOL_CONTRACTS } from './kwiltToolContracts.ts';
 import { FOOD_OPERATION_CONTRACTS } from './foodOperationContracts.ts';
+import { CONTROL_PARITY_OPERATION_CONTRACTS } from './controlParityOperationContracts.ts';
 
 export type KwiltOperationOwner =
   | 'general'
@@ -18,6 +24,7 @@ export type KwiltOperationOwner =
   | 'games'
   | 'chores'
   | 'account'
+  | 'settings'
   | 'screenTime'
   | 'notifications'
   | 'navigation'
@@ -49,6 +56,7 @@ export const KWILT_EXTERNAL_CONTROL_SCOPE = {
   games: 'excluded',
   chores: 'core',
   account: 'core',
+  settings: 'core',
   screenTime: 'core',
   notifications: 'supporting',
   navigation: 'supporting',
@@ -107,6 +115,7 @@ function ownerForOperation(id: string): KwiltOperationOwner {
   if (id.startsWith('activities.')) return 'todos';
   if (id.startsWith('screen_time.')) return 'screenTime';
   if (id.startsWith('search.')) return 'navigation';
+  if (id.startsWith('navigation.')) return 'navigation';
   if (id.startsWith('channel.')) return 'channels';
   if (id.startsWith('receipt.')) return 'groceries';
   if (id.startsWith('food_budget.')) return 'savings';
@@ -114,7 +123,7 @@ function ownerForOperation(id: string): KwiltOperationOwner {
   if (id.startsWith('cook_session.')) return 'recipes';
   const owner = id.split('.')[0];
   if (owner === 'general' || owner === 'relationships' || owner === 'household' || owner === 'profile' || owner === 'arcs' ||
-      owner === 'goals' || owner === 'plan' || owner === 'chapters' || owner === 'money' || owner === 'explore' || owner === 'games' || owner === 'chores' || owner === 'account' ||
+      owner === 'goals' || owner === 'plan' || owner === 'chapters' || owner === 'money' || owner === 'explore' || owner === 'games' || owner === 'chores' || owner === 'account' || owner === 'settings' ||
       owner === 'notifications' || owner === 'recipes' || owner === 'meal_planning' ||
       owner === 'groceries' || owner === 'savings') {
     return owner;
@@ -151,6 +160,15 @@ const serverMobileProposalProof = [
   'src/features/unifiedChat/executeProfileProposalDecision.test.ts',
   'src/features/unifiedChat/recoverProfileMutations.test.ts',
 ] as const;
+const householdManagementProof = [
+  'src/features/household/data/householdManagementActions.test.ts',
+  'src/features/household/HouseholdMemberDetailScreen.test.tsx',
+  'src/features/household/HouseholdDevicesScreen.test.tsx',
+  'src/features/unifiedChat/householdToolProvider.test.ts',
+  'src/features/unifiedChat/executeHouseholdProposalDecision.test.ts',
+  'src/features/unifiedChat/executeHouseholdReceiptUndo.test.ts',
+  'supabase/functions/_shared/__tests__/serverHouseholdTools.test.ts',
+] as const;
 
 const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'general.answer', 'general.answer_with_context',
@@ -162,19 +180,43 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'profile.read',
   'relationships.read', 'relationships.remember', 'relationships.correct', 'relationships.forget',
   'household.read', 'household.invitation.preview',
+  'household.member.update', 'household.device.list', 'household.device.update',
+  'household.device.revoke', 'household.device.reconcile',
   'screen_time.read',
   'screen_time.agreement.create', 'screen_time.agreement.update', 'screen_time.agreement.deactivate',
   'screen_time.override.block', 'screen_time.override.allow', 'screen_time.override.cancel',
   'screen_time.request.decide',
   'plan.read_day_context', 'plan.recommend_day',
+  'chores.list', 'chores.get', 'chores.reward.read',
+  'recipes.search', 'recipes.read', 'recipes.scale.preview',
+  'cook_session.read', 'cook_session.control',
+  'meal_planning.preferences.read',
+  'meal_planning.candidates.prepare',
+  'food_budget.read', 'food_stock.read',
+  'groceries.list.review',
 ]);
 
 const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'goals.check_in', 'goals.share',
   'activities.focus.open', 'activities.location.update', 'activities.attachments.update', 'activities.share',
   'plan.preferences.open',
+  'screen_time.personal_rule.list', 'screen_time.personal_rule.get',
+  'screen_time.personal_rule.update', 'screen_time.personal_rule.deactivate',
+  'screen_time.personal_rule.delete', 'screen_time.personal.setup.open',
+  'screen_time.personal.limit.open', 'screen_time.selection.open',
+  'screen_time.device.setup.open', 'screen_time.device.release.open', 'screen_time.configure',
   'notifications.configure', 'search.open',
   'account.settings.open', 'account.subscription.manage', 'account.delete',
+  'money.budget.read', 'money.budget.update', 'money.transaction.get',
+  'money.transaction.meaning.update', 'money.transaction.plan_treatment.update',
+  'money.connection.disconnect', 'money.connection.repair.open',
+  'money.transfer.list', 'money.transfer.get', 'money.transfer.review',
+  'chores.evidence.add',
+  'chores.open',
+  'recipes.import.prepare',
+  'recipes.share_copy.prepare',
+  'groceries.product_match.prepare', 'groceries.product_match.confirm',
+  'groceries.handoff.prepare', 'groceries.handoff.open',
 ]);
 
 const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
@@ -186,7 +228,25 @@ const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
   'activities.reminder.update', 'activities.focus_today',
   'chapters.note.update',
   'profile.update',
+  'household.member.add_dependent', 'household.invitation.create', 'household.invitation.accept',
+  'household.child_capability.update', 'household.caregiver_grant.update', 'household.member.remove',
   'activities.schedule', 'plan.schedule_activity', 'plan.schedule_chunks', 'plan.reschedule_activity', 'plan.remove_activity',
+  'chores.definition.create', 'chores.definition.update', 'chores.definition.pause', 'chores.definition.delete',
+  'chores.occurrence.complete', 'chores.review.approve', 'chores.review.return',
+  'chores.occurrence.claim', 'chores.occurrence.release', 'chores.occurrence.reopen',
+  'chores.occurrence.report_earlier', 'chores.review.leave_missed',
+  'chores.reward.configure', 'chores.reward.reserve', 'chores.reward.cancel', 'chores.reward.settle',
+  'recipes.create', 'recipes.update', 'recipes.delete', 'recipes.fork', 'recipes.collaborator.invite',
+  'recipes.import.approve',
+  'cook_session.start', 'cook_session.complete',
+  'recipes.favorite.update', 'recipes.visibility.update', 'meal_planning.preferences.update',
+  'meal_planning.plan.create', 'meal_planning.plan.update',
+  'meal_planning.candidate.add', 'meal_planning.candidate.remove',
+  'meal_planning.round.open', 'meal_planning.round.close',
+  'meal_planning.response.submit', 'meal_planning.response.withdraw',
+  'meal_planning.plan.finalize', 'meal_planning.plan.revise',
+  'food_stock.observe', 'food_stock.deplete',
+  'groceries.compile', 'groceries.item.add', 'groceries.item.update', 'groceries.item.set_state',
 ]);
 
 const MOBILE_AUTO_APPLY_OPERATION_IDS = new Set([
@@ -353,6 +413,97 @@ const moneyConnectionProof = [
   'src/capabilities/money/native/moneyPlaidLink.native.ts',
   'src/capabilities/money/screens/MoneyAccountsScreen.tsx',
 ] as const;
+const moneyControlProof = [
+  'src/capabilities/money/actions/moneyControlActions.test.ts',
+  'src/features/unifiedChat/moneyToolProvider.test.ts',
+  'src/features/unifiedChat/executeMoneyControlProposalDecision.test.ts',
+  'src/features/unifiedChat/recoverMoneyControlMutations.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'supabase/functions/_shared/__tests__/serverMoneyTools.test.ts',
+  'supabase/functions/disconnect-money-connection/__tests__/disconnectMoneyConnection_deno_test.ts',
+] as const;
+const choreControlProof = [
+  'src/capabilities/chores/domain/choreActions.test.ts',
+  'src/capabilities/chores/data/choreRepository.test.ts',
+  'src/features/unifiedChat/choreToolProvider.test.ts',
+  'src/features/unifiedChat/executeChoreProposalDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverChoreTools_deno_test.ts',
+  'supabase/migrations/20260827_activity_backed_chore_profiles.sql',
+] as const;
+const foodControlProof = [
+  'src/capabilities/recipes/actions/recipeControlActions.test.ts',
+  'src/capabilities/meal-planning/actions/mealPreferenceActions.test.ts',
+  'src/features/unifiedChat/foodControlToolProvider.test.ts',
+  'src/features/unifiedChat/executeRecipeProposalDecision.test.ts',
+  'src/features/unifiedChat/executeMealPreferenceProposalDecision.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const recipeReadProof = [
+  'src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const recipeMutationProof = [
+  'src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts',
+  'src/features/unifiedChat/executeRecipeProposalDecision.test.ts',
+  'src/features/unifiedChat/threadRepository.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const recipeImportProof = [
+  'src/capabilities/recipes/data/recipeImportRepository.test.ts',
+  'src/capabilities/food-ai/recipeImportProposalExecutor.test.ts',
+  'src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts',
+  'src/features/unifiedChat/executeRecipeProposalDecision.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const recipeCookProof = [
+  'src/capabilities/recipes/actions/recipeCookActions.test.ts',
+  'src/features/unifiedChat/unifiedChatToolProvider.recipe.test.ts',
+  'src/features/unifiedChat/executeRecipeProposalDecision.test.ts',
+  'src/features/unifiedChat/threadRepository.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const mealPlanProof = [
+  'src/capabilities/meal-planning/actions/mealPlanActions.test.ts',
+  'src/features/unifiedChat/unifiedChatToolProvider.mealPlan.test.ts',
+  'src/features/unifiedChat/executeMealPlanProposalDecision.test.ts',
+  'src/features/unifiedChat/threadRepository.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const groceryReadProof = [
+  'src/features/unifiedChat/groceryControlToolProvider.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const groceryStockMutationProof = [
+  'src/capabilities/groceries/actions/foodStockActions.test.ts',
+  'src/features/unifiedChat/groceryControlToolProvider.test.ts',
+  'src/features/unifiedChat/executeGroceryProposalDecision.test.ts',
+  'src/features/unifiedChat/threadRepository.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const groceryListProof = [
+  'src/capabilities/groceries/actions/groceryListActions.test.ts',
+  'src/features/unifiedChat/groceryControlToolProvider.test.ts',
+  'src/features/unifiedChat/executeGroceryProposalDecision.test.ts',
+  'src/features/unifiedChat/threadRepository.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
+const groceryRetailerHandoffProof = [
+  'src/features/unifiedChat/groceryControlToolProvider.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'scripts/food-conversational-control-migration.test.mjs',
+] as const;
 const relationshipProof = [
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
@@ -389,11 +540,109 @@ function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): C
     toolIds: contract.authority === 'excluded' ? [] : [contract.id],
     sourceRefs: contract.sourceRefs,
   } as const;
+  if (contract.id === 'recipes.search' || contract.id === 'recipes.read' || contract.id === 'recipes.scale.preview') {
+    return live(row, recipeReadProof);
+  }
+  if (contract.id === 'recipes.create' || contract.id === 'recipes.update' || contract.id === 'recipes.delete' || contract.id === 'recipes.fork' || contract.id === 'recipes.collaborator.invite') {
+    return live(row, recipeMutationProof);
+  }
+  if (contract.id === 'recipes.share_copy.prepare') return live(row, recipeImportProof);
+  if (contract.id === 'recipes.import.prepare' || contract.id === 'recipes.import.approve') {
+    return live(row, recipeImportProof);
+  }
+  if (contract.id.startsWith('cook_session.')) {
+    return live(row, recipeCookProof);
+  }
+  if (contract.id === 'meal_planning.plan.create' || contract.id === 'meal_planning.plan.update'
+    || contract.id === 'meal_planning.candidate.add' || contract.id === 'meal_planning.candidate.remove'
+    || contract.id === 'meal_planning.round.open' || contract.id === 'meal_planning.round.close'
+    || contract.id === 'meal_planning.response.submit' || contract.id === 'meal_planning.response.withdraw'
+    || contract.id === 'meal_planning.plan.finalize' || contract.id === 'meal_planning.plan.revise') {
+    return live(row, mealPlanProof);
+  }
+  if (contract.id === 'meal_planning.candidates.prepare') return live(row, mealPlanProof);
+  if (contract.id === 'food_budget.read' || contract.id === 'food_stock.read') return live(row, groceryReadProof);
+  if (contract.id === 'food_stock.observe' || contract.id === 'food_stock.deplete') return live(row, groceryStockMutationProof);
+  if (contract.id === 'groceries.compile' || contract.id === 'groceries.item.add'
+    || contract.id === 'groceries.item.update' || contract.id === 'groceries.item.set_state'
+    || contract.id === 'groceries.list.review') return live(row, groceryListProof);
+  if (contract.id === 'groceries.product_match.prepare' || contract.id === 'groceries.product_match.confirm'
+    || contract.id === 'groceries.handoff.prepare' || contract.id === 'groceries.handoff.open') {
+    return bounded(
+      'confirmation_only',
+      row,
+      'Chat resolves the exact Grocery target and stages native retailer review; retailer selection, substitution, slot, payment, and checkout remain explicitly unclaimed.',
+      groceryRetailerHandoffProof,
+    );
+  }
   return bounded(
     contract.authority === 'excluded' ? 'excluded' : 'pending_provider',
     row,
     contract.boundaryReason,
   );
+}
+
+function controlParityCapabilityRow(
+  contract: typeof CONTROL_PARITY_OPERATION_CONTRACTS[number],
+): ChatCapabilityCoverageRow {
+  if (contract.owner === 'household') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, householdManagementProof);
+  }
+  if (contract.id.startsWith('screen_time.personal_rule.')) {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, screenTimeWriteProof);
+  }
+  if (contract.owner === 'money') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, moneyControlProof);
+  }
+  if (contract.owner === 'chores') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, choreControlProof);
+  }
+  if (contract.owner === 'recipes' || contract.owner === 'meal_planning') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, foodControlProof);
+  }
+  return bounded('pending_provider', {
+    id: contract.id,
+    providers: contract.providers,
+    consequence: contract.consequence,
+    confirmation: contract.confirmation,
+    toolIds: [contract.id],
+    sourceRefs: contract.sourceRefs,
+  }, `The ${contract.id} canonical contract is declared; capability-owned provider execution and channel proof remain pending.`);
 }
 
 const CAPABILITY_ROWS = [
@@ -405,12 +654,12 @@ const CAPABILITY_ROWS = [
   live({ id: 'relationships.forget', providers: ['server', 'channel'], consequence: 'low', confirmation: 'none', toolIds: ['relationships.read', 'relationships.forget'], sourceRefs: ['service:phone_agent_relationship_memory'] }, relationshipProof),
   bounded('excluded', { id: 'relationships.forget_person', providers: ['server', 'channel'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Whole-person forgetting is withheld until Kwilt can review and restore every dependent relationship record safely.'),
   live({ id: 'household.read', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['household.read'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdReadProof),
-  bounded('pending_provider', { id: 'household.member.add_dependent', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.member.add_dependent'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Dependent creation now uses the canonical Household action, but Chat review and provider execution remain pending.'),
-  bounded('pending_provider', { id: 'household.invitation.create', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.create'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Invitation creation now uses the canonical Household action, but Chat review and secure delivery remain pending.'),
+  live({ id: 'household.member.add_dependent', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.member.add_dependent'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
+  live({ id: 'household.invitation.create', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.create'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
   live({ id: 'household.invitation.preview', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['household.invitation.preview'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdReadProof),
-  bounded('pending_provider', { id: 'household.invitation.accept', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.accept'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Invitation acceptance now uses the canonical Household action, but Chat review and provider execution remain pending.'),
-  bounded('pending_provider', { id: 'household.child_capability.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.child_capability.update'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Child capability authority now uses the canonical Household action, but Chat review and provider execution remain pending.'),
-  bounded('pending_provider', { id: 'household.caregiver_grant.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.caregiver_grant.update'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, 'Caregiver authority now uses the canonical Household action, but Chat review and provider execution remain pending.'),
+  live({ id: 'household.invitation.accept', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.invitation.accept'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
+  live({ id: 'household.child_capability.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.child_capability.update'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
+  live({ id: 'household.caregiver_grant.update', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['household.caregiver_grant.update'], sourceRefs: ['capability:household', 'action:relationshipActions'] }, householdManagementProof),
   live({ id: 'profile.read', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['profile.read'], sourceRefs: ['mcp:get_current_account', 'legacy:get_user_profile'] }, profileProof),
   live({ id: 'profile.update', providers: ['device', 'server'], consequence: 'low', confirmation: 'explicit', toolIds: ['profile.update'], sourceRefs: ['legacy:set_user_profile'] }, profileProof),
 
@@ -472,9 +721,9 @@ const CAPABILITY_ROWS = [
   bounded('confirmation_only', { id: 'money.connection.connect', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Connecting a financial institution completes only in native Plaid Link after institution authentication and consent.', moneyConnectionProof),
   bounded('confirmation_only', { id: 'money.connection.sync', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Manual Plaid sync starts only from native Money; Phone and Chat do not receive client-side financial credentials.', moneyConnectionProof),
 
-  bounded('pending_provider', { id: 'explore.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:explore'] }, 'Explore is available from the native capability menu and kwilt://explore, but Chat does not yet receive or control precise location history.'),
-  bounded('pending_provider', { id: 'games.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:games'] }, 'Games is available from the native capability menu and kwilt://games, but Chat does not yet open sessions, seat players, or act on game state.'),
-  bounded('pending_provider', { id: 'chores.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:chores'] }, 'Chores is available as a local Labs learning surface, but Chat cannot read, claim, complete, or award from simulated inventory. Conversational access waits for the Activity-backed Household authorization boundary.'),
+  bounded('excluded', { id: 'explore.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:explore'] }, 'Explore and precise location-history control are explicitly outside this conversational-control program.'),
+  bounded('excluded', { id: 'games.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:games'] }, 'Games, player seating, sessions, and game state are explicitly outside this conversational-control program.'),
+  bounded('confirmation_only', { id: 'chores.open', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['chores.open'], sourceRefs: ['capability:chores'] }, 'Chat opens the native Activity-backed Chores surface; any following change remains capability-owned and separately reviewed.', deviceHandoffProof),
 
   ...FOOD_OPERATION_CONTRACTS.map(foodCapabilityRow),
 
@@ -486,18 +735,20 @@ const CAPABILITY_ROWS = [
   live({ id: 'screen_time.override.allow', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.allow'], sourceRefs: [] }, screenTimeWriteProof),
   live({ id: 'screen_time.override.cancel', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.override.cancel'], sourceRefs: [] }, screenTimeWriteProof),
   live({ id: 'screen_time.request.decide', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['screen_time.request.decide'], sourceRefs: [] }, screenTimeWriteProof),
-  bounded('confirmation_only', { id: 'screen_time.personal.setup.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.setup.open'], sourceRefs: ['capability:screenTime'] }, 'Chat resolves the signed-in person on the current device and opens the personal native setup flow. Apple authorization and app selection remain user-controlled.', deviceHandoffProof),
-  bounded('pending_provider', { id: 'screen_time.personal.limit.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.limit.open'], sourceRefs: ['capability:screenTime'] }, 'Chat carries a bounded self, app-label, and daily allowance intent into native review. Apple authorization, token selection, persistence, and signed-device enforcement remain capability-owned.'),
-  bounded('pending_provider', { id: 'screen_time.selection.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.selection.open'], sourceRefs: [] }, 'Chat now routes an exact authorized-child native handoff; production child-device selection, completion return, and signed proof remain pending.'),
-  bounded('pending_provider', { id: 'screen_time.device.setup.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.device.setup.open'], sourceRefs: [] }, 'Chat now routes an exact authorized-child native handoff; production child-device authorization, completion return, and signed proof remain pending.'),
-  bounded('pending_provider', { id: 'screen_time.device.release.open', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.device.release.open'], sourceRefs: [] }, 'Chat now routes an exact authorized-child native handoff; production cleanup, completion return, and signed proof remain pending.'),
-  bounded('pending_provider', { id: 'screen_time.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Cross-device child controls are not implemented. Current Screen Time Protection manages only selected apps on this device; Chat must report that boundary without opening the wrong settings surface.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.personal.setup.open', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.setup.open'], sourceRefs: ['capability:screenTime'] }, 'Chat resolves the signed-in person on the current device and opens the personal native setup flow. Apple authorization and app selection remain user-controlled.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.personal.limit.open', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.personal.limit.open'], sourceRefs: ['capability:screenTime'] }, 'Chat carries a bounded self, app-label, and daily allowance intent into native review. Apple authorization, token selection, persistence, and signed-device enforcement remain capability-owned.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.selection.open', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.selection.open'], sourceRefs: [] }, 'Chat routes an exact authorized-child native selection handoff. Completion remains device-receipt based.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.device.setup.open', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: ['screen_time.device.setup.open'], sourceRefs: [] }, 'Chat routes an exact authorized-child native device setup handoff. Completion remains device-receipt based.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.device.release.open', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.device.release.open'], sourceRefs: [] }, 'Chat routes an exact authorized-child native release handoff. Cleanup remains device-receipt based.', deviceHandoffProof),
+  bounded('confirmation_only', { id: 'screen_time.configure', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Chat resolves the exact authorized child and carries the app label and allow-or-block intent into native Apple selection review. Completion remains device-receipt based.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'notifications.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['notifications.configure'], sourceRefs: [] }, 'Chat stages a durable handoff; notification permission and scheduling remain device-owned.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'search.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['navigation.search.open'], sourceRefs: [] }, 'Chat stages and opens the native search surface; the user completes the search there.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'account.settings.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['navigation.account_settings.open'], sourceRefs: [] }, 'Chat stages and opens native account settings; changes remain user-driven.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'account.subscription.manage', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['account.subscription.open'], sourceRefs: [] }, 'Chat stages a durable handoff; subscription management completes only in the native App Store or RevenueCat surface.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'account.delete', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['account.delete.open'], sourceRefs: [] }, 'Chat stages a durable handoff to the existing two-step native deletion confirmation and never deletes silently.', deviceHandoffProof),
   bounded('pending_provider', { id: 'channel.phone.continue_run', providers: ['channel', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['channel.phone.continue_run'], sourceRefs: [] }, 'The canonical queued coordinator is implemented, but migration, deployment, scheduler, and signed-provider runtime proof are still pending.'),
+
+  ...CONTROL_PARITY_OPERATION_CONTRACTS.map(controlParityCapabilityRow),
 ] as const satisfies readonly ChatCapabilityCoverageRow[];
 
 const EMPTY_SCHEMA = { type: 'object', properties: {}, additionalProperties: false } as const;
@@ -508,6 +759,41 @@ const PURPOSE_BY_OPERATION: Readonly<Record<string, string>> = {
   'relationships.forget_person': 'Forget every retained record for one person only when the complete dependency set can be reviewed and restored safely.',
   'channel.phone.continue_run': 'Continue one authorized Phone Agent request through the canonical durable thread and run ledger.',
 };
+const CONTROL_PARITY_CONTRACT_BY_ID = new Map<string, (typeof CONTROL_PARITY_OPERATION_CONTRACTS)[number]>(
+  CONTROL_PARITY_OPERATION_CONTRACTS.map((contract) => [contract.id, contract] as const),
+);
+const SUPPORTED_BOUNDARY_OPERATION_IDS = new Set([
+  'relationships.forget_person',
+  'recipes.publication.attest_rights',
+  'groceries.checkout',
+  'groceries.payment',
+  'savings.coupon.apply_unsupported',
+]);
+const PROGRAM_EXCLUSION_OPERATION_IDS = new Set(['explore.open', 'games.open']);
+
+function scopesForOperation(owner: KwiltOperationOwner, effect: CapabilityManifestEntry['effect']): CapabilityOAuthScope[] {
+  if (owner === 'relationships' || owner === 'household' || owner === 'screenTime' || owner === 'chores') {
+    return effect === 'read' ? ['household.read'] : ['household.read', 'household.write'];
+  }
+  if (owner === 'money') return effect === 'read' ? ['money.read'] : ['money.read', 'money.write'];
+  if (owner === 'recipes' || owner === 'meal_planning' || owner === 'groceries' || owner === 'savings') {
+    return effect === 'read' ? ['food.read'] : ['food.read', 'food.write'];
+  }
+  return effect === 'read' ? ['life.read'] : ['life.read', 'life.write'];
+}
+
+function completionModeForOperation(
+  row: ChatCapabilityCoverageRow,
+  effect: CapabilityManifestEntry['effect'],
+): ConversationalCompletionMode {
+  const declared = CONTROL_PARITY_CONTRACT_BY_ID.get(row.id)?.completionMode;
+  if (declared) return declared;
+  if (PROGRAM_EXCLUSION_OPERATION_IDS.has(row.id)) return 'excluded';
+  if (SUPPORTED_BOUNDARY_OPERATION_IDS.has(row.id)) return 'supported_boundary';
+  if (row.confirmation === 'native') return 'native_handoff';
+  if (effect === 'write' && row.confirmation === 'explicit') return 'reviewed_proposal';
+  return 'direct';
+}
 
 function toolsForRow(row: ChatCapabilityCoverageRow) {
   return row.toolIds.map((toolId) => {
@@ -526,13 +812,25 @@ function manifestEntry(row: ChatCapabilityCoverageRow): CapabilityManifestEntry 
       : row.channels.mobile.outcome === 'native_review' ? 'native_handoff'
         : row.channels.mobile.outcome === 'honest_boundary' ? 'honest_boundary'
           : 'answer';
+  const effect: CapabilityManifestEntry['effect'] = mutationTool ? 'write' : 'read';
+  const reversible = mutationTool?.reversible ?? (row.id !== 'relationships.forget_person');
+  const completionMode = completionModeForOperation(row, effect);
+  const finalActOwner: CapabilityManifestEntry['supportedBoundary']['finalActOwner'] =
+    completionMode === 'excluded' ? 'excluded'
+      : completionMode === 'provider_handoff' ? 'provider'
+        : completionMode === 'native_handoff' ? 'device'
+          : completionMode === 'supported_boundary'
+            ? row.id === 'relationships.forget_person' || row.id === 'recipes.publication.attest_rights'
+              ? 'person'
+              : 'provider'
+            : 'kwilt';
   return {
     id: row.id,
     owner: row.owner,
     purpose: PURPOSE_BY_OPERATION[row.id] ?? schemaTool?.purpose ?? `Serve the ${row.id} Kwilt operation.`,
-    effect: mutationTool ? 'write' : 'read',
+    effect,
     consequence: row.consequence,
-    reversible: mutationTool?.reversible ?? (row.id !== 'relationships.forget_person'),
+    reversible,
     confirmation: row.confirmation,
     providerEligibility: row.providers,
     inputSchema: schemaTool?.inputSchema ?? EMPTY_SCHEMA,
@@ -540,6 +838,20 @@ function manifestEntry(row: ChatCapabilityCoverageRow): CapabilityManifestEntry 
     tools,
     sourceRefs: row.sourceRefs,
     returnBehavior,
+    completionMode,
+    requiredScopes: scopesForOperation(row.owner, effect),
+    receipt: {
+      required: true,
+      resultRefKinds: [row.owner],
+      reversible,
+      undoOperationId: null,
+    },
+    supportedBoundary: {
+      finalActOwner,
+      reason: finalActOwner === 'kwilt'
+        ? null
+        : row.channels.mobile.boundaryReason ?? row.channels.phone.boundaryReason ?? `Final act remains owned by ${finalActOwner}.`,
+    },
     channels: row.channels,
   };
 }

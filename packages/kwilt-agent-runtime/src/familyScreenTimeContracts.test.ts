@@ -36,7 +36,7 @@ describe('family Screen Time agent contracts', () => {
   it('carries a bounded self usage limit into native review without an Apple token', () => {
     const contract = tool('screen_time.personal.limit.open');
     expect(contract).toMatchObject({
-      capabilityId: 'screenTime', providers: ['device'], effect: 'write', confirmation: 'explicit',
+      capabilityId: 'screenTime', providers: ['device', 'server'], effect: 'write', confirmation: 'explicit',
     });
     expect(JSON.stringify(contract?.inputSchema)).toContain('"kind":{"type":"string","enum":["self"]}');
     expect(JSON.stringify(contract?.inputSchema)).toContain('"limitMinutes":{"type":"integer","minimum":1,"maximum":1440}');
@@ -114,6 +114,26 @@ describe('family Screen Time agent contracts', () => {
       expect(`${id}:${write?.channels.phone.state}`).toBe(`${id}:live`);
       expect(write?.returnBehavior).toBe('proposal_or_receipt');
     }
+    for (const id of [
+      'screen_time.personal_rule.list', 'screen_time.personal_rule.get',
+      'screen_time.personal_rule.update', 'screen_time.personal_rule.deactivate',
+      'screen_time.personal_rule.delete',
+    ]) {
+      const personalRule = operation(id);
+      expect(`${id}:${personalRule?.channels.mobile.state}`).toBe(`${id}:live`);
+      expect(`${id}:${personalRule?.channels.phone.state}`).toBe(`${id}:confirmation_only`);
+      expect(personalRule?.channels.phone.outcome).toBe('device_handoff');
+    }
+    for (const id of [
+      'screen_time.personal.setup.open', 'screen_time.personal.limit.open',
+      'screen_time.selection.open', 'screen_time.device.setup.open',
+      'screen_time.device.release.open', 'screen_time.configure',
+    ]) {
+      const handoff = operation(id);
+      expect(`${id}:${handoff?.channels.mobile.state}`).toBe(`${id}:confirmation_only`);
+      expect(`${id}:${handoff?.channels.phone.state}`).toBe(`${id}:confirmation_only`);
+      expect(handoff?.returnBehavior).toBe('native_handoff');
+    }
     for (const entry of KWILT_CAPABILITY_MANIFEST.filter((candidate) => (
       candidate.id.startsWith('screen_time.') &&
       candidate.id !== 'screen_time.read' &&
@@ -124,8 +144,13 @@ describe('family Screen Time agent contracts', () => {
       candidate.id !== 'screen_time.override.allow' &&
       candidate.id !== 'screen_time.override.cancel' &&
       candidate.id !== 'screen_time.request.decide' &&
+      !candidate.id.startsWith('screen_time.personal_rule.') &&
       candidate.id !== 'screen_time.configure' &&
-      candidate.id !== 'screen_time.personal.setup.open'
+      candidate.id !== 'screen_time.personal.setup.open' &&
+      candidate.id !== 'screen_time.personal.limit.open' &&
+      candidate.id !== 'screen_time.selection.open' &&
+      candidate.id !== 'screen_time.device.setup.open' &&
+      candidate.id !== 'screen_time.device.release.open'
     ))) {
       expect(entry.channels.mobile.state).toBe('pending_provider');
       expect(entry.channels.phone.state).toBe('pending_provider');

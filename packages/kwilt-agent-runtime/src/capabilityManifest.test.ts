@@ -35,6 +35,12 @@ function inspectOperation(
     }],
     sourceRefs: ['capability:test'],
     returnBehavior: 'answer',
+    completionMode: 'direct',
+    requiredScopes: ['life.read'],
+    receipt: {
+      required: true, resultRefKinds: ['test'], reversible: true, undoOperationId: null,
+    },
+    supportedBoundary: { finalActOwner: 'kwilt', reason: null },
     channels: {
       mobile: {
         state: 'live', outcome: 'answer', proofPaths: ['test/mobile.test.ts'], boundaryReason: null,
@@ -54,6 +60,25 @@ describe('canonical capability manifest', () => {
     expect(Object.entries(KWILT_EXTERNAL_CONTROL_SCOPE)
       .filter(([, scope]) => scope === 'excluded')
       .map(([owner]) => owner)).toEqual(['explore', 'games']);
+  });
+
+  test('requires completion, scope, receipt, and boundary policy on every operation', () => {
+    for (const operation of KWILT_CAPABILITY_MANIFEST) {
+      expect(['direct', 'reviewed_proposal', 'native_handoff', 'provider_handoff', 'supported_boundary', 'excluded'])
+        .toContain(operation.completionMode);
+      expect(operation.requiredScopes.length).toBeGreaterThan(0);
+      expect(operation.receipt).toEqual(expect.objectContaining({
+        required: true,
+        reversible: operation.reversible,
+      }));
+      expect(operation.supportedBoundary).toEqual(expect.objectContaining({
+        finalActOwner: expect.anything(),
+      }));
+    }
+    expect(KWILT_CAPABILITY_MANIFEST
+      .filter((operation) => operation.completionMode === 'excluded')
+      .map((operation) => operation.id)).toEqual(['explore.open', 'games.open']);
+    expect(KWILT_EXTERNAL_CONTROL_SCOPE.settings).toBe('core');
   });
 
   test('marks bounded Household reads live only after their server projection exists', () => {
@@ -122,6 +147,10 @@ describe('canonical capability manifest', () => {
       toolIds: ['test.inspect'],
       sourceRefs: ['capability:test'],
       returnBehavior: 'answer',
+      completionMode: 'direct',
+      requiredScopes: ['life.read'],
+      receipt: inspectOperation().receipt,
+      supportedBoundary: inspectOperation().supportedBoundary,
       channels: inspectOperation().channels,
     }]);
   });

@@ -19,6 +19,7 @@ export const KWILT_WIDGET_KINDS = [
   'KwiltWidgets.lockscreen',
   'KwiltWidgets.streak',
   'KwiltWidgets.focus',
+  'KwiltWidgets.launcher',
   'KwiltWidgets.money',
   'KwiltWidgets.money.flexible',
 ];

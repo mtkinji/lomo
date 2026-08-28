@@ -9,6 +9,7 @@ import { MoneyTransactionDetailScreen } from '../screens/MoneyTransactionDetailS
 import type { MoneyStackParamList } from './types';
 import { MoneyPrivacyGate } from '../runtime/MoneyPrivacyGate';
 import { MoneyAppControlScreen } from '../screens/MoneyAppControlScreen';
+import { MoneyAppControlBudgetPickerScreen } from '../screens/MoneyAppControlBudgetPickerScreen';
 import { MoneyLivingPlanScreen } from '../screens/MoneyLivingPlanScreen';
 import { MoneyLivingPlanReceiptScreen } from '../screens/MoneyLivingPlanReceiptScreen';
 import { MoneySetupScreen } from '../screens/MoneySetupScreen';
@@ -44,6 +45,7 @@ export function MoneyNavigator() {
           <Stack.Screen name="MoneyCategoryCreate" component={MoneyCategoryCreateScreen} />
           <Stack.Screen name="MoneySetup" component={MoneySetupScreen} />
           <Stack.Screen name="MoneyAppControl" component={MoneyAppControlScreen} />
+          <Stack.Screen name="MoneyAppControlBudgetPicker" component={MoneyAppControlBudgetPickerScreen} />
           <Stack.Screen name="MoneyLivingPlan" component={MoneyLivingPlanScreen} />
           <Stack.Screen name="MoneyLivingPlanReceipt" component={MoneyLivingPlanReceiptScreen} />
           <Stack.Screen name="MoneyTransactionDetail" component={MoneyTransactionDetailScreen} />

@@ -28,9 +28,20 @@ export type HouseholdMember = {
   displayName: string;
   kind: HouseholdPersonKind;
   role: HouseholdRole;
+  updatedAt: string;
   /** Additive presentation fields; fresh snapshots normalize both values. */
   avatarUrl?: string | null;
   avatarSource?: 'account' | 'dependent' | 'initials';
+};
+
+export type HouseholdMemberRemovalPreview = {
+  membershipId: string;
+  expectedUpdatedAt: string;
+  displayName: string;
+  capabilityGrants: number;
+  deviceAssignments: { id: string; label: string }[];
+  sharedObjects: { kind: string; count: number }[];
+  recovery: string;
 };
 
 export type ChildCapabilityActivation = {
@@ -105,6 +116,7 @@ function parseSnapshot(value: unknown): HouseholdSnapshot {
     && isString(member.displayName)
     && ['adult', 'dependent'].includes(member.kind)
     && ['owner', 'caregiver', 'child'].includes(member.role)
+    && isString(member.updatedAt)
   ));
   const activationsValid = Array.isArray(candidate.activations) && candidate.activations.every((activation) => (
     activation != null
@@ -263,5 +275,49 @@ export function removeHouseholdMember(
 ): Promise<HouseholdSnapshot> {
   return snapshotRpc(client, 'remove_kwilt_household_member', {
     p_membership_id: membershipId,
+  });
+}
+
+export function updateHouseholdMemberRecord(client: SupabaseClient, input: {
+  membershipId: string;
+  expectedUpdatedAt: string;
+  fields: { displayName?: string; role?: Exclude<HouseholdRole, 'owner'> };
+}): Promise<HouseholdSnapshot> {
+  return snapshotRpc(client, 'update_kwilt_household_member', {
+    p_membership_id: input.membershipId,
+    p_expected_updated_at: input.expectedUpdatedAt,
+    p_display_name: input.fields.displayName ?? null,
+    p_role: input.fields.role ?? null,
+  });
+}
+
+export async function previewHouseholdMemberRemovalRecord(client: SupabaseClient, input: {
+  membershipId: string;
+  expectedUpdatedAt: string;
+}): Promise<HouseholdMemberRemovalPreview> {
+  const value = await callRpc(client, 'preview_kwilt_household_member_removal', {
+    p_membership_id: input.membershipId,
+    p_expected_updated_at: input.expectedUpdatedAt,
+  });
+  if (!value || typeof value !== 'object') throw new Error('Invalid Household member removal preview');
+  const row = value as Partial<HouseholdMemberRemovalPreview>;
+  if (!isString(row.membershipId) || !isString(row.expectedUpdatedAt) || !isString(row.displayName)
+    || !Number.isInteger(row.capabilityGrants) || Number(row.capabilityGrants) < 0
+    || !Array.isArray(row.deviceAssignments) || row.deviceAssignments.some((item) => (
+      !item || !isString(item.id) || !isString(item.label)
+    ))
+    || !Array.isArray(row.sharedObjects) || row.sharedObjects.some((item) => (
+      !item || !isString(item.kind) || !Number.isInteger(item.count) || item.count < 0
+    )) || !isString(row.recovery)) throw new Error('Invalid Household member removal preview');
+  return row as HouseholdMemberRemovalPreview;
+}
+
+export function removeHouseholdMemberReviewedRecord(client: SupabaseClient, input: {
+  membershipId: string;
+  expectedUpdatedAt: string;
+}): Promise<HouseholdSnapshot> {
+  return snapshotRpc(client, 'remove_kwilt_household_member_reviewed', {
+    p_membership_id: input.membershipId,
+    p_expected_updated_at: input.expectedUpdatedAt,
   });
 }

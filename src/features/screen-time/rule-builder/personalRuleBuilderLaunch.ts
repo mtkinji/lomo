@@ -1,5 +1,6 @@
 import type {
   PersonalScreenTimeRuleKind,
+  ScreenTimeToken,
   ScreenTimeAuthorizationStatus,
   ScreenTimeSetupIntent,
   ScreenTimeSetupOfferSurface,
@@ -7,6 +8,11 @@ import type {
 
 export type PersonalScreenTimeRuleBuilderParams = {
   entry: 'inventory' | 'contextual';
+  ruleId?: string;
+  sourceSelectionId?: string;
+  selectedApps?: ScreenTimeToken[];
+  selectedCategories?: ScreenTimeToken[];
+  replacingMoneyCategoryId?: string;
   suggestedKind?: PersonalScreenTimeRuleKind;
   suggestedLimitMinutes?: number;
   suggestedAppLabel?: string;
@@ -24,8 +30,11 @@ type ContextualPersonalRuleBuilderLaunchInput = {
 
 export type ContextualPersonalRuleBuilderLaunch =
   | {
-      kind: 'drawer';
-      params: PersonalScreenTimeRuleBuilderParams;
+      kind: 'builder';
+      route: {
+        screen: 'SettingsScreenTimeRuleBuilder';
+        params: PersonalScreenTimeRuleBuilderParams;
+      };
     }
   | {
       kind: 'setup';
@@ -44,12 +53,15 @@ export function resolveContextualPersonalRuleBuilderLaunch(
 ): ContextualPersonalRuleBuilderLaunch {
   if (input.authorizationStatus === 'approved') {
     return {
-      kind: 'drawer',
-      params: {
-        entry: 'contextual',
-        suggestedKind: input.suggestedKind,
-        setupIntent: input.setupIntent,
-        entrySurface: input.entrySurface,
+      kind: 'builder',
+      route: {
+        screen: 'SettingsScreenTimeRuleBuilder',
+        params: {
+          entry: 'contextual',
+          suggestedKind: input.suggestedKind,
+          setupIntent: input.setupIntent,
+          entrySurface: input.entrySurface,
+        },
       },
     };
   }

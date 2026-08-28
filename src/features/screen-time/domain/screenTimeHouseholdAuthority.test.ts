@@ -10,6 +10,7 @@ const snapshot = (role: 'owner' | 'caregiver' | 'child'): HouseholdSnapshot => (
     displayName: 'Person',
     kind: role === 'child' ? 'dependent' : 'adult',
     role,
+    updatedAt: 'version',
   }],
   activations: [],
   grants: role === 'caregiver' ? [{
@@ -36,4 +37,3 @@ describe('resolveScreenTimeActor', () => {
     expect(resolveScreenTimeActor(null)).toEqual({ kind: 'self_adult' });
   });
 });
-

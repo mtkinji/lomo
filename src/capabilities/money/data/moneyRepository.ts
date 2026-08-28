@@ -94,6 +94,18 @@ export type ConfirmedCategoryOrderWrite = {
   categoryIds: string[];
 };
 
+export type ConfirmedTransferReviewWrite = {
+  confirmedAt: string;
+  transactionIds: [string, string];
+  decision: 'confirm_pair' | 'unpair';
+};
+
+export type ConfirmedConnectionDisconnectWrite = {
+  confirmedAt: string;
+  connectionId: string;
+  disconnectedAccountCount: number;
+};
+
 export type MoneyClassificationReceipt = {
   policyVersion: string;
   consideredCount: number;
@@ -117,8 +129,14 @@ export interface MoneyRepository {
     pending: boolean;
     allocations: TransactionAllocationInput[];
   }): Promise<MoneySnapshot>;
-  reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput): Promise<ConfirmedTransactionWrite>;
-  setTransactionPlanRoleOverride(transactionId: string, planRoleOverride: MoneyCategoryPlanRole | null): Promise<ConfirmedTransactionPlanRoleWrite>;
+  reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput, version?: { expectedUpdatedAt: string }): Promise<ConfirmedTransactionWrite>;
+  setTransactionPlanRoleOverride(transactionId: string, planRoleOverride: MoneyCategoryPlanRole | null, version?: { expectedUpdatedAt: string }): Promise<ConfirmedTransactionPlanRoleWrite>;
+  reviewTransferPair(input: {
+    transactionIds: [string, string];
+    expectedUpdatedAt: string;
+    decision: 'confirm_pair' | 'unpair';
+  }): Promise<ConfirmedTransferReviewWrite>;
+  disconnectConnection(connectionId: string, version: { expectedUpdatedAt: string }): Promise<ConfirmedConnectionDisconnectWrite>;
   setTransactionPlanCoverage(transactionId: string, savedResourceCents: number): Promise<MoneySnapshot>;
   saveMerchantRule(input: {
     transactionId: string;
@@ -143,7 +161,7 @@ export interface MoneyRepository {
     expectedNeedCents?: number | null;
     expectedNeedDueMonth?: string | null;
     planRole?: MoneyCategoryPlanRole;
-  }): Promise<ConfirmedCategoryWrite>;
+  }, version?: { expectedUpdatedAt: string }): Promise<ConfirmedCategoryWrite>;
 }
 
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
@@ -157,7 +175,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       readPart<MoneyConnectionRow[]>('connections',
         environmentQuery(db
           .from('budget_financial_connections')
-          .select('id,institution_name,status,last_synced_at'), 'environment')
+          .select('id,institution_name,status,last_synced_at,updated_at'), 'environment')
           .order('created_at', { ascending: false })),
       readPart<MoneyAccountRow[]>('accounts',
         environmentQuery(db
@@ -215,6 +233,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 personal_finance_category_primary,
                 personal_finance_category_detailed,
                 personal_finance_category_confidence,
+                updated_at,
                 budget_financial_connections!inner(environment)
             `), 'budget_financial_connections.environment')
             .order('date', { ascending: false })
@@ -239,23 +258,25 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
   const reviewTransaction = async (
     transactionId: string,
     update: TransactionReviewUpdate,
+    version?: { expectedUpdatedAt: string },
   ): Promise<ConfirmedTransactionWrite> => {
     const normalizedTransactionId = transactionId.trim();
     if (!normalizedTransactionId) throw new Error('Choose a transaction to review.');
     await requireSignedIn(client);
 
     const db = client as unknown as MoneyReadClient;
-    const updatedRows = await readPart<Array<{ id: string }>>(
+    let updateQuery = db
+      .from('budget_transactions')
+      .update(update)
+      .eq('id', normalizedTransactionId);
+    if (version) updateQuery = updateQuery.eq('updated_at', version.expectedUpdatedAt);
+    const updatedRows = await readPart<Array<{ id: string; updated_at?: string }>>(
       'transaction review',
-      db
-        .from('budget_transactions')
-        .update(update)
-        .eq('id', normalizedTransactionId)
-        .select('id'),
+      updateQuery.select('id,updated_at'),
     );
     requireConfirmedRows('transaction review', updatedRows, 1);
     return {
-      confirmedAt: new Date().toISOString(),
+      confirmedAt: updatedRows[0]?.updated_at ?? new Date().toISOString(),
       transactionId: normalizedTransactionId,
       categorySourceId: update.budget_id,
       meaning: update.money_meaning ?? null,
@@ -366,27 +387,56 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       if (error) throw new Error(`Money could not save the transaction split: ${error.message || 'Unknown database error'}`);
       return loadSnapshot();
     },
-    reviewTransactionMeaning: (transactionId, input) =>
-      reviewTransaction(transactionId, buildTransactionMeaningReviewUpdate(input)),
-    async setTransactionPlanRoleOverride(transactionId, planRoleOverride) {
+    reviewTransactionMeaning: (transactionId, input, version) =>
+      reviewTransaction(transactionId, buildTransactionMeaningReviewUpdate(input), version),
+    async setTransactionPlanRoleOverride(transactionId, planRoleOverride, version) {
       const normalizedTransactionId = transactionId.trim();
       if (!normalizedTransactionId) throw new Error('Choose a transaction to update.');
       await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
-      const updatedRows = await readPart<Array<{ id: string }>>(
+      let updateQuery = db
+        .from('budget_transactions')
+        .update(buildTransactionPlanRoleOverrideUpdate(planRoleOverride))
+        .eq('id', normalizedTransactionId);
+      if (version) updateQuery = updateQuery.eq('updated_at', version.expectedUpdatedAt);
+      const updatedRows = await readPart<Array<{ id: string; updated_at?: string }>>(
         'transaction plan treatment',
-        db
-          .from('budget_transactions')
-          .update(buildTransactionPlanRoleOverrideUpdate(planRoleOverride))
-          .eq('id', normalizedTransactionId)
-          .select('id'),
+        updateQuery.select('id,updated_at'),
       );
       requireConfirmedRows('transaction plan treatment', updatedRows, 1);
       return {
-        confirmedAt: new Date().toISOString(),
+        confirmedAt: updatedRows[0]?.updated_at ?? new Date().toISOString(),
         transactionId: normalizedTransactionId,
         planRoleOverride,
       };
+    },
+    async reviewTransferPair(input) {
+      const ids = [...new Set(input.transactionIds.map((id) => id.trim()).filter(Boolean))];
+      if (ids.length !== 2 || !input.expectedUpdatedAt.trim()
+        || (input.decision !== 'confirm_pair' && input.decision !== 'unpair')) {
+        throw new Error('Choose one current transfer pair to review.');
+      }
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      const { data, error } = await db.rpc('review_budget_transfer_pair', {
+        p_transaction_ids: ids,
+        p_expected_updated_at: input.expectedUpdatedAt,
+        p_decision: input.decision,
+      });
+      if (error) throw new Error(`Money could not save the transfer review: ${error.message || 'Unknown database error'}`);
+      return parseTransferReviewReceipt(data, ids as [string, string], input.decision);
+    },
+    async disconnectConnection(connectionId, version) {
+      const normalizedConnectionId = connectionId.trim();
+      if (!normalizedConnectionId || !version.expectedUpdatedAt.trim()) {
+        throw new Error('Choose one current financial connection to disconnect.');
+      }
+      await requireSignedIn(client);
+      const { data, error } = await client.functions.invoke('disconnect-money-connection', {
+        body: { connectionId: normalizedConnectionId, expectedUpdatedAt: version.expectedUpdatedAt },
+      });
+      if (error) throw new Error(`Money could not disconnect the connection: ${error.message || 'Unknown provider error'}`);
+      return parseConnectionDisconnectReceipt(data, normalizedConnectionId);
     },
     async setTransactionPlanCoverage(transactionId, savedResourceCents) {
       const normalizedTransactionId = transactionId.trim();
@@ -491,7 +541,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         changes: { coverImage: normalizedCover },
       };
     },
-    async updateCategoryPlan(categoryId, input) {
+    async updateCategoryPlan(categoryId, input, version) {
       const normalizedCategoryId = categoryId.trim();
       if (!normalizedCategoryId) throw new Error('Choose a category plan to update.');
       const update: Record<string, unknown> = {};
@@ -546,14 +596,14 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       if (Object.keys(update).length === 0) throw new Error('Choose a category plan change.');
       await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
-      const updatedRows = await readPart<Array<{ category_id: string }>>('category plan', db
-        .from('budget_plans')
-        .update(update)
-        .eq('category_id', normalizedCategoryId)
-        .select('category_id'));
+      let updateQuery = db.from('budget_plans').update(update).eq('category_id', normalizedCategoryId);
+      if (version) updateQuery = updateQuery.eq('updated_at', version.expectedUpdatedAt);
+      const updatedRows = await readPart<Array<{ category_id: string; updated_at?: string }>>(
+        'category plan', updateQuery.select('category_id,updated_at'),
+      );
       requireConfirmedRows('category plan', updatedRows, 1);
       return {
-        confirmedAt: new Date().toISOString(),
+        confirmedAt: updatedRows[0]?.updated_at ?? new Date().toISOString(),
         categoryId: normalizedCategoryId,
         changes: {
           ...(input.rolloverEnabled != null ? { rolloverEnabled: input.rolloverEnabled } : null),
@@ -599,10 +649,50 @@ function parseMerchantRuleReceipt(data: unknown, transactionId: string): Confirm
   };
 }
 
+function parseTransferReviewReceipt(
+  data: unknown,
+  expectedIds: [string, string],
+  decision: 'confirm_pair' | 'unpair',
+): ConfirmedTransferReviewWrite {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Money saved the transfer review without a valid confirmation receipt.');
+  }
+  const receipt = data as Record<string, unknown>;
+  const transactionIds = Array.isArray(receipt.transaction_ids)
+    ? receipt.transaction_ids.filter((id): id is string => typeof id === 'string').sort()
+    : [];
+  const confirmedAt = typeof receipt.updated_at === 'string' ? receipt.updated_at : '';
+  if (transactionIds.length !== 2
+    || transactionIds.some((id, index) => id !== [...expectedIds].sort()[index])
+    || receipt.decision !== decision
+    || !Number.isFinite(Date.parse(confirmedAt))) {
+    throw new Error('Money saved the transfer review without a valid confirmation receipt.');
+  }
+  return { confirmedAt, transactionIds: transactionIds as [string, string], decision };
+}
+
+function parseConnectionDisconnectReceipt(
+  data: unknown,
+  connectionId: string,
+): ConfirmedConnectionDisconnectWrite {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Money disconnected the connection without a valid confirmation receipt.');
+  }
+  const receipt = data as Record<string, unknown>;
+  const confirmedAt = typeof receipt.confirmedAt === 'string' ? receipt.confirmedAt : '';
+  const disconnectedAccountCount = Number(receipt.disconnectedAccountCount);
+  if (receipt.connectionId !== connectionId
+    || !Number.isSafeInteger(disconnectedAccountCount) || disconnectedAccountCount < 0
+    || !Number.isFinite(Date.parse(confirmedAt))) {
+    throw new Error('Money disconnected the connection without a valid confirmation receipt.');
+  }
+  return { confirmedAt, connectionId, disconnectedAccountCount };
+}
+
 async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
   const expanded = await db
     .from('budget_plans')
-    .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,plan_role')
+    .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,plan_role,updated_at')
     .eq('status', 'active');
   if (!expanded.error) return (expanded.data ?? []) as MoneyPlanRow[];
   const missingPlanRole = expanded.error.code === 'PGRST204'
@@ -610,7 +700,7 @@ async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
   if (missingPlanRole) {
     const withoutPlanRole = await db
       .from('budget_plans')
-      .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month')
+      .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,updated_at')
       .eq('status', 'active');
     if (!withoutPlanRole.error) return (withoutPlanRole.data ?? []) as MoneyPlanRow[];
     expanded.error = withoutPlanRole.error;
@@ -623,7 +713,7 @@ async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
   }
   return readPart<MoneyPlanRow[]>('legacy plans', db
     .from('budget_plans')
-    .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day')
+    .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,updated_at')
     .eq('status', 'active'));
 }
 

@@ -3,6 +3,8 @@ import { createStore, type StateCreator } from 'zustand/vanilla';
 
 import { hiddenRecipeCache, type HiddenRecipeCache } from '../data/hiddenRecipeCache';
 import { createHiddenRecipeRepository, type HiddenRecipeRepository } from '../data/hiddenRecipeRepository';
+import { createRecipeFavoriteRepository } from '../data/recipeFavoriteRepository';
+import { createRecipeControlActions } from '../actions/recipeControlActions';
 
 type HiddenRecipeStatus = 'idle' | 'cached' | 'refreshing' | 'ready' | 'error';
 const LOCAL_IDENTITY = 'local';
@@ -88,7 +90,18 @@ export function createHiddenRecipeStore(repository: HiddenRecipeRepository, cach
 
 const lazyRepository: HiddenRecipeRepository = {
   list: () => createHiddenRecipeRepository().list(),
-  set: (recipeRef, hidden) => createHiddenRecipeRepository().set(recipeRef, hidden),
+  set: async (recipeRef, hidden) => {
+    const hiddenRepository = createHiddenRecipeRepository();
+    const actions = createRecipeControlActions({ favorite: createRecipeFavoriteRepository(), hidden: hiddenRepository });
+    const current = await hiddenRepository.list();
+    await actions.setVisibility({
+      requestId: `native-recipe-visibility-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      confirmed: true,
+      recipeId: recipeRef,
+      expectedVersion: current.includes(recipeRef) ? 1 : 0,
+      visibility: hidden ? 'hidden' : 'visible',
+    });
+  },
 };
 
 export const useHiddenRecipeStore = create<HiddenRecipeStoreState>(initializer(lazyRepository, hiddenRecipeCache));

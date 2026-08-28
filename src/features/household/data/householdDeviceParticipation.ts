@@ -13,6 +13,7 @@ export type HouseholdDevice = {
   platform: 'ios' | 'ipados';
   status: HouseholdDeviceStatus;
   memberIds: string[];
+  updatedAt: string;
 };
 
 export type HouseholdDeviceSetupSession = {
@@ -87,7 +88,8 @@ export function parseHouseholdDevices(value: unknown): HouseholdDevice[] {
       && (row.platform === 'ios' || row.platform === 'ipados')
       && ['pending', 'ready', 'needs_attention', 'revoked'].includes(row.status ?? '')
       && Array.isArray(row.memberIds)
-      && row.memberIds.every(isString);
+      && row.memberIds.every(isString)
+      && isString(row.updatedAt);
   })) throw new Error('Invalid Household devices');
   return value as HouseholdDevice[];
 }
@@ -154,4 +156,45 @@ export async function revokeHouseholdDevice(
   deviceId: string,
 ): Promise<void> {
   await callRpc(client, 'revoke_kwilt_household_device', { p_device_id: deviceId });
+}
+
+export async function updateHouseholdDeviceRecord(client: SupabaseClient, input: {
+  deviceId: string;
+  expectedUpdatedAt: string;
+  fields: { displayName?: string; memberIds?: string[] };
+}): Promise<HouseholdDevice> {
+  const value = await callRpc(client, 'update_kwilt_household_device', {
+    p_device_id: input.deviceId,
+    p_expected_updated_at: input.expectedUpdatedAt,
+    p_display_name: input.fields.displayName?.trim() ?? null,
+    p_member_ids: input.fields.memberIds ?? null,
+  });
+  return parseHouseholdDevices([value])[0]!;
+}
+
+export async function revokeHouseholdDeviceReviewedRecord(client: SupabaseClient, input: {
+  deviceId: string;
+  expectedUpdatedAt: string;
+}): Promise<HouseholdDevice> {
+  const value = await callRpc(client, 'revoke_kwilt_household_device_reviewed', {
+    p_device_id: input.deviceId,
+    p_expected_updated_at: input.expectedUpdatedAt,
+  });
+  return parseHouseholdDevices([value])[0]!;
+}
+
+export async function reconcileHouseholdDeviceRecord(client: SupabaseClient, input: {
+  deviceId: string;
+  expectedUpdatedAt: string;
+}): Promise<{ device: HouseholdDevice; requiresNativeCleanup: boolean }> {
+  const value = await callRpc(client, 'reconcile_kwilt_household_device', {
+    p_device_id: input.deviceId,
+    p_expected_updated_at: input.expectedUpdatedAt,
+  });
+  if (!value || typeof value !== 'object') throw new Error('Invalid Household device reconciliation');
+  const row = value as { device?: unknown; requiresNativeCleanup?: unknown };
+  return {
+    device: parseHouseholdDevices([row.device])[0]!,
+    requiresNativeCleanup: row.requiresNativeCleanup === true,
+  };
 }

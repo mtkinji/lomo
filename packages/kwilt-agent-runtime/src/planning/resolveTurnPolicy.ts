@@ -33,7 +33,7 @@ function confirmationFor(
 ): Extract<TurnAuthorization, { kind: 'write' }>['confirmation'] {
   if (tools.some((tool) => !tool.providers.includes(executionProvider)
     && tool.canDeferToClient && tool.providers.includes('device'))) return 'native';
-  if (tools.some((tool) => tool.confirmation === 'explicit' || tool.consequence === 'consequential')) {
+  if (tools.some((tool) => tool.confirmation !== 'none' || tool.consequence === 'consequential')) {
     return 'review';
   }
   return 'none';

@@ -9,6 +9,7 @@ import {
   type MealSetupState,
 } from '../data/householdMealPreferencesRepository';
 import { clampDefaultMealServings } from '../../../capabilities/recipes/domain/mealPreferences';
+import { createMealPreferenceActions } from '../../../capabilities/meal-planning/actions/mealPreferenceActions';
 
 type Status = 'idle' | 'cached' | 'refreshing' | 'ready' | 'error';
 
@@ -126,8 +127,33 @@ export function createHouseholdMealPreferencesStore(repository: HouseholdMealPre
 
 const lazyRepository: HouseholdMealPreferencesRepository = {
   load: () => createHouseholdMealPreferencesRepository().load(),
-  setPreferences: (input) => createHouseholdMealPreferencesRepository().setPreferences(input),
-  setFoodNeed: (input) => createHouseholdMealPreferencesRepository().setFoodNeed(input),
+  setPreferences: async (input) => {
+    const repository = createHouseholdMealPreferencesRepository();
+    const current = await repository.load();
+    if (!current || current.householdId !== input.householdId) throw new Error('Household meal preferences are not available.');
+    await createMealPreferenceActions(repository).update({
+      requestId: `native-meal-preferences-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      confirmed: true,
+      expectedVersion: current.version,
+      patch: {
+        usualDinerCount: input.usualDinerCount,
+        usualDinerPersonIds: input.usualDinerPersonIds,
+        setupState: input.setupState,
+      },
+    });
+  },
+  setFoodNeed: async (input) => {
+    const repository = createHouseholdMealPreferencesRepository();
+    const current = await repository.load();
+    if (!current) throw new Error('Household meal preferences are not available.');
+    await createMealPreferenceActions(repository).update({
+      requestId: `native-meal-food-need-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      confirmed: true,
+      expectedVersion: current.version,
+      patch: { foodNeedChanges: [input] },
+    });
+  },
+  updateReviewed: (input) => createHouseholdMealPreferencesRepository().updateReviewed(input),
 };
 
 export const useHouseholdMealPreferencesStore = create<HouseholdMealPreferencesStoreState>(

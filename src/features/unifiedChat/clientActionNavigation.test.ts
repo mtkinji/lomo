@@ -18,6 +18,60 @@ test('Focus opens the native Activity sheet without auto-starting a session', ()
   });
 });
 
+test('Chores handoffs open either the inventory or one exact occurrence evidence review', () => {
+  expect(resolveClientActionOpenInstruction({ ...action('open_chores'), capabilityId: 'chores' })).toEqual({
+    kind: 'navigate', name: 'Chores', params: {},
+  });
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_chore_evidence_picker', 'occurrence-1'),
+    capabilityId: 'chores', targetType: 'chore_occurrence',
+  })).toEqual({
+    kind: 'navigate', name: 'Chores', params: { occurrenceId: 'occurrence-1', openEvidencePicker: true },
+  });
+});
+
+test('Recipe import acquisition opens native review without claiming a saved Recipe', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_recipe_import'), capabilityId: 'recipes', targetType: 'recipe_import_source',
+    payload: { method: 'photo', sourceArtifactRefs: ['attachment-1'] },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'RecipeImportReview', params: { intent: 'family' },
+  } });
+});
+
+test('Cook timer handoff opens the exact native Cook Session surface', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_cook_session_timer', 'session-1'), capabilityId: 'recipes', targetType: 'cook_session',
+    payload: { recipeId: 'recipe-1', recipeScaleMultiplier: 2, expectedRevision: 3, command: { type: 'start_timer' } },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'RecipeCookMode', params: { recipeId: 'recipe-1', recipeScaleMultiplier: 2 },
+  } });
+});
+
+test('Recipe copy handoff opens the exact Recipe for native recipient review', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_recipe_share_copy', 'recipe-1'), capabilityId: 'recipes', targetType: 'recipe',
+    payload: { recipeVersionId: 'version-2', recipientPersonId: 'person-2' },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'RecipeHome', params: { recipeId: 'recipe-1' },
+  } });
+});
+
+test('Grocery retailer actions open the exact native list workflow without claiming checkout', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_grocery_product_match', 'item-1'), capabilityId: 'groceries', targetType: 'grocery_item',
+    payload: { groceryListId: 'list-1', provider: 'kroger', locationId: 'store-1' },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'KrogerCart', params: { listId: 'list-1' },
+  } });
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_grocery_handoff', 'list-1'), capabilityId: 'groceries', targetType: 'grocery_list',
+    payload: { provider: 'instacart', expectedVersion: 3 },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'GroceryHandoff', params: { listId: 'list-1' },
+  } });
+});
+
 test('account deletion returns only to the native two-step confirmation flow', () => {
   expect(resolveClientActionOpenInstruction(action('open_account_deletion'))).toEqual({
     kind: 'navigate', name: 'Settings',
@@ -79,6 +133,17 @@ test('personal Screen Time limit opens the canonical builder with typed intent',
   });
 });
 
+test('an external personal rule handoff opens the exact native rule editor', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_personal_screen_time_rule', 'rule-1'),
+    capabilityId: 'screenTime', targetType: 'personal_screen_time_rule',
+  })).toEqual({
+    kind: 'navigate', name: 'Settings', params: {
+      screen: 'SettingsScreenTimeRuleBuilder', params: { entry: 'inventory', ruleId: 'rule-1' },
+    },
+  });
+});
+
 test('Money-owned self control opens the exact category app-control editor', () => {
   expect(resolveClientActionOpenInstruction({
     ...action('review_money_app_control', 'shopping'),
@@ -90,4 +155,39 @@ test('Money-owned self control opens the exact category app-control editor', () 
       params: { categoryId: 'shopping', suggestedPreset: 'when_hot', suggestedAppLabels: ['Amazon'] },
     },
   });
+});
+
+test.each([
+  ['money.transaction.get', 'money_transaction', 'transaction-1', 'MoneyTransactionDetail', { transactionId: 'transaction-1' }],
+  ['money.transaction.meaning.update', 'money_transaction', 'transaction-1', 'MoneyTransactionDetail', { transactionId: 'transaction-1' }],
+  ['money.transaction.plan_treatment.update', 'money_transaction', 'transaction-1', 'MoneyTransactionDetail', { transactionId: 'transaction-1' }],
+  ['money.connection.disconnect', 'money_connection', 'connection-1', 'MoneyAccounts', undefined],
+  ['money.transfer.get', 'money_transfer', 'one:two', 'MoneyTransactions', { reviewState: 'not_counted' }],
+  ['money.transfer.review', 'money_transfer', 'one:two', 'MoneyTransactions', { reviewState: 'not_counted' }],
+] as const)('external %s opens its owned authenticated Money review', (
+  toolId, targetType, targetId, screen, params,
+) => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_money_control', targetId),
+    capabilityId: 'money', targetType,
+    payload: { toolId, arguments: {} },
+  })).toEqual({
+    kind: 'navigate', name: 'Money', params: { screen, ...(params ? { params } : {}) },
+  });
+});
+
+test('external connection repair opens the provider-owned account repair surface', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_money_connection_repair', 'connection-1'),
+    capabilityId: 'money', targetType: 'money_connection',
+    payload: { toolId: 'money.connection.repair.open', arguments: { connectionId: 'connection-1' } },
+  })).toEqual({ kind: 'navigate', name: 'Money', params: { screen: 'MoneyAccounts' } });
+});
+
+test('Money control refuses a mismatched target type instead of opening unrelated data', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_money_control', 'transaction-1'),
+    capabilityId: 'money', targetType: 'money_connection',
+    payload: { toolId: 'money.transaction.get', arguments: { transactionId: 'transaction-1' } },
+  })).toBeNull();
 });

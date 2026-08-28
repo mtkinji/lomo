@@ -22,6 +22,18 @@ describe('projectScreenTimeShieldPresentation', () => {
     });
   });
 
+  it('routes an active composite rule to its editable Screen Time detail', () => {
+    expect(projectScreenTimeShieldPresentation({
+      appName: 'Instagram',
+      restrictions: [restriction('social-evening', 'personal_composite_rule', 'Social')],
+    })).toMatchObject({
+      title: 'This Screen Time rule is active.',
+      subtitle: 'Open Kwilt to review what needs to change before using Instagram.',
+      buttonLabel: 'Open Screen Time',
+      destination: 'kwilt://settings/screen-time',
+    });
+  });
+
   it('leads with the more specific Money action without inventing an order for overlapping rules', () => {
     const result = projectScreenTimeShieldPresentation({
       appName: 'Home Depot',

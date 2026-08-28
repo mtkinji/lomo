@@ -36,6 +36,21 @@ export type ChoreSeriesDeleteSnapshot = {
   }>;
 };
 
+/** Canonical reviewed fields shared by native Chores and conversational proposals. */
+export function choreDraftToControlFields(draft: ChoreDraft): Record<string, unknown> {
+  return {
+    title: draft.title.trim(),
+    assignedMembershipId: draft.assignedMemberId,
+    repeatRule: draft.repeatRule ?? null,
+    repeatCustom: draft.repeatCustom ?? null,
+    repeatBasis: draft.repeatBasis,
+    definitionOfDone: draft.definitionOfDone.trim(),
+    photoPolicy: draft.photoPolicy,
+    reviewPolicy: draft.reviewPolicy,
+    tokenValue: draft.tokenValue,
+  };
+}
+
 function includesExactName(source: string, name: string): boolean {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`(?:^|[^\\p{L}])${escaped}(?:$|[^\\p{L}])`, 'iu').test(source);
