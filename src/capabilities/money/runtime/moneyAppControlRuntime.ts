@@ -9,6 +9,7 @@ import {
   type MoneyAppControlSettings,
 } from '../domain/moneyAppControl';
 import { loadMoneyAppControlSettings } from './moneyAppControlStorage';
+import { reconcileScreenTimeRestrictions } from '../../../services/screenTimeProtectionRuntime';
 
 let latestSnapshot: MoneySnapshot | null = null;
 let latestSettings: MoneyAppControlSettings | null = null;
@@ -40,6 +41,7 @@ export async function reconcileMoneyAppControls(
       restrictionLabel: category.name,
     });
   }));
+  await reconcileScreenTimeRestrictions({ focusSessionActive: false, moneySnapshot: snapshot });
 }
 
 export async function reconcileLatestMoneyAppControls(): Promise<void> {

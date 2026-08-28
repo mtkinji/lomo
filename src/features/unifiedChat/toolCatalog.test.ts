@@ -20,6 +20,8 @@ describe('UNIFIED_CHAT_TOOL_CATALOG', () => {
       effects: ['read'],
       providerAvailability: { server: true, device: true, channel: false, connector: true },
     }).map((entry) => entry.tool.id)).toEqual([
+      'plan.availability.read',
+      'plan.calendars.read',
       'plan.read_day_context',
       'plan.recommend_day',
     ]);

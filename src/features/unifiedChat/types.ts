@@ -433,10 +433,20 @@ export type UnifiedChatProposalOperation = UnifiedChatProposalOperationBase & (
       targetId: string;
       payload: Record<string, unknown>;
     }
-  | {
-      capabilityId: 'chapters'; type: 'update_chapter_note'; targetId: string;
-      payload: ChapterProposalOperation['payload'] & { expectedUpdatedAt: string };
-    }
+  | ({ capabilityId: 'chapters' } & (
+      | {
+          type: 'update_chapter_note'; targetId: string;
+          payload: Extract<ChapterProposalOperation, { type: 'update_chapter_note' }>['payload'] & { expectedUpdatedAt: string };
+        }
+      | {
+          type: 'apply_chapter_alignment'; targetId: string;
+          payload: Extract<ChapterProposalOperation, { type: 'apply_chapter_alignment' }>['payload'] & { expectedUpdatedAt: string };
+        }
+      | {
+          type: 'update_chapter_digest_settings'; targetId: string;
+          payload: Extract<ChapterProposalOperation, { type: 'update_chapter_digest_settings' }>['payload'] & { expectedUpdatedAt: string };
+        }
+    ))
   | {
       capabilityId: 'profile'; type: 'update_profile'; targetId: string;
       payload: ProfileProposalOperation['payload'] & { expectedUpdatedAt: string };

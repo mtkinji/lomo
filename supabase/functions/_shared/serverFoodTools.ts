@@ -16,6 +16,7 @@ type FoodClient = { rpc?: (name: string, args: Record<string, unknown>) => Promi
 const TOOL_IDS = new Set([
   'recipes.search', 'recipes.read', 'recipes.create', 'recipes.import.prepare', 'recipes.import.approve',
   'recipes.update', 'recipes.delete', 'recipes.scale.preview', 'recipes.fork', 'recipes.share_copy.prepare', 'recipes.collaborator.invite',
+  'recipes.publication.prepare', 'recipes.publication.publish',
   'cook_session.read', 'cook_session.start', 'cook_session.control', 'cook_session.complete',
   'recipes.favorite.update', 'recipes.visibility.update',
   'meal_planning.preferences.read', 'meal_planning.preferences.update',
@@ -26,6 +27,8 @@ const TOOL_IDS = new Set([
   'meal_planning.plan.finalize', 'meal_planning.plan.revise',
   'meal_planning.candidates.prepare',
   ...SERVER_GROCERY_TOOL_IDS,
+  'store_opportunity.capture', 'food_scenario.prepare', 'food_scenario.accept',
+  'savings.review', 'savings.accept', 'savings.coupon.open', 'receipt.extract', 'receipt.reconcile',
 ]);
 const RECIPE_DRAFT_KEYS = new Set([
   'title', 'description', 'yieldQuantity', 'yieldUnit', 'prepMinutes', 'cookMinutes',
@@ -261,6 +264,104 @@ export async function executeServerFoodTool({ client, userId, call, stageProposa
   if (error || !validSnapshot(data)) return { status: 'refused', reason: 'The current account does not have an authorized food context.' };
   const snapshot = data;
   const mealPreferences = record(snapshot.mealPreferences);
+  if (call.toolId === 'recipes.publication.prepare' || call.toolId === 'recipes.publication.publish') {
+    if (!stageDeviceAction) return { status: 'unavailable', reason: 'server_food_device_handoff_unavailable', retryable: false };
+    const versionId = call.toolId === 'recipes.publication.prepare'
+      ? text(call.arguments.recipeVersionId) : text(call.arguments.confirmedVersionId);
+    const recipe = (snapshot.recipes as unknown[]).map(record)
+      .find((candidate) => text(record(candidate?.version)?.id) === versionId);
+    const version = record(recipe?.version);
+    const recipeId = text(recipe?.recipeId);
+    const scopes = call.toolId === 'recipes.publication.prepare'
+      ? call.arguments.distributionScopes : call.arguments.confirmedScopes;
+    if (!recipe || !version || !recipeId || !versionId || !Array.isArray(scopes) || scopes.length < 1
+      || scopes.length > 4 || scopes.some((scope) => !text(scope))) {
+      return { status: 'failed', code: 'recipe_publication_review_invalid',
+        message: 'Choose an exact available Recipe version and one to four publication destinations.', retryable: Boolean(versionId) };
+    }
+    const request: ServerDeviceActionRequest = {
+      capabilityId: 'recipes', actionType: 'open_recipe_publication_review', targetType: 'recipe', targetId: recipeId,
+      title: call.toolId === 'recipes.publication.prepare'
+        ? `Review publication for ${text(version.title) ?? 'Recipe'}`
+        : `Confirm publication for ${text(version.title) ?? 'Recipe'}`,
+      consequenceSummary: 'Kwilt will open the exact Recipe version for native identity, rights, media, destination, and final publication review. Nothing is published by ChatGPT.',
+      payload: { operationId: call.toolId, recipeVersionId: versionId, arguments: call.arguments },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'food_scenario.accept') {
+    if (!stageDeviceAction) return { status: 'unavailable', reason: 'server_food_device_handoff_unavailable', retryable: false };
+    const scenarioId = text(call.arguments.scenarioId); const expectedVersion = Number(call.arguments.expectedVersion);
+    if (!scenarioId || !Number.isInteger(expectedVersion) || expectedVersion < 1) {
+      return { status: 'failed', code: 'food_scenario_target_invalid', message: 'Choose one exact current Food Scenario.', retryable: false };
+    }
+    const request: ServerDeviceActionRequest = {
+      capabilityId: 'groceries', actionType: 'open_food_scenario_review', targetType: 'food_scenario', targetId: scenarioId,
+      title: 'Review Food Scenario',
+      consequenceSummary: 'Kwilt will open the version-bound native scenario and partial-recovery details. Nothing changes until native review applies it.',
+      payload: { operationId: call.toolId, expectedVersion },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'savings.review') {
+    if (!stageDeviceAction) return { status: 'unavailable', reason: 'server_food_device_handoff_unavailable', retryable: false };
+    const listId = text(call.arguments.groceryListId);
+    const list = (snapshot.groceryLists as unknown[]).map(record).find((candidate) => text(candidate?.id) === listId);
+    if (!listId || !list) return { status: 'failed', code: 'grocery_list_not_found', message: 'Choose one exact Grocery list.', retryable: false };
+    const request: ServerDeviceActionRequest = {
+      capabilityId: 'savings', actionType: 'open_grocery_savings', targetType: 'grocery_list', targetId: listId,
+      title: 'Review current Grocery savings',
+      consequenceSummary: 'Kwilt will refresh current price and offer evidence in native review. Estimated savings are not realized savings, and no coupon is activated by ChatGPT.',
+      payload: { operationId: call.toolId, arguments: call.arguments },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'receipt.extract' || call.toolId === 'receipt.reconcile') {
+    if (!stageDeviceAction) return { status: 'unavailable', reason: 'server_food_device_handoff_unavailable', retryable: false };
+    const sourceArtifactRefs = Array.isArray(call.arguments.sourceArtifactRefs)
+      ? call.arguments.sourceArtifactRefs.flatMap((value) => text(value) ? [text(value)!] : []) : [];
+    const receiptDraftId = text(call.arguments.receiptDraftId);
+    if (call.toolId === 'receipt.extract' && (sourceArtifactRefs.length < 1 || sourceArtifactRefs.length > 20)) {
+      return { status: 'needs_input', prompt: 'Choose the receipt photo or file to review.', fields: ['sourceArtifactRefs'] };
+    }
+    if (call.toolId === 'receipt.reconcile' && !receiptDraftId) {
+      return { status: 'failed', code: 'receipt_draft_invalid', message: 'Choose one exact reviewed receipt draft.', retryable: false };
+    }
+    const request: ServerDeviceActionRequest = {
+      capabilityId: 'groceries', actionType: 'open_grocery_receipt_review', targetType: 'grocery_receipt',
+      targetId: receiptDraftId,
+      title: call.toolId === 'receipt.extract' ? 'Review receipt extraction' : 'Review receipt reconciliation',
+      consequenceSummary: 'Kwilt will open native receipt evidence review. Extraction is only a draft; realized savings require reviewed line matches and are not claimed by ChatGPT.',
+      payload: { operationId: call.toolId, ...call.arguments, sourceArtifactRefs },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
+  if (call.toolId === 'store_opportunity.capture' || call.toolId === 'food_scenario.prepare'
+    || call.toolId === 'savings.accept' || call.toolId === 'savings.coupon.open') {
+    if (!stageDeviceAction) return { status: 'unavailable', reason: 'server_food_device_handoff_unavailable', retryable: false };
+    const targetId = call.toolId === 'savings.accept' ? text(call.arguments.savingsPlanId)
+      : call.toolId === 'savings.coupon.open' ? text(call.arguments.offerId) : null;
+    if ((call.toolId === 'savings.accept' || call.toolId === 'savings.coupon.open') && !targetId) {
+      return { status: 'failed', code: 'food_review_target_invalid', message: 'Choose one exact reviewed Food target.', retryable: false };
+    }
+    const request: ServerDeviceActionRequest = {
+      capabilityId: call.toolId.startsWith('savings.') ? 'savings' : 'groceries',
+      actionType: 'open_grocery_food_review', targetType: targetId ? 'food_review' : null, targetId,
+      title: call.toolId === 'store_opportunity.capture' ? 'Review Store Opportunity'
+        : call.toolId === 'food_scenario.prepare' ? 'Review Food Scenario inputs'
+          : call.toolId === 'savings.accept' ? 'Review Savings Plan' : 'Open retailer coupon review',
+      consequenceSummary: call.toolId === 'savings.coupon.open'
+        ? 'Kwilt will open native Grocery review. The retailer owns eligibility and activation; ChatGPT does not claim the coupon was applied.'
+        : 'Kwilt will open native Food review with the supplied evidence. No plan, Grocery list, purchase, or savings state changes in ChatGPT.',
+      payload: { operationId: call.toolId, arguments: call.arguments },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
   const groceryResult = await executeServerGroceryTool({ snapshot, call, stageProposal, stageDeviceAction });
   if (groceryResult) return groceryResult;
   if (call.toolId === 'recipes.search') {

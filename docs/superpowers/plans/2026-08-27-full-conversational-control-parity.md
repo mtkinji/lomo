@@ -611,14 +611,14 @@ Expected: every result state and replay path passes; unauthorized cross-owner ac
 - Modify: `supabase/functions/_shared/serverAgentTools.ts`
 - Modify: `supabase/functions/_shared/serverToolImplementations.ts`
 
-- [ ] Implement availability read/update as a reviewed weekly diff with time zone and affected days.
-- [ ] Implement calendar preference read/update separately from OS calendar authorization. Missing authorization creates a native handoff.
-- [ ] Implement Chapter alignment preview as a pure read and alignment apply as an explicit Activity/Chapter proposal with exact affected IDs.
-- [ ] Implement Chapter digest and notification preference reads/updates; OS permission changes remain native handoffs.
-- [ ] Complete any existing Plan, Chapters, and notification pending providers in the same slice.
-- [ ] Add tests for time-zone changes, intentional availability overrides, unavailable calendars, stale alignment, notification denial, replay, and exact return.
-- [ ] Run focused tests and `npm run verify:changed -- --run`.
-- [ ] Commit with message `feat(plan): complete conversational planning preferences`.
+- [x] Implement availability read/update as a reviewed weekly diff with time zone and affected days.
+- [x] Implement calendar preference read/update separately from provider calendar authorization. Missing authorization creates a native handoff.
+- [x] Implement Chapter alignment preview as a pure read and alignment apply as an explicit Activity/Chapter proposal with exact affected IDs.
+- [x] Implement Chapter digest and notification preference reads/updates; OS permission changes remain native handoffs.
+- [x] Complete any existing Plan, Chapters, and notification pending providers in the same slice.
+- [x] Add tests for time-zone changes, intentional availability overrides, unavailable calendars, stale alignment, notification denial, replay, and exact return.
+- [x] Run focused tests and `npm run verify:changed -- --run`.
+- [x] Commit with message `feat(plan): complete conversational planning preferences`.
 
 ### Task 10: Complete account settings and universal navigation
 

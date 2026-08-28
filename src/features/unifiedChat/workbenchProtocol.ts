@@ -108,7 +108,8 @@ export type AgentWorkbenchProposal = {
       'update_activity_step' | 'complete_activity_step' | 'delete_activity_step' |
       'reorder_activity_steps' | 'schedule_activity' | 'schedule_activity_chunk' | 'reschedule_activity' |
       'remove_activity_from_plan' | 'create_goal' | 'update_goal' | 'delete_goal' |
-      'create_arc' | 'update_arc' | 'delete_arc' | 'update_profile' | 'update_chapter_note' |
+      'create_arc' | 'update_arc' | 'delete_arc' | 'update_profile' | 'update_chapter_note' | 'apply_chapter_alignment' |
+      'update_chapter_digest_settings' |
       'create_money_category' | 'rename_money_category' |
       'update_money_budget' | 'update_money_transaction_meaning' |
       'update_money_transaction_plan_treatment' | 'review_money_transfer' |

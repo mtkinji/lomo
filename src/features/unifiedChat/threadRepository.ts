@@ -688,6 +688,20 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
       ...base, capabilityId: 'chapters', type: 'update_chapter_note', targetId: row.target_id, payload,
     } as UnifiedChatProposalOperation;
   }
+  if (row.capability_id === 'chapters' && row.operation_type === 'apply_chapter_alignment' &&
+      typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string' &&
+      typeof payload.recommendationId === 'string' && Array.isArray(payload.activities)) {
+    return {
+      ...base, capabilityId: 'chapters', type: 'apply_chapter_alignment', targetId: row.target_id, payload,
+    } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'chapters' && row.operation_type === 'update_chapter_digest_settings' &&
+      typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string' &&
+      payload.fields && typeof payload.fields === 'object' && !Array.isArray(payload.fields)) {
+    return {
+      ...base, capabilityId: 'chapters', type: 'update_chapter_digest_settings', targetId: row.target_id, payload,
+    } as UnifiedChatProposalOperation;
+  }
   if (row.capability_id === 'profile' && row.operation_type === 'update_profile' &&
       typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string') {
     return {

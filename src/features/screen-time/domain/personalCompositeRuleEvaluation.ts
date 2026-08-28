@@ -31,6 +31,7 @@ export type PersonalRuleEvaluationContext = {
   dailyUsageMinutes: number | null;
   focusActive: boolean | null;
   realStepComplete: boolean | null;
+  budgetConditionTruth?: Record<string, boolean>;
 };
 
 export function resolvePersonalRuleCondition(
@@ -48,6 +49,7 @@ export function resolvePersonalRuleCondition(
       ? context.dailyUsageMinutes < condition.minutes
       : context.dailyUsageMinutes >= condition.minutes;
   }
+  if (condition.type === 'budget') return context.budgetConditionTruth?.[condition.id] ?? 'unknown';
   return condition.operator === 'after'
     ? context.minuteOfDay >= condition.minuteOfDay
     : context.minuteOfDay < condition.minuteOfDay;

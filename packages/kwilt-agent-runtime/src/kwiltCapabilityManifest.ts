@@ -169,6 +169,19 @@ const householdManagementProof = [
   'src/features/unifiedChat/executeHouseholdReceiptUndo.test.ts',
   'supabase/functions/_shared/__tests__/serverHouseholdTools.test.ts',
 ] as const;
+const planAvailabilityProof = [
+  'src/capabilities/plan/actions/planPreferenceActions.test.ts',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'src/services/sync/agentProfileProjection.test.ts',
+  'supabase/functions/_shared/__tests__/serverPlanAvailabilityTools.test.ts',
+] as const;
+const planCalendarPreferenceProof = [
+  'src/capabilities/plan/actions/planCalendarPreferenceActions.test.ts',
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'supabase/functions/_shared/__tests__/serverPlanCalendarTools.test.ts',
+] as const;
 
 const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'general.answer', 'general.answer_with_context',
@@ -176,6 +189,8 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'goals.list', 'goals.get',
   'activities.list', 'activities.get', 'activities.search', 'activities.capture',
   'chapters.list', 'chapters.get', 'chapters.reflect',
+  'chapters.digest_settings.read', 'chapters.alignment.preview',
+  'notifications.preferences.read',
   'account.show_up_status',
   'profile.read',
   'relationships.read', 'relationships.remember', 'relationships.correct', 'relationships.forget',
@@ -186,6 +201,7 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
   'screen_time.agreement.create', 'screen_time.agreement.update', 'screen_time.agreement.deactivate',
   'screen_time.override.block', 'screen_time.override.allow', 'screen_time.override.cancel',
   'screen_time.request.decide',
+  'plan.availability.read',
   'plan.read_day_context', 'plan.recommend_day',
   'chores.list', 'chores.get', 'chores.reward.read',
   'recipes.search', 'recipes.read', 'recipes.scale.preview',
@@ -199,13 +215,13 @@ const PHONE_EXECUTION_OPERATION_IDS = new Set([
 const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'goals.check_in', 'goals.share',
   'activities.focus.open', 'activities.location.update', 'activities.attachments.update', 'activities.share',
-  'plan.preferences.open',
+  'plan.preferences.open', 'plan.availability.update', 'plan.calendars.read', 'plan.calendars.update',
   'screen_time.personal_rule.list', 'screen_time.personal_rule.get',
   'screen_time.personal_rule.update', 'screen_time.personal_rule.deactivate',
   'screen_time.personal_rule.delete', 'screen_time.personal.setup.open',
   'screen_time.personal.limit.open', 'screen_time.selection.open',
   'screen_time.device.setup.open', 'screen_time.device.release.open', 'screen_time.configure',
-  'notifications.configure', 'search.open',
+  'notifications.configure', 'notifications.preferences.update', 'search.open',
   'account.settings.open', 'account.subscription.manage', 'account.delete',
   'money.budget.read', 'money.budget.update', 'money.transaction.get',
   'money.transaction.meaning.update', 'money.transaction.plan_treatment.update',
@@ -217,6 +233,10 @@ const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'recipes.share_copy.prepare',
   'groceries.product_match.prepare', 'groceries.product_match.confirm',
   'groceries.handoff.prepare', 'groceries.handoff.open',
+  'recipes.publication.prepare', 'recipes.publication.publish',
+  'store_opportunity.capture', 'food_scenario.prepare', 'food_scenario.accept',
+  'savings.review', 'savings.accept', 'savings.coupon.open',
+  'receipt.extract', 'receipt.reconcile',
 ]);
 
 const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
@@ -226,7 +246,7 @@ const PHONE_MOBILE_PROPOSAL_OPERATION_IDS = new Set([
   'activities.steps.create', 'activities.steps.update', 'activities.steps.complete',
   'activities.steps.delete', 'activities.steps.reorder', 'activities.repeat.update',
   'activities.reminder.update', 'activities.focus_today',
-  'chapters.note.update',
+  'chapters.note.update', 'chapters.digest_settings.update', 'chapters.alignment.apply',
   'profile.update',
   'household.member.add_dependent', 'household.invitation.create', 'household.invitation.accept',
   'household.child_capability.update', 'household.caregiver_grant.update', 'household.member.remove',
@@ -366,6 +386,8 @@ const profileProof = [
   'src/features/unifiedChat/threadRepository.test.ts',
 ] as const;
 const chapterMutationProof = [
+  'src/capabilities/life-structure/actions/chapterAlignmentActions.test.ts',
+  'src/capabilities/life-structure/actions/chapterDigestSettingsActions.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
   'src/features/unifiedChat/chapterProposalExecutor.test.ts',
   'src/features/unifiedChat/executeChapterProposalDecision.test.ts',
@@ -373,6 +395,7 @@ const chapterMutationProof = [
   'src/features/unifiedChat/threadRepository.test.ts',
 ] as const;
 const deviceHandoffProof = [
+  'src/capabilities/notifications/actions/notificationPreferenceActions.test.ts',
   'src/features/unifiedChat/deviceToolProvider.test.ts',
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/executeClientActionDecision.test.ts',
@@ -504,6 +527,25 @@ const groceryRetailerHandoffProof = [
   'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
   'scripts/food-conversational-control-migration.test.mjs',
 ] as const;
+const advancedFoodHandoffProof = [
+  'src/features/unifiedChat/deviceToolProvider.test.ts',
+  'src/features/unifiedChat/clientActionNavigation.test.ts',
+  'src/features/unifiedChat/mobileToolProviderRegistry.test.ts',
+  'supabase/functions/_shared/__tests__/serverFoodTools_deno_test.ts',
+  'supabase/functions/_shared/__tests__/serverToolProviderRegistry.test.ts',
+] as const;
+const ADVANCED_FOOD_HANDOFF_IDS = new Set([
+  'recipes.publication.prepare',
+  'recipes.publication.publish',
+  'store_opportunity.capture',
+  'food_scenario.prepare',
+  'food_scenario.accept',
+  'savings.review',
+  'savings.accept',
+  'savings.coupon.open',
+  'receipt.extract',
+  'receipt.reconcile',
+]);
 const relationshipProof = [
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
@@ -575,6 +617,14 @@ function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): C
       groceryRetailerHandoffProof,
     );
   }
+  if (ADVANCED_FOOD_HANDOFF_IDS.has(contract.id)) {
+    return bounded(
+      'confirmation_only',
+      row,
+      'Chat resolves and validates the exact Food target, then stages a durable native review. Publication, scenario acceptance, coupon activation, receipt reconciliation, and other consequential outcomes remain unclaimed until the person completes that review.',
+      advancedFoodHandoffProof,
+    );
+  }
   return bounded(
     contract.authority === 'excluded' ? 'excluded' : 'pending_provider',
     row,
@@ -585,6 +635,58 @@ function foodCapabilityRow(contract: typeof FOOD_OPERATION_CONTRACTS[number]): C
 function controlParityCapabilityRow(
   contract: typeof CONTROL_PARITY_OPERATION_CONTRACTS[number],
 ): ChatCapabilityCoverageRow {
+  if (contract.id === 'plan.availability.read') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, planAvailabilityProof);
+  }
+  if (contract.id === 'plan.availability.update') {
+    return bounded('confirmation_only', {
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, 'Chat prepares the exact weekly diff and time zone, then the authoritative native Profile applies it after explicit review.', planAvailabilityProof);
+  }
+  if (contract.id === 'plan.calendars.read' || contract.id === 'plan.calendars.update') {
+    return bounded('confirmation_only', {
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, 'Calendar identity and selection are loaded on the authorized device; provider authorization and final selection remain in native review, and event contents are never returned externally.', planCalendarPreferenceProof);
+  }
+  if (contract.owner === 'chapters') {
+    return live({
+      id: contract.id,
+      providers: contract.providers,
+      consequence: contract.consequence,
+      confirmation: contract.confirmation,
+      toolIds: [contract.id],
+      sourceRefs: contract.sourceRefs,
+    }, chapterMutationProof);
+  }
+  if (contract.id === 'notifications.preferences.read') {
+    return live({
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, deviceHandoffProof);
+  }
+  if (contract.id === 'notifications.preferences.update') {
+    return bounded('confirmation_only', {
+      id: contract.id, providers: contract.providers, consequence: contract.consequence,
+      confirmation: contract.confirmation, toolIds: [contract.id], sourceRefs: contract.sourceRefs,
+    }, 'Chat carries the exact preference patch into native review; iOS permission and final scheduling remain device-owned.', deviceHandoffProof);
+  }
   if (contract.owner === 'household') {
     return live({
       id: contract.id,

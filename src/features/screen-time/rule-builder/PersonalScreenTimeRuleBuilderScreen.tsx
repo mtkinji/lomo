@@ -45,27 +45,33 @@ import { PersonalRuleConditionRow } from './PersonalRuleConditionRow';
 import type { PersonalScreenTimeRuleBuilderParams } from './personalRuleBuilderLaunch';
 import { saveMoneyAppControlSettings } from '../../../capabilities/money/runtime/moneyAppControlStorage';
 import { reconcileLatestMoneyAppControls } from '../../../capabilities/money/runtime/moneyAppControlRuntime';
+import { createMoneyRepository } from '../../../capabilities/money/data/moneyRepository';
+import type { MoneyCategory } from '../../../capabilities/money/data/moneySnapshot';
+import type { MoneyAppControlPreset } from '../../../capabilities/money/domain/moneyAppControl';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeRuleBuilder'>;
 type RuleTargets = { selectedApps: ScreenTimeToken[]; selectedCategories: ScreenTimeToken[] };
-type Drawer = 'condition' | 'connector' | 'outcome' | 'operator' | 'duration' | 'time' | null;
+type Drawer = 'condition' | 'budget' | 'budgetPreset' | 'connector' | 'outcome' | 'operator' | 'duration' | 'time' | null;
 
 const MINUTE_OPTIONS = Array.from({ length: 288 }, (_, index) => (index + 1) * 5);
 
 function targetLabel(targets: RuleTargets): string {
   const all = [...targets.selectedApps, ...targets.selectedCategories];
   if (!all.length) return 'Choose apps and categories';
-  const first = all[0]?.label?.trim();
-  if (all.length === 1) return first || '1 app or category';
-  return first ? `${first} + ${all.length - 1}` : `${all.length} apps or categories`;
+  const labels = all.map((target) => target.label?.trim()).filter((label): label is string => !!label && !/^\d+\s+(apps?|categor(?:y|ies))$/i.test(label));
+  if (labels.length === all.length) return labels.length === 1 ? labels[0] : `${labels[0]} + ${labels.length - 1}`;
+  if (targets.selectedApps.length && targets.selectedCategories.length) return 'your selected apps and categories';
+  if (targets.selectedCategories.length) return targets.selectedCategories.length === 1 ? 'your selected category' : 'your selected categories';
+  return targets.selectedApps.length === 1 ? 'your selected app' : 'your selected apps';
 }
 
 function conditionDefault(type: PersonalRuleCondition['type'], id: string): PersonalRuleCondition {
   if (type === 'real_step_complete') return { id, type };
   if (type === 'focus_active') return { id, type, operator: 'is', value: true };
   if (type === 'daily_usage') return { id, type, operator: 'below', minutes: 15 };
-  return { id, type, operator: 'after', minuteOfDay: 17 * 60 };
+  if (type === 'time_of_day') return { id, type, operator: 'after', minuteOfDay: 17 * 60 };
+  throw new Error('A budget condition requires a selected budget.');
 }
 
 function suggestedDraft(params: PersonalScreenTimeRuleBuilderParams, id: string) {
@@ -119,6 +125,8 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
   const [timeDraft, setTimeDraft] = useState(() => new Date(2026, 0, 1, 17, 0));
   const [choosingApps, setChoosingApps] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [budgets, setBudgets] = useState<MoneyCategory[]>([]);
+  const [budgetDraft, setBudgetDraft] = useState<Pick<Extract<PersonalRuleCondition, { type: 'budget' }>, 'categorySourceId' | 'categoryName'> | null>(null);
 
   const count = targets.selectedApps.length + targets.selectedCategories.length;
   const label = targetLabel(targets);
@@ -161,7 +169,13 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     setDrawer('condition');
   };
 
-  const chooseConditionType = (type: PersonalRuleCondition['type']) => {
+  const chooseConditionType = async (type: PersonalRuleCondition['type']) => {
+    if (type === 'budget') {
+      const snapshot = await createMoneyRepository().loadSnapshot().catch(() => null);
+      setBudgets(snapshot?.categories.filter((category) => category.planRole !== 'protected') ?? []);
+      setDrawer('budget');
+      return;
+    }
     if (activeConditionId) {
       setConditions((current) => current.map((condition) => condition.id === activeConditionId
         ? conditionDefault(type, condition.id)
@@ -172,6 +186,23 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     }
     setDrawer(null);
     setActiveConditionId(null);
+  };
+
+  const chooseBudget = (category: MoneyCategory) => {
+    setBudgetDraft({ categorySourceId: category.sourceId, categoryName: category.name });
+    setDrawer('budgetPreset');
+  };
+
+  const chooseBudgetPreset = (preset: MoneyAppControlPreset) => {
+    if (!budgetDraft) return;
+    const id = activeConditionId ?? `${draftRuleId}:condition:${conditions.length}:${Crypto.randomUUID()}`;
+    const condition: PersonalRuleCondition = { id, type: 'budget', ...budgetDraft, preset };
+    setConditions((current) => activeConditionId
+      ? current.map((candidate) => candidate.id === activeConditionId ? condition : candidate)
+      : [...current, condition]);
+    setBudgetDraft(null);
+    setActiveConditionId(null);
+    setDrawer(null);
   };
 
   const removeCondition = () => {
@@ -297,10 +328,21 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
     { type: 'daily_usage', label: 'Daily use' },
     { type: 'focus_active', label: 'Focus' },
     { type: 'real_step_complete', label: 'Real step' },
+    { type: 'budget', label: 'Budget' },
+  ];
+
+  const budgetPresets: Array<{ preset: MoneyAppControlPreset; label: string }> = [
+    { preset: 'always_review', label: 'This budget needs review' },
+    { preset: 'when_hot', label: 'Spending is ahead of the month' },
+    { preset: 'at_95_percent', label: '95% of this budget is used' },
+    { preset: 'when_over', label: 'This budget is fully used' },
+    { preset: 'needs_review', label: 'Transactions need review' },
   ];
 
   return (
-    <SettingsPage onBack={goBack} title={isEditing || isReplacingMoney ? 'Edit rule' : 'Add rule'} contentStyle={styles.content}>
+    <SettingsPage onBack={goBack} title={isEditing || isReplacingMoney ? 'Edit rule' : 'Add rule'}
+      headerAction={!isEditing && !isReplacingMoney ? <Text style={styles.stepCount}>{showComposer ? '2 of 2' : '1 of 2'}</Text> : undefined}
+      contentStyle={styles.content}>
       {!showComposer ? (
         <View style={styles.intro}>
           <Text style={styles.question}>Which apps should this rule manage?</Text>
@@ -313,7 +355,7 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
       ) : (
         <>
           <Pressable accessibilityRole="button" accessibilityLabel={`Change apps and categories. ${label}`} onPress={() => void chooseApps()}>
-            <Text style={styles.question}>Rule for {label}</Text>
+            <Text style={styles.question}>Build a rule for {label}</Text>
           </Pressable>
           {isEditing ? (
             <View style={styles.enabledRow}>
@@ -323,7 +365,8 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
           ) : null}
 
           <View style={styles.builderSection}>
-            <Text style={styles.sectionTitle}>When</Text>
+            <Text style={styles.sectionTitle}>Rule behavior</Text>
+            <View style={styles.conditionWell}>
             <View style={styles.conditionStack}>
               {conditions.map((condition, index) => (
                 <View key={condition.id}>
@@ -338,9 +381,10 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
                 </View>
               ))}
             </View>
-            <Pressable accessibilityRole="button" onPress={() => openCondition()} style={styles.addCondition}>
+            <Pressable accessibilityRole="button" accessibilityLabel="＋ Add condition" onPress={() => openCondition()} style={styles.addCondition}>
               <Text style={styles.addConditionText}>＋ Add condition</Text>
             </Pressable>
+            </View>
           </View>
 
           <View style={styles.builderSection}>
@@ -370,19 +414,30 @@ export function PersonalScreenTimeRuleBuilderDrawer(props: { params: PersonalScr
         footer={drawer === 'duration' || drawer === 'time' ? { primaryAction: { label: 'Done', onPress: commitValue } } : undefined}>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
           <BottomDrawerHeader title={drawer === 'condition' ? (activeConditionId ? 'Condition' : 'Add condition')
-            : drawer === 'connector' ? 'Match conditions' : drawer === 'outcome' ? 'Then'
+            : drawer === 'budget' ? 'Choose a budget' : drawer === 'budgetPreset' ? 'Budget condition'
+              : drawer === 'connector' ? 'Match conditions' : drawer === 'outcome' ? 'Then'
               : drawer === 'operator' ? 'Operator' : drawer === 'duration' ? 'Daily use' : 'Time of day'}
             variant="withClose" onClose={() => setDrawer(null)} closeAccessibilityLabel="Close" />
           {drawer === 'condition' ? (
             <SettingsGroup>
-              {conditionTypes.map((item, index) => {
+              {conditionTypes.map((item) => {
                 const selected = activeCondition?.type === item.type;
-                const alreadyUsed = !selected && conditions.some((condition) => condition.type === item.type);
-                return <View key={item.type}>{index > 0 ? <SettingsDivider /> : null}
-                  <SettingsChoiceRow disabled={alreadyUsed} selected={selected} title={item.label} onPress={() => chooseConditionType(item.type)} />
+                const alreadyUsed = item.type !== 'budget' && !selected && conditions.some((condition) => condition.type === item.type);
+                return <View key={item.type}>
+                  <SettingsChoiceRow disabled={alreadyUsed} selected={selected} title={item.label} onPress={() => void chooseConditionType(item.type)} />
                 </View>;
               })}
               {activeConditionId ? <><SettingsDivider /><Pressable accessibilityRole="button" onPress={removeCondition} style={styles.drawerDestructive}><Text style={styles.deleteText}>Remove condition</Text></Pressable></> : null}
+            </SettingsGroup>
+          ) : drawer === 'budget' ? (
+            <SettingsGroup>
+              {budgets.map((category) => <SettingsChoiceRow key={category.sourceId} selected={activeCondition?.type === 'budget' && activeCondition.categorySourceId === category.sourceId}
+                title={category.name} onPress={() => chooseBudget(category)} />)}
+            </SettingsGroup>
+          ) : drawer === 'budgetPreset' ? (
+            <SettingsGroup>
+              {budgetPresets.map((item) => <SettingsChoiceRow key={item.preset} selected={activeCondition?.type === 'budget' && activeCondition.preset === item.preset}
+                title={item.label} onPress={() => chooseBudgetPreset(item.preset)} />)}
             </SettingsGroup>
           ) : drawer === 'connector' ? (
             <SettingsGroup>
@@ -419,6 +474,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: spacing['2xl'] },
   intro: { gap: spacing.lg },
   question: { ...typography.titleLg, color: colors.textPrimary, letterSpacing: -0.7 },
+  stepCount: { ...typography.caption, fontFamily: fonts.semibold, color: colors.textSecondary },
   targetPicker: { minHeight: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, borderRadius: radii.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.canvas },
   targetPickerText: { ...typography.body, fontFamily: fonts.semibold, color: colors.textPrimary },
   chevron: { color: colors.textSecondary, fontSize: 24 },
@@ -428,6 +484,7 @@ const styles = StyleSheet.create({
   builderSection: { marginTop: spacing.xl },
   sectionTitle: { ...typography.titleSm, color: colors.textPrimary, marginBottom: spacing.sm },
   conditionStack: { gap: 0 },
+  conditionWell: { overflow: 'hidden', borderRadius: radii.card, backgroundColor: colors.canvas, padding: spacing.sm },
   connector: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.xs },
   connectorText: { ...typography.caption, fontFamily: fonts.bold, color: colors.textSecondary, letterSpacing: 0.5 },
   addCondition: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', marginTop: spacing.xs, paddingHorizontal: spacing.xs },

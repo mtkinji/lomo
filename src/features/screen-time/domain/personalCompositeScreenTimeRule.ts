@@ -2,6 +2,7 @@ import type {
   PersonalScreenTimeRule,
   ScreenTimeToken,
 } from '../../../services/screenTimeProtection';
+import type { MoneyAppControlPreset } from '../../../capabilities/money/domain/moneyAppControl';
 
 export type PersonalRuleConnector = 'all' | 'any';
 export type PersonalRuleOutcome = 'available' | 'pause';
@@ -10,7 +11,8 @@ export type PersonalRuleCondition =
   | { id: string; type: 'real_step_complete' }
   | { id: string; type: 'focus_active'; operator: 'is' | 'is_not'; value: true }
   | { id: string; type: 'daily_usage'; operator: 'below' | 'reaches'; minutes: number }
-  | { id: string; type: 'time_of_day'; operator: 'after' | 'before'; minuteOfDay: number };
+  | { id: string; type: 'time_of_day'; operator: 'after' | 'before'; minuteOfDay: number }
+  | { id: string; type: 'budget'; categorySourceId: string; categoryName: string; preset: MoneyAppControlPreset };
 
 export type PersonalCompositeScreenTimeRule = {
   id: string;
@@ -83,6 +85,13 @@ function normalizeCondition(value: unknown): PersonalRuleCondition | null {
     if ((value.operator !== 'after' && value.operator !== 'before') || !Number.isInteger(minuteOfDay) || minuteOfDay < 0 || minuteOfDay > 1439) return null;
     return { id, type: 'time_of_day', operator: value.operator, minuteOfDay };
   }
+  if (value.type === 'budget') {
+    const categorySourceId = cleanId(value.categorySourceId);
+    const categoryName = cleanId(value.categoryName);
+    const preset = value.preset;
+    if (!categorySourceId || !categoryName || !['always_review', 'when_hot', 'at_95_percent', 'when_over', 'needs_review'].includes(String(preset))) return null;
+    return { id, type: 'budget', categorySourceId, categoryName, preset: preset as MoneyAppControlPreset };
+  }
   return null;
 }
 
@@ -113,12 +122,12 @@ export function validatePersonalCompositeScreenTimeRule(value: unknown): Persona
       else if (ids.has(id)) issues.add('condition_ids');
       else ids.add(id);
 
-      if (!['real_step_complete', 'focus_active', 'daily_usage', 'time_of_day'].includes(String(candidate.type))) {
+      if (!['real_step_complete', 'focus_active', 'daily_usage', 'time_of_day', 'budget'].includes(String(candidate.type))) {
         issues.add('condition_type');
         return;
       }
       const conditionType = String(candidate.type);
-      if (types.has(conditionType)) issues.add('condition_type');
+      if (conditionType !== 'budget' && types.has(conditionType)) issues.add('condition_type');
       else types.add(conditionType);
       if (candidate.type === 'focus_active') {
         if (candidate.operator !== 'is' && candidate.operator !== 'is_not') issues.add('condition_operator');
@@ -133,6 +142,10 @@ export function validatePersonalCompositeScreenTimeRule(value: unknown): Persona
         if (candidate.operator !== 'after' && candidate.operator !== 'before') issues.add('condition_operator');
         const minuteOfDay = Number(candidate.minuteOfDay);
         if (!Number.isInteger(minuteOfDay) || minuteOfDay < 0 || minuteOfDay > 1439) issues.add('condition_value');
+      }
+      if (candidate.type === 'budget') {
+        if (!cleanId(candidate.categorySourceId) || !cleanId(candidate.categoryName)) issues.add('condition_value');
+        if (!['always_review', 'when_hot', 'at_95_percent', 'when_over', 'needs_review'].includes(String(candidate.preset))) issues.add('condition_operator');
       }
     });
   }

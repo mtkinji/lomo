@@ -176,6 +176,26 @@ export function evaluateMoneyAppControlPolicy(params: {
   return { restricted: false, reason: null };
 }
 
+export function evaluateMoneyBudgetCondition(params: {
+  settings: MoneyAppControlSettings;
+  snapshot: MoneySnapshot;
+  categorySourceId: string;
+  preset: MoneyAppControlPreset;
+  now: Date;
+}): boolean | null {
+  const category = params.snapshot.categories.find((candidate) => candidate.sourceId === params.categorySourceId);
+  if (!category) return null;
+  const policy = params.settings.policies[params.categorySourceId];
+  if (policy && hasFreshOpenReview(policy, params.now)) return false;
+  if (params.preset === 'always_review') return true;
+  if (params.preset === 'at_95_percent') return category.percentUsed >= 95;
+  if (params.preset === 'when_over') return category.percentUsed >= 100;
+  if (params.preset === 'needs_review') return params.snapshot.totals.needsReviewCount > 0;
+  const daysInMonth = new Date(params.now.getFullYear(), params.now.getMonth() + 1, 0).getDate();
+  const elapsedPercent = (params.now.getDate() / daysInMonth) * 100;
+  return category.percentUsed > elapsedPercent + 10;
+}
+
 export function recordMoneyAppControlReview(
   settings: MoneyAppControlSettings,
   categorySourceId: string,

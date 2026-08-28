@@ -12,13 +12,22 @@ import Animated, {
 } from 'react-native-reanimated';
 import { CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
 import type { CapabilityMenuDestinationId } from '../capabilities/types';
-import { colors, fonts, radii, spacing, typography } from '../theme';
+import {
+  bottomDockGeometry,
+  colors,
+  floatingControl,
+  fonts,
+  radii,
+  spacing,
+  typography,
+} from '../theme';
 import { BrandLockup } from '../ui/BrandLockup';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { ButtonLabel } from '../ui/Typography';
 import { KwiltLoader } from '../ui/KwiltLoader';
+import { resolveRestingFloatingControlContentInset } from '../ui/layout/bottomDockGeometry';
 import { Badge } from '../ui/Badge';
 import { NavigationDiscoveryDot } from '../ui/NavigationDiscoveryDot';
 import {
@@ -73,6 +82,8 @@ export type CapabilityMenuChat = {
 type CapabilityPinMenuTrigger = {
   open: () => void;
 };
+
+const CAPABILITY_MENU_FLOATING_CONTROLS_HEIGHT = 44;
 
 export function CapabilityMenu({
   activeCapabilityId,
@@ -311,6 +322,7 @@ export function CapabilityMenu({
       </View>
 
       <ScrollView
+        testID="capability.menu.scroll"
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -431,6 +443,7 @@ export function CapabilityMenu({
 
       <View
         testID="capability.menu.footer"
+        pointerEvents="box-none"
         style={[styles.footer, chatSelectionMode && styles.footerSelecting]}
       >
         {chatSelectionMode ? (
@@ -448,18 +461,6 @@ export function CapabilityMenu({
           </Button>
         ) : (
           <>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Search Kwilt"
-              onPress={onOpenSearch}
-              style={({ pressed }) => [
-                styles.searchButton,
-                pressed && styles.searchButtonPressed,
-              ]}
-            >
-              <Icon name="search" size={20} color={colors.gray700} />
-            </Pressable>
-
             {sharedHomeEnabled ? (
               <View style={styles.footerActions}>
                 <Pressable
@@ -483,6 +484,7 @@ export function CapabilityMenu({
               </View>
             ) : (
               <Button
+                testID="capability.menu.chat"
                 accessibilityLabel="Open chat"
                 onPress={onOpenChat}
                 variant="primary"
@@ -493,6 +495,19 @@ export function CapabilityMenu({
                 <ButtonLabel tone="inverse">Chat</ButtonLabel>
               </Button>
             )}
+
+            <Pressable
+              testID="capability.menu.search"
+              accessibilityRole="button"
+              accessibilityLabel="Search Kwilt"
+              onPress={onOpenSearch}
+              style={({ pressed }) => [
+                styles.searchButton,
+                pressed && styles.searchButtonPressed,
+              ]}
+            >
+              <Icon name="search" size={20} color={colors.gray700} />
+            </Pressable>
           </>
         )}
       </View>
@@ -675,7 +690,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   scrollContent: {
-    paddingBottom: spacing.lg,
+    paddingBottom: resolveRestingFloatingControlContentInset(
+      CAPABILITY_MENU_FLOATING_CONTROLS_HEIGHT,
+    ),
   },
   primaryCluster: {
     marginBottom: spacing.sm,
@@ -861,11 +878,17 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   footer: {
-    minHeight: 56,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: bottomDockGeometry.restingFloatingControl.bottomGap,
+    zIndex: 2,
+    minHeight: CAPABILITY_MENU_FLOATING_CONTROLS_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: spacing.sm,
+    paddingHorizontal: bottomDockGeometry.restingFloatingControl.inlineGap,
+    backgroundColor: 'transparent',
   },
   footerSelecting: {
     justifyContent: 'flex-end',
@@ -890,7 +913,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,
-    backgroundColor: colors.gray100,
+    backgroundColor: colors.card,
+    borderWidth: floatingControl.material.borderWidth,
+    borderColor: floatingControl.material.borderColor,
+    ...floatingControl.shadow,
   },
   searchButtonPressed: {
     backgroundColor: colors.gray200,
@@ -899,6 +925,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    ...floatingControl.shadow,
   },
   askButton: {
     minHeight: 44,

@@ -27,6 +27,14 @@ export function personalRuleConditionParts(condition: PersonalRuleCondition): {
   if (condition.type === 'daily_usage') {
     return { field: 'Daily use', operator: condition.operator === 'below' ? 'is below' : 'reaches', value: `${condition.minutes} min`, operatorEditable: true, valueEditable: true };
   }
+  if (condition.type === 'budget') {
+    const value = condition.preset === 'always_review' ? 'needs review'
+      : condition.preset === 'when_hot' ? 'ahead of month'
+        : condition.preset === 'at_95_percent' ? '95% used'
+          : condition.preset === 'when_over' ? 'fully used'
+            : 'needs review';
+    return { field: condition.categoryName, operator: 'is', value, operatorEditable: false, valueEditable: false };
+  }
   return { field: 'Time', operator: condition.operator === 'before' ? 'is before' : 'is after', value: formatTime(condition.minuteOfDay), operatorEditable: true, valueEditable: true };
 }
 

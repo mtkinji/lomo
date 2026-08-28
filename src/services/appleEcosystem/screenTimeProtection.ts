@@ -265,7 +265,7 @@ export async function clearPersonalScreenTimeUsageLimit(ruleId: string): Promise
 
 export async function applyPersonalCompositeScreenTimeRule(
   candidate: PersonalCompositeScreenTimeRule,
-  context?: { focusActive?: boolean; realStepComplete?: boolean },
+  context?: { focusActive?: boolean; realStepComplete?: boolean; budgetConditionTruth?: Record<string, boolean> },
 ): Promise<boolean> {
   if (Platform.OS !== 'ios' || !native?.applyPersonalCompositeRule) return false;
   const rule = normalizePersonalCompositeScreenTimeRule(candidate);
@@ -281,6 +281,9 @@ export async function applyPersonalCompositeScreenTimeRule(
       }
       if (condition.type === 'real_step_complete' && context?.realStepComplete !== undefined) {
         return [[condition.id, context.realStepComplete]];
+      }
+      if (condition.type === 'budget' && context?.budgetConditionTruth?.[condition.id] !== undefined) {
+        return [[condition.id, context.budgetConditionTruth[condition.id]]];
       }
       return [];
     }));

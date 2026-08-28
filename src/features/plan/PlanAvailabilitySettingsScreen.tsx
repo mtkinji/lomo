@@ -1,7 +1,7 @@
 import { Pressable } from '@/src/ui/HapticPressable';
 import React, { useMemo, useState } from 'react';
-import { Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { Alert, Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -18,6 +18,12 @@ import { Button } from '../../ui/Button';
 import { HStack, Text, VStack } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
 import { Switch } from 'react-native';
+import {
+  applyPlanAvailabilityState,
+  applyPlanAvailabilityUpdate,
+  readPlanAvailability,
+} from '../../capabilities/plan/actions/planPreferenceActions';
+import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 
 type PickerState = {
   dayKey: keyof PlanAvailabilityByWeekday;
@@ -37,25 +43,33 @@ const DAY_LABELS: Array<{ key: keyof PlanAvailabilityByWeekday; label: string }>
 
 export function PlanAvailabilitySettingsScreen() {
   const navigation = useNavigation();
+  const route = useRoute<RouteProp<SettingsStackParamList, 'SettingsPlanAvailability'>>();
   const userProfile = useAppStore((s) => s.userProfile);
   const updateUserProfile = useAppStore((s) => s.updateUserProfile);
   const initial = useMemo(() => resolvePlanAvailability(userProfile), [userProfile]);
   const [availability, setAvailability] = useState<PlanAvailabilityByWeekday>(initial);
   const [pickerState, setPickerState] = useState<PickerState | null>(null);
   const [iosDraftTime, setIosDraftTime] = useState<Date>(() => new Date());
+  const [reviewHandled, setReviewHandled] = useState(false);
+  const reviewedChange = useMemo(() => {
+    if (!userProfile || !route.params || reviewHandled) return null;
+    try {
+      return applyPlanAvailabilityUpdate(userProfile, route.params);
+    } catch {
+      return null;
+    }
+  }, [reviewHandled, route.params, userProfile]);
 
   const persist = (next: PlanAvailabilityByWeekday) => {
     setAvailability(next);
-    updateUserProfile((current) => ({
-      ...current,
-      preferences: {
-        ...(current.preferences ?? {}),
-        plan: {
-          ...(current.preferences?.plan ?? {}),
-          availability: next,
-        },
-      },
-    }));
+    updateUserProfile((current) => {
+      const snapshot = readPlanAvailability(current);
+      return applyPlanAvailabilityState(current, {
+        expectedVersion: snapshot.version,
+        timeZone: snapshot.timeZone,
+        availability: next,
+      }).profile;
+    });
   };
 
   const updateDay = (key: keyof PlanAvailabilityByWeekday, updates: Partial<PlanDayAvailability>) => {
@@ -145,6 +159,25 @@ export function PlanAvailabilitySettingsScreen() {
     setPickerState(null);
   };
 
+  const applyReviewedChange = () => {
+    if (!route.params || !reviewedChange) return;
+    try {
+      let nextAvailability: PlanAvailabilityByWeekday | null = null;
+      updateUserProfile((current) => {
+        const result = applyPlanAvailabilityUpdate(current, route.params!);
+        nextAvailability = resolvePlanAvailability(result.profile);
+        return result.profile;
+      });
+      if (nextAvailability) setAvailability(nextAvailability);
+      setReviewHandled(true);
+    } catch (error) {
+      Alert.alert(
+        'Availability changed',
+        error instanceof Error ? error.message : 'Refresh and review the current week before applying this change.',
+      );
+    }
+  };
+
   return (
     <AppShell>
       <View style={styles.screen}>
@@ -154,6 +187,28 @@ export function PlanAvailabilitySettingsScreen() {
         />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <VStack space="sm">
+            {route.params && !reviewHandled ? (
+              <View style={styles.reviewCard}>
+                <VStack space="sm">
+                  <Text style={styles.cardTitle}>Review Chat change</Text>
+                  {reviewedChange ? (
+                    <>
+                      <Text style={styles.helperText}>
+                        {`${route.params.affectedWeekdays.length} affected day${route.params.affectedWeekdays.length === 1 ? '' : 's'} · ${route.params.timeZone}`}
+                      </Text>
+                      <Button onPress={applyReviewedChange}>Apply reviewed changes</Button>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.helperText}>
+                        Your availability changed after this review was prepared. Nothing was applied.
+                      </Text>
+                      <Button variant="secondary" onPress={() => setReviewHandled(true)}>Dismiss stale review</Button>
+                    </>
+                  )}
+                </VStack>
+              </View>
+            ) : null}
             <Text style={styles.helperText}>
               Set when Plan can recommend commitments. Disabled days are treated as rest days.
             </Text>
@@ -254,6 +309,13 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
+  reviewCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   card: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -332,5 +394,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
 });
-
-

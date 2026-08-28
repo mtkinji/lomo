@@ -1,6 +1,11 @@
 import { createRecipeRepository } from '../../capabilities/recipes/data/recipeRepository';
 import { useRecipeStore } from '../../capabilities/recipes/runtime/useRecipeStore';
-import { fetchMyChapterById, updateChapterUserNote } from '../../services/chapters';
+import {
+  fetchMyChapterById,
+  getWeeklyDigestSettings,
+  updateChapterUserNote,
+  updateWeeklyDigestSettings,
+} from '../../services/chapters';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { MoneyCategoryProposal } from './executeMoneyCategoryProposalDecision';
@@ -108,4 +113,11 @@ export const profileStoreBoundary = {
 export const chapterStoreBoundary = {
   getChapter: (id: string) => fetchMyChapterById(id),
   updateNote: (id: string, note: string | null) => updateChapterUserNote({ chapterId: id, note }),
+  getActivities: () => useAppStore.getState().activities,
+  getGoals: () => useAppStore.getState().goals,
+  updateActivityGoal: (id: string, goalId: string | null) => useAppStore.getState().updateActivity(id, (activity) => ({
+    ...activity, goalId, updatedAt: new Date().toISOString(),
+  })),
+  getDigestSettings: () => getWeeklyDigestSettings(),
+  updateDigestSettings: (input: Parameters<typeof updateWeeklyDigestSettings>[0]) => updateWeeklyDigestSettings(input),
 };

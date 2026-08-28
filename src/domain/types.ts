@@ -1095,6 +1095,8 @@ export interface UserProfile {
      * Plan-specific availability + calendar settings for daily planning.
      */
     plan?: {
+      /** Optimistic revision for version-checked availability changes. */
+      availabilityVersion?: number;
       availability?: {
         sun: { enabled: boolean; windows: { work: Array<{ start: string; end: string }>; personal: Array<{ start: string; end: string }> } };
         mon: { enabled: boolean; windows: { work: Array<{ start: string; end: string }>; personal: Array<{ start: string; end: string }> } };

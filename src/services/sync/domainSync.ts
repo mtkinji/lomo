@@ -407,7 +407,7 @@ async function pushNow(): Promise<void> {
     const arcs = state.arcs ?? [];
     const goals = state.goals ?? [];
     const activities = state.activities ?? [];
-    const profileProjectionSignature = agentProfileProjectionSignature(state.userProfile);
+    const profileProjectionSignature = agentProfileProjectionSignature(state.userProfile, state.notificationPreferences);
 
     const nextArcIds = new Set(arcs.map((a) => a.id));
     const nextGoalIds = new Set(goals.map((g) => g.id));
@@ -437,7 +437,9 @@ async function pushNow(): Promise<void> {
     await doUpsert('kwilt_goals', [...goalRows, ...goalTombstones]);
     await doUpsert('kwilt_activities', [...activityRows, ...activityTombstones]);
     if (profileProjectionSignature !== prevProfileProjectionSignature) {
-      const row = buildAgentProfileProjectionRow({ userId: user.userId, profile: state.userProfile });
+      const row = buildAgentProfileProjectionRow({
+        userId: user.userId, profile: state.userProfile, notificationPreferences: state.notificationPreferences,
+      });
       await supabase.from('kwilt_agent_profile_projections').upsert(row, { onConflict: 'user_id' })
         .select('user_id').throwOnError();
     }
@@ -621,17 +623,19 @@ async function enableForUser(user: SyncUser): Promise<void> {
       goals: s.goals,
       activities: s.activities,
       userProfile: s.userProfile,
+      notificationPreferences: s.notificationPreferences,
       domainHydrated: s.domainHydrated,
     }),
     (next, prev) => {
       if (!next?.domainHydrated) return;
       if (prev && next.arcs === prev.arcs && next.goals === prev.goals &&
-          next.activities === prev.activities && next.userProfile === prev.userProfile) {
+          next.activities === prev.activities && next.userProfile === prev.userProfile
+          && next.notificationPreferences === prev.notificationPreferences) {
         return;
       }
       if (suppressNextPush) {
         suppressNextPush = false;
-        if (agentProfileProjectionSignature(next.userProfile) !== prevProfileProjectionSignature) {
+        if (agentProfileProjectionSignature(next.userProfile, next.notificationPreferences) !== prevProfileProjectionSignature) {
           schedulePush();
         }
         return;

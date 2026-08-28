@@ -16,6 +16,15 @@ describe('classifyUnifiedChatRequest', () => {
     expect(classifyUnifiedChatRequest({ prompt: 'Delete my lemon pasta recipe' }))
       .toMatchObject({ requestClass: 'capability_action', participatingCapabilities: ['recipes'], usePrivateContext: true });
   });
+
+  it('routes Grocery and Savings requests to their distinct Food owners', () => {
+    expect(classifyUnifiedChatRequest({ prompt: 'Show my grocery list' }))
+      .toMatchObject({ requestClass: 'capability_question', participatingCapabilities: ['groceries'] });
+    expect(classifyUnifiedChatRequest({ prompt: 'Review the current savings for my grocery list' }))
+      .toMatchObject({ requestClass: 'capability_question', participatingCapabilities: ['groceries', 'savings'] });
+    expect(classifyUnifiedChatRequest({ prompt: 'Open the coupon offer for review' }))
+      .toMatchObject({ requestClass: 'capability_action', participatingCapabilities: ['savings'] });
+  });
   test.each([
     'Am I within my income spending limit?',
     'Does my budget still fit the 70% living limit?',

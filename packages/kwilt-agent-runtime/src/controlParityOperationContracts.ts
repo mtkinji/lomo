@@ -175,6 +175,7 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
         maxItems: 28,
         items: objectSchema({
           weekday: { type: 'integer', minimum: 1, maximum: 7 },
+          mode: { type: 'string', enum: ['work', 'personal'] },
           startLocalTime: { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
           endLocalTime: { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
         }),
@@ -191,7 +192,11 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
     purpose: 'Update selected Plan calendars after native calendar authorization and exact calendar review.',
     providers: ['device'], consequence: 'consequential', reversible: true,
     confirmation: 'native', completionMode: 'native_handoff',
-    inputSchema: objectSchema({ expectedVersion: VERSION, calendarIds: STRING_LIST }), sourceRefs: planRefs,
+    inputSchema: objectSchema({
+      expectedVersion: VERSION,
+      readCalendarIds: STRING_LIST,
+      writeCalendarId: { type: ['string', 'null'], maxLength: 500 },
+    }), sourceRefs: planRefs,
   }),
 
   read({
@@ -204,7 +209,17 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
     purpose: 'Update explicitly reviewed weekly Chapter generation and delivery preferences.',
     providers: ['device', 'server'], consequence: 'low', reversible: true,
     confirmation: 'explicit', completionMode: 'reviewed_proposal',
-    inputSchema: objectSchema({ expectedVersion: VERSION, fields: FIELDS }), sourceRefs: chapterRefs,
+    inputSchema: timestampedTargetSchema('templateId', {
+      fields: {
+        type: 'object', minProperties: 1, additionalProperties: false,
+        properties: {
+          enabled: { type: 'boolean' },
+          deliveryWeekday: { type: 'integer', minimum: 1, maximum: 7 },
+          emailEnabled: { type: 'boolean' },
+          emailRecipient: { type: ['string', 'null'], maxLength: 320 },
+        },
+      },
+    }), sourceRefs: chapterRefs,
   }),
   read({
     id: 'chapters.alignment.preview', owner: 'chapters',
@@ -216,7 +231,13 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
     purpose: 'Apply one reviewed Chapter alignment proposal to the exact affected Activities.',
     providers: ['device', 'server'], consequence: 'consequential', reversible: true,
     confirmation: 'explicit', completionMode: 'reviewed_proposal',
-    inputSchema: versionedTargetSchema('chapterId', { activityIds: STRING_LIST }), sourceRefs: chapterRefs,
+    inputSchema: timestampedTargetSchema('chapterId', {
+      recommendationId: STRING_ID,
+      activities: {
+        type: 'array', minItems: 1, maxItems: 100,
+        items: objectSchema({ activityId: STRING_ID, expectedUpdatedAt: UPDATED_AT }),
+      },
+    }), sourceRefs: chapterRefs,
   }),
 
   read({ id: 'settings.appearance.read', owner: 'settings', purpose: 'Read device appearance preferences.', providers: ['device'], inputSchema: EMPTY_SCHEMA, sourceRefs: settingsRefs }),
@@ -302,8 +323,20 @@ export const CONTROL_PARITY_OPERATION_CONTRACTS = [
   write({ id: 'screen_time.personal_rule.deactivate', owner: 'screenTime', purpose: 'Deactivate one personal Screen Time rule and remove its active enforcement.', providers: ['device', 'server'], consequence: 'consequential', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: timestampedTargetSchema('ruleId'), sourceRefs: screenTimeRefs }),
   write({ id: 'screen_time.personal_rule.delete', owner: 'screenTime', purpose: 'Delete one personal Screen Time rule after native enforcement cleanup.', providers: ['device', 'server'], consequence: 'consequential', reversible: false, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: timestampedTargetSchema('ruleId'), sourceRefs: screenTimeRefs }),
 
-  read({ id: 'notifications.preferences.read', owner: 'notifications', purpose: 'Read individual Kwilt notification preferences without changing OS permission.', providers: ['device'], inputSchema: EMPTY_SCHEMA, sourceRefs: notificationRefs }),
-  write({ id: 'notifications.preferences.update', owner: 'notifications', purpose: 'Update individual Kwilt notification preferences; OS permission remains native-owned.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'explicit', completionMode: 'reviewed_proposal', inputSchema: objectSchema({ fields: FIELDS }), sourceRefs: notificationRefs }),
+  read({ id: 'notifications.preferences.read', owner: 'notifications', purpose: 'Read bounded individual Kwilt notification preferences without exposing device permission state.', providers: ['device', 'server'], inputSchema: EMPTY_SCHEMA, sourceRefs: notificationRefs }),
+  write({ id: 'notifications.preferences.update', owner: 'notifications', purpose: 'Review individual Kwilt notification preferences; any OS permission prompt remains native-owned.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'native', completionMode: 'native_handoff', inputSchema: objectSchema({ fields: {
+    type: 'object', minProperties: 1, additionalProperties: false,
+    properties: {
+      notificationsEnabled: { type: 'boolean' }, allowActivityReminders: { type: 'boolean' },
+      allowDailyShowUp: { type: 'boolean' }, dailyShowUpTime: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
+      allowPlanKickoff: { type: 'boolean' }, planKickoffCadence: { type: 'string', enum: ['daily', 'weekdays', 'weekly'] },
+      planKickoffWeeklyDay: { type: 'integer', minimum: 0, maximum: 6 }, allowDailyFocus: { type: 'boolean' },
+      dailyFocusTime: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
+      dailyFocusTimeMode: { type: 'string', enum: ['auto', 'manual'] }, allowGoalNudges: { type: 'boolean' },
+      goalNudgeTime: { type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
+      allowStreakAndReactivation: { type: 'boolean' }, allowHouseholdMealPlanPush: { type: 'boolean' },
+    },
+  } }), sourceRefs: notificationRefs }),
   write({ id: 'navigation.open_capability', owner: 'navigation', purpose: 'Open one allow-listed Kwilt capability or stable object destination.', providers: ['device'], consequence: 'low', reversible: true, confirmation: 'native', completionMode: 'native_handoff', inputSchema: objectSchema({ capabilityId: STRING_ID, objectRef: { type: ['object', 'null'], properties: { objectType: STRING_ID, objectId: STRING_ID }, required: ['objectType', 'objectId'], additionalProperties: false } }), sourceRefs: navigationRefs }),
 ] as const satisfies readonly ControlParityOperationContract[];
 

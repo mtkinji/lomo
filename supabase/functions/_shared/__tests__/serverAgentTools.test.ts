@@ -141,6 +141,31 @@ test('stages native Plan preferences without claiming availability or calendars 
   }));
 });
 
+test('dispatches bounded Plan availability reads and exact native update review', async () => {
+  const projection = {
+    timezone: 'America/Denver', plan_availability_version: 3,
+    plan_availability: [{ weekday: 1, mode: 'work', startLocalTime: '09:00', endLocalTime: '17:00' }],
+  };
+  const { client } = clientWith({ data: projection, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1', call: { id: 'availability-read', toolId: 'plan.availability.read', arguments: {} },
+    tool: tool('plan.availability.read'), stageDeviceAction: jest.fn(),
+  })).resolves.toMatchObject({ status: 'completed', output: { version: 3, timeZone: 'America/Denver' } });
+
+  const stageDeviceAction = jest.fn(async () => undefined);
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1',
+    call: { id: 'availability-update', toolId: 'plan.availability.update', arguments: {
+      expectedVersion: 3, timeZone: 'America/Chicago', windows: [],
+    } },
+    tool: tool('plan.availability.update'), stageDeviceAction,
+  })).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: { actionType: 'review_plan_availability', payload: { expectedVersion: 3, affectedWeekdays: [1] } },
+  });
+  expect(stageDeviceAction).toHaveBeenCalledTimes(1);
+});
+
 test('stages an owned Goal check-in for later native audience review', async () => {
   const stageDeviceAction = jest.fn(async () => undefined);
   const { client, calls } = clientWith({
@@ -397,6 +422,99 @@ test('stages an owned Chapter note through the existing private-note review path
       payload: { note: 'Protect the quieter mornings.', expectedUpdatedAt: 'chapter-v1' },
     },
   });
+});
+
+test('previews and stages the exact server-authoritative Chapter alignment', async () => {
+  const rows: Record<string, unknown> = {
+    kwilt_chapters: {
+      id: 'chapter-1', updated_at: '2026-08-28T10:00:00.000Z',
+      output_json: { recommendations: [{
+        id: 'align-1', kind: 'align', reason: 'These support the launch.',
+        payload: { goalId: 'goal-1', goalTitle: 'Launch', arcId: null, arcTitle: null, activityIds: ['activity-1'] },
+      }] },
+    },
+    kwilt_goals: [{ id: 'goal-1', data: { title: 'Launch' }, updated_at: 'goal-v1' }],
+    kwilt_activities: [{ id: 'activity-1', data: { title: 'Polish onboarding', goalId: null, updatedAt: '2026-08-28T09:00:00.000Z' }, updated_at: '2026-08-28T09:00:00.000Z' }],
+  };
+  const client = { from: jest.fn((table: string) => {
+    const query: Record<string, unknown> = {};
+    for (const method of ['select', 'eq']) query[method] = () => query;
+    query.maybeSingle = async () => ({ data: rows[table] ?? null, error: null });
+    query.limit = async () => ({ data: rows[table] ?? [], error: null });
+    return query;
+  }) };
+  const preview = await executeServerAgentTool({
+    client, userId: 'user-1',
+    call: { id: 'preview-align', toolId: 'chapters.alignment.preview', arguments: { chapterId: 'chapter-1' } },
+    tool: tool('chapters.alignment.preview'), stageDeviceAction: jest.fn(),
+  });
+  expect(preview).toMatchObject({ status: 'completed', output: { alignments: [{
+    recommendationId: 'align-1', goal: { id: 'goal-1', title: 'Launch' },
+    activities: [{ id: 'activity-1', expectedUpdatedAt: '2026-08-28T09:00:00.000Z' }],
+  }] } });
+
+  const stageProposal = jest.fn(async () => ({ id: 'proposal-align', status: 'pending' as const, version: 1, replayed: false }));
+  await executeServerAgentTool({
+    client, userId: 'user-1',
+    call: { id: 'apply-align', toolId: 'chapters.alignment.apply', arguments: {
+      chapterId: 'chapter-1', recommendationId: 'align-1', expectedUpdatedAt: '2026-08-28T10:00:00.000Z',
+      activities: [{ activityId: 'activity-1', expectedUpdatedAt: '2026-08-28T09:00:00.000Z' }],
+    } },
+    tool: tool('chapters.alignment.apply'), stageDeviceAction: jest.fn(), stageProposal,
+  });
+  expect(stageProposal).toHaveBeenCalledWith(expect.objectContaining({
+    capabilityId: 'chapters',
+    operation: expect.objectContaining({ type: 'apply_chapter_alignment', targetId: 'chapter-1' }),
+  }));
+});
+
+test('reads and stages versioned weekly Chapter digest settings', async () => {
+  const { client } = clientWith({ data: [{
+    id: 'template-1', enabled: true, email_enabled: false, email_recipient: null,
+    filter_json: { weeklyChapter: { deliveryWeekday: 5 } }, updated_at: '2026-08-28T10:00:00.000Z',
+  }], error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1', call: { id: 'digest-read', toolId: 'chapters.digest_settings.read', arguments: {} },
+    tool: tool('chapters.digest_settings.read'), stageDeviceAction: jest.fn(),
+  })).resolves.toMatchObject({ status: 'completed', output: { settings: {
+    templateId: 'template-1', deliveryWeekday: 5, expectedUpdatedAt: '2026-08-28T10:00:00.000Z',
+  } } });
+  const stageProposal = jest.fn(async () => ({ id: 'proposal-digest', status: 'pending' as const, version: 1, replayed: false }));
+  await executeServerAgentTool({
+    client, userId: 'user-1', call: { id: 'digest-update', toolId: 'chapters.digest_settings.update', arguments: {
+      templateId: 'template-1', expectedUpdatedAt: '2026-08-28T10:00:00.000Z', fields: { deliveryWeekday: 3 },
+    } }, tool: tool('chapters.digest_settings.update'), stageDeviceAction: jest.fn(), stageProposal,
+  });
+  expect(stageProposal).toHaveBeenCalledWith(expect.objectContaining({
+    capabilityId: 'chapters', operation: expect.objectContaining({ type: 'update_chapter_digest_settings' }),
+  }));
+});
+
+test('carries an external notification patch into device-owned review', async () => {
+  const stageDeviceAction = jest.fn(async () => undefined);
+  const { client } = clientWith({ data: null, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1', call: { id: 'notifications', toolId: 'notifications.preferences.update', arguments: {
+      fields: { notificationsEnabled: true, allowDailyFocus: true, dailyFocusTime: '08:30' },
+    } }, tool: tool('notifications.preferences.update'), stageDeviceAction,
+  })).resolves.toMatchObject({ status: 'pending_client_action', provider: 'device', request: {
+    actionType: 'review_notification_preferences', payload: { fields: { notificationsEnabled: true, allowDailyFocus: true, dailyFocusTime: '08:30' } },
+  } });
+  expect(stageDeviceAction).toHaveBeenCalledTimes(1);
+});
+
+test('reads bounded synced notification choices without device permission state', async () => {
+  const { client } = clientWith({ data: {
+    notification_preferences: { notificationsEnabled: true, allowDailyFocus: true, dailyFocusTime: '08:30' },
+    updated_at: '2026-08-28T10:00:00.000Z',
+  }, error: null });
+  await expect(executeServerAgentTool({
+    client, userId: 'user-1', call: { id: 'notifications-read', toolId: 'notifications.preferences.read', arguments: {} },
+    tool: tool('notifications.preferences.read'), stageDeviceAction: jest.fn(),
+  })).resolves.toEqual({ status: 'completed', output: {
+    preferences: { notificationsEnabled: true, allowDailyFocus: true, dailyFocusTime: '08:30' },
+    lastSyncedAt: '2026-08-28T10:00:00.000Z', devicePermissionStatus: 'not_exposed',
+  }, receipt: null });
 });
 
 test.each([

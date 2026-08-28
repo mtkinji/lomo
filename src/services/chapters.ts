@@ -322,6 +322,8 @@ async function createDefaultReflectionTemplate(
 }
 
 export type UpdateWeeklyDigestSettingsInput = {
+  /** When supplied by a reviewed chat action, prevents overwriting settings changed since preview. */
+  expectedUpdatedAt?: string;
   /** Controls whether the daily cron auto-generates weekly chapters for this user. */
   enabled?: boolean;
   /** ISO weekday, Monday=1 through Sunday=7, when the weekly Chapter should generate/send. */
@@ -385,10 +387,12 @@ export async function updateWeeklyDigestSettings(
   }
 
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('kwilt_chapter_templates')
     .update(patch)
-    .eq('id', template.id)
+    .eq('id', template.id);
+  if (input.expectedUpdatedAt) query = query.eq('updated_at', input.expectedUpdatedAt);
+  const { data, error } = await query
     .select(
       'id,user_id,name,kind,cadence,timezone,filter_json,enabled,email_enabled,email_recipient,detail_level,tone,created_at,updated_at',
     )

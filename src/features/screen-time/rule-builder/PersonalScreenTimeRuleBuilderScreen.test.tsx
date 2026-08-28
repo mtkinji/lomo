@@ -19,6 +19,7 @@ import { PersonalScreenTimeRuleBuilderScreen } from './PersonalScreenTimeRuleBui
 const mockGoBack = jest.fn();
 let mockRouteParams: Record<string, unknown> = { entry: 'inventory' };
 const mockSaveMoney = jest.fn();
+const mockLoadMoneySnapshot = jest.fn();
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
@@ -41,6 +42,9 @@ jest.mock('../../../capabilities/money/runtime/moneyAppControlStorage', () => ({
   saveMoneyAppControlSettings: (...args: unknown[]) => mockSaveMoney(...args),
 }));
 jest.mock('../../../capabilities/money/runtime/moneyAppControlRuntime', () => ({ reconcileLatestMoneyAppControls: jest.fn(async () => undefined) }));
+jest.mock('../../../capabilities/money/data/moneyRepository', () => ({
+  createMoneyRepository: () => ({ loadSnapshot: (...args: unknown[]) => mockLoadMoneySnapshot(...args) }),
+}));
 jest.mock('../../../services/analytics/useAnalytics', () => ({ useAnalytics: () => ({ capture: jest.fn() }) }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'rule-uuid' }));
 jest.mock('expo-device', () => ({ isDevice: true }));
@@ -84,6 +88,9 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     (activatePersonalCompositeScreenTimeRule as jest.Mock).mockReset().mockResolvedValue(true);
     (deactivatePersonalCompositeScreenTimeRule as jest.Mock).mockReset().mockResolvedValue(true);
     mockSaveMoney.mockReset().mockImplementation(async (updater) => updater({ authorizationStatus: 'approved', policies: {}, lastUpdated: null }));
+    mockLoadMoneySnapshot.mockReset().mockResolvedValue({
+      categories: [{ id: 'shopping', sourceId: 'category-shopping', name: 'Shopping', planRole: 'flexible' }],
+    });
     useAppStore.setState({ screenTimeProtection: { ...DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS, authorizationStatus: 'approved' } });
   });
 
@@ -92,23 +99,27 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     expect(screen.getByText('Which apps should this rule manage?')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Apps and categories' })).toBeTruthy();
     expect(screen.queryByText(/private app and category picker/i)).toBeNull();
-    expect(screen.queryByText('When')).toBeNull();
+    expect(screen.getByText('1 of 2')).toBeTruthy();
+    expect(screen.queryByText('Rule behavior')).toBeNull();
   });
 
-  it('automatically advances from Apple selection into the flat When/Then composer', async () => {
+  it('automatically advances from Apple selection into one sentence-shaped composer', async () => {
     (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
       selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
     });
     const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
     fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
-    expect(await screen.findByText('Rule for Social')).toBeTruthy();
-    expect(screen.getByText('When')).toBeTruthy();
+    expect(await screen.findByText('Build a rule for')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Change apps and categories. Social' })).toBeTruthy();
+    expect(screen.getByText('2 of 2')).toBeTruthy();
+    expect(screen.getByText('Rule behavior')).toBeTruthy();
     expect(screen.getByRole('button', { name: '＋ Add condition' })).toBeTruthy();
-    expect(screen.getByText('Then')).toBeTruthy();
-    expect(screen.getByText('Make Social available')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Rule outcome: Allow access' })).toBeTruthy();
+    expect(screen.queryByText('Then')).toBeNull();
+    expect(screen.queryByText('Make Social available')).toBeNull();
     expect(screen.getByRole('button', { name: 'Add rule' }).props.accessibilityState.disabled).toBe(true);
     expect(screen.queryByText('What will happen')).toBeNull();
-    expect(screen.queryByText('Rule behavior')).toBeNull();
+    expect(screen.queryByText('When')).toBeNull();
   });
 
   it('builds and saves Social after 5 PM AND under 15 minutes as one aggregate', async () => {
@@ -117,7 +128,7 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     });
     const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
     fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
-    await screen.findByText('Rule for Social');
+    await screen.findByRole('button', { name: 'Change apps and categories. Social' });
 
     fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
     fireEvent.press(screen.getByRole('radio', { name: 'Time of day' }));
@@ -128,6 +139,12 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     fireEvent.press(screen.getByRole('radio', { name: 'Daily use' }));
     expect(screen.getByRole('button', { name: 'Change AND connector' })).toBeTruthy();
     expect(screen.getByText('15 min')).toBeTruthy();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Rule outcome: Allow access' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Pause access' }));
+    expect(screen.getByRole('button', { name: 'Rule outcome: Pause access' })).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Rule outcome: Pause access' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Allow access' }));
 
     fireEvent.press(screen.getByRole('button', { name: 'Change AND connector' }));
     fireEvent.press(screen.getByRole('radio', { name: 'Any condition (OR)' }));
@@ -151,6 +168,21 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     }));
   });
 
+  it('offers Budget with the full condition list and adds the chosen budget predicate', async () => {
+    (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({
+      selectedApps: [], selectedCategories: [{ token: 'social', label: 'Social' }],
+    });
+    const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
+    await screen.findByRole('button', { name: 'Change apps and categories. Social' });
+    fireEvent.press(screen.getByRole('button', { name: '＋ Add condition' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Budget' }));
+    fireEvent.press(await screen.findByRole('radio', { name: 'Shopping' }));
+    fireEvent.press(screen.getByRole('radio', { name: '95% of this budget is used' }));
+    expect(screen.getByText('Shopping')).toBeTruthy();
+    expect(screen.getByText('95% used')).toBeTruthy();
+  });
+
   it('reconstructs an editable composite, keeps enabled top-level, and deletes without reviving legacy state', async () => {
     const saved = {
       id: 'social-evening', selectionId: 'social-evening', selectedApps: [],
@@ -165,7 +197,8 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     mockRouteParams = { entry: 'inventory', ruleId: saved.id };
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
-    expect(screen.getByText('Rule for Social')).toBeTruthy();
+    expect(screen.getByText('Build a rule for')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Change apps and categories. Social' })).toBeTruthy();
     expect(screen.getByRole('switch', { name: 'Rule enabled' })).toBeTruthy();
     expect(screen.queryByText('Rule status')).toBeNull();
     expect(screen.queryByText('Rule management')).toBeNull();
@@ -180,7 +213,7 @@ describe('PersonalScreenTimeRuleBuilderScreen composite composer', () => {
     (presentScreenTimeActivityPicker as jest.Mock).mockResolvedValueOnce({ selectedApps: [{ token: 'games', label: 'Games' }], selectedCategories: [] });
     const screen = renderWithProviders(<PersonalScreenTimeRuleBuilderScreen />);
     fireEvent.press(screen.getByRole('button', { name: 'Apps and categories' }));
-    await screen.findByText('Rule for Games');
+    await screen.findByRole('button', { name: 'Change apps and categories. Games' });
     fireEvent.press(screen.getByRole('button', { name: 'Go back from Add rule' }));
     expect(screen.getByText('Which apps should this rule manage?')).toBeTruthy();
     expect(mockGoBack).not.toHaveBeenCalled();

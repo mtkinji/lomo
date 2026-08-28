@@ -171,6 +171,13 @@ export function resolveClientActionOpenInstruction(
     }
     case 'configure_notifications':
       return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsNotifications' } };
+    case 'review_notification_preferences': {
+      const fields = action.payload.fields;
+      if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return null;
+      return { kind: 'navigate', name: 'Settings', params: {
+        screen: 'SettingsNotifications', params: { clientActionId: action.id, fields },
+      } };
+    }
     case 'open_account_settings':
       return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsHome' } };
     case 'open_subscription_management':
@@ -179,6 +186,44 @@ export function resolveClientActionOpenInstruction(
       return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsProfile', params: { openAccountDeletion: true } } };
     case 'open_plan_preferences':
       return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsPlanAvailability' } };
+    case 'review_plan_availability': {
+      const expectedVersion = Number(action.payload.expectedVersion);
+      const timeZone = typeof action.payload.timeZone === 'string' ? action.payload.timeZone : '';
+      const windows = Array.isArray(action.payload.windows) ? action.payload.windows : null;
+      const affectedWeekdays = Array.isArray(action.payload.affectedWeekdays)
+        ? action.payload.affectedWeekdays : null;
+      if (!Number.isInteger(expectedVersion) || expectedVersion < 0 || !timeZone || !windows || !affectedWeekdays) {
+        return null;
+      }
+      return {
+        kind: 'navigate', name: 'Settings', params: {
+          screen: 'SettingsPlanAvailability', params: {
+            clientActionId: action.id, expectedVersion, timeZone, windows, affectedWeekdays,
+          },
+        },
+      };
+    }
+    case 'review_plan_calendars': {
+      const reason = action.payload.reason === 'not_connected' || action.payload.reason === 'needs_reconnect'
+        || action.payload.reason === 'inspect'
+        ? action.payload.reason : null;
+      if (reason) return { kind: 'navigate', name: 'Settings', params: {
+        screen: 'SettingsPlanCalendars', params: { clientActionId: action.id, reason },
+      } };
+      const expectedVersion = Number(action.payload.expectedVersion);
+      const readCalendarIds = Array.isArray(action.payload.readCalendarIds) ? action.payload.readCalendarIds : null;
+      const writeCalendarId = typeof action.payload.writeCalendarId === 'string' ? action.payload.writeCalendarId : null;
+      const addedReadCalendarIds = Array.isArray(action.payload.addedReadCalendarIds) ? action.payload.addedReadCalendarIds : [];
+      const removedReadCalendarIds = Array.isArray(action.payload.removedReadCalendarIds) ? action.payload.removedReadCalendarIds : [];
+      const writeCalendarChanged = typeof action.payload.writeCalendarChanged === 'boolean'
+        ? action.payload.writeCalendarChanged : false;
+      if (!Number.isInteger(expectedVersion) || expectedVersion < 0 || !readCalendarIds
+        || (action.payload.writeCalendarId !== null && typeof action.payload.writeCalendarId !== 'string')) return null;
+      return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsPlanCalendars', params: {
+        clientActionId: action.id, expectedVersion, readCalendarIds, writeCalendarId,
+        addedReadCalendarIds, removedReadCalendarIds, writeCalendarChanged,
+      } } };
+    }
     case 'open_recipe_import': {
       const method = typeof action.payload.method === 'string' ? action.payload.method : '';
       if (!['url', 'photo', 'scan', 'text', 'voice', 'email'].includes(method)) return null;
@@ -214,6 +259,24 @@ export function resolveClientActionOpenInstruction(
       return { kind: 'navigate', name: 'Food', params: {
         screen: 'GroceryHandoff', params: { listId: action.targetId },
       } };
+    case 'open_recipe_publication_review':
+      if (!action.targetId || action.targetType !== 'recipe') return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'RecipeHome', params: { recipeId: action.targetId },
+      } };
+    case 'open_food_scenario_review':
+      if (!action.targetId || action.targetType !== 'food_scenario') return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'FoodScenarioReview', params: { scenarioId: action.targetId },
+      } };
+    case 'open_grocery_savings':
+      if (!action.targetId || action.targetType !== 'grocery_list') return null;
+      return { kind: 'navigate', name: 'Food', params: {
+        screen: 'GrocerySavings', params: { listId: action.targetId },
+      } };
+    case 'open_grocery_receipt_review':
+    case 'open_grocery_food_review':
+      return { kind: 'navigate', name: 'Food', params: { screen: 'GroceryList', params: {} } };
     default: return null;
   }
 }

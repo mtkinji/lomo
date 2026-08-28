@@ -22,6 +22,7 @@ import { parseGoalCreateInput, parseGoalMutationPatch, type GoalProposalOperatio
 import { parseArcCreateInput, parseArcMutationPatch, type ArcProposalOperation } from './arcProposal';
 import { parseProfileMutationPatch, type ProfileProposalOperation } from './profileProposal';
 import { parseChapterNotePatch, type ChapterProposalOperation } from './chapterProposal';
+import { executeChapterAndNotificationTool } from './chapterAndNotificationToolProvider';
 import { createDeviceToolProvider } from './deviceToolProvider';
 import type { PlanPlacementConversationReferent } from './planConversationReferent';
 import {
@@ -324,6 +325,10 @@ export function createUnifiedChatToolProvider({
     if (foodControlResult) return foodControlResult;
     const deviceResult = await deviceProvider.execute(call, tool);
     if (deviceResult) return deviceResult;
+    const chapterOrNotificationResult = await executeChapterAndNotificationTool({
+      call, snapshots, stageProposal: (proposal) => staged.push(proposal),
+    });
+    if (chapterOrNotificationResult) return chapterOrNotificationResult;
     const groceryControlResult = await groceryControlProvider.execute(call, tool);
     if (groceryControlResult) return groceryControlResult;
     if (call.toolId === 'meal_planning.plan.create') {

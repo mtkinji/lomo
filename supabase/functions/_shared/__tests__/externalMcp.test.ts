@@ -82,6 +82,27 @@ describe('externalMcp helpers', () => {
       ]);
   });
 
+  test('exposes advanced Food review handoffs to external clients', () => {
+    const exposedOperationIds = new Set(EXTERNAL_MCP_CONTROL_COVERAGE
+      .filter((row) => row.state === 'exposed')
+      .map((row) => row.operationId));
+
+    for (const operationId of [
+      'recipes.publication.prepare',
+      'recipes.publication.publish',
+      'store_opportunity.capture',
+      'food_scenario.prepare',
+      'food_scenario.accept',
+      'savings.review',
+      'savings.accept',
+      'savings.coupon.open',
+      'receipt.extract',
+      'receipt.reconcile',
+    ]) {
+      expect(exposedOperationIds).toContain(operationId);
+    }
+  });
+
   describe('EXTERNAL_MCP_READ_TOOLS', () => {
     test('advertises the Sprint A read-only tool set', () => {
       expect(EXTERNAL_MCP_READ_TOOLS.map((tool) => tool.name)).toEqual(expect.arrayContaining([

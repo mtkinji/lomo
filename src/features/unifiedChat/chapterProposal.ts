@@ -1,13 +1,28 @@
 import { CHAPTER_USER_NOTE_MAX_LENGTH } from '../../services/chapters';
+import type { ApplyChapterAlignmentInput } from '../../capabilities/life-structure/actions/chapterAlignmentActions';
+import type { ChapterDigestSettingsPatch } from '../../capabilities/life-structure/actions/chapterDigestSettingsActions';
 
 export type ChapterNotePatch = { note: string | null };
 
-export type ChapterProposalOperation = {
-  type: 'update_chapter_note';
-  targetId: string;
-  expectedUpdatedAt: string;
-  payload: ChapterNotePatch;
-};
+export type ChapterProposalOperation =
+  | {
+      type: 'update_chapter_note';
+      targetId: string;
+      expectedUpdatedAt: string;
+      payload: ChapterNotePatch;
+    }
+  | {
+      type: 'apply_chapter_alignment';
+      targetId: string;
+      expectedUpdatedAt: string;
+      payload: Omit<ApplyChapterAlignmentInput, 'chapterId' | 'expectedUpdatedAt'>;
+    }
+  | {
+      type: 'update_chapter_digest_settings';
+      targetId: string;
+      expectedUpdatedAt: string;
+      payload: { fields: ChapterDigestSettingsPatch };
+    };
 
 export function parseChapterNotePatch(value: unknown): ChapterNotePatch | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;

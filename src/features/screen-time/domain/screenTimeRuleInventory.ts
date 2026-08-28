@@ -71,6 +71,7 @@ export function personalCompositeConditionLabel(condition: PersonalRuleCondition
       ? `while daily use is under ${condition.minutes} minute${condition.minutes === 1 ? '' : 's'}`
       : `when daily use reaches ${condition.minutes} minute${condition.minutes === 1 ? '' : 's'}`;
   }
+  if (condition.type === 'budget') return moneyRuleDetail(condition.preset, condition.categoryName).replace(/^Pause\s+/i, '').replace(/\.$/, '');
   return `${condition.operator === 'before' ? 'before' : 'after'} ${timeLabel(condition.minuteOfDay)}`;
 }
 

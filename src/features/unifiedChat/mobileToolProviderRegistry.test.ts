@@ -6,28 +6,52 @@ import {
 } from './mobileToolProviderRegistry';
 
 describe('mobile tool provider registry', () => {
-  test('keeps a manifest-only tool out of the mobile catalog', () => {
-    expect(KWILT_TOOL_CONTRACTS.some((tool) => tool.id === 'recipes.publication.prepare')).toBe(true);
-    expect(UNIFIED_CHAT_TOOL_CATALOG.some((tool) => tool.id === 'recipes.publication.prepare')).toBe(false);
+  test('registers the remaining Food review and handoff tools', () => {
+    const foodReviewTools = [
+      'recipes.publication.prepare', 'recipes.publication.publish',
+      'store_opportunity.capture', 'food_scenario.prepare', 'food_scenario.accept',
+      'savings.review', 'savings.accept', 'savings.coupon.open',
+      'receipt.extract', 'receipt.reconcile',
+    ];
+    expect(foodReviewTools.every((id) => KWILT_TOOL_CONTRACTS.some((tool) => tool.id === id))).toBe(true);
+    expect(foodReviewTools.every((id) => UNIFIED_CHAT_TOOL_CATALOG.some((tool) => tool.id === id))).toBe(true);
     expect(UNIFIED_CHAT_TOOL_CATALOG.some((tool) => tool.id === 'goals.read')).toBe(true);
   });
 
-  test('returns unavailable instead of invoking an unregistered handler', async () => {
-    const execute = jest.fn();
+  test('registers and dispatches Plan availability reads and reviewed updates', async () => {
     const registry = createMobileToolProviderRegistry(UNIFIED_CHAT_TOOL_CATALOG);
-    const tool = KWILT_TOOL_CONTRACTS.find((candidate) => candidate.id === 'recipes.publication.prepare')!;
+    const execute = jest.fn(async () => ({
+      status: 'completed' as const, output: { version: 3, timeZone: 'America/Denver', windows: [] }, receipt: null,
+    }));
+    for (const toolId of ['plan.availability.read', 'plan.availability.update']) {
+      const tool = UNIFIED_CHAT_TOOL_CATALOG.find((candidate) => candidate.id === toolId)!;
+      expect(tool).toBeDefined();
+      await executeMobileRegisteredTool({
+        registry, context: { execute }, tool,
+        call: { id: `call-${toolId}`, toolId, arguments: toolId.endsWith('update')
+          ? { expectedVersion: 3, timeZone: 'America/Denver', windows: [] }
+          : {} },
+      });
+    }
+    expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  test('dispatches a Food review handoff through the registered mobile handler', async () => {
+    const result = { status: 'pending_client_action' as const, provider: 'device' as const, request: {} };
+    const execute = jest.fn(async () => result);
+    const registry = createMobileToolProviderRegistry(UNIFIED_CHAT_TOOL_CATALOG);
+    const tool = UNIFIED_CHAT_TOOL_CATALOG.find((candidate) => candidate.id === 'recipes.publication.prepare')!;
+    const call = { id: 'call-1', toolId: tool.id, arguments: {
+      recipeVersionId: 'recipe-version-1', publicProfileId: 'profile-1', distributionScopes: ['kwilt_mobile'],
+    } };
 
     await expect(executeMobileRegisteredTool({
       registry,
       context: { execute },
-      call: { id: 'call-1', toolId: tool.id, arguments: {
-        recipeVersionId: 'recipe-version-1', publicProfileId: 'profile-1', distributionScopes: ['profile'],
-      } },
+      call,
       tool,
-    })).resolves.toEqual({
-      status: 'unavailable', reason: 'mobile_provider_unavailable', retryable: false,
-    });
-    expect(execute).not.toHaveBeenCalled();
+    })).resolves.toEqual(result);
+    expect(execute).toHaveBeenCalledWith(call, tool);
   });
 
   test('dispatches a registered tool through the named handler', async () => {

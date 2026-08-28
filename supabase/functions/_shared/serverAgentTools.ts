@@ -3,6 +3,8 @@ import type { ServerAgentToolCall, ServerAgentToolDefinition, ServerAgentProposa
 import { summarizeActivity, summarizeArc, summarizeChapter, summarizeGoal,
   summarizeShowUpStatus } from './externalMcp.ts';
 import { executeServerPlanTool } from './serverPlanTools.ts';
+import { executeServerPlanAvailabilityTool } from './serverPlanAvailabilityTools.ts';
+import { executeServerPlanCalendarTool } from './serverPlanCalendarTools.ts';
 import { executeServerDeviceHandoff, type ServerDeviceActionRequest } from './serverDeviceHandoffs.ts';
 import { executeServerProfileTool } from './serverProfileTools.ts';
 import { executeServerRelationshipTool } from './serverRelationshipTools.ts';
@@ -417,6 +419,41 @@ async function executeServerAgentToolHandler({
   if (call.toolId !== tool.id) {
     return { status: 'failed', code: 'tool_mismatch', message: 'The discovered tool does not match this call.', retryable: false };
   }
+  if (call.toolId === 'notifications.preferences.read') {
+    const { data, error } = await (client.from('kwilt_agent_profile_projections') as ReadQuery)
+      .select('notification_preferences,updated_at').eq('user_id', userId).maybeSingle();
+    const projection = asRecord(data);
+    const preferences = asRecord(projection.notification_preferences);
+    if (error || Object.keys(preferences).length === 0) {
+      return { status: 'unavailable', reason: 'notification_preferences_not_synced', retryable: true };
+    }
+    return { status: 'completed', output: {
+      preferences,
+      lastSyncedAt: typeof projection.updated_at === 'string' ? projection.updated_at : null,
+      devicePermissionStatus: 'not_exposed',
+    }, receipt: null };
+  }
+  if (call.toolId === 'notifications.preferences.update') {
+    const fields = asRecord(call.arguments.fields);
+    const allowed = new Set([
+      'notificationsEnabled', 'allowActivityReminders', 'allowDailyShowUp', 'dailyShowUpTime',
+      'allowPlanKickoff', 'planKickoffCadence', 'planKickoffWeeklyDay', 'allowDailyFocus',
+      'dailyFocusTime', 'dailyFocusTimeMode', 'allowGoalNudges', 'goalNudgeTime',
+      'allowStreakAndReactivation', 'allowHouseholdMealPlanPush',
+    ]);
+    const keys = Object.keys(fields);
+    if (keys.length === 0 || keys.some((key) => !allowed.has(key))) {
+      return { status: 'failed', code: 'invalid_notification_preferences', message: 'Choose supported notification settings.', retryable: false };
+    }
+    const request: ClientActionRequest = {
+      capabilityId: 'notifications', actionType: 'review_notification_preferences',
+      targetType: 'notification_preferences', targetId: 'self', title: 'Review notification changes',
+      consequenceSummary: 'Reviews these exact settings on your iPhone. Any iOS permission prompt remains native-owned.',
+      payload: { fields },
+    };
+    await stageDeviceAction(request);
+    return { status: 'pending_client_action', provider: 'device', request };
+  }
   const deviceAction = DEVICE_ACTIONS[call.toolId];
   if (deviceAction) {
     await stageDeviceAction(deviceAction);
@@ -438,6 +475,10 @@ async function executeServerAgentToolHandler({
   if (choreResult) return choreResult;
   const foodResult = await executeServerFoodTool({ client, userId, call, stageProposal, stageDeviceAction });
   if (foodResult) return foodResult;
+  const planAvailabilityResult = await executeServerPlanAvailabilityTool({ client, userId, call, stageDeviceAction });
+  if (planAvailabilityResult) return planAvailabilityResult;
+  const planCalendarResult = await executeServerPlanCalendarTool({ call, stageDeviceAction });
+  if (planCalendarResult) return planCalendarResult;
   if (tool.capabilityId === 'relationships') {
     const policy = evaluateToolPolicy(tool, {
       authorized: true,
@@ -798,6 +839,136 @@ async function executeServerAgentToolHandler({
       operation: {
         type: 'update_chapter_note', targetType: 'chapter', targetId: chapterId,
         summary: `Update Chapter ${periodKey} note`, payload: { note, expectedUpdatedAt },
+      },
+    });
+  }
+  if (call.toolId === 'chapters.digest_settings.read' || call.toolId === 'chapters.digest_settings.update') {
+    const { data, error } = await (client.from('kwilt_chapter_templates') as ReadQuery)
+      .select('id,filter_json,enabled,email_enabled,email_recipient,updated_at')
+      .eq('user_id', userId).eq('kind', 'reflection').eq('cadence', 'weekly')
+      .order('updated_at', { ascending: false }).limit(1);
+    const template = asRecord(Array.isArray(data) ? data[0] : null);
+    const filterJson = asRecord(template.filter_json);
+    const weeklyChapter = asRecord(filterJson.weeklyChapter);
+    const deliveryWeekday = Number.isInteger(weeklyChapter.deliveryWeekday)
+      && Number(weeklyChapter.deliveryWeekday) >= 1 && Number(weeklyChapter.deliveryWeekday) <= 7
+      ? Number(weeklyChapter.deliveryWeekday) : 1;
+    const expectedUpdatedAt = typeof template.updated_at === 'string' ? template.updated_at : '';
+    if (error || typeof template.id !== 'string' || !expectedUpdatedAt) {
+      return { status: 'unavailable', reason: 'chapter_digest_settings_unavailable', retryable: true };
+    }
+    const settings = {
+      templateId: template.id, expectedUpdatedAt, enabled: template.enabled === true,
+      deliveryWeekday, emailEnabled: template.email_enabled === true,
+      emailRecipient: typeof template.email_recipient === 'string' ? template.email_recipient : null,
+    };
+    if (call.toolId === 'chapters.digest_settings.read') {
+      return { status: 'completed', output: { settings }, receipt: null };
+    }
+    const templateId = typeof call.arguments.templateId === 'string' ? call.arguments.templateId.trim() : '';
+    const reviewedAt = typeof call.arguments.expectedUpdatedAt === 'string' ? call.arguments.expectedUpdatedAt : '';
+    const fields = asRecord(call.arguments.fields);
+    const allowed = new Set(['enabled', 'deliveryWeekday', 'emailEnabled', 'emailRecipient']);
+    const keys = Object.keys(fields);
+    const validWeekday = fields.deliveryWeekday === undefined || (Number.isInteger(fields.deliveryWeekday)
+      && Number(fields.deliveryWeekday) >= 1 && Number(fields.deliveryWeekday) <= 7);
+    const validEmail = fields.emailRecipient === undefined || fields.emailRecipient === null
+      || (typeof fields.emailRecipient === 'string' && fields.emailRecipient.length <= 320
+        && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.emailRecipient));
+    const nextEmailEnabled = typeof fields.emailEnabled === 'boolean' ? fields.emailEnabled : settings.emailEnabled;
+    const nextRecipient = Object.hasOwn(fields, 'emailRecipient')
+      ? (typeof fields.emailRecipient === 'string' ? fields.emailRecipient.trim() : null)
+      : settings.emailRecipient;
+    if (templateId !== template.id || reviewedAt !== expectedUpdatedAt || keys.length === 0
+        || keys.some((key) => !allowed.has(key)) || !validWeekday || !validEmail
+        || (fields.enabled !== undefined && typeof fields.enabled !== 'boolean')
+        || (fields.emailEnabled !== undefined && typeof fields.emailEnabled !== 'boolean')
+        || (nextEmailEnabled && !nextRecipient)) {
+      return { status: 'failed', code: 'invalid_chapter_digest_settings', message: 'Review the current weekly Chapter settings and a valid email recipient.', retryable: true };
+    }
+    return stageServerProposal(stageProposal, {
+      capabilityId: 'chapters', title: 'Update weekly Chapter settings',
+      body: 'Reviews the exact generation and email delivery changes before saving them.',
+      operation: {
+        type: 'update_chapter_digest_settings', targetType: 'chapter_template', targetId: template.id,
+        summary: 'Update weekly Chapter settings', payload: { fields, expectedUpdatedAt },
+      },
+    });
+  }
+  if (call.toolId === 'chapters.alignment.preview' || call.toolId === 'chapters.alignment.apply') {
+    const chapterId = typeof call.arguments.chapterId === 'string' ? call.arguments.chapterId.trim() : '';
+    if (!chapterId) {
+      return { status: 'failed', code: 'invalid_chapter', message: 'A valid Chapter is required.', retryable: false };
+    }
+    const [{ data: chapterData, error: chapterError }, goalsResult, activitiesResult] = await Promise.all([
+      (client.from('kwilt_chapters') as ReadQuery).select('id,output_json,updated_at')
+        .eq('user_id', userId).eq('id', chapterId).maybeSingle(),
+      (client.from('kwilt_goals') as ReadQuery).select('id,data,updated_at')
+        .eq('user_id', userId).eq('is_deleted', false).limit(100),
+      (client.from('kwilt_activities') as ReadQuery).select('id,data,updated_at')
+        .eq('user_id', userId).eq('is_deleted', false).limit(500),
+    ]);
+    const chapter = asRecord(chapterData);
+    if (chapterError || chapter.id !== chapterId || goalsResult.error || activitiesResult.error) {
+      return { status: 'failed', code: 'chapter_alignment_read_failed', message: 'Kwilt could not load that Chapter alignment.', retryable: true };
+    }
+    const output = asRecord(chapter.output_json);
+    const recommendations = Array.isArray(output.recommendations) ? output.recommendations : [];
+    const goalRows = Array.isArray(goalsResult.data) ? goalsResult.data.map(asRecord) : [];
+    const activityRows = Array.isArray(activitiesResult.data) ? activitiesResult.data.map(asRecord) : [];
+    const goalById = new Map(goalRows.map((row) => [String(row.id), asRecord(row.data)]));
+    const activityById = new Map(activityRows.map((row) => [String(row.id), row]));
+    const chapterVersion = typeof chapter.updated_at === 'string' ? chapter.updated_at : '';
+    const alignments = recommendations.flatMap((value) => {
+      const recommendation = asRecord(value);
+      const payload = asRecord(recommendation.payload);
+      if (recommendation.kind !== 'align' || typeof recommendation.id !== 'string'
+          || typeof payload.goalId !== 'string' || !Array.isArray(payload.activityIds)) return [];
+      const goal = goalById.get(payload.goalId);
+      if (!goal) return [];
+      const activities = payload.activityIds.flatMap((rawId) => {
+        if (typeof rawId !== 'string') return [];
+        const row = activityById.get(rawId);
+        if (!row) return [];
+        const data = asRecord(row.data);
+        const currentGoalId = typeof data.goalId === 'string' ? data.goalId : null;
+        if (currentGoalId && currentGoalId !== payload.goalId) return [];
+        return [{ id: rawId, title: typeof data.title === 'string' ? data.title : 'To-do', expectedUpdatedAt: objectVersion(row) }];
+      });
+      if (!chapterVersion || activities.length === 0) return [];
+      return [{
+        chapterId, recommendationId: recommendation.id, expectedUpdatedAt: chapterVersion,
+        goal: { id: payload.goalId, title: typeof goal.title === 'string' ? goal.title : 'Goal' },
+        arc: { id: typeof payload.arcId === 'string' ? payload.arcId : null, title: typeof payload.arcTitle === 'string' ? payload.arcTitle : null },
+        reason: typeof recommendation.reason === 'string' ? recommendation.reason : '', activities,
+      }];
+    });
+    if (call.toolId === 'chapters.alignment.preview') {
+      return { status: 'completed', output: { alignments }, receipt: null };
+    }
+    const recommendationId = typeof call.arguments.recommendationId === 'string' ? call.arguments.recommendationId.trim() : '';
+    const expectedUpdatedAt = typeof call.arguments.expectedUpdatedAt === 'string' ? call.arguments.expectedUpdatedAt : '';
+    const rawActivities = Array.isArray(call.arguments.activities) ? call.arguments.activities : [];
+    const requested = rawActivities.flatMap((value) => {
+      const item = asRecord(value);
+      return typeof item.activityId === 'string' && typeof item.expectedUpdatedAt === 'string'
+        ? [{ activityId: item.activityId, expectedUpdatedAt: item.expectedUpdatedAt }]
+        : [];
+    });
+    const preview = alignments.find((candidate) => candidate.recommendationId === recommendationId);
+    const currentVersions = new Map(preview?.activities.map((activity) => [activity.id, activity.expectedUpdatedAt]));
+    if (!preview || expectedUpdatedAt !== preview.expectedUpdatedAt || requested.length === 0
+        || requested.length !== rawActivities.length
+        || requested.some((activity) => currentVersions.get(activity.activityId) !== activity.expectedUpdatedAt)) {
+      return { status: 'failed', code: 'chapter_alignment_stale', message: 'That Chapter alignment changed. Review it again before applying.', retryable: true };
+    }
+    return stageServerProposal(stageProposal, {
+      capabilityId: 'chapters', title: `Tag ${requested.length} To-do${requested.length === 1 ? '' : 's'} to ${preview.goal.title}`,
+      body: `Reviews the exact ${requested.length} To-do${requested.length === 1 ? '' : 's'} before tagging them to this Goal.`,
+      operation: {
+        type: 'apply_chapter_alignment', targetType: 'chapter', targetId: chapterId,
+        summary: `Align ${requested.length} To-do${requested.length === 1 ? '' : 's'} from this Chapter`,
+        payload: { recommendationId, activities: requested, expectedUpdatedAt },
       },
     });
   }

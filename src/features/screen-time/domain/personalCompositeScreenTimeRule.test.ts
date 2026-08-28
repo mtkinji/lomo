@@ -27,6 +27,16 @@ describe('personalCompositeScreenTimeRule', () => {
     expect(validatePersonalCompositeScreenTimeRule(composite)).toEqual({ valid: true, issues: [] });
   });
 
+  it('normalizes a Money-owned budget condition inside the same aggregate', () => {
+    const budgetCondition = {
+      id: 'shopping-budget', type: 'budget', categorySourceId: 'category-shopping',
+      categoryName: 'Shopping', preset: 'at_95_percent',
+    };
+    const candidate = { ...composite, conditions: [composite.conditions[0], budgetCondition] };
+    expect(normalizePersonalCompositeScreenTimeRule(candidate)).toEqual(candidate);
+    expect(validatePersonalCompositeScreenTimeRule(candidate)).toEqual({ valid: true, issues: [] });
+  });
+
   it.each([
     [{ ...composite, connector: 'sometimes' }, 'connector'],
     [{ ...composite, outcome: 'notify' }, 'outcome'],
@@ -35,6 +45,8 @@ describe('personalCompositeScreenTimeRule', () => {
     [{ ...composite, conditions: [composite.conditions[0], { ...composite.conditions[0], id: 'another-time' }] }, 'condition_type'],
     [{ ...composite, conditions: [{ id: 'late', type: 'time_of_day', operator: 'after', minuteOfDay: 1440 }] }, 'condition_value'],
     [{ ...composite, conditions: [{ id: 'usage', type: 'daily_usage', operator: 'below', minutes: 0 }] }, 'condition_value'],
+    [{ ...composite, conditions: [{ id: 'budget', type: 'budget', categorySourceId: '', categoryName: 'Shopping', preset: 'when_over' }] }, 'condition_value'],
+    [{ ...composite, conditions: [{ id: 'budget', type: 'budget', categorySourceId: 'shopping', categoryName: 'Shopping', preset: 'sometimes' }] }, 'condition_operator'],
   ])('rejects invalid saved aggregates (%s)', (candidate, issue) => {
     expect(normalizePersonalCompositeScreenTimeRule(candidate)).toBeNull();
     expect(validatePersonalCompositeScreenTimeRule(candidate).issues).toContain(issue);

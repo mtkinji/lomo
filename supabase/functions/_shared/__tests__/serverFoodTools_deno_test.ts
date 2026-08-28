@@ -60,6 +60,29 @@ Deno.test('server food controls read bounded meal preferences', async () => {
   if (result?.status !== 'completed' || result.output.householdId !== 'household-1') throw new Error('missing bounded meal projection');
 });
 
+Deno.test('remaining Food operations create truthful native review handoffs', async () => {
+  const requests: Record<string, unknown>[] = [];
+  const stageDeviceAction = async (request: unknown) => { requests.push(request as Record<string, unknown>); };
+  const publication = await executeServerFoodTool({ ...common, stageDeviceAction,
+    call: { id: 'publish', toolId: 'recipes.publication.prepare', arguments: {
+      recipeVersionId: 'version-1', publicProfileId: 'profile-1', distributionScopes: ['kwilt_mobile'],
+    } } });
+  const scenario = await executeServerFoodTool({ ...common, stageDeviceAction,
+    call: { id: 'scenario', toolId: 'food_scenario.accept', arguments: { scenarioId: 'scenario-1', expectedVersion: 2 } } });
+  const savings = await executeServerFoodTool({ ...common, stageDeviceAction,
+    call: { id: 'savings', toolId: 'savings.review', arguments: {
+      groceryListId: 'list-1', provider: 'kroger', locationId: 'store-1',
+    } } });
+  const receipt = await executeServerFoodTool({ ...common, stageDeviceAction,
+    call: { id: 'receipt', toolId: 'receipt.extract', arguments: { sourceArtifactRefs: ['artifact-1'] } } });
+  if ([publication, scenario, savings, receipt].some((result) => result?.status !== 'pending_client_action')
+    || requests.map((request) => request.actionType).join(',')
+      !== 'open_recipe_publication_review,open_food_scenario_review,open_grocery_savings,open_grocery_receipt_review'
+    || requests.some((request) => !String(request.consequenceSummary).match(/review|Nothing|not claimed/i))) {
+    throw new Error('advanced Food handoffs overstated completion or lost their native owner');
+  }
+});
+
 Deno.test('server food controls read owner stock and bounded food-cycle budget evidence', async () => {
   const stock = await executeServerFoodTool({ ...common, call: { id: 'stock-read', toolId: 'food_stock.read', arguments: { concepts: ['beans'] } } });
   const budget = await executeServerFoodTool({ ...common, call: { id: 'budget-read', toolId: 'food_budget.read', arguments: {} } });

@@ -1,6 +1,7 @@
 import type { MoneyCategory, MoneySnapshot } from '../data/moneySnapshot';
 import {
   evaluateMoneyAppControlPolicy,
+  evaluateMoneyBudgetCondition,
   getMoneyAppControlPresetCopy,
   isFreshMoneyReviewHandoff,
   normalizeMoneyAppControlSettings,
@@ -160,6 +161,21 @@ describe('Money app control', () => {
     });
     expect(getMoneyAppControlPresetCopy('when_over').title).toBe('When this budget is fully used');
     expect(getMoneyAppControlPresetCopy('needs_review').title).toBe('While any transaction needs review');
+  });
+
+  it('supplies deterministic truth for composed budget conditions without requiring a standalone policy', () => {
+    const settings = normalizeMoneyAppControlSettings({ authorizationStatus: 'approved', policies: {} });
+    const current = snapshot();
+    const now = new Date('2026-07-23T18:00:00.000Z');
+    expect(evaluateMoneyBudgetCondition({
+      settings, snapshot: current, categorySourceId: 'category-shopping', preset: 'at_95_percent', now,
+    })).toBe(true);
+    expect(evaluateMoneyBudgetCondition({
+      settings, snapshot: current, categorySourceId: 'category-shopping', preset: 'when_over', now,
+    })).toBe(false);
+    expect(evaluateMoneyBudgetCondition({
+      settings, snapshot: current, categorySourceId: 'missing', preset: 'when_over', now,
+    })).toBeNull();
   });
 
   it('accepts a shield handoff once only inside the two-minute window', () => {

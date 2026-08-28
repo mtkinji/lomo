@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { CapabilityMenu } from './CapabilityMenu';
 import { CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
 import type { CapabilityMenuDestinationId } from '../capabilities/types';
-import { colors, fonts, radii } from '../theme';
+import { bottomDockGeometry, colors, floatingControl, fonts, radii } from '../theme';
 
 type MockSwipeableProps = {
   children: import('react').ReactNode;
@@ -18,6 +18,8 @@ type MockSwipeableProps = {
     instance: { close: () => void },
   ) => import('react').ReactNode;
 };
+
+type TestNode = { props: { testID?: string } };
 
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   const React = require('react');
@@ -206,10 +208,34 @@ describe('CapabilityMenu', () => {
     expect(queryByText('Games')).toBeNull();
     expect(getByText('CHATS')).toBeTruthy();
     const footer = getByTestId('capability.menu.footer');
+    const footerStyle = StyleSheet.flatten(footer.props.style);
+    expect(footer.props.pointerEvents).toBe('box-none');
+    expect(footerStyle).toMatchObject({
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: bottomDockGeometry.restingFloatingControl.bottomGap,
+      minHeight: 44,
+      paddingHorizontal: bottomDockGeometry.restingFloatingControl.inlineGap,
+      backgroundColor: 'transparent',
+    });
+    expect(StyleSheet.flatten(getByTestId('capability.menu.scroll').props.contentContainerStyle).paddingBottom)
+      .toBeGreaterThan(footerStyle.bottom + footerStyle.minHeight);
     expect(footer.findByProps({ accessibilityLabel: 'Search Kwilt' })).toBeTruthy();
     expect(footer.findByProps({ accessibilityLabel: 'Open chat' })).toBeTruthy();
-    expect(getByLabelText('Search Kwilt')).toBeTruthy();
-    expect(getByLabelText('Open chat')).toBeTruthy();
+    expect(StyleSheet.flatten(getByLabelText('Search Kwilt').props.style)).toMatchObject({
+      backgroundColor: colors.card,
+      ...floatingControl.shadow,
+    });
+    expect(StyleSheet.flatten(getByLabelText('Open chat').props.style)).toMatchObject(
+      floatingControl.shadow,
+    );
+    expect(
+      footer
+        .findAll((node: TestNode) => node.props.testID === 'capability.menu.chat' || node.props.testID === 'capability.menu.search')
+        .map((node: TestNode) => node.props.testID as string)
+        .filter((testID: string, index: number, testIDs: string[]) => testID !== testIDs[index - 1]),
+    ).toEqual(['capability.menu.chat', 'capability.menu.search']);
     expect(queryByText('Search')).toBeNull();
     expect(queryByLabelText(/close/i)).toBeNull();
   });

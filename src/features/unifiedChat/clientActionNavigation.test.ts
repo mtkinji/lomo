@@ -72,6 +72,79 @@ test('Grocery retailer actions open the exact native list workflow without claim
   } });
 });
 
+test('advanced Food handoffs return to their exact native review owners', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_recipe_publication_review', 'recipe-1'), capabilityId: 'recipes', targetType: 'recipe',
+    payload: { recipeVersionId: 'version-1' },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'RecipeHome', params: { recipeId: 'recipe-1' },
+  } });
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_food_scenario_review', 'scenario-1'), capabilityId: 'groceries', targetType: 'food_scenario',
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'FoodScenarioReview', params: { scenarioId: 'scenario-1' },
+  } });
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_grocery_savings', 'list-1'), capabilityId: 'savings', targetType: 'grocery_list',
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'GrocerySavings', params: { listId: 'list-1' },
+  } });
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_grocery_receipt_review'), capabilityId: 'groceries', targetType: 'grocery_receipt',
+    payload: { sourceArtifactRefs: ['attachment-1'] },
+  })).toEqual({ kind: 'navigate', name: 'Food', params: {
+    screen: 'GroceryList', params: {},
+  } });
+});
+
+test('Plan availability handoff opens the exact versioned native review', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('review_plan_availability'), capabilityId: 'plan', targetType: 'plan_availability',
+    payload: {
+      expectedVersion: 2,
+      timeZone: 'America/Chicago',
+      windows: [{ weekday: 1, mode: 'work', startLocalTime: '08:00', endLocalTime: '16:00' }],
+      affectedWeekdays: [1],
+    },
+  })).toEqual({ kind: 'navigate', name: 'Settings', params: {
+    screen: 'SettingsPlanAvailability', params: {
+      clientActionId: 'action-1', expectedVersion: 2, timeZone: 'America/Chicago',
+      windows: [{ weekday: 1, mode: 'work', startLocalTime: '08:00', endLocalTime: '16:00' }],
+      affectedWeekdays: [1],
+    },
+  } });
+});
+
+test('notification preference handoff carries the exact patch into native review', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('review_notification_preferences', 'self'), capabilityId: 'notifications',
+    targetType: 'notification_preferences',
+    payload: { fields: { notificationsEnabled: true, allowDailyFocus: true, dailyFocusTime: '08:30' } },
+  })).toEqual({ kind: 'navigate', name: 'Settings', params: {
+    screen: 'SettingsNotifications', params: {
+      clientActionId: 'action-1',
+      fields: { notificationsEnabled: true, allowDailyFocus: true, dailyFocusTime: '08:30' },
+    },
+  } });
+});
+
+test('Plan calendar handoff opens the exact versioned native review', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('review_plan_calendars'), capabilityId: 'plan', targetType: 'plan_calendars',
+    payload: {
+      expectedVersion: 2,
+      readCalendarIds: ['google:account-1:primary'], writeCalendarId: 'google:account-1:primary',
+      addedReadCalendarIds: ['google:account-1:primary'], removedReadCalendarIds: [], writeCalendarChanged: true,
+    },
+  })).toEqual({ kind: 'navigate', name: 'Settings', params: {
+    screen: 'SettingsPlanCalendars', params: {
+      clientActionId: 'action-1', expectedVersion: 2,
+      readCalendarIds: ['google:account-1:primary'], writeCalendarId: 'google:account-1:primary',
+      addedReadCalendarIds: ['google:account-1:primary'], removedReadCalendarIds: [], writeCalendarChanged: true,
+    },
+  } });
+});
+
 test('account deletion returns only to the native two-step confirmation flow', () => {
   expect(resolveClientActionOpenInstruction(action('open_account_deletion'))).toEqual({
     kind: 'navigate', name: 'Settings',
